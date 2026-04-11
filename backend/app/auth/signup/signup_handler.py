@@ -9,14 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.responses import JSONResponse
 
 # ---------------------------- Internal Imports ----------------------------
-# Auth service that handles user creation, password hashing, and role assignment
+# Signup service that handles user creation and password hashing
 from .signup_service import signup_service
 
 # Account verification service that handles email verification & Redis token management
 from ..verify_account.account_verification_service import account_verification_service
-
-# Default role from centralized role tables
-from ...access_control.role_tables import DEFAULT_ROLE
 
 # Import centralized logger factory to create structured, module-specific loggers
 from ...logging.logging_config import get_logger
@@ -44,9 +41,9 @@ class SignupHandler:
 
         Process:
             1. Validate required input fields (name, email, password).
-            2. Call signup service to create the user in the database with default role.
+            2. Call signup service to create the user with default role.
             3. Check if user creation was successful; return error if not.
-            4. Send verification email using account verification service with default role.
+            4. Send verification email using account verification service.
             5. Return success JSONResponse if all steps succeed.
 
         Output:
@@ -60,12 +57,12 @@ class SignupHandler:
                     status_code=400
                 )
 
-            # Step 2: Call signup service to create the user in the database with default role
+            # Step 2: Call signup service to create the user with default role
+            # Role is hardcoded to UserRole.user inside signup_service — not passed here
             user_created = await signup_service.signup(
                 name=name,
                 email=email,
                 password=password,
-                role=DEFAULT_ROLE,  # default role imported from role_tables.py
                 db=db
             )
 
@@ -76,11 +73,8 @@ class SignupHandler:
                     status_code=400
                 )
 
-            # Step 4: Send verification email using account verification service with default role
-            email_sent = await account_verification_service.send_verification_email(
-                email,
-                role=DEFAULT_ROLE  # default role used for token
-            )
+            # Step 4: Send verification email using account verification service
+            await account_verification_service.send_verification_email(email)
 
             # Step 5: Return success JSONResponse if all steps succeed
             return JSONResponse(
@@ -97,8 +91,8 @@ class SignupHandler:
                 content={"error": "Internal Server Error"},
                 status_code=500
             )
-        
 
-# ---------------------------- Instantiate SignupHandler ----------------------------
+
+# ---------------------------- Singleton Instance ----------------------------
 # Singleton instance to handle signup requests
 signup_handler = SignupHandler()

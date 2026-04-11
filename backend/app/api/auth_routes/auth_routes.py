@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 # Async SQLAlchemy session for database interactions
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# FastAPI Request ,Cookie dependency to read cookies from requests
+# FastAPI Request, Cookie dependency to read cookies from requests
 from fastapi import Cookie, Request
 
 # ---------------------------- Internal Imports ----------------------------
@@ -73,8 +73,8 @@ async def signup(payload: SignupSchema, db: AsyncSession = Depends(database.get_
     Output:
         1. JSONResponse: Response indicating signup success or failure.
     """
-    # Call signup handler with provided user details
     return await signup_handler.handle_signup(payload.name, payload.email, payload.password, db=db)
+
 
 # ---------------------------- Login Endpoint ----------------------------
 @router.post("/login")
@@ -93,6 +93,7 @@ async def login(payload: LoginSchema, db: AsyncSession = Depends(database.get_se
     """
     return await login_handler.handle_login(payload.email, payload.password, db=db)
 
+
 # ---------------------------- OAuth2 Login Endpoints ----------------------------
 @router.get("/oauth2/login/google")
 @rate_limiter_service.rate_limited("oauth2_login")
@@ -109,9 +110,10 @@ async def oauth2_login_google():
     """
     return await oauth2_login_handler.handle_oauth2_login_initiate()
 
+
 @router.get("/oauth2/callback/google")
 @rate_limiter_service.rate_limited("oauth2_callback")
-async def oauth2_callback_google(code: str, db=Depends(database.get_session)):
+async def oauth2_callback_google(code: str, db: AsyncSession = Depends(database.get_session)):
     """
     Input:
         1. code (str): OAuth2 authorization code returned by Google.
@@ -124,6 +126,7 @@ async def oauth2_callback_google(code: str, db=Depends(database.get_session)):
         1. JSONResponse: Response with login success or failure.
     """
     return await oauth2_login_handler.handle_oauth2_callback(code, db=db)
+
 
 # ---------------------------- Current User Endpoint ----------------------------
 @router.get("/me")
@@ -141,6 +144,7 @@ async def get_current_user(access_token: str = Cookie(None), db: AsyncSession = 
     """
     return await current_user_handler.get_current_user(access_token, db=db)
 
+
 # ---------------------------- Logout Endpoint ----------------------------
 @router.post("/logout")
 @rate_limiter_service.rate_limited("logout")
@@ -148,17 +152,17 @@ async def logout(request: Request):
     """
     Input:
         1. request (Request): FastAPI request object containing cookies.
-        2. db (Session): Database session dependency.
 
     Process:
         1. Extract refresh_token from cookies.
-        2. Call logout_handler with refresh_token and db to revoke session.
+        2. Call logout_handler with refresh_token to revoke session.
 
     Output:
         1. JSONResponse: Response indicating logout success or failure.
     """
     refresh_token = request.cookies.get("refresh_token")
     return await logout_handler.handle_logout(refresh_token)
+
 
 # ---------------------------- Logout All Devices Endpoint ----------------------------
 @router.post("/logout/all")
@@ -167,7 +171,6 @@ async def logout_all(request: Request):
     """
     Input:
         1. request (Request): FastAPI request object containing cookies.
-        2. db (AsyncSession): Database session for token revocation.
 
     Process:
         1. Extract refresh_token from cookies.
@@ -178,6 +181,7 @@ async def logout_all(request: Request):
     """
     refresh_token = request.cookies.get("refresh_token")
     return await logout_all_handler.handle_logout_all(refresh_token)
+
 
 # ---------------------------- Password Reset Request ----------------------------
 @router.post("/password-reset/request")
@@ -194,15 +198,17 @@ async def password_reset_request(payload: PasswordResetRequestSchema, db: AsyncS
     Output:
         1. JSONResponse: Response indicating request success or failure.
     """
-    return await password_reset_request_handler.handle_password_reset_request(payload.email)
+    return await password_reset_request_handler.handle_password_reset_request(payload.email, db=db)
+
 
 # ---------------------------- Password Reset Confirm ----------------------------
 @router.post("/password-reset/confirm")
 @rate_limiter_service.rate_limited("password_reset_confirm")
-async def password_reset_confirm(payload: PasswordResetConfirmSchema):
+async def password_reset_confirm(payload: PasswordResetConfirmSchema, db: AsyncSession = Depends(database.get_session)):
     """
     Input:
         1. payload (PasswordResetConfirmSchema): Token and new password.
+        2. db (AsyncSession): Database session dependency.
 
     Process:
         1. Call password_reset_confirm_handler to reset password using token.
@@ -210,7 +216,10 @@ async def password_reset_confirm(payload: PasswordResetConfirmSchema):
     Output:
         1. JSONResponse: Response indicating password reset success or failure.
     """
-    return await password_reset_confirm_handler.handle_password_reset_confirm(payload.token, payload.new_password)
+    return await password_reset_confirm_handler.handle_password_reset_confirm(
+        payload.token, payload.new_password, db=db
+    )
+
 
 # ---------------------------- Account Verification Endpoint ----------------------------
 @router.get("/verify-account")

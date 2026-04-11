@@ -34,15 +34,13 @@ class AccountVerificationService:
     # ---------------------------- Send Verification Email ----------------------------
     @staticmethod
     async def send_verification_email(
-        email: str, 
-        role: str, 
+        email: str,
         expires_minutes: int = settings.RESET_TOKEN_EXPIRE_MINUTES
     ) -> bool:
         """
         Input:
             1. email (str): Recipient's email address.
-            2. role (str): Role of the user.
-            3. expires_minutes (int): Token expiration in minutes.
+            2. expires_minutes (int): Token expiration in minutes.
 
         Process:
             1. Generate verification token for user with expiration.
@@ -57,13 +55,13 @@ class AccountVerificationService:
         try:
             # Step 1: Generate verification token for user with expiration
             verification_token = await AccountVerificationService.create_verification_token(
-                email, role, expires_minutes
+                email, expires_minutes
             )
 
             # Step 2: Store token in Redis to enforce single-use
             await redis_client.set(
-                f"verify:{verification_token}", 
-                "1", 
+                f"verify:{verification_token}",
+                "1",
                 ex=expires_minutes * 60
             )
 
@@ -91,26 +89,25 @@ class AccountVerificationService:
     # ---------------------------- Create Verification Token ----------------------------
     @staticmethod
     async def create_verification_token(
-        email: str, 
-        role: str, 
+        email: str,
         expires_minutes: int = settings.RESET_TOKEN_EXPIRE_MINUTES
     ) -> str:
         """
         Input:
             1. email (str): User email.
-            2. role (str): Role of the user.
-            3. expires_minutes (int): Expiration time in minutes.
+            2. expires_minutes (int): Expiration time in minutes.
 
         Process:
-            1. Generate JWT token using JWTService.
+            1. Generate JWT token using JWTService with a fixed verification role.
             2. Return generated token.
 
         Output:
             1. str: Encoded JWT verification token.
         """
-
-        # Step 1: Generate JWT token using JWTService
-        token = await jwt_service.create_access_token(email=email, role=role)
+        # Step 1: Generate JWT token using JWTService with a fixed verification role
+        # Role is hardcoded to "verify" — this token is only valid for email confirmation,
+        # not for accessing any protected routes
+        token = await jwt_service.create_access_token(email=email, role="verify")
 
         # Step 2: Return generated token
         return token

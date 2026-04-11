@@ -28,17 +28,17 @@ from .api.auth_routes.auth_routes import router as auth_router
 # Import refresh token router for JWT/session management
 from .api.auth_routes.refresh_token_routes import router as refresh_token_router
 
-# Import generic role router
-from .api.role_routes.role_routes import router as role_router
+# Import user router for profile and admin user management
+from .api.user_routes.user_routes import router as user_router
 
-# Custom middleware to log every API request  
+# Custom middleware to log every API request
 from .logging.logging_middleware import LoggingMiddleware
 
-# JSON-formatted rotating logger  
+# JSON-formatted rotating logger
 from .logging.logging_config import get_logger
 
 # ---------------------------- Logging Setup ----------------------------
-# Create or reuse logger instance  
+# Create or reuse logger instance
 logger = get_logger("main")
 
 # ---------------------------- App Initialization ----------------------------
@@ -47,14 +47,11 @@ app = FastAPI()
 
 # ---------------------------- Trace Source Middleware ----------------------------
 # Middleware to log which frontend function calls /auth/me
-from fastapi import Request
-
 @app.middleware("http")
 async def log_auth_source(request: Request, call_next):
     if request.url.path == "/auth/me":
         src = request.query_params.get("src", "unknown")
-        # Use your configured app logger
-        logger.info(f" /auth/me called from: {src}")
+        logger.info(f"/auth/me called from: {src}")
     response = await call_next(request)
     return response
 
@@ -68,17 +65,17 @@ app.add_middleware(
     allow_headers=["*"],                       # Allow all headers
 )
 
-# Add custom logging middleware to log all incoming requests/responses  
+# Add custom logging middleware to log all incoming requests/responses
 app.add_middleware(LoggingMiddleware)
 
 # ---------------------------- Global Exception Handler ----------------------------
-# Define a global exception handler for catching unhandled exceptions  
+# Define a global exception handler for catching unhandled exceptions
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    # Log the error with request path and message  
+    # Log the error with request path and message
     logger.exception(f"Unhandled Exception at {request.url.path}: {str(exc)}")
 
-    # Return a 500 Internal Server Error response  
+    # Return a 500 Internal Server Error response
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal Server Error"},
@@ -91,8 +88,8 @@ app.include_router(auth_router)
 # Register refresh token router
 app.include_router(refresh_token_router)
 
-# Register generic role router
-app.include_router(role_router)
+# Register user router for profile and admin user management
+app.include_router(user_router)
 
 # ---------------------------- Root Route ----------------------------
 # Define a simple root endpoint to confirm the API is running

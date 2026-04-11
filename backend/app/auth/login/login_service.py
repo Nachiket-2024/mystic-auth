@@ -6,8 +6,8 @@ import traceback
 import asyncio
 
 # ---------------------------- Internal Imports ----------------------------
-# Role tables for user CRUD operations
-from ...access_control.role_tables import ROLE_TABLES
+# Single user CRUD instance for querying the unified users table
+from ...user_crud.user_crud_collector import user_crud
 
 # Password service for verifying password hashes
 from ..password_logic.password_service import password_service
@@ -43,11 +43,11 @@ class LoginService:
 
         Process:
             1. Validate that email and password are provided.
-            2. Iterate through ROLE_TABLES to find the user by email.
+            2. Query the unified users table to find the user by email.
             3. Handle case where user is not found.
             4. Ensure user account is verified.
             5. Check password correctness using password_service.
-            6. Generate access and refresh tokens concurrently.
+            6. Generate access and refresh tokens concurrently using user's role.
             7. Return structured token response.
 
         Output:
@@ -59,14 +59,8 @@ class LoginService:
             if not email or not password:
                 return None
 
-            # Step 2: Iterate through ROLE_TABLES to find the user by email
-            user = None
-            user_table_name = None
-            for table_name, crud in ROLE_TABLES.items():
-                user = await crud.get_by_email(email, db)
-                if user:
-                    user_table_name = table_name
-                    break
+            # Step 2: Query the unified users table to find the user by email
+            user = await user_crud.get_by_email(email, db)
 
             # Step 3: Handle case where user is not found
             if not user:
@@ -83,10 +77,10 @@ class LoginService:
                 logger.warning("Incorrect password for email: %s", email)
                 return None
 
-            # Step 6: Generate access and refresh tokens concurrently
+            # Step 6: Generate access and refresh tokens concurrently using user's role
             access_token, refresh_token = await asyncio.gather(
-                jwt_service.create_access_token(email=email ,role=user_table_name),
-                jwt_service.create_refresh_token(email=email, role=user_table_name)
+                jwt_service.create_access_token(email=email, role=user.role.value),
+                jwt_service.create_refresh_token(email=email, role=user.role.value)
             )
 
             # Step 7: Return structured token response
@@ -98,6 +92,6 @@ class LoginService:
             return None
 
 
-# ---------------------------- Instantiate LoginService ----------------------------
+# ---------------------------- Singleton Instance ----------------------------
 # Singleton instance for login operations
 login_service = LoginService()

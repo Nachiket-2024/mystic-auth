@@ -9,8 +9,8 @@ from .password_service import password_service
 # Taskiq async task for sending emails
 from ...taskiq_tasks.email_tasks import send_email_task
 
-# Role tables for user management
-from ...access_control.role_tables import ROLE_TABLES
+# Single user CRUD instance for querying the unified users table
+from ...user_crud.user_crud_collector import user_crud
 
 # Settings module for frontend URLs and app configuration
 from ...core.settings import settings
@@ -32,14 +32,14 @@ class PasswordResetService:
 
     # ---------------------------- Send Reset Email ----------------------------
     @staticmethod
-    async def send_reset_email(email: str, role: str) -> bool:
+    async def send_reset_email(email: str, db) -> bool:
         """
         Input:
             1. email (str): Email of the user requesting password reset.
-            2. role (str): Role of the user; must be valid and exist in ROLE_TABLES.
+            2. db (AsyncSession): Database session for verifying user exists.
 
         Process:
-            1. Validate role exists in ROLE_TABLES.
+            1. Verify user exists in the unified users table.
             2. Generate password reset token via password_service.
             3. Construct frontend reset URL with the token.
             4. Schedule email sending asynchronously via Taskiq.
@@ -48,13 +48,15 @@ class PasswordResetService:
             1. bool: True if email scheduled successfully, False otherwise.
         """
         try:
-            # Step 1: Validate role exists in ROLE_TABLES
-            if role not in ROLE_TABLES:
-                logger.warning("Attempt to send reset email for invalid role: %s", role)
+            # Step 1: Verify user exists in the unified users table
+            user = await user_crud.get_by_email(email, db)
+            if not user:
+                logger.warning("Password reset requested for non-existent email: %s", email)
                 return False
 
             # Step 2: Generate password reset token via password_service
-            reset_token = await password_service.create_reset_token(email, role)
+            # Token carries only email — role is no longer needed for reset flow
+            reset_token = await password_service.create_reset_token(email)
 
             # Step 3: Construct frontend reset URL with the token
             reset_url = f"{settings.FRONTEND_BASE_URL}/reset-password?token={reset_token}"
@@ -67,7 +69,7 @@ class PasswordResetService:
             )
 
             # Log after successful scheduling
-            logger.info("Password reset email scheduled for %s for role %s", email, role)
+            logger.info("Password reset email scheduled for %s", email)
             return True
 
         except Exception:
@@ -76,19 +78,19 @@ class PasswordResetService:
 
     # ---------------------------- Reset Password ----------------------------
     @staticmethod
-    async def reset_password(token: str, new_password: str) -> bool:
+    async def reset_password(token: str, new_password: str, db) -> bool:
         """
         Input:
             1. token (str): Password reset token received from user.
             2. new_password (str): New password provided by user.
+            3. db (AsyncSession): Database session for updating user record.
 
         Process:
             1. Verify the reset token via password_service.
-            2. Extract email and role from token payload.
-            3. Validate role exists in ROLE_TABLES.
-            4. Check new password strength via password_service.
-            5. Hash the new password securely.
-            6. Update user's hashed password in the appropriate role table.
+            2. Extract email from token payload.
+            3. Check new password strength via password_service.
+            4. Hash the new password securely.
+            5. Update user's hashed password in the unified users table.
 
         Output:
             1. bool: True if password was reset successfully, False otherwise.
@@ -97,33 +99,31 @@ class PasswordResetService:
             # Step 1: Verify the reset token via password_service
             payload = await password_service.verify_reset_token(token)
             if not payload:
-                logger.warning("Invalid or expired password reset token.")
+                logger.warning("Invalid or expired password reset token")
                 return False
 
-            # Step 2: Extract email and role from token payload
+            # Step 2: Extract email from token payload
+            # Role is no longer stored in reset tokens — single table makes it unnecessary
             email = payload.get("email")
-            role = payload.get("role")
-            if not role:
-                logger.warning("Role missing from reset token for email: %s", email)
+            if not email:
+                logger.warning("Email missing from reset token payload")
                 return False
 
-            # Step 3: Validate role exists in ROLE_TABLES
-            if role not in ROLE_TABLES:
-                logger.warning("Invalid role from reset token: %s", role)
-                return False
-
-            # Step 4: Check new password strength via password_service
+            # Step 3: Check new password strength via password_service
             if not await password_service.validate_password_strength(new_password):
                 logger.warning("Weak password provided during reset for email: %s", email)
                 return False
 
-            # Step 5: Hash the new password securely
+            # Step 4: Hash the new password securely
             hashed_password = await password_service.hash_password(new_password)
 
-            # Step 6: Update user's hashed password in the appropriate role table
-            updated = await ROLE_TABLES[role].update_by_email(email, {"hashed_password": hashed_password})
+            # Step 5: Update user's hashed password in the unified users table
+            updated = await user_crud.update_by_email(
+                email, {"hashed_password": hashed_password}, db
+            )
+
             if updated:
-                logger.info("Password reset successful for email: %s in role %s", email, role)
+                logger.info("Password reset successful for email: %s", email)
                 return True
 
             return False

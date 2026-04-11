@@ -15,8 +15,11 @@ import json
 # Import JWT service to generate access and refresh tokens
 from ..token_logic.jwt_service import jwt_service
 
-# Import role tables for user management
-from ...access_control.role_tables import ROLE_TABLES, DEFAULT_ROLE
+# Single user CRUD instance for querying the unified users table
+from ...user_crud.user_crud_collector import user_crud
+
+# Default role assigned to all new users created via OAuth2
+from ...user_table.user_model import UserRole
 
 # Import singleton Redis client
 from ...redis.client import redis_client
@@ -33,7 +36,8 @@ class OAuth2Service:
     """
     1. exchange_code_for_tokens - Exchange authorization code for Google access and refresh tokens.
     2. get_user_info - Retrieve Google user profile information using access token.
-    3. login_or_create_user - Authenticate existing user or create new user and generate JWT tokens, persist them in Redis with multi-device support.
+    3. login_or_create_user - Authenticate existing user or create new user and generate JWT tokens,
+                              persist them in Redis with multi-device support.
     """
 
     # ---------------------------- Exchange Code for Tokens ----------------------------
@@ -120,9 +124,9 @@ class OAuth2Service:
 
         Process:
             1. Extract email and name from user_info.
-            2. Search existing users in all role tables.
-            3. Create new user if not found with default role and set is_verified=True.
-            4. Generate access and refresh JWT tokens concurrently.
+            2. Search for existing user in the unified users table.
+            3. Create new user if not found with default role and is_verified set to True.
+            4. Generate access and refresh JWT tokens concurrently using user's role.
             5. Store tokens in Redis list under user's email for multi-device support.
             6. Return tokens if successful.
 
@@ -134,25 +138,26 @@ class OAuth2Service:
             email = user_info.get("email")
             name = user_info.get("name", "Unknown")
 
-            # Step 2: Search existing users in all role tables
-            user, user_role, crud_instance = None, None, None
-            for role, crud in ROLE_TABLES.items():
-                user = await crud.get_by_email(email, db)
-                if user:
-                    user_role, crud_instance = role, crud
-                    break
+            # Step 2: Search for existing user in the unified users table
+            user = await user_crud.get_by_email(email, db)
 
-            # Step 3: Create new user if not found with default role and set is_verified=True
+            # Step 3: Create new user if not found with default role and is_verified set to True
+            # OAuth2 users are pre-verified — Google has already confirmed their email
             if not user:
-                user_role = DEFAULT_ROLE
-                crud_instance = ROLE_TABLES[user_role]
-                user_data = {"name": name, "email": email, "is_verified": True}
-                user = await crud_instance.create(user_data, db)
+                user_data = {
+                    "name": name,
+                    "email": email,
+                    "role": UserRole.user,       # Default role for all new OAuth2 signups
+                    "is_verified": True,          # Google-verified accounts skip email verification
+                    "is_active": True,            # Account active by default
+                    "hashed_password": None       # No password for OAuth2-only users
+                }
+                user = await user_crud.create(user_data, db)
 
-            # Step 4: Generate access and refresh JWT tokens concurrently
+            # Step 4: Generate access and refresh JWT tokens concurrently using user's role
             access_token, refresh_token = await asyncio.gather(
-                jwt_service.create_access_token(email, user_role),
-                jwt_service.create_refresh_token(email, user_role)
+                jwt_service.create_access_token(email, user.role.value),
+                jwt_service.create_refresh_token(email, user.role.value)
             )
 
             # Step 5: Store tokens in Redis list under user's email for multi-device support
@@ -161,7 +166,7 @@ class OAuth2Service:
                 "refresh_token": refresh_token,
                 "device_id": device_id or "unknown"
             }
-            
+
             redis_key = f"user_tokens:{email}"
             await redis_client.rpush(redis_key, json.dumps(token_entry))
 

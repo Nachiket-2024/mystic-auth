@@ -12,8 +12,11 @@ from fastapi import HTTPException, status
 # JWT service to decode and verify access tokens
 from ..token_logic.jwt_service import jwt_service
 
-# Role mapping for querying user based on role
-from ...access_control.role_tables import ROLE_TABLES
+# Single user CRUD instance for querying the unified users table
+from ...user_crud.user_crud_collector import user_crud
+
+# UserRole enum for role validation against known values
+from ...user_table.user_model import UserRole
 
 # Import centralized logger factory to create structured, module-specific loggers
 from ...logging.logging_config import get_logger
@@ -40,10 +43,9 @@ class CurrentUserHandler:
             1. Check if access token is provided.
             2. Verify the access token using JWT service.
             3. Extract user email and role from token payload.
-            4. Validate email and role values.
-            5. Get the appropriate CRUD instance for the user's role.
-            6. Query the database for the user by email.
-            7. Return basic user information if found, else raise exception.
+            4. Validate email and role against known UserRole values.
+            5. Query the single users table by email.
+            6. Return basic user information if found, else raise exception.
 
         Output:
             1. dict: Contains user info ('name', 'email', 'role') if successful.
@@ -59,7 +61,7 @@ class CurrentUserHandler:
             # Step 2: Verify the access token using JWT service
             payload = await jwt_service.verify_token(access_token)
 
-            # Raise error if invalid or expired token
+            # Raise error if token is invalid or expired
             if not payload:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,38 +72,42 @@ class CurrentUserHandler:
             email = payload.get("email")
             role = payload.get("role")
 
-            # Step 4: Validate email and role values
+            # Step 4: Validate email and role against known UserRole values
             if not email or not role:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token payload"
                 )
 
-            # Step 5: Get the appropriate CRUD instance for the user's role
-            crud_instance = ROLE_TABLES.get(role)
-
-            # Step 5 (continued): Raise error if no valid role found
-            if not crud_instance:
+            # Step 4 (continued): Reject tokens carrying an unrecognised role
+            if role not in UserRole._value2member_map_:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User role not recognized"
                 )
 
-            # Step 6: Query the database for the user by email
-            user = await crud_instance.get_by_email(email, db)
+            # Step 5: Query the single users table by email
+            user = await user_crud.get_by_email(email, db)
 
-            # Step 6 (continued): Raise error if user not found
+            # Step 5 (continued): Raise error if user not found
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User not found"
                 )
 
-            # Step 7: Return basic user information if found, else raise exception
+            # Step 5 (continued): Raise error if account is inactive
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account is deactivated"
+                )
+
+            # Step 6: Return basic user information
             return {
-                "name": getattr(user, "name", "Unknown"),
-                "email": getattr(user, "email", None),
-                "role": role
+                "name": user.name,
+                "email": user.email,
+                "role": user.role.value
             }
 
         # Handle database errors

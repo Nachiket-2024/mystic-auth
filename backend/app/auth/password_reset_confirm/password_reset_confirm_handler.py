@@ -43,11 +43,12 @@ class PasswordResetConfirmHandler:
 
     # ---------------------------- Handle Password Reset Confirmation ----------------------------
     # Async method to confirm password reset and perform validation, logging, and brute-force checks
-    async def handle_password_reset_confirm(self, token: str, new_password: str):
+    async def handle_password_reset_confirm(self, token: str, new_password: str, db):
         """
         Input:
             1. token (str): JWT token for password reset verification.
             2. new_password (str): New password to set for the user.
+            3. db (AsyncSession): Database session for updating user record.
 
         Process:
             1. Decode the JWT token using the JWT service.
@@ -81,7 +82,7 @@ class PasswordResetConfirmHandler:
             email_lock_key = f"login_lock:email:{email}"
 
             # Step 6: Attempt to reset the user's password using the password reset service
-            success = await self.password_reset_service.reset_password(token, new_password)
+            success = await self.password_reset_service.reset_password(token, new_password, db)
 
             # Step 7: Determine HTTP status code based on success of password reset
             status = 200 if success else 400

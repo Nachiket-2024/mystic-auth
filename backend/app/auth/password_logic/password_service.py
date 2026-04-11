@@ -12,9 +12,6 @@ import jwt
 # Application settings including SECRET_KEY and JWT configurations
 from ...core.settings import settings
 
-# Role tables and default role definitions for user management
-from ...access_control.role_tables import ROLE_TABLES, DEFAULT_ROLE
-
 # ---------------------------- Password Context ----------------------------
 # Configure password hashing using Argon2id algorithm
 pwd_context = CryptContext(
@@ -26,14 +23,14 @@ pwd_context = CryptContext(
 # Service class handling password hashing, verification, and reset tokens
 class PasswordService:
     """
-    1. hash_password: Hash a plain password.
-    2. verify_password: Compare plain and hashed passwords.
-    3. create_reset_token: Generate JWT for password reset.
-    4. verify_reset_token: Decode and validate reset JWT.
+    1. hash_password - Hash a plain password.
+    2. verify_password - Compare plain and hashed passwords.
+    3. validate_password_strength - Check password meets minimum requirements.
+    4. create_reset_token - Generate JWT for password reset.
+    5. verify_reset_token - Decode and validate reset JWT.
     """
 
     # ---------------------------- Hash Password ----------------------------
-    # Static method to hash a plain password
     @staticmethod
     async def hash_password(password: str) -> str:
         """
@@ -50,7 +47,6 @@ class PasswordService:
         return pwd_context.hash(password)
 
     # ---------------------------- Verify Password ----------------------------
-    # Static method to verify a plain password against a hashed password
     @staticmethod
     async def verify_password(plain_password: str, hashed_password: str) -> bool:
         """
@@ -67,54 +63,55 @@ class PasswordService:
         # Step 1: Verify the plain password against the hashed password using pwd_context
         return pwd_context.verify(plain_password, hashed_password)
 
-    # ---------------------------- Create Reset Token ----------------------------
-    # Static method to create a JWT for password reset
+    # ---------------------------- Validate Password Strength ----------------------------
     @staticmethod
-    async def create_reset_token(email: str, 
-                                 role: str | None = None, 
-                                 expires_minutes: int = settings.RESET_TOKEN_EXPIRE_MINUTES
-                                 ) -> str:
+    async def validate_password_strength(password: str) -> bool:
+        """
+        Input:
+            1. password (str): Plain password to validate.
+
+        Process:
+            1. Check password meets minimum length requirement.
+
+        Output:
+            1. bool: True if password is strong enough, False otherwise.
+        """
+        # Step 1: Check password meets minimum length requirement
+        return len(password) >= 8
+
+    # ---------------------------- Create Reset Token ----------------------------
+    @staticmethod
+    async def create_reset_token(
+        email: str,
+        expires_minutes: int = settings.RESET_TOKEN_EXPIRE_MINUTES
+    ) -> str:
         """
         Input:
             1. email (str): Email of the user requesting reset.
-            2. role (str | None): User role; defaults to DEFAULT_ROLE if None.
-            3. expires_minutes (int): Expiration time in minutes for token.
+            2. expires_minutes (int): Expiration time in minutes for token.
 
         Process:
-            1. Assign default role if role is None.
-            2. Validate role exists in ROLE_TABLES.
-            3. Calculate expiration timestamp in UTC.
-            4. Create payload with email, role, and expiration.
-            5. Encode JWT using SECRET_KEY and JWT_ALGORITHM.
+            1. Calculate expiration timestamp in UTC.
+            2. Create payload with email and expiration.
+            3. Encode JWT using SECRET_KEY and JWT_ALGORITHM.
 
         Output:
             1. str: Encoded JWT token string.
         """
-        # Step 1: Assign default role if role is None
-        if role is None:
-            role = DEFAULT_ROLE
-
-        # Step 2: Validate role exists in ROLE_TABLES
-        if role not in ROLE_TABLES:
-            raise ValueError(f"Invalid role for reset token: {role}")
-
-        # Step 3: Calculate expiration timestamp in UTC
+        # Step 1: Calculate expiration timestamp in UTC
         expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
 
-        # Step 4: Create payload with email, role, and expiration
+        # Step 2: Create payload with email and expiration
+        # Role is intentionally excluded — single users table makes it unnecessary
         payload: dict[str, str | float] = {
             "email": email,
-            "role": role,
             "exp": expire.timestamp()
         }
 
-        # Step 5: Encode JWT using SECRET_KEY and JWT_ALGORITHM
-        token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-
-        return token
+        # Step 3: Encode JWT using SECRET_KEY and JWT_ALGORITHM
+        return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     # ---------------------------- Verify Reset Token ----------------------------
-    # Static method to decode and verify a password reset JWT
     @staticmethod
     async def verify_reset_token(token: str) -> dict | None:
         """
@@ -123,27 +120,31 @@ class PasswordService:
 
         Process:
             1. Decode JWT using SECRET_KEY and JWT_ALGORITHM.
-            2. Validate that role in payload exists in ROLE_TABLES.
-            3. Return payload if valid
+            2. Validate email is present in payload.
+            3. Return payload if valid.
 
         Output:
             1. dict | None: Payload dict if valid, None if invalid or expired.
         """
         try:
             # Step 1: Decode JWT using SECRET_KEY and JWT_ALGORITHM
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM]
+            )
 
-            # Step 2: Validate that role in payload exists in ROLE_TABLES
-            if payload.get("role") not in ROLE_TABLES:
+            # Step 2: Validate email is present in payload
+            if not payload.get("email"):
                 return None
-            
+
             # Step 3: Return payload if valid
             return payload
-        
+
         except jwt.ExpiredSignatureError:
             # Token expired
             return None
-        
+
         except jwt.InvalidTokenError:
             # Token invalid
             return None
