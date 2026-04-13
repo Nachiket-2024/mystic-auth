@@ -22,25 +22,37 @@ A scalable full-stack template with a FastAPI backend and a React + TypeScript f
 
 Login page :
 
-![Login Page Screenshot](demo_assets/login/login_page.png)
+![Login Page Screenshot](demo_assets/login_page.png)
 
 ---
 
 Signup Page :
 
-![Signup Page Screenshot](demo_assets/signup/signup_page.png)
+![Signup Page Screenshot](demo_assets/signup_page.png)
 
 ---
 
 Verify Account Page :
 
-![Verify Account Page Screenshot](demo_assets/verify_account/verify_account_page.png)
+![Verify Account Page Screenshot](demo_assets/verify_account_page.png)
 
 ---
 
 Dashboard Page :
 
-![Dashboard Page Screenshot](demo_assets/dashboard/dashboard_page.png)
+![Dashboard Page Screenshot](demo_assets/dashboard_page.png)
+
+---
+
+Forgot Password Page :
+
+![Forgot Password Page Screenshot](demo_assets/forgot_password_page.png)
+
+---
+
+Reset Password Page :
+
+![Reset Password Page Screenshot](demo_assets/reset_password_page.png)
 
 ---
 
@@ -109,7 +121,7 @@ npm install
 
 ## ⚙️ Environment Variables
 
-All environment variables are defined in `.env.example`.
+All environment variables are defined in `.env.example`in both project root and frontend folder.
 Copy it to `.env` and update the values with your own credentials:
 
 ```bash
@@ -223,7 +235,8 @@ This only needs to be run once. The system user persists in the database volume.
 | Token Refresh | Rotates refresh token, issues new access token |
 | Logout | Revokes refresh token from Redis, clears cookies |
 | Logout All | Revokes all refresh tokens for user across all devices |
-| Password Reset | Single-use JWT token sent via email |
+| Forgot Password	| User requests reset via email, receives secure link |
+| Reset Password | User clicks email link, enters new password with strength validation |
 
 ---
 
@@ -235,7 +248,8 @@ This only needs to be run once. The system user persists in the database volume.
 - IP-based rate limiting on all auth endpoints
 - Brute-force protection with account lockout via Redis
 - Email verification required before login
-- Password strength validation on reset
+- Password strength validation on signup and password reset
+- Same password prevention on password reset (cannot reuse old password)
 - System user protected from deletion and role changes via API
 
 ---

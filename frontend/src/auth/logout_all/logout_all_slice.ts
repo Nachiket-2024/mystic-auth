@@ -18,33 +18,48 @@ import { fetchCurrentUser } from "../current_user/current_user_slice";
 // Import clearLoginState action to reset login slice state
 import { clearLoginState } from "../login/login_slice";
 
-// ---------------------------- State Type ----------------------------
-// Redux state for "logout all devices" functionality
+// ---------------------------- State Type Definition ----------------------------
+/**
+ * LogoutAllState
+ * ----------------------------
+ * Defines the shape of the logout all devices Redux state
+ * Fields:
+ *   1. loading - True if logout all request is in progress
+ *   2. error - Error message if request fails
+ *   3. successMessage - Success message after logout completes
+ */
 interface LogoutAllState {
-    loading: boolean;              // Step 1: True if logout all request is in progress
-    error: string | null;          // Step 2: Error message if request fails
-    successMessage: string | null; // Step 3: Success message after logout completes
+    loading: boolean;              // Step 1: Request in progress flag
+    error: string | null;          // Step 2: Error message storage
+    successMessage: string | null; // Step 3: Success message storage
 }
 
 // ---------------------------- Initial State ----------------------------
-// Initialize slice state
+/**
+ * initialState
+ * ----------------------------
+ * Default values for the logout all slice
+ */
 const initialState: LogoutAllState = {
-    loading: false,
-    error: null,
-    successMessage: null,
+    loading: false,        // Step 1: Not loading
+    error: null,           // Step 2: No error
+    successMessage: null,  // Step 3: No success message
 };
 
 // ---------------------------- Async Thunks ----------------------------
-// logoutAllDevices: Handles logout from all devices
 /**
+ * logoutAllDevices
+ * ----------------------------
+ * Handles logout from all devices operation
+ * 
  * Input: None
  * Process:
  *   1. Call API to logout from all devices
- *   2. Dispatch login slice reset to clear user data
- *   3. Dispatch fetchCurrentUser to update authentication state
+ *   2. Dispatch clearLoginState to reset login slice user data
+ *   3. Dispatch fetchCurrentUser to refresh authentication state
  *   4. Return API response data if successful
  *   5. Reject with error message if API fails
- * Output: Redux async thunk with success/error payload
+ * Output: Redux async thunk with success or error payload
  */
 export const logoutAllDevices = createAsyncThunk<
     LogoutResponse,
@@ -54,16 +69,16 @@ export const logoutAllDevices = createAsyncThunk<
     "logout_all/logoutAllDevices",
     async (_, thunkAPI) => {
         try {
-            // Step 1: Call API
+            // Step 1: Call API to logout from all devices
             const response = await logoutAllApi();
 
-            // Step 2: Clear login slice state
+            // Step 2: Clear login slice state (user data)
             thunkAPI.dispatch(clearLoginState());
 
             // Step 3: Refresh currentUser authentication state
             await thunkAPI.dispatch(fetchCurrentUser("logoutAllThunk")).unwrap();
 
-            // Step 4: Return API data
+            // Step 4: Return API response data
             return response.data;
         } catch (error: any) {
             // Step 5: Reject with meaningful error message
@@ -75,51 +90,62 @@ export const logoutAllDevices = createAsyncThunk<
 );
 
 // ---------------------------- Slice ----------------------------
-// logoutAllSlice: Manages "logout all devices" state
 /**
- * Methods:
+ * logoutAllSlice
+ * ----------------------------
+ * Manages logout all devices state
+ * Reducers:
  *   1. clearLogoutAllState - Reset slice to initial state
  */
 const logoutAllSlice = createSlice({
-    name: "logoutAll",
-    initialState,
+    name: "logoutAll",     // Step 1: Slice name for action prefixing
+    initialState,          // Step 2: Initial state
     reducers: {
-        // clearLogoutAllState: Reset slice state to initial values
+        /**
+         * clearLogoutAllState
+         * ----------------------------
+         * Input: None
+         * Process:
+         *   1. Set loading to false
+         *   2. Clear error message
+         *   3. Clear success message
+         * Output: Redux state reset to initial values
+         */
         clearLogoutAllState: (state) => {
-            state.loading = false;
-            state.error = null;
-            state.successMessage = null;
+            state.loading = false;        // Step 1: Stop loading
+            state.error = null;           // Step 2: Clear error
+            state.successMessage = null;  // Step 3: Clear success message
         },
     },
     extraReducers: (builder) => {
-        // logoutAllDevices pending: set loading, clear previous messages
+        // ---------------------------- Logout All Devices Pending ----------------------------
         builder.addCase(logoutAllDevices.pending, (state) => {
-            state.loading = true;
-            state.error = null;
-            state.successMessage = null;
+            state.loading = true;          // Step 1: Show loading indicator
+            state.error = null;            // Step 2: Clear previous errors
+            state.successMessage = null;   // Step 3: Clear previous success messages
         });
 
-        // logoutAllDevices fulfilled: stop loading, store success message
+        // ---------------------------- Logout All Devices Fulfilled ----------------------------
         builder.addCase(
             logoutAllDevices.fulfilled,
             (state, action: PayloadAction<LogoutResponse>) => {
-                state.loading = false;
-                state.successMessage = action.payload.message;
-                state.error = null; // Ensure no error is displayed
+                state.loading = false;                     // Step 1: Stop loading
+                state.successMessage = action.payload.message; // Step 2: Store success message
+                state.error = null;                        // Step 3: Ensure no error is displayed
             }
         );
 
-        // logoutAllDevices rejected: stop loading, store error message
+        // ---------------------------- Logout All Devices Rejected ----------------------------
         builder.addCase(logoutAllDevices.rejected, (state, action) => {
-            state.loading = false;
-            state.error = action.payload || "Logout all devices failed";
-            state.successMessage = null; // Ensure no success message is displayed
+            state.loading = false;                   // Step 1: Stop loading
+            state.error = action.payload || "Logout all devices failed"; // Step 2: Store error message
+            state.successMessage = null;             // Step 3: Ensure no success message is displayed
         });
     },
 });
 
 // ---------------------------- Exports ----------------------------
-// Export action to reset logout all state
+// Export action to reset logout all state manually
 export const { clearLogoutAllState } = logoutAllSlice.actions;
 
 // Export reducer for store integration

@@ -26,47 +26,82 @@ import LogoutButtonComponent from "./LogoutButtonComponent";
 const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 // ---------------------------- LogoutButton Container ----------------------------
-// Container component connecting Redux state and handlers to UI
+/**
+ * LogoutButton
+ * ----------------------------
+ * Container component connecting Redux state and handlers to UI
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Extract loading, error, and successMessage from Redux logout slice
+ *   2. Define handleLogout function to dispatch logoutUser thunk
+ *   3. Monitor successMessage via useEffect for navigation
+ *   4. Render LogoutButtonComponent with Redux state and handlers
+ * Output: JSX.Element representing logout button with connected functionality
+ */
 const LogoutButton: React.FC = () => {
-    // ---------------------------- Redux ----------------------------
-    // Typed dispatch function
+    // ---------------------------- Redux Hooks ----------------------------
+    // Step 1: Typed dispatch function
     const dispatch = useDispatch<AppDispatch>();
 
-    // Extract loading, error, successMessage from logout slice
+    // Step 2: Extract loading, error, successMessage from logout slice
     const { loading, error, successMessage } = useAppSelector(
         (state) => state.logout
     );
 
-    // ---------------------------- Router ----------------------------
-    // Hook to navigate programmatically
+    // ---------------------------- Router Hook ----------------------------
+    // Step 3: Hook to navigate programmatically
     const navigate = useNavigate();
 
     // ---------------------------- Event Handlers ----------------------------
-    // Handle logout button click
+    /**
+     * handleLogout
+     * ----------------------------
+     * Input: None
+     * Process:
+     *   1. Dispatch logoutUser async thunk to initiate logout
+     * Output: Redux action dispatched, API call initiated
+     */
     const handleLogout = () => {
-        dispatch(logoutUser()); // Dispatch logout thunk
+        dispatch(logoutUser()); // Step 1: Dispatch logout thunk
     };
 
-    // ---------------------------- Side Effect ----------------------------
-    // Redirect user to login page when logout succeeds
+    // ---------------------------- Side Effects ----------------------------
+    /**
+     * Redirect on successful logout
+     * ----------------------------
+     * Process:
+     *   1. Check if successMessage is truthy
+     *   2. Navigate to login page
+     * Output: User redirected to login page
+     */
     useEffect(() => {
         if (successMessage) {
-            navigate("/login"); // Navigate to login page
+            navigate("/login"); // Step 1: Navigate to login page
         }
     }, [successMessage, navigate]);
 
     // ---------------------------- Render ----------------------------
-    // Render styled LogoutButtonComponent with props
+    /**
+     * Render
+     * ----------------------------
+     * Process:
+     *   1. Render LogoutButtonComponent with loading state
+     *   2. Pass error message for display
+     *   3. Pass success message for display
+     *   4. Pass handleLogout as onLogout callback
+     * Output: JSX.Element
+     */
     return (
         <LogoutButtonComponent
-            loading={loading}               // Pass loading state
-            error={error}                   // Pass error message
-            successMessage={successMessage} // Pass success message
-            onLogout={handleLogout}         // Pass logout handler
+            loading={loading}               // Step 1: Pass loading state
+            error={error}                   // Step 2: Pass error message
+            successMessage={successMessage} // Step 3: Pass success message
+            onLogout={handleLogout}         // Step 4: Pass logout handler
         />
     );
 };
 
 // ---------------------------- Export ----------------------------
-// Export LogoutButton container component
+// Export LogoutButton container component for use in parent components
 export default LogoutButton;

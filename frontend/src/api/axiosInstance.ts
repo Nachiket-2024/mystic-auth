@@ -7,11 +7,20 @@ import axios from "axios";
 import settings from "../core/settings";
 
 // ---------------------------- Axios Instance ----------------------------
-// Create a reusable Axios instance with base configuration
+/**
+ * api
+ * ----------------------------
+ * Input: None
+ * Process:
+ *   1. Create Axios instance with baseURL from settings
+ *   2. Configure withCredentials to true for cookie support
+ * Output: Configured Axios instance ready for API calls
+ */
 const api = axios.create({
-    // Set the base URL dynamically from settings
+    // Step 1: Set the base URL dynamically from settings
     baseURL: settings.apiBaseUrl,
-    // Include credentials such as cookies in cross-site requests
+    
+    // Step 2: Include credentials such as cookies in cross-site requests
     withCredentials: true,
 });
 

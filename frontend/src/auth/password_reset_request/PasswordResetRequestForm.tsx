@@ -8,6 +8,9 @@ import { useDispatch, useSelector } from "react-redux";
 // Type-only import for typed selector hook
 import type { TypedUseSelectorHook } from "react-redux";
 
+// Import Chakra UI components for consistent styling
+import { Stack, Input, Button, Text } from "@chakra-ui/react";
+
 // ---------------------------- Internal Imports ----------------------------
 // Type-only RootState and AppDispatch for typed Redux hooks
 import type { RootState, AppDispatch } from "../../store/store";
@@ -20,18 +23,27 @@ import { requestPasswordReset, clearPasswordResetRequestState } from "./password
 const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 // ---------------------------- PasswordResetRequestForm Component ----------------------------
-// Handles the password reset request form for users
+/**
+ * PasswordResetRequestForm
+ * ----------------------------
+ * Handles the password reset request form for users to request password reset emails
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Manage local state for email input
+ *   2. Select loading, error, and successMessage from Redux store
+ *   3. Dispatch requestPasswordReset thunk on form submission
+ *   4. Dispatch clearPasswordResetRequestState to reset form state
+ * Output: JSX.Element representing password reset request form with Chakra UI styling
+ */
 const PasswordResetRequestForm: React.FC = () => {
     // ---------------------------- Local State ----------------------------
-    // Step 1: Store email input from the user
-    const [email, setEmail] = useState("");
+    const [email, setEmail] = useState(""); // Step 1: Store email input from user
 
-    // ---------------------------- Redux ----------------------------
-    // Step 2: Get typed dispatch function
-    const dispatch = useDispatch<AppDispatch>();
-    // Step 3: Extract Redux state for password reset request
-    const { loading, error, successMessage } = useAppSelector(
-        (state) => state.passwordResetRequest
+    // ---------------------------- Redux Hooks ----------------------------
+    const dispatch = useDispatch<AppDispatch>();      // Step 1: Get typed dispatch function
+    const { error, successMessage } = useAppSelector(
+        (state) => state.passwordResetRequest           // Step 2: Extract Redux state
     );
 
     // ---------------------------- Event Handlers ----------------------------
@@ -40,13 +52,13 @@ const PasswordResetRequestForm: React.FC = () => {
      * ----------------------------
      * Input: Form submit event
      * Process:
-     *   1. Prevent default form submission behavior.
-     *   2. Dispatch async thunk to request password reset with the provided email.
-     * Output: Redux state updated with loading/error/successMessage.
+     *   1. Prevent default form submission behavior
+     *   2. Dispatch async thunk to request password reset with the provided email
+     * Output: Redux state updated with loading, error, or successMessage
      */
     const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        dispatch(requestPasswordReset({ email }));
+        e.preventDefault();                          // Step 1: Prevent default
+        dispatch(requestPasswordReset({ email }));   // Step 2: Dispatch thunk
     };
 
     /**
@@ -54,45 +66,81 @@ const PasswordResetRequestForm: React.FC = () => {
      * ----------------------------
      * Input: None
      * Process:
-     *   1. Dispatch Redux action to reset password reset request state.
-     * Output: Redux state reset to initial values.
+     *   1. Dispatch Redux action to reset password reset request state
+     *   2. Clear local email state
+     * Output: Redux state reset to initial values, form cleared
      */
     const handleClear = () => {
-        dispatch(clearPasswordResetRequestState());
+        dispatch(clearPasswordResetRequestState()); // Step 1: Reset Redux state
+        setEmail("");                               // Step 2: Clear local email state
     };
 
     // ---------------------------- Render ----------------------------
+    /**
+     * Render
+     * ----------------------------
+     * Process:
+     *   1. Render Stack as form container with full width and spacing
+     *   2. Render email input field with Chakra styling
+     *   3. Render submit button with loading state
+     *   4. Render clear button to reset form
+     *   5. Display error message if request failed
+     *   6. Display success message if request succeeded
+     * Output: JSX.Element with Chakra UI styling
+     */
     return (
-        <div>
-            {/* Step 4: Form title */}
-            <h2>Password Reset Request</h2>
+        <Stack as="form" onSubmit={handleSubmit} w="full">
+            {/* Step 1: Email input field */}
+            <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                size="lg"
+                required
+                autoFocus
+            />
 
-            {/* Step 5: Form for entering email */}
-            <form onSubmit={handleSubmit}>
-                {/* Step 5a: Email input */}
-                <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email"
-                    required
-                />
+            {/* Step 2: Submit button with loading state */}
+            <Button
+                type="submit"
+                bg="teal.600"
+                _hover={{ bg: "teal.700" }}
+                color="white"
+                size="lg"
+                w="full"
+                loadingText="Requesting..."
+            >
+                Request Password Reset
+            </Button>
 
-                {/* Step 5b: Submit button */}
-                <button type="submit" disabled={loading}>
-                    {loading ? "Requesting..." : "Request Password Reset"}
-                </button>
-            </form>
+            {/* Step 3: Clear button */}
+            <Button
+                type="button"
+                bg="gray.300"
+                _hover={{ bg: "gray.400" }}
+                color="gray.700"
+                size="lg"
+                w="full"
+                onClick={handleClear}
+            >
+                Clear
+            </Button>
 
-            {/* Step 6: Display error if request failed */}
-            {error && <p style={{ color: "red" }}>{error}</p>}
+            {/* Step 4: Display error message if request failed */}
+            {error && (
+                <Text color="red.500" textAlign="center">
+                    {error}
+                </Text>
+            )}
 
-            {/* Step 7: Display success message if request succeeded */}
-            {successMessage && <p style={{ color: "green" }}>{successMessage}</p>}
-
-            {/* Step 8: Clear button to reset form and messages */}
-            <button onClick={handleClear}>Clear</button>
-        </div>
+            {/* Step 5: Display success message if request succeeded */}
+            {successMessage && (
+                <Text color="green.500" textAlign="center" fontWeight="medium">
+                    {successMessage}
+                </Text>
+            )}
+        </Stack>
     );
 };
 

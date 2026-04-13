@@ -18,16 +18,18 @@ import settings from "../../core/settings";
 // Import presentational component that renders the button and UI
 import OAuth2LoginButtonComponent from "./OAuth2LoginButtonComponent";
 
-// ---------------------------- Props Interface ----------------------------
+// ---------------------------- Props Interface Definition ----------------------------
 /**
  * OAuth2ButtonProps
- * Props for the container component:
- * 1. onSuccess: optional callback after successful login
- * 2. onAttempt: optional callback triggered when a login attempt occurs
+ * ----------------------------
+ * Defines the props accepted by the OAuth2LoginButton container component
+ * Fields:
+ *   1. onSuccess - Optional callback executed after successful login
+ *   2. onAttempt - Optional callback triggered when a login attempt occurs
  */
 interface OAuth2ButtonProps {
-    onSuccess?: () => void;  // Step 1: callback after successful login
-    onAttempt?: () => void;  // Step 2: callback on login attempt
+    onSuccess?: () => void;  // Step 1: Success callback
+    onAttempt?: () => void;  // Step 2: Attempt callback
 }
 
 // ---------------------------- Typed Selector Hook ----------------------------
@@ -37,45 +39,65 @@ const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 // ---------------------------- OAuth2LoginButton Container ----------------------------
 /**
  * OAuth2LoginButton
- * Container component handling OAuth2 login state:
- * 1. Reads authentication/error state from Redux
- * 2. Provides login handler to trigger OAuth2 redirect
- * 3. Passes state and handler down to presentational component
+ * ----------------------------
+ * Container component handling OAuth2 login state
+ * Responsibilities:
+ *   1. Reads authentication and error state from Redux
+ *   2. Provides login handler to trigger OAuth2 redirect
+ *   3. Passes state and handler down to presentational component
+ * 
+ * Input: OAuth2ButtonProps (onSuccess, onAttempt)
+ * Process:
+ *   1. Select OAuth2 slice state from Redux
+ *   2. Select global authentication state from currentUser slice
+ *   3. Define handleLogin to trigger OAuth2 redirect
+ *   4. Render presentational component with state and callbacks
+ * Output: JSX.Element representing OAuth2 login button container
  */
 const OAuth2LoginButton: React.FC<OAuth2ButtonProps> = ({ onAttempt }) => {
-    // ---------------------------- State Selection ----------------------------
-    // Step 1: Select OAuth2 slice state
+    // ---------------------------- Redux State Selection ----------------------------
+    // Step 1: Select OAuth2 slice state (error, isAuthenticated, user)
     const { error, isAuthenticated, user } = useAppSelector(state => state.oauth2);
 
     // Step 2: Select global authentication state and coerce to boolean
     const globalAuthRaw = useAppSelector(state => state.currentUser.isAuthenticated);
-    const globalAuth: boolean = !!globalAuthRaw; // Convert null/undefined to false
+    const globalAuth: boolean = !!globalAuthRaw; // Convert null or undefined to false
 
-    // ---------------------------- Methods ----------------------------
+    // ---------------------------- Event Handlers ----------------------------
     /**
      * handleLogin
-     * Input: none
+     * ----------------------------
+     * Input: None
      * Process:
-     *   1. Call optional onAttempt callback
-     *   2. Redirect browser to Google OAuth2 login endpoint
-     * Output: void
+     *   1. Call optional onAttempt callback to notify parent component
+     *   2. Redirect browser window to Google OAuth2 login endpoint
+     * Output: void (triggers browser redirect)
      */
     const handleLogin = () => {
-        onAttempt?.(); // Step 1: notify parent of login attempt
-        window.location.href = `${settings.apiBaseUrl}/auth/oauth2/login/google`; // Step 2: perform OAuth2 redirect
+        onAttempt?.(); // Step 1: Notify parent of login attempt
+        window.location.href = `${settings.apiBaseUrl}/auth/oauth2/login/google`; // Step 2: Perform OAuth2 redirect
     };
 
     // ---------------------------- Render ----------------------------
     /**
-     * Render presentational component with state and callbacks
+     * Render
+     * ----------------------------
+     * Process:
+     *   1. Render OAuth2LoginButtonComponent with Redux state
+     *   2. Pass error message for display
+     *   3. Pass OAuth2 authentication state
+     *   4. Pass OAuth2 user information
+     *   5. Pass global authentication state as boolean
+     *   6. Pass handleLogin as onLogin callback
+     * Output: JSX.Element
      */
     return (
         <OAuth2LoginButtonComponent
-            error={error}                      // Pass error message
-            isAuthenticated={isAuthenticated}  // Pass OAuth2 auth state
-            user={user}                         // Pass OAuth2 user info
-            globalAuth={globalAuth}             // Pass global auth state (boolean)
-            onLogin={handleLogin}               // Pass login handler
+            error={error}                      // Step 1: Pass error message
+            isAuthenticated={isAuthenticated}  // Step 2: Pass OAuth2 auth state
+            user={user}                        // Step 3: Pass OAuth2 user info
+            globalAuth={globalAuth}            // Step 4: Pass global auth state (boolean)
+            onLogin={handleLogin}              // Step 5: Pass login handler
         />
     );
 };

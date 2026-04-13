@@ -25,107 +25,118 @@ import { getCurrentUserApi } from "../api/auth_api";
 // ---------------------------- DashboardPage Component ----------------------------
 /**
  * DashboardPage
+ * ----------------------------
  * Displays the current user's information and logout options
- * Methods:
- *   1. useEffect hook to fetch current user on mount
- *   2. Conditional rendering of user info, loading spinner, or error messages
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Initialize Redux dispatch
+ *   2. Manage local state for user info, loading, and error
+ *   3. Clear previous logout states on mount
+ *   4. Fetch current user information from API
+ *   5. Render user info, loading spinner, or error messages
+ *   6. Display logout buttons for session management
+ * Output: JSX.Element representing the dashboard page
  */
 const DashboardPage: React.FC = () => {
-    // ---------------------------- Redux Dispatch ----------------------------
+    // ---------------------------- Redux Hooks ----------------------------
     const dispatch = useDispatch(); // Step 1: Initialize Redux dispatch
 
     // ---------------------------- Local State ----------------------------
     const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null); 
-    // Step 2a: Store current user info
+    // Step 1: Store current user information
     const [loading, setLoading] = useState<boolean>(true); 
-    // Step 2b: Loading indicator while fetching data
-    const [error, setError] = useState<string | null>(null); 
-    // Step 2c: Error message if fetching fails
+
+    // Step 2: Loading indicator while fetching data
+    const [error, setError] = useState<string | null>(null);
+     
+    // Step 3: Error message if fetching fails
 
     // ---------------------------- Effects ----------------------------
     /**
-     * useEffect
-     * Input: None
+     * Fetch User Data on Mount
+     * ----------------------------
      * Process:
      *   1. Clear any previous logout states in Redux
-     *   2. Define async function to fetch user info
-     *       2a. Call API to get current user
-     *       2b. If successful, store user data in state
-     *       2c. If unsuccessful, set error message
-     *       2d. Stop loading after API call
-     *   3. Invoke fetch function
-     * Output: Updates local state with user info or error
+     *   2. Define async function to fetch user info from API
+     *   3. Call getCurrentUserApi to retrieve current user details
+     *   4. Update user state on successful response
+     *   5. Set error message on failed response or exception
+     *   6. Stop loading indicator after API call completes
+     * Output: Updates local state with user information or error
      */
     useEffect(() => {
-        // Step 1: Clear Redux logout states
+        // Step 1: Clear Redux logout states to prevent stale messages
         dispatch(clearLogoutState());
         dispatch(clearLogoutAllState());
 
-        // Step 2: Async function to fetch user info
+        // Step 2: Async function to fetch user information
         const fetchUser = async () => {
             try {
-                // Step 2a: Call API
+                // Step 3: Call API to get current user
                 const res = await getCurrentUserApi("Dashboard");
 
-                // Step 2b: If successful, update user state
+                // Step 4: If successful, update user state with response data
                 if (res.status === 200 && res.data) {
                     setUser(res.data);
                 } else {
-                    // Step 2c: If API response not 200, set error
+                    // Step 5: If API response is not 200, set error message
                     setError("Unable to fetch user details");
                 }
             } catch (err: any) {
-                // Step 2c: Catch network or API errors
+                // Step 5: Catch network or API errors and set error message
                 setError("Failed to load user details");
             } finally {
-                // Step 2d: Stop loading indicator
+                // Step 6: Stop loading indicator regardless of success or failure
                 setLoading(false);
             }
         };
 
-        // Step 3: Call async fetch function
+        // Step 7: Invoke the async fetch function
         fetchUser();
     }, [dispatch]);
 
     // ---------------------------- Render ----------------------------
     /**
      * Render
-     * Input: Local state (user, loading, error)
+     * ----------------------------
      * Process:
-     *   1. Display container with white background and rounded shadow
-     *   2. Show heading for dashboard
-     *   3. Conditionally render:
-     *       3a. Spinner if loading
-     *       3b. Error message if error exists
-     *       3c. User info (name, email, role) if available
-     *       3d. Default message if no user data
-     *   4. Logout buttons in one line
+     *   1. Render Container with max width for responsive layout
+     *   2. Render Box as card container with white background and shadow
+     *   3. Render Dashboard heading with teal color
+     *   4. Conditionally render:
+     *       - Spinner while loading
+     *       - Error message if error exists
+     *       - User information (name, email, role) if available
+     *       - Default message if no user data
+     *   5. Render logout buttons in a row using Flex layout
      * Output: Fully styled dashboard UI
      */
     return (
-        <Container maxW="md"> {/* Step 1: Center container */}
+        <Container maxW="md"> {/* Step 1: Center container with max width */}
             <Box
-                bg="white"          // Step 1a: Background color
-                color="gray.700"    // Step 1b: Text color
-                p={8}               // Step 1c: Padding
-                rounded="xl"        // Step 1d: Rounded corners
-                shadow="xl"         // Step 1e: Shadow
-                textAlign="center"  // Step 1f: Center text
+                bg="white"          // Step 2a: White background
+                color="gray.700"    // Step 2b: Dark gray text color
+                p={8}               // Step 2c: Padding
+                rounded="xl"        // Step 2d: Extra large rounded corners
+                shadow="xl"         // Step 2e: Extra large shadow for elevation
+                textAlign="center"  // Step 2f: Center aligned text
             >
+                {/* Step 3: Dashboard Heading */}
                 <Heading as="h1" fontSize="22px" mb={6} color="teal.600">
-                    Welcome to your Dashboard {/* Step 2: Heading */}
+                    Welcome to your Dashboard
                 </Heading>
 
-                {/* ---------------- User Info ---------------- */}
+                {/* Step 4: User Information Section */}
                 {loading ? (
-                    <Spinner size="lg" color="teal.500" /> // Step 3a: Show spinner while loading
+                    <Spinner size="lg" color="teal.500" /> // Step 4a: Show spinner while loading
                 ) : error ? (
-                    <Text color="red.500" mb={6}>{error}</Text> // Step 3b: Show error message
+                    <Text color="red.500" mb={6}>{error}</Text> // Step 4b: Show error message
                 ) : user ? (
-                    <Stack mb={6} align="flex-start"> {/* Step 3c: Display user info aligned left */}
-                        {/* Name */}
+                    <Stack mb={6} align="flex-start"> {/* Step 4c: Display user info left-aligned */}
+                        {/* Name Row */}
                         <Flex align="center" justify="flex-start">
-                            <Box w="30px" textAlign="center" mr={2} color="teal.600"> {/* Fixed icon width */}
+                            <Box w="30px" textAlign="center" mr={2} color="teal.600">
                                 👤
                             </Box>
                             <Text fontSize="17px" fontWeight="semibold">
@@ -133,9 +144,9 @@ const DashboardPage: React.FC = () => {
                             </Text>
                         </Flex>
 
-                        {/* Email */}
+                        {/* Email Row */}
                         <Flex align="center" justify="flex-start">
-                            <Box w="30px" textAlign="center" mr={2} color="blue.500"> {/* Fixed icon width */}
+                            <Box w="30px" textAlign="center" mr={2} color="blue.500">
                                 📧
                             </Box>
                             <Text fontSize="17px" color="gray.600">
@@ -143,9 +154,9 @@ const DashboardPage: React.FC = () => {
                             </Text>
                         </Flex>
 
-                        {/* Role */}
+                        {/* Role Row */}
                         <Flex align="center" justify="flex-start">
-                            <Box w="30px" textAlign="center" mr={2} color="purple.500"> {/* Fixed icon width */}
+                            <Box w="30px" textAlign="center" mr={2} color="purple.500">
                                 🏷️
                             </Box>
                             <Text fontSize="17px" color="purple.600" fontWeight="medium">
@@ -154,11 +165,11 @@ const DashboardPage: React.FC = () => {
                         </Flex>
                     </Stack>
                 ) : (
-                    <Text color="gray.500" mb={6}>No user data available</Text> // Step 3d: Default message
+                    <Text color="gray.500" mb={6}>No user data available</Text> // Step 4d: Default message
                 )}
 
-                {/* ---------------- Logout Buttons ---------------- */}
-                <Flex justify="center" gap={4}> {/* Step 4: Logout buttons in one line */}
+                {/* Step 5: Logout Buttons Section */}
+                <Flex justify="center" gap={4}> {/* Step 5a: Logout buttons in one line with gap */}
                     <LogoutButton />
                     <LogoutAllButton />
                 </Flex>

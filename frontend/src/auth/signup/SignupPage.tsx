@@ -12,50 +12,57 @@ import SignupForm from "./SignupForm";
 // ---------------------------- SignupPage Component ----------------------------
 /**
  * SignupPage
- * Chakra UI-based signup page:
- * Methods:
- * 1. render - Returns a centered responsive card with heading and SignupForm
+ * ----------------------------
+ * Chakra UI-based signup page component
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Center the signup card using Flex layout
+ *   2. Use Stack as a card container with padding, rounded corners, and shadow
+ *   3. Display Sign Up heading
+ *   4. Render SignupForm component inside the card
+ * Output: JSX.Element representing the styled signup page
  */
 const SignupPage: React.FC = () => {
 
-    // ---------------------------- Render Method ----------------------------
+    // ---------------------------- Render ----------------------------
     /**
-     * Render the signup page with Chakra UI layout:
-     * Input: None
+     * Render
+     * ----------------------------
      * Process:
-     *   1. Center the card using Flex
-     *   2. Use a Stack as a card container with padding, rounded corners, and shadow
-     *   3. Add a heading for "Sign Up"
-     *   4. Render the SignupForm inside the card
-     * Output: JSX.Element representing the styled signup page
+     *   1. Render Flex container to center the card horizontally
+     *   2. Render Stack as card container with white background and shadow
+     *   3. Render Sign Up heading with teal color
+     *   4. Render SignupForm component
+     * Output: JSX.Element
      */
     return (
-        // Step 1: Flex container to center the card
+        // Step 1: Flex container to center the card horizontally
         <Flex
-            justify="center"     // Horizontal center
+            justify="center"     // Horizontal center alignment
         >
-            {/* Step 2: Card container */}
+            {/* Step 2: Card container with styling */}
             <Stack
-                w="1000px"
-                maxW="800px"
-                bg="white"           // Single card background
-                p={10}               // Inner padding
-                borderRadius="lg"    // Rounded corners
-                boxShadow="lg"       // Shadow for elevation
-                textAlign="center"   // Center content
+                w="1000px"               // Fixed width
+                maxW="800px"             // Maximum width constraint
+                bg="white"               // White background
+                p={10}                   // Inner padding
+                borderRadius="lg"        // Rounded corners
+                boxShadow="lg"           // Shadow for elevation
+                textAlign="center"       // Center aligned text
             >
                 {/* Step 3: Page heading */}
                 <Heading fontSize="25px" color="teal.600">
                     Sign Up
                 </Heading>
 
-                {/* Step 4: Signup form */}
+                {/* Step 4: Signup form component */}
                 <SignupForm />
             </Stack>
         </Flex>
     );
 };
 
-// ---------------------------- Component Export ----------------------------
+// ---------------------------- Export ----------------------------
 // Export the component as default for routing or parent layout
 export default SignupPage;

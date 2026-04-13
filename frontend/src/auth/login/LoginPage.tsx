@@ -12,7 +12,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { Stack, Heading, Text, StackSeparator, Flex } from "@chakra-ui/react";
 
 // ---------------------------- Internal Imports ----------------------------
-// Import LoginForm component for standard username/password login
+// Import LoginForm component for standard username and password login
 import LoginForm from "./LoginForm";
 
 // Import OAuth2Button component for Google OAuth2 login
@@ -27,42 +27,59 @@ import { clearUserSession } from "../oauth2/oauth2_slice";
 // ---------------------------- LoginPage Component ----------------------------
 /**
  * LoginPage
+ * ----------------------------
  * Renders a user login page with:
- * 1. Standard LoginForm for username/password
- * 2. OAuth2 login button (Google)
- * 3. Redirect logic for authenticated users
- * 4. Error handling and login attempt tracking
+ *   1. Standard LoginForm for email and password authentication
+ *   2. OAuth2 login button (Google)
+ *   3. Redirect logic for already authenticated users
+ *   4. Error handling and login attempt tracking
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Clear any previous OAuth2 session on mount
+ *   2. Track login attempts to conditionally show errors
+ *   3. Redirect to dashboard if already authenticated
+ *   4. Render login form and OAuth2 button
+ * Output: JSX.Element representing the login page
  */
 const LoginPage: React.FC = () => {
     // ---------------------------- Hooks ----------------------------
-    const navigate = useNavigate();                               // Hook for navigation
-    const dispatch = useDispatch<AppDispatch>();                 // Typed dispatch hook
-    const { isAuthenticated, loading, error } = useSelector(     // Redux state selection
+    const navigate = useNavigate();                               // Step 1: Navigation hook
+    const dispatch = useDispatch<AppDispatch>();                 // Step 2: Typed dispatch hook
+    const { isAuthenticated, loading, error } = useSelector(     // Step 3: Redux state selection
         (state: RootState) => state.oauth2
     );
-    const [loginAttempted, setLoginAttempted] = useState(false); // Track if login was attempted
+    const [loginAttempted, setLoginAttempted] = useState(false); // Step 4: Login attempt tracker
 
     // ---------------------------- Effects ----------------------------
-    // Effect to clear any previous OAuth2 session when page mounts
+    /**
+     * Clear OAuth2 session on page mount
+     * ----------------------------
+     * Process:
+     *   1. Dispatch clearUserSession to remove stale OAuth2 state
+     *   2. Reset loginAttempted flag to false
+     * Output: Clean Redux state for fresh login attempt
+     */
     useEffect(() => {
         dispatch(clearUserSession());  // Step 1: Clear stale session
         setLoginAttempted(false);      // Step 2: Reset login attempt tracker
     }, [dispatch]);
 
-    // ---------------------------- Redirect / Loading ----------------------------
-    // Show loading text if login process is in progress
+    // ---------------------------- Conditional Returns ----------------------------
+    // Step 1: Show loading text if login process is in progress
     if (loading) return <Text>Loading...</Text>;
 
-    // Redirect to dashboard if already authenticated
+    // Step 2: Redirect to dashboard if already authenticated
     if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-    // ---------------------------- Callbacks ----------------------------
+    // ---------------------------- Callback Definitions ----------------------------
     /**
      * handleLoginSuccess
+     * ----------------------------
      * Input: None
      * Process:
-     *   1. Reset loginAttempted state
-     *   2. Navigate to dashboard page
+     *   1. Reset loginAttempted state to false
+     *   2. Navigate to dashboard page with replace option
      * Output: void
      */
     const handleLoginSuccess = () => {
@@ -72,6 +89,7 @@ const LoginPage: React.FC = () => {
 
     /**
      * handleLoginAttempt
+     * ----------------------------
      * Input: None
      * Process:
      *   1. Set loginAttempted state to true
@@ -81,14 +99,15 @@ const LoginPage: React.FC = () => {
 
     // ---------------------------- Render ----------------------------
     /**
-     * Input: None
+     * Render
+     * ----------------------------
      * Process:
      *   1. Wrap content in a centered Flex container
      *   2. Use a Stack as the main card with padding, background, shadow, and separator
-     *   3. Display heading and description
-     *   4. Show error message if login failed and attempted
-     *   5. Render LoginForm with callbacks
-     *   6. Render OAuth2Button with callbacks
+     *   3. Display heading and description text
+     *   4. Show error message if login failed and was attempted
+     *   5. Render LoginForm with success and attempt callbacks
+     *   6. Render OAuth2Button with success and attempt callbacks
      *   7. Show signup link for new users
      * Output: JSX.Element representing the login page
      */
@@ -105,24 +124,24 @@ const LoginPage: React.FC = () => {
                 textAlign="center"                                             /* Center text */
                 separator={<StackSeparator />}                                 /* Stack separator */
             >
-                {/* Step 3: Heading */}
+                {/* Step 3: Heading and description */}
                 <Heading size="2xl" color="teal.600">Welcome</Heading>
                 <Text fontSize="md" color="gray.600">
                     Sign in to continue to your dashboard
                 </Text>
 
-                {/* Step 4: Error message if login failed */}
+                {/* Step 4: Error message display on failed login attempt */}
                 {error && loginAttempted && (
                     <Text color="red.500" fontWeight="bold">{error}</Text>
                 )}
 
-                {/* Step 5: Standard login form */}
+                {/* Step 5: Standard login form component */}
                 <LoginForm
                     onSuccess={handleLoginSuccess}
                     onAttempt={handleLoginAttempt}
                 />
 
-                {/* Step 6: OAuth2 login button */}
+                {/* Step 6: OAuth2 login button component */}
                 <OAuth2Button
                     onSuccess={handleLoginSuccess}
                     onAttempt={handleLoginAttempt}
@@ -130,7 +149,7 @@ const LoginPage: React.FC = () => {
 
                 {/* Step 7: Signup link for new users */}
                 <Text fontSize="16px" color="gray.600">
-                    Don’t have an account?{" "}
+                    Don't have an account?{" "}
                     <Link to="/signup" style={{ color: "#319795", fontWeight: 600 }}>
                         Sign Up
                     </Link>

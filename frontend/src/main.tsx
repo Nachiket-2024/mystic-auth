@@ -8,7 +8,7 @@ import ReactDOM from 'react-dom/client';
 // Import Redux Provider for global store access
 import { Provider } from 'react-redux';
 
-// Import ChakraProvider and defaultSystem from Chakra UI for theming/styling
+// Import ChakraProvider and defaultSystem from Chakra UI for theming and styling
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 // ---------------------------- Internal Imports ----------------------------
@@ -18,34 +18,29 @@ import App from './App.tsx';
 // Import the Redux store
 import { store } from './store/store.ts';
 
-// ---------------------------- Render App ----------------------------
+// ---------------------------- Application Entry Point ----------------------------
 /**
- * Input:
- *   1. rootElement: HTML element with id 'root'
- *   2. App component
- *   3. Redux store
- *   4. ChakraProvider with defaultSystem for Chakra UI styling
+ * Application Bootstrap
+ * ----------------------------
+ * Entry point for the React application
+ * 
  * Process:
- *   1. Get the root HTML element where the app will be mounted
- *   2. Create a ReactDOM root using ReactDOM.createRoot
+ *   1. Get the root HTML element with id 'root' where the app will be mounted
+ *   2. Create a ReactDOM root instance using ReactDOM.createRoot
  *   3. Render the App component wrapped in:
- *       a. React.StrictMode for development checks
- *       b. Redux Provider for store access
- *       c. ChakraProvider with defaultSystem for Chakra UI
- * Output:
- *   1. React application mounted in the DOM with Redux and Chakra UI
+ *       a. React.StrictMode for development-time checks and warnings
+ *       b. Redux Provider for global store access across components
+ *       c. ChakraProvider with defaultSystem for Chakra UI theming and styling
+ * Output: React application mounted in the DOM with Redux and Chakra UI
  */
-const rootElement = document.getElementById('root') as HTMLElement; // Step 1
+const rootElement = document.getElementById('root') as HTMLElement; // Step 1: Get root DOM element
 
 ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
-    {/* Step 3b: Wrap with Redux Provider */}
-    <Provider store={store}>
-      {/* Step 3c: Wrap with ChakraProvider using defaultSystem */}
-      <ChakraProvider value={defaultSystem}>
-        {/* Step 3d: Render the root App component */}
-        <App />
-      </ChakraProvider>
-    </Provider>
-  </React.StrictMode>
+    <React.StrictMode>                                    {/* Step 3a: Strict mode for development checks */}
+        <Provider store={store}>                          {/* Step 3b: Redux Provider for store access */}
+            <ChakraProvider value={defaultSystem}>        {/* Step 3c: Chakra UI provider for styling */}
+                <App />                                   {/* Step 3d: Root App component */}
+            </ChakraProvider>
+        </Provider>
+    </React.StrictMode>
 );

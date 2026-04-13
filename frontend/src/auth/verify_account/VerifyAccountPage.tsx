@@ -15,91 +15,100 @@ import VerifyAccountButton from "./VerifyAccountButton";
 // ---------------------------- VerifyAccountPage Component ----------------------------
 /**
  * VerifyAccountPage
- * Displays a Chakra-styled card layout containing the
- * VerifyAccountButton component.
- *
- * Methods:
- * 1. handleSuccessRedirect — navigates to login page after success.
+ * ----------------------------
+ * Displays a Chakra-styled card layout containing the VerifyAccountButton component
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Extract token and email from URL query parameters
+ *   2. Define handleSuccessRedirect to navigate to login page after success
+ *   3. Render centered card with heading, description, and verification button
+ * Output: JSX.Element representing the account verification page
  */
 const VerifyAccountPage: React.FC = () => {
 
-  // ---------------------------- Hooks ----------------------------
-  /**
-   * Input: none
-   * Process:
-   *   1. Extract token and email from URL query parameters.
-   *   2. Prepare navigation function for redirect.
-   * Output:
-   *   1. Token and email values.
-   *   2. Navigation method.
-   */
-  const [searchParams] = useSearchParams();  // Step 1: Read URL params
-  const navigate = useNavigate();            // Step 2: Setup router navigation
+    // ---------------------------- Hooks ----------------------------
+    /**
+     * URL Parameter Extraction
+     * ----------------------------
+     * Process:
+     *   1. Read URL query parameters using useSearchParams
+     *   2. Setup navigation function for programmatic redirect
+     *   3. Extract token and email with fallback to empty strings
+     * Output: Token and email values, navigation method
+     */
+    const [searchParams] = useSearchParams();  // Step 1: Read URL query parameters
+    const navigate = useNavigate();            // Step 2: Setup router navigation
 
-  // Step 3: Extract token and email with fallbacks
-  const token = searchParams.get("token") || "";
-  const email = searchParams.get("email") || "";
+    // Step 3: Extract token and email with fallback to empty strings
+    const token = searchParams.get("token") || "";
+    const email = searchParams.get("email") || "";
 
-  // ---------------------------- Handlers ----------------------------
-  /**
-   * handleSuccessRedirect
-   * Input: none
-   * Process:
-   *   1. Redirects user to "/login" upon successful verification.
-   *   2. Replaces current history entry to prevent back navigation.
-   * Output: User navigated to login screen.
-   */
-  const handleSuccessRedirect = () => {
-    navigate("/login", { replace: true });
-  };
+    // ---------------------------- Event Handlers ----------------------------
+    /**
+     * handleSuccessRedirect
+     * ----------------------------
+     * Input: None
+     * Process:
+     *   1. Redirect user to login page upon successful verification
+     *   2. Replace current history entry to prevent back navigation to verification page
+     * Output: User navigated to login screen
+     */
+    const handleSuccessRedirect = () => {
+        navigate("/login", { replace: true }); // Step 1: Redirect to login with replace
+    };
 
-  // ---------------------------- Render ----------------------------
-  /**
-   * Input: token, email, handleSuccessRedirect
-   * Process:
-   *   1. Render a centered card with teal heading and short description.
-   *   2. Embed VerifyAccountButton component for verification logic.
-   * Output: Fully responsive, teal-themed verification page.
-   */
-  return (
-    <Container
-      maxW="lg"
-    >
-      {/* Outer Card Container */}
-      <Box
-        w="full"
-        p={8}
-        borderWidth="1px"
-        borderRadius="lg"
-        boxShadow="lg"
-        textAlign="center"
-      >
-        {/* Page Heading */}
-        <Text
-          fontSize="2xl"
-          fontWeight="bold"
-          color="teal.600"
-          mb={6}
+    // ---------------------------- Render ----------------------------
+    /**
+     * Render
+     * ----------------------------
+     * Process:
+     *   1. Render Container with maximum width for responsive layout
+     *   2. Render Box as outer card container with border and shadow
+     *   3. Render page heading with teal color
+     *   4. Render instructional text for user guidance
+     *   5. Render VerifyAccountButton with token, email, and success callback
+     * Output: Fully responsive, teal-themed verification page
+     */
+    return (
+        <Container
+            maxW="lg"
         >
-          Verify Your Account
-        </Text>
+            {/* Step 1: Outer Card Container */}
+            <Box
+                w="full"
+                p={8}
+                borderWidth="1px"
+                borderRadius="lg"
+                boxShadow="lg"
+                textAlign="center"
+            >
+                {/* Step 2: Page Heading */}
+                <Text
+                    fontSize="2xl"
+                    fontWeight="bold"
+                    color="teal.600"
+                    mb={6}
+                >
+                    Verify Your Account
+                </Text>
 
-        {/* Instructional Text */}
-        <Text fontSize="md" color="gray.600" mb={6}>
-          Click the button below to verify your account and activate access.
-        </Text>
+                {/* Step 3: Instructional Text */}
+                <Text fontSize="md" color="gray.600" mb={6}>
+                    Click the button below to verify your account and activate access.
+                </Text>
 
-        {/* Verification Button Block */}
-        <VStack>
-          <VerifyAccountButton
-            token={token}
-            email={email}
-            onSuccess={handleSuccessRedirect}
-          />
-        </VStack>
-      </Box>
-    </Container>
-  );
+                {/* Step 4: Verification Button Block */}
+                <VStack>
+                    <VerifyAccountButton
+                        token={token}
+                        email={email}
+                        onSuccess={handleSuccessRedirect}
+                    />
+                </VStack>
+            </Box>
+        </Container>
+    );
 };
 
 // ---------------------------- Export ----------------------------

@@ -15,8 +15,24 @@ import { Stack, Button, Text, Spinner } from "@chakra-ui/react";
 // Import application-level types for Redux store and dispatch
 import type { RootState, AppDispatch } from "../../store/store";
 
-// Import Redux slice thunks/actions for verification logic
+// Import Redux slice thunks and actions for verification logic
 import { verifyAccount, clearVerifyAccountState } from "./verify_account_slice";
+
+// ---------------------------- Props Interface Definition ----------------------------
+/**
+ * VerifyAccountButtonProps
+ * ----------------------------
+ * Defines the props accepted by the VerifyAccountButton component
+ * Fields:
+ *   1. token - Verification token extracted from URL
+ *   2. email - Associated email address of the user
+ *   3. onSuccess - Optional callback executed after successful verification
+ */
+interface VerifyAccountButtonProps {
+    token: string;          // Step 1: Verification token from URL
+    email: string;          // Step 2: Associated email address
+    onSuccess?: () => void; // Step 3: Optional success callback
+}
 
 // ---------------------------- Typed Selector Hook ----------------------------
 // Create a typed selector hook for strong state typing
@@ -25,107 +41,113 @@ const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 // ---------------------------- VerifyAccountButton Component ----------------------------
 /**
  * VerifyAccountButton
- * Handles the account verification process and displays
- * relevant UI feedback (loading, success, error).
- *
- * Methods:
- * 1. handleVerify — dispatches verifyAccount thunk.
- * 2. useEffect — triggers onSuccess callback on verification success.
- * 3. useEffect (cleanup) — clears verification state when unmounted.
+ * ----------------------------
+ * Handles the account verification process and displays relevant UI feedback
+ * Responsibilities:
+ *   1. Dispatches verifyAccount thunk on button click
+ *   2. Triggers onSuccess callback on verification success
+ *   3. Clears verification state on component unmount
+ * 
+ * Input: VerifyAccountButtonProps (token, email, onSuccess)
+ * Process:
+ *   1. Extract loading, error, and successMessage from Redux verifyAccount slice
+ *   2. Trigger onSuccess callback when verification succeeds
+ *   3. Clear Redux state on component unmount
+ *   4. Dispatch verifyAccount thunk with token and email on button click
+ * Output: JSX.Element representing verification button with status messages
  */
-interface VerifyAccountButtonProps {
-  token: string;          // Verification token from URL
-  email: string;          // Associated email address
-  onSuccess?: () => void; // Optional callback after successful verification
-}
-
 const VerifyAccountButton: React.FC<VerifyAccountButtonProps> = ({ token, email, onSuccess }) => {
 
-  // ---------------------------- Redux ----------------------------
-  const dispatch = useDispatch<AppDispatch>();                           // Typed Redux dispatcher
-  const { loading, error, successMessage } = useAppSelector(
-    (state) => state.verifyAccount
-  );                                                                     // Extract verification slice state
+    // ---------------------------- Redux Hooks ----------------------------
+    const dispatch = useDispatch<AppDispatch>();                           // Step 1: Typed Redux dispatcher
+    const { loading, error, successMessage } = useAppSelector(
+        (state) => state.verifyAccount
+    );                                                                     // Step 2: Extract verification slice state
 
-  // ---------------------------- Effects ----------------------------
-  /**
-   * onSuccess trigger:
-   * Input: successMessage and optional onSuccess callback
-   * Process:
-   *   1. Watch for changes in successMessage.
-   *   2. If verification succeeded and callback exists, invoke it.
-   * Output: Executes redirect or follow-up action after success.
-   */
-  useEffect(() => {
-    if (successMessage && onSuccess) onSuccess(); // Step 1
-  }, [successMessage, onSuccess]);
+    // ---------------------------- Effects ----------------------------
+    /**
+     * onSuccess trigger effect
+     * ----------------------------
+     * Process:
+     *   1. Watch for changes in successMessage
+     *   2. If verification succeeded and onSuccess callback exists, invoke it
+     * Output: Executes redirect or follow-up action after successful verification
+     */
+    useEffect(() => {
+        if (successMessage && onSuccess) onSuccess(); // Step 1: Trigger success callback
+    }, [successMessage, onSuccess]);
 
-  /**
-   * Cleanup effect:
-   * Clears Redux slice when component unmounts,
-   * ensuring old success/error messages don’t persist
-   * if the user revisits this page.
-   */
-  useEffect(() => {
-    return () => {
-      dispatch(clearVerifyAccountState()); // Step 1: Clean slice on unmount
+    /**
+     * Cleanup effect
+     * ----------------------------
+     * Process:
+     *   1. Clear Redux slice state when component unmounts
+     * Output: Prevents old success or error messages from persisting on page revisit
+     */
+    useEffect(() => {
+        return () => {
+            dispatch(clearVerifyAccountState()); // Step 1: Clean slice on unmount
+        };
+    }, [dispatch]);
+
+    // ---------------------------- Event Handlers ----------------------------
+    /**
+     * handleVerify
+     * ----------------------------
+     * Input: None
+     * Process:
+     *   1. Dispatch verifyAccount thunk with provided token and email
+     * Output: Updates loading, error, and success state in Redux
+     */
+    const handleVerify = () => {
+        dispatch(verifyAccount({ token, email })); // Step 1: Dispatch verification thunk
     };
-  }, [dispatch]);
 
-  // ---------------------------- Event Handlers ----------------------------
-  /**
-   * handleVerify
-   * Input: none
-   * Process:
-   *   1. Dispatch verifyAccount thunk with provided token and email.
-   * Output: Updates loading/error/success state in Redux.
-   */
-  const handleVerify = () => {
-    dispatch(verifyAccount({ token, email })); // Step 1
-  };
+    // ---------------------------- Render ----------------------------
+    /**
+     * Render
+     * ----------------------------
+     * Process:
+     *   1. Render Stack container with centered alignment
+     *   2. Render Verify Account button with loading spinner when in progress
+     *   3. Display error message if verification fails
+     *   4. Display success message if verification succeeds
+     * Output: JSX.Element
+     */
+    return (
+        <Stack align="center" w="full">
+            {/* Step 1: Verify Account Button with loading state */}
+            <Button
+                onClick={handleVerify}
+                bg="teal.600"
+                _hover={{ bg: "teal.700" }}
+                color="white"
+                w="60%"
+            >
+                {loading ? (
+                    <>
+                        <Spinner size="sm" mr={2} /> Verifying...
+                    </>
+                ) : (
+                    "Verify Account"
+                )}
+            </Button>
 
-  // ---------------------------- Render ----------------------------
-  /**
-   * Input: Redux state (loading, error, successMessage)
-   * Process:
-   *   1. Display primary "Verify Account" button with spinner while loading.
-   *   2. Show contextual messages for success or failure.
-   * Output: Chakra-styled interactive UI block.
-   */
-  return (
-    <Stack align="center" w="full">
-      {/* Verify Account Button */}
-      <Button
-        onClick={handleVerify}
-        bg="teal.600"
-        _hover={{ bg: "teal.700" }}
-        color="white"
-        w="60%"
-      >
-        {loading ? (
-          <>
-            <Spinner size="sm" mr={2} /> Verifying...
-          </>
-        ) : (
-          "Verify Account"
-        )}
-      </Button>
+            {/* Step 2: Error message display */}
+            {error && (
+                <Text fontSize="sm" color="red.500">
+                    {error}
+                </Text>
+            )}
 
-      {/* Error Message */}
-      {error && (
-        <Text fontSize="sm" color="red.500">
-          {error}
-        </Text>
-      )}
-
-      {/* Success Message */}
-      {successMessage && (
-        <Text fontSize="sm" color="green.500" fontWeight="medium">
-          {successMessage}
-        </Text>
-      )}
-    </Stack>
-  );
+            {/* Step 3: Success message display */}
+            {successMessage && (
+                <Text fontSize="sm" color="green.500" fontWeight="medium">
+                    {successMessage}
+                </Text>
+            )}
+        </Stack>
+    );
 };
 
 // ---------------------------- Export ----------------------------

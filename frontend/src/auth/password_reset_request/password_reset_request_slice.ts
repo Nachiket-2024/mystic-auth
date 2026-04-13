@@ -15,33 +15,44 @@ import type {
     PasswordResetRequestResponse,
 } from "./password_reset_request_types";
 
-// ---------------------------- State Type ----------------------------
-// Structure of Redux state for password reset request
+// ---------------------------- State Type Definition ----------------------------
+/**
+ * PasswordResetRequestState
+ * ----------------------------
+ * Defines the structure of Redux state for password reset request
+ * Fields:
+ *   1. loading - True when request is in progress
+ *   2. error - Stores error message if request fails
+ *   3. successMessage - Stores success message from backend
+ */
 interface PasswordResetRequestState {
-    loading: boolean;              // Step 1: True when request is in progress
-    error: string | null;          // Step 2: Stores error message if request fails
-    successMessage: string | null; // Step 3: Stores success message from backend
+    loading: boolean;              // Step 1: Request in progress flag
+    error: string | null;          // Step 2: Error message storage
+    successMessage: string | null; // Step 3: Success message storage
 }
 
 // ---------------------------- Initial State ----------------------------
-// Default values for the Redux slice state
+/**
+ * initialState
+ * ----------------------------
+ * Default values for the Redux slice state
+ */
 const initialState: PasswordResetRequestState = {
-    loading: false,                // Step 1
-    error: null,                   // Step 2
-    successMessage: null,          // Step 3
+    loading: false,        // Step 1: Not loading
+    error: null,           // Step 2: No error
+    successMessage: null,  // Step 3: No success message
 };
 
 // ---------------------------- Async Thunk ----------------------------
 /**
  * requestPasswordReset
- * Input:
- *   payload: PasswordResetRequestPayload containing user email
+ * ----------------------------
+ * Input: PasswordResetRequestPayload containing user email
  * Process:
  *   1. Call API to request password reset
  *   2. Return API response data if successful
  *   3. Handle API error and reject with meaningful message
- * Output:
- *   PasswordResetRequestResponse on success, or rejected string on error
+ * Output: PasswordResetRequestResponse on success, or rejected string on error
  */
 export const requestPasswordReset = createAsyncThunk<
     PasswordResetRequestResponse,   // Success return type
@@ -68,50 +79,52 @@ export const requestPasswordReset = createAsyncThunk<
 // ---------------------------- Slice ----------------------------
 /**
  * passwordResetRequestSlice
+ * ----------------------------
  * Manages state for password reset request
- * Methods:
+ * Reducers:
  *   1. clearPasswordResetRequestState - Reset slice to initial state
  */
 const passwordResetRequestSlice = createSlice({
-    name: "passwordResetRequest",  // Step 1: Slice name
+    name: "passwordResetRequest",  // Step 1: Slice name for action prefixing
     initialState,                  // Step 2: Initial state
     reducers: {
         /**
          * clearPasswordResetRequestState
+         * ----------------------------
          * Input: None
          * Process:
-         *   1. Stop loading
+         *   1. Set loading to false
          *   2. Clear error message
          *   3. Clear success message
          * Output: Redux state reset to initial values
          */
         clearPasswordResetRequestState: (state) => {
-            state.loading = false;           // Step 1
-            state.error = null;              // Step 2
-            state.successMessage = null;     // Step 3
+            state.loading = false;           // Step 1: Stop loading
+            state.error = null;              // Step 2: Clear error
+            state.successMessage = null;     // Step 3: Clear success message
         },
     },
     extraReducers: (builder) => {
-        // Handle different states of the async thunk
+        // Handle different states of the requestPasswordReset async thunk
         builder
-            // Step 1: Pending state
+            // ---------------------------- Pending State ----------------------------
             .addCase(requestPasswordReset.pending, (state) => {
-                state.loading = true;           // Step 1a: Set loading
-                state.error = null;             // Step 1b: Clear previous errors
-                state.successMessage = null;    // Step 1c: Clear previous success messages
+                state.loading = true;           // Step 1: Show loading indicator
+                state.error = null;             // Step 2: Clear previous errors
+                state.successMessage = null;    // Step 3: Clear previous success messages
             })
-            // Step 2: Fulfilled state
+            // ---------------------------- Fulfilled State ----------------------------
             .addCase(
                 requestPasswordReset.fulfilled,
                 (state, action: PayloadAction<PasswordResetRequestResponse>) => {
-                    state.loading = false;                 // Step 2a: Stop loading
-                    state.successMessage = action.payload.message; // Step 2b: Store success message
+                    state.loading = false;                 // Step 1: Stop loading
+                    state.successMessage = action.payload.message; // Step 2: Store success message
                 }
             )
-            // Step 3: Rejected state
+            // ---------------------------- Rejected State ----------------------------
             .addCase(requestPasswordReset.rejected, (state, action) => {
-                state.loading = false;                 // Step 3a: Stop loading
-                state.error = action.payload || "Password reset request failed"; // Step 3b: Store error
+                state.loading = false;                 // Step 1: Stop loading
+                state.error = action.payload || "Password reset request failed"; // Step 2: Store error
             });
     },
 });

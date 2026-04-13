@@ -15,24 +15,38 @@ import type {
     PasswordResetConfirmResponse,
 } from "./password_reset_confirm_types";
 
-// ---------------------------- State Type ----------------------------
-// Define Redux state structure for password reset confirmation
+// ---------------------------- State Type Definition ----------------------------
+/**
+ * PasswordResetConfirmState
+ * ----------------------------
+ * Defines the Redux state structure for password reset confirmation
+ * Fields:
+ *   1. loading - True if API request is in progress
+ *   2. error - Stores error message if request fails
+ *   3. successMessage - Stores success message returned by backend
+ */
 interface PasswordResetConfirmState {
-    loading: boolean;              // Step 1: True if API request is in progress
-    error: string | null;          // Step 2: Stores error message if request fails
-    successMessage: string | null; // Step 3: Stores success message returned by backend
+    loading: boolean;              // Step 1: Request in progress flag
+    error: string | null;          // Step 2: Error message storage
+    successMessage: string | null; // Step 3: Success message storage
 }
 
 // ---------------------------- Initial State ----------------------------
+/**
+ * initialState
+ * ----------------------------
+ * Default values for the password reset confirm slice
+ */
 const initialState: PasswordResetConfirmState = {
-    loading: false,          // Step 1
-    error: null,             // Step 2
-    successMessage: null,    // Step 3
+    loading: false,          // Step 1: Not loading
+    error: null,             // Step 2: No error
+    successMessage: null,    // Step 3: No success message
 };
 
 // ---------------------------- Async Thunk ----------------------------
 /**
  * confirmPasswordReset
+ * ----------------------------
  * Input: PasswordResetConfirmPayload containing new password and token
  * Process:
  *   1. Call API to confirm password reset
@@ -65,50 +79,52 @@ export const confirmPasswordReset = createAsyncThunk<
 // ---------------------------- Slice ----------------------------
 /**
  * passwordResetConfirmSlice
+ * ----------------------------
  * Manages state for password reset confirmation
- * Methods:
+ * Reducers:
  *   1. clearPasswordResetConfirmState - Reset slice to initial state
  */
 const passwordResetConfirmSlice = createSlice({
-    name: "passwordResetConfirm",   // Step 1: Slice name
+    name: "passwordResetConfirm",   // Step 1: Slice name for action prefixing
     initialState,                   // Step 2: Initial state
     reducers: {
         /**
          * clearPasswordResetConfirmState
+         * ----------------------------
          * Input: None
          * Process:
-         *   1. Stop loading
+         *   1. Set loading to false
          *   2. Clear error message
          *   3. Clear success message
          * Output: Redux state reset to initial values
          */
         clearPasswordResetConfirmState: (state) => {
-            state.loading = false;          // Step 1
-            state.error = null;             // Step 2
-            state.successMessage = null;    // Step 3
+            state.loading = false;          // Step 1: Stop loading
+            state.error = null;             // Step 2: Clear error
+            state.successMessage = null;    // Step 3: Clear success message
         },
     },
     extraReducers: (builder) => {
-        // Handle different states of the async thunk
+        // Handle different states of the confirmPasswordReset async thunk
         builder
-            // Step 1: Pending state
+            // ---------------------------- Pending State ----------------------------
             .addCase(confirmPasswordReset.pending, (state) => {
-                state.loading = true;        // Step 1a: Set loading
-                state.error = null;          // Step 1b: Clear previous errors
-                state.successMessage = null; // Step 1c: Clear previous success messages
+                state.loading = true;        // Step 1: Show loading indicator
+                state.error = null;          // Step 2: Clear previous errors
+                state.successMessage = null; // Step 3: Clear previous success messages
             })
-            // Step 2: Fulfilled state
+            // ---------------------------- Fulfilled State ----------------------------
             .addCase(
                 confirmPasswordReset.fulfilled,
                 (state, action: PayloadAction<PasswordResetConfirmResponse>) => {
-                    state.loading = false;                 // Step 2a: Stop loading
-                    state.successMessage = action.payload.message; // Step 2b: Store success message
+                    state.loading = false;                 // Step 1: Stop loading
+                    state.successMessage = action.payload.message; // Step 2: Store success message
                 }
             )
-            // Step 3: Rejected state
+            // ---------------------------- Rejected State ----------------------------
             .addCase(confirmPasswordReset.rejected, (state, action) => {
-                state.loading = false;                   // Step 3a: Stop loading
-                state.error = action.payload || "Password reset confirmation failed"; // Step 3b: Store error
+                state.loading = false;                   // Step 1: Stop loading
+                state.error = action.payload || "Password reset confirmation failed"; // Step 2: Store error
             });
     },
 });

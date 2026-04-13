@@ -16,7 +16,7 @@ import { Field as ChakraField } from "@chakra-ui/react";
 // TypeScript types for Redux store and dispatch
 import type { RootState, AppDispatch } from "../../store/store";
 
-// Redux thunks/actions for signup and clearing signup state
+// Redux thunks and actions for signup and clearing signup state
 import { signupUser, clearSignupState } from "./signup_slice";
 
 // ---------------------------- Typed Selector Hook ----------------------------
@@ -26,95 +26,171 @@ const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 // ---------------------------- SignupForm Component ----------------------------
 /**
  * SignupForm
- * Functional component for user signup using Chakra UI v3.
- * Methods:
- * 1. checkRules - Validate password against rules
- * 2. evaluatePasswordStrength - Determine password strength
- * 3. validatePassword - Return first password error
- * 4. handlePasswordChange - Update password and strength
- * 5. handleSubmit - Validate and dispatch signup
- * 6. handleClear - Reset form and Redux state
+ * ----------------------------
+ * Functional component for user signup using Chakra UI v3
+ * Responsibilities:
+ *   1. Validate password against security rules
+ *   2. Evaluate and display password strength
+ *   3. Handle form submission and dispatch signup action
+ *   4. Reset form and Redux state via clear handler
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Manage local state for name, email, password, and confirm password
+ *   2. Validate password strength and rules in real-time
+ *   3. Dispatch signupUser thunk on valid form submission
+ *   4. Clear form and Redux state via handleClear
+ * Output: JSX.Element representing signup form
  */
 const SignupForm: React.FC = () => {
 
     // ---------------------------- Local State ----------------------------
-    const [name, setName] = useState("");                       // Name input value
-    const [email, setEmail] = useState("");                     // Email input value
-    const [password, setPassword] = useState("");               // Password input value
-    const [confirmPassword, setConfirmPassword] = useState(""); // Confirm password input value
+    const [name, setName] = useState("");                       // Step 1: Name input value
+    const [email, setEmail] = useState("");                     // Step 2: Email input value
+    const [password, setPassword] = useState("");               // Step 3: Password input value
+    const [confirmPassword, setConfirmPassword] = useState(""); // Step 4: Confirm password input value
 
-    const [localError, setLocalError] = useState("");           // Local validation error
-    const [passwordStrength, setPasswordStrength] = useState<"Weak" | "Medium" | "Strong" | "">(""); // Strength indicator
+    const [localError, setLocalError] = useState("");           // Step 5: Local validation error
+    const [passwordStrength, setPasswordStrength] = useState<"Weak" | "Medium" | "Strong" | "">(""); // Step 6: Strength indicator
 
-    // ---------------------------- Redux ----------------------------
-    const dispatch = useDispatch<AppDispatch>();               // Typed dispatch for actions
-    const { error, successMessage } = useAppSelector(state => state.signup); // Signup slice state
+    // ---------------------------- Redux Hooks ----------------------------
+    const dispatch = useDispatch<AppDispatch>();               // Step 1: Typed dispatch for actions
+    const { error, successMessage } = useAppSelector(state => state.signup); // Step 2: Signup slice state
 
-    // ---------------------------- Password Rules ----------------------------
+    // ---------------------------- Password Validation Functions ----------------------------
+    /**
+     * checkRules
+     * ----------------------------
+     * Input: Password string
+     * Process: Test password against four security rules
+     * Output: Object containing boolean results for each rule
+     */
     const checkRules = (pwd: string) => ({
-        lengthRule: pwd.length >= 8,                                 // Rule 1: min 8 chars
-        upperRule: /[A-Z]/.test(pwd),                                // Rule 2: uppercase
-        numberRule: /[0-9]/.test(pwd),                               // Rule 3: number
-        specialRule: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),             // Rule 4: special char
+        lengthRule: pwd.length >= 8,                                 // Rule 1: Minimum 8 characters
+        upperRule: /[A-Z]/.test(pwd),                                // Rule 2: At least one uppercase letter
+        numberRule: /[0-9]/.test(pwd),                               // Rule 3: At least one number
+        specialRule: /[!@#$%^&*(),.?":{}|<>]/.test(pwd),             // Rule 4: At least one special character
     });
 
+    /**
+     * evaluatePasswordStrength
+     * ----------------------------
+     * Input: Password string
+     * Process:
+     *   1. Return empty string if password is empty
+     *   2. Count number of passed rules
+     *   3. Return Weak for 0-2 rules, Medium for 3 rules, Strong for all 4 rules
+     * Output: Password strength level as string
+     */
     const evaluatePasswordStrength = (pwd: string): "Weak" | "Medium" | "Strong" | "" => {
-        if (!pwd) return ""; // Empty password
+        if (!pwd) return ""; // Step 1: Empty password
         const { lengthRule, upperRule, numberRule, specialRule } = checkRules(pwd);
         const passedRules = [lengthRule, upperRule, numberRule, specialRule].filter(Boolean).length;
-        if (passedRules <= 2) return "Weak";       // Weak if 0-2 rules
-        if (passedRules === 3) return "Medium";    // Medium if 3 rules
-        return "Strong";                           // Strong if all 4 rules
+        if (passedRules <= 2) return "Weak";       // Step 2: Weak if 0-2 rules passed
+        if (passedRules === 3) return "Medium";    // Step 3: Medium if 3 rules passed
+        return "Strong";                           // Step 4: Strong if all 4 rules passed
     };
 
+    /**
+     * validatePassword
+     * ----------------------------
+     * Input: Password string
+     * Process: Check each password rule and return first failure
+     * Output: Error message string or null if valid
+     */
     const validatePassword = (pwd: string): string | null => {
         const { lengthRule, upperRule, numberRule, specialRule } = checkRules(pwd);
         if (!lengthRule) return "Password must be at least 8 characters long";
         if (!upperRule) return "Password must contain at least one uppercase letter";
         if (!numberRule) return "Password must contain at least one number";
         if (!specialRule) return "Password must contain at least one special character";
-        return null; // Password valid
+        return null; // Step 5: Password valid
     };
 
     // ---------------------------- Event Handlers ----------------------------
+    /**
+     * handlePasswordChange
+     * ----------------------------
+     * Input: Password string value
+     * Process:
+     *   1. Update password state
+     *   2. Update password strength indicator
+     * Output: Updated local state
+     */
     const handlePasswordChange = (value: string) => {
         setPassword(value);                                // Step 1: Update password
         setPasswordStrength(evaluatePasswordStrength(value)); // Step 2: Update strength
     };
 
+    /**
+     * handleSubmit
+     * ----------------------------
+     * Input: Form submission event
+     * Process:
+     *   1. Validate password against security rules
+     *   2. Show error if validation fails
+     *   3. Check if password and confirm password match
+     *   4. Clear any previous local errors
+     *   5. Dispatch signupUser thunk with form data
+     * Output: Redux action dispatched or local error displayed
+     */
     const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault(); // Prevent default form submission
+        e.preventDefault(); // Step 1: Prevent default form submission
 
-        const passwordError = validatePassword(password);  // Step 1: Validate password
+        const passwordError = validatePassword(password);  // Step 2: Validate password
         if (passwordError) {
-            setLocalError(passwordError);                  // Step 2: Show error
+            setLocalError(passwordError);                  // Step 3: Show error
             return;
         }
 
-        if (password !== confirmPassword) {                // Step 3: Confirm password match
+        if (password !== confirmPassword) {                // Step 4: Confirm password match
             setLocalError("Passwords do not match");
             return;
         }
 
-        setLocalError("");                                 // Step 4: Clear errors
+        setLocalError("");                                 // Step 5: Clear errors
 
-        dispatch(signupUser({ name, email, password }));   // Step 5: Dispatch signup
+        dispatch(signupUser({ name, email, password }));   // Step 6: Dispatch signup
     };
 
+    /**
+     * handleClear
+     * ----------------------------
+     * Input: None
+     * Process:
+     *   1. Clear all form input fields
+     *   2. Clear local validation error
+     *   3. Clear password strength indicator
+     *   4. Dispatch clearSignupState to reset Redux state
+     * Output: Form and Redux state reset
+     */
     const handleClear = () => {
-        setName(""); setEmail(""); setPassword(""); setConfirmPassword(""); // Clear inputs
-        setLocalError(""); setPasswordStrength("");                           // Clear validation
-        dispatch(clearSignupState());                                         // Reset Redux slice
+        setName(""); setEmail(""); setPassword(""); setConfirmPassword(""); // Step 1: Clear inputs
+        setLocalError(""); setPasswordStrength("");                           // Step 2: Clear validation
+        dispatch(clearSignupState());                                         // Step 3: Reset Redux slice
     };
 
-    const rules = checkRules(password); // Compute rules for checklist
+    const rules = checkRules(password); // Compute rules for checklist display
 
     // ---------------------------- Render ----------------------------
+    /**
+     * Render
+     * ----------------------------
+     * Process:
+     *   1. Render Stack as form container
+     *   2. Render name and email fields in row layout
+     *   3. Render password field with strength indicator
+     *   4. Render password rules checklist
+     *   5. Render confirm password field
+     *   6. Display error and success messages
+     *   7. Render action buttons (Signup, Clear, Login redirect)
+     * Output: JSX.Element
+     */
     return (
         <Stack as="form" onSubmit={handleSubmit} w="full">
-            {/* ---------------- Name & Email on one line ---------------- */}
+            {/* Step 1: Name and Email fields on one line */}
             <Stack direction="row">
-                {/* Name Field */}
+                {/* Step 1a: Name Field */}
                 <ChakraField.Root required flex={1}>
                     <ChakraField.Label>Name</ChakraField.Label>
                     <Input
@@ -125,7 +201,7 @@ const SignupForm: React.FC = () => {
                     />
                 </ChakraField.Root>
 
-                {/* Email Field */}
+                {/* Step 1b: Email Field */}
                 <ChakraField.Root required flex={1}>
                     <ChakraField.Label>Email</ChakraField.Label>
                     <Input
@@ -137,7 +213,7 @@ const SignupForm: React.FC = () => {
                 </ChakraField.Root>
             </Stack>
 
-            {/* Password Field */}
+            {/* Step 2: Password Field with strength indicator */}
             <ChakraField.Root required>
                 <ChakraField.Label>Password</ChakraField.Label>
                 <Input
@@ -146,7 +222,7 @@ const SignupForm: React.FC = () => {
                     onChange={e => handlePasswordChange(e.target.value)}
                     placeholder="Enter password"
                 />
-                {/* Password Strength Indicator */}
+                {/* Step 2a: Password Strength Indicator */}
                 {passwordStrength && (
                     <Text
                         mt={1}
@@ -162,7 +238,7 @@ const SignupForm: React.FC = () => {
                 )}
             </ChakraField.Root>
 
-            {/* Password Rules Checklist - 2 per line */}
+            {/* Step 3: Password Rules Checklist - 2 per line */}
             <Box 
             fontSize="15px" 
             color="gray.600" 
@@ -190,7 +266,7 @@ const SignupForm: React.FC = () => {
                 </Stack>
             </Box>
 
-            {/* Confirm Password Field */}
+            {/* Step 4: Confirm Password Field */}
             <ChakraField.Root required>
                 <ChakraField.Label>Confirm Password</ChakraField.Label>
                 <Input
@@ -201,14 +277,14 @@ const SignupForm: React.FC = () => {
                 />
             </ChakraField.Root>
 
-            {/* Error and Success Messages */}
+            {/* Step 5: Error and Success Messages */}
             {localError && <Text color="red.500" fontSize="17px">{localError}</Text>}
             {error && <Text color="red.500" fontSize="17px">{error}</Text>}
             {successMessage && <Text color="green.500" fontSize="17px">{successMessage}</Text>}
 
-            {/* Action Buttons */}
+            {/* Step 6: Action Buttons */}
             <Box display="flex" alignItems="center">
-                {/* Left side: Signup and Clear buttons */}
+                {/* Step 6a: Left side - Signup and Clear buttons */}
                 <Stack direction="row">
                     <Button
                         type="submit"
@@ -230,7 +306,7 @@ const SignupForm: React.FC = () => {
                     </Button>
                 </Stack>
 
-                {/* Right side: “Already have an account?” + Login button */}
+                {/* Step 6b: Right side - Already have an account? + Login button */}
                 <Box display="flex" alignItems="center" ml="auto">
                     <Text mr={2} color="gray.700" fontSize="16px">
                         Already have an account?

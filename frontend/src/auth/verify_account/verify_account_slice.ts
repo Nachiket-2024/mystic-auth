@@ -12,26 +12,47 @@ import { verifyAccountApi } from "../../api/auth_api";
 // Types for verify account request and response
 import type { VerifyAccountPayload, VerifyAccountResponse } from "./verify_account_types";
 
-// ---------------------------- State Type ----------------------------
-// Defines the Redux state structure for account verification
+// ---------------------------- State Type Definition ----------------------------
+/**
+ * VerifyAccountState
+ * ----------------------------
+ * Defines the Redux state structure for account verification
+ * Fields:
+ *   1. loading - Indicates request in progress
+ *   2. error - Error message if verification fails
+ *   3. successMessage - Message on successful verification
+ */
 interface VerifyAccountState {
-    loading: boolean;              // Indicates request in progress
-    error: string | null;          // Error message if verification fails
-    successMessage: string | null; // Message on successful verification
+    loading: boolean;              // Step 1: Request in progress flag
+    error: string | null;          // Step 2: Error message storage
+    successMessage: string | null; // Step 3: Success message storage
 }
 
 // ---------------------------- Initial State ----------------------------
-// Default state values for account verification
+/**
+ * initialState
+ * ----------------------------
+ * Default state values for account verification
+ */
 const initialState: VerifyAccountState = {
-    loading: false,
-    error: null,
-    successMessage: null,
+    loading: false,        // Step 1: Not loading
+    error: null,           // Step 2: No error
+    successMessage: null,  // Step 3: No success message
 };
 
 // ---------------------------- Async Thunk ----------------------------
-// Async action to verify the account using the backend API
-// Methods:
-// 1. verifyAccount - Calls API to verify account and handles success/error
+/**
+ * verifyAccount
+ * ----------------------------
+ * Async action to verify the account using the backend API
+ * 
+ * Input: VerifyAccountPayload containing email and token
+ * Process:
+ *   1. Call verifyAccountApi with token and email from payload
+ *   2. Return response data if successful
+ *   3. Catch errors and reject with meaningful message
+ * Output: VerifyAccountResponse on success, or rejected string on error
+ */
 export const verifyAccount = createAsyncThunk<
     VerifyAccountResponse,   // Success return type
     VerifyAccountPayload,    // Input argument type
@@ -39,17 +60,6 @@ export const verifyAccount = createAsyncThunk<
 >(
     "auth/verifyAccount",
     async (payload, thunkAPI) => {
-        /**
-         * Input:
-         *   1. payload: VerifyAccountPayload containing email and token
-         * Process:
-         *   1. Call verifyAccountApi with token and email
-         *   2. Return response data if successful
-         *   3. Catch errors and reject with meaningful message
-         * Output:
-         *   1. VerifyAccountResponse if successful
-         *   2. Reject with string message if error occurs
-         */
         try {
             // Step 1: Call the API with token and email from payload
             const response = await verifyAccountApi(payload.token, payload.email);
@@ -66,46 +76,50 @@ export const verifyAccount = createAsyncThunk<
 );
 
 // ---------------------------- Slice ----------------------------
-// Redux slice managing verify account state
-// Methods:
-// 1. clearVerifyAccountState - Resets the verification state
-// 2. Extra reducers for verifyAccount async thunk
+/**
+ * verifyAccountSlice
+ * ----------------------------
+ * Redux slice managing verify account state
+ * Reducers:
+ *   1. clearVerifyAccountState - Resets the verification state to initial values
+ * Extra reducers handle verifyAccount async thunk states (pending, fulfilled, rejected)
+ */
 const verifyAccountSlice = createSlice({
-    name: "verifyAccount",
-    initialState,
+    name: "verifyAccount",   // Step 1: Slice name for action prefixing
+    initialState,            // Step 2: Initial state
     reducers: {
-        // ---------------------------- Clear State ----------------------------
+        /**
+         * clearVerifyAccountState
+         * ----------------------------
+         * Input: None
+         * Process:
+         *   1. Set loading to false
+         *   2. Clear error message
+         *   3. Clear success message
+         * Output: State reset to initial values
+         */
         clearVerifyAccountState: (state) => {
-            /**
-             * Input: None
-             * Process:
-             *   1. Set loading to false
-             *   2. Clear error
-             *   3. Clear success message
-             * Output: State reset to initial values
-             */
-            state.loading = false;         // Step 1
-            state.error = null;            // Step 2
-            state.successMessage = null;   // Step 3
+            state.loading = false;         // Step 1: Stop loading
+            state.error = null;            // Step 2: Clear error
+            state.successMessage = null;   // Step 3: Clear success message
         },
     },
     extraReducers: (builder) => {
         builder
-            // ---------------------------- Pending ----------------------------
+            // ---------------------------- Pending State ----------------------------
             .addCase(verifyAccount.pending, (state) => {
                 /**
-                 * Input: None
                  * Process:
-                 *   1. Set loading flag
-                 *   2. Clear error
-                 *   3. Clear success message
+                 *   1. Set loading flag to true
+                 *   2. Clear previous error
+                 *   3. Clear previous success message
                  * Output: State reflects pending API request
                  */
-                state.loading = true;        // Step 1
-                state.error = null;          // Step 2
-                state.successMessage = null; // Step 3
+                state.loading = true;        // Step 1: Show loading indicator
+                state.error = null;          // Step 2: Clear previous errors
+                state.successMessage = null; // Step 3: Clear previous success messages
             })
-            // ---------------------------- Fulfilled ----------------------------
+            // ---------------------------- Fulfilled State ----------------------------
             .addCase(
                 verifyAccount.fulfilled,
                 (state, action: PayloadAction<VerifyAccountResponse>) => {
@@ -116,21 +130,21 @@ const verifyAccountSlice = createSlice({
                      *   2. Store success message from payload
                      * Output: State reflects successful verification
                      */
-                    state.loading = false;                 // Step 1
-                    state.successMessage = action.payload.message; // Step 2
+                    state.loading = false;                 // Step 1: Stop loading
+                    state.successMessage = action.payload.message; // Step 2: Store success message
                 }
             )
-            // ---------------------------- Rejected ----------------------------
+            // ---------------------------- Rejected State ----------------------------
             .addCase(verifyAccount.rejected, (state, action) => {
                 /**
                  * Input: action.payload containing error message
                  * Process:
                  *   1. Set loading to false
-                 *   2. Store error message or default
+                 *   2. Store error message or default message
                  * Output: State reflects failed verification
                  */
-                state.loading = false;                           // Step 1
-                state.error = action.payload || "Account verification failed"; // Step 2
+                state.loading = false;                           // Step 1: Stop loading
+                state.error = action.payload || "Account verification failed"; // Step 2: Store error message
             });
     },
 });

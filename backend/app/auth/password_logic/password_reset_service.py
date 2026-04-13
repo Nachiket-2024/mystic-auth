@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 class PasswordResetService:
     """
     1. send_reset_email - Generate reset token and schedule email via Taskiq.
-    2. reset_password - Validate token, hash new password, and update user in DB.
+    2. reset_password - Validate token, check password not same as old, hash new password, and update user in DB.
     """
 
     # ---------------------------- Send Reset Email ----------------------------
@@ -89,8 +89,9 @@ class PasswordResetService:
             1. Verify the reset token via password_service.
             2. Extract email from token payload.
             3. Check new password strength via password_service.
-            4. Hash the new password securely.
-            5. Update user's hashed password in the unified users table.
+            4. Verify new password is not the same as the old password.
+            5. Hash the new password securely.
+            6. Update user's hashed password in the unified users table.
 
         Output:
             1. bool: True if password was reset successfully, False otherwise.
@@ -114,10 +115,25 @@ class PasswordResetService:
                 logger.warning("Weak password provided during reset for email: %s", email)
                 return False
 
-            # Step 4: Hash the new password securely
+            # Step 4: Get the user to check if new password is same as old
+            user = await user_crud.get_by_email(email, db)
+            if not user:
+                logger.warning("User not found during password reset for email: %s", email)
+                return False
+
+            # Step 5: Verify new password is not the same as the old password
+            if user.hashed_password:
+                is_same_password = await password_service.verify_password(
+                    new_password, user.hashed_password
+                )
+                if is_same_password:
+                    logger.warning("Password reset attempted with same password for email: %s", email)
+                    return False
+
+            # Step 6: Hash the new password securely
             hashed_password = await password_service.hash_password(new_password)
 
-            # Step 5: Update user's hashed password in the unified users table
+            # Step 7: Update user's hashed password in the unified users table
             updated = await user_crud.update_by_email(
                 email, {"hashed_password": hashed_password}, db
             )

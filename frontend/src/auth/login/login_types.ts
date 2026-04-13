@@ -1,19 +1,33 @@
 // ---------------------------- Login Request Type ----------------------------
-// Interface representing the shape of the request body for /auth/login
+/**
+ * LoginRequest
+ * ----------------------------
+ * Defines the shape of the request body sent to /auth/login endpoint
+ * Fields:
+ *   1. email - User's email address for authentication
+ *   2. password - User's password for authentication
+ */
 export interface LoginRequest {
-    // User's email address
+    // Step 1: User's email address
     email: string;
 
-    // User's password
+    // Step 2: User's password
     password: string;
 }
 
 // ---------------------------- Login Response Type ----------------------------
-// Interface representing the shape of the response from /auth/login
+/**
+ * LoginResponse
+ * ----------------------------
+ * Defines the shape of the response received from /auth/login endpoint
+ * Fields:
+ *   1. access_token - JWT access token returned by the server
+ *   2. refresh_token - JWT refresh token returned by the server
+ */
 export interface LoginResponse {
-    // JWT access token returned by the server
+    // Step 1: JWT access token for authenticating subsequent requests
     access_token: string;
 
-    // JWT refresh token returned by the server
+    // Step 2: JWT refresh token for obtaining new access tokens
     refresh_token: string;
 }

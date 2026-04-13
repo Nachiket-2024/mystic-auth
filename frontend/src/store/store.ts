@@ -19,6 +19,9 @@ import passwordResetConfirmReducer from "../auth/password_reset_confirm/password
 // ---------------------------- Store Setup ----------------------------
 /**
  * store
+ * ----------------------------
+ * Redux store instance configured with all application reducers
+ * 
  * Input: None
  * Process:
  *   1. Configure Redux store with all authentication, verification, password reset, and current user reducers
@@ -27,47 +30,53 @@ import passwordResetConfirmReducer from "../auth/password_reset_confirm/password
  */
 export const store = configureStore({
     reducer: {
-        // Step 1: 'login' slice manages authentication state (tokens, loading, error)
+        // Step 1: login slice manages authentication state (tokens, loading, error)
         login: loginReducer,
 
-        // Step 2: 'signup' slice manages signup state (loading, error, success)
+        // Step 2: signup slice manages signup state (loading, error, success)
         signup: signupReducer,
 
-        // Step 3: 'logout' slice manages single-device logout state
+        // Step 3: logout slice manages single-device logout state
         logout: logoutReducer,
 
-        // Step 4: 'logoutAll' slice manages logout from all devices state
+        // Step 4: logoutAll slice manages logout from all devices state
         logoutAll: logoutAllReducer,
 
-        // Step 5: 'oauth2' slice manages OAuth2 login state (tokens, loading, error)
+        // Step 5: oauth2 slice manages OAuth2 login state (tokens, loading, error)
         oauth2: oauth2Reducer,
 
-        // Step 6: 'verifyAccount' slice manages account verification state
+        // Step 6: verifyAccount slice manages account verification state
         verifyAccount: verifyAccountReducer,
 
-        // Step 7: 'passwordResetRequest' slice manages sending password reset emails
+        // Step 7: passwordResetRequest slice manages sending password reset emails
         passwordResetRequest: passwordResetRequestReducer,
 
-        // Step 8: 'passwordResetConfirm' slice manages confirming new passwords
+        // Step 8: passwordResetConfirm slice manages confirming new passwords
         passwordResetConfirm: passwordResetConfirmReducer,
 
-        // Step 9: 'currentUser' slice manages current user state
+        // Step 9: currentUser slice manages current user state
         currentUser: currentUserReducer,
     },
 });
 
-// ---------------------------- Types ----------------------------
+// ---------------------------- Type Definitions ----------------------------
 /**
  * RootState
+ * ----------------------------
+ * TypeScript type representing the entire Redux state tree
+ * 
  * Input: None
  * Process:
- *   1. Infer the shape of the entire Redux state tree from the store
- * Output: TypeScript type representing Redux state
+ *   1. Infer the shape of the Redux state from the store's getState function
+ * Output: TypeScript type for Redux state
  */
 export type RootState = ReturnType<typeof store.getState>;
 
 /**
  * AppDispatch
+ * ----------------------------
+ * TypeScript type for the Redux dispatch function with all slice actions and thunks
+ * 
  * Input: None
  * Process:
  *   1. Infer the type of Redux dispatch function from the store
