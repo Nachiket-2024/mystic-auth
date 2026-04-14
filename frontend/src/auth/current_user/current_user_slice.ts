@@ -75,6 +75,7 @@ export const fetchCurrentUser = createAsyncThunk<
  * Manages the current user authentication state
  * Reducers:
  *   1. resetAuthState - Reset authentication state to initial values
+ *   2. setAuthenticated - Directly set authentication state (for login/ logout)
  */
 export const currentUserSlice = createSlice({
     name: "currentUser",  // Step 1: Slice name for action prefixing
@@ -94,6 +95,22 @@ export const currentUserSlice = createSlice({
             state.isAuthenticated = null; // Step 1: Reset auth status
             state.loading = false;        // Step 2: Reset loading
             state.error = null;           // Step 3: Reset error
+        },
+        /**
+         * setAuthenticated
+         * ----------------------------
+         * Directly set authentication state (used after login/logout)
+         * Input: boolean indicating auth status
+         * Process:
+         *   1. Set isAuthenticated to provided value
+         *   2. Set loading to false (no longer loading)
+         *   3. Clear any errors
+         * Output: Updated authentication state
+         */
+        setAuthenticated: (state, action: { payload: boolean }) => {
+            state.isAuthenticated = action.payload; // Step 1: Set auth status directly
+            state.loading = false;                  // Step 2: Clear loading state
+            state.error = null;                     // Step 3: Clear errors
         },
     },
     extraReducers: (builder) => {
@@ -123,7 +140,8 @@ export const currentUserSlice = createSlice({
 
 // ---------------------------- Exports ----------------------------
 // Export reset action for manual state reset
-export const { resetAuthState } = currentUserSlice.actions;
+// Export setAuthenticated for direct auth updates
+export const { resetAuthState, setAuthenticated } = currentUserSlice.actions;
 
 // Export reducer for store integration
 export default currentUserSlice.reducer;

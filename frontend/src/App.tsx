@@ -90,6 +90,34 @@ const NotFoundPage: React.FC = () => {
     );
 };
 
+// ---------------------------- LoadingScreen Component ----------------------------
+/**
+ * LoadingScreen
+ * ----------------------------
+ * Functional component for consistent loading state display
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Render Flex container centered vertically and horizontally
+ *   2. Display Spinner for loading animation
+ *   3. Display Checking session text
+ * Output: JSX.Element showing loading state
+ */
+const LoadingScreen: React.FC = () => {
+    const bg = "#f0f0f0"; // Background for loading screen
+    
+    return (
+        // Step 1: Flex container for centering
+        <Flex align="center" justify="center" h="100vh" bg={bg}>
+            {/* Step 2: Loading spinner */}
+            <Spinner size="xl" color="#3182ce" />
+
+            {/* Step 3: Loading text */}
+            <Text ml={4} fontSize="lg" color="#4a5568">Checking session...</Text>
+        </Flex>
+    );
+};
+
 // ---------------------------- App Component ----------------------------
 /**
  * App
@@ -100,14 +128,14 @@ const NotFoundPage: React.FC = () => {
  * Process:
  *   1. Initialize Redux dispatch and select authentication state
  *   2. Fetch current user session on mount if authentication status is unknown
- *   3. Show loading screen while session is being verified
+ *   3. Show loading screen while session is being verified (until we KNOW the auth state)
  *   4. Render Router with header, main content area, and footer
  *   5. Define protected and public routes
  * Output: JSX.Element representing full app layout with routing
  */
 const App: React.FC = () => {
     const dispatch: AppDispatch = useDispatch(); // Step 1: Redux dispatch
-    const { loading, isAuthenticated } = useSelector(
+    const { isAuthenticated } = useSelector(
         (state: RootState) => state.currentUser // Step 2: Select authentication state
     );
 
@@ -127,28 +155,20 @@ const App: React.FC = () => {
     }, [dispatch, isAuthenticated]);
 
     // ---------------------------- Loading State ----------------------------
+    /**
+     * Loading State Check
+     * ----------------------------
+     * Process:
+     *   1. Check if authentication status is null (unknown)
+     *   2. If null, we don't know if user is logged in yet
+     *   3. Show loading screen until backend responds with definitive answer
+     *   4. This prevents flash of unauthenticated content or layout shift
+     * Output: LoadingScreen component or continues to main render
+     */
     // Show loading screen while authentication status is being determined
-    if (loading && isAuthenticated === null) {
-        const bg = "#f0f0f0"; // Background for loading screen
-
-        /**
-         * Loading Render
-         * ----------------------------
-         * Process:
-         *   1. Render Flex container centered vertically and horizontally
-         *   2. Display Spinner for loading animation
-         *   3. Display Checking session text
-         * Output: JSX.Element showing loading state
-         */
-        return (
-            <Flex align="center" justify="center" h="100vh" bg={bg}>
-                {/* Step 1: Loading spinner */}
-                <Spinner size="xl" color="#3182ce" />
-
-                {/* Step 2: Loading text */}
-                <Text ml={4} fontSize="lg" color="#4a5568">Checking session...</Text>
-            </Flex>
-        );
+    // We show loading until isAuthenticated is no longer null (meaning we have a definitive answer)
+    if (isAuthenticated === null) {
+        return <LoadingScreen />; // Step 1: Show consistent loading screen
     }
 
     const headerBg = "linear-gradient(to right, #4299e1, #38b2ac)"; // Step 1: Header gradient

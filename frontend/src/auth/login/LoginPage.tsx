@@ -8,8 +8,8 @@ import { useNavigate, Link, Navigate } from "react-router-dom";
 // Import Redux hooks for selecting state and dispatching actions
 import { useSelector, useDispatch } from "react-redux";
 
-// Import Chakra UI components for layout, text, stack, separators, and flexbox
-import { Stack, Heading, Text, StackSeparator, Flex } from "@chakra-ui/react";
+// Import Chakra UI components for layout, text, stack, separators, flexbox, and spinner
+import { Stack, Heading, Text, StackSeparator, Flex, Spinner } from "@chakra-ui/react";
 
 // ---------------------------- Internal Imports ----------------------------
 // Import LoginForm component for standard username and password login
@@ -23,6 +23,29 @@ import type { RootState, AppDispatch } from "../../store/store";
 
 // Import action to clear stale OAuth2 user session
 import { clearUserSession } from "../oauth2/oauth2_slice";
+
+// ---------------------------- LoadingSpinner Component ----------------------------
+/**
+ * LoadingSpinner
+ * ----------------------------
+ * Consistent loading spinner component matching app theme
+ * Prevents "Loading..." text flash by using Chakra UI Spinner
+ * 
+ * Input: None (no props)
+ * Process:
+ *   1. Render centered Flex container
+ *   2. Display Spinner with proper sizing
+ *   3. Show loading text next to spinner
+ * Output: JSX.Element showing styled loading state
+ */
+const LoadingSpinner: React.FC = () => {
+    return (
+        <Flex justify="center" align="center" minH="400px">
+            <Spinner size="xl" color="teal.500" />
+            <Text ml={4} fontSize="lg" color="gray.600">Signing you in...</Text>
+        </Flex>
+    );
+};
 
 // ---------------------------- LoginPage Component ----------------------------
 /**
@@ -66,8 +89,13 @@ const LoginPage: React.FC = () => {
     }, [dispatch]);
 
     // ---------------------------- Conditional Returns ----------------------------
-    // Step 1: Show loading text if login process is in progress
-    if (loading) return <Text>Loading...</Text>;
+    /**
+     * Loading State Check
+     * ----------------------------
+     * Returns centered spinner with proper styling matching app theme
+     */
+    // Step 1: Show loading spinner if login process is in progress (no text flash)
+    if (loading) return <LoadingSpinner />;
 
     // Step 2: Redirect to dashboard if already authenticated
     if (isAuthenticated) return <Navigate to="/dashboard" replace />;

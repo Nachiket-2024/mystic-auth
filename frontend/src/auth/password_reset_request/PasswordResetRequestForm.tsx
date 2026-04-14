@@ -34,17 +34,44 @@ const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
  *   2. Select loading, error, and successMessage from Redux store
  *   3. Dispatch requestPasswordReset thunk on form submission
  *   4. Dispatch clearPasswordResetRequestState to reset form state
+ *   5. Implement cooldown timer to prevent spam requests
  * Output: JSX.Element representing password reset request form with Chakra UI styling
  */
 const PasswordResetRequestForm: React.FC = () => {
     // ---------------------------- Local State ----------------------------
     const [email, setEmail] = useState(""); // Step 1: Store email input from user
+    const [cooldown, setCooldown] = useState(0); // Step 2: Cooldown timer in seconds
 
     // ---------------------------- Redux Hooks ----------------------------
     const dispatch = useDispatch<AppDispatch>();      // Step 1: Get typed dispatch function
-    const { error, successMessage } = useAppSelector(
+    const { error, successMessage, loading } = useAppSelector(
         (state) => state.passwordResetRequest           // Step 2: Extract Redux state
     );
+
+    // ---------------------------- Helper Functions ----------------------------
+    /**
+     * startCooldown
+     * ----------------------------
+     * Input: None
+     * Process:
+     *   1. Set cooldown to 60 seconds
+     *   2. Create interval to decrement cooldown every second
+     *   3. Clear interval when cooldown reaches 0
+     * Output: None
+     */
+    const startCooldown = () => {
+        setCooldown(60); // 60 seconds cooldown
+        
+        const interval = setInterval(() => {
+            setCooldown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
 
     // ---------------------------- Event Handlers ----------------------------
     /**
@@ -53,12 +80,21 @@ const PasswordResetRequestForm: React.FC = () => {
      * Input: Form submit event
      * Process:
      *   1. Prevent default form submission behavior
-     *   2. Dispatch async thunk to request password reset with the provided email
+     *   2. Check if cooldown is active (prevent spam)
+     *   3. Dispatch async thunk to request password reset with the provided email
+     *   4. Start cooldown timer to prevent multiple requests
      * Output: Redux state updated with loading, error, or successMessage
      */
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();                          // Step 1: Prevent default
-        dispatch(requestPasswordReset({ email }));   // Step 2: Dispatch thunk
+        
+        // Step 2: Prevent submission if cooldown is active
+        if (cooldown > 0) {
+            return;
+        }
+        
+        dispatch(requestPasswordReset({ email }));   // Step 3: Dispatch thunk
+        startCooldown();                             // Step 4: Start cooldown timer
     };
 
     /**
@@ -68,11 +104,13 @@ const PasswordResetRequestForm: React.FC = () => {
      * Process:
      *   1. Dispatch Redux action to reset password reset request state
      *   2. Clear local email state
+     *   3. Reset cooldown timer
      * Output: Redux state reset to initial values, form cleared
      */
     const handleClear = () => {
         dispatch(clearPasswordResetRequestState()); // Step 1: Reset Redux state
         setEmail("");                               // Step 2: Clear local email state
+        setCooldown(0);                             // Step 3: Reset cooldown
     };
 
     // ---------------------------- Render ----------------------------
@@ -82,7 +120,7 @@ const PasswordResetRequestForm: React.FC = () => {
      * Process:
      *   1. Render Stack as form container with full width and spacing
      *   2. Render email input field with Chakra styling
-     *   3. Render submit button with loading state
+     *   3. Render submit button with loading state and cooldown display
      *   4. Render clear button to reset form
      *   5. Display error message if request failed
      *   6. Display success message if request succeeded
@@ -99,9 +137,10 @@ const PasswordResetRequestForm: React.FC = () => {
                 size="lg"
                 required
                 autoFocus
+                disabled={loading}
             />
 
-            {/* Step 2: Submit button with loading state */}
+            {/* Step 2: Submit button with loading state and cooldown */}
             <Button
                 type="submit"
                 bg="teal.600"
@@ -109,9 +148,11 @@ const PasswordResetRequestForm: React.FC = () => {
                 color="white"
                 size="lg"
                 w="full"
-                loadingText="Requesting..."
+                loading={loading}
+                disabled={cooldown > 0 || loading} // Fixed: Changed isDisabled to disabled
+                loadingText="Sending..."
             >
-                Request Password Reset
+                {cooldown > 0 ? `Try again in ${cooldown}s` : "Request Password Reset"}
             </Button>
 
             {/* Step 3: Clear button */}
@@ -123,6 +164,7 @@ const PasswordResetRequestForm: React.FC = () => {
                 size="lg"
                 w="full"
                 onClick={handleClear}
+                disabled={loading} // Fixed: Changed isDisabled to disabled
             >
                 Clear
             </Button>

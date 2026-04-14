@@ -36,17 +36,18 @@ broker: AsyncBroker = RedisStreamBroker(
 
 # ---------------------------- Async Email Sending Task ----------------------------
 @broker.task
-async def send_email_task(to_email: str, subject: str, body: str) -> bool:
+async def send_email_task(to_email: str, subject: str, body: str, is_html: bool = True) -> bool:
     """
     Input:
         1. to_email (str): Recipient email address.
         2. subject (str): Email subject line.
-        3. body (str): Email content/body.
+        3. body (str): Email content/body (HTML or plain text).
+        4. is_html (bool): True if body is HTML, False for plain text. Defaults to True.
 
     Process:
         1. Create a new EmailMessage instance.
         2. Set the From, To, and Subject headers.
-        3. Set the body/content of the email.
+        3. Set the body/content of the email with appropriate content type.
         4. Connect to Gmail SMTP server using the App Password and send the email.
         5. Return True if email sent successfully, otherwise False.
 
@@ -62,8 +63,13 @@ async def send_email_task(to_email: str, subject: str, body: str) -> bool:
         message["To"] = to_email
         message["Subject"] = subject
 
-        # Step 3: Set the body/content of the email
-        message.set_content(body)
+        # Step 3: Set the body/content of the email with appropriate content type
+        if is_html:
+            # Set HTML content type for professional email formatting
+            message.set_content(body, subtype="html")
+        else:
+            # Set plain text content type for simple emails
+            message.set_content(body)
 
         # Step 4: Connect to Gmail SMTP server using the App Password and send the email
         # Note: GMAIL_APP_PASSWORD is stored securely in settings (from .env)

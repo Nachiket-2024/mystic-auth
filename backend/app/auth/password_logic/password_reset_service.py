@@ -42,7 +42,7 @@ class PasswordResetService:
             1. Verify user exists in the unified users table.
             2. Generate password reset token via password_service.
             3. Construct frontend reset URL with the token.
-            4. Schedule email sending asynchronously via Taskiq.
+            4. Schedule email sending asynchronously via Taskiq with professional HTML template.
 
         Output:
             1. bool: True if email scheduled successfully, False otherwise.
@@ -57,15 +57,55 @@ class PasswordResetService:
             # Step 2: Generate password reset token via password_service
             # Token carries only email — role is no longer needed for reset flow
             reset_token = await password_service.create_reset_token(email)
+            
+            # Get token expiration time from settings
+            expires_minutes = settings.RESET_TOKEN_EXPIRE_MINUTES
 
             # Step 3: Construct frontend reset URL with the token
             reset_url = f"{settings.FRONTEND_BASE_URL}/reset-password?token={reset_token}"
 
-            # Step 4: Schedule email sending asynchronously via Taskiq
+            # Step 4: Schedule email sending asynchronously via Taskiq with professional HTML template
+            # Professional email subject line
+            email_subject = "Reset Your Password"
+            
+            # Professional HTML email body with responsive design and expiration time
+            email_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <h2 style="color: #2c3e50; border-bottom: 2px solid #e53e3e; padding-bottom: 10px;">Welcome to Full Stack Template</h2>
+                    
+                    <p style="font-size: 16px;">Hello,</p>
+                    
+                    <p style="font-size: 16px;">A password reset was requested for your account. Click the button below to create a new password:</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_url}" 
+                           style="background-color: #e53e3e; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                            Reset Your Password
+                        </a>
+                    </div>
+                    
+                    <p style="font-size: 14px; color: #666666;">If the button doesn't work, copy and paste this link into your browser:</p>
+                    <p style="font-size: 14px; color: #e53e3e; word-break: break-all;">{reset_url}</p>
+                    
+                    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                    
+                    <p style="font-size: 12px; color: #999999;">This password reset link will expire in <strong>{expires_minutes} minutes</strong> for security reasons.</p>
+                    
+                    <p style="font-size: 12px; color: #999999;">If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+                    
+                    <p style="font-size: 14px; color: #666666;">Best regards,<br>The Full Stack Template Team</p>
+                </div>
+            </body>
+            </html>
+            """
+
             await send_email_task.kiq(
                 to_email=email,
-                subject="Password Reset Request",
-                body=f"Click the link to reset your password: {reset_url}"
+                subject=email_subject,
+                body=email_body,
+                is_html=True
             )
 
             # Log after successful scheduling

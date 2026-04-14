@@ -46,7 +46,7 @@ class AccountVerificationService:
             1. Generate verification token for user with expiration.
             2. Store token in Redis to enforce single-use.
             3. Build frontend verification URL with token.
-            4. Schedule asynchronous email task via Taskiq.
+            4. Schedule asynchronous email task via Taskiq with professional HTML template.
             5. Return true if email scheduled successfully.
 
         Output:
@@ -68,11 +68,47 @@ class AccountVerificationService:
             # Step 3: Build frontend verification URL with token
             verify_url = f"{settings.FRONTEND_BASE_URL}/verify-account?token={verification_token}"
 
-            # Step 4: Schedule asynchronous email task via Taskiq
+            # Step 4: Schedule asynchronous email task via Taskiq with professional HTML template
+            # Professional email subject line
+            email_subject = "Verify Your Email Address"
+            
+            # Professional HTML email body with responsive design
+            email_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Welcome to Full Stack Template</h2>
+                    
+                    <p style="font-size: 16px;">Hello,</p>
+                    
+                    <p style="font-size: 16px;">Thank you for registering with us. Please verify your email address by clicking the button below:</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{verify_url}" 
+                           style="background-color: #3498db; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">
+                            Verify Email Address
+                        </a>
+                    </div>
+                    
+                    <p style="font-size: 14px; color: #666666;">If the button doesn't work, copy and paste this link into your browser:</p>
+                    <p style="font-size: 14px; color: #3498db; word-break: break-all;">{verify_url}</p>
+                    
+                    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                    
+                    <p style="font-size: 12px; color: #999999;">This verification link will expire in {expires_minutes} minutes for security reasons.</p>
+                    
+                    <p style="font-size: 12px; color: #999999;">If you didn't create an account with us, please ignore this email.</p>
+                    
+                    <p style="font-size: 14px; color: #666666;">Best regards,<br>The Full Stack Template Team</p>
+                </div>
+            </body>
+            </html>
+            """
+
             await send_email_task.kiq(
                 to_email=email,
-                subject="Account Verification",
-                body=f"Click the link to verify your account: {verify_url}"
+                subject=email_subject,
+                body=email_body
             )
 
             # Log success
