@@ -1,8 +1,8 @@
-# Full Stack Template
+# MysticAuth
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green?logo=fastapi)
-![React](https://img.shields.io/badge/React-18+-blue?logo=react)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.139+-green?logo=fastapi)
+![React](https://img.shields.io/badge/React-19+-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue?logo=postgresql)
@@ -14,79 +14,75 @@
 
 ## Overview
 
-A scalable full-stack template with a FastAPI backend and a React + TypeScript frontend, built around a unified users table with role-based access control (RBAC). Supports email+password and Google (OAuth2) login, async operations, and JWT authentication with a three-tier role hierarchy: user → admin → system.
+A full-stack identity and access management platform with authentication, OAuth2/PKCE integration, and fine-grained Policy-Based Access Control (PBAC). Every access decision is made by an assigned, active `Policy`; a user's `role` column is display/grouping metadata only and is never consulted when deciding what someone can do. Supports email+password and Google OAuth2 (with PKCE) login, fully async operations, and JWT authentication delivered as httpOnly cookies.
+
+See [`docs/README.md`](docs/README.md) for the full documentation set — architecture, authentication, authorization, database, API reference, background workers, security, testing, Docker, CI/CD, and deployment.
 
 ---
 
-## 🖼️ Demo / Screenshot
+## Screenshots
 
-Login page :
+### Login
 
-![Login Page Screenshot](demo_assets/login_page.png)
-
----
-
-Signup Page :
-
-![Signup Page Screenshot](demo_assets/signup_page.png)
+![Login Page](screenshots/login.png)
 
 ---
 
-Verify Account Page :
+### User Dashboard (Normal User)
 
-![Verify Account Page Screenshot](demo_assets/verify_account_page.png)
-
----
-
-Dashboard Page :
-
-![Dashboard Page Screenshot](demo_assets/dashboard_page.png)
+![MysticAuth Dashboard](screenshots/dashboard.png)
 
 ---
 
-Forgot Password Page :
+### System User Dashboard
 
-![Forgot Password Page Screenshot](demo_assets/forgot_password_page.png)
+![System User Dashboard](screenshots/system_user_dashboard.png)
 
 ---
 
-Reset Password Page :
+### User Management
 
-![Reset Password Page Screenshot](demo_assets/reset_password_page.png)
+![User Management](screenshots/users.png)
+
+---
+
+### Policy Management
+
+![Policy Management](screenshots/policies.png)
+
+---
+
+### Assign Policies
+
+![Policy Assignment](screenshots/assign_policies.png)
+
+---
+
+### Audit Logs (Dark Mode)
+
+![Audit Logs](screenshots/audit_log_dark_mode_system_user.png)
 
 ---
 
 ## 🛠️ Stack
 
-- **Backend:** FastAPI, SQLAlchemy (async), Alembic migrations
-- **Authentication:** Email + Password (with JWT access & refresh tokens), Google OAuth2
-- **Frontend:** TypeScript, React + Vite, Chakra UI
-- **State Management:** Redux (main app state)
+- **Backend:** FastAPI (fully async), SQLAlchemy 2.0 (async, `asyncpg`), Alembic migrations
+- **Authentication:** Email + Password (Argon2 hashing, JWT access & refresh tokens), Google OAuth2 with PKCE
+- **Authorization:** Policy-Based Access Control (PBAC) — see [PBAC Architecture](docs/authorization/architecture.md)
+- **Frontend:** TypeScript, React 19 + Vite, Chakra UI v3
+- **State Management:** Zustand (client/session state) + TanStack Query (server state/caching)
 - **Database:** PostgreSQL (async)
-- **Caching & Tasks:** Redis + Taskiq (async task queue)
-- **Deployment:** Docker
+- **Caching & Tasks:** Redis + Taskiq (async background email delivery)
+- **Deployment:** Docker (dev and production Compose files)
 
 ---
 
-## 👥 Role System
+## 🔐 Authentication & Authorization
 
-This template uses a single `users` table with a mutually exclusive role column. There are three roles arranged in a strict hierarchy:
-
-| Role | Description |
-|---|---|
-| `user` | Default role assigned on signup. Can manage own profile only. |
-| `admin` | Elevated role assigned by system. Can manage all regular users. |
-| `system` | Superuser role. Can promote/demote admins and access all routes. Created via CLI only — never via API. |
-
-### Role Hierarchy
-
-```
-system  →  full access, manages admins
-  ↓
-admin   →  manages regular users
-  ↓
-user    →  manages own profile only
-```
+- **Authentication** answers *who is calling* — email+password or Google OAuth2/PKCE, JWT access+refresh token pair delivered as httpOnly, secure, `SameSite=Strict` cookies. See [Authentication Overview](docs/authentication/overview.md) and [OAuth2 / PKCE](docs/authentication/oauth2-pkce.md).
+- **Authorization** answers *what they're allowed to do* — every protected route depends on `require_authorization(action, resource_type)`, which checks the caller's assigned, active `Policy` rows (optionally condition-gated by time, network, ownership, and more). Nothing above that layer ever reads `role` to make an access decision. See [PBAC Architecture](docs/authorization/architecture.md).
+- New accounts (signup or first-time OAuth2 login) are granted access via an explicit `self_service` policy assignment, not a default role.
+- `role` (`user` / `admin` / `system`) still exists on the `users` table as display/grouping metadata, and the reserved `system` account is excluded from OAuth2 login and from generic admin routes as a resource-protection invariant — but no route decides access by comparing `role`.
 
 ---
 
@@ -95,8 +91,8 @@ user    →  manages own profile only
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Nachiket-2024/full_stack_template.git
-cd full_stack_template
+git clone https://github.com/Nachiket-2024/mystic-auth.git
+cd mystic-auth
 ```
 
 ### 2. Set up the environment (only if running locally; skip if using Docker)
@@ -121,12 +117,14 @@ npm install
 
 ## ⚙️ Environment Variables
 
-All environment variables are defined in `.env.example`in both project root and frontend folder.
-Copy it to `.env` and update the values with your own credentials:
+All environment variables are defined in `.env.example` in both the project root and the `frontend` folder. Copy each to `.env` and fill in your own values:
 
 ```bash
 cp .env.example .env
+cp frontend/.env.example frontend/.env
 ```
+
+`SECRET_KEY` must be at least 32 characters — the app refuses to start with a shorter value (see [Security Decisions](docs/security/decisions.md)).
 
 ---
 
@@ -134,7 +132,7 @@ cp .env.example .env
 
 > Instructions below assume that you are at the root of the repository while running the commands.
 
-> Configure your Google Cloud project and enable the OAuth API before use.
+> Configure your Google Cloud project and enable the OAuth API before use (see [OAuth2 / PKCE](docs/authentication/oauth2-pkce.md) for the exact `GOOGLE_REDIRECT_URI` requirement).
 
 ### Path 1. Docker (Recommended)
 
@@ -147,9 +145,11 @@ Once the services are running:
 - **Backend:** [http://localhost:8000/docs](http://localhost:8000/docs) – FastAPI API docs and endpoints
 - **Frontend:** [http://localhost:5173](http://localhost:5173) – React + Vite frontend
 - **PostgreSQL:** `localhost:5432` – Database ready for connections
-- **Redis:** `localhost:6379` – Cache and Taskiq broker
-- **Taskiq worker:** Automatically listens for async tasks and queues
-- **Alembic migrations:** Run automatically on container startup, ensures DB schema is up to date
+- **Redis:** `localhost:6379` – Cache, rate limiting, and Taskiq broker
+- **Taskiq worker:** Automatically listens for async tasks (email sending)
+- **Alembic migrations:** Run automatically on stack startup, ensures the DB schema is current before `backend`/`taskiq_worker` start
+
+See [Docker Overview](docs/docker/overview.md) for the full service breakdown and [Deployment Guide](docs/deployment/guide.md) for production Compose usage and free/low-cost hosting options.
 
 ---
 
@@ -194,7 +194,7 @@ npm run dev
 
 ## 🔑 First-Time Setup — Creating the System Superuser
 
-After starting the app for the first time, you need to create the system superuser. This is a one-time step that bootstraps the role hierarchy.
+After starting the app for the first time, create the reserved system account — a one-time step that seeds the account holding the `system_superuser` policy (see [PBAC Policy Examples](docs/authorization/policy-examples.md)).
 
 ### Docker
 
@@ -220,7 +220,7 @@ Enter system user password:
 System user 'you@example.com' created successfully.
 ```
 
-This only needs to be run once. The system user persists in the database volume.
+This only needs to be run once. The system user persists in the database volume. It can never be created, modified, or promoted via any API endpoint — CLI only.
 
 ---
 
@@ -228,29 +228,36 @@ This only needs to be run once. The system user persists in the database volume.
 
 | Feature | Details |
 |---|---|
-| Signup | Creates a `user` role account, sends email verification |
-| Email Verification | Single-use JWT token stored in Redis |
-| Login | Returns JWT access + refresh tokens as HTTP-only cookies |
-| Google OAuth2 | Creates or logs in user, skips email verification |
-| Token Refresh | Rotates refresh token, issues new access token |
-| Logout | Revokes refresh token from Redis, clears cookies |
-| Logout All | Revokes all refresh tokens for user across all devices |
-| Forgot Password	| User requests reset via email, receives secure link |
-| Reset Password | User clicks email link, enters new password with strength validation |
+| Signup | Creates an account and assigns the baseline `self_service` policy; sends an email verification link |
+| Email Verification | Single-use, Redis-backed token |
+| Login | Timing-attack-resistant password check; returns JWT access + refresh tokens as httpOnly cookies |
+| Google OAuth2 (PKCE) | Creates or logs in a user; Google's own email verification is trusted, so no separate verification step is needed |
+| Token Refresh | Rotates the refresh token; reuse of an already-rotated token revokes every session for that account |
+| Logout | Revokes the current refresh token, clears cookies |
+| Logout All | Revokes every refresh token for the account, across every device |
+| Forgot Password | User requests a reset link via email (same generic response whether or not the email is registered) |
+| Reset Password | User redeems the link, sets a new password (strength-validated, can't reuse the current password), and every other session is logged out |
+
+See [Authentication Overview](docs/authentication/overview.md) for the full mechanics of each flow.
 
 ---
 
 ## 🛡️ Security Features
 
-- JWT access and refresh tokens stored as HTTP-only cookies
-- Refresh token rotation on every use
-- Token revocation via Redis blacklist
-- IP-based rate limiting on all auth endpoints
-- Brute-force protection with account lockout via Redis
-- Email verification required before login
-- Password strength validation on signup and password reset
-- Same password prevention on password reset (cannot reuse old password)
-- System user protected from deletion and role changes via API
+- Policy-Based Access Control — every action is gated by an assigned policy, never by `role`
+- JWT access and refresh tokens stored as httpOnly, secure, `SameSite=Strict` cookies
+- Refresh token rotation with reuse detection (a replayed token revokes every session for that account)
+- Dual rate limiting (per-IP and per-account) plus a separate brute-force lockout on login
+- Timing-attack-resistant login/signup/password-reset paths
+- Email verification required before password-based login
+- Password strength validation on signup and password reset, with same-password reuse prevention
+- Security response headers (CSP, HSTS, X-Frame-Options, etc.) on every response
+- Trusted-proxy-aware IP resolution (`TRUSTED_PROXY_IPS`) for rate limiting, lockout, and audit logging behind a reverse proxy
+- `SECRET_KEY` minimum-length enforcement at startup
+- Two independent audit logs: a security/session-event log and a PBAC decision log — see [Database Design](docs/database/design.md#why-two-audit-tables-not-one)
+- System user protected from deletion, role changes, and OAuth2 login via API — CLI-only creation
+
+See [Security Hardening](docs/security/hardening.md) and [Security Decisions](docs/security/decisions.md) for the full detail and rationale, and [Known Issues & Concerns](docs/concerns/README.md) for what's tracked as still outstanding.
 
 ---
 
@@ -258,12 +265,30 @@ This only needs to be run once. The system user persists in the database volume.
 
 - All credentials and secrets are loaded from `.env`
 - **Alembic** is used for database migrations
-- **Redis + Taskiq** are used for async tasks and caching
-- OAuth2 setup requires Google credentials
-- JWT access and refresh tokens are handled in the auth folder with modular files for clarity
-- Redux manages global app state
-- **Type Safety:** Full TypeScript support across frontend (components, hooks, Redux store)
+- **Redis + Taskiq** are used for async email delivery, caching, and rate limiting
+- OAuth2 setup requires Google Cloud credentials
+- **Zustand** manages client-side session state; **TanStack Query** manages all server-state caching
+- **Type Safety:** Full TypeScript support across the frontend (components, hooks, store)
 - The system user can only be created via CLI — it is never exposed through any API endpoint
+
+---
+
+## 📚 Documentation
+
+Full documentation lives in [`docs/`](docs/README.md), organized by feature/domain:
+
+- [Architecture](docs/README.md#architecture) (system overview, backend, frontend)
+- [Authentication](docs/README.md#authentication) & [OAuth2/PKCE](docs/authentication/oauth2-pkce.md)
+- [Authorization (PBAC)](docs/README.md#authorization-pbac)
+- [Database Design](docs/database/design.md)
+- [API Reference](docs/api/reference.md)
+- [Background Workers](docs/background-workers/taskiq.md)
+- [Security](docs/README.md#security)
+- [Testing](docs/testing/overview.md)
+- [Docker](docs/docker/overview.md)
+- [CI/CD](docs/cicd/overview.md)
+- [Deployment](docs/deployment/guide.md)
+- [Known Issues & Concerns](docs/concerns/README.md)
 
 ---
 

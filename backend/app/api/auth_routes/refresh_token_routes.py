@@ -1,41 +1,23 @@
-# ---------------------------- External Imports ----------------------------
-# Import FastAPI's router, request body parsing, and request object
-from fastapi import APIRouter, Body, Request
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# ---------------------------- Internal Imports ----------------------------
-# Schemas for validating refresh token requests and shaping token pair responses
-from ...auth.token_logic.token_schema import (
-    RefreshTokenSchema,        # Schema for incoming refresh token request
-    TokenPairResponseSchema,   # Schema for returning both access + refresh tokens
-)
-
-# Import refresh token handler for processing logic
+from ...auth.token_logic.token_schema import TokenPairResponseSchema
 from ...auth.refresh_token_logic.refresh_token_handler import refresh_token_handler
-
-# Import centralized logger factory to create structured, module-specific loggers
+from ...database.connection import database
 from ...logging.logging_config import get_logger
 
-# ---------------------------- Logger Setup ----------------------------
-# Create a logger instance for this module
 logger = get_logger(__name__)
 
-# ---------------------------- Router ----------------------------
-# Define FastAPI router for refresh token endpoints
 router = APIRouter(prefix="/auth/refresh", tags=["Refresh Token"])
 
-# ---------------------------- Refresh Tokens Endpoint ----------------------------
+
 @router.post("/", response_model=TokenPairResponseSchema)
-async def refresh_tokens(request: Request, payload: RefreshTokenSchema = Body(...)):
+async def refresh_tokens(request: Request, db: AsyncSession = Depends(database.get_session)):
     """
-    Input:
-        1. request (Request): FastAPI request object for accessing cookies/headers.
-        2. payload (RefreshTokenSchema): Incoming refresh token from client request.
-
-    Process:
-        1. Delegate handling of refresh token validation and new token issuance to refresh_token_handler.
-
-    Output:
-        1. TokenPairResponseSchema: Response containing new access and refresh tokens or error.
+    Reads the refresh token from the httponly cookie — it's issued httponly
+    (token_cookie_handler.py) specifically so client-side JS can never read it,
+    meaning it can only reach this endpoint via the cookie the browser attaches
+    automatically. Mirrors logout_handler.py's identical extraction pattern.
     """
-    # Delegate handling of refresh token logic to handler
-    return await refresh_token_handler.handle_refresh_tokens(request, payload)
+    refresh_token = request.cookies.get("refresh_token")
+    return await refresh_token_handler.handle_refresh_tokens(request, refresh_token, db)

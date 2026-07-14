@@ -1,76 +1,48 @@
-# ---------------------------- External Imports ----------------------------
-# Import FastAPI classes for exceptions, request parsing, and dependency injection
-from fastapi import HTTPException, Request, Body
-
-# Import traceback to capture detailed stack traces for debugging
+from fastapi import HTTPException, Request
 import traceback
-
-# Import FastAPI's JSONResponse for constructing responses
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# ---------------------------- Internal Imports ----------------------------
-# Import service responsible for validating and rotating refresh tokens
+# Resolves the real client IP, honoring X-Forwarded-For only from a configured
+# trusted reverse proxy (see core/client_ip.py).
+from ...core.client_ip import get_client_ip
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
-
-# Import service to enforce rate limiting
 from ...auth.security.rate_limiter_service import rate_limiter_service
-
-# Import service that provides brute-force protection
 from ...auth.security.login_protection_service import login_protection_service
-
-# Import Pydantic schema representing the refresh token request payload and pair of JWT tokens (access + refresh)
-from ..token_logic.token_schema import RefreshTokenSchema, TokenPairResponseSchema
-
-# Import cookie handler to securely set tokens in HTTP-only cookies
+from ..token_logic.token_schema import TokenPairResponseSchema
 from ..token_logic.token_cookie_handler import token_cookie_handler
-
-# Import centralized logger factory to create structured, module-specific loggers
 from ...logging.logging_config import get_logger
 
-# ---------------------------- Logger Setup ----------------------------
-# Create a logger instance for this module
 logger = get_logger(__name__)
 
-# ---------------------------- Refresh Token Handler Class ----------------------------
-# Handler class responsible for validating, rotating, and setting new refresh tokens securely
+
 class RefreshTokenHandler:
-    """
-    1. handle_refresh_tokens - Validate and rotate refresh tokens with rate limiting and brute-force protection.
-    """
+    """Validates and rotates refresh tokens, with rate limiting and brute-force protection."""
 
-    # ---------------------------- Handle Refresh Tokens ----------------------------
-    # Static method to process refresh token rotation requests
     @staticmethod
-    async def handle_refresh_tokens(request: Request, payload: RefreshTokenSchema = Body(...)):
-        """
-        Input:
-            1. request (Request): FastAPI request object containing client connection metadata.
-            2. payload (RefreshTokenSchema): Request body containing the user's refresh token.
-
-        Process:
-            1. Extract client IP address from request.
-            2. Generate Redis keys for rate limiting and brute-force tracking.
-            3. Enforce rate limit to prevent abuse.
-            4. Check if client IP is locked due to repeated failed attempts.
-            5. Validate and rotate refresh token using refresh_token_service.
-            6. Handle invalid or revoked refresh tokens and record failure.
-            7. Reset failed attempt counter on successful token rotation.
-            8. Create a response object to attach new tokens.
-            9. Attach access and refresh tokens as secure HTTP-only cookies.
-            10. Return the final response object with cookies set.
-
-        Output:
-            1. JSONResponse: Response with cookies set or raises HTTPException on validation or server errors.
-        """
+    async def handle_refresh_tokens(request: Request, refresh_token: str | None, db: AsyncSession = None):
         try:
-            # Step 1: Extract client IP address from request
-            client_ip = request.client.host
+            # Same 401 outcome as an invalid token, so a client can't distinguish
+            # "never had a session" from "had one that's now invalid" purely from
+            # this response.
+            if not refresh_token:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid or revoked refresh token"
+                )
 
-            # Step 2: Generate Redis keys for rate limiting and brute-force tracking
-            rate_key = f"refresh:ip:{client_ip}"
-            lock_key = f"refresh:ip:{client_ip}"
+            client_ip = get_client_ip(request) or "unknown"
 
-            # Step 3: Enforce rate limit to prevent abuse
+            # These must live in distinct key namespaces — rate_limiter_service
+            # and login_protection_service each maintain their own independent
+            # counter/TTL semantics (a sliding request count vs. a failure
+            # count), and sharing one key made every refresh call, successful or
+            # not, count towards the 5-attempt lockout threshold: a handful of
+            # legitimate token rotations from one IP could trip "too many failed
+            # attempts" with zero actual failures.
+            rate_key = f"refresh:ratelimit:ip:{client_ip}"
+            lock_key = f"refresh:lockout:ip:{client_ip}"
+
             allowed = await rate_limiter_service.record_request(rate_key)
             if not allowed:
                 raise HTTPException(
@@ -78,7 +50,6 @@ class RefreshTokenHandler:
                     detail="Too many refresh attempts. Try again later."
                 )
 
-            # Step 4: Check if client IP is locked due to repeated failed attempts
             is_locked = await login_protection_service.is_locked(lock_key)
             if is_locked:
                 raise HTTPException(
@@ -86,39 +57,34 @@ class RefreshTokenHandler:
                     detail="Too many failed refresh attempts. Try later."
                 )
 
-            # Step 5: Validate and rotate refresh token using refresh_token_service
-            tokens: TokenPairResponseSchema = await refresh_token_service.refresh_tokens(payload.refresh_token)
+            # refresh_tokens returns a plain dict[str, str], not the schema —
+            # convert it the same way oauth2_login_handler does, rather than
+            # accessing attributes that a dict doesn't have.
+            tokens_dict = await refresh_token_service.refresh_tokens(refresh_token, db, request)
 
-            # Step 6: Handle invalid or revoked refresh tokens and record failure
-            if not tokens or not tokens.access_token:
+            if not tokens_dict or not tokens_dict.get("access_token"):
                 await login_protection_service.record_failed_attempt(lock_key)
                 raise HTTPException(
                     status_code=401,
                     detail="Invalid or revoked refresh token"
                 )
 
-            # Step 7: Reset failed attempt counter on successful token rotation
+            tokens = TokenPairResponseSchema(**tokens_dict)
+
             await login_protection_service.reset_failed_attempts(lock_key)
 
-            # Step 8: Create a response object to attach new tokens
             response = JSONResponse(content={"message": "Tokens refreshed successfully"})
 
-            # Step 9: Attach access and refresh tokens as secure HTTP-only cookies
             token_cookie_handler.set_tokens_in_cookies(response, tokens)
 
-            # Step 10: Return the final response object with cookies set
             return response
 
         except HTTPException:
-            # Re-raise controlled HTTP exceptions (client errors)
             raise
 
         except Exception:
-            # Handle and log unexpected errors gracefully
             logger.error("Error in refresh token handler:\n%s", traceback.format_exc())
             raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-# ---------------------------- Singleton Instance ----------------------------
-# Single global instance of RefreshTokenHandler for consistent refresh logic across routes
 refresh_token_handler = RefreshTokenHandler()

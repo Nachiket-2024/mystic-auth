@@ -1,18 +1,10 @@
-# ---------------------------- External Imports ----------------------------
-# SQLAlchemy column types for defining database schema
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum
-
-# Server-side timestamp utilities
 from sqlalchemy.sql import func
-
-# Python enum for role definition
 import enum
 
-# ---------------------------- Internal Imports ----------------------------
-# Declarative base for all ORM models
 from ..database.base import Base
 
-# ---------------------------- Role Enum ----------------------------
+
 class UserRole(str, enum.Enum):
     """
     Enumeration of all valid user roles in the system.
@@ -21,17 +13,11 @@ class UserRole(str, enum.Enum):
     Extend this enum to add new roles (e.g. moderator, staff).
     """
 
-    # Standard user with basic access
     user = "user"
-
-    # Administrator with elevated privileges
     admin = "admin"
-
-    # System with the highest privileges
     system = "system"
 
 
-# ---------------------------- User Model ----------------------------
 class User(Base):
     """
     Central user authentication model supporting:
@@ -42,38 +28,49 @@ class User(Base):
 
     __tablename__ = "users"
 
-    # ---------------------------- Primary Key ----------------------------
-    # Unique identifier for each user in the system
     id = Column(Integer, primary_key=True, index=True)
 
-    # ---------------------------- Identity Fields ----------------------------
-    # Full name of the user
     name = Column(String, nullable=False)
-
-    # Email address used for authentication (must be unique)
     email = Column(String, unique=True, index=True, nullable=False)
 
-    # ---------------------------- Authentication Fields ----------------------------
-    # Hashed password for email/password login (nullable for OAuth-only users)
+    # Nullable for OAuth-only users.
     hashed_password = Column(String, nullable=True)
 
-    # ---------------------------- Role ----------------------------
-    # Single role assigned to the user — mutually exclusive
-    # Stored as a native DB enum for data integrity
-    role = Column(Enum(UserRole), default=UserRole.user, nullable=False)
+    # Single role assigned to the user — mutually exclusive. Stored as a
+    # native DB enum for data integrity. Nullable: role is display/grouping
+    # metadata only (see authorization/ for the actual PBAC decision-maker,
+    # which never reads this column) — the system must support accounts with
+    # no role at all, authorized purely through assigned policies.
+    #
+    # Deliberately no Python-side `default=` here: SQLAlchemy applies a
+    # column default whenever the value supplied at construction is None,
+    # treating "explicitly None" the same as "omitted" — which would make it
+    # impossible for any caller (including tests) to actually persist a
+    # roleless account by passing role=None. Every real creation path
+    # (signup_service.py, scripts/create_system_user.py) already sets role
+    # explicitly, so no caller relied on a fallback default in practice.
+    role = Column(Enum(UserRole), nullable=True)
 
-    # ---------------------------- Account Status ----------------------------
-    # Indicates whether the user has verified their email
     is_verified = Column(Boolean, default=False, nullable=False)
 
-    # Soft-disable flag for deactivating accounts without deletion
+    # Soft-disable flag for deactivating accounts without deletion. Also the
+    # flag every auth check point already gates on (login_service.py,
+    # oauth2_service.py, current_user_handler.py) — soft-deleting an account
+    # reuses this exact mechanism rather than adding a second, parallel "is
+    # deleted" check that every one of those call sites would also need
+    # updating for.
     is_active = Column(Boolean, default=True, nullable=False)
 
-    # ---------------------------- Timestamps ----------------------------
-    # Record creation timestamp (set once by the DB on insert)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # Soft-delete marker — set when an account is deleted via the default
+    # (reversible) deletion flow. NULL means never deleted. Distinct from
+    # is_active=False alone so an admin can tell "deliberately deactivated"
+    # apart from "deleted" if that distinction is ever needed, and so
+    # reactivation can clear it explicitly. A soft-deleted row is NOT
+    # removed — see user_routes.py's soft-delete vs purge (hard delete)
+    # routes, and docs/security-decisions.md for the full rationale.
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Record update timestamp (automatically updated by the DB on every change)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

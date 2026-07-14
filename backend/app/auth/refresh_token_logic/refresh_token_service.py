@@ -1,157 +1,158 @@
-# ---------------------------- External Imports ----------------------------
-# Capture full stack traces in case of exceptions
 import traceback
 
-# ---------------------------- Internal Imports ----------------------------
-# Import JWT service for token creation, verification, and revocation
-from ..token_logic.jwt_service import jwt_service
+from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# Import centralized logger factory to create structured, module-specific loggers
+from ..token_logic.jwt_service import jwt_service
+# Refresh token reuse is likely theft, not a routine expired/invalid refresh —
+# see _handle_reuse_detected.
+from ...audit_log.audit_log_service import log_security_event, REFRESH_TOKEN_REUSE_DETECTED
 from ...logging.logging_config import get_logger
 
-# ---------------------------- Logger Setup ----------------------------
-# Create a logger instance for this module
 logger = get_logger(__name__)
 
-# ---------------------------- Refresh Token Service Class ----------------------------
-# Service class responsible for refresh token operations using Redis only
+
 class RefreshTokenService:
-    """
-    1. refresh_tokens - Rotate refresh token and generate new access token.
-    2. revoke_refresh_token - Revoke a single refresh token in Redis.
-    3. revoke_all_tokens_for_user - Revoke all refresh tokens for a user in Redis.
-    """
+    """Rotates, revokes, and detects reuse of refresh tokens, backed entirely by Redis."""
 
-    # ---------------------------- Refresh Tokens ----------------------------
     @staticmethod
-    async def refresh_tokens(refresh_token: str) -> dict[str, str] | None:
-        """
-        Input:
-            refresh_token (str): The refresh token provided by the client.
-
-        Process:
-            1. Check if the refresh token is revoked.
-            2. Verify the refresh token and extract payload.
-            3. Extract email and role from payload.
-            4. Revoke the old refresh token in Redis.
-            5. Generate a new access token.
-            6. Generate a new refresh token.
-            7. Return dictionary with both new tokens if successful.
-
-        Output:
-            dict[str, str] containing "access_token" and "refresh_token", or None if invalid.
-        """
+    async def refresh_tokens(
+        refresh_token: str, db: AsyncSession = None, request: Request | None = None
+    ) -> dict[str, str] | None:
         try:
-            # Step 1: Check if the refresh token is revoked
-            if await jwt_service.is_token_revoked(refresh_token):
-                logger.warning("Attempt to use revoked refresh token")
-                return None
-
-            # Step 2: Verify the refresh token and extract payload
-            payload = await jwt_service.verify_token(refresh_token)
+            # Decoded once and threaded through the rest of this method — a
+            # previous version decoded the same token up to three separate times
+            # (once each in is_token_revoked, verify_token, and revoke_token) and
+            # checked its revocation status against Redis twice. This is the
+            # busiest endpoint in the auth system (every refresh happens on every
+            # access-token expiry, for every session), so that redundant work mattered.
+            payload = await jwt_service.decode_payload(refresh_token)
 
             if not payload:
                 return None
 
-            # Step 3: Extract email and role from payload
+            jti = payload.get("jti")
+
+            # Refresh tokens are single-use (revoked immediately after rotation),
+            # so a revoked token being presented again means it was replayed —
+            # either the legitimate user retried a stale token, or the token was
+            # stolen and is being used by an attacker in parallel with its
+            # rightful owner. Either way, the whole session is now treated as
+            # compromised: every refresh token for that user is revoked, forcing
+            # re-authentication on all devices.
+            if await jwt_service.is_token_revoked_by_jti(jti):
+                await RefreshTokenService._handle_reuse_detected(payload, db, request)
+                return None
+
+            if payload.get("type") != "refresh":
+                logger.warning(
+                    "Token type mismatch during refresh: expected 'refresh', got '%s'",
+                    payload.get("type"),
+                )
+                return None
+
+            # role is optional — a roleless account (see user_model.py: role is
+            # nullable, and every PBAC-authorized account is authorized purely
+            # through assigned policies, never role) must still be able to
+            # refresh its session. Requiring role here previously rejected
+            # rotation outright for every such account, including every
+            # OAuth2-created user (oauth2_service.py always creates new accounts
+            # with role=None) — they could log in and get an access token, but
+            # the moment it expired they were silently logged out despite
+            # holding a valid, unexpired, unrevoked refresh token.
             email = payload.get("email")
             role = payload.get("role")
 
-            if not email or not role:
+            if not email:
                 return None
 
-            # Step 4: Revoke the old refresh token in Redis
-            await jwt_service.revoke_token(refresh_token, email)
+            await jwt_service.revoke_token_by_jti(jti, payload.get("exp"), email)
 
-            # Step 5: Generate a new access token
             new_access_token = await jwt_service.create_access_token(email, role)
-
-            # Step 6: Generate a new refresh token
             new_refresh_token = await jwt_service.create_refresh_token(email, role)
 
-            # Step 7: Return dictionary with both new tokens if successful
             return {"access_token": new_access_token, "refresh_token": new_refresh_token}
 
         except Exception:
             logger.error("Error refreshing token:\n%s", traceback.format_exc())
             return None
 
-    # ---------------------------- Revoke Refresh Token ----------------------------
     @staticmethod
     async def revoke_refresh_token(refresh_token: str) -> bool:
-        """
-        Input:
-            refresh_token (str): The refresh token to revoke.
-
-        Process:
-            1. Verify the refresh token and extract payload.
-            2. Extract email from payload.
-            3. Revoke the refresh token in Redis.
-            4. Return True if revocation succeeds.
-
-        Output:
-            bool: True if successfully revoked, False otherwise.
-        """
         try:
-            # Step 1: Verify the refresh token and extract payload
-            payload = await jwt_service.verify_token(refresh_token)
+            payload = await jwt_service.verify_token(refresh_token, expected_type="refresh")
 
             if not payload:
                 return False
 
-            # Step 2: Extract email from payload
             email = payload.get("email")
 
             if not email:
                 return False
 
-            # Step 3: Revoke the refresh token in Redis
             await jwt_service.revoke_token(refresh_token, email)
 
-            # Step 4: Return True if revocation succeeds
             return True
 
         except Exception:
             logger.error("Error revoking refresh token:\n%s", traceback.format_exc())
             return False
 
-    # ---------------------------- Revoke All Tokens for User ----------------------------
     @staticmethod
     async def revoke_all_tokens_for_user(email: str) -> int:
-        """
-        Input:
-            email (str): The email of the user whose tokens should be revoked.
-
-        Process:
-            1. Fetch all refresh tokens for the user from Redis.
-            2. Revoke each refresh token.
-            3. Return the count of successfully revoked tokens.
-
-        Output:
-            int: Number of tokens revoked for the user.
-        """
         try:
-            # Step 1: Fetch all refresh tokens for the user from Redis
-            tokens = await jwt_service.get_all_refresh_tokens_for_user(email)
+            # The registry never holds raw tokens, only jti -> expiry pairs.
+            jti_registry = await jwt_service.get_all_refresh_tokens_for_user(email)
 
-            if not tokens:
+            if not jti_registry:
                 return 0
 
             revoked_count = 0
 
-            # Step 2: Revoke each refresh token
-            for token in tokens:
-                if await jwt_service.revoke_token(token, email):
+            for jti, exp in jti_registry.items():
+                if await jwt_service.revoke_token_by_jti(jti, float(exp), email):
                     revoked_count += 1
 
-            # Step 3: Return the count of successfully revoked tokens
             return revoked_count
 
         except Exception:
             logger.error("Error revoking all tokens for user %s:\n%s", email, traceback.format_exc())
             return 0
 
+    @staticmethod
+    async def _handle_reuse_detected(
+        payload: dict, db: AsyncSession = None, request: Request | None = None
+    ) -> None:
+        """
+        payload is the already-decoded claims of a refresh token whose jti Redis
+        shows as already revoked — accepting it directly avoids decoding the
+        token a second time, since the caller already did that once to reach
+        this point.
+        """
+        email = payload.get("email")
 
-# ---------------------------- Singleton Instance ----------------------------
-# Create single global instance of RefreshTokenService for application usage
+        if not email:
+            logger.warning("Refresh token reuse detected, but no email claim was present")
+            return
+
+        revoked_count = await RefreshTokenService.revoke_all_tokens_for_user(email)
+
+        # Logged at a severity that stands out from routine single-token
+        # revocations, since this indicates likely token theft rather than an
+        # expected rotation.
+        logger.critical(
+            "Refresh token reuse detected for %s — revoked %d active session(s)",
+            email, revoked_count,
+        )
+
+        await log_security_event(
+            REFRESH_TOKEN_REUSE_DETECTED,
+            db,
+            user_email=email,
+            success=False,
+            request=request,
+            metadata={"sessions_revoked": revoked_count},
+        )
+
+
 refresh_token_service = RefreshTokenService()

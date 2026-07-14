@@ -1,45 +1,39 @@
-# ---------------------------- FastAPI & ASGI ----------------------------
-fastapi                     # FastAPI framework for building APIs
-uvicorn[standard]           # ASGI server for running FastAPI apps with standard extras
+# Direct dependencies are pinned to exact versions verified against this
+# project's full test suite (unit + Docker-based integration) so a fresh
+# `pip install` reproduces a known-working environment instead of silently
+# resolving whatever is newest at install time. Transitive dependencies are
+# left to pip's resolver. Bump pins deliberately (re-run the full suite
+# before committing an update), not incidentally as a side effect of an
+# unrelated change.
 
-# ---------------------------- Database / ORM ----------------------------
-SQLAlchemy                  # Core ORM for interacting with SQL databases
-asyncpg                     # Async PostgreSQL driver for async DB operations
-alembic                     # Database migrations tool to manage schema changes
+fastapi==0.139.0
+uvicorn[standard]==0.51.0
 
-# ---------------------------- Data Validation & Settings ----------------------------
-pydantic                    # Data validation and settings management library
-python-dotenv               # Load environment variables from .env files
-pydantic-settings           # Extended settings management using Pydantic
-pydantic[email]             # Adds email validation functionality to Pydantic
+SQLAlchemy==2.0.51
+asyncpg==0.31.0
+alembic==1.18.5
 
-# ---------------------------- Authentication & Security ----------------------------
-passlib[bcrypt]             # Password hashing with bcrypt algorithm
-pyjwt                       # JSON Web Token encoding and decoding
-oauthlib                    # OAuth2 protocol support for authentication
-requests-oauthlib           # OAuth2 client integration for making auth requests
-argon2_cffi                 # Argon2 password hashing with CFFI support
+pydantic==2.13.4
+python-dotenv==1.2.2
+pydantic-settings==2.14.2
+pydantic[email]==2.13.4
 
-# ---------------------------- Google OAuth2 ----------------------------
-google-auth                 # Core Google authentication library
-google-auth-oauthlib        # OAuth2 helper for Google APIs
-google-auth-httplib2        # HTTP transport support for Google APIs
+passlib==1.7.4
+pyjwt==2.13.0
+argon2_cffi==25.1.0
 
-# ---------------------------- HTTP Client ----------------------------
-httpx                       # Async HTTP client for making API requests
+httpx==0.28.1
 
-# ---------------------------- Redis ----- ----------------------------
-redis                       # Async Redis client for caching and queues
+redis==8.0.1
 
-# ---------------------------- Task Queue / Async Jobs ----------------------------
-taskiq[reload]              # Async task queue framework compatible with FastAPI
-taskiq-redis                # Redis broker support for Taskiq
+taskiq[reload]==0.12.4
+taskiq-redis==1.2.3
 
-# ---------------------------- Email ----------------------------
-aiosmtplib                  # Async SMTP client for sending emails
+aiosmtplib==5.1.2
 
-# ---------------------------- Logging ----------------------------
-python-json-logger          # JSON formatted logging for structured logs
+python-json-logger==4.1.0
 
-# ---------------------------- User Agents ----------------------------
-user-agents                 # Parse and identify user agent strings
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+pytest-mock==3.15.1

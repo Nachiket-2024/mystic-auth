@@ -1,325 +1,302 @@
-# ---------------------------- External Imports ----------------------------
-# Import FastAPI router, dependency injection, HTTP exceptions, and cookie support
-from fastapi import APIRouter, Depends, HTTPException, status, Cookie
-
-# Import Async SQLAlchemy session for async database operations
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# ---------------------------- Internal Imports ----------------------------
-# Single user CRUD instance for querying the unified users table
 from ...user_crud.user_crud_collector import user_crud
+from ..route_helpers import get_or_404
 
-# UserRole enum for role validation in dependencies
+# UserRole is used ONLY for the target-account guards below (e.g. "the system
+# account can never be modified via these generic endpoints"). This is
+# deliberately not a PBAC authorization decision: it never asks "what
+# role/policies does the CALLER have" — it protects one specific reserved
+# resource from every caller, regardless of what they're authorized to do in
+# general. Role may still be used as resource metadata/grouping; it must
+# simply never *grant* access, which this doesn't — it only narrows access.
 from ...user_table.user_model import UserRole
-
-# User schemas for request validation and response shaping
 from ...user_table.user_schema import UserRead, UserUpdate, UserRoleUpdate
 
-# Current user handler for extracting authenticated user from token
-from ...auth.current_user.current_user_handler import current_user_handler
+# UserUpdate's `password` field name intentionally does not match any column on
+# the User model (only `hashed_password` is a real column); it must be hashed
+# and renamed here before reaching user_crud.update, or the submitted password
+# is silently discarded (set as an unmapped attribute SQLAlchemy never
+# persists) and the account keeps its old/no password.
+from ...auth.password_logic.password_service import password_service
 
-# Database connection abstraction to get async sessions
+# PBAC: action vocabulary (permissions.py) and the authorization
+# dependency/service that decide access via assigned policies. Replaces the
+# removed RBAC-era require_permission / role_has_permission (a static role ->
+# permission mapping).
+from ...authorization.permissions import Permission
+from ...authorization.dependencies.authorization_dependency import require_authorization
+from ...authorization.services.authorization_service import authorization_service
+
+# Every real authorization check must build context from the actual request
+# the same way — see authorization_dependency.py.
+from ...authorization.context.request_context_builder import build_authorization_context
+
 from ...database.connection import database
 
-# ---------------------------- Router Setup ----------------------------
-# Create a new API router for user-related endpoints
-router = APIRouter(
-    prefix="/users",  # Base path for all routes in this router
-    tags=["Users"]    # Tag for API docs grouping
+# Session invalidation on account deletion — the same mechanism logout-all
+# uses, reused here so a soft-deleted/purged account's existing refresh tokens
+# can't be used to mint a fresh access token even though
+# refresh_token_service.refresh_tokens() itself doesn't check the database
+# (it's Redis/JWT-claim only by design, see its own docstring).
+from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
+
+from ...audit_log.audit_log_service import (
+    log_security_event,
+    ACCOUNT_DELETED,
+    ACCOUNT_PURGED,
+    ACCOUNT_REACTIVATED,
 )
 
-# ---------------------------- Auth Dependencies ----------------------------
-async def get_current_user(
-    access_token: str = Cookie(None),
-    db: AsyncSession = Depends(database.get_session)
-) -> dict:
-    """
-    Reusable dependency that returns the current authenticated user dict.
-    Raises 401 if token is missing or invalid.
-    """
-    return await current_user_handler.get_current_user(access_token, db)
+router = APIRouter(prefix="/users", tags=["Users"])
+
+_RESOURCE_TYPE = "users"
 
 
-async def require_admin(
-    current_user: dict = Depends(get_current_user)
-) -> dict:
+async def _prepare_update_data(update_data: UserUpdate) -> dict:
     """
-    Reusable dependency that enforces admin-or-above access.
-    Both admin and system roles are permitted — system is a superset of admin.
-    Raises 403 if the current user is neither admin nor system.
+    Dumps only explicitly-set fields. If a plaintext `password` was submitted,
+    validates its strength (same minimum as signup/password-reset) and
+    replaces it with a real Argon2 hash under `hashed_password`.
     """
-    # Allow both admin and system roles — system inherits all admin privileges
-    if current_user["role"] not in (UserRole.admin.value, UserRole.system.value):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required"
-        )
-    return current_user
+    data = update_data.model_dump(exclude_unset=True)
+    plain_password = data.pop("password", None)
+    if plain_password is not None:
+        if not await password_service.validate_password_strength(plain_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password does not meet minimum strength requirements",
+            )
+        data["hashed_password"] = await password_service.hash_password(plain_password)
+    return data
 
 
-async def require_system(
-    current_user: dict = Depends(get_current_user)
-) -> dict:
-    """
-    Reusable dependency that enforces system-only access.
-    Only the system superuser can pass this dependency.
-    Raises 403 if the current user is not the system superuser.
-    """
-    # Only system role is permitted past this dependency
-    if current_user["role"] != UserRole.system.value:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="System superuser privileges required"
-        )
-    return current_user
-
-
-# ---------------------------- Get Own Profile ----------------------------
 @router.get("/me", response_model=UserRead)
 async def get_my_profile(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_authorization(Permission.USERS_READ_OWN.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
-    """
-    Input:
-        1. current_user (dict): Authenticated user from token.
-        2. db (AsyncSession): Async database session.
-
-    Process:
-        1. Extract email from current user.
-        2. Fetch full user record from unified users table.
-
-    Output:
-        1. UserRead: User's profile information.
-    """
-    # Step 1: Extract email from current user
     email = current_user["email"]
-
-    # Step 2: Fetch full user record from unified users table
-    user = await user_crud.get_by_email(email, db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
+    user = await get_or_404(user_crud.get_by_email(email, db), "User not found")
     return user
 
 
-# ---------------------------- Update Own Profile ----------------------------
 @router.put("/me", response_model=UserRead)
 async def update_my_profile(
     update_data: UserUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_OWN.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
-    """
-    Input:
-        1. update_data (UserUpdate): Fields to update for the user.
-        2. current_user (dict): Authenticated user from token.
-        3. db (AsyncSession): Async database session.
-
-    Process:
-        1. Extract email from current user.
-        2. Fetch current user record.
-        3. Apply updates — exclude unset fields to avoid overwriting with None.
-
-    Output:
-        1. UserRead: Updated user object.
-    """
-    # Step 1: Extract email from current user
     email = current_user["email"]
-
-    # Step 2: Fetch current user record
-    user = await user_crud.get_by_email(email, db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    # Step 3: Apply updates — exclude unset fields to avoid overwriting with None
+    user = await get_or_404(user_crud.get_by_email(email, db), "User not found")
     return await user_crud.update(
         db_obj=user,
-        update_data=update_data.model_dump(exclude_unset=True),
+        update_data=await _prepare_update_data(update_data),
         db=db
     )
 
 
-# ---------------------------- List All Users (Admin and above) ----------------------------
 @router.get("/", response_model=list[UserRead])
 async def list_all_users(
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
-    """
-    Input:
-        1. current_user (dict): Authenticated admin or system user from token.
-        2. db (AsyncSession): Async database session.
-
-    Process:
-        1. Fetch all users from the unified users table.
-
-    Output:
-        1. list[UserRead]: All user records.
-    """
-    # Fetch all users from the unified users table
     return await user_crud.get_all(db)
 
 
-# ---------------------------- Update Any User (Admin and above) ----------------------------
 @router.put("/{user_email}", response_model=UserRead)
 async def update_any_user(
     user_email: str,
     update_data: UserUpdate,
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
-    """
-    Input:
-        1. user_email (str): Email of the user to update.
-        2. update_data (UserUpdate): Fields to update.
-        3. current_user (dict): Authenticated admin or system user from token.
-        4. db (AsyncSession): Async database session.
+    user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
-    Process:
-        1. Fetch target user from unified users table.
-        2. Apply updates to user's record.
+    # UserUpdate allows setting `password`, so without this guard anyone with
+    # users:update_any could overwrite the system superuser's password and log
+    # in as it.
+    if user.role == UserRole.system:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="System user cannot be modified"
+        )
 
-    Output:
-        1. UserRead: Updated user object.
-    """
-    # Step 1: Fetch target user from unified users table
-    user = await user_crud.get_by_email(user_email, db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    # Step 2: Apply updates to user's record
     return await user_crud.update(
         db_obj=user,
-        update_data=update_data.model_dump(exclude_unset=True),
+        update_data=await _prepare_update_data(update_data),
         db=db
     )
 
 
-# ---------------------------- Delete Any User (Admin and above) ----------------------------
 @router.delete("/{user_email}")
 async def delete_any_user(
     user_email: str,
-    current_user: dict = Depends(require_admin),
+    request: Request,
+    current_user: dict = Depends(require_authorization(Permission.USERS_DELETE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     """
-    Input:
-        1. user_email (str): Email of the user to delete.
-        2. current_user (dict): Authenticated admin or system user from token.
-        3. db (AsyncSession): Async database session.
-
-    Process:
-        1. Fetch target user from unified users table.
-        2. Guard against deleting a system user.
-        3. Delete user record.
-
-    Output:
-        1. dict: Confirmation message of deletion.
+    Soft-delete: is_active=False + deleted_at=now (see user_lifecycle_crud.py).
+    The row and every FK-referencing row (policy assignments, audit history)
+    stay intact — this is the default, reversible deletion flow. Permanent
+    removal is a separate, more sensitive operation (see purge_user below).
     """
-    # Step 1: Fetch target user from unified users table
-    user = await user_crud.get_by_email(user_email, db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
-    # Step 2: Guard against deleting the system user
     if user.role == UserRole.system:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="System user cannot be deleted"
         )
 
-    # Step 3: Delete user record
-    await user_crud.delete(db_obj=user, db=db)
+    await user_crud.soft_delete(db_obj=user, db=db)
+
+    # is_active=False already blocks login and blocks using an existing access
+    # token (current_user_handler.py re-queries the DB on every request), but
+    # refresh_token_service.refresh_tokens() itself is Redis/JWT-only and
+    # doesn't check the database, so without this a still-valid refresh token
+    # could keep minting fresh (if useless) access tokens until it expires on
+    # its own.
+    revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email)
+
+    await log_security_event(
+        ACCOUNT_DELETED,
+        db,
+        user_email=user_email,
+        success=True,
+        request=request,
+        metadata={"deleted_by": current_user["email"], "sessions_revoked": revoked_count},
+    )
+
     return {"detail": f"User {user_email} deleted successfully"}
 
 
-# ---------------------------- Update User Role (Admin and above) ----------------------------
+@router.delete("/{user_email}/purge")
+async def purge_user(
+    user_email: str,
+    request: Request,
+    current_user: dict = Depends(require_authorization(Permission.USERS_PURGE.value, _RESOURCE_TYPE)),
+    db: AsyncSession = Depends(database.get_session)
+):
+    """
+    Deliberately a separate, more sensitive action from users:delete_any (see
+    permissions.py) since this is irreversible and cascades: policy
+    assignments are removed via users.id -> policy_model.py's ON DELETE
+    CASCADE, while audit log rows reference user_email as a snapshot string
+    (not a foreign key), so audit history survives even a purge.
+    """
+    user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
+
+    if user.role == UserRole.system:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="System user cannot be purged"
+        )
+
+    # The row is about to disappear, so sessions must be revoked before deletion.
+    revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email)
+
+    # Recorded before the row is deleted, since the event itself is what makes
+    # this irreversible action reviewable after the fact.
+    await log_security_event(
+        ACCOUNT_PURGED,
+        db,
+        user_email=user_email,
+        success=True,
+        request=request,
+        metadata={"purged_by": current_user["email"], "sessions_revoked": revoked_count},
+    )
+
+    await user_crud.delete(db_obj=user, db=db)
+    return {"detail": f"User {user_email} permanently removed"}
+
+
+@router.patch("/{user_email}/reactivate", response_model=UserRead)
+async def reactivate_user(
+    user_email: str,
+    request: Request,
+    current_user: dict = Depends(require_authorization(Permission.USERS_REACTIVATE.value, _RESOURCE_TYPE)),
+    db: AsyncSession = Depends(database.get_session)
+):
+    user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
+
+    # Reactivate is specifically the soft-delete undo path — nothing to
+    # restore if the account was never soft-deleted.
+    if user.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not deleted"
+        )
+
+    # Policy assignments were never touched by soft delete, so access returns
+    # exactly as it was — no re-granting needed.
+    restored_user = await user_crud.reactivate(db_obj=user, db=db)
+
+    await log_security_event(
+        ACCOUNT_REACTIVATED,
+        db,
+        user_email=user_email,
+        success=True,
+        request=request,
+        metadata={"reactivated_by": current_user["email"]},
+    )
+
+    return restored_user
+
+
 @router.patch("/{user_email}/role")
 async def update_user_role(
     user_email: str,
     role_data: UserRoleUpdate,
-    current_user: dict = Depends(require_admin),
+    request: Request,
+    current_user: dict = Depends(require_authorization(Permission.USERS_ASSIGN_ROLE.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
-    """
-    Input:
-        1. user_email (str): Email of the user whose role to change.
-        2. role_data (UserRoleUpdate): New role to assign.
-        3. current_user (dict): Authenticated admin or system user from token.
-        4. db (AsyncSession): Async database session.
+    user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
-    Process:
-        1. Fetch target user from unified users table.
-        2. Guard against modifying the system user's role.
-        3. Guard against admin assigning the system role.
-        4. Update role column directly on the user record.
-
-    Output:
-        1. dict: Confirmation message of role change.
-    """
-    # Step 1: Fetch target user from unified users table
-    user = await user_crud.get_by_email(user_email, db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    # Step 2: Guard against modifying the system user's role
     if user.role == UserRole.system:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="System user role cannot be changed"
         )
 
-    # Step 3: Guard against admin assigning the system role to anyone
-    if role_data.role == UserRole.system and current_user["role"] != UserRole.system.value:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only system superuser can assign the system role"
+    # Assigning the system role requires the separate, more sensitive
+    # users:assign_system_role authorization. This can't be a static
+    # per-route dependency like the others since it depends on *which* role is
+    # being requested in the body, not just who's calling — so it goes
+    # through the same centralized authorization_service the route-level
+    # dependency itself uses, never a role check.
+    if role_data.role == UserRole.system:
+        await authorization_service.require(
+            user_email=current_user["email"],
+            action=Permission.USERS_ASSIGN_SYSTEM_ROLE.value,
+            resource_type=_RESOURCE_TYPE,
+            db=db,
+            context=build_authorization_context(request),
         )
 
-    # Step 4: Update role column directly on the user record
     await user_crud.update_role(db_obj=user, role=role_data.role, db=db)
     return {"detail": f"User {user_email} role updated to {role_data.role.value}"}
 
 
-# ---------------------------- Promote to Admin (System only) ----------------------------
 @router.patch("/{user_email}/promote-to-admin")
 async def promote_to_admin(
     user_email: str,
-    current_user: dict = Depends(require_system),
+    current_user: dict = Depends(require_authorization(Permission.USERS_PROMOTE_TO_ADMIN.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
-    """
-    Input:
-        1. user_email (str): Email of the user to promote.
-        2. current_user (dict): Authenticated system superuser from token.
-        3. db (AsyncSession): Async database session.
+    user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
-    Process:
-        1. Fetch target user from unified users table.
-        2. Guard against promoting a system user.
-        3. Guard against promoting an already-admin user.
-        4. Promote user to admin role.
-
-    Output:
-        1. dict: Confirmation message of promotion.
-    """
-    # Step 1: Fetch target user from unified users table
-    user = await user_crud.get_by_email(user_email, db)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    # Step 2: Guard against promoting a system user
     if user.role == UserRole.system:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot change role of a system user"
         )
 
-    # Step 3: Guard against promoting an already-admin user
     if user.role == UserRole.admin:
         return {"detail": f"{user_email} is already an admin"}
 
-    # Step 4: Promote user to admin role
     await user_crud.update_role(db_obj=user, role=UserRole.admin, db=db)
     return {"detail": f"{user_email} promoted to admin successfully"}

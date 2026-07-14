@@ -1,12 +1,8 @@
-# ---------------------------- External Imports ----------------------------
-# Import Pydantic's BaseModel for schema creation and EmailStr for email validation
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
-# ---------------------------- Login Schema ----------------------------
+
 class LoginSchema(BaseModel):
-
-    # User's email address (validated to ensure proper email format)
     email: EmailStr
-    
-    # User's plain text password (will be verified against stored hash in service layer)
-    password: str
+    # Capped at the same length signup allows, so an arbitrarily large string
+    # isn't fed straight into Argon2 hashing.
+    password: str = Field(..., max_length=128)

@@ -1,0 +1,95 @@
+# Deployment Guide
+
+## Dev vs. production
+
+| | `docker-compose.yml` | `docker-compose.prod.yml` |
+|---|---|---|
+| Frontend | Vite dev server (HMR) | nginx serving the static build |
+| Source code | Bind-mounted from host | Baked into the image |
+| Backend/worker reload | `--reload` on file change | Off |
+| Restart policy | None (dev: you restart manually) | `unless-stopped` on long-running services |
+
+Local development:
+
+```bash
+docker compose up
+```
+
+Production:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+`docker-compose.prod.yml` assumes a reverse proxy / TLS terminator (nginx, Caddy, Traefik, or a cloud load balancer) sits in front of it — it exposes plain HTTP on ports 80 (frontend) and 8000 (backend) and does not attempt to provision TLS itself. See [Docker Overview](../docker/overview.md).
+
+## Required production environment variables
+
+Same variables as `.env.example`, with these called out specifically for production:
+
+- `ENVIRONMENT=production` — disables `/docs`, `/redoc`, and `/openapi.json` on the backend (see `backend/app/main.py`).
+- `SECRET_KEY`, `GOOGLE_CLIENT_SECRET`, `GMAIL_APP_PASSWORD`, `POSTGRES_PASSWORD` — generate/rotate these for production; never reuse the values from local `.env` files or CI.
+- `FRONTEND_BASE_URL` / `BACKEND_BASE_URL` — must point at the real production hostnames; CORS (`main.py`) only allows the single origin configured here.
+- `TRUSTED_PROXY_IPS` — set this to your reverse proxy's own address(es) if you deploy one in front of the backend, so per-IP rate limiting/lockout resolve the real client IP from `X-Forwarded-For` instead of collapsing onto the proxy's IP for every request. See [Security Hardening](../security/hardening.md#rate-limiting) and [core/client_ip.py](../authorization/architecture.md#authorization-context-builder). Leave unset (default) for a direct deployment with no reverse proxy.
+
+## Database migrations
+
+The `alembic` service runs `alembic upgrade head` once and exits; `backend` and `taskiq_worker` both wait on it (`depends_on: alembic: condition: service_completed_successfully` in `docker-compose.prod.yml`) so nothing serves traffic against a schema that hasn't been migrated yet.
+
+Before applying a migration in production, review the generated migration script under `backend/alembic/versions/` — especially anything that drops or alters a column/table. Alembic's autogenerate is a starting point, not a guarantee of safety; a destructive migration should be reviewed like any other schema change before `alembic upgrade head` runs against production data.
+
+## Backups
+
+There's no automated backup job in this repo — no production host/cloud target is assumed, so there's nothing to hang a cron job on yet (see [Concerns](../concerns/README.md)). When you have one, the standard approach is a scheduled `pg_dump` of the `postgres_data` volume's database:
+
+```bash
+docker exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup-$(date +%F).sql
+```
+
+Restore with:
+
+```bash
+docker exec -i postgres psql -U $POSTGRES_USER $POSTGRES_DB < backup-2026-07-13.sql
+```
+
+Run this on whatever schedule matches your data's change rate (daily is a reasonable default for most small apps), store the dumps somewhere durable off the host, and periodically test a restore — an untested backup is not a backup.
+
+## Graceful shutdown
+
+`backend/app/main.py` registers a FastAPI `lifespan` handler that runs on shutdown (e.g. `docker stop`, or a rolling restart under an orchestrator): it disposes the SQLAlchemy connection pool and closes the Redis client cleanly instead of relying on the process dying and the OS reclaiming the sockets.
+
+## Free / low-cost hosting options
+
+This stack has four pieces that need hosting: backend (containerized FastAPI), frontend (static SPA build), Postgres, and Redis + a background worker process. None of the options below are endorsed as production-ready without your own evaluation of their limits (cold starts, storage caps, free-tier sleep policies) — they're a reasonable starting point for a template/side-project deployment, not a guarantee.
+
+### Backend (FastAPI, containerized)
+
+- **Render** (free/hobby web service tier) — deploys directly from `docker/backend.Dockerfile`; supports a separate "background worker" service type for `taskiq_worker` on the same repo. Free tier sleeps after inactivity (cold-start latency).
+- **Fly.io** — deploys any Dockerfile; has a small free allowance. Good fit since the app is already fully containerized.
+- **Railway** — Dockerfile-based deploys, usage-based free tier.
+
+### Frontend (static SPA build)
+
+- **Vercel** / **Netlify** / **Cloudflare Pages** — all have generous free tiers for a static build (`npm run build` → `frontend/dist/`); none need the `production` nginx image specifically, since they serve the static files themselves. If you do want the containerized nginx path (`docker/frontend.Dockerfile --target production`), use the same host as the backend instead.
+
+### PostgreSQL
+
+- **Neon**, **Supabase**, or **Railway** — all offer a free managed Postgres tier reachable over the internet; set `DATABASE_URL` to the provided connection string (must use the `postgresql+asyncpg://` scheme this app's async engine expects, not `postgresql://`).
+
+### Redis
+
+- **Upstash** — serverless Redis with a free tier, reachable over TLS from any host; set `REDIS_URL` accordingly. Note Upstash's free tier has request-count limits that matter here since Redis is used for rate limiting, lockout, and the taskiq broker (all high-frequency).
+
+### Background worker (taskiq)
+
+Needs a long-running process, not a request-driven serverless function — Render's/Railway's "background worker" service type (pointed at the same image, `command: taskiq worker app.taskiq_tasks.email_tasks:broker`) is the most direct fit among the free-tier options above.
+
+### Practical combination for a $0 deployment
+
+Backend + worker on Render (two services from the same repo/image), frontend on Vercel/Netlify, Postgres on Neon, Redis on Upstash. Set `TRUSTED_PROXY_IPS` appropriately if the chosen backend host places its own reverse proxy in front of your container (most of the above do) — otherwise per-IP rate limiting will silently collapse onto that proxy's IP for every request.
+
+## Limitations of this deployment approach
+
+- No infrastructure-as-code (Terraform/Pulumi/etc.) is provided — the steps above are manual, per-provider console/CLI actions.
+- No automated backups or monitoring/alerting are wired up anywhere in this repo — see [Concerns](../concerns/README.md).
+- Free tiers on the providers above typically have cold-start latency, storage caps, and request-volume limits not suitable for real production traffic — treat this section as a starting point for a demo/side-project deployment, not a scaling plan.

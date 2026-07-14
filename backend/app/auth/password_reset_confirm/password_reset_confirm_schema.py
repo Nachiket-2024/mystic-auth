@@ -1,9 +1,8 @@
-# ---------------------------- External Imports ----------------------------
-# Pydantic for request validation
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-# ---------------------------- Password Reset Schema ----------------------------
+
 class PasswordResetConfirmSchema(BaseModel):
-
-    token: str                          # JWT reset token
-    new_password: str                   # New password to set
+    # Capped well above any legitimate token's length
+    token: str = Field(..., max_length=2048)
+    # Same cap as signup/login
+    new_password: str = Field(..., max_length=128)

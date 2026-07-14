@@ -1,36 +1,64 @@
-# ---------------------------- External Imports ----------------------------
-# Use official Python 3.11 slim image for smaller footprint
-FROM python:3.11-slim
+# Compiles native extensions (psycopg2/asyncpg wheels etc.) into a venv so
+# the build toolchain (gcc, libpq headers) never has to ship in the final
+# image — it's only needed here, at build time.
+FROM python:3.11-slim AS builder
 
-# ---------------------------- Setup ----------------------------
-# Set working directory inside container
 WORKDIR /app
 
-# Install system dependencies:
-# - gcc, libpq-dev: needed to compile psycopg2 (Postgres driver)
-# - postgresql-client: provides pg_isready to check DB availability
+# gcc + libpq-dev: needed to compile packages with native extensions
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
-    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------------------------- Copy Dependencies ----------------------------
-# Copy Python requirements file first to leverage Docker cache
-COPY backend/requirements.txt .
+# Install into an isolated venv so the runtime stage can copy it wholesale
+# without dragging along build-only files pip leaves in site-packages.
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies without caching
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ---------------------------- Copy App Source ----------------------------
-# Copy backend source code into container
+# Slim final image: no compilers, no headers — just the interpreter, the
+# pre-built venv, and the app source. Cuts image size and removes a class
+# of tooling (gcc) that has no business being reachable from a running
+# container.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# libpq5: the runtime (non-dev) Postgres client library that asyncpg/psycopg
+# need to actually connect — libpq-dev (headers, compiler-time only) is not
+# required here. No postgresql-client/pg_isready: nothing in this image
+# invokes it — Postgres readiness is checked via docker-compose's healthcheck
+# on the postgres service itself (which has its own built-in pg_isready),
+# not from inside this container.
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY backend/ .
 
-# ---------------------------- Expose Ports ----------------------------
-# Expose FastAPI default port (used only when running backend service)
+# This image is shared by the backend, taskiq_worker, and alembic services —
+# none of them need root at runtime (dependency installation above is the
+# only step that does). Running as an unprivileged user limits the blast
+# radius of a compromised dependency or a container-escape bug.
+RUN groupadd --system app && useradd --system --gid app --home-dir /app app \
+    && chown -R app:app /app
+USER app
+
 EXPOSE 8000
 
-# ---------------------------- CMD ----------------------------
-# Default command: start Uvicorn server for FastAPI
-# NOTE: In docker-compose we override this for Celery and Alembic services
+# Self-checking outside Compose too (e.g. `docker run` directly). Compose's
+# own healthcheck on the backend service (docker-compose.yml) is the one
+# that actually gates dependent services' startup — this is a fallback for
+# when the image runs without it. taskiq_worker/alembic share this image but
+# don't serve HTTP, so this only ever matters for the backend container.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')" || exit 1
+
+# Overridden in docker-compose for the taskiq_worker and alembic services
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

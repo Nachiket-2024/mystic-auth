@@ -1,11 +1,10 @@
-# ---------------------------- External Imports ----------------------------
-# Use official Node.js 20 image with build tools for optional dependencies
-FROM node:20-bullseye
+# Runs the Vite dev server with HMR — used by docker-compose.yml for local
+# development. This is the default build target so existing `docker compose
+# build`/`up` (no --target flag) keeps working unchanged.
+FROM node:20-bullseye AS dev
 
-# ---------------------------- Setup ----------------------------
 WORKDIR /app
 
-# ---------------------------- Install Build Tools ----------------------------
 # Required to compile native optional dependencies for Rollup / esbuild
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -14,19 +13,44 @@ RUN apt-get update && apt-get install -y \
     make \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------------------------- Copy Dependencies ----------------------------
-# Copy only dependency manifests to leverage Docker cache
 COPY frontend/package*.json ./
-
-# ---------------------------- Install Node.js Dependencies ----------------------------
-# Install dependencies inside the container so the correct rollup binary is picked
 RUN npm install --legacy-peer-deps
-
-# ---------------------------- Copy App Source ----------------------------
 COPY frontend/ .
 
-# ---------------------------- Expose Ports ----------------------------
 EXPOSE 5173
-
-# ---------------------------- CMD ----------------------------
 CMD ["npm", "run", "dev", "--", "--host"]
+
+# Produces the static production bundle (frontend/dist). Only reached when
+# building with --target production (or production's stage below, which
+# depends on it) — docker-compose.yml's dev service never builds this far.
+FROM node:20-bullseye AS builder
+
+WORKDIR /app
+
+COPY frontend/package*.json ./
+RUN npm ci --legacy-peer-deps
+COPY frontend/ .
+RUN npm run build
+
+# Serves the static build via nginx — no Node.js, no dev dependencies, no
+# source maps of the toolchain, just the compiled assets. Used by
+# docker-compose.prod.yml via `build.target: production`.
+FROM nginx:1.27-alpine AS production
+
+COPY docker/nginx.frontend.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# nginx:alpine ships an unprivileged "nginx" user and already-writable
+# runtime dirs for it; nginx-unprivileged patterns aren't needed here since
+# the stock image supports running as non-root out of the box.
+RUN chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/run \
+    && touch /var/run/nginx.pid \
+    && chown nginx:nginx /var/run/nginx.pid
+USER nginx
+
+EXPOSE 80
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=5 \
+  CMD wget -qO- http://localhost:80/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,97 +1,75 @@
-# ---------------------------- External Imports ----------------------------
-# Capture full stack traces in case of exceptions
 import traceback
-
-# Async utilities for concurrent execution
 import asyncio
 
-# ---------------------------- Internal Imports ----------------------------
-# Single user CRUD instance for querying the unified users table
 from ...user_crud.user_crud_collector import user_crud
-
-# Password service for verifying password hashes
 from ..password_logic.password_service import password_service
-
-# JWT service for creating access and refresh tokens
 from ..token_logic.jwt_service import jwt_service
-
-# Schema for structured JWT token responses
 from ..token_logic.token_schema import TokenPairResponseSchema
-
-# Import centralized logger factory to create structured, module-specific loggers
 from ...logging.logging_config import get_logger
 
-# ---------------------------- Logger Setup ----------------------------
-# Create a logger instance for this module
 logger = get_logger(__name__)
 
-# ---------------------------- Login Service ----------------------------
-# Service class to handle login functionality
-class LoginService:
-    """
-    1. login - Authenticate user, verify credentials, and return access and refresh tokens.
-    """
 
-    # ---------------------------- Static Async Login Method ----------------------------
+class LoginService:
+    """Authenticates a user and issues an access/refresh token pair."""
+
     @staticmethod
     async def login(email: str, password: str, db=None) -> TokenPairResponseSchema | None:
-        """
-        Input:
-            1. email (str): User's email address.
-            2. password (str): User's password.
-            3. db: Optional database session for querying user records.
-
-        Process:
-            1. Validate that email and password are provided.
-            2. Query the unified users table to find the user by email.
-            3. Handle case where user is not found.
-            4. Ensure user account is verified.
-            5. Check password correctness using password_service.
-            6. Generate access and refresh tokens concurrently using user's role.
-            7. Return structured token response.
-
-        Output:
-            1. TokenPairResponseSchema: Contains access_token and refresh_token if successful,
-                                        otherwise returns None.
-        """
         try:
-            # Step 1: Validate that email and password are provided
             if not email or not password:
                 return None
 
-            # Step 2: Query the unified users table to find the user by email
             user = await user_crud.get_by_email(email, db)
 
-            # Step 3: Handle case where user is not found
+            # Compare against the user's real hash if one exists, otherwise a fixed
+            # dummy hash — unconditionally and before any not-found/unverified checks.
+            # A previous version only reached this comparison for an existing,
+            # verified account with the wrong password, and returned immediately (no
+            # hashing) for "not found" and "unverified". Since Argon2 hashing is
+            # measurably slow, that let an attacker distinguish "no such verified
+            # account" from "wrong password on a real one" purely by response
+            # latency — enabling account enumeration despite every branch already
+            # returning the same generic failure. Comparing against the dummy hash
+            # keeps the "no real hash" branches' timing indistinguishable from a
+            # genuine comparison.
+            hash_to_check = user.hashed_password if user and user.hashed_password else password_service.DUMMY_HASH
+            password_matches = await password_service.verify_password(password, hash_to_check)
+
             if not user:
                 logger.info("Login attempt with non-existing email: %s", email)
                 return None
 
-            # Step 4: Ensure user account is verified
             if not user.is_verified:
                 logger.info("Login blocked for unverified account: %s", email)
                 return None
 
-            # Step 5: Check password correctness using password_service
-            if not await password_service.verify_password(password, user.hashed_password):
+            # A deactivated account's tokens would be rejected by
+            # current_user_handler.py on first real use anyway, but issuing them at
+            # all here is wasteful and misleading (the client would see "login
+            # successful" followed immediately by a 403 on the very next request
+            # instead of a clear "account deactivated" at the login boundary itself).
+            if not user.is_active:
+                logger.info("Login blocked for deactivated account: %s", email)
+                return None
+
+            if not password_matches:
                 logger.warning("Incorrect password for email: %s", email)
                 return None
 
-            # Step 6: Generate access and refresh tokens concurrently using user's role
+            # Role is display metadata only (see user_model.py) and may be None — an
+            # account with no role at all must still authenticate and be authorized
+            # purely through its assigned policies.
+            role_value = user.role.value if user.role else None
             access_token, refresh_token = await asyncio.gather(
-                jwt_service.create_access_token(email=email, role=user.role.value),
-                jwt_service.create_refresh_token(email=email, role=user.role.value)
+                jwt_service.create_access_token(email=email, role=role_value),
+                jwt_service.create_refresh_token(email=email, role=role_value)
             )
 
-            # Step 7: Return structured token response
             return TokenPairResponseSchema(access_token=access_token, refresh_token=refresh_token)
 
         except Exception:
-            # Handle unexpected exceptions and log errors
             logger.error("Error during login:\n%s", traceback.format_exc())
             return None
 
 
-# ---------------------------- Singleton Instance ----------------------------
-# Singleton instance for login operations
 login_service = LoginService()

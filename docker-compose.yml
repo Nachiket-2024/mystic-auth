@@ -1,75 +1,93 @@
-# ---------------------------- Services ----------------------------
 services:
 
-  # ---------------------------- PostgreSQL Service ----------------------------
   postgres:
-    image: postgres:15                               # Use PostgreSQL 15
+    image: postgres:15
     container_name: postgres
     restart: always
     env_file:
-      - ./.env                                      # Load DB creds from .env
+      - ./.env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}               # From .env
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}       # From .env
-      POSTGRES_DB: ${POSTGRES_DB}                   # From .env
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data      # Persistent DB storage
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"                                 # Expose Postgres port
-    healthcheck:                                     # Ensure DB is fully ready before dependents start
+      - "5432:5432"
+    healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 5
 
-  # ---------------------------- Redis Service ----------------------------
   redis:
-    image: redis:7                                   # Use Redis 7
+    image: redis:7
     container_name: redis
     restart: always
     ports:
-      - "6379:6379"                                 # Expose Redis port
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  # ---------------------------- Backend Service ----------------------------
   backend:
     build:
-      context: .                                    # Root of repo
-      dockerfile: docker/backend.Dockerfile         # Custom backend Dockerfile
+      context: .
+      dockerfile: docker/backend.Dockerfile
     container_name: backend
-    working_dir: /app                               # Ensure Python imports work
+    working_dir: /app
     env_file:
-      - ./.env                                      # Load DATABASE_URL and other vars
+      - ./.env
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
-      DATABASE_URL: ${DATABASE_URL}                 # From .env
-    depends_on:                                     # Backend depends on DB + Redis
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
       postgres:
-        condition: service_healthy                  # Wait until DB is healthy
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
-      - ./backend:/app                              # Mount backend source
+      - ./backend:/app
+      # Whole repo root, additionally — lets `docker exec -w /repo backend
+      # pytest tests/backend/...` run the top-level test suite (which
+      # imports as `backend.app...`, matching the host repo layout) from
+      # inside the Docker network, reaching Postgres/Redis via their
+      # container hostnames. The main app process is unaffected since its
+      # own working_dir/mount above is untouched.
+      - .:/repo
     ports:
-      - "8000:8000"                                 # Expose FastAPI port
+      - "8000:8000"
+    healthcheck:
+      # Only defined here, not in the shared Dockerfile — taskiq_worker/alembic
+      # use the same image but don't serve HTTP. Hits /health/ready (checks DB +
+      # Redis connectivity), not just the static "/" welcome route, so a backend
+      # that's up but can't reach its dependencies is correctly reported unhealthy.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
-  # ---------------------------- Frontend Service ----------------------------
   frontend:
     build:
-      context: .                                    # Root of repo
-      dockerfile: docker/frontend.Dockerfile        # Custom frontend Dockerfile
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      target: dev
     container_name: frontend
     working_dir: /app
     environment:
-      - CHOKIDAR_USEPOLLING=true                    # Needed for Vite file watching in Docker
+      - CHOKIDAR_USEPOLLING=true
     ports:
-      - "5173:5173"                                 # Expose Vite dev server port
+      - "5173:5173"
     volumes:
-      - ./frontend:/app                             # Mount frontend source
-      - /app/node_modules                           # prevents host from overwriting container deps
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
-      - backend                                     # Wait until backend starts
+      backend:
+        condition: service_healthy
 
-  # ---------------------------- Taskiq Worker ----------------------------
   taskiq_worker:
     build:
       context: .
@@ -77,20 +95,31 @@ services:
     container_name: taskiq_worker
     working_dir: /app
     env_file:
-      - ./.env                                      # Load broker/DB creds
+      - ./.env
     command: sh -c "taskiq worker app.taskiq_tasks.email_tasks:broker --reload"
     environment:
-      - REDIS_URL=${REDIS_URL}                      # Used by Taskiq broker
-      - PYTHONPATH=/app                             # Ensure imports resolve correctly
+      - REDIS_URL=${REDIS_URL}
+      - PYTHONPATH=/app
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     volumes:
-      - ./backend:/app                              # Mount backend source
+      - ./backend:/app
+    # Override backend.Dockerfile's inherited HEALTHCHECK, which curls
+    # localhost:8000/health/ready — taskiq_worker shares that image but
+    # serves no HTTP at all, so the inherited check always fails and
+    # reports this container as permanently "unhealthy" even when the
+    # worker itself is running fine. This checks the actual worker process
+    # via /proc directly — this slim image has neither `pgrep` nor `ps`.
+    healthcheck:
+      test: ["CMD-SHELL", "for p in /proc/[0-9]*/cmdline; do grep -aq taskiq \"$$p\" 2>/dev/null && exit 0; done; exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
-  # ---------------------------- Alembic Migration ----------------------------
   alembic:
     build:
       context: .
@@ -98,17 +127,16 @@ services:
     container_name: alembic
     working_dir: /app
     env_file:
-      - ./.env                                      # Load DATABASE_URL from .env
-    command: alembic upgrade head                   # Run migrations automatically
+      - ./.env
+    command: alembic upgrade head
     environment:
-      - DATABASE_URL=${DATABASE_URL}                # From .env
-      - PYTHONPATH=/app                             # Ensure /app is importable
+      - DATABASE_URL=${DATABASE_URL}
+      - PYTHONPATH=/app
     depends_on:
       postgres:
-        condition: service_healthy                  # Run only after DB is fully initialized
+        condition: service_healthy
     volumes:
-      - ./backend:/app                              # Mount backend source
+      - ./backend:/app
 
-# ---------------------------- Volumes ----------------------------
 volumes:
-  postgres_data:                                     # Persistent volume for PostgreSQL
+  postgres_data:

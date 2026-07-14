@@ -1,176 +1,221 @@
-# ---------------------------- External Imports ----------------------------
-# Import async HTTP client for Google API requests
 import httpx
-
-# Import traceback module to capture full stack traces for debugging exceptions
 import traceback
-
-# Import asyncio for concurrent asynchronous operations
 import asyncio
+import secrets
+# Hashlib/base64 are used to derive a PKCE code_challenge (SHA256 + base64url) from
+# the code_verifier, per RFC 7636 / OAuth 2.1's S256 method.
+import hashlib
+import base64
 
-# Import JSON module for serialization
-import json
-
-# ---------------------------- Internal Imports ----------------------------
-# Import JWT service to generate access and refresh tokens
 from ..token_logic.jwt_service import jwt_service
-
-# Single user CRUD instance for querying the unified users table
 from ...user_crud.user_crud_collector import user_crud
-
-# Default role assigned to all new users created via OAuth2
+# PBAC: new users get their access via an explicit default policy assignment,
+# never via their (metadata-only) role — see claude.md's "Roles" section: "New
+# users must receive access through default policy assignment, not default
+# roles." Mirrors signup_service.py.
+from ...authorization.repositories.policy_repository import policy_repository
+from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME
+# UserRole is used ONLY to block OAuth2 login into the reserved system account
+# (see login_or_create_user below), mirroring the same guard user_routes.py
+# applies to update/delete/role-change. Never used to grant access.
 from ...user_table.user_model import UserRole
-
-# Import singleton Redis client
 from ...redis.client import redis_client
-
-# Import centralized logger factory to create structured, module-specific loggers
 from ...logging.logging_config import get_logger
 
-# ---------------------------- Logger Setup ----------------------------
-# Create a logger instance for this module
 logger = get_logger(__name__)
 
-# ---------------------------- OAuth2 Service ----------------------------
+# Lifetime of an OAuth2 CSRF state token: long enough to cover the user
+# completing the Google consent screen, short enough to limit replay risk.
+OAUTH2_STATE_TTL_SECONDS = 300
+
+
 class OAuth2Service:
-    """
-    1. exchange_code_for_tokens - Exchange authorization code for Google access and refresh tokens.
-    2. get_user_info - Retrieve Google user profile information using access token.
-    3. login_or_create_user - Authenticate existing user or create new user and generate JWT tokens,
-                              persist them in Redis with multi-device support.
-    """
-
-    # ---------------------------- Exchange Code for Tokens ----------------------------
     @staticmethod
-    async def exchange_code_for_tokens(code: str, client_id: str, client_secret: str, redirect_uri: str) -> dict | None:
+    async def generate_and_store_state() -> tuple[str, str]:
         """
-        Input:
-            1. code (str) - Google authorization code
-            2. client_id (str) - OAuth2 client ID
-            3. client_secret (str) - OAuth2 client secret
-            4. redirect_uri (str) - Redirect URI used in OAuth2 flow
+        Issues a single-use CSRF state token plus a PKCE code_challenge for an
+        OAuth2 login attempt, returning (state, code_challenge) to embed in the
+        Google authorization URL. The code_verifier itself never leaves the server;
+        it is persisted in Redis keyed by state, with a short expiry, so the
+        callback can retrieve it and the pair can only be redeemed once.
 
-        Process:
-            1. Prepare POST payload with code and credentials.
-            2. Send POST request to Google OAuth2 token endpoint asynchronously.
-            3. Return JSON response containing tokens.
+        OAuth 2.1 requires PKCE for every client, confidential or not — it defends
+        against authorization-code interception independently of (and in addition
+        to) the client_secret and the state check, which only cover CSRF/session
+        fixation, not code theft in transit/at the redirect endpoint.
+        """
+        state = secrets.token_urlsafe(32)
 
-        Output:
-            1. dict | None - Token dictionary or None on failure
+        code_verifier = secrets.token_urlsafe(64)
+        digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+        code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+        await redis_client.set(f"oauth_state:{state}", code_verifier, ex=OAUTH2_STATE_TTL_SECONDS)
+
+        return state, code_challenge
+
+    @staticmethod
+    async def consume_state(state: str) -> str | None:
+        """
+        Returns the stored PKCE code_verifier for a state token from Google's
+        callback, or None if it was missing, unknown, or expired.
+        """
+        if not state:
+            return None
+
+        # Atomically fetch-and-delete so the same state (and its paired
+        # code_verifier) can never be redeemed twice.
+        return await redis_client.getdel(f"oauth_state:{state}")
+
+    @staticmethod
+    async def exchange_code_for_tokens(
+        code: str, client_id: str, client_secret: str, redirect_uri: str, code_verifier: str
+    ) -> dict | None:
+        """
+        code_verifier is the PKCE verifier matching the code_challenge sent in the
+        original authorization request; Google rejects the exchange if it doesn't
+        match, proving this callback belongs to the same party that started the flow.
         """
         try:
-            # Step 1: Prepare POST payload with code and credentials
             token_url = "https://oauth2.googleapis.com/token"
             data = {
                 "code": code,
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "redirect_uri": redirect_uri,
-                "grant_type": "authorization_code"
+                "grant_type": "authorization_code",
+                "code_verifier": code_verifier,
             }
 
-            # Step 2: Send POST request to Google OAuth2 token endpoint asynchronously
             async with httpx.AsyncClient() as client:
                 resp = await client.post(token_url, data=data)
-                resp.raise_for_status()  # Step 2a: Raise exception for non-success status codes
-
-                # Step 3: Return JSON response containing tokens
+                resp.raise_for_status()
                 return resp.json()
 
         except Exception:
             logger.error("Error exchanging code for tokens:\n%s", traceback.format_exc())
             return None
 
-    # ---------------------------- Get User Info ----------------------------
     @staticmethod
     async def get_user_info(access_token: str) -> dict | None:
-        """
-        Input:
-            1. access_token (str) - Google access token
-
-        Process:
-            1. Prepare authorization headers with Bearer token.
-            2. Send GET request to Google userinfo endpoint asynchronously.
-            3. Parse and return JSON response containing user info.
-
-        Output:
-            1. dict | None - User info dictionary or None on failure
-        """
         try:
-            # Step 1: Prepare authorization headers with Bearer token
             userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            # Step 2: Send GET request to Google userinfo endpoint asynchronously
             async with httpx.AsyncClient() as client:
                 resp = await client.get(userinfo_url, headers=headers)
-                resp.raise_for_status()  # Step 2a: Raise exception for non-success status codes
-
-                # Step 3: Parse and return JSON response containing user info
+                resp.raise_for_status()
                 return resp.json()
 
         except Exception:
             logger.error("Error fetching user info:\n%s", traceback.format_exc())
             return None
 
-    # ---------------------------- Login or Create User ----------------------------
     @staticmethod
-    async def login_or_create_user(db, user_info: dict, device_id: str | None = None) -> dict | None:
+    async def login_or_create_user(db, user_info: dict) -> dict | None:
         """
-        Input:
-            1. db - Async database session/connection
-            2. user_info (dict) - Google user info dictionary
-            3. device_id (str | None) - Optional device identifier for multi-device token storage
+        Authenticates an existing user or creates a new one from Google's verified
+        profile, returning a fresh access/refresh token pair, or None on failure.
 
-        Process:
-            1. Extract email and name from user_info.
-            2. Search for existing user in the unified users table.
-            3. Create new user if not found with default role and is_verified set to True.
-            4. Generate access and refresh JWT tokens concurrently using user's role.
-            5. Store tokens in Redis list under user's email for multi-device support.
-            6. Return tokens if successful.
+        Session/multi-device tracking is handled entirely inside
+        jwt_service.create_refresh_token (the jti-based registry used by
+        logout-all and reuse detection) — nothing further needs to be persisted
+        here. An earlier version additionally wrote each token pair into a
+        separate `user_tokens:{email}` Redis list, but nothing ever read that
+        list; it was pure dead weight that grew forever (no TTL) and needlessly
+        held raw, cleartext bearer tokens in Redis on top of the canonical registry.
 
-        Output:
-            1. dict | None - Dictionary with access_token and refresh_token or None on failure
+        Pre-hijacking note: an unverified account is not proof that whoever
+        created it owns the email address — anyone can sign up with any email and
+        just never click the verification link. If marking a pre-existing account
+        verified here didn't also clear hashed_password, an attacker could
+        pre-register the victim's email with a password of their choosing, leave
+        it unverified, and silently inherit access the moment the real owner later
+        signs in with Google: the account would become verified while the
+        attacker's password remained valid, letting them log in as the victim
+        indefinitely. Clearing hashed_password severs that password the instant
+        Google proves the real owner's identity, so only the legitimate owner (via
+        Google, or by setting a fresh password afterwards) can authenticate into
+        the account from this point on. A previously *verified* account's password
+        is never touched — that password was already proven to belong to this
+        email's owner, so Google login there is a pure additional login method,
+        not a takeover.
         """
         try:
-            # Step 1: Extract email and name from user_info
             email = user_info.get("email")
             name = user_info.get("name", "Unknown")
 
-            # Step 2: Search for existing user in the unified users table
             user = await user_crud.get_by_email(email, db)
 
-            # Step 3: Create new user if not found with default role and is_verified set to True
-            # OAuth2 users are pre-verified — Google has already confirmed their email
+            # OAuth2 login trusts Google's verified_email alone — there is no
+            # password check at all — so without this guard, anyone who controls a
+            # Google account matching whatever email the operator chose for the
+            # system account (an arbitrary, operator-picked address; nothing stops
+            # it from being a real, Google-verifiable one) could sign in as the
+            # system superuser entirely bypassing its password.
+            if user and user.role == UserRole.system:
+                logger.warning("OAuth2 login rejected for reserved system account: %s", email)
+                return None
+
             if not user:
                 user_data = {
                     "name": name,
                     "email": email,
-                    "role": UserRole.user,       # Default role for all new OAuth2 signups
-                    "is_verified": True,          # Google-verified accounts skip email verification
-                    "is_active": True,            # Account active by default
-                    "hashed_password": None       # No password for OAuth2-only users
+                    "role": UserRole.user,        # Metadata/display only — grants nothing
+                    "is_verified": True,           # Google has already confirmed this email
+                    "is_active": True,
+                    "hashed_password": None,       # No password for OAuth2-only users
                 }
                 user = await user_crud.create(user_data, db)
 
-            # Step 4: Generate access and refresh JWT tokens concurrently using user's role
+                # Assign the baseline self-service policy — the actual source of
+                # this account's access, per PBAC (mirrors signup_service.py's
+                # password-signup path).
+                self_service_policy = await policy_repository.get_by_name(SELF_SERVICE_POLICY_NAME, db)
+                if self_service_policy:
+                    await policy_repository.assign_policy_to_user(
+                        user_id=user.id, policy_id=self_service_policy.id, db=db, assigned_by="system"
+                    )
+                else:
+                    # Should never happen once the seeding migration has run —
+                    # logged loudly rather than failing OAuth2 login outright,
+                    # since a missing baseline policy is an operational/migration
+                    # issue, not something this particular login request caused.
+                    logger.error(
+                        "Default policy '%s' not found — new OAuth2 user %s created with no assigned policies",
+                        SELF_SERVICE_POLICY_NAME, email,
+                    )
+
+            # Google's confirmed verified_email is equally valid proof of
+            # ownership as clicking our own verification email, so a pre-existing
+            # unverified account is verified now. See the pre-hijacking note above
+            # for why hashed_password is cleared in the same step.
+            elif not user.is_verified:
+                updated_user = await user_crud.update_by_email(
+                    email, {"is_verified": True, "hashed_password": None}, db
+                )
+                # Keep the already-fetched user object if the update raced with a
+                # deletion — role/email are unaffected either way.
+                if updated_user:
+                    user = updated_user
+
+            # Mirrors login_service.py's same check for password-based login: a
+            # deactivated account's tokens would ultimately be rejected by
+            # current_user_handler.py anyway, but this login boundary is the right
+            # place to give a clear "account deactivated" outcome instead.
+            if not user.is_active:
+                logger.info("OAuth2 login blocked for deactivated account: %s", email)
+                return None
+
+            # Role is display metadata only (see user_model.py) and may be None —
+            # an account with no role at all must still authenticate and be
+            # authorized purely through its assigned policies.
+            role_value = user.role.value if user.role else None
             access_token, refresh_token = await asyncio.gather(
-                jwt_service.create_access_token(email, user.role.value),
-                jwt_service.create_refresh_token(email, user.role.value)
+                jwt_service.create_access_token(email, role_value),
+                jwt_service.create_refresh_token(email, role_value)
             )
 
-            # Step 5: Store tokens in Redis list under user's email for multi-device support
-            token_entry = {
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "device_id": device_id or "unknown"
-            }
-
-            redis_key = f"user_tokens:{email}"
-            await redis_client.rpush(redis_key, json.dumps(token_entry))
-
-            # Step 6: Return tokens if successful
             return {"access_token": access_token, "refresh_token": refresh_token}
 
         except Exception:
@@ -178,6 +223,4 @@ class OAuth2Service:
             return None
 
 
-# ---------------------------- Service Instance ----------------------------
-# Singleton instance of OAuth2Service for external use
 oauth2_service = OAuth2Service()

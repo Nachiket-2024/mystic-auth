@@ -1,87 +1,55 @@
-// ---------------------------- External Imports ----------------------------
-// Import React to use JSX/TSX syntax in component
-import React, { useEffect } from "react";
+import React, { Suspense, lazy } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import { Flex, Heading, Text, VStack, Button } from "@chakra-ui/react";
+import type { StackProps } from "@chakra-ui/react";
 
-// Import BrowserRouter, Routes, and Route for routing
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-
-// Import Redux hooks for state and dispatch access
-import { useDispatch, useSelector } from "react-redux";
-
-// Import Chakra UI components for layout, typography, buttons, and stacks
-import { Box, Flex, Heading, Text, Spinner, VStack, Button } from "@chakra-ui/react";
-import type { StackProps } from "@chakra-ui/react"; // Type import for stack props
-
-// ---------------------------- Internal Imports ----------------------------
-// Import authentication pages
+// LoginPage is loaded eagerly — it's the most common entry point for an
+// unauthenticated visitor, so it shouldn't show a loading flash of its own
+// on top of App's own session-check gate. Every other route is route-level
+// code-split via React.lazy: none of them are needed until their route is
+// actually visited, and splitting them keeps the initial bundle (and every
+// unauthenticated visitor's download) limited to auth + the app shell.
 import LoginPage from "./auth/login/LoginPage";
-import SignupPage from "./auth/signup/SignupPage";
-import VerifyAccountPage from "./auth/verify_account/VerifyAccountPage";
-import PasswordResetRequestPage from "./auth/password_reset_request/PasswordResetRequestPage";
-import PasswordResetConfirmPage from "./auth/password_reset_confirm/PasswordResetConfirmPage";
+const SignupPage = lazy(() => import("./auth/signup/SignupPage"));
+const VerifyAccountPage = lazy(() => import("./auth/verify_account/VerifyAccountPage"));
+const PasswordResetRequestPage = lazy(() => import("./auth/password_reset_request/PasswordResetRequestPage"));
+const PasswordResetConfirmPage = lazy(() => import("./auth/password_reset_confirm/PasswordResetConfirmPage"));
+const DashboardPage = lazy(() => import("./dashboard/DashboardPage"));
+const UsersPage = lazy(() => import("./users_admin/UsersPage"));
+const PoliciesPage = lazy(() => import("./policies/PoliciesPage"));
+const AuditLogPage = lazy(() => import("./audit_log/AuditLogPage"));
+const ProfilePage = lazy(() => import("./profile/ProfilePage"));
 
-// Import dashboard page
-import DashboardPage from "./dashboard/DashboardPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AppLayout from "./components/layout/AppLayout";
+import { PERMISSIONS } from "./authorization/permissions";
 
-// Import ProtectedRoute component to guard private pages
-import ProtectedRoute from "./auth/ProtectedRoute";
+// Mounted once here so any component/thunk can call toaster.create({...})
+// (see components/ui/toaster.tsx)
+import { Toaster } from "./components/ui/toaster";
 
-// Import Redux action to fetch current user session
-import { fetchCurrentUser } from "./auth/current_user/current_user_slice";
+// Runs the current-user query once and mirrors it into the Zustand auth
+// store (see its own docstring for why this must be called exactly once,
+// here at the app root)
+import { useAuthSession } from "./auth/current_user/useCurrentUserQuery";
 
-// Import types for Redux state and dispatch
-import type { AppDispatch, RootState } from "./store/store";
+import { useAuthStore } from "./store/authStore";
+import LoadingState from "./components/ui/LoadingState";
 
-// ---------------------------- NotFoundPage Component ----------------------------
-/**
- * NotFoundPage
- * ----------------------------
- * Functional component for 404 page (route not found)
- * 
- * Input: None (no props)
- * Process:
- *   1. Render Flex container centered vertically and horizontally
- *   2. Render VStack to stack heading, text, and button with spacing
- *   3. Display 404 heading
- *   4. Display Oops! Page Not Found message
- *   5. Render Go Home button to redirect user to dashboard
- * Output: JSX.Element representing 404 page
- */
 const NotFoundPage: React.FC = () => {
-    const bg = "#f0f0f0";        // Step 1: Background color for 404 page
-    const textColor = "#e53e3e"; // Step 2: Text color for 404 heading
-
-    // ---------------------------- Render ----------------------------
-    /**
-     * Render
-     * ----------------------------
-     * Process:
-     *   1. Render Flex container centered vertically and horizontally
-     *   2. Render VStack to stack elements vertically
-     *   3. Display 404 heading
-     *   4. Display error message text
-     *   5. Render Go Home button for navigation
-     * Output: JSX.Element
-     */
+    const navigate = useNavigate();
     return (
-        // Step 1: Flex container for centering
-        <Flex align="center" justify="center" h="100vh" bg={bg} px={4} textAlign="center">
-            {/* Step 2: VStack for stacking elements */}
+        <Flex align="center" justify="center" h="100vh" bg="bg.canvas" px={4} textAlign="center">
             <VStack {...({ spacing: 4 } as StackProps)}>
-                {/* Step 3: 404 heading */}
-                <Heading color={textColor} size="2xl">404</Heading>
+                <Heading color="fg.error" size="2xl">404</Heading>
 
-                {/* Step 4: Error message */}
                 <Text fontSize="xl" fontWeight="medium">Oops! Page Not Found</Text>
 
-                {/* Step 5: Go Home button */}
                 <Button
-                    colorScheme="teal"
+                    colorPalette="brand"
                     size="md"
                     fontWeight="bold"
-                    _hover={{ bg: "teal.600" }}
-                    _active={{ bg: "teal.700" }}
-                    onClick={() => window.location.href = "/"}
+                    onClick={() => navigate("/")}
                 >
                     Go Home
                 </Button>
@@ -90,162 +58,142 @@ const NotFoundPage: React.FC = () => {
     );
 };
 
-// ---------------------------- LoadingScreen Component ----------------------------
 /**
- * LoadingScreen
+ * NotAuthorizedPage
  * ----------------------------
- * Functional component for consistent loading state display
- * 
- * Input: None (no props)
- * Process:
- *   1. Render Flex container centered vertically and horizontally
- *   2. Display Spinner for loading animation
- *   3. Display Checking session text
- * Output: JSX.Element showing loading state
+ * The 403 page — where ProtectedRoute redirects an authenticated user who
+ * lacks a route's required permission (see components/ProtectedRoute.tsx).
+ * Deliberately a separate page from NotFoundPage: "you don't have
+ * permission" and "this page doesn't exist" are different situations a
+ * user shouldn't have to guess between.
  */
-const LoadingScreen: React.FC = () => {
-    const bg = "#f0f0f0"; // Background for loading screen
-    
+const NotAuthorizedPage: React.FC = () => {
+    const navigate = useNavigate();
     return (
-        // Step 1: Flex container for centering
-        <Flex align="center" justify="center" h="100vh" bg={bg}>
-            {/* Step 2: Loading spinner */}
-            <Spinner size="xl" color="#3182ce" />
+        <Flex align="center" justify="center" h="100vh" bg="bg.canvas" px={4} textAlign="center">
+            <VStack {...({ spacing: 4 } as StackProps)}>
+                <Heading color="fg.error" size="2xl">403</Heading>
 
-            {/* Step 3: Loading text */}
-            <Text ml={4} fontSize="lg" color="#4a5568">Checking session...</Text>
+                <Text fontSize="xl" fontWeight="medium">You don't have permission to view this page</Text>
+
+                <Button
+                    colorPalette="brand"
+                    size="md"
+                    fontWeight="bold"
+                    onClick={() => navigate("/")}
+                >
+                    Go Home
+                </Button>
+            </VStack>
         </Flex>
     );
 };
 
-// ---------------------------- App Component ----------------------------
-/**
- * App
- * ----------------------------
- * Main application component with routing and layout
- * 
- * Input: None (no props)
- * Process:
- *   1. Initialize Redux dispatch and select authentication state
- *   2. Fetch current user session on mount if authentication status is unknown
- *   3. Show loading screen while session is being verified (until we KNOW the auth state)
- *   4. Render Router with header, main content area, and footer
- *   5. Define protected and public routes
- * Output: JSX.Element representing full app layout with routing
- */
 const App: React.FC = () => {
-    const dispatch: AppDispatch = useDispatch(); // Step 1: Redux dispatch
-    const { isAuthenticated } = useSelector(
-        (state: RootState) => state.currentUser // Step 2: Select authentication state
-    );
+    useAuthSession();
 
-    // ---------------------------- Effects ----------------------------
-    /**
-     * Fetch Current User on Mount
-     * ----------------------------
-     * Process:
-     *   1. Check if authentication status is null (unknown)
-     *   2. Dispatch fetchCurrentUser to verify session with backend
-     * Output: Redux state updated with authentication status
-     */
-    useEffect(() => {
-        if (isAuthenticated === null) {
-            dispatch(fetchCurrentUser("AppUseEffect")); // Step 1: Fetch user session
-        }
-    }, [dispatch, isAuthenticated]);
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-    // ---------------------------- Loading State ----------------------------
-    /**
-     * Loading State Check
-     * ----------------------------
-     * Process:
-     *   1. Check if authentication status is null (unknown)
-     *   2. If null, we don't know if user is logged in yet
-     *   3. Show loading screen until backend responds with definitive answer
-     *   4. This prevents flash of unauthenticated content or layout shift
-     * Output: LoadingScreen component or continues to main render
-     */
-    // Show loading screen while authentication status is being determined
-    // We show loading until isAuthenticated is no longer null (meaning we have a definitive answer)
+    // isAuthenticated is null until the session check resolves; showing a
+    // loading screen until then avoids a flash of unauthenticated content.
     if (isAuthenticated === null) {
-        return <LoadingScreen />; // Step 1: Show consistent loading screen
+        return <LoadingState message="Checking session..." fullScreen />;
     }
 
-    const headerBg = "linear-gradient(to right, #4299e1, #38b2ac)"; // Step 1: Header gradient
-    const mainBg = "#f0f0f0"; // Step 2: Main content background
-
-    // ---------------------------- Render ----------------------------
-    /**
-     * Render
-     * ----------------------------
-     * Process:
-     *   1. Render Router wrapper for routing functionality
-     *   2. Render Flex container as main column layout
-     *   3. Render header with application title
-     *   4. Render main content area with Routes
-     *   5. Define protected routes (dashboard, home) wrapped in ProtectedRoute
-     *   6. Define public routes (login, signup, verify, password reset)
-     *   7. Render footer with copyright information
-     * Output: JSX.Element representing full app layout with routing
-     */
     return (
-        // Step 1: Router wrapper
         <Router>
-            {/* Step 2: Main Flex layout with column direction */}
-            <Flex direction="column" minH="100vh" bg={mainBg}>
-                {/* Step 3: Header section */}
-                <Box bg={headerBg} py={6} shadow="md">
-                    <Heading textAlign="center" color="white" fontSize="3xl">Full Stack Auth Template</Heading>
-                </Box>
+            {/* Toast queue renderer — mounted once at the app root (uses a
+                Portal internally, so placement here doesn't affect layout) */}
+            <Toaster />
 
-                {/* Step 4: Main content area */}
-                <Flex flex="1" direction="column" py={8}>
-                    <Routes>
-                        {/* Step 5: Protected Routes - require authentication */}
-                        <Route
-                            path="/"
-                            element={
-                                <ProtectedRoute>
-                                    <Box maxW="container.lg" mx="auto">
-                                        <DashboardPage />
-                                    </Box>
-                                </ProtectedRoute>
-                            }
-                        />
-                        <Route
-                            path="/dashboard"
-                            element={
-                                <ProtectedRoute>
-                                    <Box maxW="container.lg" mx="auto">
-                                        <DashboardPage />
-                                    </Box>
-                                </ProtectedRoute>
-                            }
-                        />
+            <Suspense fallback={<LoadingState message="Loading..." fullScreen />}>
+            <Routes>
+                {/* Protected routes require authentication. Each is wrapped
+                    in AppLayout (sidebar + top bar) inside ProtectedRoute, so
+                    the shell only ever renders once access has actually been
+                    confirmed. */}
+                <Route
+                    path="/"
+                    element={
+                        <ProtectedRoute>
+                            <AppLayout>
+                                <DashboardPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <AppLayout>
+                                <DashboardPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/users"
+                    element={
+                        <ProtectedRoute permission={PERMISSIONS.USERS_LIST_ALL}>
+                            <AppLayout>
+                                <UsersPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/policies"
+                    element={
+                        <ProtectedRoute permission={PERMISSIONS.POLICIES_READ}>
+                            <AppLayout>
+                                <PoliciesPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/audit-log"
+                    element={
+                        // No permission prop: every authenticated user can see
+                        // their own audit trail (see AuditLogPage's docstring
+                        // for how the "All users" tab is gated separately).
+                        <ProtectedRoute>
+                            <AppLayout>
+                                <AuditLogPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/profile"
+                    element={
+                        <ProtectedRoute>
+                            <AppLayout>
+                                <ProfilePage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
 
-                        {/* Step 6: Public Routes - accessible without authentication */}
-                        <Route path="/login" element={<LoginPage />} />
-                        <Route path="/signup" element={<SignupPage />} />
-                        <Route path="/verify-account" element={<VerifyAccountPage />} />
-                        <Route path="/password-reset-request" element={<PasswordResetRequestPage />} />
-                        
-                        {/* Step 6a: Password reset confirm route - matches backend email link format */}
-                        <Route path="/reset-password" element={<PasswordResetConfirmPage />} />
+                {/* Public routes - accessible without authentication */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/verify-account" element={<VerifyAccountPage />} />
+                <Route path="/password-reset-request" element={<PasswordResetRequestPage />} />
 
-                        {/* Step 7: 404 Page - catch-all for unmatched routes */}
-                        <Route path="*" element={<NotFoundPage />} />
-                    </Routes>
-                </Flex>
+                {/* Matches backend email link format */}
+                <Route path="/reset-password" element={<PasswordResetConfirmPage />} />
 
-                {/* Step 8: Footer section */}
-                <Box bg="#73D5E8" py={2.5} mt="auto" textAlign="center">
-                    <Text color="#4a5568" fontSize="sm">© 2026 Full Stack Template. All rights reserved.</Text>
-                </Box>
-            </Flex>
+                {/* Where ProtectedRoute sends an authenticated user who lacks
+                    a route's required permission */}
+                <Route path="/not-authorized" element={<NotAuthorizedPage />} />
+
+                <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+            </Suspense>
         </Router>
     );
 };
 
-// ---------------------------- Export ----------------------------
-// Export App component as default for rendering
 export default App;

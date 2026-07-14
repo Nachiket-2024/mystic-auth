@@ -15,6 +15,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Path aliases — must match the "@" alias in vitest.config.ts so
+       type-checking and the Vite/Vitest runtime agree on resolution */
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,

@@ -1,151 +1,99 @@
-# ---------------------------- External Imports ----------------------------
-# Module to capture detailed exception stack traces
 import traceback
 
-# ---------------------------- Internal Imports ----------------------------
-# Redis client for tracking failed login attempts and lockouts
 from ...redis.client import redis_client
-
-# Load configuration values like max attempts and lockout time
 from ...core.settings import settings
-
-# Import centralized logger factory to create structured, module-specific loggers
 from ...logging.logging_config import get_logger
 
-# ---------------------------- Logger Setup ----------------------------
-# Create a logger instance for this module
 logger = get_logger(__name__)
 
-# ---------------------------- Login Protection Service Class ----------------------------
-# Service class to protect against brute-force login attempts
+
 class LoginProtectionService:
-    """
-    1. record_failed_attempt - Increment failed login attempts count in Redis.
-    2. is_locked - Check if user is currently locked out due to too many failed attempts.
-    3. reset_failed_attempts - Clear failed attempts after successful login.
-    4. check_and_record_action - Record action outcome and enforce lockout if necessary.
-    """
+    """Brute-force protection: tracks failed attempts and enforces lockouts in Redis."""
 
-    # Maximum allowed failed login attempts before lockout
     MAX_FAILED_LOGIN_ATTEMPTS: int = settings.MAX_FAILED_LOGIN_ATTEMPTS
+    LOGIN_LOCKOUT_TIME: int = settings.LOGIN_LOCKOUT_TIME
 
-    # Lockout duration in seconds
-    LOGIN_LOCKOUT_TIME: int = settings.LOGIN_LOCKOUT_TIME                
+    # A separate, more lenient threshold than the per-email one above (see
+    # settings.py for why) — max failed attempts from a single IP across any
+    # accounts before that IP is locked out.
+    MAX_FAILED_LOGIN_ATTEMPTS_PER_IP: int = settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
+    LOGIN_LOCKOUT_TIME_PER_IP: int = settings.LOGIN_LOCKOUT_TIME_PER_IP
 
-    # ---------------------------- Record Failed Attempt ----------------------------
     @staticmethod
-    async def record_failed_attempt(key: str) -> None:
+    async def record_failed_attempt(key: str, lockout_time: int = LOGIN_LOCKOUT_TIME) -> None:
         """
-        Input:
-            1. key (str): Redis key for tracking failed login attempts.
-
-        Process:
-            1. Retrieve current failure count from Redis.
-            2. If no existing count, initialize key with 1 and expiration.
-            3. Otherwise, increment existing failure count.
-
-        Output:
-            1. None
+        lockout_time defaults to the per-email LOGIN_LOCKOUT_TIME, but callers
+        tracking a different dimension (e.g. per-IP) pass their own window so
+        the two counters can expire independently.
         """
         try:
-            # Step 1: Retrieve current failure count from Redis
-            count = await redis_client.get(key)
+            # INCR creates the key at 0 before incrementing if it doesn't already
+            # exist, so this needs no separate existence check beforehand — a
+            # previous implementation did a GET first purely to decide between
+            # SET and INCR, a redundant Redis round-trip on every failed attempt.
+            new_count = await redis_client.incr(key)
 
-            # Step 2: If no existing count, initialize key with 1 and expiration
-            if count is None:
-                await redis_client.set(key, 1, ex=LoginProtectionService.LOGIN_LOCKOUT_TIME)
-            else:
-                # Step 3: Otherwise, increment existing failure count
-                await redis_client.incr(key)
+            # Set expiration only the first time the key is created; re-applying
+            # it on every later failure would keep sliding the lockout window
+            # forward instead of it expiring after the first failure as intended.
+            if new_count == 1:
+                await redis_client.expire(key, lockout_time)
 
         except Exception:
-            # Log the exception with full traceback
             logger.error("Error recording failed login attempt:\n%s", traceback.format_exc())
 
-    # ---------------------------- Check If Locked ----------------------------
     @staticmethod
-    async def is_locked(key: str) -> bool:
-        """
-        Input:
-            1. key (str): Redis key for tracking failed login attempts.
-
-        Process:
-            1. Retrieve current failure count from Redis.
-            2. Compare count with maximum allowed failed attempts.
-
-        Output:
-            1. bool: True if user is locked, False otherwise.
-        """
+    async def is_locked(key: str, max_attempts: int = MAX_FAILED_LOGIN_ATTEMPTS) -> bool:
         try:
-            # Step 1: Retrieve current failure count from Redis
             count = await redis_client.get(key)
 
-            # Step 2: Compare count with maximum allowed failed attempts
-            if count is not None and int(count) >= LoginProtectionService.MAX_FAILED_LOGIN_ATTEMPTS:
-                return True  # User is locked
+            if count is not None and int(count) >= max_attempts:
+                return True
 
-            return False  # User is not locked
+            return False
 
         except Exception:
-            # Log exception with full traceback
             logger.error("Error checking login lock status:\n%s", traceback.format_exc())
-            
-            return False  # Default to unlocked on error
+            return False
 
-    # ---------------------------- Reset Failed Attempts ----------------------------
     @staticmethod
     async def reset_failed_attempts(key: str) -> None:
-        """
-        Input:
-            1. key (str): Redis key for failed login attempts.
-
-        Process:
-            1. Delete key from Redis to reset failure count.
-
-        Output:
-            1. None
-        """
         try:
-            # Step 1: Delete key from Redis to reset failure count
             await redis_client.delete(key)
 
         except Exception:
-            # Log exception with full traceback
             logger.error("Error resetting failed login attempts:\n%s", traceback.format_exc())
 
-    # ---------------------------- Check and Record Action ----------------------------
     @staticmethod
-    async def check_and_record_action(key: str, success: bool) -> bool:
+    async def check_and_record_action(
+        key: str,
+        success: bool,
+        max_attempts: int = MAX_FAILED_LOGIN_ATTEMPTS,
+        lockout_time: int = LOGIN_LOCKOUT_TIME,
+    ) -> bool:
         """
-        Input:
-            1. key (str): Redis key for tracking failed login attempts.
-            2. success (bool): Outcome of the attempted action.
-
-        Process:
-            1. Check if user is currently locked out.
-            2. Reset failed attempts if action succeeded.
-            3. Record failed attempt if action failed.
-            4. Return final allowed status based on lockout and action outcome.
-
-        Output:
-            1. bool: True if action allowed, False if locked out.
+        The is_locked check here vs. a caller's own pre-check (e.g.
+        login_handler.py checks is_locked itself before attempting
+        authentication, to skip the password hash comparison entirely for an
+        already-locked account) are not redundant despite calling the same
+        function. The caller's pre-check answers "should we even try?" before
+        any expensive work; this one answers "is the account still unlocked
+        right now, after that work finished?" — closing the race where a
+        concurrent request locks the account in between. Removing either one
+        changes behavior: dropping the caller's pre-check means every attempt
+        against a locked account still pays for a full password hash
+        comparison, and dropping this one lets a login that happens to finish
+        just after a concurrent failure crosses the threshold slip through anyway.
         """
-        # Step 1: Check if user is currently locked out
-        if await LoginProtectionService.is_locked(key):
-            return False  # Deny action if locked
+        if await LoginProtectionService.is_locked(key, max_attempts):
+            return False
 
-        # Step 2: Reset failed attempts if action succeeded
         if success:
             await LoginProtectionService.reset_failed_attempts(key)
-
         else:
-            # Step 3: Record a failed attempt if action failed
-            await LoginProtectionService.record_failed_attempt(key)
+            await LoginProtectionService.record_failed_attempt(key, lockout_time)
 
-        # Step 4: Return final allowed status based on lockout and action outcome
         return True
 
 
-# ---------------------------- Service Instance ----------------------------
-# Single global instance for login protection usage
 login_protection_service = LoginProtectionService()

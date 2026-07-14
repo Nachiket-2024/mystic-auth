@@ -42,8 +42,6 @@ docker-compose.override.yml
 # ---------------------------- Backend ----------------------------
 backend/__pycache__/
 backend/*.pyc
-backend/migrations/
-backend/alembic/versions/
 backend/*.db
 
 # ---------------------------- Frontend ----------------------------
@@ -79,3 +77,7 @@ dump.rdb
 # ---------------------------- Logs ----------------------------
 logs/
 *.log
+
+# ---------------------------- AI Assistant / Development Tools ----------------------------
+.claude/
+claude.md

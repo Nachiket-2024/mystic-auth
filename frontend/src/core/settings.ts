@@ -1,15 +1,12 @@
-// ---------------------------- Frontend Settings ----------------------------
 /**
- * settings
- * ----------------------------
- * Centralized frontend configuration object
- * Fields:
- *   1. apiBaseUrl - Base URL for backend API, loaded from Vite environment variable
+ * Single source of truth for the product name shown in the UI (navbar,
+ * auth pages, document title) — change it here once rather than hunting
+ * down every hardcoded occurrence.
  */
+export const APP_NAME = "MysticAuth";
+
 const settings = {
-    apiBaseUrl: import.meta.env.VITE_API_BASE_URL, // Step 1: API base URL from Vite env
+    apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
 };
 
-// ---------------------------- Export ----------------------------
-// Export settings object for use throughout the frontend
 export default settings;

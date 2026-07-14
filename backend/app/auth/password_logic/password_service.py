@@ -1,155 +1,98 @@
-# ---------------------------- External Imports ----------------------------
-# Password hashing library with Argon2 support for secure password storage
 from passlib.context import CryptContext
-
-# Modules for handling date and time calculations
 from datetime import datetime, timedelta, timezone
-
-# JWT library for encoding and decoding JSON Web Tokens
 import jwt
+import asyncio
 
-# ---------------------------- Internal Imports ----------------------------
-# Application settings including SECRET_KEY and JWT configurations
 from ...core.settings import settings
 
-# ---------------------------- Password Context ----------------------------
-# Configure password hashing using Argon2id algorithm
-pwd_context = CryptContext(
-    schemes=["argon2"],  # Use Argon2 hashing scheme
-    deprecated="auto"    # Automatically handle deprecated hashes
-)
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
-# ---------------------------- Password Service ----------------------------
-# Service class handling password hashing, verification, and reset tokens
+
 class PasswordService:
-    """
-    1. hash_password - Hash a plain password.
-    2. verify_password - Compare plain and hashed passwords.
-    3. validate_password_strength - Check password meets minimum requirements.
-    4. create_reset_token - Generate JWT for password reset.
-    5. verify_reset_token - Decode and validate reset JWT.
-    """
+    """Handles password hashing/verification, strength checks, and reset tokens."""
 
-    # ---------------------------- Hash Password ----------------------------
+    # A fixed Argon2 hash of an arbitrary, never-used password. Callers that need
+    # to perform a password comparison but have no real hash to check against
+    # (e.g. login for a nonexistent account, or an OAuth2-only account with
+    # hashed_password=None) compare against this instead of skipping the check
+    # outright — skipping it would return in a fraction of the time a genuine
+    # hash comparison takes, letting a timing attack distinguish "no such
+    # account" from "wrong password on a real one". Computed once at import time
+    # so it always matches this process's actual Argon2 parameters.
+    DUMMY_HASH: str = pwd_context.hash("timing-attack-mitigation-placeholder")
+
     @staticmethod
     async def hash_password(password: str) -> str:
-        """
-        Input:
-            1. password (str): Plain password string to be hashed.
+        # Off the event loop: Argon2 is deliberately slow (that's the point), and
+        # calling it synchronously inside a coroutine blocks every other
+        # concurrent request on this worker for the duration of the hash.
+        return await asyncio.to_thread(pwd_context.hash, password)
 
-        Process:
-            1. Hash the password using pwd_context with Argon2.
-
-        Output:
-            1. str: Hashed password string.
-        """
-        # Step 1: Hash the password using pwd_context with Argon2
-        return pwd_context.hash(password)
-
-    # ---------------------------- Verify Password ----------------------------
     @staticmethod
     async def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """
-        Input:
-            1. plain_password (str): Plain password to verify.
-            2. hashed_password (str): Hashed password to compare against.
+        # Off the event loop — same rationale as hash_password: this runs on
+        # every login attempt (including the DUMMY_HASH timing-mitigation path).
+        return await asyncio.to_thread(pwd_context.verify, plain_password, hashed_password)
 
-        Process:
-            1. Verify the plain password against the hashed password using pwd_context.
-
-        Output:
-            1. bool: True if passwords match, False otherwise.
-        """
-        # Step 1: Verify the plain password against the hashed password using pwd_context
-        return pwd_context.verify(plain_password, hashed_password)
-
-    # ---------------------------- Validate Password Strength ----------------------------
     @staticmethod
     async def validate_password_strength(password: str) -> bool:
-        """
-        Input:
-            1. password (str): Plain password to validate.
+        if len(password) < 8:
+            return False
 
-        Process:
-            1. Check password meets minimum length requirement.
+        # Require a mix of character classes — a length-only check accepts
+        # passwords like "aaaaaaaa" that are trivially guessable, defeating the
+        # point of enforcing a minimum length at all.
+        has_upper = any(char.isupper() for char in password)
+        has_lower = any(char.islower() for char in password)
+        has_digit = any(char.isdigit() for char in password)
 
-        Output:
-            1. bool: True if password is strong enough, False otherwise.
-        """
-        # Step 1: Check password meets minimum length requirement
-        return len(password) >= 8
+        return has_upper and has_lower and has_digit
 
-    # ---------------------------- Create Reset Token ----------------------------
     @staticmethod
     async def create_reset_token(
         email: str,
         expires_minutes: int = settings.RESET_TOKEN_EXPIRE_MINUTES
     ) -> str:
-        """
-        Input:
-            1. email (str): Email of the user requesting reset.
-            2. expires_minutes (int): Expiration time in minutes for token.
-
-        Process:
-            1. Calculate expiration timestamp in UTC.
-            2. Create payload with email and expiration.
-            3. Encode JWT using SECRET_KEY and JWT_ALGORITHM.
-
-        Output:
-            1. str: Encoded JWT token string.
-        """
-        # Step 1: Calculate expiration timestamp in UTC
         expire = datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
 
-        # Step 2: Create payload with email and expiration
-        # Role is intentionally excluded — single users table makes it unnecessary
+        # The "reset" type claim lets verify_reset_token reject any other
+        # validly-signed JWT (e.g. an access or refresh token, which carries the
+        # same SECRET_KEY signature) that happens to also carry an "email" claim.
+        # Role is intentionally excluded — the single users table makes it
+        # unnecessary.
         payload: dict[str, str | float] = {
             "email": email,
+            "type": "reset",
             "exp": expire.timestamp()
         }
 
-        # Step 3: Encode JWT using SECRET_KEY and JWT_ALGORITHM
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
-    # ---------------------------- Verify Reset Token ----------------------------
     @staticmethod
     async def verify_reset_token(token: str) -> dict | None:
-        """
-        Input:
-            1. token (str): JWT token string to verify.
-
-        Process:
-            1. Decode JWT using SECRET_KEY and JWT_ALGORITHM.
-            2. Validate email is present in payload.
-            3. Return payload if valid.
-
-        Output:
-            1. dict | None: Payload dict if valid, None if invalid or expired.
-        """
         try:
-            # Step 1: Decode JWT using SECRET_KEY and JWT_ALGORITHM
             payload = jwt.decode(
                 token,
                 settings.SECRET_KEY,
                 algorithms=[settings.JWT_ALGORITHM]
             )
 
-            # Step 2: Validate email is present in payload
             if not payload.get("email"):
                 return None
 
-            # Step 3: Return payload if valid
+            # Rejects any other validly-signed JWT (e.g. a stolen but
+            # still-valid access/refresh token sharing the same SECRET_KEY) that
+            # happens to also carry an "email" claim.
+            if payload.get("type") != "reset":
+                return None
+
             return payload
 
         except jwt.ExpiredSignatureError:
-            # Token expired
             return None
 
         except jwt.InvalidTokenError:
-            # Token invalid
             return None
 
 
-# ---------------------------- Service Instance ----------------------------
-# Single global instance of PasswordService
 password_service = PasswordService()

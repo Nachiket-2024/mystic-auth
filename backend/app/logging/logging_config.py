@@ -1,72 +1,58 @@
-# ---------------------------- External Imports ----------------------------
-# Built-in logging module for tracking events and errors
 import logging
-
-# Built-in os module for handling file paths and directory operations
 import os
 
-# Handler for rotating log files based on time intervals
 from logging.handlers import TimedRotatingFileHandler
-
-# JSON log formatter from external package for structured logging
 from pythonjsonlogger import jsonlogger
 
-# ---------------------------- Log Directory Setup ----------------------------
-# Define directory path to store log files
+from ..core.settings import settings
+from .correlation_id_middleware import request_id_ctx_var
+
+
+class RequestIdFilter(logging.Filter):
+    """Injects the current request's correlation ID (if any) into every log record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Defaults to "-" outside of a request, e.g. startup logs.
+        record.request_id = request_id_ctx_var.get()
+        return True
+
+
 LOG_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'logs')
-
-# Create the logs directory if it does not exist
-os.makedirs(LOG_DIR, exist_ok=True)  # Ensure logs directory exists
-
-# Define full path for the access log file
+os.makedirs(LOG_DIR, exist_ok=True)
 ACCESS_LOG_PATH = os.path.join(LOG_DIR, 'access.log')
 
-# ---------------------------- Logger Factory Function ----------------------------
+
 def get_logger(name: str = "base_logger") -> logging.Logger:
     """
-    Input:
-        1. name (str): Name of the logger (default "base_logger").
-    
-    Process:
-        1. Get or create a logger instance with the specified name.
-        2. Set the logger level to DEBUG to capture all log levels.
-        3. Avoid duplicate handlers if logger already has handlers.
-        4. Create JSON formatter for structured logging.
-        5. Create a timed rotating file handler for access logs.
-        6. Set the handler level and attach formatter.
-        7. Add handler to the logger.
-        8. Return the fully configured logger.
-    
-    Output:
-        1. logging.Logger: Fully configured logger instance.
+    Returns a logger configured with a JSON formatter (including the request
+    correlation ID), a rotating access-log file handler, and a stdout handler
+    for container log aggregation (e.g. `docker logs`).
     """
-    # Step 1: Get or create a logger instance with the specified name
     logger = logging.getLogger(name)
+    logger.setLevel(settings.LOG_LEVEL)
 
-    # Step 2: Set the logger level to DEBUG to capture all log levels
-    logger.setLevel(logging.DEBUG)
-
-    # Step 3: Avoid duplicate handlers if logger already has handlers
     if not logger.handlers:
-        # Step 4: Create JSON formatter for structured logging
         formatter = jsonlogger.JsonFormatter(
-            '%(asctime)s %(levelname)s %(name)s %(message)s'
+            '%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s'
         )
+        request_id_filter = RequestIdFilter()
 
-        # Step 5: Create a timed rotating file handler for access logs
         access_handler = TimedRotatingFileHandler(
-            ACCESS_LOG_PATH,  # Path to log file
-            when="midnight",  # Rotate logs at midnight
-            interval=1,       # Every 1 day
-            backupCount=0     # No backup limit
+            ACCESS_LOG_PATH,
+            when="midnight",
+            interval=1,
+            backupCount=0
         )
-
-        # Step 6: Set the handler level and attach formatter
         access_handler.setLevel(logging.INFO)
         access_handler.setFormatter(formatter)
+        access_handler.addFilter(request_id_filter)
 
-        # Step 7: Add handler to the logger
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(logging.INFO)
+        stream_handler.setFormatter(formatter)
+        stream_handler.addFilter(request_id_filter)
+
         logger.addHandler(access_handler)
+        logger.addHandler(stream_handler)
 
-    # Step 8: Return the fully configured logger
     return logger

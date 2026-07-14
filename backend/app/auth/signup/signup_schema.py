@@ -1,17 +1,9 @@
-# ---------------------------- External Imports ----------------------------
-# Import BaseModel for data validation and type enforcement
-# Import EmailStr to ensure proper email format validation
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
-# ---------------------------- Signup Schema ----------------------------
-# Define a Pydantic model for signup requests
+
 class SignupSchema(BaseModel):
-
-    # User's full name as a string
-    name: str
-
-    # User's email address, validated against standard email format
+    # Capped so an unbounded string can't be stored/displayed/logged indefinitely
+    name: str = Field(..., max_length=100)
     email: EmailStr
-
-    # Plain password (to be validated and hashed later)
-    password: str
+    # Capped so an arbitrarily large string isn't fed straight into Argon2 hashing
+    password: str = Field(..., max_length=128)
