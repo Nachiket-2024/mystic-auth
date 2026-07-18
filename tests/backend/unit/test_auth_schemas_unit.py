@@ -12,8 +12,10 @@ from pydantic import ValidationError
 
 from backend.app.auth.login.login_schema import LoginSchema
 from backend.app.auth.password_reset_confirm.password_reset_confirm_schema import PasswordResetConfirmSchema
+from backend.app.auth.password_reset_request.password_reset_request_schema import PasswordResetRequestSchema
 from backend.app.auth.signup.signup_schema import SignupSchema
 from backend.app.auth.verify_account.verify_account_schema import VerifyAccountSchema
+from backend.app.user_table.user_schema import UserCreate, UserUpdate
 
 
 def test_signup_rejects_name_over_max_length():
@@ -70,3 +72,64 @@ def test_verify_account_schema_rejects_token_over_max_length():
 def test_verify_account_schema_accepts_token_at_max_length():
     schema = VerifyAccountSchema(token="a" * 2048)
     assert len(schema.token) == 2048
+
+
+# ---------------------------- Email casing normalization ----------------------------
+#
+# Regression guard: `User@Example.com` and `user@example.com` must be treated
+# as the same account. These schemas are the input boundary for signup,
+# login, and password-reset-request — normalizing here (in addition to the
+# CRUD-layer normalization in UserEmailCRUD) means the canonical lowercase
+# form flows through logs/tokens/audit from the earliest point.
+
+def test_signup_schema_lowercases_mixed_case_email():
+    schema = SignupSchema(name="Test User", email="User@Example.COM", password="ValidPass123!")
+    assert schema.email == "user@example.com"
+
+
+def test_login_schema_lowercases_mixed_case_email():
+    schema = LoginSchema(email="User@Example.COM", password="ValidPass123!")
+    assert schema.email == "user@example.com"
+
+
+def test_password_reset_request_schema_lowercases_mixed_case_email():
+    schema = PasswordResetRequestSchema(email="User@Example.COM")
+    assert schema.email == "user@example.com"
+
+
+# ---------------------------- UserUpdate/UserCreate length caps ----------------------------
+#
+# Regression guard: these schemas back PUT /users/me and PUT /users/{email}
+# (self and admin password/profile changes) and previously had no
+# max_length at all on name/password, unlike signup_schema.SignupSchema —
+# an unbounded password fed straight into Argon2 hashing is exactly the DoS
+# vector the signup cap exists to prevent.
+
+def test_user_update_rejects_password_over_max_length():
+    with pytest.raises(ValidationError):
+        UserUpdate(password="a" * 129)
+
+
+def test_user_update_accepts_password_at_max_length():
+    schema = UserUpdate(password="a" * 128)
+    assert len(schema.password) == 128
+
+
+def test_user_update_rejects_name_over_max_length():
+    with pytest.raises(ValidationError):
+        UserUpdate(name="a" * 101)
+
+
+def test_user_update_accepts_name_at_max_length():
+    schema = UserUpdate(name="a" * 100)
+    assert len(schema.name) == 100
+
+
+def test_user_create_rejects_password_over_max_length():
+    with pytest.raises(ValidationError):
+        UserCreate(name="Test User", email="user@example.com", password="a" * 129)
+
+
+def test_user_create_rejects_name_over_max_length():
+    with pytest.raises(ValidationError):
+        UserCreate(name="a" * 101, email="user@example.com", password="ValidPass123!")

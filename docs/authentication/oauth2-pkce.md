@@ -91,5 +91,5 @@ See [Security Decisions: OAuth2 CSRF and account-hijacking protections](../secur
 ## Troubleshooting
 
 - **"redirect_uri_mismatch" from Google**: `GOOGLE_REDIRECT_URI` must be byte-for-byte identical to a URI registered in the Google Cloud Console (including scheme and trailing slash).
-- **Callback always redirects to `/login` with no visible error**: check `docker logs backend` — every rejection path logs a `warning`/`error` with the specific reason (state mismatch, unverified email, exchange failure, etc.), since none of it is surfaced to the browser by design.
+- **Callback always redirects to `/login` with no visible error**: check `docker compose logs backend` — every rejection path logs a `warning`/`error` with the specific reason (state mismatch, unverified email, exchange failure, etc.), since none of it is surfaced to the browser by design.
 - **A returning Google user is asked to "set a password"**: expected if their account has never had one — `hashed_password` is `None` for OAuth2-only accounts. Use `PUT /users/me` with a `password` field to set one.

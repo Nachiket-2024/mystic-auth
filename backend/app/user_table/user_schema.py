@@ -1,29 +1,53 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator
 from datetime import datetime
 
 from .user_model import UserRole
+from ..emails.email_normalization import normalize_email
 
 
 class UserBase(BaseModel):
     """Shared base schema for User data used across create/read schemas."""
 
-    name: str
+    # Capped to match signup_schema.SignupSchema — an unbounded string here
+    # would feed straight into Argon2 hashing (password) or be
+    # stored/displayed/logged indefinitely (name).
+    name: str = Field(..., max_length=100)
     email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, value: str) -> str:
+        return normalize_email(value)
 
 
 class UserCreate(UserBase):
     """Schema used when registering a new user account. Role defaults to
     'user' — admin accounts are assigned separately."""
 
-    password: str
+    password: str = Field(..., max_length=128)
 
 
 class UserUpdate(BaseModel):
     """Schema for user-controlled profile updates only. Role changes are
-    intentionally excluded — use admin endpoints for that."""
+    intentionally excluded — use admin endpoints for that.
 
-    name: str | None = None
-    password: str | None = None
+    Backs both PUT /users/me and PUT /users/{email} (admin), so the same
+    max_length caps signup_schema.SignupSchema applies must apply here too —
+    an unbounded password submitted through either of these routes would
+    otherwise be fed straight into Argon2 hashing uncapped.
+    """
+
+    name: str | None = Field(default=None, max_length=100)
+    password: str | None = Field(default=None, max_length=128)
+
+    # Required (by PUT /users/me's own handler, not this schema) when an
+    # account that already has a password is changing it via self-service —
+    # a hijacked access-token cookie would otherwise be enough to fully lock
+    # the legitimate owner out by just setting a new password, no proof of
+    # the old one needed. Not required for the admin route (PUT
+    # /users/{email}, which reuses this schema) or for an OAuth-only account
+    # setting a password for the first time (nothing to confirm against).
+    current_password: str | None = Field(default=None, max_length=128)
 
 
 class UserRoleUpdate(BaseModel):

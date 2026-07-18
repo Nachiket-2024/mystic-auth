@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Cookie, Request
 
-# Honors X-Forwarded-For only from a configured trusted reverse proxy (see core/client_ip.py)
-from ...core.client_ip import get_client_ip
+# Honors X-Forwarded-For only from a configured trusted reverse proxy (see auth/security/client_ip.py)
+from ...auth.security.client_ip import get_client_ip
 
 from ...auth.signup.signup_schema import SignupSchema
 from ...auth.login.login_schema import LoginSchema

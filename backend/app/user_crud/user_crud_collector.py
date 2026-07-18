@@ -23,8 +23,8 @@ class UserCRUDCollector:
     async def get_by_id(self, id: int, db: AsyncSession):
         return await self.base.get_by_id(id, db)
 
-    async def get_all(self, db: AsyncSession):
-        return await self.base.get_all(db)
+    async def get_all(self, db: AsyncSession, limit: int = 1000, offset: int = 0):
+        return await self.base.get_all(db, limit=limit, offset=offset)
 
     async def create(self, obj_data: dict, db: AsyncSession):
         return await self.base.create(obj_data, db)

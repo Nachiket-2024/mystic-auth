@@ -97,8 +97,8 @@ async def test_assert_authorized_to_grant_ignores_actions_outside_the_app_own_vo
 async def test_create_policy_blocks_minting_action_caller_does_not_hold(mocker):
     """Holding only policies:create (the dependency already satisfied to
     reach this handler) must not be enough to create a policy granting,
-    say, users:promote_to_admin unless the caller already has it."""
-    policy_data = PolicyCreate(name="sneaky", actions=["users:promote_to_admin"], resource_type="users")
+    say, users:purge unless the caller already has it."""
+    policy_data = PolicyCreate(name="sneaky", actions=["users:purge"], resource_type="users")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=None)
     create_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock)
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
@@ -230,7 +230,7 @@ async def test_assign_policy_blocks_self_escalation_to_superuser(mocker):
     target_user = MagicMock(id=2, email="caller@example.com")
     superuser_policy = _make_policy(
         name=SYSTEM_SUPERUSER_POLICY_NAME,
-        actions=["users:assign_system_role", "users:promote_to_admin", "policies:read"],
+        actions=["users:assign_system_role", "users:purge", "policies:read"],
         resource_type="*",
     )
     mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)

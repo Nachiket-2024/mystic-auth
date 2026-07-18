@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from ...redis.client import redis_client
 from ...core.settings import settings
-from ...core.client_ip import get_client_ip
+from .client_ip import get_client_ip
 from ...logging.logging_config import get_logger
 
 logger = get_logger(__name__)

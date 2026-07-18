@@ -146,6 +146,34 @@ async def test_rate_limited_account_extractor_failure_is_logged(mocker):
 
 
 @pytest.mark.asyncio
+async def test_record_request_fails_closed_on_redis_exception(mocker):
+    # Deliberate, documented tradeoff (see docs/security/decisions.md): a
+    # Redis outage must deny the request rather than silently allow it — the
+    # safer default for an auth-focused template, even though it means a
+    # Redis outage takes down every rate-limited route, not just caching.
+    mocker.patch(f"{MODULE}.redis_client.get", side_effect=ConnectionError("redis unreachable"))
+    error_mock = mocker.patch(f"{MODULE}.logger.error")
+
+    allowed = await rate_limiter_service.record_request("some:key")
+
+    assert allowed is False
+    error_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_rate_limited_returns_429_on_redis_outage_rather_than_letting_request_through(mocker):
+    mocker.patch(f"{MODULE}.redis_client.get", side_effect=ConnectionError("redis unreachable"))
+
+    @rate_limiter_service.rate_limited("test_endpoint")
+    async def handler(request):
+        return "ok"
+
+    response = await handler(request=_make_request())
+
+    assert response.status_code == 429
+
+
+@pytest.mark.asyncio
 async def test_rate_limited_skips_account_check_when_extractor_returns_none(mocker):
     get_mock = mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
     mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)

@@ -111,6 +111,75 @@ describe('ProfilePage', () => {
     expect(mock.history.put.length).toBe(0);
   });
 
+  it('requires the current password before submitting a new one for an account that already has one', async () => {
+    renderProfile();
+    const user = userEvent.setup();
+
+    const passwordInput = screen.getByPlaceholderText(/leave blank to keep your current password/i);
+    await user.type(passwordInput, 'NewPassword1');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(await screen.findByText(/enter your current password/i)).toBeInTheDocument();
+    expect(mock.history.put.length).toBe(0);
+  });
+
+  it('sends current_password alongside password when changing an existing password', async () => {
+    mock.onPut('/users/me').reply(200, {
+      id: 1,
+      name: 'Test User',
+      email: 'user@example.com',
+      role: 'user',
+      is_verified: true,
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      deleted_at: null,
+      has_password: true,
+    });
+
+    renderProfile();
+    const user = userEvent.setup();
+
+    const passwordInput = screen.getByPlaceholderText(/leave blank to keep your current password/i);
+    await user.type(passwordInput, 'NewPassword1');
+    const currentPasswordInput = await screen.findByPlaceholderText(/required to confirm this change/i);
+    await user.type(currentPasswordInput, 'OldPassword1');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(mock.history.put.length).toBe(1));
+    expect(JSON.parse(mock.history.put[0].data)).toEqual({
+      password: 'NewPassword1',
+      current_password: 'OldPassword1',
+    });
+  });
+
+  it('does not require or send current_password when setting a password for the first time (OAuth-only account)', async () => {
+    seedProfile({ hasPassword: false });
+    mock.onPut('/users/me').reply(200, {
+      id: 1,
+      name: 'Test User',
+      email: 'user@example.com',
+      role: 'user',
+      is_verified: true,
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      deleted_at: null,
+      has_password: true,
+    });
+
+    renderProfile();
+    const user = userEvent.setup();
+    await screen.findByText('Not set');
+
+    const passwordInput = screen.getByPlaceholderText(/add a password so you can also sign in without google/i);
+    await user.type(passwordInput, 'NewPassword1');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(mock.history.put.length).toBe(1));
+    expect(JSON.parse(mock.history.put[0].data)).toEqual({ password: 'NewPassword1' });
+  });
+
   it('shows an error message when PUT /users/me fails', async () => {
     mock.onPut('/users/me').reply(500);
 

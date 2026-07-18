@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     GMAIL_APP_PASSWORD: str                         # Gmail App password for sending email from above account
     SUPPORT_EMAIL: str = ""                         # Reply-to/contact address shown in email footers (defaults to FROM_EMAIL if unset)
 
-    APP_NAME: str = "MysticAuth"                     # Product name shown in email branding (defaulted so existing .env files/CI keep working)
+    SMTP_HOST: str = "smtp.gmail.com"               # SMTP server host (defaulted to Gmail so existing .env files keep working; override to point emails/email_sender.py at another provider)
+    SMTP_PORT: int = 587                            # SMTP server port (587 = STARTTLS, Gmail's default)
+
+    APP_NAME: str                                    # Product name shown in email branding and API responses
 
     LOGIN_LOCKOUT_TIME: int                         # Time in seconds to lockout after failed login attempts
     MAX_FAILED_LOGIN_ATTEMPTS: int                  # Max failed login attempts before lockout
@@ -43,7 +46,7 @@ class Settings(BaseSettings):
 
     ENVIRONMENT: str = "development"                # "development" or "production" (defaulted so existing .env files/CI keep working) — gates docs/redoc exposure in main.py
 
-    TRUSTED_PROXY_IPS: str = ""                     # Comma-separated reverse proxy IPs to trust X-Forwarded-For from (see core/client_ip.py). Empty (default) = never trust it, use request.client.host as-is.
+    TRUSTED_PROXY_IPS: str = ""                     # Comma-separated reverse proxy IPs to trust X-Forwarded-For from (see auth/security/client_ip.py). Empty (default) = never trust it, use request.client.host as-is.
 
     class Config:
         env_file = ".env"

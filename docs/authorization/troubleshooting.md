@@ -38,7 +38,7 @@ Also intentional (see [Writing and Testing Policies](writing-testing-policies.md
 - All authorization-relevant logging goes through `backend/app/logging/logging_config.py`'s `get_logger(__name__)` — structured, module-scoped loggers.
 - `AuthorizationService._log_decision`'s own failures (a broken audit write) are caught and logged as a `warning`, never re-raised — an audit logging failure must never break the actual authorization decision it's describing. If you suspect audit entries are silently failing to write, check application logs for `"Failed to write authorization audit log entry"`.
 - `AuthorizationCacheService` similarly logs (and swallows) every Redis failure with a specific prefix per operation (`"Authorization cache read failed"`, `"...write failed"`, `"...invalidation failed"`, `"...namespace flush failed"`) — grep for these to confirm whether a perceived staleness issue is actually a cache failure being silently absorbed.
-- The backend container's own request logs (`docker logs backend`) show every HTTP request/response; for a specific authorization decision, correlate by timestamp against the audit log's `created_at`.
+- The backend container's own request logs (`docker compose logs backend`) show every HTTP request/response; for a specific authorization decision, correlate by timestamp against the audit log's `created_at`.
 
 ## Redis cache management
 
@@ -51,9 +51,9 @@ Also intentional (see [Writing and Testing Policies](writing-testing-policies.md
 **If you suspect stale cached permissions:**
 
 ```bash
-docker exec redis redis-cli KEYS "authz:user_policies:*"
-docker exec redis redis-cli DEL "authz:user_policies:someone@example.com"
-docker exec redis redis-cli FLUSHDB   # nuclear option — clears everything in this logical DB
+docker compose exec redis redis-cli KEYS "authz:user_policies:*"
+docker compose exec redis redis-cli DEL "authz:user_policies:someone@example.com"
+docker compose exec redis redis-cli FLUSHDB   # nuclear option — clears everything in this logical DB
 ```
 
 **Fail-closed behavior:** every cache method catches all Redis errors and returns a cache-miss sentinel rather than raising. "Fail closed" here means *the cache is never trusted over the database* — any Redis error transparently falls through to the authoritative DB query, not "deny every authorization request when Redis is down." A fully unreachable Redis degrades performance (every check re-fetches from Postgres), never correctness or availability.
@@ -61,7 +61,7 @@ docker exec redis redis-cli FLUSHDB   # nuclear option — clears everything in 
 **Verifying it end-to-end** (useful after any change to the caching layer):
 
 ```bash
-docker exec -w /repo backend python -c "
+docker compose exec -w /repo backend python -c "
 import asyncio
 from backend.app.authorization.caching.authorization_cache_service import authorization_cache_service
 from backend.app.authorization.models.policy_model import Policy
@@ -81,18 +81,18 @@ asyncio.run(main())
 
 ### "Cannot connect to Postgres" from the host, but the container is healthy
 
-Check for a **native PostgreSQL installation on the host also listening on port 5432** — Docker Desktop can end up coexisting with (and unpredictably routing around) a native Postgres service on the same port, silently connecting your client to the wrong database entirely (symptom: `asyncpg.exceptions.InvalidCatalogNameError: database "..." does not exist`, even though the database clearly exists per `docker exec postgres psql ...`).
+The compose file publishes Postgres on host port `5433` (not the default `5432`) specifically to dodge the most common version of this: a native PostgreSQL install, or another Docker Compose project, already listening on `5432`. If you still hit this — e.g. something else is bound to `5433`, or `DATABASE_URL`/`localhost` port was changed — check what's actually listening:
 
 ```bash
 # Windows: check what's actually listening
-netstat -ano | findstr :5432
+netstat -ano | findstr :5433
 tasklist /FI "PID eq <pid-from-above>"
 ```
 
-If a native `postgres.exe` (not `com.docker.backend.exe`) shows up, that's the conflict. **Do not stop host services automatically** — this needs an explicit decision from whoever owns that machine (stop the native service, or remap the Docker port). The safe workaround used throughout this project's own test suite: run everything **inside** the Docker network instead of from the host:
+**Do not stop host services automatically** — this needs an explicit decision from whoever owns that machine (stop the conflicting service, or remap the Docker port again in `docker-compose.yml`). The safe workaround used throughout this project's own test suite: run everything **inside** the Docker network instead of from the host:
 
 ```bash
-docker exec -w /repo backend python -m pytest tests/
+docker compose exec -w /repo backend python -m pytest tests/
 ```
 
 (The `-w /repo` working directory requires the `backend` service's `docker-compose.yml` entry to mount the repo root, not just `./backend`, as an additional volume — see that file's `backend.volumes` for the `.:/repo` line and its comment.)
@@ -102,19 +102,15 @@ docker exec -w /repo backend python -m pytest tests/
 Verify you're pointed at the container you think you are, and that `DATABASE_URL` resolves to the right host (`postgres` inside the Docker network, `localhost` from the host — see any `tests/backend/conftest.py`'s environment-derivation logic for the exact substitution rule). To start completely fresh:
 
 ```bash
-docker exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+docker compose exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 docker compose run --rm alembic
 ```
 
 This reproduces the full migration chain from empty state and re-seeds the three baseline policies — verified as part of this project's own Docker/Test Environment Verification pass.
 
-### `taskiq_worker` keeps reloading every ~10 seconds
-
-Known, non-fatal: its `--reload` flag watches the entire `/app` mount, which includes `backend/logs/access.log` — continuously appended to by the `backend` service sharing the same host-bound directory. Each reload completes successfully (the worker always resumes listening), so this is operational noise, not a failure. Remediation options: exclude `logs/` from the reload watch, or write access logs outside the bind-mounted `backend/` directory.
-
-### `docker exec -it <container>` fails with "Cwd must be an absolute path" or "cannot attach stdin to a TTY"
+### `docker compose exec -it <service>` fails with "Cwd must be an absolute path" or "cannot attach stdin to a TTY"
 
 Two unrelated shell gotchas, both encountered running this project's own test suite from Git Bash on Windows:
 
-- **Path mangling**: Git Bash rewrites absolute-looking paths (`/repo`) to a Windows path (`C:/Program Files/Git/repo`) before they ever reach `docker exec`. Fix: prefix the command with `MSYS_NO_PATHCONV=1`.
-- **No TTY available**: drop the `-it` flags for any `docker exec`/`docker compose run` invoked from a non-interactive shell — `-i`/`-t` require a real terminal, and any script/CI running these commands should omit them entirely (the command runs identically without them; only interactive convenience is lost).
+- **Path mangling**: Git Bash rewrites absolute-looking paths (`/repo`) to a Windows path (`C:/Program Files/Git/repo`) before they ever reach `docker compose exec`. Fix: prefix the command with `MSYS_NO_PATHCONV=1`.
+- **No TTY available**: drop the `-it` flags for any `docker compose exec`/`docker compose run` invoked from a non-interactive shell — `-i`/`-t` require a real terminal, and any script/CI running these commands should omit them entirely (the command runs identically without them; only interactive convenience is lost).

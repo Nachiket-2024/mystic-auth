@@ -1,7 +1,7 @@
 # tests/backend/integration/test_security_audit_log_integration.py
 #
 # End-to-end coverage for the persistent security audit log
-# (audit/models/security_audit_log_model.py, .../repositories/security_audit_log_repository.py,
+# (audit_log/audit_log_model.py, audit_log/audit_log_repository.py,
 # and the /audit/security-log query routes) against the real ASGI app, real
 # PostgreSQL, and real Redis. Per claude.md's Phase 8 audit logging
 # requirement: security-sensitive auth events (login, logout, signup, etc.)

@@ -14,7 +14,6 @@ import {
     usePurgeUserMutation,
     useReactivateUserMutation,
     useUpdateUserRoleMutation,
-    usePromoteUserMutation,
 } from "./userMutations";
 import type { AdminUserRead } from "../api/users_api";
 import UserPoliciesDialog from "./UserPoliciesDialog";
@@ -25,7 +24,7 @@ const ROLE_OPTIONS = ["user", "admin", "system"] as const;
  * UsersPage
  * ----------------------------
  * Admin list of every user (backend: GET /users/), with per-row role
- * change, promote-to-admin, delete, and a "Policies" dialog for assigning/
+ * change, delete, and a "Policies" dialog for assigning/
  * revoking individual policy grants. Route is gated by
  * ProtectedRoute permission="users:list_all"; each destructive/privileged
  * action is additionally gated per-action via IfCan.
@@ -36,7 +35,6 @@ const UsersPage: React.FC = () => {
 
     const [deletingUser, setDeletingUser] = useState<AdminUserRead | null>(null);
     const [purgingUser, setPurgingUser] = useState<AdminUserRead | null>(null);
-    const [promotingUser, setPromotingUser] = useState<AdminUserRead | null>(null);
     const [pendingRoleChange, setPendingRoleChange] = useState<{ user: AdminUserRead; role: string } | null>(null);
     const [policiesUserEmail, setPoliciesUserEmail] = useState<string | null>(null);
 
@@ -44,7 +42,6 @@ const UsersPage: React.FC = () => {
     const purgeMutation = usePurgeUserMutation();
     const reactivateMutation = useReactivateUserMutation();
     const roleMutation = useUpdateUserRoleMutation();
-    const promoteMutation = usePromoteUserMutation();
 
     const handleRoleChangeConfirm = () => {
         if (!pendingRoleChange) return;
@@ -55,20 +52,6 @@ const UsersPage: React.FC = () => {
                 onSuccess: () => {
                     toaster.create({ title: "Role updated", type: "success" });
                     setPendingRoleChange(null);
-                },
-                onError: (error) => toaster.create({ title: error.message, type: "error" }),
-            }
-        );
-    };
-
-    const handlePromoteConfirm = () => {
-        if (!promotingUser) return;
-        promoteMutation.mutate(
-            { userEmail: promotingUser.email },
-            {
-                onSuccess: () => {
-                    toaster.create({ title: "User promoted to admin", type: "success" });
-                    setPromotingUser(null);
                 },
                 onError: (error) => toaster.create({ title: error.message, type: "error" }),
             }
@@ -186,16 +169,6 @@ const UsersPage: React.FC = () => {
                             Policies
                         </Button>
                     </IfCan>
-                    <IfCan action={PERMISSIONS.USERS_PROMOTE_TO_ADMIN}>
-                        <Button
-                            size="xs"
-                            variant="outline"
-                            onClick={() => setPromotingUser(u)}
-                            disabled={u.role === "admin" || u.role === "system"}
-                        >
-                            Promote
-                        </Button>
-                    </IfCan>
                     {u.deleted_at ? (
                         <>
                             <IfCan action={PERMISSIONS.USERS_REACTIVATE}>
@@ -275,17 +248,6 @@ const UsersPage: React.FC = () => {
                 isLoading={purgeMutation.isPending}
                 onConfirm={handlePurgeConfirm}
                 onCancel={() => setPurgingUser(null)}
-            />
-
-            <ConfirmDialog
-                isOpen={!!promotingUser}
-                title="Promote to admin"
-                description={`Promote "${promotingUser?.email}" to admin? They'll gain whatever access the admin-tier policies on this system grant.`}
-                confirmLabel="Promote"
-                isDestructive={false}
-                isLoading={promoteMutation.isPending}
-                onConfirm={handlePromoteConfirm}
-                onCancel={() => setPromotingUser(null)}
             />
 
             <ConfirmDialog

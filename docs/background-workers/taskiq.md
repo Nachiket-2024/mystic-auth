@@ -18,13 +18,15 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
     ...
 ```
 
-Redis is both the broker (a Redis Stream) and the result backend — no separate message-queue infrastructure. The `taskiq_worker` container consumes the same broker, running from the identical `docker/backend.Dockerfile` image as the `backend` service, just with a different `command:` (`taskiq worker app.taskiq_tasks.email_tasks:broker --reload`) — see [Backend Architecture](../architecture/backend.md) for why one image serves three roles (`backend`, `taskiq_worker`, `alembic`).
+Redis is both the broker (a Redis Stream) and the result backend — no separate message-queue infrastructure. The `taskiq_worker` container consumes the same broker, running from the identical `docker/backend.Dockerfile` image as the `backend` service, just with a different `command:` (`taskiq worker app.taskiq_tasks.email_tasks:broker`, no `--reload` — the worker doesn't need file-watch) — see [Backend Architecture](../architecture/backend.md) for why one image serves three roles (`backend`, `taskiq_worker`, `alembic`).
 
 ## Tasks
 
 | Task | Enqueued from | Purpose |
 |---|---|---|
 | `send_email_task(to_email, subject, body, is_html=True)` | `auth/verify_account/account_verification_service.py`, `auth/password_logic/password_reset_service.py` | Sends the verification email and the password-reset email via Gmail SMTP (`aiosmtplib`) |
+
+`send_email_task` itself doesn't talk to SMTP directly — it delegates to `emails/email_sender.py::email_sender` (an `EmailSender` protocol with one concrete `SMTPEmailSender` implementation). This is a thin seam, not a plugin system: swapping providers (e.g. SES, SendGrid, Postmark) means writing one new class and pointing `email_sender` at it, without touching the Taskiq task or its callers.
 
 Both call sites build the HTML body via `emails/email_template_service.py::render_transactional_email` (a shared template with the app name/support address baked in from settings), then enqueue with `.kiq(...)`:
 
@@ -43,21 +45,35 @@ await send_email_task.kiq(
 | Setting | Purpose |
 |---|---|
 | `REDIS_URL` | Broker + result backend connection |
-| `FROM_EMAIL` | SMTP "From" address, also the Gmail account authenticating to `smtp.gmail.com:587` |
-| `GMAIL_APP_PASSWORD` | Gmail App Password (not the account password — Gmail requires a per-app password for SMTP with 2FA enabled) |
+| `FROM_EMAIL` | SMTP "From" address, also the account authenticating to the SMTP server |
+| `GMAIL_APP_PASSWORD` | App password for the `FROM_EMAIL` account (Gmail requires a per-app password for SMTP with 2FA enabled) |
 | `SUPPORT_EMAIL` | Optional; used as the email's `Reply-To`, falls back to `FROM_EMAIL` if unset |
-| `APP_NAME` | Optional; used in the email template's branding, defaults to `"MysticAuth"` |
+| `SMTP_HOST` / `SMTP_PORT` | Optional; default to `smtp.gmail.com`/`587`. Override to point `SMTPEmailSender` at a different SMTP provider |
+| `APP_NAME` | Required; product name used in the email template's branding |
 
-## Failure handling
+## Failure handling and retries
 
-`send_email_task` wraps the entire SMTP call in `try/except Exception`, logs the full traceback, and returns `False` — it never raises out of the task. **This means a failed email send is currently silent from the caller's perspective**: the enqueueing request handler already returned success before the task ran, and there's no retry policy, dead-letter queue, or alerting configured on the broker. See [Concerns](../concerns/README.md) for this as a tracked limitation.
+The broker runs `taskiq.SimpleRetryMiddleware`, and `send_email_task` is labeled `retry_on_error=True, max_retries=3`. On failure, `send_email_task` logs the full traceback and **raises** (rather than swallowing the exception) — this is what lets the middleware see the failure and re-enqueue the task immediately (no backoff/delay — see the note below), up to 3 attempts total. A transient SMTP failure (a momentary Gmail outage, a network blip) now gets retried automatically instead of silently dropping the email.
+
+A permanent failure (e.g. bad SMTP credentials) still exhausts all 3 attempts — each attempt logs its own traceback, and the middleware itself logs a final "Maximum retries count is reached" warning, so the failure is visible in logs even though nothing pages an operator automatically. No dead-letter queue or external alerting is configured — an operator watching logs would see it, but nothing pages anyone automatically. Left as a deployment-specific follow-up, since this template doesn't assume a specific alerting stack.
+
+**Why no delay between retries**: `taskiq.SmartRetryMiddleware` supports exponential backoff, but only actually delays a retry when a `schedule_source` (a `TaskiqScheduler`) is configured — without one, its "delay" is a no-op label, which would be misleading to add. This project doesn't run a `TaskiqScheduler` (there's nothing else that needs one), so `SimpleRetryMiddleware`'s immediate re-enqueue is the correct, honest choice for the one task this app has.
+
+## Startup on a fresh Redis instance
+
+A prior pass observed `taskiq_worker` crash-looping for ~30-60s against a brand-new Redis instance (`NOGROUP` errors from `XREADGROUP`) and tracked it as a known, self-healing limitation. Re-investigated during a later QA pass by reading `taskiq_redis`'s actual source (pinned `taskiq-redis==1.2.3`) and reproducing against a genuinely fresh Redis container:
+
+- `RedisStreamBroker.startup()` eagerly runs `XGROUP CREATE ... MKSTREAM` (atomically creating both the stream and the consumer group) and is `await`ed by taskiq's own `Receiver.listen()` *before* the read loop starts — so by the time any process calls `XREADGROUP`, its own consumer group is guaranteed to already exist.
+- With 2 worker processes (`WorkerArgs.workers` default) both calling `startup()` independently, whichever process loses the `XGROUP CREATE` race gets a `BUSYGROUP` error, which the broker explicitly catches and logs at `debug` level — never propagated, never fatal.
+- Reproduced live against a fresh Redis container (`docker compose up -d postgres redis` on a volume with no prior Redis state, then `docker compose up -d taskiq_worker`): 0 restarts, consumer group present with both worker processes registered, no `NOGROUP` errors in logs.
+
+The race does not reproduce with the currently pinned dependency versions. Locked in with regression tests in `tests/backend/unit/test_email_tasks_unit.py` (`test_broker_uses_mkstream_for_deterministic_group_creation`, `test_broker_startup_survives_concurrent_group_creation_race`) guarding the specific mechanism (`mkstream=True` + graceful `BUSYGROUP` handling) that prevents it, so a future `taskiq-redis` upgrade that regresses this behavior would be caught.
 
 ## Testing
 
-No dedicated unit or integration test exercises `send_email_task` itself (real SMTP is not something the test suite calls out to) — the call sites (`account_verification_service.py`, `password_reset_service.py`) are tested with `send_email_task.kiq` mocked/patched. See [Testing Overview](../testing/overview.md).
+`tests/backend/unit/test_email_tasks_unit.py` exercises `send_email_task` directly: the success path, the failure-raises-for-retry path, that the broker's retry middleware and the task's `retry_on_error`/`max_retries` labels are actually configured, and the fresh-Redis startup race guard above. The call sites (`account_verification_service.py`, `password_reset_service.py`) are separately tested with `send_email_task.kiq` mocked/patched. See [Testing Overview](../testing/overview.md).
 
 ## Troubleshooting
 
-- **Worker not picking up tasks**: confirm `taskiq_worker` can reach `REDIS_URL` — same Redis instance the `backend` container uses. `docker logs taskiq_worker` shows task consumption.
-- **Worker reloads every ~10 seconds**: known, non-fatal — its `--reload` flag watches the entire `/app` mount, which includes `backend/logs/access.log`, continuously appended to by the `backend` service sharing that host-bound directory. See [PBAC Troubleshooting](../authorization/troubleshooting.md#taskiq_worker-keeps-reloading-every-10-seconds).
-- **Emails not arriving**: check `GMAIL_APP_PASSWORD` is a valid App Password (not the account password) and that "Less secure app access" / App Passwords are enabled on the sending Google account; check `docker logs taskiq_worker` for the logged traceback (`send_email_task` logs every failure with `logger.error`).
+- **Worker not picking up tasks**: confirm `taskiq_worker` can reach `REDIS_URL` — same Redis instance the `backend` container uses. `docker compose logs taskiq_worker` shows task consumption.
+- **Emails not arriving**: check `GMAIL_APP_PASSWORD` is a valid App Password (not the account password) and that "Less secure app access" / App Passwords are enabled on the sending Google account; check `docker compose logs taskiq_worker` for the logged traceback (`send_email_task` logs every failure with `logger.error`).

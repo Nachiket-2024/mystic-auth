@@ -184,6 +184,23 @@ async def test_a_plain_role_user_with_admin_policy_gets_admin_capability(client,
     assert resp.status_code == 200
 
 
+@pytest.mark.asyncio
+async def test_list_all_users_respects_limit_query_param(client, created_emails):
+    # Regression guard: GET /users/ previously read the whole table
+    # unconditionally, unlike every other list endpoint in the app.
+    email = _unique_email()
+    await _create_verified_user(
+        client, created_emails, email,
+        role=UserRole.admin,
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME],
+    )
+    await client.post("/auth/login", json={"email": email, "password": PASSWORD})
+
+    resp = await client.get("/users/?limit=1")
+    assert resp.status_code == 200
+    assert len(resp.json()) == 1
+
+
 # ---------------------------- Users without roles ----------------------------
 # Per claude.md's "Roles" section: "The system must support ... users
 # without roles", and Testing Requirements: "users without roles still
@@ -282,9 +299,9 @@ async def test_admin_can_update_a_regular_user(client, created_emails):
 @pytest.mark.asyncio
 async def test_admin_cannot_modify_system_user(client, created_emails):
     # Regression test for the privilege-escalation gap where update_any_user
-    # lacked the system-user guard present on delete/role-update/promote:
-    # an admin could PUT a new password onto the system account and take it
-    # over entirely. This guard is a target-resource invariant, not a PBAC
+    # lacked the system-user guard present on delete/role-update: an admin
+    # could PUT a new password onto the system account and take it over
+    # entirely. This guard is a target-resource invariant, not a PBAC
     # decision — see user_routes.py's UserRole import note.
     admin_email = _unique_email("admin")
     system_email = _unique_email("system")
@@ -336,34 +353,33 @@ async def test_admin_cannot_assign_system_role_to_another_user(client, created_e
 
 
 @pytest.mark.asyncio
-async def test_admin_cannot_promote_to_admin(client, created_emails):
-    # promote-to-admin requires users:promote_to_admin, granted only by the
-    # system_superuser policy — an admin holding only user_administration
-    # does not have it.
+async def test_admin_can_change_user_role_to_admin_and_back_via_role_endpoint(client, created_emails):
+    # Role changes are bidirectional through the single generic /role
+    # endpoint — there is no separate one-directional "promote" path. An
+    # admin holding only user_administration (which grants users:assign_role,
+    # not users:assign_system_role) can move a non-system user to any
+    # non-system role, in either direction.
     admin_email = _unique_email("admin")
     target_email = _unique_email("target")
     await _create_verified_user(client, created_emails, target_email)
     await _create_admin(client, created_emails, admin_email)
 
-    resp = await client.patch(f"/users/{target_email}/promote-to-admin")
-    assert resp.status_code == 403
-
-
-# ---------------------------- System privileges ----------------------------
-
-@pytest.mark.asyncio
-async def test_system_user_can_promote_regular_user_to_admin(client, created_emails):
-    system_email = _unique_email("system")
-    target_email = _unique_email("target")
-    await _create_verified_user(client, created_emails, target_email)
-    await _create_system_user(client, created_emails, system_email)
-
-    resp = await client.patch(f"/users/{target_email}/promote-to-admin")
+    resp = await client.patch(f"/users/{target_email}/role", json={"role": "admin"})
     assert resp.status_code == 200
 
     async with database.async_session() as session:
         user = await user_crud.get_by_email(target_email, session)
         assert user.role == UserRole.admin
+
+    resp = await client.patch(f"/users/{target_email}/role", json={"role": "user"})
+    assert resp.status_code == 200
+
+    async with database.async_session() as session:
+        user = await user_crud.get_by_email(target_email, session)
+        assert user.role == UserRole.user
+
+
+# ---------------------------- System privileges ----------------------------
 
 
 @pytest.mark.asyncio
@@ -439,6 +455,135 @@ async def test_soft_delete_revokes_the_deleted_users_active_session(client, crea
 
     # The deleted user's OLD refresh token, presented independently of the
     # (now admin-owned) cookie jar, must be rejected.
+    refresh_resp = await client.post(
+        "/auth/refresh/", cookies={"refresh_token": target_refresh_token}
+    )
+    assert refresh_resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_self_password_change_revokes_existing_sessions(client, created_emails):
+    # Regression guard: changing a password via PUT /users/me previously left
+    # every existing session alive, unlike password_reset_service.py's
+    # equivalent flow (which explicitly revokes on the theory that a
+    # password change may be happening because the account is compromised).
+    email = _unique_email()
+    login_resp = await _create_verified_user(client, created_emails, email)
+    old_refresh_token = login_resp.cookies["refresh_token"]
+
+    update_resp = await client.put(
+        "/users/me", json={"password": "NewStrongPass456!", "current_password": PASSWORD}
+    )
+    assert update_resp.status_code == 200
+
+    refresh_resp = await client.post(
+        "/auth/refresh/", cookies={"refresh_token": old_refresh_token}
+    )
+    assert refresh_resp.status_code == 401
+
+    # The new password actually works.
+    login_resp2 = await client.post(
+        "/auth/login", json={"email": email, "password": "NewStrongPass456!"}
+    )
+    assert login_resp2.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_self_password_change_requires_current_password(client, created_emails):
+    email = _unique_email()
+    await _create_verified_user(client, created_emails, email)
+
+    resp = await client.put("/users/me", json={"password": "NewStrongPass456!"})
+
+    assert resp.status_code == 400
+    assert "current password" in resp.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_self_password_change_rejects_wrong_current_password(client, created_emails):
+    email = _unique_email()
+    await _create_verified_user(client, created_emails, email)
+
+    resp = await client.put(
+        "/users/me", json={"password": "NewStrongPass456!", "current_password": "WrongPassword1"}
+    )
+
+    assert resp.status_code == 400
+    assert "current password" in resp.json()["detail"].lower()
+
+    # The old password must still work — the rejected change had no effect.
+    login_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
+    assert login_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_setting_a_first_password_on_an_oauth_only_account_does_not_require_current_password(
+    client, created_emails
+):
+    # An OAuth-only account has hashed_password=None — there is nothing yet
+    # to confirm against, so the current-password requirement must not
+    # block this, otherwise such an account could never add a password.
+    email = _unique_email()
+    await _create_verified_user(client, created_emails, email)
+    async with database.async_session() as session:
+        user = await user_crud.get_by_email(email, session)
+        user.hashed_password = None
+        session.add(user)
+        await session.commit()
+
+    resp = await client.put("/users/me", json={"password": "NewStrongPass456!"})
+
+    assert resp.status_code == 200
+    assert resp.json()["has_password"] is True
+
+
+@pytest.mark.asyncio
+async def test_admin_password_change_does_not_require_admins_current_password(client, created_emails):
+    # PUT /users/{email} reuses UserUpdate, but the current-password check
+    # only applies to the self-service route (update_my_profile) — an admin
+    # changing someone else's password authenticates via their own
+    # users:update_any permission, not by proving the target's old password.
+    admin_email = _unique_email("admin")
+    target_email = _unique_email("target")
+    await _create_verified_user(client, created_emails, target_email)
+    await _create_admin(client, created_emails, admin_email)
+
+    resp = await client.put(f"/users/{target_email}", json={"password": "AdminSetPass456!"})
+
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_self_profile_update_without_password_does_not_revoke_sessions(client, created_emails):
+    # Only a password change should trigger revocation — an ordinary name
+    # update must not log the user out of their other sessions.
+    email = _unique_email()
+    login_resp = await _create_verified_user(client, created_emails, email)
+    refresh_token = login_resp.cookies["refresh_token"]
+
+    update_resp = await client.put("/users/me", json={"name": "New Name"})
+    assert update_resp.status_code == 200
+
+    refresh_resp = await client.post(
+        "/auth/refresh/", cookies={"refresh_token": refresh_token}
+    )
+    assert refresh_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_password_change_revokes_targets_existing_sessions(client, created_emails):
+    admin_email = _unique_email("admin")
+    target_email = _unique_email("target")
+    target_login_resp = await _create_verified_user(client, created_emails, target_email)
+    target_refresh_token = target_login_resp.cookies["refresh_token"]
+
+    await _create_admin(client, created_emails, admin_email)  # overwrites the client's cookie jar
+
+    update_resp = await client.put(
+        f"/users/{target_email}", json={"password": "NewStrongPass456!"}
+    )
+    assert update_resp.status_code == 200
+
     refresh_resp = await client.post(
         "/auth/refresh/", cookies={"refresh_token": target_refresh_token}
     )

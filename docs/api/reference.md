@@ -36,14 +36,13 @@ Every request/response body is a Pydantic schema (`*_schema.py` beside each feat
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/users/me` | `users:read_own` | Caller's own profile |
-| PUT | `/users/me` | `users:read_own` (route-level; ownership implicit) | Accepts an optional `password` field — hashed and renamed before reaching the CRUD layer, see [Database Design](../database/design.md#users) |
+| PUT | `/users/me` | `users:update_own` | Accepts an optional `password` field — hashed and renamed before reaching the CRUD layer, see [Database Design](../database/design.md#users). If `password` is set and the account already has one, a matching `current_password` is also required — see [Security Decisions](../security/decisions.md#self-service-password-change-requires-the-current-password) |
 | GET | `/users/` | `users:list_all` | All users |
 | PUT | `/users/{user_email}` | `users:update_any` | System account is excluded via a target-account guard |
 | DELETE | `/users/{user_email}` | `users:delete_any` | Soft delete — see [Account Lifecycle](../database/design.md#account-lifecycle) |
 | DELETE | `/users/{user_email}/purge` | `users:purge` | Hard delete, irreversible |
 | PATCH | `/users/{user_email}/reactivate` | `users:reactivate` | Reverses a soft delete |
-| PATCH | `/users/{user_email}/role` | `users:assign_role` or `users:assign_system_role` (depends on target role) | Assigning `system` role requires the more sensitive action |
-| PATCH | `/users/{user_email}/promote-to-admin` | `users:promote_to_admin` | |
+| PATCH | `/users/{user_email}/role` | `users:assign_role` or `users:assign_system_role` (depends on target role) | The single, bidirectional role-modification endpoint — there is no separate "promote" path. Assigning `system` role requires the more sensitive action |
 
 ## Authorization / PBAC — `/authorization` (`api/pbac_routes/*.py`)
 
@@ -67,7 +66,7 @@ Split across `policy_crud_routes.py`, `policy_history_routes.py`, `policy_assign
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/` | public | `{"message": "Welcome to MysticAuth!"}` — liveness sanity check, not part of any real integration |
+| GET | `/` | public | `{"message": "Welcome to <APP_NAME>!"}` (product name from the `APP_NAME` env var) — liveness sanity check, not part of any real integration |
 
 ## Error responses
 

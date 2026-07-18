@@ -9,12 +9,12 @@ FastAPI application (`backend/app/`), async throughout — SQLAlchemy async engi
 | Module | Purpose |
 |---|---|
 | `api/` | Route registration only — one `APIRouter` per feature, no business logic. Grouped: `auth_routes/`, `user_routes/`, `pbac_routes/`, `audit_log_routes/`, `health_routes/`, plus shared `route_helpers.py` |
-| `auth/` | Authentication: signup, login, logout, logout-all, refresh-token rotation, password reset, account verification, Google OAuth2/PKCE, JWT/cookie handling — see [Authentication Overview](../authentication/overview.md) |
+| `auth/` | Authentication: signup, login, logout, logout-all, refresh-token rotation, password reset, account verification, Google OAuth2/PKCE, JWT/cookie handling; `auth/security/` — `client_ip.py` (trusted-proxy-aware IP resolution), `security_headers_middleware.py`, `rate_limiter_service.py`, `login_protection_service.py` — see [Authentication Overview](../authentication/overview.md) |
 | `authorization/` | PBAC engine: policies, conditions, evaluator, caching, its own audit log — see [PBAC Architecture](../authorization/architecture.md) |
 | `audit_log/` | Security/session-event audit log (`security_audit_log` table) — distinct from the PBAC audit log, see [Database Design](../database/design.md#why-two-audit-tables-not-one) |
-| `core/` | Cross-cutting config: `settings.py` (pydantic-settings, env-driven), `client_ip.py` (trusted-proxy-aware IP resolution), `security_headers_middleware.py` |
+| `core/` | Cross-cutting config: `settings.py` (pydantic-settings, env-driven) |
 | `database/` | `connection.py` — async SQLAlchemy engine/session factory; `base.py` — declarative base |
-| `emails/` | `email_template_service.py` — shared HTML email template rendering, used by the taskiq email tasks |
+| `emails/` | `email_template_service.py` — shared HTML email template rendering; `email_sender.py` — SMTP transport seam (swappable provider); `email_normalization.py` — canonicalizes stored/looked-up email addresses; used by the taskiq email tasks |
 | `logging/` | `logging_config.py` (structured, module-scoped loggers), `correlation_id_middleware.py`, `logging_middleware.py` (request/response logging) |
 | `redis/` | `client.py` — single async Redis client, shared by rate limiting, lockout, caching, token registries, and taskiq's broker |
 | `scripts/` | `create_system_user.py` — one-off interactive CLI to bootstrap the reserved system account (never exposed via any API route) |
@@ -56,7 +56,7 @@ Two layers:
 
 ## Logging
 
-Structured, module-scoped loggers via `logging/logging_config.py::get_logger(__name__)` throughout. Every request gets a correlation ID (`CorrelationIdMiddleware`) that's attached to every log line emitted while handling it, making it possible to grep `docker logs backend` for one request's full trail. See [PBAC Troubleshooting: logging and debugging](../authorization/troubleshooting.md#logging-and-debugging) for the specific log-message prefixes used by the caching/audit subsystems.
+Structured, module-scoped loggers via `logging/logging_config.py::get_logger(__name__)` throughout. Every request gets a correlation ID (`CorrelationIdMiddleware`) that's attached to every log line emitted while handling it, making it possible to grep `docker compose logs backend` for one request's full trail. See [PBAC Troubleshooting: logging and debugging](../authorization/troubleshooting.md#logging-and-debugging) for the specific log-message prefixes used by the caching/audit subsystems.
 
 ## Testing coverage
 

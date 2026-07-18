@@ -30,7 +30,7 @@ Same variables as `.env.example`, with these called out specifically for product
 - `ENVIRONMENT=production` — disables `/docs`, `/redoc`, and `/openapi.json` on the backend (see `backend/app/main.py`).
 - `SECRET_KEY`, `GOOGLE_CLIENT_SECRET`, `GMAIL_APP_PASSWORD`, `POSTGRES_PASSWORD` — generate/rotate these for production; never reuse the values from local `.env` files or CI.
 - `FRONTEND_BASE_URL` / `BACKEND_BASE_URL` — must point at the real production hostnames; CORS (`main.py`) only allows the single origin configured here.
-- `TRUSTED_PROXY_IPS` — set this to your reverse proxy's own address(es) if you deploy one in front of the backend, so per-IP rate limiting/lockout resolve the real client IP from `X-Forwarded-For` instead of collapsing onto the proxy's IP for every request. See [Security Hardening](../security/hardening.md#rate-limiting) and [core/client_ip.py](../authorization/architecture.md#authorization-context-builder). Leave unset (default) for a direct deployment with no reverse proxy.
+- `TRUSTED_PROXY_IPS` — set this to your reverse proxy's own address(es) if you deploy one in front of the backend, so per-IP rate limiting/lockout resolve the real client IP from `X-Forwarded-For` instead of collapsing onto the proxy's IP for every request. See [Security Hardening](../security/hardening.md#rate-limiting) and [auth/security/client_ip.py](../authorization/architecture.md#authorization-context-builder). Leave unset (default) for a direct deployment with no reverse proxy.
 
 ## Database migrations
 
@@ -40,19 +40,26 @@ Before applying a migration in production, review the generated migration script
 
 ## Backups
 
-There's no automated backup job in this repo — no production host/cloud target is assumed, so there's nothing to hang a cron job on yet (see [Concerns](../concerns/README.md)). When you have one, the standard approach is a scheduled `pg_dump` of the `postgres_data` volume's database:
+`scripts/db_backup.sh` and `scripts/db_restore.sh` wrap the `pg_dump`/`psql` commands below — environment-driven (read `POSTGRES_USER`/`POSTGRES_DB` from `.env`), Docker-only, no cloud/provider assumptions:
 
 ```bash
-docker exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup-$(date +%F).sql
+# Dump the running postgres service to backups/<db>-<timestamp>.sql
+scripts/db_backup.sh
+# Against the production compose file instead of the dev one:
+scripts/db_backup.sh docker-compose.prod.yml
+
+# Restore a dump (prompts for confirmation; -y skips the prompt)
+scripts/db_restore.sh backups/mystic_auth-20260717-120000.sql
 ```
 
-Restore with:
+These scripts are the "how", not the "when" — there's still no scheduler wired up in this repo, since no specific production host/cloud target is assumed (see [Concerns](../concerns/README.md)). Wire `scripts/db_backup.sh` into whatever your host provides (a `cron` entry, a systemd timer, a managed Postgres provider's built-in backups, or a sidecar container), on a schedule that matches your data's change rate (daily is a reasonable default for most small apps). Store the dumps somewhere durable off the host, and periodically test a restore — an untested backup is not a backup.
+
+Equivalent raw commands, if you'd rather not use the scripts:
 
 ```bash
-docker exec -i postgres psql -U $POSTGRES_USER $POSTGRES_DB < backup-2026-07-13.sql
+docker compose exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup-$(date +%F).sql
+docker compose exec -T postgres psql -U $POSTGRES_USER $POSTGRES_DB < backup-2026-07-13.sql
 ```
-
-Run this on whatever schedule matches your data's change rate (daily is a reasonable default for most small apps), store the dumps somewhere durable off the host, and periodically test a restore — an untested backup is not a backup.
 
 ## Graceful shutdown
 

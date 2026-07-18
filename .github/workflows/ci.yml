@@ -67,6 +67,8 @@ jobs:
       FROM_EMAIL: ci-test@example.com
       GMAIL_APP_PASSWORD: ci-test-app-password
 
+      APP_NAME: MysticAuth
+
       LOGIN_LOCKOUT_TIME: "300"
       MAX_FAILED_LOGIN_ATTEMPTS: "5"
       LOGIN_LOCKOUT_TIME_PER_IP: "300"
@@ -89,6 +91,11 @@ jobs:
       - name: Install backend dependencies
         run: pip install --no-cache-dir -r backend/requirements.txt
 
+      - name: Audit Python dependencies for known vulnerabilities
+        run: |
+          pip install --no-cache-dir pip-audit
+          pip-audit -r backend/requirements.txt
+
       - name: Run database migrations
         working-directory: backend
         run: alembic upgrade head
@@ -96,11 +103,26 @@ jobs:
       - name: Run backend unit tests
         run: python -m pytest tests/backend/unit -q
 
+      # --cov-append accumulates onto the unit run's coverage data rather
+      # than starting fresh, so the threshold below the security step gates
+      # cumulative unit+integration+security coverage (~89% currently), not
+      # any single suite's coverage in isolation.
       - name: Run backend integration tests
-        run: python -m pytest tests/backend/integration -q
+        run: python -m pytest tests/backend/integration -q --cov-append
 
+      # Coverage is currently ~89% (see docs/testing/overview.md); the gate
+      # is set a few points below that as a regression alarm, not a strict
+      # target, so incidental coverage drift doesn't flap CI red.
       - name: Run backend security tests
-        run: python -m pytest tests/backend/security -q
+        run: python -m pytest tests/backend/security -q --cov-append --cov-fail-under=85
+
+      # Informational only: these assert generous, regression-alarm-level
+      # thresholds (not a strict SLA) against a real Postgres/Redis, so
+      # timing can be noisy on shared GitHub-hosted runners. A failure here
+      # should prompt a look, not block the merge.
+      - name: Run backend performance tests (non-blocking)
+        continue-on-error: true
+        run: python -m pytest tests/backend/performance -q
 
   frontend:
     name: Frontend (typecheck + lint + test + build)
@@ -111,13 +133,23 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # ESLint 10 requires Node ^20.19.0 || ^22.13.0 || >=24, and Vite 7
+          # requires ^20.19.0 || >=22.12.0 — both floors sit above Node 20's
+          # earlier releases, so "20" (major-only) isn't precise enough to
+          # guarantee compatibility on its own. Pinned to an explicit patch
+          # that satisfies both rather than trusting whatever "latest 20.x"
+          # resolves to.
+          node-version: "20.20.2"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci --legacy-peer-deps
+
+      - name: Audit npm dependencies for known vulnerabilities
+        working-directory: frontend
+        run: npm audit --audit-level=high
 
       - name: Type-check
         working-directory: frontend
@@ -127,9 +159,12 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
-      - name: Run tests
+      # test:coverage (not plain test) so vitest.config.ts's coverage
+      # thresholds are actually evaluated — plain `vitest run` never
+      # collects coverage, so thresholds would silently never be checked.
+      - name: Run tests (with coverage threshold gate)
         working-directory: frontend
-        run: npm run test
+        run: npm run test:coverage
 
       - name: Build
         working-directory: frontend

@@ -29,7 +29,7 @@ async def test_policies_create_only_cannot_mint_a_policy_granting_an_unheld_sens
         "/authorization/policies",
         json={
             "name": unique_policy_name(),
-            "actions": ["users:promote_to_admin"],  # a sensitive action this caller doesn't hold
+            "actions": ["users:purge"],  # a sensitive action this caller doesn't hold
             "resource_type": "users",
         },
     )
@@ -77,7 +77,7 @@ async def test_policies_update_only_cannot_rollback_to_a_revision_holding_an_unh
     guarded by the same assert_authorized_to_grant check as a direct PUT —
     otherwise a caller with only policies:update could roll a policy back to
     an old revision that once held a sensitive action (e.g.
-    users:promote_to_admin), silently re-granting it without ever holding it
+    users:purge), silently re-granting it without ever holding it
     themselves."""
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
@@ -85,7 +85,7 @@ async def test_policies_update_only_cannot_rollback_to_a_revision_holding_an_unh
     policy_name = unique_policy_name()
     create_resp = await client.post(
         "/authorization/policies",
-        json={"name": policy_name, "actions": ["users:promote_to_admin"], "resource_type": "users"},
+        json={"name": policy_name, "actions": ["users:purge"], "resource_type": "users"},
     )
     assert create_resp.status_code == 201
 
@@ -105,7 +105,7 @@ async def test_policies_update_only_cannot_rollback_to_a_revision_holding_an_unh
     # new_definition is the already-safe post-downgrade state).
     target_entry = next(
         entry for entry in history
-        if entry["new_definition"] and "users:promote_to_admin" in entry["new_definition"]["actions"]
+        if entry["new_definition"] and "users:purge" in entry["new_definition"]["actions"]
     )
 
     attacker_email = unique_email("rollback-escalate")
@@ -129,6 +129,6 @@ async def test_system_superuser_can_still_perform_all_of_the_above(client, creat
 
     create_resp = await client.post(
         "/authorization/policies",
-        json={"name": unique_policy_name(), "actions": ["users:promote_to_admin"], "resource_type": "users"},
+        json={"name": unique_policy_name(), "actions": ["users:purge"], "resource_type": "users"},
     )
     assert create_resp.status_code == 201

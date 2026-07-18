@@ -60,6 +60,14 @@ Documentation for this full-stack template, organized by feature/domain to mirro
 
 - [Known Issues & Future Improvements](concerns/README.md) — tracked limitations, technical debt, deferred security/performance work
 
+## Project Story
+
+- [Project Story](project-story/README.md) — where this template came from and how it evolved, straight from the commit history
+
+## Using This as a Template
+
+- [Template Usage Guide](template-usage.md) — for anyone cloning this repo as a starting point for their own auth+PBAC project: quickstart, environment configuration, renaming the app, frontend/backend customization, OAuth/email setup, adding permissions and protecting routes, replacing the frontend, deployment
+
 ## Who this is for
 
 Anyone adding a new protected endpoint, a new permission, a new condition type, or a new policy to this template; anyone integrating a new frontend feature against the API; anyone debugging why an authorization decision or a request came back the way it did; or anyone new to the codebase who needs the system-wide picture before touching auth, authorization, or infrastructure code.

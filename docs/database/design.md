@@ -38,7 +38,7 @@ One row per `authorize()`/`authorize_with_decision()`/`authorize_batch()` call �
 
 ### `security_audit_log`
 
-Separate audit vocabulary from the table above — login/logout/signup/OAuth2/password-reset/lockout/refresh-token-reuse events, plus the account lifecycle events (`account_deleted`/`account_purged`/`account_reactivated` — see below). Also `user_email` as a nullable **snapshot string**, not a foreign key, for the identical reason: this table must survive a purge. See `backend/app/audit_log/security_audit_log_model.py`.
+Separate audit vocabulary from the table above — login/logout/signup/OAuth2/password-reset/lockout/refresh-token-reuse events, plus the account lifecycle events (`account_deleted`/`account_purged`/`account_reactivated` — see below). Also `user_email` as a nullable **snapshot string**, not a foreign key, for the identical reason: this table must survive a purge. See `backend/app/audit_log/audit_log_model.py`.
 
 ## Why two audit tables, not one
 
@@ -64,4 +64,4 @@ The system account (`role=UserRole.system`) is excluded from all three operation
 
 ## Migrations
 
-Every schema change is an Alembic migration under `backend/alembic/versions/`, applied via the dedicated one-shot `alembic` service (`alembic upgrade head`) before `backend`/`taskiq_worker` start (`docker-compose*.yml`, `depends_on: ... condition: service_completed_successfully`). Data-only migrations (e.g. granting a new permission to a seeded policy, backfilling a default role) follow the same process as schema migrations — see [../authorization/adding-permissions.md](../authorization/adding-permissions.md) for the exact pattern.
+Every schema change is an Alembic migration under `backend/alembic/versions/`, applied via the dedicated one-shot `alembic` service (`alembic upgrade head`). In `docker-compose.prod.yml`, `backend`/`taskiq_worker` wait for it to complete before starting (`depends_on: ... condition: service_completed_successfully`); the dev `docker-compose.yml` runs the `alembic` service alongside the others without gating startup on it. Data-only migrations (e.g. granting a new permission to a seeded policy, backfilling a default role) follow the same process as schema migrations — see [../authorization/adding-permissions.md](../authorization/adding-permissions.md) for the exact pattern.

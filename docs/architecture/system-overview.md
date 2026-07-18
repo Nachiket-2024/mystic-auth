@@ -44,7 +44,7 @@ High-level overview of the whole stack. For the PBAC authorization pipeline spec
 ## Request lifecycle (authenticated request)
 
 1. Browser sends a request with `access_token`/`refresh_token` httpOnly cookies (never accessible to frontend JS — see [Authentication Flows](../authentication/overview.md)).
-2. `SecurityHeadersMiddleware` and `CorrelationIdMiddleware`/`LoggingMiddleware` wrap every request (see `backend/app/main.py`, `backend/app/core/`, `backend/app/logging/`).
+2. `SecurityHeadersMiddleware` and `CorrelationIdMiddleware`/`LoggingMiddleware` wrap every request (see `backend/app/main.py`, `backend/app/auth/security/`, `backend/app/logging/`).
 3. `Depends(get_current_user)` (or, for a specific action, `Depends(require_authorization(action, resource_type))`) verifies the JWT, re-queries the user row (so a since-deactivated/deleted account is rejected even with a still-valid, unexpired token — see [Security Decisions](../security/decisions.md#why-current-user-lookups-re-query-the-database-every-time)), and resolves the caller's current PBAC permissions from their assigned policies.
 4. On a 401 specifically, `frontend/src/api/setupAuthInterceptor.ts` attempts one silent refresh-and-retry before giving up and marking the session invalid — see [Authentication Flows](../authentication/overview.md#refresh-token-rotation).
 5. The route handler runs, using `authorization_service.authorize()`/`.require()` for any access decision beyond "is there a valid session" — every such call also writes an audit log row (allow or deny).

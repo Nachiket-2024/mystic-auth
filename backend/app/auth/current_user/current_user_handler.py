@@ -5,10 +5,6 @@ from fastapi import HTTPException, status
 
 from ..token_logic.jwt_service import jwt_service
 from ...user_crud.user_crud_collector import user_crud
-# UserRole is used only to validate the JWT's role *claim* is a recognized value
-# (basic token-integrity sanity check). Role is metadata only from here on: it is
-# never consulted to decide what the user is authorized to do.
-from ...user_table.user_model import UserRole
 # PBAC: resolve the caller's actual *assigned policies* into the set of actions they
 # grant, so GET /auth/me exposes real, current permissions — letting clients (the
 # frontend, or any future consumer) make authorization-adjacent UI/behavior
@@ -41,23 +37,12 @@ class CurrentUserHandler:
                     detail="Invalid or expired token"
                 )
 
-            # role is optional — a token for a roleless account carries no "role"
-            # claim at all (see login_service.py / oauth2_service.py).
             email = payload.get("email")
-            role = payload.get("role")
 
             if not email:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token payload"
-                )
-
-            # If a role claim is present at all, it must be a recognized value —
-            # but its absence is perfectly valid.
-            if role is not None and role not in UserRole._value2member_map_:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User role not recognized"
                 )
 
             user = await user_crud.get_by_email(email, db)

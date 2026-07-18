@@ -6,7 +6,6 @@ import {
     purgeUserApi,
     reactivateUserApi,
     updateUserRoleApi,
-    promoteUserToAdminApi,
     type UserUpdatePayload,
     type AdminUserRead,
 } from "../api/users_api";
@@ -25,7 +24,7 @@ export function useUpdateUserMutation() {
             try {
                 return (await updateUserApi(userEmail, payload)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to update user"));
+                throw new Error(extractApiErrorMessage(error, "Failed to update user"), { cause: error });
             }
         },
         onSuccess: () => {
@@ -40,7 +39,7 @@ export function useDeleteUserMutation() {
             try {
                 await deleteUserApi(userEmail);
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to delete user"));
+                throw new Error(extractApiErrorMessage(error, "Failed to delete user"), { cause: error });
             }
         },
         onSuccess: () => {
@@ -55,7 +54,7 @@ export function usePurgeUserMutation() {
             try {
                 await purgeUserApi(userEmail);
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to permanently remove user"));
+                throw new Error(extractApiErrorMessage(error, "Failed to permanently remove user"), { cause: error });
             }
         },
         onSuccess: () => {
@@ -70,7 +69,7 @@ export function useReactivateUserMutation() {
             try {
                 return (await reactivateUserApi(userEmail)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to reactivate user"));
+                throw new Error(extractApiErrorMessage(error, "Failed to reactivate user"), { cause: error });
             }
         },
         onSuccess: () => {
@@ -85,22 +84,7 @@ export function useUpdateUserRoleMutation() {
             try {
                 return (await updateUserRoleApi(userEmail, role)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to update role"));
-            }
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-        },
-    });
-}
-
-export function usePromoteUserMutation() {
-    return useMutation<unknown, Error, { userEmail: string }>({
-        mutationFn: async ({ userEmail }) => {
-            try {
-                return (await promoteUserToAdminApi(userEmail)).data;
-            } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to promote user"));
+                throw new Error(extractApiErrorMessage(error, "Failed to update role"), { cause: error });
             }
         },
         onSuccess: () => {

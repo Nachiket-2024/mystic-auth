@@ -62,11 +62,13 @@ async def create_policy(
 
 @router.get("/policies", response_model=list[PolicyRead])
 async def list_policies(
+    limit: int = Query(default=1000, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     current_user: dict = READ_DEPENDENCY,
     db: AsyncSession = Depends(database.get_session),
 ):
     """Every policy, active or not."""
-    return await policy_repository.get_all(db)
+    return await policy_repository.get_all(db, limit=limit, offset=offset)
 
 
 @router.get("/policies/{policy_name}", response_model=PolicyRead)

@@ -144,7 +144,7 @@ async def test_inspection_endpoint_does_not_pollute_the_audit_log(client, create
 
     check_resp = await client.post(
         f"/authorization/users/{target_email}/authorization-check",
-        json={"action": "users:promote_to_admin", "resource_type": "users"},
+        json={"action": "users:purge", "resource_type": "users"},
     )
     assert check_resp.status_code == 200
 
@@ -152,7 +152,7 @@ async def test_inspection_endpoint_does_not_pollute_the_audit_log(client, create
     assert log_resp.status_code == 200
     entries = log_resp.json()
 
-    assert all(e["action"] != "users:promote_to_admin" for e in entries)
+    assert all(e["action"] != "users:purge" for e in entries)
 
 
 # ---------------------------- Audit log query API gating ----------------------------

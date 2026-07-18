@@ -32,13 +32,13 @@ Every real (non-hypothetical) authorization decision in the app goes through thi
 
 ```python
 {
-    "ip_address": "203.0.113.7",       # resolved via core/client_ip.py
+    "ip_address": "203.0.113.7",       # resolved via auth/security/client_ip.py
     "current_time": "2026-07-13T12:00:00+00:00",  # this server's own clock
     "security_context": {},             # reserved for a future trust-signal layer
 }
 ```
 
-**Rule: never trust client-supplied values by default.** `ip_address` is resolved by `core/client_ip.py::get_client_ip` — the literal TCP peer (`request.client.host`) unless the peer itself is listed in `TRUSTED_PROXY_IPS` (`.env`, empty/untrusted by default), in which case the left-most `X-Forwarded-For` entry is trusted instead. `current_time` always comes from this backend's own clock, never anything in the request body or headers. The one deliberate exception is the authorization-check *inspection* endpoint (`POST /authorization/users/{email}/authorization-check`), which accepts a caller-supplied `context` on purpose — it's a "what would happen if" simulation tool for admins, not a real access decision, so there's nothing to spoof.
+**Rule: never trust client-supplied values by default.** `ip_address` is resolved by `auth/security/client_ip.py::get_client_ip` — the literal TCP peer (`request.client.host`) unless the peer itself is listed in `TRUSTED_PROXY_IPS` (`.env`, empty/untrusted by default), in which case the left-most `X-Forwarded-For` entry is trusted instead. `current_time` always comes from this backend's own clock, never anything in the request body or headers. The one deliberate exception is the authorization-check *inspection* endpoint (`POST /authorization/users/{email}/authorization-check`), which accepts a caller-supplied `context` on purpose — it's a "what would happen if" simulation tool for admins, not a real access decision, so there's nothing to spoof.
 
 ### Authorization Service
 `authorization/services/authorization_service.py`. The single entry point every route/service calls:
@@ -100,6 +100,7 @@ The engine has **zero condition-specific logic**. It doesn't know what `"time"` 
 | POST | `/authorization/users/{email}/policies` | `policies:assign` |
 | DELETE | `/authorization/users/{email}/policies/{name}` | `policies:revoke` |
 | GET | `/authorization/users/{email}/policies` | `policies:read` |
+| GET | `/authorization/users/me/policies` | any authenticated user (self-service) |
 | POST | `/authorization/users/{email}/authorization-check` | `policies:read` |
 | POST | `/authorization/batch-check` | `users:read_own` (checks the caller's own authorization) |
 | GET | `/authorization/audit-log` | `policies:read` |

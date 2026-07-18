@@ -102,15 +102,14 @@ Conditions are AND'ed across keys — every present key must pass:
 
 ## System superuser policy (seeded)
 
-The most sensitive policy in the system — assigning the system role, promoting to admin, and managing the authorization system itself. Resource type `"*"` because its actions span both `users` and `policies` resource types:
+The most sensitive policy in the system — assigning the system role and managing the authorization system itself. Resource type `"*"` because its actions span both `users` and `policies` resource types:
 
 ```json
 {
   "name": "system_superuser",
-  "description": "The most sensitive actions: assigning the system role, promoting to admin, and managing the authorization system itself.",
+  "description": "The most sensitive actions: assigning the system role and managing the authorization system itself.",
   "actions": [
     "users:assign_system_role",
-    "users:promote_to_admin",
     "policies:read",
     "policies:create",
     "policies:update",
@@ -122,6 +121,8 @@ The most sensitive policy in the system — assigning the system role, promoting
   "is_active": true
 }
 ```
+
+Note: the originally-seeded `system_superuser` policy (from the `add_pbac_policies` migration) also carries a `users:promote_to_admin` action string, left over from a one-directional "promote to admin" endpoint that has since been removed in favor of the single bidirectional `PATCH /users/{user_email}/role` endpoint. That action string is never checked by any route now — it's harmless, inert data, kept as-is rather than editing migration history. New policies should not reference it.
 
 This exact policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py` (original actions) and updated in place by `e2b6c8a4f1d5_split_policies_manage_action.py` (the fine-grained `policies:*` split, shown above). It is protected: it can never be deleted or renamed via the management API (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)), and its last assignment can never be revoked (would leave nobody able to manage the authorization system at all).
 
