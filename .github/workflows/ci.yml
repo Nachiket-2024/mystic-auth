@@ -133,7 +133,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # ESLint 10 requires Node ^20.19.0 || ^22.13.0 || >=24, and Vite 7
+          # requires ^20.19.0 || >=22.12.0 — both floors sit above Node 20's
+          # earlier releases, so "20" (major-only) isn't precise enough to
+          # guarantee compatibility on its own. Pinned to an explicit patch
+          # that satisfies both rather than trusting whatever "latest 20.x"
+          # resolves to.
+          node-version: "20.20.2"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 

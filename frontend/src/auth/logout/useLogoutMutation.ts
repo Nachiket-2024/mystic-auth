@@ -22,7 +22,7 @@ export function useLogoutMutation() {
                 const res = await logoutApi();
                 return res.data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Logout failed"));
+                throw new Error(extractApiErrorMessage(error, "Logout failed"), { cause: error });
             }
         },
         onSuccess: () => {

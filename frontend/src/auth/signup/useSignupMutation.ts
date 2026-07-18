@@ -13,7 +13,7 @@ export function useSignupMutation() {
                 const res = await signupApi(payload);
                 return res.data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Signup failed"));
+                throw new Error(extractApiErrorMessage(error, "Signup failed"), { cause: error });
             }
         },
     });

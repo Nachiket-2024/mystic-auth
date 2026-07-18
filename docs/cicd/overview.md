@@ -14,6 +14,7 @@
 
 ### `frontend` — Frontend (typecheck + lint + test + build)
 
+- Node version is pinned to an explicit patch (`20.20.2`), not a bare major (`20`) — ESLint 10 requires Node `^20.19.0 || ^22.13.0 || >=24` and Vite 7 requires `^20.19.0 || >=22.12.0`, both above some earlier Node 20 releases, so an explicit patch guarantees the floor is met rather than trusting whichever latest-20.x a runner happens to resolve.
 - `npm ci --legacy-peer-deps`, then `npm audit --audit-level=high` (dependency vulnerability scan), then `npm run typecheck`, `npm run lint`, `npm run test:coverage` (not plain `test` — coverage must actually be collected for `vitest.config.ts`'s `coverage.thresholds` to be evaluated at all), `npm run build`, each as a separate step (so the specific failing stage is visible in the Actions UI).
 
 ### `docker-build` — Docker image build verification
@@ -27,6 +28,7 @@
 - Full frontend type-check, lint, test (with coverage thresholds enforced), and production build.
 - Both Docker images still build.
 - Dependency vulnerability scanning on every push/PR: `pip-audit` (backend) and `npm audit --audit-level=high` (frontend) — lightweight steps added to the existing jobs, not new jobs, so CI time is barely affected. `.github/dependabot.yml` complements this with a weekly scheduled check (`pip` for `/backend`, `npm` for `/frontend`) that opens version-bump PRs between CI runs — CI catches vulnerabilities at push/PR time, Dependabot catches them in between.
+- Dependabot updates are grouped separately by production/development dependency type within each ecosystem, so a weekly run opens far fewer PRs than one-per-package. `.github/workflows/dependabot-auto-merge.yml` auto-merges (squash) any Dependabot PR that is patch- or minor-level once CI passes; major version bumps are left alone and still require manual review and approval, since branch protection still gates the merge on CI success either way.
 
 ## What's not covered (tracked, not silently missing)
 

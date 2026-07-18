@@ -16,7 +16,7 @@ export function useLogoutAllMutation() {
                 const res = await logoutAllApi();
                 return res.data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Logout all devices failed"));
+                throw new Error(extractApiErrorMessage(error, "Logout all devices failed"), { cause: error });
             }
         },
         onSuccess: () => {

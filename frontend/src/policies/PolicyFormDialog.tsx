@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Button, Dialog, Field, Input, Portal, Stack, Textarea } from "@chakra-ui/react";
 
 import type { PolicyRead } from "../api/policies_api";
@@ -62,9 +62,12 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
     const [initialSnapshot, setInitialSnapshot] = useState("");
 
     // Reset the form to the policy being edited (or blank, for create)
-    // every time the dialog opens.
-    useEffect(() => {
-        if (!isOpen) return;
+    // every time the dialog opens. Adjusted during render (React's
+    // documented pattern for state derived from props) rather than in an
+    // effect, since setState-in-effect causes an extra, avoidable render.
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+    if (isOpen && !prevIsOpen) {
+        setPrevIsOpen(isOpen);
         const initialName = policy?.name ?? "";
         const initialDescription = policy?.description ?? "";
         const initialActionsText = policy ? actionsToText(policy.actions) : "";
@@ -80,7 +83,9 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
         setInitialSnapshot(
             JSON.stringify([initialName, initialDescription, initialActionsText, initialResourceType, initialConditionsText])
         );
-    }, [isOpen, policy]);
+    } else if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
+    }
 
     const isDirty =
         JSON.stringify([name, description, actionsText, resourceType, conditionsText]) !== initialSnapshot;
