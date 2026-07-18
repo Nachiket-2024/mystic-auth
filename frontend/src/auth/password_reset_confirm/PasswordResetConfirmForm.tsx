@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Stack, Input, Button, Text } from "@chakra-ui/react";
 import { Field as ChakraField } from "@chakra-ui/react";
 
@@ -15,19 +15,17 @@ interface PasswordResetConfirmFormProps {
 }
 
 const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ token: propToken }) => {
-    const [token, setToken] = useState(propToken || "");
+    // Token typed into the manual-entry field, used only when no token was
+    // supplied via the URL. `token` derives from whichever source applies
+    // instead of syncing propToken into state via an effect.
+    const [manualToken, setManualToken] = useState("");
+    const token = propToken || manualToken;
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [localError, setLocalError] = useState("");
     const [passwordStrength, setPasswordStrength] = useState<"Weak" | "Medium" | "Strong" | "">("");
 
     const resetConfirmMutation = usePasswordResetConfirmMutation();
-
-    useEffect(() => {
-        if (propToken) {
-            setToken(propToken);
-        }
-    }, [propToken]);
 
     const handlePasswordChange = (value: string) => {
         setNewPassword(value);
@@ -55,7 +53,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
     const handleClear = () => {
         resetConfirmMutation.reset();
         if (!propToken) {
-            setToken("");
+            setManualToken("");
         }
         setNewPassword("");
         setConfirmPassword("");
@@ -74,7 +72,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                     <Input
                         type="text"
                         value={token}
-                        onChange={(e) => setToken(e.target.value)}
+                        onChange={(e) => setManualToken(e.target.value)}
                         placeholder="Token from email"
                         size="lg"
                         autoFocus

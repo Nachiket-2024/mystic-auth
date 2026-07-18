@@ -19,7 +19,7 @@ export function useUpdateMyProfileMutation() {
             try {
                 return (await updateMyProfileApi(payload)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to update profile"));
+                throw new Error(extractApiErrorMessage(error, "Failed to update profile"), { cause: error });
             }
         },
         onSuccess: () => {

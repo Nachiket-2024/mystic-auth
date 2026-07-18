@@ -29,7 +29,7 @@ export function useCreatePolicyMutation() {
             try {
                 return (await createPolicyApi(payload)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to create policy"));
+                throw new Error(extractApiErrorMessage(error, "Failed to create policy"), { cause: error });
             }
         },
         onSuccess: () => {
@@ -44,7 +44,7 @@ export function useUpdatePolicyMutation() {
             try {
                 return (await updatePolicyApi(policyName, payload)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to update policy"));
+                throw new Error(extractApiErrorMessage(error, "Failed to update policy"), { cause: error });
             }
         },
         onSuccess: () => {
@@ -59,7 +59,7 @@ export function useDeletePolicyMutation() {
             try {
                 await deletePolicyApi(policyName, reason);
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to delete policy"));
+                throw new Error(extractApiErrorMessage(error, "Failed to delete policy"), { cause: error });
             }
         },
         onSuccess: () => {
@@ -74,7 +74,7 @@ export function useAssignPolicyMutation() {
             try {
                 return (await assignPolicyApi(userEmail, policyName)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to assign policy"));
+                throw new Error(extractApiErrorMessage(error, "Failed to assign policy"), { cause: error });
             }
         },
         onSuccess: (_data, { userEmail }) => {
@@ -98,7 +98,7 @@ export function useRevokePolicyMutation() {
             try {
                 return (await revokePolicyApi(userEmail, policyName)).data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to revoke policy"));
+                throw new Error(extractApiErrorMessage(error, "Failed to revoke policy"), { cause: error });
             }
         },
         onSuccess: (_data, { userEmail }) => {

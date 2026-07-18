@@ -23,7 +23,7 @@ export function useLoginMutation() {
                 const res = await getCurrentUserApi("useLoginMutation");
                 return res.data as CurrentUserProfile;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Login failed"));
+                throw new Error(extractApiErrorMessage(error, "Login failed"), { cause: error });
             }
         },
         onSuccess: (profile) => {

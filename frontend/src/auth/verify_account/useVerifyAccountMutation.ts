@@ -13,7 +13,7 @@ export function useVerifyAccountMutation() {
                 const res = await verifyAccountApi(payload.token, payload.email);
                 return res.data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Account verification failed"));
+                throw new Error(extractApiErrorMessage(error, "Account verification failed"), { cause: error });
             }
         },
     });
