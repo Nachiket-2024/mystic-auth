@@ -14,7 +14,7 @@ export function usePasswordResetRequestMutation() {
                 const res = await passwordResetRequestApi(payload);
                 return res.data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Password reset request failed"));
+                throw new Error(extractApiErrorMessage(error, "Password reset request failed"), { cause: error });
             }
         },
     });

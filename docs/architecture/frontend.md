@@ -64,6 +64,14 @@ All protected routes are wrapped in `ProtectedRoute` (redirects unauthenticated 
 
 Chakra UI v3 (`@chakra-ui/react` + Emotion). `theme/system.ts` defines the design tokens; `themeStore.ts` + `components/layout/ThemeToggle.tsx` handle light/dark switching, independent of the OS-level `prefers-color-scheme`.
 
+## Build & bundling
+
+`vite.config.ts` splits the production build into two top-level chunks via `build.rollupOptions.output.manualChunks`: everything under `node_modules` goes into a `vendor` chunk, and the app's own `src/` code (App shell + eagerly-loaded `LoginPage`) stays in the entry chunk.
+
+- **Why**: without the split, every third-party dependency (`react-dom`, `@chakra-ui/react`, `axios`, `react-router-dom`, `@tanstack/react-query`) was bundled together with app code into one entry chunk. Since Vite content-hashes chunk filenames, any one-line app change busted the cache for the *entire* chunk — including ~740 kB of vendor code that hadn't actually changed. Splitting vendor into its own chunk means a deploy that only touches app code now only invalidates a ~20 kB (~7 kB gzip) chunk; the ~780 kB (~233 kB gzip) vendor chunk keeps its hash — and browser cache — across deploys that don't bump a dependency.
+- **The `vendor` chunk still trips Vite's "chunk larger than 500 kB" build warning, and that's expected, not a regression to fix.** The bulk of it is Chakra UI v3's `defaultConfig` (imported by `theme/system.ts`, required at the app root by `ChakraProvider`): it's one object bundling style recipes for *every* built-in Chakra component, including several this app never renders (Menu, Combobox, TreeView, TagsInput, NumberInput, ColorPicker) — Rollup can tree-shake unused *modules* but not unused *properties* of an object that's genuinely referenced, so their `@zag-js/*` machine code (~150 kB+ unminified) comes along regardless. There's no supported way to hand-pick a subset of Chakra's default recipes without forking the theme system, so this is treated as a justified, inherent cost of the library choice rather than something to chase — `build.chunkSizeWarningLimit` is deliberately left untouched so the warning stays visible instead of being silenced.
+- Route-level code splitting is separate and already in place — see [Routing](#routing) above: every route except `LoginPage` is `React.lazy`-loaded, so route chunks only ever contain that page's own code plus the Chakra sub-components it specifically imports.
+
 ## Configuration requirements
 
 `frontend/.env.example` — `VITE_API_BASE_URL` (the backend's base URL) and `VITE_APP_NAME` (the product name shown in the UI — navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution). Both are Vite build-time env vars, read through `core/settings.ts`. Support email shown in emails is backend-driven (`SUPPORT_EMAIL`) and only ever appears in server-rendered email templates, not in the frontend build.

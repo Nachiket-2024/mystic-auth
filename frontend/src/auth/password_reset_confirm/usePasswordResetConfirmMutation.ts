@@ -14,7 +14,7 @@ export function usePasswordResetConfirmMutation() {
                 const res = await passwordResetConfirmApi(payload);
                 return res.data;
             } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Password reset confirmation failed"));
+                throw new Error(extractApiErrorMessage(error, "Password reset confirmation failed"), { cause: error });
             }
         },
     });
