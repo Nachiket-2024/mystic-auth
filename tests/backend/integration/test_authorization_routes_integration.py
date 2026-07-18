@@ -121,6 +121,20 @@ async def test_admin_without_policies_read_cannot_manage_policies(client, create
     assert resp.status_code == 403
 
 
+@pytest.mark.asyncio
+async def test_list_policies_respects_limit_query_param(client, created_emails):
+    # Regression guard: GET /authorization/policies previously read the
+    # whole table unconditionally, unlike every other list endpoint in the
+    # app. The baseline seeded policies (self_service, user_administration,
+    # system_superuser, ...) guarantee more than one row exists already.
+    email = _unique_email("system")
+    await _create_verified_user(client, created_emails, email, [SYSTEM_SUPERUSER_POLICY_NAME])
+
+    resp = await client.get("/authorization/policies?limit=1")
+    assert resp.status_code == 200
+    assert len(resp.json()) == 1
+
+
 # ---------------------------- Fine-grained policies:* action separation ----------------------------
 # Proves the old coarse "policies:manage" is genuinely gone: a caller
 # holding only one of policies:read/create/update/delete/assign/revoke is

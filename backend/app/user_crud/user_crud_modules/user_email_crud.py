@@ -1,6 +1,8 @@
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...emails.email_normalization import normalize_email
+
 
 class UserEmailCRUD:
     """Email-lookup-based CRUD operations for the users table."""
@@ -9,7 +11,11 @@ class UserEmailCRUD:
         self.model = model
 
     async def get_by_email(self, email: str, db: AsyncSession):
-        result = await db.execute(select(self.model).where(self.model.email == email))
+        # Normalized here rather than trusted from the caller — this is the
+        # single choke point every email lookup in the app goes through
+        # (login, current-user, admin routes, OAuth2), so callers don't each
+        # need to remember to normalize before calling it.
+        result = await db.execute(select(self.model).where(self.model.email == normalize_email(email)))
         return result.scalar_one_or_none()
 
     async def update_by_email(self, email: str, update_data: dict, db: AsyncSession):

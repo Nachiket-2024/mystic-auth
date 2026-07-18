@@ -1,13 +1,15 @@
 # tests/backend/unit/test_account_verification_service_unit.py
 #
-# Regression guards for two Phase 1 auth-audit fixes to verify_token:
-#   1. Single-use enforcement previously did a separate GET then DELETE
-#      against Redis — a TOCTOU race let two concurrent requests both pass
-#      the GET before either ran the DELETE, both treating a single-use
-#      token as valid. Fixed by using an atomic GETDEL.
-#   2. create_verification_token sets role="verify" on the JWT, claiming
-#      "this token is only valid for email confirmation" — but verify_token
-#      never actually checked that claim, making it purely decorative.
+# Regression guard for a Phase 1 auth-audit fix to verify_token:
+#   Single-use enforcement previously did a separate GET then DELETE against
+#   Redis — a TOCTOU race let two concurrent requests both pass the GET
+#   before either ran the DELETE, both treating a single-use token as valid.
+#   Fixed by using an atomic GETDEL.
+#
+# Token-purpose scoping (this token must never work anywhere else) is
+# enforced by jwt_service.verify_token via expected_type="verify" — see
+# test_account_verification_requires_verify_type in test_jwt_unit.py —
+# rather than by anything in this file.
 import pytest
 from unittest.mock import AsyncMock
 
@@ -23,7 +25,7 @@ async def test_verify_token_uses_atomic_getdel_not_separate_get_and_delete(mocke
     mocker.patch(
         f"{MODULE}.jwt_service.verify_token",
         new_callable=AsyncMock,
-        return_value={"email": "user@example.com", "role": "verify"},
+        return_value={"email": "user@example.com", "type": "verify"},
     )
     getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
     get_mock = mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock)
@@ -31,7 +33,7 @@ async def test_verify_token_uses_atomic_getdel_not_separate_get_and_delete(mocke
 
     result = await account_verification_service.verify_token("some-token")
 
-    assert result == {"email": "user@example.com", "role": "verify"}
+    assert result == {"email": "user@example.com", "type": "verify"}
     getdel_mock.assert_awaited_once_with("verify:some-token")
     # No separate GET/DELETE round-trip — the whole point of the fix is that
     # a single atomic operation replaces the racy two-step check.
@@ -44,7 +46,7 @@ async def test_verify_token_rejects_already_consumed_single_use_token(mocker):
     mocker.patch(
         f"{MODULE}.jwt_service.verify_token",
         new_callable=AsyncMock,
-        return_value={"email": "user@example.com", "role": "verify"},
+        return_value={"email": "user@example.com", "type": "verify"},
     )
     mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value=None)
 
@@ -54,34 +56,38 @@ async def test_verify_token_rejects_already_consumed_single_use_token(mocker):
 
 
 @pytest.mark.asyncio
-async def test_verify_token_rejects_token_with_wrong_role_claim(mocker):
-    # A validly-signed, unexpired access token minted for some other purpose
-    # (role != "verify") must never be accepted here, even if it otherwise
-    # decodes fine and has a matching Redis single-use record.
-    mocker.patch(
-        f"{MODULE}.jwt_service.verify_token",
-        new_callable=AsyncMock,
-        return_value={"email": "user@example.com", "role": "user"},
+async def test_create_verification_token_forwards_expires_minutes_to_jwt_service(mocker):
+    """Regression guard: create_verification_token used to call
+    jwt_service.create_verification_token(email=email) without forwarding
+    expires_minutes, so the JWT's own exp claim silently used
+    ACCESS_TOKEN_EXPIRE_MINUTES (15min default) while the Redis single-use
+    key TTL and the emailed wording both used RESET_TOKEN_EXPIRE_MINUTES
+    (60min default) — a user clicking between 15-60 minutes in got a
+    confusing invalid/expired error despite the email promising the link
+    should still work."""
+    create_mock = mocker.patch(
+        f"{MODULE}.jwt_service.create_verification_token", new_callable=AsyncMock, return_value="token"
     )
-    getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock)
 
-    result = await account_verification_service.verify_token("wrong-role-token")
+    await account_verification_service.create_verification_token("user@example.com", expires_minutes=45)
 
-    assert result is None
-    # Must be rejected on the role check before ever touching Redis
-    getdel_mock.assert_not_called()
+    create_mock.assert_awaited_once_with(email="user@example.com", expires_minutes=45)
 
 
 @pytest.mark.asyncio
-async def test_verify_token_rejects_missing_role_claim(mocker):
+async def test_verify_token_rejects_token_of_the_wrong_type(mocker):
+    # A validly-signed, unexpired token minted for some other purpose (not
+    # type="verify") must never be accepted here. jwt_service.verify_token
+    # itself enforces expected_type, so it returns None before this service
+    # ever sees a payload.
     mocker.patch(
         f"{MODULE}.jwt_service.verify_token",
         new_callable=AsyncMock,
-        return_value={"email": "user@example.com"},
+        return_value=None,
     )
     getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock)
 
-    result = await account_verification_service.verify_token("no-role-token")
+    result = await account_verification_service.verify_token("wrong-type-token")
 
     assert result is None
     getdel_mock.assert_not_called()

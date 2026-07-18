@@ -13,7 +13,6 @@ export const PERMISSIONS = {
     USERS_DELETE_ANY: "users:delete_any",
     USERS_ASSIGN_ROLE: "users:assign_role",
     USERS_ASSIGN_SYSTEM_ROLE: "users:assign_system_role",
-    USERS_PROMOTE_TO_ADMIN: "users:promote_to_admin",
     USERS_PURGE: "users:purge",
     USERS_REACTIVATE: "users:reactivate",
     POLICIES_READ: "policies:read",

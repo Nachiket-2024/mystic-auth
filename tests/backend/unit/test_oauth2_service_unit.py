@@ -213,3 +213,35 @@ async def test_login_or_create_user_no_longer_accepts_device_id():
 
     sig = inspect.signature(oauth2_service.login_or_create_user)
     assert "device_id" not in sig.parameters
+
+
+@pytest.mark.asyncio
+async def test_login_or_create_user_normalizes_google_email_casing_for_lookup(mocker):
+    # user_info is Google's raw JSON response — it never passes through a
+    # Pydantic schema, so oauth2_service.py must normalize it itself before
+    # ever calling get_by_email, unlike the signup/login paths.
+    get_by_email_mock = mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
+    mocker.patch(f"{MODULE}.jwt_service.create_access_token", return_value="access-token")
+    mocker.patch(f"{MODULE}.jwt_service.create_refresh_token", return_value="refresh-token")
+    mocker.patch(f"{MODULE}.redis_client.rpush", new_callable=AsyncMock)
+
+    await oauth2_service.login_or_create_user(db=None, user_info={"email": "User@Example.COM"})
+
+    get_by_email_mock.assert_awaited_once_with("user@example.com", None)
+
+
+@pytest.mark.asyncio
+async def test_login_or_create_user_normalizes_google_email_casing_for_new_account(mocker):
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=None)
+    create_mock = mocker.patch(f"{MODULE}.user_crud.create", return_value=_FakeUser())
+    mocker.patch(f"{MODULE}.policy_repository.get_by_name", return_value=_FakePolicy())
+    mocker.patch(f"{MODULE}.policy_repository.assign_policy_to_user", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.jwt_service.create_access_token", return_value="access-token")
+    mocker.patch(f"{MODULE}.jwt_service.create_refresh_token", return_value="refresh-token")
+
+    await oauth2_service.login_or_create_user(
+        db=None, user_info={"email": "New.User@Example.COM", "name": "New User"}
+    )
+
+    args, _ = create_mock.call_args
+    assert args[0]["email"] == "new.user@example.com"

@@ -82,8 +82,12 @@ class PolicyRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_all(db: AsyncSession) -> list[Policy]:
-        result = await db.execute(select(Policy))
+    async def get_all(db: AsyncSession, limit: int = 1000, offset: int = 0) -> list[Policy]:
+        # Capped — every other list endpoint in the app (audit log, policy
+        # history) bounds its query the same way; this one previously read
+        # the whole table unconditionally.
+        stmt = select(Policy).order_by(Policy.id).limit(limit).offset(offset)
+        result = await db.execute(stmt)
         return list(result.scalars().all())
 
     @staticmethod

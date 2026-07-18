@@ -25,7 +25,7 @@ React 19 + TypeScript SPA (`frontend/src/`), built with Vite, styled with Chakra
 
 ## State management
 
-- **Zustand** for client state — `authStore` (`isAuthenticated`, `name`, `email`, `role`, `permissions`, `hasPassword`) and `themeStore` (light/dark). No Redux, despite what older documentation claimed — see [Concerns](../concerns/README.md).
+- **Zustand** for client state — `authStore` (`isAuthenticated`, `name`, `email`, `role`, `permissions`, `hasPassword`) and `themeStore` (light/dark). No Redux.
 - **TanStack Query** for all server state/caching, via one shared `QueryClient` (`store/queryClient.ts`).
 - `authStore.isAuthenticated` starts as `null` ("not checked yet") — `App.tsx` blocks rendering the router behind a loading screen until `useAuthSession()` resolves it to `true`/`false`, avoiding a flash of unauthenticated content.
 
@@ -66,7 +66,7 @@ Chakra UI v3 (`@chakra-ui/react` + Emotion). `theme/system.ts` defines the desig
 
 ## Configuration requirements
 
-`frontend/.env.example` — a single variable, `VITE_API_BASE_URL` (the backend's base URL). All other frontend-facing config (app name, support email shown in emails) is backend-driven and returned via API responses, not baked into the frontend build.
+`frontend/.env.example` — `VITE_API_BASE_URL` (the backend's base URL) and `VITE_APP_NAME` (the product name shown in the UI — navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution). Both are Vite build-time env vars, read through `core/settings.ts`. Support email shown in emails is backend-driven (`SUPPORT_EMAIL`) and only ever appears in server-rendered email templates, not in the frontend build.
 
 ## Edge cases / error handling
 

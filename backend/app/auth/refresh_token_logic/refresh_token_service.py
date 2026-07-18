@@ -33,17 +33,10 @@ class RefreshTokenService:
 
             jti = payload.get("jti")
 
-            # Refresh tokens are single-use (revoked immediately after rotation),
-            # so a revoked token being presented again means it was replayed —
-            # either the legitimate user retried a stale token, or the token was
-            # stolen and is being used by an attacker in parallel with its
-            # rightful owner. Either way, the whole session is now treated as
-            # compromised: every refresh token for that user is revoked, forcing
-            # re-authentication on all devices.
-            if await jwt_service.is_token_revoked_by_jti(jti):
-                await RefreshTokenService._handle_reuse_detected(payload, db, request)
-                return None
-
+            # Type is checked before the token is ever claimed/revoked below —
+            # a wrong-type token (e.g. an access token mistakenly presented
+            # here) must be rejected without side effects, never burned as if
+            # it were a real refresh token.
             if payload.get("type") != "refresh":
                 logger.warning(
                     "Token type mismatch during refresh: expected 'refresh', got '%s'",
@@ -51,25 +44,34 @@ class RefreshTokenService:
                 )
                 return None
 
-            # role is optional — a roleless account (see user_model.py: role is
-            # nullable, and every PBAC-authorized account is authorized purely
-            # through assigned policies, never role) must still be able to
-            # refresh its session. Requiring role here previously rejected
-            # rotation outright for every such account, including every
-            # OAuth2-created user (oauth2_service.py always creates new accounts
-            # with role=None) — they could log in and get an access token, but
-            # the moment it expired they were silently logged out despite
-            # holding a valid, unexpired, unrevoked refresh token.
+            # Refresh tokens are single-use — claim_jti_for_rotation atomically
+            # revokes this jti only if it wasn't already revoked. A revoked jti
+            # being presented again means it was replayed: either the
+            # legitimate user retried a stale token, two concurrent requests
+            # raced on the same token, or the token was stolen and is being
+            # used by an attacker in parallel with its rightful owner. Either
+            # way, the whole session is now treated as compromised: every
+            # refresh token for that user is revoked, forcing re-authentication
+            # on all devices. Using one atomic claim (rather than a separate
+            # "is it revoked" check followed later by a revoke call) closes a
+            # real race: two concurrent requests with the same token could
+            # otherwise both pass a read-only check before either revoked it,
+            # and both mint a valid new token pair from a single presented token.
+            # Checked before requiring email so a reused token missing that
+            # claim still gets caught here (_handle_reuse_detected copes with
+            # a missing email on its own).
+            claimed = await jwt_service.claim_jti_for_rotation(jti, payload.get("exp"), payload.get("email"))
+            if not claimed:
+                await RefreshTokenService._handle_reuse_detected(payload, db, request)
+                return None
+
             email = payload.get("email")
-            role = payload.get("role")
 
             if not email:
                 return None
 
-            await jwt_service.revoke_token_by_jti(jti, payload.get("exp"), email)
-
-            new_access_token = await jwt_service.create_access_token(email, role)
-            new_refresh_token = await jwt_service.create_refresh_token(email, role)
+            new_access_token = await jwt_service.create_access_token(email)
+            new_refresh_token = await jwt_service.create_refresh_token(email)
 
             return {"access_token": new_access_token, "refresh_token": new_refresh_token}
 

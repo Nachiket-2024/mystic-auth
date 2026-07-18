@@ -16,8 +16,25 @@ async def test_response_carries_security_hardening_headers(client):
     assert resp.headers["X-Content-Type-Options"] == "nosniff"
     assert resp.headers["X-Frame-Options"] == "DENY"
     assert resp.headers["Content-Security-Policy"] == "default-src 'none'; frame-ancestors 'none'"
-    assert resp.headers["Strict-Transport-Security"] == "max-age=31536000; includeSubDomains"
     assert resp.headers["Referrer-Policy"] == "no-referrer"
+
+
+@pytest.mark.asyncio
+async def test_hsts_header_present_in_production(client, mocker):
+    mocker.patch("backend.app.auth.security.security_headers_middleware.settings.ENVIRONMENT", "production")
+
+    resp = await client.get("/")
+
+    assert resp.headers["Strict-Transport-Security"] == "max-age=31536000; includeSubDomains"
+
+
+@pytest.mark.asyncio
+async def test_hsts_header_absent_outside_production(client, mocker):
+    mocker.patch("backend.app.auth.security.security_headers_middleware.settings.ENVIRONMENT", "development")
+
+    resp = await client.get("/")
+
+    assert "Strict-Transport-Security" not in resp.headers
 
 
 @pytest.mark.asyncio

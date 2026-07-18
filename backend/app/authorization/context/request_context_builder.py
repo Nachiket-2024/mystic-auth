@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import Request
 
-from ...core.client_ip import get_client_ip
+from ...auth.security.client_ip import get_client_ip
 
 
 def build_authorization_context(request: Request) -> dict:
@@ -14,7 +14,7 @@ def build_authorization_context(request: Request) -> dict:
     claude.md's "Every authorization check should use the same context
     builder" and "Do not trust client supplied values."
 
-    `ip_address` is resolved via core/client_ip.py — the literal TCP peer
+    `ip_address` is resolved via auth/security/client_ip.py — the literal TCP peer
     (request.client.host) by default, or the real client behind
     X-Forwarded-For only if that peer is itself a configured trusted proxy
     (TRUSTED_PROXY_IPS). Never a header/query/body value trusted

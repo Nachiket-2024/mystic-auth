@@ -30,7 +30,7 @@ from .redis.client import redis_client
 
 from .logging.logging_middleware import LoggingMiddleware
 from .logging.correlation_id_middleware import CorrelationIdMiddleware
-from .core.security_headers_middleware import SecurityHeadersMiddleware
+from .auth.security.security_headers_middleware import SecurityHeadersMiddleware
 from .logging.logging_config import get_logger
 
 logger = get_logger("main")
@@ -118,4 +118,4 @@ app.include_router(health_router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to MysticAuth!"}
+    return {"message": f"Welcome to {settings.APP_NAME}!"}

@@ -34,6 +34,7 @@ const ProfilePage: React.FC = () => {
 
     const [editedName, setEditedName] = useState(name ?? "");
     const [newPassword, setNewPassword] = useState("");
+    const [currentPassword, setCurrentPassword] = useState("");
     const [localError, setLocalError] = useState("");
 
     const updateMutation = useUpdateMyProfileMutation();
@@ -54,11 +55,21 @@ const ProfilePage: React.FC = () => {
                 setLocalError(passwordError);
                 return;
             }
+            // Only an account that already has a password needs to confirm
+            // it — setting one for the first time on an OAuth-only account
+            // has nothing to confirm against.
+            if (hasPassword && !currentPassword) {
+                setLocalError("Enter your current password to set a new one");
+                return;
+            }
         }
 
-        const payload: { name?: string; password?: string } = {};
+        const payload: { name?: string; password?: string; current_password?: string } = {};
         if (editedName && editedName !== name) payload.name = editedName;
-        if (newPassword) payload.password = newPassword;
+        if (newPassword) {
+            payload.password = newPassword;
+            if (hasPassword) payload.current_password = currentPassword;
+        }
 
         if (Object.keys(payload).length === 0) {
             setLocalError("No changes to save");
@@ -70,6 +81,7 @@ const ProfilePage: React.FC = () => {
                 toaster.create({ title: "Profile updated", type: "success" });
                 setEditedName(updated.name);
                 setNewPassword("");
+                setCurrentPassword("");
             },
         });
     };
@@ -123,6 +135,18 @@ const ProfilePage: React.FC = () => {
                                 </Text>
                             )}
                         </Field.Root>
+
+                        {newPassword && hasPassword && (
+                            <Field.Root>
+                                <Field.Label>Current password</Field.Label>
+                                <Input
+                                    type="password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    placeholder="Required to confirm this change"
+                                />
+                            </Field.Root>
+                        )}
 
                         {newPassword && <PasswordRulesChecklist rules={rules} />}
 

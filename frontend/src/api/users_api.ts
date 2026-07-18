@@ -16,6 +16,11 @@ export interface AdminUserRead {
 export interface UserUpdatePayload {
     name?: string;
     password?: string;
+    // Required by the backend when changing the password on an account that
+    // already has one (self-service PUT /users/me only — the admin route
+    // ignores it). Not needed when setting a password for the first time on
+    // an OAuth-only account.
+    current_password?: string;
 }
 
 export const updateMyProfileApi = (payload: UserUpdatePayload) => api.put<AdminUserRead>("/users/me", payload);
@@ -39,6 +44,3 @@ export const reactivateUserApi = (userEmail: string) =>
 
 export const updateUserRoleApi = (userEmail: string, role: string) =>
     api.patch(`/users/${encodeURIComponent(userEmail)}/role`, { role });
-
-export const promoteUserToAdminApi = (userEmail: string) =>
-    api.patch(`/users/${encodeURIComponent(userEmail)}/promote-to-admin`);

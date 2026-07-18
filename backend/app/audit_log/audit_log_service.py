@@ -4,7 +4,7 @@ from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .audit_log_repository import audit_log_repository
-from ..core.client_ip import get_client_ip
+from ..auth.security.client_ip import get_client_ip
 from ..logging.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -27,6 +27,23 @@ REFRESH_TOKEN_REUSE_DETECTED = "refresh_token_reuse_detected"
 ACCOUNT_DELETED = "account_deleted"           # Soft delete (reversible)
 ACCOUNT_PURGED = "account_purged"             # Hard delete (irreversible)
 ACCOUNT_REACTIVATED = "account_reactivated"   # Restored from soft delete
+
+# Case-insensitive substring denylist for metadata keys that must never be
+# persisted verbatim. Every current call site only ever passes emails/counts
+# (see call sites across auth/*, user_routes.py), so this is a defense-in-depth
+# backstop against a future call site accidentally passing something
+# sensitive — not a fix for an existing leak.
+_SENSITIVE_METADATA_KEY_MARKERS = ("password", "hash", "token", "secret", "cookie", "jwt", "credential")
+
+
+def _redact_sensitive_metadata(metadata: dict | None) -> dict | None:
+    if metadata is None:
+        return None
+
+    return {
+        key: "[REDACTED]" if any(marker in key.lower() for marker in _SENSITIVE_METADATA_KEY_MARKERS) else value
+        for key, value in metadata.items()
+    }
 
 
 async def log_security_event(
@@ -60,7 +77,7 @@ async def log_security_event(
                 "ip_address": ip_address,
                 "user_agent": user_agent,
                 "request_id": request_id,
-                "event_metadata": metadata,
+                "event_metadata": _redact_sensitive_metadata(metadata),
             },
             db,
         )

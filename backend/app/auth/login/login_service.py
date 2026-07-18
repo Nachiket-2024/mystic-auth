@@ -56,13 +56,9 @@ class LoginService:
                 logger.warning("Incorrect password for email: %s", email)
                 return None
 
-            # Role is display metadata only (see user_model.py) and may be None — an
-            # account with no role at all must still authenticate and be authorized
-            # purely through its assigned policies.
-            role_value = user.role.value if user.role else None
             access_token, refresh_token = await asyncio.gather(
-                jwt_service.create_access_token(email=email, role=role_value),
-                jwt_service.create_refresh_token(email=email, role=role_value)
+                jwt_service.create_access_token(email=email),
+                jwt_service.create_refresh_token(email=email)
             )
 
             return TokenPairResponseSchema(access_token=access_token, refresh_token=refresh_token)

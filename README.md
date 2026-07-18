@@ -14,9 +14,15 @@
 
 ## Overview
 
-A full-stack identity and access management platform with authentication, OAuth2/PKCE integration, and fine-grained Policy-Based Access Control (PBAC). Every access decision is made by an assigned, active `Policy`; a user's `role` column is display/grouping metadata only and is never consulted when deciding what someone can do. Supports email+password and Google OAuth2 (with PKCE) login, fully async operations, and JWT authentication delivered as httpOnly cookies.
+A reusable full-stack identity and access management template with authentication, OAuth2/PKCE integration, and fine-grained Policy-Based Access Control (PBAC). Every access decision is made by an assigned, active `Policy`; a user's `role` column is display/grouping metadata only and is never consulted when deciding what someone can do. Supports email+password and Google OAuth2 (with PKCE) login, fully async operations, and JWT authentication delivered as httpOnly cookies.
 
-See [`docs/README.md`](docs/README.md) for the full documentation set — architecture, authentication, authorization, database, API reference, background workers, security, testing, Docker, CI/CD, and deployment.
+The product name shown in the UI and emails is configurable via the `APP_NAME` / `VITE_APP_NAME` environment variables, not hardcoded.
+
+See [`docs/README.md`](docs/README.md) for the full documentation set — architecture, authentication, authorization, database, API reference, background workers, security, testing, Docker, CI/CD, and deployment — and [`docs/template-usage.md`](docs/template-usage.md) for how to clone and customize this repo as a starting point for your own project.
+
+### Why this exists
+
+This started as the same authentication/authorization foundation getting rebuilt from scratch for every startup take-home assignment that needed some combination of auth, OAuth2, and roles. It grew from a planned "small reusable module" into a full exploration of what auth actually involves — refresh rotation, rate limiting, background email delivery, and a real test suite — as each rebuild kept surfacing another problem worth solving properly instead of again. See [Project Story](docs/project-story/README.md) for the full history.
 
 ---
 
@@ -30,7 +36,7 @@ See [`docs/README.md`](docs/README.md) for the full documentation set — archit
 
 ### User Dashboard (Normal User)
 
-![MysticAuth Dashboard](screenshots/dashboard.png)
+![Dashboard](screenshots/dashboard.png)
 
 ---
 
@@ -49,6 +55,12 @@ See [`docs/README.md`](docs/README.md) for the full documentation set — archit
 ### Policy Management
 
 ![Policy Management](screenshots/policies.png)
+
+---
+
+### Edit Policy (PBAC)
+
+![Edit Policy](screenshots/edit_policy.png)
 
 ---
 
@@ -144,10 +156,10 @@ Once the services are running:
 
 - **Backend:** [http://localhost:8000/docs](http://localhost:8000/docs) – FastAPI API docs and endpoints
 - **Frontend:** [http://localhost:5173](http://localhost:5173) – React + Vite frontend
-- **PostgreSQL:** `localhost:5432` – Database ready for connections
-- **Redis:** `localhost:6379` – Cache, rate limiting, and Taskiq broker
+- **PostgreSQL:** `localhost:5433` – Database ready for connections (non-default host port; containers reach it at `postgres:5432` internally)
+- **Redis:** `localhost:6380` – Cache, rate limiting, and Taskiq broker (non-default host port; containers reach it at `redis:6379` internally)
 - **Taskiq worker:** Automatically listens for async tasks (email sending)
-- **Alembic migrations:** Run automatically on stack startup, ensures the DB schema is current before `backend`/`taskiq_worker` start
+- **Alembic migrations:** Run automatically on stack startup via the dedicated `alembic` service (`alembic upgrade head`); in production Compose, `backend`/`taskiq_worker` also wait for it to complete before starting (see [Docker Overview](docs/docker/overview.md))
 
 See [Docker Overview](docs/docker/overview.md) for the full service breakdown and [Deployment Guide](docs/deployment/guide.md) for production Compose usage and free/low-cost hosting options.
 
@@ -199,7 +211,7 @@ After starting the app for the first time, create the reserved system account �
 ### Docker
 
 ```bash
-docker exec -it backend python -m app.scripts.create_system_user
+docker compose exec -it backend python -m app.scripts.create_system_user
 ```
 
 ### Local
@@ -289,6 +301,17 @@ Full documentation lives in [`docs/`](docs/README.md), organized by feature/doma
 - [CI/CD](docs/cicd/overview.md)
 - [Deployment](docs/deployment/guide.md)
 - [Known Issues & Concerns](docs/concerns/README.md)
+
+---
+
+## 🙋 Getting Help & Contributing
+
+This is an open-source template — issues and pull requests are welcome:
+
+- Check the [documentation](docs/README.md) first, especially [Known Issues & Concerns](docs/concerns/README.md) and [PBAC Troubleshooting](docs/authorization/troubleshooting.md), since your question may already be answered there.
+- Search [existing GitHub Issues](https://github.com/Nachiket-2024/mystic-auth/issues) before opening a new one.
+- If you've found a bug, open a new Issue with clear reproduction steps (what you ran, what you expected, what happened instead).
+- Fixes and improvements are welcome as Pull Requests.
 
 ---
 

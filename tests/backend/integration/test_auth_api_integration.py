@@ -9,7 +9,9 @@ import asyncio
 import statistics
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 
+import jwt as pyjwt
 import pytest
 
 from backend.app.auth.verify_account.account_verification_service import account_verification_service
@@ -158,6 +160,47 @@ async def test_signup_duplicate_email_does_not_create_second_user(client, create
     await client.post("/auth/verify-account", json={"token": token})
     login_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     assert login_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_signup_duplicate_email_rejected_with_different_casing(client, created_emails):
+    # User@Example.com and user@example.com must be the same account —
+    # confirmed against the real DB unique constraint + normalization, not
+    # mocks, since this is exactly the kind of boundary a mock could hide.
+    email = _unique_email()
+    mixed_case_email = email.replace("inttest-", "INTTEST-", 1)
+    await client.post("/auth/signup", json={"name": "First", "email": email, "password": PASSWORD})
+    created_emails.append(email)
+
+    dup_resp = await client.post(
+        "/auth/signup", json={"name": "Second", "email": mixed_case_email, "password": PASSWORD}
+    )
+
+    # Same generic 200 (enumeration-resistant), but no second account exists —
+    # verified below by logging in with the mixed-case address and the
+    # *original* account's password.
+    assert dup_resp.status_code == 200
+    token = await account_verification_service.create_verification_token(email)
+    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await client.post("/auth/verify-account", json={"token": token})
+
+    login_resp = await client.post(
+        "/auth/login", json={"email": mixed_case_email, "password": PASSWORD}
+    )
+    assert login_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_login_succeeds_with_different_casing_than_used_at_signup(client, created_emails):
+    email = _unique_email()
+    login_resp = await _signup_verify_login(client, created_emails, email)
+    assert login_resp.status_code == 200
+
+    mixed_case_email = email.upper()
+    second_login_resp = await client.post(
+        "/auth/login", json={"email": mixed_case_email, "password": PASSWORD}
+    )
+    assert second_login_resp.status_code == 200
 
 
 # ---------------------------- login timing side-channel ----------------------------
@@ -327,6 +370,28 @@ async def test_refresh_token_rotates_and_old_token_is_rejected(client, created_e
 
 
 @pytest.mark.asyncio
+async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, created_emails):
+    # Regression guard for the refresh-token double-spend race: two requests
+    # firing concurrently with the identical still-valid refresh token must
+    # not both be able to rotate it into a new pair — claim_jti_for_rotation's
+    # atomic Redis SET...NX means only one can ever win, regardless of how
+    # the two requests interleave.
+    email = _unique_email()
+    login_resp = await _signup_verify_login(client, created_emails, email)
+    refresh_token = login_resp.cookies["refresh_token"]
+
+    responses = await asyncio.gather(
+        client.post("/auth/refresh/", cookies={"refresh_token": refresh_token}),
+        client.post("/auth/refresh/", cookies={"refresh_token": refresh_token}),
+    )
+
+    statuses = sorted(resp.status_code for resp in responses)
+    # Exactly one of the two concurrent requests may win the claim; the
+    # other loses the atomic SET...NX and is treated as reuse (401).
+    assert statuses == [200, 401]
+
+
+@pytest.mark.asyncio
 async def test_refresh_token_reuse_revokes_all_sessions(client, created_emails):
     email = _unique_email()
     login_resp = await _signup_verify_login(client, created_emails, email)
@@ -356,6 +421,31 @@ async def test_refresh_rejects_access_token_type(client, created_emails):
     access_token = login_resp.cookies["access_token"]
 
     resp = await client.post("/auth/refresh/", cookies={"refresh_token": access_token})
+
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_an_actually_expired_token(client, created_emails):
+    # Regression guard: existing refresh-token tests only ever mock
+    # decode_payload directly, never exercising PyJWT's own exp check. A
+    # genuinely expired (but otherwise validly-signed) refresh token must
+    # be rejected the same generic way as a tampered one — deliberately
+    # indistinguishable, per refresh_token_handler.py's anti-enumeration
+    # comment — but this at least confirms the expiry path is reached at
+    # all and doesn't crash or behave differently.
+    email = _unique_email()
+    await _signup_verify_login(client, created_emails, email)
+
+    expired_payload = {
+        "email": email,
+        "type": "refresh",
+        "jti": uuid.uuid4().hex,
+        "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
+    }
+    expired_token = pyjwt.encode(expired_payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    resp = await client.post("/auth/refresh/", cookies={"refresh_token": expired_token})
 
     assert resp.status_code == 401
 

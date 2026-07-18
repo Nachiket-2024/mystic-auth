@@ -4,8 +4,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Resolves the real client IP, honoring X-Forwarded-For only from a configured
-# trusted reverse proxy (see core/client_ip.py).
-from ...core.client_ip import get_client_ip
+# trusted reverse proxy (see auth/security/client_ip.py).
+from ..security.client_ip import get_client_ip
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
 from ...auth.security.rate_limiter_service import rate_limiter_service
 from ...auth.security.login_protection_service import login_protection_service

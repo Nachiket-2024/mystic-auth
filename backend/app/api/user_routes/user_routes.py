@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...user_crud.user_crud_collector import user_crud
@@ -48,6 +48,7 @@ from ...audit_log.audit_log_service import (
     ACCOUNT_PURGED,
     ACCOUNT_REACTIVATED,
 )
+from ...emails.email_normalization import normalize_email
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -61,6 +62,11 @@ async def _prepare_update_data(update_data: UserUpdate) -> dict:
     replaces it with a real Argon2 hash under `hashed_password`.
     """
     data = update_data.model_dump(exclude_unset=True)
+    # Only ever consulted by update_my_profile's own current-password check
+    # above it in the route handler — never a real column, so it must not
+    # reach user_crud.update (which would otherwise set it as a harmless but
+    # sloppy unmapped attribute on the ORM object).
+    data.pop("current_password", None)
     plain_password = data.pop("password", None)
     if plain_password is not None:
         if not await password_service.validate_password_strength(plain_password):
@@ -90,19 +96,43 @@ async def update_my_profile(
 ):
     email = current_user["email"]
     user = await get_or_404(user_crud.get_by_email(email, db), "User not found")
-    return await user_crud.update(
-        db_obj=user,
-        update_data=await _prepare_update_data(update_data),
-        db=db
-    )
+
+    # A stolen access-token cookie (e.g. via XSS) is otherwise enough to
+    # permanently lock the legitimate owner out by just setting a new
+    # password — no proof of the old one required. Skipped for an
+    # OAuth-only account (hashed_password is None) setting a password for
+    # the first time, since there's nothing yet to confirm against.
+    if update_data.password is not None and user.hashed_password is not None:
+        if not update_data.current_password or not await password_service.verify_password(
+            update_data.current_password, user.hashed_password
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+
+    prepared_data = await _prepare_update_data(update_data)
+    updated_user = await user_crud.update(db_obj=user, update_data=prepared_data, db=db)
+
+    # A password change rotates the credential — any existing session
+    # (including this device's own refresh token) must not survive it,
+    # mirroring password_reset_service.py's identical reasoning: an account
+    # may be having its password changed specifically because it's
+    # compromised, so an attacker's session shouldn't outlive the change.
+    if "hashed_password" in prepared_data:
+        await refresh_token_service.revoke_all_tokens_for_user(email)
+
+    return updated_user
 
 
 @router.get("/", response_model=list[UserRead])
 async def list_all_users(
+    limit: int = Query(default=1000, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
-    return await user_crud.get_all(db)
+    return await user_crud.get_all(db, limit=limit, offset=offset)
 
 
 @router.put("/{user_email}", response_model=UserRead)
@@ -112,6 +142,7 @@ async def update_any_user(
     current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
+    user_email = normalize_email(user_email)
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
     # UserUpdate allows setting `password`, so without this guard anyone with
@@ -123,11 +154,15 @@ async def update_any_user(
             detail="System user cannot be modified"
         )
 
-    return await user_crud.update(
-        db_obj=user,
-        update_data=await _prepare_update_data(update_data),
-        db=db
-    )
+    prepared_data = await _prepare_update_data(update_data)
+    updated_user = await user_crud.update(db_obj=user, update_data=prepared_data, db=db)
+
+    # See update_my_profile's identical comment — an admin-driven password
+    # change must revoke the target account's existing sessions too.
+    if "hashed_password" in prepared_data:
+        await refresh_token_service.revoke_all_tokens_for_user(user_email)
+
+    return updated_user
 
 
 @router.delete("/{user_email}")
@@ -143,6 +178,7 @@ async def delete_any_user(
     stay intact — this is the default, reversible deletion flow. Permanent
     removal is a separate, more sensitive operation (see purge_user below).
     """
+    user_email = normalize_email(user_email)
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
     if user.role == UserRole.system:
@@ -187,6 +223,7 @@ async def purge_user(
     CASCADE, while audit log rows reference user_email as a snapshot string
     (not a foreign key), so audit history survives even a purge.
     """
+    user_email = normalize_email(user_email)
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
     if user.role == UserRole.system:
@@ -220,6 +257,7 @@ async def reactivate_user(
     current_user: dict = Depends(require_authorization(Permission.USERS_REACTIVATE.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
+    user_email = normalize_email(user_email)
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
     # Reactivate is specifically the soft-delete undo path — nothing to
@@ -254,6 +292,7 @@ async def update_user_role(
     current_user: dict = Depends(require_authorization(Permission.USERS_ASSIGN_ROLE.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
+    user_email = normalize_email(user_email)
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
 
     if user.role == UserRole.system:
@@ -279,24 +318,3 @@ async def update_user_role(
 
     await user_crud.update_role(db_obj=user, role=role_data.role, db=db)
     return {"detail": f"User {user_email} role updated to {role_data.role.value}"}
-
-
-@router.patch("/{user_email}/promote-to-admin")
-async def promote_to_admin(
-    user_email: str,
-    current_user: dict = Depends(require_authorization(Permission.USERS_PROMOTE_TO_ADMIN.value, _RESOURCE_TYPE)),
-    db: AsyncSession = Depends(database.get_session)
-):
-    user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found")
-
-    if user.role == UserRole.system:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot change role of a system user"
-        )
-
-    if user.role == UserRole.admin:
-        return {"detail": f"{user_email} is already an admin"}
-
-    await user_crud.update_role(db_obj=user, role=UserRole.admin, db=db)
-    return {"detail": f"{user_email} promoted to admin successfully"}

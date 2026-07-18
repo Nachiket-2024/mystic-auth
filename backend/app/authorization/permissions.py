@@ -43,10 +43,6 @@ class Permission(str, enum.Enum):
     # from USERS_ASSIGN_ROLE — granting one does not imply the other.
     USERS_ASSIGN_SYSTEM_ROLE = "users:assign_system_role"
 
-    # Promoting a user to admin — its own action so it can be granted
-    # independently of ordinary user-administration actions.
-    USERS_PROMOTE_TO_ADMIN = "users:promote_to_admin"
-
     # Permanently, irreversibly removing an account and its rows — a
     # distinct, more sensitive action than USERS_DELETE_ANY (which is a
     # soft delete: reversible, preserves audit history). Hard delete/purge

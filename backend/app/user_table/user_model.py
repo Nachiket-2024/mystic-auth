@@ -23,7 +23,9 @@ class User(Base):
     Central user authentication model supporting:
     - Email/password authentication
     - OAuth2 authentication (Google, etc.)
-    - Role-based access control (RBAC) via a single role column
+    - A single `role` column kept as display/grouping metadata only — see
+      `role` below and `authorization/` for the actual PBAC decision-maker,
+      which never reads this column
     """
 
     __tablename__ = "users"

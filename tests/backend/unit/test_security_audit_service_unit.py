@@ -76,3 +76,53 @@ async def test_log_security_event_never_raises_when_repository_fails(mocker):
     await log_security_event(LOGIN_SUCCESS, db="fake-db", user_email="user@example.com", success=True)
 
     warning_mock.assert_called_once()
+
+
+# ---------------------------- metadata redaction (defense-in-depth) ----------------------------
+#
+# No current call site passes sensitive data in metadata (all 11 call sites
+# only ever pass emails/counts) — this is a structural backstop against a
+# future call site accidentally doing so, not a fix for an existing leak.
+
+@pytest.mark.asyncio
+async def test_log_security_event_redacts_sensitive_looking_metadata_keys(mocker):
+    create_entry_mock = mocker.patch(
+        f"{MODULE}.audit_log_repository.create_entry", new_callable=AsyncMock
+    )
+
+    await log_security_event(
+        LOGIN_SUCCESS,
+        db="fake-db",
+        user_email="user@example.com",
+        success=True,
+        metadata={
+            "password": "hunter2",
+            "new_password_hash": "$argon2id$...",
+            "refresh_token": "eyJ...",
+            "auth_cookie": "abc123",
+            "client_secret": "shh",
+            "sessions_revoked": 3,
+            "deleted_by": "admin@example.com",
+        },
+    )
+
+    written_metadata = create_entry_mock.await_args.args[0]["event_metadata"]
+    assert written_metadata["password"] == "[REDACTED]"
+    assert written_metadata["new_password_hash"] == "[REDACTED]"
+    assert written_metadata["refresh_token"] == "[REDACTED]"
+    assert written_metadata["auth_cookie"] == "[REDACTED]"
+    assert written_metadata["client_secret"] == "[REDACTED]"
+    # Non-sensitive keys pass through unchanged.
+    assert written_metadata["sessions_revoked"] == 3
+    assert written_metadata["deleted_by"] == "admin@example.com"
+
+
+@pytest.mark.asyncio
+async def test_log_security_event_handles_none_metadata(mocker):
+    create_entry_mock = mocker.patch(
+        f"{MODULE}.audit_log_repository.create_entry", new_callable=AsyncMock
+    )
+
+    await log_security_event(LOGIN_SUCCESS, db="fake-db", user_email="user@example.com", success=True)
+
+    assert create_entry_mock.await_args.args[0]["event_metadata"] is None

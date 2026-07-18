@@ -1,0 +1,17 @@
+version: 2
+
+# Complements the pip-audit/npm audit steps in ci.yml (which scan on every
+# push/PR) by checking for available updates on a schedule and opening PRs —
+# catches vulnerabilities disclosed between CI runs, not just at push time.
+updates:
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

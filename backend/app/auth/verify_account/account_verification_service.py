@@ -63,26 +63,21 @@ class AccountVerificationService:
         email: str,
         expires_minutes: int = settings.RESET_TOKEN_EXPIRE_MINUTES
     ) -> str:
-        # Role is hardcoded to "verify" — this token is only valid for email
-        # confirmation, not for accessing any protected routes.
-        return await jwt_service.create_access_token(email=email, role="verify")
+        # type="verify" — this token is only valid for email confirmation,
+        # not for accessing any protected routes. expires_minutes must be
+        # forwarded so the JWT's own exp claim matches the Redis single-use
+        # key's TTL and the expiry stated in the verification email above.
+        return await jwt_service.create_verification_token(email=email, expires_minutes=expires_minutes)
 
     @staticmethod
     async def verify_token(token: str) -> dict | None:
         try:
-            # expected_type="access" because create_verification_token issues
-            # these via create_access_token — this stops a stolen refresh token
-            # from ever being accepted here, on top of the role="verify" check below.
-            payload = await jwt_service.verify_token(token, expected_type="access")
+            # expected_type="verify" stops this token from ever being usable
+            # against any other endpoint (which all require expected_type="access"
+            # or "refresh"), and also stops a stolen access/refresh token from
+            # being accepted here.
+            payload = await jwt_service.verify_token(token, expected_type="verify")
             if not payload:
-                return None
-
-            # The only role create_verification_token ever issues — enforcing
-            # it means a token minted for any other purpose can never be
-            # replayed against this endpoint even if it happened to carry a
-            # matching type/email.
-            if payload.get("role") != "verify":
-                logger.warning("Verification token rejected: unexpected role claim")
                 return None
 
             # Atomically check-and-delete via GETDEL, so a valid token can be

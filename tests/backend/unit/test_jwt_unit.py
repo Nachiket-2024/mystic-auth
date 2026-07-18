@@ -16,12 +16,12 @@ def _decode(token: str) -> dict:
 
 @pytest.mark.asyncio
 async def test_create_access_token_is_tagged_with_access_type(mocker):
-    token = await jwt_service.create_access_token(email="user@example.com", role="user")
+    token = await jwt_service.create_access_token(email="user@example.com")
 
     payload = _decode(token)
     assert payload["type"] == "access"
     assert payload["email"] == "user@example.com"
-    assert payload["role"] == "user"
+    assert "role" not in payload
 
 
 @pytest.mark.asyncio
@@ -31,7 +31,7 @@ async def test_create_refresh_token_is_tagged_with_refresh_type(mocker):
         new_callable=AsyncMock,
     )
 
-    token = await jwt_service.create_refresh_token(email="user@example.com", role="user")
+    token = await jwt_service.create_refresh_token(email="user@example.com")
 
     payload = _decode(token)
     assert payload["type"] == "refresh"
@@ -45,7 +45,7 @@ async def test_verify_token_accepts_matching_expected_type(mocker):
         return_value=False,
     )
 
-    access_token = await jwt_service.create_access_token(email="user@example.com", role="user")
+    access_token = await jwt_service.create_access_token(email="user@example.com")
 
     payload = await jwt_service.verify_token(access_token, expected_type="access")
 
@@ -61,7 +61,7 @@ async def test_verify_token_rejects_access_token_presented_as_refresh(mocker):
         return_value=False,
     )
 
-    access_token = await jwt_service.create_access_token(email="user@example.com", role="user")
+    access_token = await jwt_service.create_access_token(email="user@example.com")
 
     # An access token must never be usable at the /refresh endpoint
     assert await jwt_service.verify_token(access_token, expected_type="refresh") is None
@@ -79,7 +79,7 @@ async def test_verify_token_rejects_refresh_token_presented_as_access(mocker):
         new_callable=AsyncMock,
     )
 
-    refresh_token = await jwt_service.create_refresh_token(email="user@example.com", role="user")
+    refresh_token = await jwt_service.create_refresh_token(email="user@example.com")
 
     # A refresh token must never be usable to authenticate /me or other API routes
     assert await jwt_service.verify_token(refresh_token, expected_type="access") is None
@@ -257,7 +257,79 @@ async def test_logout_all_handler_requires_refresh_type(mocker):
 
 
 @pytest.mark.asyncio
-async def test_account_verification_requires_access_type(mocker):
+async def test_create_refresh_token_prunes_already_expired_registry_entries(mocker):
+    """Regression guard: a jti was previously only ever removed from the
+    per-user refresh-token registry hash by an explicit revoke/rotation/
+    logout-all — a token that simply went stale (never used again, just
+    outlived by REFRESH_TOKEN_EXPIRE_MINUTES) left its entry there forever,
+    growing the hash unboundedly over a deployment's lifetime. Minting a new
+    token now sweeps already-expired entries from the same hash."""
+    past = time.time() - 60
+    future = time.time() + 3600
+    mocker.patch(
+        "backend.app.auth.token_logic.jwt_service.redis_client.hgetall",
+        new_callable=AsyncMock,
+        return_value={"expired-jti-1": str(past), "expired-jti-2": str(past), "still-valid-jti": str(future)},
+    )
+    hset_mock = mocker.patch(
+        "backend.app.auth.token_logic.jwt_service.redis_client.hset", new_callable=AsyncMock
+    )
+    hdel_mock = mocker.patch(
+        "backend.app.auth.token_logic.jwt_service.redis_client.hdel", new_callable=AsyncMock
+    )
+
+    await jwt_service.create_refresh_token(email="user@example.com")
+
+    hset_mock.assert_awaited_once()
+    hdel_mock.assert_awaited_once()
+    _, hdel_args = hdel_mock.call_args[0][0], set(hdel_mock.call_args[0][1:])
+    assert hdel_args == {"expired-jti-1", "expired-jti-2"}
+
+
+@pytest.mark.asyncio
+async def test_create_refresh_token_skips_hdel_when_nothing_is_expired(mocker):
+    mocker.patch(
+        "backend.app.auth.token_logic.jwt_service.redis_client.hgetall",
+        new_callable=AsyncMock,
+        return_value={"still-valid-jti": str(time.time() + 3600)},
+    )
+    mocker.patch("backend.app.auth.token_logic.jwt_service.redis_client.hset", new_callable=AsyncMock)
+    hdel_mock = mocker.patch(
+        "backend.app.auth.token_logic.jwt_service.redis_client.hdel", new_callable=AsyncMock
+    )
+
+    await jwt_service.create_refresh_token(email="user@example.com")
+
+    hdel_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_create_verification_token_honors_explicit_expires_minutes():
+    """Regression guard: this used to hardcode ACCESS_TOKEN_EXPIRE_MINUTES
+    (15min default) regardless of the caller's requested expiry, while
+    account_verification_service set the paired Redis single-use key's TTL
+    (and the emailed wording) to RESET_TOKEN_EXPIRE_MINUTES (60min
+    default) — the JWT itself expired 45 minutes before the email/Redis
+    key said it should."""
+    token = await jwt_service.create_verification_token(email="user@example.com", expires_minutes=60)
+
+    payload = _decode(token)
+    remaining = payload["exp"] - time.time()
+    assert 59 * 60 < remaining <= 60 * 60
+
+
+@pytest.mark.asyncio
+async def test_create_verification_token_defaults_to_access_token_expiry_when_unset():
+    token = await jwt_service.create_verification_token(email="user@example.com")
+
+    payload = _decode(token)
+    remaining = payload["exp"] - time.time()
+    expected_seconds = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    assert expected_seconds - 60 < remaining <= expected_seconds
+
+
+@pytest.mark.asyncio
+async def test_account_verification_requires_verify_type(mocker):
     from backend.app.auth.verify_account.account_verification_service import account_verification_service
 
     verify_mock = mocker.patch(
@@ -269,4 +341,4 @@ async def test_account_verification_requires_access_type(mocker):
     result = await account_verification_service.verify_token("some-token")
 
     assert result is None
-    verify_mock.assert_awaited_once_with("some-token", expected_type="access")
+    verify_mock.assert_awaited_once_with("some-token", expected_type="verify")

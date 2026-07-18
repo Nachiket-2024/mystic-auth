@@ -1,6 +1,6 @@
 from fastapi import Request
 
-from .settings import settings
+from ...core.settings import settings
 
 # Empty by default (TRUSTED_PROXY_IPS unset) — every caller falls back to the
 # literal TCP peer address exactly as before. Only becomes non-empty in a

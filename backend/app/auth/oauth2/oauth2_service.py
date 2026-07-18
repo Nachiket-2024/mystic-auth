@@ -20,6 +20,7 @@ from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME
 # applies to update/delete/role-change. Never used to grant access.
 from ...user_table.user_model import UserRole
 from ...redis.client import redis_client
+from ...emails.email_normalization import normalize_email
 from ...logging.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -142,7 +143,11 @@ class OAuth2Service:
         not a takeover.
         """
         try:
-            email = user_info.get("email")
+            # Normalized here since this path never touches a Pydantic schema
+            # (user_info is Google's raw JSON response, not a validated model)
+            # — every other entry point normalizes at its schema boundary.
+            raw_email = user_info.get("email")
+            email = normalize_email(raw_email) if raw_email else raw_email
             name = user_info.get("name", "Unknown")
 
             user = await user_crud.get_by_email(email, db)
@@ -207,13 +212,9 @@ class OAuth2Service:
                 logger.info("OAuth2 login blocked for deactivated account: %s", email)
                 return None
 
-            # Role is display metadata only (see user_model.py) and may be None —
-            # an account with no role at all must still authenticate and be
-            # authorized purely through its assigned policies.
-            role_value = user.role.value if user.role else None
             access_token, refresh_token = await asyncio.gather(
-                jwt_service.create_access_token(email, role_value),
-                jwt_service.create_refresh_token(email, role_value)
+                jwt_service.create_access_token(email),
+                jwt_service.create_refresh_token(email)
             )
 
             return {"access_token": access_token, "refresh_token": refresh_token}
