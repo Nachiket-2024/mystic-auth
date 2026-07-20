@@ -9,6 +9,7 @@ You've cloned this repo to build your own product's authentication and authoriza
 - **Audit logging**: two independent, append-only audit tables — a security/session-event log (login, logout, signup, lockout, account lifecycle) and a PBAC decision log (every `allow`/`deny` authorization check, with the policies that were evaluated). See [Database Design: why two audit tables](database/design.md#why-two-audit-tables-not-one).
 - **Frontend**: React 19 + TypeScript SPA built with Vite, Chakra UI v3 for components/theming, Zustand for client/session state, TanStack Query for server-state caching. Feature-organized to mirror the backend's domain split. See [Frontend Architecture](architecture/frontend.md).
 - **Infrastructure**: Docker Compose for local dev and production, PostgreSQL, Redis (caching/rate-limiting/token registry/Taskiq broker), Taskiq for async email delivery, Alembic for migrations, and a GitHub Actions CI workflow.
+- **Error monitoring**: optional, disabled by default. Backend (`sentry-sdk[fastapi]`) and frontend (`@sentry/react`) reporting via the Sentry SDK protocol, with a self-hosted Bugsink quickstart documented — set `SENTRY_DSN`/`VITE_SENTRY_DSN` to turn it on. See [Error Monitoring](error-monitoring/overview.md).
 
 ## Quickstart
 
@@ -32,6 +33,8 @@ Once the stack is up:
 - **PostgreSQL**: `localhost:5433` (host-side; containers reach it at `postgres:5432` internally — the non-default host port dodges the common local-Postgres collision, see [Docker Overview](docker/overview.md))
 - **Redis**: `localhost:6380` (host-side; containers reach it at `redis:6379` internally, same reasoning)
 
+`docker compose up` deliberately does **not** start the optional self-hosted Bugsink error-monitoring service — it's a separate opt-in profile (`docker compose --profile monitoring up -d`), so it won't appear even after the command above finishes. See [Error Monitoring](error-monitoring/overview.md) if you want it.
+
 Then create the reserved system superuser (one-time, CLI-only — it can never be created or promoted via any API route):
 
 ```bash
@@ -42,7 +45,7 @@ See root [`README.md`](../README.md#-first-time-setup--creating-the-system-super
 
 ## Environment configuration
 
-Full variable-by-variable reference lives in [`.env.example`](../.env.example) (backend) and [`frontend/.env.example`](../frontend/.env.example) (frontend) — every setting is documented inline there with a one-line comment, grouped by category (database, JWT/tokens, OAuth2, Redis, email, login protection, rate limiting, logging, environment, reverse proxy). Copy each to its real `.env` and treat those `.example` files as the source of truth, not this doc.
+Full variable-by-variable reference lives in [`.env.example`](../.env.example) (backend) and [`frontend/.env.example`](../frontend/.env.example) (frontend) — every setting is documented inline there with a one-line comment, grouped by category (database, JWT/tokens, OAuth2, Redis, email, login protection, rate limiting, logging, environment, reverse proxy, error monitoring). Copy each to its real `.env` and treat those `.example` files as the source of truth, not this doc.
 
 One pair is worth calling out specifically, since it's the main "make this yours" hook:
 
@@ -60,15 +63,26 @@ Change `APP_NAME` in `.env` and `VITE_APP_NAME` in `frontend/.env`, then restart
 ## Frontend customization
 
 - **Design tokens / theme**: `frontend/src/theme/system.ts` — Chakra UI v3 tokens (colors, semantic tokens for brand/surface/border/text). Change the `brand` color scale here to re-skin the whole app; components reference tokens (`colorPalette="brand"`, `bg="bg.surface"`, etc.), not raw hex values.
-- **Pages/features**: `frontend/src/` is organized by feature, one folder per domain — `auth/` (login, signup, logout, oauth2, password reset, account verification), `dashboard/`, `profile/`, `users_admin/`, `policies/`, `audit_log/`. Each auth sub-feature is its own folder with its Page/Form/mutation-hook/types together. See [Frontend Architecture: module layout](architecture/frontend.md#module-layout) for the full table.
+- **Pages/features**: `frontend/src/` is organized by feature, one folder per domain — `auth/` (login, signup, logout, oauth2, password reset, account verification), `dashboard/`, `profile/`, `users/`, `policies/`, `audit_log/`. Each auth sub-feature is its own folder with its Page/Form/mutation-hook/types together. Import `PERMISSIONS`, `useAuthorization`, `ProtectedRoute`, `api`, etc. from `frontend/src/sdk.ts` (above), not from their internal locations. See [Frontend Architecture: module layout](architecture/frontend.md#module-layout) for the full table.
 - **Routing**: all routes are declared in `frontend/src/App.tsx` — add a new `<Route>` there, wrapped in `ProtectedRoute` (optionally with a `permission` prop, see [Frontend Architecture: routing](architecture/frontend.md#routing)) and `AppLayout` if it needs the sidebar/top-bar shell.
-- **State**: `frontend/src/store/` — Zustand for client state (`authStore`, `themeStore`), `store/queryClient.ts` for the shared TanStack Query client. `frontend/src/api/` holds Axios-based typed call functions per backend domain.
+- **State**: `frontend/src/store/` — Zustand for client state (`authStore`, `themeStore`). `frontend/src/core/queryClient.ts` holds the shared TanStack Query client. `frontend/src/api/` holds Axios-based typed call functions per backend domain. `authStore` and `queryClient` are re-exported from `frontend/src/sdk.ts`.
+
+## The extension surface: `sdk.py` / `sdk.ts`
+
+`backend/app/sdk.py` and `frontend/src/sdk.ts` are the intended door into this template for your own domain/feature code — a single file on each side that re-exports the pieces you're meant to build on (`require_authorization`, `Permission`, `useAuthorization`, `ProtectedRoute`, the shared `api` client, `capture_exception`/`reportError` for [error monitoring](error-monitoring/overview.md), and so on). Your own code imports from `app.sdk` / `@/sdk`, not by reaching into internal paths like `app.authorization.dependencies.authorization_dependency` or `frontend/src/authorization/useAuthorization` directly.
+
+This isn't a published package — it's just two plain files, each with a docstring at the top listing everything it re-exports and why. Two things it buys you over importing internals directly everywhere:
+
+1. **One place to read**, instead of hunting through the template's internals for "what am I actually supposed to import here."
+2. **One place a merge conflict can land**, instead of many. If a future upstream update moves or renames something internal (this template's own frontend went through exactly that reorganization recently — see [Frontend Architecture](architecture/frontend.md)), only `sdk.py`/`sdk.ts` need reconciling to match the new internal path. Your own domain code underneath it, which only ever imported from the SDK file, doesn't need to change at all. See [Staying in sync with upstream template updates](#staying-in-sync-with-upstream-template-updates) below for why that matters.
+
+It's deliberately *not* a full abstraction layer — it doesn't wrap or hide the underlying APIs, it just re-exports them under one stable, greppable path. You're still reading the real docs (PBAC Architecture, Authentication Overview, Frontend Architecture) to understand what each piece actually does; the SDK file only changes *where you import it from*.
 
 ## Backend customization
 
-- **Adding your own domain/resource** (e.g. `projects`, `documents`): follow the existing module pattern — a new top-level package under `backend/app/` with its own `*_model.py`, `*_schema.py`, `*_crud*.py`, and a router under `backend/app/api/` mounted in `backend/app/main.py`. See [Backend Architecture: module layout](architecture/backend.md#module-layout) for how the existing modules (`auth/`, `user_table/`, `user_crud/`) are shaped.
+- **Adding your own domain/resource** (e.g. `projects`, `documents`): follow the existing module pattern — a new top-level package under `backend/app/` with its own `*_model.py`, `*_schema.py`, `*_crud*.py`, and a router under `backend/app/api/` mounted in `backend/app/main.py`. Import `require_authorization`, `Permission`, `get_current_user`, `database`, `settings`, etc. from `backend/app/sdk.py` (above), not from their internal locations. See [Backend Architecture: module layout](architecture/backend.md#module-layout) for how the existing modules (`auth/`, `user_table/`, `user_crud/`) are shaped.
 - **Database changes**: every schema change is an Alembic migration under `backend/alembic/versions/` — no `create_all()` anywhere. See [Database Design](database/design.md#migrations).
-- **Configuration**: all settings are centralized in `backend/app/core/settings.py` (`pydantic-settings`, env-driven) — add new settings there, never read `os.environ` directly elsewhere.
+- **Configuration**: all settings are centralized in `backend/app/core/settings.py` (`pydantic-settings`, env-driven) — add new settings there, never read `os.environ` directly elsewhere. Re-exported from `backend/app/sdk.py` as `settings`.
 
 ## PBAC usage
 
@@ -78,18 +92,24 @@ Business-domain actions (e.g. `"projects:create"`, `"documents:view"`) don't nee
 
 ### Protecting a new route
 
-Every protected route depends on `require_authorization(action, resource_type)` — never a role check. A real, worked example from `backend/app/api/user_routes/user_routes.py`:
+Every protected route depends on `require_authorization(action, resource_type)` — never a role check. A real, worked example, adapted from `backend/app/api/user_routes/user_routes.py` to import from the SDK surface (above) the way your own new route module should:
 
 ```python
-@router.get("/", response_model=list[UserRead])
-async def list_all_users(
-    current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.sdk import require_authorization, Permission, database
+
+router = APIRouter(prefix="/projects", tags=["Projects"])
+
+@router.get("/")
+async def list_all_projects(
+    current_user: dict = Depends(require_authorization("projects:list_all", "projects")),
     db: AsyncSession = Depends(database.get_session)
 ):
-    return await user_crud.get_all(db)
+    return await project_crud.get_all(db)
 ```
 
-`require_authorization(action, resource_type)` is a dependency factory (`backend/app/authorization/dependencies/authorization_dependency.py`) that builds the request's authorization context and calls `AuthorizationService.require(...)` for you — raising `403` if no assigned, active policy grants that action on that resource type (optionally condition-gated by time, network, ownership, etc.). For your own resources, `resource_type` doesn't need to be a `Permission` enum value at all — pass any string you want (`"projects"`, `"documents"`) and grant the matching action string via a policy (see [Writing and Testing Policies](authorization/writing-testing-policies.md#policy-creation-workflow)).
+`require_authorization(action, resource_type)` is a dependency factory (`backend/app/authorization/dependencies/authorization_dependency.py`, re-exported from `app.sdk`) that builds the request's authorization context and calls `AuthorizationService.require(...)` for you — raising `403` if no assigned, active policy grants that action on that resource type (optionally condition-gated by time, network, ownership, etc.). For your own resources, `resource_type` doesn't need to be a `Permission` enum value at all — pass any string you want (`"projects"`, `"documents"`) and grant the matching action string via a policy (see [Writing and Testing Policies](authorization/writing-testing-policies.md#policy-creation-workflow)).
 
 If the route needs to check a *different* action depending on runtime data (like `user_routes.py`'s role-assignment route does — assigning `system` role needs a stricter action than assigning any other role), call `authorization_service.require(...)` directly inside the handler instead of relying solely on the route-level dependency; see that route's own code for the pattern.
 
@@ -132,6 +152,69 @@ Without valid values here, signup/verification/password-reset emails will fail t
 
 Covered in full in the [Deployment Guide](deployment/guide.md) — dev vs. production Compose topology, required production environment variables, database migrations, backup runbook, and free/low-cost hosting options for each of the four pieces (backend, frontend, Postgres, Redis). Production Compose file: [`docker-compose.prod.yml`](../docker-compose.prod.yml).
 
+## Staying in sync with upstream template updates
+
+You cloned this repo at a point in time. This template keeps changing after that — bug fixes (like a real one: logout used to fail right after a password change, since that change revokes the session's own refresh token — fixed in `backend/app/auth/logout/logout_handler.py`, see [Security Decisions](security/decisions.md)), new docs, small architectural cleanups. This section is how to keep pulling those in without it turning into a mess, explained from scratch — none of this assumes you already know git remotes.
+
+### What a "remote" is, and why you'll want two
+
+When you `git clone` a repository, git records where you cloned it from as a **remote** named `origin` by convention. Every `git push`/`git pull` you've run so far talked to `origin` — which, if you followed the normal fork-and-clone flow, is *your own* copy (e.g. your own GitHub fork), not this original template repo.
+
+A remote is nothing more than "a name git has for some other repository's URL, so you can type the name instead of the URL every time." You're not limited to one. Add a second remote pointing at the *original* template repo, conventionally named `upstream`:
+
+```bash
+git remote add upstream https://github.com/Nachiket-2024/mystic-auth.git
+```
+
+Check it worked:
+
+```bash
+git remote -v
+# origin    <your fork's URL> (fetch)
+# origin    <your fork's URL> (push)
+# upstream  https://github.com/Nachiket-2024/mystic-auth.git (fetch)
+# upstream  https://github.com/Nachiket-2024/mystic-auth.git (push)
+```
+
+You only need to do this once, ever, per local clone.
+
+### Pulling in updates
+
+```bash
+git fetch upstream
+```
+
+`fetch` downloads upstream's commits into your local git history *without touching your working files yet* — it's the safe, look-before-you-leap step. Before merging anything, see what actually changed:
+
+```bash
+git log HEAD..upstream/main --oneline
+```
+
+(`main` here is upstream's default branch — check `git remote show upstream` if you're unsure it's still called that.) When you're ready to actually bring those commits into your own branch:
+
+```bash
+git merge upstream/main
+```
+
+This is a normal git merge — same mechanics as merging any other branch. If your own changes and upstream's changes touched different files (the common case, if you've been extending via new files as this doc recommends), it merges cleanly with no extra steps. If both sides touched the same lines of the same file, git stops and asks you to resolve the conflict by hand, same as any merge conflict.
+
+### What's likely to conflict, and what almost never will
+
+- **Your own new top-level packages/feature folders** (`backend/app/projects/`, `frontend/src/projects/`) — upstream has no idea they exist and will never touch them. These should essentially never conflict.
+- **`backend/app/sdk.py` / `frontend/src/sdk.ts`** — the one place expected to occasionally conflict, and by design: if upstream moves or renames something internal (see [The extension surface](#the-extension-surface-sdkpy--sdkts) above), the conflict is contained to these two files instead of scattered across every place your own code imported the old internal path directly. Resolving it here is a normal, expected part of syncing — not a sign something went wrong.
+- **Files you customized directly instead of extending** — if you added your own settings fields into the middle of `backend/app/core/settings.py`, or edited `backend/app/main.py`'s router registration in place, or hand-edited `frontend/src/App.tsx`'s route list, those are exactly the files upstream is also most likely to touch over time. This is the tradeoff for customizing in place rather than through the SDK/extension points above — it's not wrong, it's just where you should expect to spend conflict-resolution time.
+- **Docs you've personalized** (README, this file) — expected to conflict if you've edited them; resolve however you'd resolve any other doc conflict (usually: keep your version, since these describe your product now, not the template).
+
+### After merging
+
+Rebuild and re-run the full test suite before trusting the merge — a merge can silently change behavior underneath you even when git resolved every conflict automatically:
+
+```bash
+docker compose up -d --build
+docker compose exec -w /repo backend python -m pytest tests/backend/unit tests/backend/integration tests/backend/security
+# frontend: see docs/testing/overview.md for the equivalent typecheck/lint/test/build commands
+```
+
 ## Where to go next
 
 - New to the codebase generally? Start at [`docs/README.md`](README.md) for the full documentation index.
@@ -141,3 +224,5 @@ Covered in full in the [Deployment Guide](deployment/guide.md) — dev vs. produ
 ## Getting help
 
 Stuck on something this doc set doesn't answer? Search [existing GitHub Issues](https://github.com/Nachiket-2024/mystic-auth/issues) first, then open a new one with clear reproduction steps if you can't find it. Fixes and improvements are welcome as Pull Requests — see the root [README](../README.md#-getting-help--contributing).
+
+**Found a security vulnerability?** Don't open a public Issue for it — see [SECURITY.md](../SECURITY.md) for how to report it privately.

@@ -8,32 +8,34 @@ React 19 + TypeScript SPA (`frontend/src/`), built with Vite, styled with Chakra
 
 | Module | Purpose |
 |---|---|
-| `auth/` | Login, signup, logout, logout-all, OAuth2, password reset (request/confirm), account verification, current-user session query — each sub-feature is its own folder (Page/Form/mutation-hook/types) |
-| `authorization/` | `permissions.ts` — frontend mirror of the backend `Permission` enum |
+| `auth/` | Login, signup, logout, logout-all, OAuth2, password reset (request/confirm), account verification, current-user session query, the auth-refresh interceptor — each sub-feature is its own folder (Page/Form/mutation-hook/types); `password_rules/` holds password-complexity validation (`passwordRules.ts`) and its checklist UI, shared by signup/reset/profile |
+| `authorization/` | The PBAC layer: `permissions.ts` (frontend mirror of the backend `Permission` enum), `authorizationService.ts` (batch permission-check calls, policy/audit-log fetches), `useAuthorization`/`useCan`, and the gate components `Authorized`, `IfCan`, `ProtectedRoute` |
 | `audit_log/` | `AuditLogPage.tsx` — the caller's own PBAC audit trail, plus an "all users" tab for privileged callers |
 | `dashboard/` | Landing page after login |
 | `policies/` | Admin CRUD UI for PBAC policies |
-| `profile/` | Self-service profile view/update |
-| `users_admin/` | Admin user management (list, mutate, assign policies) |
-| `api/` | Axios-based typed call functions per backend domain, plus error shaping and the auth-refresh interceptor |
-| `services/` | `authorizationService.ts` — batch permission-check calls, policy/audit-log fetches |
-| `core/` | App-wide settings (`APP_NAME`, `VITE_API_BASE_URL`) |
-| `components/` | Shared UI: `layout/` (AppLayout, Navbar, Sidebar, ThemeToggle), `ui/` (DataTable, ConfirmDialog, FormAlert, PasswordRulesChecklist, toaster, LoadingState), plus the PBAC gates `Authorized`, `IfCan`, `ProtectedRoute` |
-| `hooks/` | `useAuthorization`/`useCan`, `usePasswordPolicy`, `useUnsavedChangesWarning` |
-| `store/` | Zustand: `authStore.ts` (session/profile/permissions), `themeStore.ts`; plus `queryClient.ts` (shared TanStack Query client) |
+| `profile/` | Self-service profile view/update, plus `useUnsavedChangesWarning` (its only consumer) |
+| `users/` | Admin user management (list, mutate, assign policies) |
+| `api/` | Axios-based typed call functions per backend domain (`auth_api`, `users_api`, `profile_api`, `policies_api`, `audit_api`), plus `axiosInstance.ts` and `apiError.ts` |
+| `store/` | Zustand: `authStore.ts` (session/profile/permissions), `themeStore.ts` (light/dark) — client state only, no Redux |
+| `core/` | App-wide settings (`APP_NAME`, `VITE_API_BASE_URL`), `queryClient.ts` (the shared TanStack Query client), and `errorMonitoring.ts` (optional, disabled unless `VITE_SENTRY_DSN` is set — see [Error Monitoring](../error-monitoring/overview.md)) |
+| `layout/` | App shell: `AppLayout`, `Navbar`, `Sidebar`, `ThemeToggle`, `navItems.ts` |
+| `ui/` | Generic reusable UI kit, no feature ownership: `DataTable`, `ConfirmDialog`, `FormAlert`, `PageContainer`, `Card`, `LoadingState`, `toaster`/`toasterInstance`, `ErrorBoundary` |
 | `theme/` | `system.ts` — Chakra UI v3 design tokens |
+| `sdk.ts` | Public extension surface for your own feature code (`PERMISSIONS`, `useAuthorization`, `useCan`, `Authorized`, `IfCan`, `ProtectedRoute`, `authorizationService`, `api`, `extractApiErrorMessage`, `useAuthStore`, `queryClient`, `settings`/`APP_NAME`, `reportError`) — the intended single import point for anything you build on top of this template, rather than reaching into the internal modules above directly. See [Using This Repository as a Template: the extension surface](../template-usage.md#the-extension-surface-sdkpy--sdkts) |
+
+This layout deliberately mirrors the backend's own domain split (`backend/app/auth/`, `backend/app/authorization/`, `backend/app/core/`, etc.) rather than a layer-first (`components/`/`hooks`/`services`) MVC structure — a file's folder tells you which backend domain it serves, not what kind of file it is. `api/`, `store/`, `core/`, `layout/`, `ui/`, and `theme/` are the exceptions: infrastructure/cross-cutting concerns with no single feature owner, kept as their own top-level folders rather than scattered into every feature that touches them.
 
 ## State management
 
-- **Zustand** for client state — `authStore` (`isAuthenticated`, `name`, `email`, `role`, `permissions`, `hasPassword`) and `themeStore` (light/dark). No Redux.
-- **TanStack Query** for all server state/caching, via one shared `QueryClient` (`store/queryClient.ts`).
+- **Zustand** for client state — `store/authStore.ts` (`isAuthenticated`, `name`, `email`, `role`, `permissions`, `hasPassword`) and `store/themeStore.ts` (light/dark). No Redux.
+- **TanStack Query** for all server state/caching, via one shared `QueryClient` (`core/queryClient.ts`).
 - `authStore.isAuthenticated` starts as `null` ("not checked yet") — `App.tsx` blocks rendering the router behind a loading screen until `useAuthSession()` resolves it to `true`/`false`, avoiding a flash of unauthenticated content.
 
 ## API layer
 
-`api/axiosInstance.ts` — a single Axios instance, `withCredentials: true` (cookie-based session; the JWT itself is never stored in JS-accessible state — see [Authentication Overview](../authentication/overview.md#tokens-and-cookies)), base URL from `VITE_API_BASE_URL`. Per-domain typed call functions live in `api/*.ts` (`auth_api`, `users_api`, `policies_api`, `audit_api`); `api/apiError.ts` shapes error responses uniformly.
+`api/axiosInstance.ts` — a single Axios instance, `withCredentials: true` (cookie-based session; the JWT itself is never stored in JS-accessible state — see [Authentication Overview](../authentication/overview.md#tokens-and-cookies)), base URL from `VITE_API_BASE_URL`. Per-domain typed call functions live in `api/*.ts` (`auth_api`, `users_api`, `profile_api`, `policies_api`, `audit_api`); `api/apiError.ts` shapes error responses uniformly. `users_api.ts` (admin user management) and `profile_api.ts` (self-service `PUT /users/me`) are separate modules — different callers, different permission requirements — even though both ultimately hit the backend's single `user_routes.py`.
 
-`api/setupAuthInterceptor.ts` implements silent-refresh-on-401: a single in-flight refresh call is shared across concurrently-failing requests (no thundering herd of refresh calls), and login/signup/refresh/logout/reset/verify/oauth2 endpoints are excluded from the retry-after-refresh logic to avoid infinite loops. On an unrecoverable 401, it marks `authStore` unauthenticated and clears the cached `GET /auth/me` query. It does not handle `403` — permission failures are left entirely to route/component-level guards (`ProtectedRoute`, `Authorized`, `IfCan`).
+`auth/setupAuthInterceptor.ts` implements silent-refresh-on-401: a single in-flight refresh call is shared across concurrently-failing requests (no thundering herd of refresh calls), and login/signup/refresh/logout/reset/verify/oauth2 endpoints are excluded from the retry-after-refresh logic to avoid infinite loops. On an unrecoverable 401, it marks `authStore` unauthenticated and clears the cached `GET /auth/me` query. It does not handle `403` — permission failures are left entirely to route/component-level guards (`ProtectedRoute`, `Authorized`, `IfCan`). It lives under `auth/`, not `api/`, since it's auth-session business logic that happens to configure the shared Axios instance, not a typed API call itself.
 
 ## Routing
 
@@ -55,14 +57,14 @@ All protected routes are wrapped in `ProtectedRoute` (redirects unauthenticated 
 ## Authorization on the frontend (PBAC-aware UI)
 
 - `authorization/permissions.ts` mirrors the backend's `Permission` enum as string constants, so route/component gates reference `PERMISSIONS.USERS_LIST_ALL` rather than a hand-typed string.
-- `hooks/useAuthorization.ts` reads `authStore.permissions` and exposes `can(action)`, failing closed (`false`) when unauthenticated or still loading. This is a **client-side UX convenience only** — the backend independently enforces every action via `require_authorization` (see [PBAC Architecture](../authorization/architecture.md)); a hidden button is not a security boundary.
-- `components/ProtectedRoute.tsx`, `Authorized.tsx`, `IfCan.tsx` — route-level and in-page conditional gates built on `useAuthorization`.
-- `services/authorizationService.ts` layers real per-resource/conditional checks (`POST /authorization/batch-check`) on top of the cached flat permission list for cases that need it.
+- `authorization/useAuthorization.ts` reads `authStore.permissions` and exposes `can(action)`, failing closed (`false`) when unauthenticated or still loading. This is a **client-side UX convenience only** — the backend independently enforces every action via `require_authorization` (see [PBAC Architecture](../authorization/architecture.md)); a hidden button is not a security boundary.
+- `authorization/ProtectedRoute.tsx`, `Authorized.tsx`, `IfCan.tsx` — route-level and in-page conditional gates built on `useAuthorization`.
+- `authorization/authorizationService.ts` layers real per-resource/conditional checks (`POST /authorization/batch-check`) on top of the cached flat permission list for cases that need it.
 - `role` is explicitly treated as metadata only on the frontend too — never used in a gating decision, mirroring the backend's own design (see [Security Decisions: role is never used to decide access](../security/decisions.md#role-is-never-used-to-decide-access)).
 
 ## Theming
 
-Chakra UI v3 (`@chakra-ui/react` + Emotion). `theme/system.ts` defines the design tokens; `themeStore.ts` + `components/layout/ThemeToggle.tsx` handle light/dark switching, independent of the OS-level `prefers-color-scheme`.
+Chakra UI v3 (`@chakra-ui/react` + Emotion). `theme/system.ts` defines the design tokens; `store/themeStore.ts` + `layout/ThemeToggle.tsx` handle light/dark switching, independent of the OS-level `prefers-color-scheme`.
 
 ## Build & bundling
 
@@ -80,6 +82,7 @@ Chakra UI v3 (`@chakra-ui/react` + Emotion). `theme/system.ts` defines the desig
 
 - A 401 mid-session (expired access token) triggers one silent refresh-and-retry; a second failure marks the session invalid and, per route, redirects to `/login`.
 - A 403 (authorization denial) is a normal API response the calling component/page is responsible for handling — typically a toast or an inline `FormAlert`, not a global redirect (except at the route level via `ProtectedRoute`).
+- An uncaught render-time error anywhere in the tree (a bad API response shape reaching a component that doesn't expect it, a null-pointer bug, etc.) is caught by `ui/ErrorBoundary.tsx`, mounted once at the app root in `main.tsx` (outside the router, so it also catches an error thrown before routing itself renders). Shows a "Something went wrong" fallback with a full-page reload action instead of React unmounting the entire tree to a blank white screen. Always logs to the console; also reports to `core/errorMonitoring.ts` (a no-op unless `VITE_SENTRY_DSN` is set — see [Error Monitoring](../error-monitoring/overview.md)).
 
 ## Testing coverage
 

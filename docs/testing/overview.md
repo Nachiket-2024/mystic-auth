@@ -6,7 +6,7 @@ Config: `pytest.ini` (repo root) — `testpaths = tests/backend`, `addopts = -v 
 
 | Suite | Path | Covers |
 |---|---|---|
-| Unit | `tests/backend/unit/` (~45 files) | Auth (login/signup/logout/refresh/password reset/JWT/OAuth2/account verification), authorization (service, cache, dependency, evaluator, condition validator/schema consistency, policy routes/history/repository caching), rate limiter, login lockout, correlation ID middleware, security headers, route helpers, logging config, email tasks, user email CRUD |
+| Unit | `tests/backend/unit/` (~48 files) | Auth (login/signup/logout/refresh/password reset/JWT/OAuth2/account verification), authorization (service, cache, dependency, evaluator, condition validator/schema consistency, policy routes/history/repository caching), rate limiter, login lockout, correlation ID middleware, security headers, route helpers, logging config (including the startup-vs-routine logger split), email tasks, user email CRUD, error monitoring (`sentry_service` init/capture, conditional on `SENTRY_DSN`; the global exception handler's report-then-500 behavior), `Settings` (ignores env vars it doesn't declare — see [Security Decisions](../security/decisions.md)) |
 | Integration | `tests/backend/integration/` (8 files) | Audit log, authorization routes, auth API, health, OAuth, security audit log, security headers, user routes — real DB/Redis, real HTTP client |
 | Security | `tests/backend/security/` (5 files) | Batch authorization abuse, context spoofing, invalid condition payload, policy tampering, privilege escalation |
 | Performance | `tests/backend/performance/` (1 file) | Authorization performance |
@@ -33,7 +33,7 @@ Config: `frontend/vitest.config.ts` — tests physically live in `tests/frontend
 
 | Suite | Path | Covers |
 |---|---|---|
-| Unit | `tests/frontend/unit/` (~30 files) | API clients (`auth`/`users`/`policies`/`audit` endpoints, `apiError`, the refresh interceptor), `useAuthSession`, `Authorized`/`ProtectedRoute`/`Sidebar`/`Navbar`/`AppLayout` components, `useAuthorization`/`useCan`/`usePasswordPolicy`/`useUnsavedChangesWarning` hooks, `authorizationService`, `themeStore`, `components/ui/*` (`DataTable`, `ConfirmDialog`, `FormAlert`, `PasswordRulesChecklist`, `LoadingState`, `Toaster`) |
+| Unit | `tests/frontend/unit/` (~32 files) | API clients (`auth`/`users`/`profile`/`policies`/`audit` endpoints, `apiError`, the refresh interceptor), `useAuthSession`, `Authorized`/`ProtectedRoute`/`Sidebar`/`Navbar`/`AppLayout`, `useAuthorization`/`useCan`/`authorizationService` (PBAC layer), `passwordRules`/`PasswordRulesChecklist`, `useUnsavedChangesWarning`, `themeStore`, `ui/*` (`DataTable`, `ConfirmDialog`, `FormAlert`, `LoadingState`, `Toaster`, `ErrorBoundary` — including that it reports the caught error), `errorMonitoring` (conditional on `VITE_SENTRY_DSN`) |
 | Integration | `tests/frontend/integration/` (10 files) | App routing, audit log page, auth flow, dashboard, login page, password policy consistency, PBAC authorization flow, policies page (list, permission gating, create/edit/delete, conditions-JSON validation, unsaved-changes discard prompt), users page (list, permission gating, delete/purge/reactivate/role-change, assign/revoke via the Policies dialog), profile page (including the self-service current-password requirement) |
 
 **Running:**
@@ -50,7 +50,7 @@ CI runs `typecheck`, `lint`, `test:coverage` (not plain `test` — see above), a
 
 ### `.not` chaining and jest-dom/Vitest type augmentation
 
-`frontend/tsconfig.test.json` goes to some length (see its own inline comments) to make jest-dom's Vitest matcher augmentation (`toBeInTheDocument()`, etc.) type-check via a shared module-identity `paths` mapping. That augmentation does not currently extend to chained `.not.toBe()`/`.not.toBeNull()` — `tsc` reports `Property 'not' does not exist` for those specific chains even though the same assertions type-check fine unchained. No test in this repo uses `.not.` chaining as a result; prefer a positive assertion instead (`toBeTruthy()`, an equality check phrased the other way round, etc.) — see `tests/frontend/unit/components/layout/AppLayout.test.tsx` and `tests/frontend/unit/components/ui/LoadingState.test.tsx` for examples.
+`frontend/tsconfig.test.json` goes to some length (see its own inline comments) to make jest-dom's Vitest matcher augmentation (`toBeInTheDocument()`, etc.) type-check via a shared module-identity `paths` mapping. That augmentation does not currently extend to chained `.not.toBe()`/`.not.toBeNull()` — `tsc` reports `Property 'not' does not exist` for those specific chains even though the same assertions type-check fine unchained. No test in this repo uses `.not.` chaining as a result; prefer a positive assertion instead (`toBeTruthy()`, an equality check phrased the other way round, etc.) — see `tests/frontend/unit/layout/AppLayout.test.tsx` and `tests/frontend/unit/ui/LoadingState.test.tsx` for examples.
 
 ## Troubleshooting
 

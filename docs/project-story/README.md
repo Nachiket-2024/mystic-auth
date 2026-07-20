@@ -325,7 +325,7 @@ Some concepts, such as PBAC, were explored more deeply later during the authoriz
 
 ### Jul 2026 — Claude Code acceleration
 
-Two days before the July commit, I purchased a Claude Code Pro plan to try it out. I used it heavily during that period — hitting the 5-hour window limits 2–3 times and using roughly 65% of my weekly quota in that sprint.
+Two days before the first July 2026 commit of 14 July 2026, I purchased a Claude Code Pro plan to try it out. I used it heavily during that period — hitting the 5-hour window limits 2–3 times and using roughly 65% of my weekly quota in that sprint.
 
 The foundation and architecture already existed.
 
@@ -350,7 +350,7 @@ This allowed a large change set to land while preserving the architectural direc
 - documentation,
 - 650+ backend and frontend tests.
 
-The final July change set was large, but the existing feature-based architecture meant most changes could be added as new domains/features rather than requiring a complete rewrite and restructure.
+The 14 July 2026 commit's change set was large, but the existing feature-based architecture meant most changes could be added as new domains/features rather than requiring a complete rewrite and restructure.
 
 ---
 

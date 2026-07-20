@@ -80,7 +80,7 @@ The current wall-clock time (in the given timezone) must fall within `[start, en
 
 **Validation rules:** `start`/`end` required and must parse as ISO times; `timezone`, if given, must be a real IANA timezone name.
 **Evaluation rules:** supports **overnight ranges** where `start > end` (e.g. `"22:00"`–`"06:00"` wraps past midnight). Denies if `start`/`end` are missing or malformed, or the timezone is invalid — never silently treated as unconditional.
-**Real-time override for testing/simulation:** if `context["current_time"]` is an ISO 8601 datetime string, it's used instead of the real clock (see `authorization/context/clock.py`) — this is what lets the `/authorization-check` inspection endpoint answer "what if it were this time?", and what makes this condition deterministically unit-testable.
+**Real-time override for testing/simulation:** if `context["current_time"]` is an ISO 8601 datetime string, it's used instead of the real clock (see `authorization/conditions/clock.py`) — this is what lets the `/authorization-check` inspection endpoint answer "what if it were this time?", and what makes this condition deterministically unit-testable.
 
 ## `date_range`
 

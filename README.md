@@ -165,6 +165,16 @@ See [Docker Overview](docs/docker/overview.md) for the full service breakdown an
 
 ---
 
+**Optional error monitoring (self-hosted Bugsink) is not part of the command above.** `docker compose up` never starts it — it's a separate, opt-in profile:
+
+```bash
+docker compose --profile monitoring up -d
+```
+
+See [Error Monitoring](docs/error-monitoring/overview.md) for the full setup (getting a DSN, no external account needed since it's self-hosted).
+
+---
+
 ### Path 2. Running Locally
 
 > Make sure PostgreSQL is running locally and the database exists.
@@ -201,6 +211,14 @@ npm run dev
 ```
 
 - **Frontend:** [http://localhost:5173](http://localhost:5173)
+
+**Optional error monitoring (self-hosted Bugsink)** still runs via Docker even in this local-run path — there's no bare-metal Bugsink install documented, since it's a single lightweight container:
+
+```bash
+docker compose --profile monitoring up -d bugsink
+```
+
+One difference from the Docker path: your backend isn't inside the Docker network here, so `SENTRY_DSN` in `.env` should use `http://<key>@localhost:8010/1` (same host Bugsink's UI gives you) rather than the `bugsink:8000` internal form. See [Error Monitoring](docs/error-monitoring/overview.md) for the full setup.
 
 ---
 
@@ -268,6 +286,7 @@ See [Authentication Overview](docs/authentication/overview.md) for the full mech
 - `SECRET_KEY` minimum-length enforcement at startup
 - Two independent audit logs: a security/session-event log and a PBAC decision log — see [Database Design](docs/database/design.md#why-two-audit-tables-not-one)
 - System user protected from deletion, role changes, and OAuth2 login via API — CLI-only creation
+- Optional, disabled-by-default error monitoring (backend + frontend), self-hostable via Bugsink so error data — which can carry PII — never has to leave your own infrastructure — see [Error Monitoring](docs/error-monitoring/overview.md)
 
 See [Security Hardening](docs/security/hardening.md) and [Security Decisions](docs/security/decisions.md) for the full detail and rationale, and [Known Issues & Concerns](docs/concerns/README.md) for what's tracked as still outstanding.
 
@@ -280,7 +299,7 @@ See [Security Hardening](docs/security/hardening.md) and [Security Decisions](do
 - **Redis + Taskiq** are used for async email delivery, caching, and rate limiting
 - OAuth2 setup requires Google Cloud credentials
 - **Zustand** manages client-side session state; **TanStack Query** manages all server-state caching
-- **Type Safety:** Full TypeScript support across the frontend (components, hooks, store)
+- **Type Safety:** Full TypeScript support across the frontend (feature modules, store, `sdk.ts`)
 - The system user can only be created via CLI — it is never exposed through any API endpoint
 
 ---
@@ -296,6 +315,7 @@ Full documentation lives in [`docs/`](docs/README.md), organized by feature/doma
 - [API Reference](docs/api/reference.md)
 - [Background Workers](docs/background-workers/taskiq.md)
 - [Security](docs/README.md#security)
+- [Error Monitoring](docs/error-monitoring/overview.md)
 - [Testing](docs/testing/overview.md)
 - [Docker](docs/docker/overview.md)
 - [CI/CD](docs/cicd/overview.md)
@@ -311,6 +331,7 @@ This is an open-source template — issues and pull requests are welcome:
 - Check the [documentation](docs/README.md) first, especially [Known Issues & Concerns](docs/concerns/README.md) and [PBAC Troubleshooting](docs/authorization/troubleshooting.md), since your question may already be answered there.
 - Search [existing GitHub Issues](https://github.com/Nachiket-2024/mystic-auth/issues) before opening a new one.
 - If you've found a bug, open a new Issue with clear reproduction steps (what you ran, what you expected, what happened instead).
+- **Found a security vulnerability?** Don't open a public Issue for it — see [SECURITY.md](SECURITY.md) for how to report it privately.
 - Fixes and improvements are welcome as Pull Requests.
 
 ---

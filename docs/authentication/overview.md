@@ -13,7 +13,7 @@ Every session is a pair of JWTs, delivered as httpOnly cookies — never readabl
 
 Expiry is configured via `ACCESS_TOKEN_EXPIRE_MINUTES`/`REFRESH_TOKEN_EXPIRE_MINUTES` (`.env.example`) and encoded in each JWT's own `exp` claim — the cookie's `max_age` is a separate, independent browser-side hint, not the source of truth; a request with an expired-but-not-yet-cookie-cleared token is still rejected by signature/`exp` verification (`jwt_service.verify_token`).
 
-**Claims**: `email` (required), `role` (optional — omitted entirely for a roleless account, see [Authorization Model](../authorization/architecture.md)), `type` (`"access"` or `"refresh"` — a refresh token can never be used where an access token is expected, and vice versa), `jti` (unique ID, used for refresh-token revocation — see below). Signed with `HS256` using `SECRET_KEY` (`.env`, required, no default).
+**Claims**: `email`, `type` (`"access"` or `"refresh"` — a refresh token can never be used where an access token is expected, and vice versa), `jti` (unique ID, used for refresh-token revocation — see below), `exp`. Signed with `HS256` using `SECRET_KEY` (`.env`, required, no default). Deliberately no `role` claim — role is display-only metadata, resolved fresh from the database on every request (alongside PBAC permissions) rather than trusted from a token that could go stale, see [Authorization Model](../authorization/architecture.md).
 
 ## Signup
 
@@ -41,7 +41,7 @@ The signup endpoint always returns the same generic response regardless of wheth
 
 1. **Dual rate limiting**: per-IP and per-account sliding-window limits (`rate_limiter_service.py`), plus a separate brute-force lockout (`login_protection_service.py`) — `MAX_FAILED_LOGIN_ATTEMPTS` per email, `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` per IP (`.env.example`).
 2. **Timing-attack-resistant password check**: `login_service.py` always runs the Argon2 comparison — against the real `hashed_password` if the account exists and has one, or a fixed `DUMMY_HASH` otherwise — *before* checking whether the account exists, is verified, or is active. This means "wrong password," "no such account," and "account exists but never set a password (OAuth2-only)" all take the same amount of time to reject.
-3. Only after the password check passes: verify `is_verified` and `is_active`; reject otherwise.
+3. The Argon2 comparison's *result* isn't checked first, though — `login_service.py` rejects in this order: account not found, not verified, not active, and only then a wrong password. This preserves constant-time hashing (step 2) while still surfacing "verify your email" instead of a generic "wrong password" to a legitimate user who mistyped their password on an unverified account.
 4. On success: issue a fresh access+refresh token pair, set both cookies, log `LOGIN_SUCCESS` (or `LOGIN_FAILURE`/`ACCOUNT_LOCKED`) to the security audit log.
 
 ## Refresh token rotation
@@ -58,6 +58,7 @@ Refresh tokens are tracked purely in Redis (a `jti → expiry` registry per user
 
 - `POST /auth/logout` revokes the single refresh token's `jti` and clears both cookies (matching `path=/auth` for the refresh cookie).
 - `POST /auth/logout/all` walks the user's full `jti` registry and revokes every entry — every device, every session, immediately. Same mechanism the reuse-detection path (above) and account soft-delete/purge (see database design doc) reuse.
+- **Both are idempotent about an already-dead refresh token.** Neither endpoint treats "the presented refresh token is already revoked/expired/malformed" as an error — the caller's goal (no valid session left in this browser) is already true either way, so both still clear cookies and report success. This matters concretely right after a self/admin password change (below), which revokes every refresh token for the account, including the one the current browser is still holding: clicking Logout immediately afterward presents that now-dead token, and it must still log the browser out cleanly rather than surfacing an "invalid or already revoked" error while leaving stale cookies (and an apparently-still-logged-in UI) behind. `logout/all` specifically decodes the token's claims without checking revocation first (`jwt_service.decode_payload`, not `verify_token`) so it can still resolve the owning email and revoke whatever sessions remain elsewhere — but it still enforces the token's `type` claim, so a wrong-type token (e.g. an access token mistakenly presented here) is never treated as resolving a real session to revoke.
 
 ## Password reset
 

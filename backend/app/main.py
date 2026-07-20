@@ -33,7 +33,14 @@ from .logging.correlation_id_middleware import CorrelationIdMiddleware
 from .auth.security.security_headers_middleware import SecurityHeadersMiddleware
 from .logging.logging_config import get_logger
 
+from .error_monitoring.sentry_service import init_sentry, capture_exception
+
 logger = get_logger("main")
+
+# Before the app starts serving requests — so every request from the very
+# first one onward is covered. A no-op when SENTRY_DSN is unset (see
+# error_monitoring/sentry_service.py and docs/error-monitoring/overview.md).
+init_sentry()
 
 
 @asynccontextmanager
@@ -91,6 +98,7 @@ app.add_middleware(CorrelationIdMiddleware)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception(f"Unhandled Exception at {request.url.path}: {str(exc)}")
+    await capture_exception(exc, request=request)
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal Server Error"},

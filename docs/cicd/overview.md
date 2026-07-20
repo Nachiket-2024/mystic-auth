@@ -2,7 +2,7 @@
 
 ## Workflow
 
-`.github/workflows/ci.yml` — triggers on every push and pull request targeting `main`. Three independent jobs, all run in parallel (no job depends on another):
+`.github/workflows/ci.yml` — triggers on every push and pull request targeting `main`. Declares top-level `permissions: contents: read` — none of the three jobs below push commits, comment on PRs, or need any write access, so the default `GITHUB_TOKEN` is scoped down explicitly rather than left at whatever the repo/org default happens to be; a compromised action dependency in this workflow can't do more than read the checkout. Three independent jobs, all run in parallel (no job depends on another):
 
 ### `backend` — Backend (unit + integration)
 
@@ -20,6 +20,7 @@
 ### `docker-build` — Docker image build verification
 
 - Builds `docker/backend.Dockerfile` and `docker/frontend.Dockerfile --target production` to confirm both images still build cleanly.
+- Then runs the built backend image and asserts `/app/logs` does **not** exist inside it — a regression guard for a real bug found during a production-readiness review (local access-log files, with real request data, were previously getting baked into the image via a `.dockerignore` gap — see [Security Decisions](../security/decisions.md#dockerignore-previously-let-local-files-leak-into-built-images)). This is the one place in `docker-build` that checks image *contents*, not just that the build succeeds.
 - **No push to a registry, no deploy step** — this repo has no deploy pipeline; that's an explicit scope boundary (a template repository shouldn't assume a specific cloud/hosting target), not an oversight.
 
 ## What's covered

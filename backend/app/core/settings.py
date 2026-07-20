@@ -1,5 +1,5 @@
 from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -48,9 +48,23 @@ class Settings(BaseSettings):
 
     TRUSTED_PROXY_IPS: str = ""                     # Comma-separated reverse proxy IPs to trust X-Forwarded-For from (see auth/security/client_ip.py). Empty (default) = never trust it, use request.client.host as-is.
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    SENTRY_DSN: str = ""                            # Optional. Sentry-protocol error-monitoring DSN (works with Sentry itself, or a self-hosted Sentry-SDK-compatible server like Bugsink — see docs/error-monitoring/overview.md). Empty (default) = error monitoring disabled entirely, no SDK call is ever made.
+    SENTRY_ENVIRONMENT: str = ""                    # Optional. Tag reported alongside every event (e.g. "production", "staging"). Falls back to ENVIRONMENT if unset.
+
+    # The root .env is shared with docker-compose.yml/docker-compose.prod.yml's
+    # `env_file:` directive, which also passes it to infra-only services
+    # (e.g. REDIS_PASSWORD for redis-server, BUGSINK_* for the optional
+    # monitoring service — see docs/error-monitoring/overview.md) that
+    # have no corresponding Settings field. pydantic-settings defaults to
+    # extra="forbid", which only actually bites when Settings' own
+    # env_file resolves to a real file — true when running from the repo
+    # root (e.g. tests, which need cwd=/repo to import `backend.app...`),
+    # not when running the app itself (cwd=/app, where a relative
+    # ".env" doesn't resolve to anything, so only explicitly-declared
+    # fields are ever read from the process environment either way).
+    # "ignore" makes both paths behave identically instead of a
+    # test-only crash on any env var this app doesn't itself declare.
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("SECRET_KEY")
     @classmethod

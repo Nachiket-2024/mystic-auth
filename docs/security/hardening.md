@@ -60,7 +60,7 @@ Note: no `Strict-Transport-Security` is set by the nginx layer serving the front
 
 ## Error handling
 
-A single global exception handler (`main.py`) catches every otherwise-unhandled exception, logs it with a full traceback, and returns a generic `500 {"detail": "Internal Server Error"}` — internal exception details never reach the client, regardless of `ENVIRONMENT`; `debug=` is never passed to the FastAPI app either (defaults `False`), so there's no path where Starlette's own debug error page could leak a traceback. See [API Reference: error responses](../api/reference.md#error-responses).
+A single global exception handler (`main.py`) catches every otherwise-unhandled exception, logs it with a full traceback, and returns a generic `500 {"detail": "Internal Server Error"}` — internal exception details never reach the client, regardless of `ENVIRONMENT`; `debug=` is never passed to the FastAPI app either (defaults `False`), so there's no path where Starlette's own debug error page could leak a traceback. See [API Reference: error responses](../api/reference.md#error-responses). This same handler also reports the exception for error monitoring (`error_monitoring.sentry_service.capture_exception`) — a no-op unless `SENTRY_DSN` is set, see [Error Monitoring](../error-monitoring/overview.md).
 
 ## Redis authentication
 
@@ -76,4 +76,4 @@ A single global exception handler (`main.py`) catches every otherwise-unhandled 
 
 ## Known accepted gaps
 
-See [Concerns](../concerns/README.md) for the current open list (automated backup scheduling, the single global rate-limit threshold, remaining frontend admin-page test coverage) — everything else previously tracked there has since been resolved and folded into this document.
+See [Concerns](../concerns/README.md) for the current open list (automated backup scheduling, the single global rate-limit threshold, no deploy automation) — everything else previously tracked there has since been resolved and folded into this document. Error monitoring is available (opt-in) rather than a tracked gap now — see [Error Monitoring](../error-monitoring/overview.md).

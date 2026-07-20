@@ -15,13 +15,15 @@ FastAPI application (`backend/app/`), async throughout — SQLAlchemy async engi
 | `core/` | Cross-cutting config: `settings.py` (pydantic-settings, env-driven) |
 | `database/` | `connection.py` — async SQLAlchemy engine/session factory; `base.py` — declarative base |
 | `emails/` | `email_template_service.py` — shared HTML email template rendering; `email_sender.py` — SMTP transport seam (swappable provider); `email_normalization.py` — canonicalizes stored/looked-up email addresses; used by the taskiq email tasks |
-| `logging/` | `logging_config.py` (structured, module-scoped loggers), `correlation_id_middleware.py`, `logging_middleware.py` (request/response logging) |
+| `error_monitoring/` | `sentry_service.py` — optional error reporting via the Sentry SDK protocol (works against Sentry itself or a self-hosted compatible server, e.g. Bugsink). Disabled entirely (a complete no-op) unless `SENTRY_DSN` is set — see [Error Monitoring](../error-monitoring/overview.md) |
+| `logging/` | `logging_config.py` — `get_logger()` (structured, module-scoped loggers; INFO+ to a rotating JSON file, WARNING+ also to the terminal) and `get_startup_logger()` (a handful of one-time, boot-relevant facts — e.g. whether error monitoring is enabled — always visible in the terminal at INFO, not file-only); `correlation_id_middleware.py`, `logging_middleware.py` (request/response logging) |
 | `redis/` | `client.py` — single async Redis client, shared by rate limiting, lockout, caching, token registries, and taskiq's broker |
 | `scripts/` | `create_system_user.py` — one-off interactive CLI to bootstrap the reserved system account (never exposed via any API route) |
 | `taskiq_tasks/` | `email_tasks.py` — the async email-sending task and its broker — see [Background Workers](../background-workers/taskiq.md) |
 | `user_crud/` | `user_crud_collector.py` + `user_crud_modules/` — CRUD orchestration for the `users` table |
 | `user_table/` | `user_model.py` (SQLAlchemy model, `UserRole` enum), `user_schema.py` (Pydantic schemas) |
 | `main.py` | App entrypoint: middleware registration, router mounting, global exception handler, lifespan (DB pool / Redis client cleanup on shutdown) |
+| `sdk.py` | Public extension surface for your own domain code (`require_authorization`, `authorization_service`, `build_authorization_context`, `Permission`, `get_current_user`, `database`, `settings`, `get_or_404`, `UserRole`, `capture_exception`) — the intended single import point for anything you build on top of this template, rather than reaching into the internal modules above directly. See [Using This Repository as a Template: the extension surface](../template-usage.md#the-extension-surface-sdkpy--sdkts) |
 
 ## Request pipeline
 
@@ -56,7 +58,7 @@ Two layers:
 
 ## Logging
 
-Structured, module-scoped loggers via `logging/logging_config.py::get_logger(__name__)` throughout. Every request gets a correlation ID (`CorrelationIdMiddleware`) that's attached to every log line emitted while handling it, making it possible to grep `docker compose logs backend` for one request's full trail. See [PBAC Troubleshooting: logging and debugging](../authorization/troubleshooting.md#logging-and-debugging) for the specific log-message prefixes used by the caching/audit subsystems.
+Structured, module-scoped loggers via `logging/logging_config.py::get_logger(__name__)` throughout. Every request gets a correlation ID (`CorrelationIdMiddleware`) that's attached to every log line emitted while handling it, making it possible to grep one request's full trail — routine INFO-level logging is deliberately file-only (`logs/access.log`, rotated JSON), so a request's complete trail lives there; only WARNING and above also reach `docker compose logs backend`, by design, to keep the terminal free of routine per-request noise. `get_startup_logger()` is the deliberate exception: a small, separate set of one-time facts (e.g. whether error monitoring is enabled) that are always terminal-visible at INFO, since they're boot-time config an operator would want to see immediately, not per-request volume. See [PBAC Troubleshooting: logging and debugging](../authorization/troubleshooting.md#logging-and-debugging) for the specific log-message prefixes used by the caching/audit subsystems.
 
 ## Testing coverage
 

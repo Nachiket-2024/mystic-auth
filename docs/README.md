@@ -39,6 +39,11 @@ Documentation for this full-stack template, organized by feature/domain to mirro
 
 - [Security Decisions](security/decisions.md) — the *why* behind non-obvious security choices, plus known accepted gaps
 - [Security Hardening](security/hardening.md) — rate limiting, lockout, security headers, CORS, cookie flags, consolidated
+- [SECURITY.md](../SECURITY.md) — how to report a vulnerability privately (not via a public GitHub Issue)
+
+## Error Monitoring
+
+- [Error Monitoring](error-monitoring/overview.md) — optional, disabled-by-default backend/frontend error reporting via the Sentry SDK protocol; self-hosted Bugsink quickstart, what gets reported, Sentry-hosted alternative
 
 ## Testing
 
