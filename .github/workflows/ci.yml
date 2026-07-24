@@ -1,18 +1,16 @@
 name: CI
 
-# Runs on every push and pull request targeting main. Three independent jobs
-# (backend, frontend, docker build) run in parallel.
+# Runs on every push and pull request targeting main. Four independent jobs
+# (backend, frontend, secrets scan, docker build) run in parallel.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
 
-# Least-privilege default: none of these three jobs push commits, comment on
-# PRs, or otherwise need write access to the repo — they only check out code
-# and run tests/builds. Explicit here rather than relying on whatever the
-# repo/org's default GITHUB_TOKEN permissions happen to be, so a compromised
-# action dependency in this workflow can't do more than read the checkout.
+# Least-privilege default: none of these jobs need write access, they only
+# check out code and run tests/builds. Explicit here rather than relying on
+# the repo/org's default GITHUB_TOKEN permissions.
 permissions:
   contents: read
 
@@ -23,7 +21,11 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        # AWS ECR Public mirror of the Docker Official postgres image, not
+        # Docker Hub directly — sidesteps Docker Hub's anonymous-pull rate
+        # limiting, which is the most common cause of GitHub-hosted runners
+        # timing out ("context deadline exceeded") pulling service containers.
+        image: public.ecr.aws/docker/library/postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -37,7 +39,8 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:7
+        # Same ECR Public mirror reasoning as postgres above.
+        image: public.ecr.aws/docker/library/redis:7
         ports:
           - 6379:6379
         options: >-
@@ -97,40 +100,55 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install backend dependencies
-        run: pip install --no-cache-dir -r backend/requirements.txt
+        run: pip install --no-cache-dir -r backend/requirements.txt -r backend/requirements-dev.txt
 
       - name: Audit Python dependencies for known vulnerabilities
         run: |
           pip install --no-cache-dir pip-audit
           pip-audit -r backend/requirements.txt
 
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check app mystic_auth alembic ../tests/backend
+
+      - name: Type-check (mypy)
+        working-directory: backend
+        run: mypy app mystic_auth
+
+      - name: Security scan (bandit)
+        working-directory: backend
+        run: bandit -r app mystic_auth -c pyproject.toml
+
       - name: Run database migrations
         working-directory: backend
         run: alembic upgrade head
 
+      # Regression guard: fails if a model's columns/indexes drift from what
+      # the migrations actually create.
+      - name: Verify models match migrations (alembic check)
+        working-directory: backend
+        run: alembic check
+
+      # tests/backend/app covers the app/ wrapper layer; tests/backend/mystic_auth/unit
+      # covers the mystic_auth/ package — both fast, no-DB, run as one coverage base.
       - name: Run backend unit tests
-        run: python -m pytest tests/backend/unit -q
+        run: python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q
 
-      # --cov-append accumulates onto the unit run's coverage data rather
-      # than starting fresh, so the threshold below the security step gates
-      # cumulative unit+integration+security coverage (~89% currently), not
-      # any single suite's coverage in isolation.
+      # --cov-append accumulates onto the unit run's coverage data, so the
+      # threshold below gates cumulative unit+integration+security coverage.
       - name: Run backend integration tests
-        run: python -m pytest tests/backend/integration -q --cov-append
+        run: python -m pytest tests/backend/mystic_auth/integration -q --cov-append
 
-      # Coverage is currently ~89% (see docs/testing/overview.md); the gate
-      # is set a few points below that as a regression alarm, not a strict
-      # target, so incidental coverage drift doesn't flap CI red.
+      # Coverage is currently ~89% (see docs/mystic_auth/testing/overview.md); the gate
+      # is a regression alarm a few points below that, not a strict target.
       - name: Run backend security tests
-        run: python -m pytest tests/backend/security -q --cov-append --cov-fail-under=85
+        run: python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=85
 
-      # Informational only: these assert generous, regression-alarm-level
-      # thresholds (not a strict SLA) against a real Postgres/Redis, so
-      # timing can be noisy on shared GitHub-hosted runners. A failure here
-      # should prompt a look, not block the merge.
+      # Non-blocking: asserts generous regression-alarm thresholds against a
+      # real Postgres/Redis, so timing can be noisy on shared runners.
       - name: Run backend performance tests (non-blocking)
         continue-on-error: true
-        run: python -m pytest tests/backend/performance -q
+        run: python -m pytest tests/backend/mystic_auth/performance -q
 
   frontend:
     name: Frontend (typecheck + lint + test + build)
@@ -141,12 +159,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # ESLint 10 requires Node ^20.19.0 || ^22.13.0 || >=24, and Vite 8
-          # requires ^20.19.0 || >=22.12.0 — both floors sit above Node 20's
-          # earlier releases, so "20" (major-only) isn't precise enough to
-          # guarantee compatibility on its own. Pinned to an explicit patch
-          # that satisfies both rather than trusting whatever "latest 20.x"
-          # resolves to.
+          # Pinned patch version: ESLint 10 and Vite 8 both require a Node 20
+          # floor above some earlier 20.x releases, so major-only "20" isn't
+          # precise enough to guarantee compatibility.
           node-version: "20.20.2"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
@@ -168,8 +183,7 @@ jobs:
         run: npm run lint
 
       # test:coverage (not plain test) so vitest.config.ts's coverage
-      # thresholds are actually evaluated — plain `vitest run` never
-      # collects coverage, so thresholds would silently never be checked.
+      # thresholds are actually evaluated.
       - name: Run tests (with coverage threshold gate)
         working-directory: frontend
         run: npm run test:coverage
@@ -177,6 +191,23 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+
+  secrets-scan:
+    name: Secrets scan (gitleaks)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans git history, not just the working tree — needs
+          # the full commit log, not just the last commit, to catch a
+          # secret that was committed and later removed.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker-build:
     name: Docker image build verification
@@ -188,11 +219,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Validates docker-compose.yml and docker-compose.prod.yml still parse
-      # and reference existing service dependencies (e.g. would have caught
-      # dev's `backend` service missing an `alembic: service_completed_successfully`
-      # dependency that prod already had). Uses .env.example only to satisfy
-      # each file's `env_file: ./.env` directive — no real secrets involved.
+      # Validates both compose files still parse and reference existing
+      # service dependencies. Uses .env.example only to satisfy each file's
+      # `env_file: ./.env` directive — no real secrets involved.
       - name: Validate docker-compose configs
         run: |
           cp .env.example .env
@@ -206,14 +235,10 @@ jobs:
       - name: Build frontend production image
         run: docker build --target production -f docker/frontend.Dockerfile -t frontend:ci .
 
-      # Regression guard: backend/logs/ (real request data — paths, timestamps,
-      # correlation IDs, written by backend/app/logging/logging_config.py) was
-      # previously getting baked straight into the image by `COPY backend/ .`,
-      # since *.log alone doesn't match TimedRotatingFileHandler's rotated
-      # filenames (access.log.2026-07-19, not access.log.log) — a real privacy
-      # leak, not just wasted space (23MB in the case that surfaced it). Fixed
-      # via .dockerignore; this catches it coming back the same way a code
-      # regression test would.
+      # Regression guard: backend/logs/ (real request data) was previously
+      # getting baked into the image via `COPY backend/ .`, since *.log alone
+      # doesn't match rotated filenames like access.log.2026-07-19. Fixed via
+      # .dockerignore; this catches it coming back.
       - name: Verify no local logs leaked into the backend image
         run: |
           docker run --rm backend:ci sh -c 'test ! -d /app/logs' \

@@ -2,7 +2,7 @@
 
 React 19 + TypeScript SPA built with Vite, Chakra UI v3, Zustand, and TanStack Query.
 
-This is one piece of the MysticAuth template — see the repository root [`README.md`](../README.md) for the full quickstart (Docker and local setup), and [`docs/architecture/frontend.md`](../docs/architecture/frontend.md) for the module layout, routing, and state-management conventions used here.
+This is one piece of the MysticAuth template — see the repository root [`README.md`](../README.md) for the full quickstart (Docker and local setup), and [`docs/mystic_auth/architecture/frontend.md`](../docs/mystic_auth/architecture/frontend.md) for the module layout, routing, and state-management conventions used here.
 
 ## Scripts
 
@@ -15,4 +15,4 @@ npm run test          # vitest run (no coverage)
 npm run test:coverage # vitest run --coverage (thresholds enforced)
 ```
 
-See [`docs/testing/overview.md`](../docs/testing/overview.md) for what each suite covers.
+See [`docs/mystic_auth/testing/overview.md`](../docs/mystic_auth/testing/overview.md) for what each suite covers.

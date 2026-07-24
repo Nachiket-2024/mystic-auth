@@ -27,12 +27,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# libpq5: the runtime (non-dev) Postgres client library that asyncpg/psycopg
-# need to actually connect — libpq-dev (headers, compiler-time only) is not
-# required here. No postgresql-client/pg_isready: nothing in this image
-# invokes it — Postgres readiness is checked via docker-compose's healthcheck
-# on the postgres service itself (which has its own built-in pg_isready),
-# not from inside this container.
+# libpq5: runtime Postgres client library asyncpg/psycopg need to connect;
+# libpq-dev (headers) isn't needed here. No pg_isready: Postgres readiness
+# is checked via docker-compose's healthcheck on the postgres service itself.
 RUN apt-get update && apt-get install -y \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
@@ -52,11 +49,10 @@ USER app
 
 EXPOSE 8000
 
-# Self-checking outside Compose too (e.g. `docker run` directly). Compose's
-# own healthcheck on the backend service (docker-compose.yml) is the one
-# that actually gates dependent services' startup — this is a fallback for
-# when the image runs without it. taskiq_worker/alembic share this image but
-# don't serve HTTP, so this only ever matters for the backend container.
+# Fallback healthcheck for running this image outside Compose (e.g. `docker
+# run` directly) — Compose's own healthcheck on the backend service is what
+# actually gates dependent services' startup. taskiq_worker/alembic share
+# this image but serve no HTTP, so this only matters for the backend container.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')" || exit 1
 

@@ -66,6 +66,12 @@ coverage.xml
 .pytest_cache/
 __pypackages__/
 
+# ---------------------------- Linting / Type-checking ----------------------------
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
 # ---------------------------- Celery ----------------------------
 celerybeat-schedule
 celerybeat.pid

@@ -1,20 +1,23 @@
-from logging.config import fileConfig
-import sys
 import os
+import sys
+from logging.config import fileConfig
+
 from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
+
 from alembic import context
 
-# Make 'app' importable.
+# Make 'mystic_auth' importable.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.database.base import Base
-from app.user_table.user_model import User
-from app.authorization.models.policy_model import Policy, UserPolicy  # noqa: F401
-from app.authorization.models.audit_log_model import AuthorizationAuditLog  # noqa: F401
-from app.authorization.models.policy_history_model import PolicyHistory  # noqa: F401
+from mystic_auth.audit_log.audit_log_model import AuditLog  # noqa: F401
+from mystic_auth.authorization.models.audit_log_model import AuthorizationAuditLog  # noqa: F401
+from mystic_auth.authorization.models.policy_history_model import PolicyHistory  # noqa: F401
+from mystic_auth.authorization.models.policy_model import Policy, UserPolicy  # noqa: F401
+from mystic_auth.database.base import Base
+from mystic_auth.user_table.user_model import User  # noqa: F401
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -29,7 +32,6 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline():
-    """Run migrations in offline mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,

@@ -32,8 +32,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # See docker-compose.yml's identical mount — creates the separate
-      # "bugsink" database the optional Bugsink service below uses, once,
-      # only against a fresh volume.
+      # "bugsink" database the Bugsink service below uses, once against a
+      # fresh volume.
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -49,9 +49,8 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
-    # See docker-compose.yml for the REDIS_PASSWORD rationale — in a real
-    # production deployment this should always be set, since the whole
-    # point of --requirepass here is defense-in-depth for shared networks.
+    # See docker-compose.yml for the REDIS_PASSWORD rationale — in production
+    # this should always be set.
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-}"]
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-}\" --no-auth-warning ping"]
@@ -96,15 +95,16 @@ services:
           memory: 512M
 
   frontend:
+    # Explicit, prod-specific tag — see docker-compose.yml's frontend
+    # service for why (avoids clobbering the dev image).
+    image: mystic-auth-frontend:prod
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
       target: production                            # nginx + static build, not the Vite dev server
-      # VITE_* vars are inlined into the static bundle at build time, not read
-      # at container runtime — this image has no bind-mounted frontend/.env
-      # for them to come from the way the dev target does, so they must be
-      # passed as build args, sourced from the same root .env docker compose
-      # already reads for interpolation here (see .env.example).
+      # VITE_* vars are inlined into the static bundle at build time, not
+      # read at runtime, so unlike the dev target they must be passed as
+      # build args (sourced from the root .env — see .env.example).
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
         VITE_APP_NAME: ${VITE_APP_NAME}
@@ -135,7 +135,7 @@ services:
     restart: unless-stopped
     env_file:
       - ./.env
-    command: sh -c "taskiq worker app.taskiq_tasks.email_tasks:broker"
+    command: sh -c "taskiq worker mystic_auth.taskiq_tasks.email_tasks:broker"
     environment:
       - REDIS_URL=${REDIS_URL}
     depends_on:
@@ -178,14 +178,12 @@ services:
       postgres:
         condition: service_healthy
 
-  # Optional, self-hosted error monitoring — see docker-compose.yml's
-  # identical service for the full explanation. Same "off unless you
-  # explicitly ask for it" behavior in production:
-  #   docker compose -f docker-compose.prod.yml --profile monitoring up -d --build
+  # Self-hosted error monitoring — see docker-compose.yml's identical
+  # service for the full explanation. Starts by default in production too:
+  #   docker compose -f docker-compose.prod.yml up -d --build
   bugsink:
     image: bugsink/bugsink:2
     restart: unless-stopped
-    profiles: ["monitoring"]
     env_file:
       - ./.env
     environment:
@@ -193,9 +191,8 @@ services:
       CREATE_SUPERUSER: ${BUGSINK_SUPERUSER_EMAIL}:${BUGSINK_SUPERUSER_PASSWORD}
       PORT: "8000"
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bugsink
-      # Unlike the dev compose file, this one assumes a reverse proxy/TLS
-      # terminator in front (see the header comment above) — same
-      # assumption as TRUSTED_PROXY_IPS for the backend itself.
+      # Unlike dev, this file assumes a reverse proxy/TLS terminator in
+      # front (see header comment above).
       BEHIND_HTTPS_PROXY: "true"
       BASE_URL: ${BUGSINK_BASE_URL}
     depends_on:
