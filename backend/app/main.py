@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -41,7 +41,7 @@ init_sentry()
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     """
     Nothing needed on startup, but on shutdown (SIGTERM from `docker stop` /
     orchestrator rolling restarts) explicitly dispose the DB connection pool

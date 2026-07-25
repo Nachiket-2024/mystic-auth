@@ -47,7 +47,7 @@ Refresh tokens are single-use — revoked (by `jti`, in Redis) immediately upon 
 ## OAuth2 CSRF and account-hijacking protections
 
 - **State + PKCE**: a random `state` (Redis + cookie, validated on callback, single-use via atomic `GETDEL`) plus PKCE (S256) — exceeds the minimum CSRF protection a plain OAuth2 `state` parameter alone would provide.
-- **`verified_email` is load-bearing**: an OAuth2 login is only trusted if Google's own `verified_email` flag is true. This is the *only* proof of address ownership the flow relies on.
+- **`email_verified` is load-bearing**: an OAuth2 login is only trusted if Google's own `email_verified` flag is true. This is the *only* proof of address ownership the flow relies on.
 - **Pre-registration hijack window**: if an attacker signs up with a victim's email (password-based, unverified) before the victim ever does, and the victim later authenticates via Google with that same address, the pre-existing account's password is cleared at that moment. Without this, the attacker's chosen password would remain valid on an account Google has now confirmed belongs to someone else. See [../authentication/overview.md](../authentication/overview.md#google-oauth2) for the full walkthrough.
 - **Redirect URI is server-side fixed**, never client-influenced — rules out open-redirect-via-OAuth.
 

@@ -13,6 +13,14 @@ downstream app code share one boundary.
 
 Everything below is a straight re-export; see the original module's
 docstring for the "why" behind any given piece.
+
+DO NOT hand-edit this file. Treat it as a drop-in you receive from upstream,
+not a place to add your own re-exports — this is the one file a
+`scripts/sync-upstream.sh` sync is expected to touch, and local edits here
+are exactly what turns that sync into a manual conflict instead of applying
+cleanly. If you need your own re-exports for your own domain code, add
+them to app_sdk.py instead — it's the counterpart file kept empty by
+upstream for exactly this purpose, so it never conflicts on a sync.
 """
 
 import importlib

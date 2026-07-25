@@ -1,7 +1,7 @@
 # MysticAuth
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.139+-green?logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.140+-green?logo=fastapi)
 ![React](https://img.shields.io/badge/React-19+-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)

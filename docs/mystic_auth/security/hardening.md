@@ -31,12 +31,14 @@ See [Security Decisions: timing-attack mitigations](decisions.md#timing-attack-m
 | Header | Value | Reasoning |
 |---|---|---|
 | `X-Content-Type-Options` | `nosniff` | Stops MIME-type sniffing |
-| `X-Frame-Options` | `DENY` | This is a JSON API with no HTML pages — no framing use case exists |
-| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'` | Same rationale — zero functional cost since there's no HTML/script to allow |
+| `X-Frame-Options` | `DENY` | This is a JSON API with no HTML pages of its own beyond the auto-generated docs below — no framing use case exists |
+| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'` on every route except `/docs`/`/redoc`/`/openapi.json` (see below) | Zero functional cost on the real API surface since there's no HTML/script to allow |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` (production only — see below) | Forces HTTPS for a year, protecting the cookies from protocol downgrade |
 | `Referrer-Policy` | `no-referrer` | URLs here can carry sensitive query params (OAuth2 `state`/`code`) |
 
 **HSTS is gated on `settings.ENVIRONMENT == "production"`** (checked fresh per request, not cached at import time). Sending it unconditionally would pin HSTS for a full year against real browser traffic even in a non-production deployment served over plain HTTP, with no way to turn it off short of a code change — browsers ignore the header over plain HTTP today, but that's not a reason to send a year-long pin somewhere it isn't intended to apply yet.
+
+**`/docs`, `/redoc`, and `/openapi.json` get a relaxed CSP, carved out by request path.** FastAPI's auto-generated Swagger UI (`/docs`) and ReDoc (`/redoc`) pages — enabled whenever `ENVIRONMENT != "production"`, see `backend/app/main.py` — are the one place this API actually serves HTML, and both load their JS/CSS from a CDN (`cdn.jsdelivr.net`) plus an inline `<script>`/`<style>` block; ReDoc additionally pulls a Google Fonts stylesheet. The blanket `default-src 'none'` policy used to apply here too, which didn't error or warn — the page returned 200 and rendered as silently blank, every asset blocked with nothing in the response to say why. `security_headers_middleware.py`'s `_DOCS_PATHS`/`_DOCS_CSP` scope a permissive-but-specific policy (`cdn.jsdelivr.net`, `fonts.googleapis.com`/`fonts.gstatic.com`, `'unsafe-inline'`) to exactly those three paths; every other route keeps the strict policy above.
 
 Note: no `Strict-Transport-Security` is set by the nginx layer serving the frontend static build (`docker/nginx.frontend.conf`) — HSTS is only emitted by the backend API responses. See [Docker Overview](../docker/overview.md).
 

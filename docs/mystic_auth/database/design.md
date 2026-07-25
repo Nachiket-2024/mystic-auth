@@ -60,7 +60,7 @@ The single, unified identity table — password and OAuth2 (Google) accounts sha
 | `email` | string, **unique**, indexed | The DB-level unique constraint is what actually prevents a duplicate account under a signup/OAuth2-login race — see [Security Decisions](../security/decisions.md#the-signupoauth2-email-race). |
 | `hashed_password` | string, nullable | Argon2 hash. **Null for OAuth2-only accounts** — there is no password to check, and `login_service.py` handles a null hash safely (compares against a dummy hash rather than short-circuiting, for timing-attack resistance — see [Authentication Flows](../authentication/overview.md#login)). |
 | `role` | enum (`user`/`admin`/`system`), nullable | **Display/grouping metadata only — never consulted for an access decision.** See [Security Decisions](../security/decisions.md#role-is-never-used-to-decide-access). Nullable because the system must support a roleless account authorized purely through policies. |
-| `is_verified` | bool | Email ownership confirmed (via the verification flow, or implicitly via Google's `verified_email`). |
+| `is_verified` | bool | Email ownership confirmed (via the verification flow, or implicitly via Google's `email_verified`). |
 | `is_active` | bool | **The single flag every auth check point gates on** (`login_service.py`, `oauth2_service.py`, `current_user_handler.py`). Also what soft delete reuses — see Account Lifecycle below. |
 | `deleted_at` | timestamp, nullable | Soft-delete marker. `NULL` = never deleted. Set by soft delete, cleared by reactivation. |
 | `created_at` / `updated_at` | timestamp | Server-side, automatic. |
