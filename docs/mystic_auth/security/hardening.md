@@ -44,7 +44,7 @@ Note: no `Strict-Transport-Security` is set by the nginx layer serving the front
 
 ## CORS
 
-`backend/app/main.py` — `CORSMiddleware` allows exactly one origin (`settings.FRONTEND_BASE_URL`), `allow_credentials=True` (required for cookie-based auth to work cross-origin in dev, where frontend `:5173` and backend `:8000` are different origins), methods restricted to `GET/POST/PUT/PATCH/DELETE`, headers restricted to `Content-Type`.
+`backend/app/main.py` — `CORSMiddleware` allows `settings.cors_allowed_origins` (`FRONTEND_BASE_URL` plus any comma-separated `FRONTEND_ADDITIONAL_BASE_URLS`; single-origin by default), `allow_credentials=True` (required for cookie-based auth to work cross-origin in dev, where frontend `:5173` and backend `:8000` are different origins), methods restricted to `GET/POST/PUT/PATCH/DELETE`, headers restricted to `Content-Type`. Redirect/email links (OAuth callback, verification, password reset) always point at `FRONTEND_BASE_URL` alone regardless of how many origins are CORS-allowed — there's always exactly one canonical link target.
 
 ## Cookies
 

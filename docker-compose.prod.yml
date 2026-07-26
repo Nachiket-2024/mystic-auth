@@ -104,8 +104,10 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 10s
       timeout: 3s
-      retries: 5
-      start_period: 10s
+      # See docker-compose.yml's identical healthcheck for why this budget
+      # is 10 retries / 30s start_period rather than a tighter 5/10s.
+      retries: 10
+      start_period: 30s
     deploy:
       resources:
         limits:

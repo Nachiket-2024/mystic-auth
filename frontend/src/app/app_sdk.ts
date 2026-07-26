@@ -1,5 +1,5 @@
 /**
- * App-specific extension surface (see docs/mystic_auth/template-usage.md).
+ * App-specific extension surface (see docs/mystic_auth/template-usage/overview.md).
  *
  * This is the counterpart to sdk.ts: sdk.ts re-exports the template's own
  * building blocks and is not meant to be hand-edited, this file is where a

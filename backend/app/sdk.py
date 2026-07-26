@@ -1,6 +1,6 @@
 """
 Public extension surface for domain/feature code built on top of this
-template (see docs/mystic_auth/template-usage.md).
+template (see docs/mystic_auth/template-usage/overview.md).
 
 Import from HERE, not internal paths like
 `mystic_auth.authorization.dependencies.authorization_dependency` directly —

@@ -2,7 +2,7 @@
 
 Documentation for this full-stack template, organized by feature/domain to mirror the actual code layout (`backend/mystic_auth/<domain>/`, `frontend/src/mystic_auth/<domain>/`). If something here disagrees with the code, the code wins — file an issue or update the doc.
 
-This is the template's own reference documentation — upstream's, not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage.md#the-app--mystic_auth-split) for the full reasoning.
+This is the template's own reference documentation — upstream's, not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage/overview.md#the-app--mystic_auth-split) for the full reasoning.
 
 ## Architecture
 
@@ -14,11 +14,13 @@ This is the template's own reference documentation — upstream's, not yours to 
 
 - [Authentication Overview](authentication/overview.md) — signup, verification, login, refresh/logout, password reset, JWT/cookie mechanics
 - [OAuth2 / PKCE](authentication/oauth2-pkce.md) — Google OAuth2 login flow, PKCE code-challenge mechanics, CSRF state protection
+- [System Superuser: Bootstrapping and Promotion](authentication/system-superuser.md) — `create_system_user.py`'s full behavior: fresh creation, promoting an existing account, and the Google-only-account special case
 
 ## Authorization (PBAC)
 
 - [Architecture Overview](authorization/architecture.md) — request flow, component responsibilities, integration points
 - [Policy JSON Examples](authorization/policy-examples.md) — basic, conditioned, superuser, and self-service policies
+- [Common Patterns](authorization/common-patterns.md) — modeling common access shapes (e.g. org-chart/company-group hierarchies) on top of PBAC's existing condition types
 - [Condition Schema Reference](authorization/condition-schema-reference.md) — every supported condition type, field-by-field
 - [Adding New Permissions](authorization/adding-permissions.md) — extending the action vocabulary
 - [Adding New Condition Handlers](authorization/adding-condition-handlers.md) — extending the condition framework
@@ -53,7 +55,8 @@ This is the template's own reference documentation — upstream's, not yours to 
 
 ## Docker
 
-- [Docker Overview](docker/overview.md) — services, Dockerfiles, dev vs. prod compose, healthchecks, validation results
+- [Docker Overview](docker/overview.md) — services, Dockerfiles, dev vs. prod compose, healthchecks
+- [Docker Validation History](docker/validation-history.md) — live-verification passes against the running stack: what was run, what it found, what got fixed
 
 ## CI/CD
 
@@ -70,10 +73,13 @@ This is the template's own reference documentation — upstream's, not yours to 
 ## Project Story
 
 - [Project Story](project-story/README.md) — where this template came from and how it evolved, straight from the commit history
+- [The Tools That Built It](project-story/tools.md) — the two different workflows (manual ChatGPT + VSCode, then Claude Code) that actually did the work
 
 ## Using This as a Template
 
-- [Template Usage Guide](template-usage.md) — for anyone cloning this repo as a starting point for their own auth+PBAC project: quickstart, environment configuration, renaming the app, frontend/backend customization, OAuth/email setup, adding permissions and protecting routes, replacing the frontend, deployment
+- [Template Usage Guide](template-usage/overview.md) — for anyone cloning this repo as a starting point for their own auth+PBAC project: quickstart, environment configuration, renaming the app, frontend/backend customization, OAuth/email setup, adding permissions and protecting routes, replacing the frontend, deployment
+- [Worked Example: Adding a New Domain, End to End](template-usage/worked-example.md) — a copy-and-rename starting point: model, schema, router, migration, policy, frontend page, route, and nav link, wired together for one fake domain
+- [Staying in Sync with Upstream Template Updates](template-usage/syncing-upstream.md) — pulling fixes/features from the original template into your own diverged project, step by step, plus a worked conflict-resolution example
 
 ## Who this is for
 

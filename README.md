@@ -19,7 +19,7 @@ A reusable full-stack identity and access management template with authenticatio
 
 The product name shown in the UI and emails is configurable via the `APP_NAME` / `VITE_APP_NAME` environment variables, not hardcoded.
 
-See [`docs/mystic_auth/README.md`](docs/mystic_auth/README.md) for the full documentation set — architecture, authentication, authorization, database, API reference, background workers, security, testing, Docker, CI/CD, and deployment — and [`docs/mystic_auth/template-usage.md`](docs/mystic_auth/template-usage.md) for how to clone and customize this repo as a starting point for your own project.
+See [`docs/mystic_auth/README.md`](docs/mystic_auth/README.md) for the full documentation set — architecture, authentication, authorization, database, API reference, background workers, security, testing, Docker, CI/CD, and deployment — and [`docs/mystic_auth/template-usage/overview.md`](docs/mystic_auth/template-usage/overview.md) for how to clone and customize this repo as a starting point for your own project.
 
 ### Why this exists
 
@@ -111,7 +111,7 @@ git clone https://github.com/<your-username>/<your-repo>.git
 cd <your-repo>
 ```
 
-See [Using This Repository as a Template](docs/mystic_auth/template-usage.md) for how to pull in future updates from this original template afterward.
+See [Using This Repository as a Template](docs/mystic_auth/template-usage/overview.md) for how to pull in future updates from this original template afterward.
 
 ### 2. Set up the environment (only if running locally; skip if using Docker)
 
@@ -235,18 +235,20 @@ docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
 PYTHONPATH=backend python -m mystic_auth.scripts.create_system_user
 ```
 
-You will be prompted to enter a name, email, and password interactively:
+You'll be asked for an email first. If it's new, you'll then be prompted for a name and password to create the account:
 
 ```
 --- System Superuser Creation ---
-Enter system user name: Your Name
 Enter system user email: you@example.com
+Enter system user name: Your Name
 Enter system user password:
 
 System user 'you@example.com' created successfully.
 ```
 
-This only needs to be run once. The system user persists in the database volume. It can never be created, modified, or promoted via any API endpoint — CLI only.
+**If the email already belongs to an existing account** (e.g. you signed up or logged in via Google before running this), it offers to promote that account instead of refusing outright — a common case if you forgot to bootstrap this first, handled differently depending on whether that account has a password. See [System Superuser: Bootstrapping and Promotion](docs/mystic_auth/authentication/system-superuser.md) for both flows in full, with real transcripts.
+
+Neither creation nor promotion is ever exposed via any API endpoint — CLI only, by design.
 
 ---
 
@@ -303,7 +305,7 @@ See [Security Hardening](docs/mystic_auth/security/hardening.md) and [Security D
 
 ## 📚 Documentation
 
-Full documentation lives in [`docs/mystic_auth/`](docs/mystic_auth/README.md), organized by feature/domain. If you're building your own project on top of this template, your own docs go in `docs/app/` instead, the same way your own code goes in `backend/app/`/`frontend/src/app/` — see [Using This Repository as a Template: the `app/` + `mystic_auth/` split](docs/mystic_auth/template-usage.md#the-app--mystic_auth-split), and `scripts/sync-upstream.sh` for pulling in template updates on demand.
+Full documentation lives in [`docs/mystic_auth/`](docs/mystic_auth/README.md), organized by feature/domain. If you're building your own project on top of this template, your own docs go in `docs/app/` instead, the same way your own code goes in `backend/app/`/`frontend/src/app/` — see [Using This Repository as a Template: the `app/` + `mystic_auth/` split](docs/mystic_auth/template-usage/overview.md#the-app--mystic_auth-split), and `scripts/sync-upstream.sh` for pulling in template updates on demand.
 
 - [Architecture](docs/mystic_auth/README.md#architecture) (system overview, backend, frontend)
 - [Authentication](docs/mystic_auth/README.md#authentication) & [OAuth2/PKCE](docs/mystic_auth/authentication/oauth2-pkce.md)

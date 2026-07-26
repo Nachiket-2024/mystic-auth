@@ -70,11 +70,25 @@ services:
         condition: service_completed_successfully   # Don't serve traffic on a schema the migration hasn't applied yet
     volumes:
       - ./backend:/app
+      # Docker-managed volume, not a host bind mount, specifically for
+      # /app/logs — see backend.Dockerfile's own comment on why: it needs
+      # ownership that comes from the image (baked in at build time), not
+      # from whatever the host's checkout happens to be owned by.
+      - backend_logs:/app/logs
       # Whole repo root, additionally — lets `docker compose exec -w /repo
       # backend pytest tests/backend/...` run the top-level test suite
       # (imports as `backend.app...`/`backend.mystic_auth...`) from inside
       # the Docker network, reaching Postgres/Redis via container hostnames.
       - .:/repo
+      # Same named volume as /app/logs above, mounted a second time at the
+      # path logging_config.py resolves to when the package is imported as
+      # `backend.mystic_auth...` (i.e. running tests via -w /repo above)
+      # rather than as `mystic_auth...` (i.e. running the app normally via
+      # /app) — LOG_DIR is computed relative to `__file__`, so which of these
+      # two bind-mounted views the code is reached through changes where it
+      # resolves to. Both need the same "ownership comes from the image, not
+      # the host checkout" fix, or only one of app/tests actually works.
+      - backend_logs:/repo/backend/logs
       # Read-only: only bugsink-seed writes here (see that service below).
       - bugsink_dsn:/shared/bugsink-dsn:ro
     ports:
@@ -86,8 +100,17 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 10s
       timeout: 3s
-      retries: 5
-      start_period: 10s
+      # retries: 10 + start_period: 30s (~130s total budget) rather than a
+      # tighter 5/10s (~60s) — the backend's own startup already spends up to
+      # ~10s waiting on the Bugsink DSN file (see the command above) before
+      # uvicorn even starts, and a genuinely cold first boot (fresh image
+      # pull/build, no warm layer cache) on modest or shared hardware can
+      # still be mid-startup at 60s without anything being wrong. Confirmed
+      # too tight in practice: GitHub Actions' shared 2-vCPU runners hit this
+      # exact timeout on a cold `docker compose up --build` even though the
+      # same command succeeds comfortably on typical dev hardware.
+      retries: 10
+      start_period: 30s
 
   frontend:
     # Explicit, dev-specific tag — without it, Compose defaults to the same
@@ -153,6 +176,8 @@ services:
         condition: service_completed_successfully   # Don't process jobs against a schema the migration hasn't applied yet
     volumes:
       - ./backend:/app
+      # Same reasoning as the backend service's identical volume above.
+      - backend_logs:/app/logs
     # Override backend.Dockerfile's inherited HEALTHCHECK, which curls
     # localhost:8000/health/ready — taskiq_worker shares that image but
     # serves no HTTP at all, so the inherited check always fails and
@@ -265,3 +290,7 @@ volumes:
   # Shared between bugsink-seed (writer) and backend/frontend (readers) —
   # see the bugsink-seed service above for why this exists.
   bugsink_dsn:
+  # Docker-managed, not a host bind mount — see backend/taskiq_worker's
+  # identical comment on why: /app/logs needs ownership that comes from the
+  # image, not from whatever owns the host's checkout.
+  backend_logs:

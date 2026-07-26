@@ -20,21 +20,13 @@ const PoliciesPage = lazy(() => import("../mystic_auth/policies/PoliciesPage"));
 const AuditLogPage = lazy(() => import("../mystic_auth/audit_log/AuditLogPage"));
 const ProfilePage = lazy(() => import("../mystic_auth/profile/ProfilePage"));
 
-import ProtectedRoute from "../mystic_auth/authorization/ProtectedRoute";
-import AppLayout from "../mystic_auth/layout/AppLayout";
-import { PERMISSIONS } from "../mystic_auth/authorization/permissions";
-
-// Mounted once here so any component/thunk can call toaster.create({...})
-// (see ui/toaster.tsx)
-import { Toaster } from "../mystic_auth/ui/toaster";
-
 // Runs the current-user query once and mirrors it into the Zustand auth
 // store (see its own docstring for why this must be called exactly once,
-// here at the app root)
+// here at the app root) — not re-exported from sdk.ts since it's meant to
+// be called exactly once, here, not from arbitrary feature code.
 import { useAuthSession } from "../mystic_auth/auth/current_user/useCurrentUserQuery";
 
-import { useAuthStore } from "../mystic_auth/store/authStore";
-import LoadingState from "../mystic_auth/ui/LoadingState";
+import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, LoadingState } from "./sdk";
 
 const NotFoundPage: React.FC = () => {
     const navigate = useNavigate();
@@ -111,7 +103,18 @@ const App: React.FC = () => {
                 {/* Protected routes require authentication. Each is wrapped
                     in AppLayout (sidebar + top bar) inside ProtectedRoute, so
                     the shell only ever renders once access has actually been
-                    confirmed. */}
+                    confirmed.
+
+                    Adding your own feature routes? Give AppLayout an
+                    `extraNavItems` prop (same NavItem shape as sdk.ts's
+                    NavItem, e.g. `[{ label: "Projects", to: "/projects",
+                    permission: APP_PERMISSIONS.PROJECTS_READ }]`) instead of
+                    editing mystic_auth/layout/navItems.ts — that file stays
+                    upstream-owned. Define the array once above this Routes
+                    block and pass the same reference to every AppLayout
+                    usage, so the sidebar doesn't reshape as the user
+                    navigates. See
+                    docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points. */}
                 {/* "/" itself is never a real page — redirect to "/dashboard"
                     so the URL and the Sidebar's active-item highlight (which
                     matches against "/dashboard") both stay correct. */}

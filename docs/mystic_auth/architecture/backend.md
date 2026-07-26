@@ -2,7 +2,7 @@
 
 ## Purpose
 
-FastAPI application (`backend/mystic_auth/`, with the entry point and extension surface — `main.py`, `sdk.py`, `app_sdk.py` — in the sibling `backend/app/`; see [Using This Repository as a Template: the `app/` + `mystic_auth/` split](../template-usage.md#the-app--mystic_auth-split)), async throughout — SQLAlchemy async engine, async Redis client, async SMTP. One codebase, three container roles (`backend`, `taskiq_worker`, `alembic`) built from the same image with different `command:` overrides — see [Docker Overview](../docker/overview.md).
+FastAPI application (`backend/mystic_auth/`, with the entry point and extension surface — `main.py`, `sdk.py`, `app_sdk.py` — in the sibling `backend/app/`; see [Using This Repository as a Template: the `app/` + `mystic_auth/` split](../template-usage/overview.md#the-app--mystic_auth-split)), async throughout — SQLAlchemy async engine, async Redis client, async SMTP. One codebase, three container roles (`backend`, `taskiq_worker`, `alembic`) built from the same image with different `command:` overrides — see [Docker Overview](../docker/overview.md).
 
 ## Module layout
 
@@ -18,12 +18,12 @@ FastAPI application (`backend/mystic_auth/`, with the entry point and extension 
 | `error_monitoring/` | `sentry_service.py` — error reporting via the Sentry SDK protocol (works against Sentry itself or a self-hosted compatible server, e.g. Bugsink, which runs by default). A complete no-op unless `SENTRY_DSN` is set — see [Error Monitoring](../error-monitoring/overview.md) |
 | `logging/` | `logging_config.py` — `get_logger()` (structured, module-scoped loggers; INFO+ to a rotating JSON file, WARNING+ also to the terminal) and `get_startup_logger()` (a handful of one-time, boot-relevant facts — e.g. whether error monitoring is enabled — always visible in the terminal at INFO, not file-only); `correlation_id_middleware.py`, `logging_middleware.py` (request/response logging) |
 | `redis/` | `client.py` — single async Redis client, shared by rate limiting, lockout, caching, token registries, and taskiq's broker |
-| `scripts/` | `create_system_user.py` — one-off interactive CLI to bootstrap the reserved system account (never exposed via any API route) |
+| `scripts/` | `create_system_user.py` — interactive CLI to bootstrap the reserved system account, or promote an existing account to it (never exposed via any API route either way) — see [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser.md) |
 | `taskiq_tasks/` | `email_tasks.py` — the async email-sending task and its broker — see [Background Workers](../background-workers/taskiq.md) |
 | `user_crud/` | `user_crud_collector.py` + `user_crud_modules/` — CRUD orchestration for the `users` table |
 | `user_table/` | `user_model.py` (SQLAlchemy model, `UserRole` enum), `user_schema.py` (Pydantic schemas) |
 | `main.py` | App entrypoint: middleware registration, router mounting, global exception handler, lifespan (DB pool / Redis client cleanup on shutdown) |
-| `sdk.py` | Public extension surface for your own domain code (`require_authorization`, `authorization_service`, `build_authorization_context`, `Permission`, `get_current_user`, `database`, `settings`, `get_or_404`, `UserRole`, `capture_exception`) — the intended single import point for anything you build on top of this template, rather than reaching into the internal modules above directly. See [Using This Repository as a Template: the app/ + mystic_auth split](../template-usage.md#the-app--mystic_auth-split) |
+| `sdk.py` | Public extension surface for your own domain code — the intended single import point for anything you build on top of this template, rather than reaching into the internal modules above directly. Groups roughly into: **PBAC** (`require_authorization`, `authorization_service`, `build_authorization_context`, `Permission`), **auth/DB** (`get_current_user`, `database`, `settings`, `get_or_404`, `UserRole`, `redis_client`), **middleware** (`SecurityHeadersMiddleware`, `LoggingMiddleware`, `CorrelationIdMiddleware`), **logging/errors** (`get_logger`, `init_sentry`, `capture_exception`), and every built-in **router** (`auth_router`, `refresh_token_router`, `user_router`, `policy_crud_router`, `policy_history_router`, `policy_assignment_router`, `authorization_check_router`, `pbac_audit_log_router`, `security_audit_router`, `health_router`) — mounted in `main.py`, re-exported here in case your own `main.py` customization needs to reference one directly. See [Using This Repository as a Template: the app/ + mystic_auth split](../template-usage/overview.md#the-app--mystic_auth-split) |
 
 ## Request pipeline
 
@@ -33,7 +33,7 @@ flowchart TD
     Correlation["CorrelationIdMiddleware<br/><small>outermost — sets request.state.request_id first</small>"]
     Security["SecurityHeadersMiddleware<br/><small>attaches response headers on the way out</small>"]
     Logging["LoggingMiddleware<br/><small>logs incoming request / outgoing response</small>"]
-    Cors["CORSMiddleware<br/><small>single allowed origin: FRONTEND_BASE_URL</small>"]
+    Cors["CORSMiddleware<br/><small>allowed origins: FRONTEND_BASE_URL + FRONTEND_ADDITIONAL_BASE_URLS</small>"]
     Deps["Route dependency chain<br/><small>get_current_user / require_authorization,<br/>rate limiting</small>"]
     Handler["Route handler"]
     Error["Global exception handler<br/><small>@app.exception_handler(Exception) — generic 500</small>"]

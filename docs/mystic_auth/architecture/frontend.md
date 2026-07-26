@@ -2,7 +2,7 @@
 
 ## Purpose
 
-React 19 + TypeScript SPA (`frontend/src/mystic_auth/`, with the entry point and extension surface — `main.tsx`, `App.tsx`, `sdk.ts`, `app_sdk.ts` — in the sibling `frontend/src/app/`; see [Using This Repository as a Template](../template-usage.md#the-app--mystic_auth-split)), built with Vite, styled with Chakra UI v3. Feature-organized to mirror the backend's domain split, with a PBAC-aware UI layer that mirrors the backend's permission vocabulary.
+React 19 + TypeScript SPA (`frontend/src/mystic_auth/`, with the entry point and extension surface — `main.tsx`, `App.tsx`, `sdk.ts`, `app_sdk.ts` — in the sibling `frontend/src/app/`; see [Using This Repository as a Template](../template-usage/overview.md#the-app--mystic_auth-split)), built with Vite, styled with Chakra UI v3. Feature-organized to mirror the backend's domain split, with a PBAC-aware UI layer that mirrors the backend's permission vocabulary.
 
 ## Module layout
 
@@ -18,10 +18,10 @@ React 19 + TypeScript SPA (`frontend/src/mystic_auth/`, with the entry point and
 | `api/` | Axios-based typed call functions per backend domain (`auth_api`, `users_api`, `profile_api`, `policies_api`, `audit_api`), plus `axiosInstance.ts` and `apiError.ts` |
 | `store/` | Zustand: `authStore.ts` (session/profile/permissions), `themeStore.ts` (light/dark) — client state only, no Redux |
 | `core/` | App-wide settings (`APP_NAME`, `VITE_API_BASE_URL`), `queryClient.ts` (the shared TanStack Query client), and `errorMonitoring.ts` (a no-op unless `VITE_SENTRY_DSN` is set, which the default self-hosted Bugsink service sets automatically — see [Error Monitoring](../error-monitoring/overview.md)) |
-| `layout/` | App shell: `AppLayout`, `Navbar`, `Sidebar`, `ThemeToggle`, `navItems.ts` |
+| `layout/` | App shell: `AppLayout`, `Navbar`, `Sidebar`, `ThemeToggle`, `navItems.ts`. `AppLayout` takes an optional `extraNavItems: NavItem[]` prop so your own feature routes can add sidebar links without editing `navItems.ts` (upstream-owned) — see [Using This Repository as a Template: shared-chrome extension points](../template-usage/overview.md#shared-chrome-extension-points) |
 | `ui/` | Generic reusable UI kit, no feature ownership: `DataTable`, `ConfirmDialog`, `FormAlert`, `PageContainer`, `Card`, `LoadingState`, `toaster`/`toasterInstance`, `ErrorBoundary` |
 | `theme/` | `system.ts` — Chakra UI v3 design tokens |
-| `sdk.ts` | Public extension surface for your own feature code (`PERMISSIONS`, `useAuthorization`, `useCan`/`useAuthorized`, `Authorized`, `IfCan`, `ProtectedRoute`, `authorizationService`, `api`, `extractApiErrorMessage`, `useAuthStore`, `queryClient`, `settings`/`APP_NAME`, `reportError`) — the intended single import point for anything you build on top of this template, rather than reaching into the internal modules above directly. See [Using This Repository as a Template: the app/ + mystic_auth split](../template-usage.md#the-app--mystic_auth-split) |
+| `sdk.ts` | Public extension surface for your own feature code — the intended single import point for anything you build on top of this template, rather than reaching into the internal modules above directly. Groups roughly into: **PBAC** (`PERMISSIONS`, `useAuthorization`, `useCan`/`useAuthorized`, `Authorized`, `IfCan`, `ProtectedRoute`, `authorizationService`), **API/session** (`api`, `extractApiErrorMessage`, `useAuthStore`, `queryClient`, `settings`/`APP_NAME`, `reportError`), **app shell** (`AppLayout`, `NavItem`, `Toaster`, `toaster`), and **generic UI primitives** (`LoadingState`, `Card`, `PageContainer`, `DataTable`/`DataTableColumn`, `ConfirmDialog`, `FormAlert`, `ErrorBoundary`). See [Using This Repository as a Template: the app/ + mystic_auth split](../template-usage/overview.md#the-app--mystic_auth-split) |
 
 This layout deliberately mirrors the backend's own domain split (`backend/mystic_auth/auth/`, `backend/mystic_auth/authorization/`, `backend/mystic_auth/core/`, etc.) rather than a layer-first (`components/`/`hooks`/`services`) MVC structure — a file's folder tells you which backend domain it serves, not what kind of file it is. `api/`, `store/`, `core/`, `layout/`, `ui/`, and `theme/` are the exceptions: infrastructure/cross-cutting concerns with no single feature owner, kept as their own top-level folders rather than scattered into every feature that touches them.
 

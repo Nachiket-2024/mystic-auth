@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-This is a template repository, not a versioned library with a support matrix — there is one line of development, `main`. Security fixes land there; if you've created your own repository from this template to build on top of it, pulling in fixes means merging from upstream (see [Using This Repository as a Template: staying in sync with upstream template updates](docs/mystic_auth/template-usage.md#staying-in-sync-with-upstream-template-updates)).
+This is a template repository, not a versioned library with a support matrix — there is one line of development, `main`. Security fixes land there; if you've created your own repository from this template to build on top of it, pulling in fixes means merging from upstream (see [Staying in Sync with Upstream Template Updates](docs/mystic_auth/template-usage/syncing-upstream.md)).
 
 ## Reporting a vulnerability
 

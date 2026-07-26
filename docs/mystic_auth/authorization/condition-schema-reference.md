@@ -43,6 +43,8 @@ Every listed field must equal its expected value on the resource being acted on.
 **Validation rule:** must be a non-empty object.
 **Evaluation rule:** denies if no `resource` was supplied.
 
+> **Modeling a hierarchy (org chart, company group, folder tree) with this flat-equality condition**: see [Common Patterns: scoping access to a hierarchy](common-patterns.md#scoping-access-to-a-hierarchy-org-chart-company-group-folder-tree) — the technique is a denormalized ancestor-id column on your own resource table, not a new condition type.
+
 ## `context_attributes`
 
 Every listed key must match its expected value in the caller-supplied `context` dict (generic, application-defined signals — e.g. `{"mfa_verified": true}`).

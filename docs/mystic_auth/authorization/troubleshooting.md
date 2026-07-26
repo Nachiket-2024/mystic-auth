@@ -120,8 +120,10 @@ tasklist /FI "PID eq <pid-from-above>"
 **Do not stop host services automatically** — this needs an explicit decision from whoever owns that machine (stop the conflicting service, or remap the Docker port again in `docker-compose.yml`). The safe workaround used throughout this project's own test suite: run everything **inside** the Docker network instead of from the host:
 
 ```bash
-docker compose exec -w /repo backend python -m pytest tests/
+docker compose exec --user root -w /repo backend python -m pytest tests/
 ```
+
+(`--user root` is needed on native Linux specifically, or pytest-cov's coverage output crashes with a permission error; on Windows with Git Bash, this command needs a separate small workaround too — see [Docker Overview: running a one-off command inside a container](../docker/overview.md#running-a-one-off-command-inside-a-container) for both.)
 
 (The `-w /repo` working directory requires the `backend` service's `docker-compose.yml` entry to mount the repo root, not just `./backend`, as an additional volume — see that file's `backend.volumes` for the `.:/repo` line and its comment.)
 

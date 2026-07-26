@@ -23,11 +23,15 @@ python -m pytest tests/backend/mystic_auth/security -q
 python -m pytest tests/backend/mystic_auth/performance -q
 
 # Inside the Docker network (avoids host/container Postgres port conflicts —
-# see PBAC Troubleshooting)
-docker compose exec -w /repo backend python -m pytest tests/backend/
+# see PBAC Troubleshooting). --user root: needed on native Linux, or pytest-cov's
+# coverage output crashes with a PermissionError — see
+# docs/mystic_auth/docker/overview.md#running-a-one-off-command-inside-a-container,
+# which also covers a separate Windows/Git-Bash-only "Cwd must be an
+# absolute path" failure if you hit that instead.
+docker compose exec --user root -w /repo backend python -m pytest tests/backend/
 ```
 
-CI (`.github/workflows/ci.yml`) runs the app-wrapper, unit, integration, and security suites against GitHub Actions service containers (Postgres 15, Redis 7) on every push/PR to `main` — `tests/backend/app` and `tests/backend/mystic_auth/unit` run together as one step/coverage base. The integration and security steps pass `--cov-append` so coverage accumulates across all steps, and the security step (running last) adds `--cov-fail-under=85` — a regression alarm against *cumulative* unit+integration+security coverage (currently ~89%), not any single suite in isolation. Performance tests also run in CI, as a **non-blocking** (`continue-on-error: true`) informational step — their thresholds are deliberately generous regression alarms rather than a strict SLA, but timing can still be noisier on shared runners than locally, hence non-blocking rather than a hard gate.
+CI (`.github/workflows/ci.yml`) runs the app-wrapper, unit, integration, and security suites against GitHub Actions service containers (Postgres 15, Redis 7) on every push/PR to `main` — `tests/backend/app` and `tests/backend/mystic_auth/unit` run together as one step/coverage base. The integration and security steps pass `--cov-append` so coverage accumulates across all steps, and the security step (running last) adds `--cov-fail-under=85` — a regression alarm against *cumulative* unit+integration+security coverage (currently ~91%), not any single suite in isolation. Performance tests also run in CI, as a **non-blocking** (`continue-on-error: true`) informational step — their thresholds are deliberately generous regression alarms rather than a strict SLA, but timing can still be noisier on shared runners than locally, hence non-blocking rather than a hard gate.
 
 ## Frontend — Vitest
 

@@ -1,6 +1,6 @@
 /**
  * Public extension surface for feature code built on top of this template
- * (see docs/mystic_auth/template-usage.md).
+ * (see docs/mystic_auth/template-usage/overview.md).
  *
  * Import from HERE, not internal paths like "../authorization/useAuthorization"
  * directly — one file to discover what's available, and one file to reconcile
@@ -28,6 +28,30 @@ export { Authorized } from "../mystic_auth/authorization/Authorized";
 export { IfCan } from "../mystic_auth/authorization/IfCan";
 export { default as ProtectedRoute } from "../mystic_auth/authorization/ProtectedRoute";
 export * as authorizationService from "../mystic_auth/authorization/authorizationService";
+
+// App shell — the chrome every protected page renders inside. AppLayout
+// takes an optional `extraNavItems` prop (see layout/navItems.ts's NavItem)
+// so your own feature routes can add sidebar links without editing
+// mystic_auth/layout/navItems.ts directly — see
+// docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+export { default as AppLayout } from "../mystic_auth/layout/AppLayout";
+export type { NavItem } from "../mystic_auth/layout/navItems";
+
+// Mount once at your app root (see App.tsx) so any component/thunk can call
+// toaster.create({...})
+export { Toaster } from "../mystic_auth/ui/toaster";
+export { toaster } from "../mystic_auth/ui/toasterInstance";
+
+// Generic UI primitives — no identity/PBAC coupling of their own, reused
+// as-is by your own feature pages the same way this template's own pages do.
+export { default as LoadingState } from "../mystic_auth/ui/LoadingState";
+export { default as Card } from "../mystic_auth/ui/Card";
+export { default as PageContainer } from "../mystic_auth/ui/PageContainer";
+export { default as DataTable } from "../mystic_auth/ui/DataTable";
+export type { DataTableColumn } from "../mystic_auth/ui/DataTable";
+export { default as ConfirmDialog } from "../mystic_auth/ui/ConfirmDialog";
+export { default as FormAlert } from "../mystic_auth/ui/FormAlert";
+export { default as ErrorBoundary } from "../mystic_auth/ui/ErrorBoundary";
 
 // API layer — see docs/mystic_auth/architecture/frontend.md#api-layer
 export { default as api } from "../mystic_auth/api/axiosInstance";

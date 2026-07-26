@@ -71,12 +71,15 @@ app = FastAPI(
 # before every other middleware runs, including LoggingMiddleware's "Incoming
 # request" log line below.
 
-# Sourced from settings (FRONTEND_BASE_URL) rather than hardcoded, so this
-# works unchanged across local/staging/production instead of only ever
-# allowing http://localhost:5173.
+# Sourced from settings (FRONTEND_BASE_URL + optional
+# FRONTEND_ADDITIONAL_BASE_URLS) rather than hardcoded, so this works
+# unchanged across local/staging/production instead of only ever allowing
+# http://localhost:5173. See Settings.cors_allowed_origins for how the list
+# is built — redirect/email links still always point at FRONTEND_BASE_URL
+# alone regardless of how many origins are CORS-allowed here.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_BASE_URL],
+    allow_origins=settings.cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],

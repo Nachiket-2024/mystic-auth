@@ -4,7 +4,7 @@ A decision log — the *why* behind non-obvious security choices in this codebas
 
 ## `.dockerignore` previously let local files leak into built images
 
-Two real, verified bugs found during a production-readiness review — both about files that exist on a developer's machine ending up baked into a Docker image that gets built and potentially shipped from that machine, not about anything a template *consumer* needs to act on (the fix is already in `.dockerignore`).
+Two real, verified bugs found during a pre-release image-contents audit — both about files that exist on a developer's machine ending up baked into a Docker image that gets built and potentially shipped from that machine, not about anything a template *consumer* needs to act on (the fix is already in `.dockerignore`).
 
 **Local access logs (`backend/logs/`) were baked into the backend image.** `backend/mystic_auth/logging/logging_config.py` creates this directory on import and writes real request data to it (paths, timestamps, correlation IDs) via a `TimedRotatingFileHandler`. `.dockerignore` had `*.log`, which only matches paths ending in exactly `.log` — the rotated sibling files that handler creates (`access.log.2026-07-19`, not `access.log.log`) don't match, and `backend.Dockerfile`'s `COPY backend/ .` copied them straight in. Verified concretely: a throwaway container built from the image (no bind mount) had 23MB of real local `backend/logs/*` content sitting in it. This isn't just wasted space — it's a snapshot of whoever's local dev traffic happened to be in that directory at build time, shipped inside a distributable artifact, and it made every image build non-reproducible (content depended on the builder's own local log history). Fixed by adding `backend/logs/` explicitly.
 

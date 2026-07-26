@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one — 48 commits on `main`, from the first on 18 Aug 2025 to the most recent on 26 Jul 2026. There's a several-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one — 49 commits on `main`, from the first on 18 Aug 2025 to the most recent on 27 Jul 2026. There's a several-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -49,6 +49,7 @@ timeline
     Jul 2026 : PBAC + audit logging + CI/CD (single commit)
              : Follow-up hardening, Bugsink + sdk.py/sdk.ts
              : app / mystic_auth split, docker prod + dependency fixes
+             : Nav/sdk extension points, multi-origin CORS, CI container checks
 ```
 
 ### Aug 18–23, 2025
@@ -223,59 +224,21 @@ Self-hosted error monitoring landed via Bugsink, so real errors get logged somew
 
 ### Jul 25, 2026
 
-Split the codebase in two: `backend/mystic_auth/` / `frontend/src/mystic_auth/` for the template's own internals, and a thin `backend/app/` / `frontend/src/app/` shell for project-specific code, connected by an `sdk.py`/`sdk.ts` + `app_sdk.py`/`app_sdk.ts` re-export surface (see [Using This Repository as a Template](../template-usage.md)). Docs and tests got the same split, and a `scripts/sync-upstream.sh` script was added to pull future template updates into a project built from it.
+Split the codebase in two: `backend/mystic_auth/` / `frontend/src/mystic_auth/` for the template's own internals, and a thin `backend/app/` / `frontend/src/app/` shell for project-specific code, connected by an `sdk.py`/`sdk.ts` + `app_sdk.py`/`app_sdk.ts` re-export surface (see [Using This Repository as a Template](../template-usage/overview.md)). Docs and tests got the same split, and a `scripts/sync-upstream.sh` script was added to pull future template updates into a project built from it.
 
 ### Jul 26, 2026
 
-Another pass over the whole thing. The production Docker setup (`docker-compose.prod.yml`) got the same error-monitoring auto-wiring the dev setup already had, a frontend build bug that could load a blank page in production got fixed, a password-checking bug got closed, a few dependencies got bumped, and every doc got checked against the actual code again. Full test suite run in Docker to confirm nothing broke.
+The production Docker setup (`docker-compose.prod.yml`) got the same error-monitoring auto-wiring the dev setup already had, a frontend build bug that could load a blank page in production got fixed, a password-checking bug got closed, and a few dependencies got bumped. `scripts/sync-upstream.sh` was switched from a plain merge to a squash merge, so template updates no longer graft mystic-auth's commit history into a derived repo, then refined further with a tracked last-synced-commit file so later syncs only diff what's actually new instead of the whole repo. `template-usage.md`'s sync section was rewritten as a plain-language step-by-step to match.
 
-`scripts/sync-upstream.sh` was switched from a plain merge to a squash merge, so template updates no longer graft mystic-auth's commit history into a derived repo — then refined further with a tracked last-synced-commit file, since squash merges alone left every sync after the first re-diffing the whole repo with no baseline. `template-usage.md`'s sync section was rewritten as a plain-language step-by-step to go with it.
+### Jul 27, 2026
+
+Prompted by using the template on a real downstream project and hitting its rough edges firsthand: `App.tsx` was importing straight from `mystic_auth/` internals instead of its own `sdk.ts`, so that got fixed and `sdk.ts`'s exports filled out to match. The sidebar gained its first real extension point (`AppLayout`'s `extraNavItems`), CORS gained multi-origin support, and CI gained a container boot-and-smoke-test on every PR plus a full-suite-through-Docker rerun on pushes to `main`. A Windows Git Bash bug in a command used throughout the docs got found, fixed, and documented once instead of six times. The default Vite favicon was replaced, and two new docs — `worked-example.md` and `common-patterns.md` — gave downstream users a copy-and-rename starting point. `create_system_user.py` also learned to promote an already-existing account instead of just refusing.
 
 ---
 
 ## The tools that built it
 
-The project was worked on across several months, with gaps in between — my master's programme started during this period, and there were stretches where I wasn't actively working on it. Two different workflows built it, and they looked pretty different day to day:
-
-```mermaid
-flowchart TB
-    Task(("New task")) --> B1
-    Task --> A1
-
-    subgraph Agentic["Claude Code (Jul 2026)"]
-        direction TB
-        B1[Describe the change] --> B2[Review the edits and test results]
-        B2 -->|Needs correction| B1
-        B2 -->|Looks good| B1
-    end
-
-    subgraph Manual["ChatGPT + VSCode (Aug 2025 – Apr 2026)"]
-        direction TB
-        A1[Describe the problem] --> A2[Get back an approach or a code chunk]
-        A2 --> A3[Copy-paste into VSCode]
-        A3 --> A4[Run the app]
-        A4 -->|Works| A1
-        A4 -->|Broken, or doesn't fit| A5[Work out why myself]
-        A5 --> A6[Change the code myself so it actually fits]
-        A6 -->|Works now| A1
-        A6 -->|Still broken| A7[Paste the error back to ChatGPT]
-        A7 --> A2
-    end
-```
-
-### Aug 18, 2025 – Apr 14, 2026
-
-Most of the early foundation — everything up through the single-`users`-table refactor and the forgot-password/email work — came out of the ChatGPT + VSCode loop above. "Manual" here means hand-editing and integrating ChatGPT's output, not writing everything from scratch — no tool read the codebase or applied changes directly, every change passed through me first. Slower than the Claude Code loop, but it meant every system decision was actually understood before it landed.
-
-Working through ChatGPT's suggestions and adjusting them to fit the real codebase is how I learned most of the underlying technologies during this period: Redis-based session management, Docker and multi-container setups, TypeScript, OAuth2/PKCE flows, background workers, security practices, and Redux-based state management. Some concepts, like PBAC, weren't part of this original architecture at all — they came later, once role-based access started showing its limits.
-
----
-
-### Jul 14–26, 2026
-
-Two days before this stretch started, I bought a Claude Code Pro plan to try it out — the Claude Code loop above, replacing the ChatGPT + VSCode loop for the rest of the project. The first commit with it, on the 14th, was the big one: PBAC, audit logging, security hardening, the Redux-to-Zustand/TanStack-Query migration, CI/CD pipelines, documentation, and 650+ tests, all in one sitting, because the existing feature-based architecture meant most of it could be added as new domains rather than a rewrite. I hit the 5-hour usage window 2–3 times and used roughly 65% of my weekly quota just on that one commit.
-
-Everything after that kept using the same tool, in smaller passes rather than one big sprint — each one is described above, under "How it evolved". The foundation and architecture already existed by this point, so Claude Code's main advantage was cutting implementation friction, not changing direction — the decisions and trade-offs still came from the understanding built over the earlier phase.
+Two very different workflows built this project — a manual ChatGPT + VSCode loop for most of it, then Claude Code from Jul 2026 on — with its own diagram and detail split into its own page: see [The Tools That Built It](tools.md).
 
 ---
 
@@ -285,4 +248,4 @@ Somewhere during the infrastructure and security work, this stopped being just a
 
 The point of this template isn't just saving development time. It's a starting point with documented architectural decisions, tested authentication flows, reusable authorization patterns, and security considerations already handled — so a new project can start from a stronger baseline and focus on the actual product being built, instead of rebuilding the same foundation again.
 
-See [Using This Repository as a Template](../template-usage.md) for how to adapt it.
+See [Using This Repository as a Template](../template-usage/overview.md) for how to adapt it.

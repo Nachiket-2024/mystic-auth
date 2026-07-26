@@ -43,7 +43,19 @@ COPY backend/ .
 # none of them need root at runtime (dependency installation above is the
 # only step that does). Running as an unprivileged user limits the blast
 # radius of a compromised dependency or a container-escape bug.
-RUN groupadd --system app && useradd --system --gid app --home-dir /app app \
+# logs/ is created here (not left for the app to mkdir at runtime) so its
+# ownership is baked into the image at build time. This matters specifically
+# in dev, where docker-compose.yml bind-mounts ./backend over /app: a Docker
+# named volume mounted at /app/logs (see docker-compose.yml) initializes
+# itself by copying whatever already exists at that path in the image,
+# ownership included — giving the non-root `app` user below write access to
+# it regardless of what UID owns the host's checkout. Without this, `app`
+# trying to create logs/ itself inside a bind-mounted, host-owned directory
+# fails outright on native Linux (confirmed: this crashed the container on
+# GitHub Actions' runners, even though it always worked on Docker
+# Desktop's more permissive bind-mount permission handling).
+RUN mkdir -p /app/logs \
+    && groupadd --system app && useradd --system --gid app --home-dir /app app \
     && chown -R app:app /app
 USER app
 

@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     """Application configuration, loaded from environment variables / .env."""
 
     BACKEND_BASE_URL: str                           # Used to build auth redirect URLs back from the frontend
-    FRONTEND_BASE_URL: str
+    FRONTEND_BASE_URL: str                          # Primary frontend origin — used to build redirect/email links (OAuth callback, verification, password reset), and always CORS-allowed
+    FRONTEND_ADDITIONAL_BASE_URLS: str = ""          # Optional, comma-separated extra CORS-allowed origins (e.g. a second domain, staging alongside prod). Never used for redirect/email links — those always point at FRONTEND_BASE_URL alone, so there's one canonical link target regardless of how many origins are CORS-allowed.
 
     DATABASE_URL: str                               # Async PostgreSQL connection URL
     POSTGRES_USER: str
@@ -76,6 +77,25 @@ class Settings(BaseSettings):
         if len(value) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters long")
         return value
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        """
+        Every origin CORSMiddleware should allow: FRONTEND_BASE_URL always,
+        plus whatever FRONTEND_ADDITIONAL_BASE_URLS supplies. Kept here
+        (rather than inline in main.py) so it's unit-testable on its own —
+        same rationale as client_ip.py parsing TRUSTED_PROXY_IPS itself
+        rather than leaving that to each call site.
+        """
+        extra = (
+            origin.strip()
+            for origin in self.FRONTEND_ADDITIONAL_BASE_URLS.split(",")
+        )
+        # dict.fromkeys, not set(): preserves the (otherwise arbitrary)
+        # order origins were configured in, which matters only for reading
+        # error messages/logs deterministically, never for CORS semantics
+        # itself (allow_origins is checked as an unordered set of matches).
+        return list(dict.fromkeys([self.FRONTEND_BASE_URL, *(o for o in extra if o)]))
 
 
 settings = Settings()

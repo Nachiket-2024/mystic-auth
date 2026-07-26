@@ -75,6 +75,7 @@ _OPTIONAL_FIELDS = (
     "LOG_LEVEL",
     "ENVIRONMENT",
     "TRUSTED_PROXY_IPS",
+    "FRONTEND_ADDITIONAL_BASE_URLS",
     "SENTRY_DSN",
     "SENTRY_ENVIRONMENT",
 )
@@ -100,6 +101,7 @@ def test_optional_fields_default_when_unset(monkeypatch):
     assert settings.LOG_LEVEL == "INFO"
     assert settings.ENVIRONMENT == "development"
     assert settings.TRUSTED_PROXY_IPS == ""
+    assert settings.FRONTEND_ADDITIONAL_BASE_URLS == ""
     assert settings.SENTRY_DSN == ""
     assert settings.SENTRY_ENVIRONMENT == ""
 
@@ -113,6 +115,7 @@ def test_optional_fields_can_be_overridden():
         "LOG_LEVEL": "DEBUG",
         "ENVIRONMENT": "production",
         "TRUSTED_PROXY_IPS": "10.0.0.1,10.0.0.2",
+        "FRONTEND_ADDITIONAL_BASE_URLS": "https://staging.example.com,https://www.example.com",
         "SENTRY_DSN": "https://public@sentry.example.com/1",
         "SENTRY_ENVIRONMENT": "staging",
     }
@@ -125,5 +128,56 @@ def test_optional_fields_can_be_overridden():
     assert settings.LOG_LEVEL == "DEBUG"
     assert settings.ENVIRONMENT == "production"
     assert settings.TRUSTED_PROXY_IPS == "10.0.0.1,10.0.0.2"
+    assert settings.FRONTEND_ADDITIONAL_BASE_URLS == "https://staging.example.com,https://www.example.com"
     assert settings.SENTRY_DSN == "https://public@sentry.example.com/1"
     assert settings.SENTRY_ENVIRONMENT == "staging"
+
+
+# ---------------------------- cors_allowed_origins ----------------------------
+
+
+def test_cors_allowed_origins_is_just_frontend_base_url_when_additional_unset():
+    settings = Settings(**_REQUIRED_FIELDS)
+
+    assert settings.cors_allowed_origins == ["http://localhost:5173"]
+
+
+def test_cors_allowed_origins_includes_additional_origins_in_order():
+    payload = {
+        **_REQUIRED_FIELDS,
+        "FRONTEND_ADDITIONAL_BASE_URLS": "https://staging.example.com,https://www.example.com",
+    }
+
+    settings = Settings(**payload)
+
+    assert settings.cors_allowed_origins == [
+        "http://localhost:5173",
+        "https://staging.example.com",
+        "https://www.example.com",
+    ]
+
+
+def test_cors_allowed_origins_ignores_blank_entries_and_stray_whitespace():
+    payload = {
+        **_REQUIRED_FIELDS,
+        "FRONTEND_ADDITIONAL_BASE_URLS": " https://staging.example.com , , https://www.example.com ,",
+    }
+
+    settings = Settings(**payload)
+
+    assert settings.cors_allowed_origins == [
+        "http://localhost:5173",
+        "https://staging.example.com",
+        "https://www.example.com",
+    ]
+
+
+def test_cors_allowed_origins_deduplicates_a_repeated_origin():
+    payload = {
+        **_REQUIRED_FIELDS,
+        "FRONTEND_ADDITIONAL_BASE_URLS": "http://localhost:5173,https://www.example.com",
+    }
+
+    settings = Settings(**payload)
+
+    assert settings.cors_allowed_origins == ["http://localhost:5173", "https://www.example.com"]
