@@ -23,6 +23,7 @@ known-first-party = ["app", "mystic_auth"]
 # a running event loop doing concurrent work) — input()/getpass() blocking
 # is the correct, intended behavior here, not a footgun.
 "mystic_auth/scripts/create_system_user.py" = ["ASYNC250"]
+"mystic_auth/scripts/create_rbac_policies.py" = ["ASYNC250"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -61,7 +61,7 @@ Every create/update/delete stages an immutable row in `policy_history` in the sa
 
 ## Local testing approach
 
-**Fastest feedback: unit tests with mocked policies** (no DB needed) — see `tests/backend/mystic_auth/unit/test_policy_evaluator_unit.py` and `test_authorization_decision_unit.py`. Build a `Policy(...)` instance directly (it's a plain SQLAlchemy model, freely instantiable without a session) and call `PolicyEvaluationEngine.evaluate_detailed` directly:
+**Fastest feedback: unit tests with mocked policies** (no DB needed) — see `tests/backend/mystic_auth/unit/authorization/test_policy_evaluator_unit.py` and `authorization/test_authorization_decision_unit.py`. Build a `Policy(...)` instance directly (it's a plain SQLAlchemy model, freely instantiable without a session) and call `PolicyEvaluationEngine.evaluate_detailed` directly:
 
 ```python
 from backend.mystic_auth.authorization.models.policy_model import Policy
@@ -114,7 +114,7 @@ def test_self_only_denies_a_different_owner():
     assert allowed is False
 ```
 
-**Multiple policies, one grants and one fails** (the exact scenario `AuthorizationDecision` exists to explain — see `test_authorization_decision_unit.py`):
+**Multiple policies, one grants and one fails** (the exact scenario `AuthorizationDecision` exists to explain — see `authorization/test_authorization_decision_unit.py`):
 
 ```python
 def test_one_matching_policy_is_enough_even_if_another_rejects():

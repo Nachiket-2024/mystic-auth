@@ -20,6 +20,7 @@ This is the template's own reference documentation — upstream's, not yours to 
 
 - [Architecture Overview](authorization/architecture.md) — request flow, component responsibilities, integration points
 - [Policy JSON Examples](authorization/policy-examples.md) — basic, conditioned, superuser, and self-service policies
+- [RBAC Quickstart](authorization/rbac-quickstart.md) — plain role-shaped access (no conditions) using the same policies, for projects that don't need PBAC's full generality
 - [Common Patterns](authorization/common-patterns.md) — modeling common access shapes (e.g. org-chart/company-group hierarchies) on top of PBAC's existing condition types
 - [Condition Schema Reference](authorization/condition-schema-reference.md) — every supported condition type, field-by-field
 - [Adding New Permissions](authorization/adding-permissions.md) — extending the action vocabulary

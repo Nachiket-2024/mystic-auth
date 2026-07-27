@@ -124,7 +124,7 @@ Items with a `permission` are gated the same way the built-in nav items are (wra
 ```tsx
 const EXTRA_NAV_ITEMS: NavItem[] = [
     // Lands between Dashboard (10) and Users (20)
-    { label: "Companies", to: "/companies", order: 15, permission: APP_PERMISSIONS.COMPANY_READ },
+    { label: "Projects", to: "/projects", order: 15, permission: APP_PERMISSIONS.PROJECTS_READ },
 ];
 ```
 
@@ -160,6 +160,8 @@ async def list_all_projects(
 `resource_type`/`action` don't need to be `Permission` enum values — any string works, granted via a policy (see [Writing and Testing Policies](../authorization/writing-testing-policies.md#policy-creation-workflow)). Only add a `Permission` enum member if the action is sensitive enough to need the privilege-escalation guard (see [Adding New Permissions](../authorization/adding-permissions.md)).
 
 See [Worked Example: Adding a New Domain, End to End](worked-example.md) for all of the above — model, schema, router, migration, policy, frontend page, route, nav link — wired together for one fake domain, as a copy-and-rename starting point for your first feature.
+
+Don't need PBAC's full generality (conditions, per-resource scoping) — just "everyone with role X gets these actions"? See [RBAC Quickstart](../authorization/rbac-quickstart.md) — same policies, just unconditioned ones, no separate mechanism to learn.
 
 ## Replacing the frontend entirely
 

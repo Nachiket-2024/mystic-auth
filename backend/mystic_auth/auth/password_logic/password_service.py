@@ -75,15 +75,16 @@ class PasswordService:
             "exp": expire.timestamp()
         }
 
-        return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        # Off the event loop, same as jwt_service.py's own encode/decode calls
+        # — PyJWT's encode/decode are sync, so calling them directly here would
+        # block every other concurrent request on this worker.
+        return await asyncio.to_thread(jwt.encode, payload, settings.SECRET_KEY, settings.JWT_ALGORITHM)
 
     @staticmethod
     async def verify_reset_token(token: str) -> dict | None:
         try:
-            payload = jwt.decode(
-                token,
-                settings.SECRET_KEY,
-                algorithms=[settings.JWT_ALGORITHM]
+            payload = await asyncio.to_thread(
+                jwt.decode, token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
             )
 
             if not payload.get("email"):

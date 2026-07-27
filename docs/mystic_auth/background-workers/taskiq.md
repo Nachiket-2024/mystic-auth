@@ -75,11 +75,11 @@ A prior pass observed `taskiq_worker` crash-looping for ~30-60s against a brand-
 - With 2 worker processes (`WorkerArgs.workers` default) both calling `startup()` independently, whichever process loses the `XGROUP CREATE` race gets a `BUSYGROUP` error, which the broker explicitly catches and logs at `debug` level — never propagated, never fatal.
 - Reproduced live against a fresh Redis container (`docker compose up -d postgres redis` on a volume with no prior Redis state, then `docker compose up -d taskiq_worker`): 0 restarts, consumer group present with both worker processes registered, no `NOGROUP` errors in logs.
 
-The race does not reproduce with the currently pinned dependency versions. Locked in with regression tests in `tests/backend/mystic_auth/unit/test_email_tasks_unit.py` (`test_broker_uses_mkstream_for_deterministic_group_creation`, `test_broker_startup_survives_concurrent_group_creation_race`) guarding the specific mechanism (`mkstream=True` + graceful `BUSYGROUP` handling) that prevents it, so a future `taskiq-redis` upgrade that regresses this behavior would be caught.
+The race does not reproduce with the currently pinned dependency versions. Locked in with regression tests in `tests/backend/mystic_auth/unit/taskiq_tasks/test_email_tasks_unit.py` (`test_broker_uses_mkstream_for_deterministic_group_creation`, `test_broker_startup_survives_concurrent_group_creation_race`) guarding the specific mechanism (`mkstream=True` + graceful `BUSYGROUP` handling) that prevents it, so a future `taskiq-redis` upgrade that regresses this behavior would be caught.
 
 ## Testing
 
-`tests/backend/mystic_auth/unit/test_email_tasks_unit.py` exercises `send_email_task` directly: the success path, the failure-raises-for-retry path, that the broker's retry middleware and the task's `retry_on_error`/`max_retries` labels are actually configured, and the fresh-Redis startup race guard above. The call sites (`account_verification_service.py`, `password_reset_service.py`) are separately tested with `send_email_task.kiq` mocked/patched. See [Testing Overview](../testing/overview.md).
+`tests/backend/mystic_auth/unit/taskiq_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly: the success path, the failure-raises-for-retry path, that the broker's retry middleware and the task's `retry_on_error`/`max_retries` labels are actually configured, and the fresh-Redis startup race guard above. The call sites (`account_verification_service.py`, `password_reset_service.py`) are separately tested with `send_email_task.kiq` mocked/patched. See [Testing Overview](../testing/overview.md).
 
 ## Troubleshooting
 
