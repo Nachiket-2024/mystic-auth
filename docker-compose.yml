@@ -233,6 +233,61 @@ services:
     ports:
       # Non-default host port, distinct from the backend's own 8000.
       - "8010:8000"
+    # Same pipeline as the image's own default CMD (`docker inspect
+    # bugsink/bugsink:2 --format '{{json .Config.Cmd}}'`) — every pre-start
+    # step (migrations, snappea migration, superuser creation) unchanged —
+    # with only `--timeout 60` added to the gunicorn invocation. The image
+    # ships no request timeout at all, so a worker just uses Gunicorn's own
+    # default liveness window (30s); observed here getting a worker killed
+    # and restarted under nothing worse than ordinary local CPU contention
+    # (concurrent `docker compose build`/`up` elsewhere on the host) — it
+    # self-healed, but a real in-flight request would have seen a dropped
+    # connection. Must be a YAML list, not a plain multi-line string: Compose
+    # doesn't invoke a real shell for a scalar `command:` value, so it just
+    # silently truncates at the first shell-operator-looking token (`&&`,
+    # `|||`) instead of erroring — verified directly (`docker compose
+    # config` showed only `["monofy", "bugsink-show-version"]` survived
+    # with the string form). List form passes every token through exactly
+    # as monofy itself expects (it's monofy, not a shell, that interprets
+    # `&&`/`|||`). `$$PORT` (not `$PORT`) is required because Compose does
+    # its own `$VAR` interpolation on `command:` before the container ever
+    # sees it — `$$` escapes that, so the literal string `$PORT` reaches
+    # monofy/gunicorn to expand from this service's own `PORT` env var
+    # above, exactly like the image's baked-in CMD already does (verified
+    # by running this exact list form and confirming the container process
+    # actually receives literal `$PORT`, not an empty/wrong substitution).
+    command:
+      - monofy
+      - bugsink-show-version
+      - "&&"
+      - bugsink-manage
+      - check
+      - --deploy
+      - --fail-level
+      - WARNING
+      - "&&"
+      - bugsink-manage
+      - migrate
+      - snappea
+      - --database=snappea
+      - "&&"
+      - bugsink-manage
+      - migrate
+      - "&&"
+      - bugsink-manage
+      - prestart
+      - "&&"
+      - gunicorn
+      - --config
+      - gunicorn.docker.conf.py
+      - --timeout
+      - "60"
+      - --bind=0.0.0.0:$$PORT
+      - --access-logfile
+      - "-"
+      - bugsink.wsgi
+      - "|||"
+      - bugsink-runsnappea
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import requests; requests.get('http://localhost:8000/health/ready').raise_for_status()\""]
       interval: 10s

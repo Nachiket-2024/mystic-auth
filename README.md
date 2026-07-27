@@ -86,7 +86,7 @@ This started as the same authentication/authorization foundation getting rebuilt
 - **State Management:** Zustand (client/session state) + TanStack Query (server state/caching)
 - **Database:** PostgreSQL (async)
 - **Caching & Tasks:** Redis + Taskiq (async background email delivery)
-- **Error Monitoring:** Self-hosted Bugsink, enabled by default — starts with `docker compose up` alongside everything else, no extra setup
+- **Error Monitoring:** Self-hosted Bugsink, enabled by default — starts alongside everything else with the stack, no extra setup
 - **Deployment:** Docker (dev and production Compose files)
 
 ---
@@ -141,7 +141,7 @@ cp .env.example .env
 
 `SECRET_KEY`, `POSTGRES_*`, and the Bugsink secret key/admin login are all filled with `change_me_in_production`-style placeholders that pass validation and just work for local dev — swap them for real values before deploying anywhere real (see [Security Decisions](docs/mystic_auth/security/decisions.md)). Only Google OAuth2 and email credentials genuinely need your own values — see below.
 
-`frontend/.env.example` also exists, but only matters if you run the frontend locally with `npm run dev` instead of Docker — under `docker compose up`, the frontend reads the root `.env`'s `VITE_*` values directly, so `frontend/.env` can be skipped.
+`frontend/.env.example` also exists, but only matters if you run the frontend locally with `npm run dev` instead of Docker — running the stack via Docker, the frontend reads the root `.env`'s `VITE_*` values directly, so `frontend/.env` can be skipped.
 
 ---
 
@@ -154,8 +154,23 @@ cp .env.example .env
 ### Path 1. Docker (Recommended)
 
 ```bash
-docker compose up
+./scripts/dev-up.sh
 ```
+
+Starts every service, waits for each to actually report healthy, then
+prints a one-line-per-service status table and settles into tailing just
+`backend`/`frontend` — the two services with real request traffic (API
+calls, the frontend dev server). Postgres/Redis/Bugsink/Taskiq/Alembic's own
+startup and migration output, and Bugsink's health-check polling, don't
+show up here — they've already done their job by the time you see the
+tail start. Backend exceptions still go to Bugsink
+([http://localhost:8010](http://localhost:8010)), not this terminal. See
+[Docker Overview](docs/mystic_auth/docker/overview.md#day-to-day-scriptsdev-upsh)
+for the full rationale, and what to do if a service fails to start.
+
+Want every service's full logs interleaved in one stream instead (e.g.
+debugging Postgres/Bugsink/Taskiq startup itself)? Plain `docker compose up`
+still does exactly that.
 
 Once the services are running:
 
@@ -170,7 +185,7 @@ See [Docker Overview](docs/mystic_auth/docker/overview.md) for the full service 
 
 ---
 
-**Self-hosted error monitoring (Bugsink) is part of the command above** — `docker compose up` starts it by default alongside every other service. The `bugsink-seed` service then creates a "MysticAuth" project automatically and wires its DSN into `backend`/`frontend` for you — no manual project/DSN setup needed. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md) for the full walkthrough.
+**Self-hosted error monitoring (Bugsink) is part of the command above** — both `./scripts/dev-up.sh` and plain `docker compose up` start it by default alongside every other service. The `bugsink-seed` service then creates a "MysticAuth" project automatically and wires its DSN into `backend`/`frontend` for you — no manual project/DSN setup needed. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md) for the full walkthrough.
 
 ---
 

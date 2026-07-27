@@ -76,7 +76,7 @@ Route-level code splitting is separate and already in place — see [Routing](#r
 
 ## Configuration requirements
 
-`VITE_API_BASE_URL` (the backend's base URL) and `VITE_APP_NAME` (the product name shown in the UI — navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution). Both are Vite build-time env vars, read through `core/settings.ts`, and set in the root `.env` — under `docker compose up`, that's what the frontend container actually reads; `frontend/.env.example` only matters for running the frontend locally with `npm run dev`, outside Docker. Support email shown in emails is backend-driven (`SUPPORT_EMAIL`) and only ever appears in server-rendered email templates, not in the frontend build.
+`VITE_API_BASE_URL` (the backend's base URL) and `VITE_APP_NAME` (the product name shown in the UI — navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution). Both are Vite build-time env vars, read through `core/settings.ts`, and set in the root `.env` — running the stack via Docker, that's what the frontend container actually reads; `frontend/.env.example` only matters for running the frontend locally with `npm run dev`, outside Docker. Support email shown in emails is backend-driven (`SUPPORT_EMAIL`) and only ever appears in server-rendered email templates, not in the frontend build.
 
 ## Edge cases / error handling
 

@@ -27,7 +27,7 @@ flowchart TD
 - **PostgreSQL**: system of record — users, policies, policy history, both audit log tables (authorization decisions and security events).
 - **Redis**: ephemeral/derived state only, never the source of truth for anything that must survive a flush — rate-limit/lockout counters, the refresh-token jti revocation registry, single-use password-reset/email-verification/OAuth2-state tokens (all with TTLs matching their expiry). Also Taskiq's broker/result backend.
 - **Taskiq worker**: consumes an async task queue (Redis stream) for one job today — sending email (verification, password reset) — so a request handler returns immediately instead of blocking on SMTP.
-- **Bugsink**: self-hosted error monitoring, enabled by default — starts with `docker compose up` alongside everything else. Backend and frontend both report unhandled exceptions to it over the Sentry SDK wire protocol. Runs as its own container, using a second database on the same Postgres server (not a second Postgres instance). See [Error Monitoring](../error-monitoring/overview.md).
+- **Bugsink**: self-hosted error monitoring, enabled by default — starts with the stack alongside everything else. Backend and frontend both report unhandled exceptions to it over the Sentry SDK wire protocol. Runs as its own container, using a second database on the same Postgres server (not a second Postgres instance). See [Error Monitoring](../error-monitoring/overview.md).
 
 ## Why this split
 

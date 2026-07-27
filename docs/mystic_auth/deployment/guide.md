@@ -12,8 +12,10 @@
 Local development:
 
 ```bash
-docker compose up
+./scripts/dev-up.sh
 ```
+
+(or plain `docker compose up` if you want every service's logs interleaved — see [Docker Overview](../docker/overview.md#day-to-day-scriptsdev-upsh))
 
 Production:
 

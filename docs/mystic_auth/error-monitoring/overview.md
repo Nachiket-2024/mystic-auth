@@ -1,6 +1,6 @@
 # Error Monitoring
 
-Enabled by default via self-hosted Bugsink. This template ships the wiring to report unhandled backend exceptions and frontend render crashes to an error-tracking service — the Bugsink container starts automatically with `docker compose up` and the SDKs make zero calls only if you clear `SENTRY_DSN`/`VITE_SENTRY_DSN` yourself.
+Enabled by default via self-hosted Bugsink. This template ships the wiring to report unhandled backend exceptions and frontend render crashes to an error-tracking service — the Bugsink container starts automatically with the stack and the SDKs make zero calls only if you clear `SENTRY_DSN`/`VITE_SENTRY_DSN` yourself.
 
 ## Why Bugsink
 
@@ -19,7 +19,7 @@ Prefer Sentry's own hosted free tier instead? It works identically — see [Alte
 
 No external account or sign-up is involved anywhere in this path — Bugsink is entirely self-hosted, and the only "credentials" are the superuser login you make up yourself in step 1. (Compare with [the Sentry-hosted alternative](#alternative-sentrys-hosted-free-tier) below, which does need a sentry.io account — that's the one path here that involves a third party.)
 
-**`docker compose up` starts Bugsink by default** — see [Docker Overview: services](../docker/overview.md#services) for the full service breakdown. All you need to do is set the variables in step 1 below before your first `docker compose up`.
+**Starting the stack (`./scripts/dev-up.sh` or plain `docker compose up`) starts Bugsink by default** — see [Docker Overview: services](../docker/overview.md#services) for the full service breakdown. All you need to do is set the variables in step 1 below before you first bring the stack up.
 
 1. **Set the Bugsink-specific variables in `.env`** (see `.env.example`):
 

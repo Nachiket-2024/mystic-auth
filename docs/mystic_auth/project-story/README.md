@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one — 49 commits on `main`, from the first on 18 Aug 2025 to the most recent on 27 Jul 2026. There's a several-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one — 51 commits on `main`, from the first on 18 Aug 2025 to the most recent on 28 Jul 2026. There's a several-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -222,11 +222,11 @@ A follow-up pass over the 14th's big commit, hardening it further now that it ha
 
 Self-hosted error monitoring landed via Bugsink, so real errors get logged somewhere instead of just showing up in server logs. The `sdk.py`/`sdk.ts` files were introduced too — a single file on each side that re-exports the pieces meant to be built on, so future code doesn't have to reach into the template's internals directly. The frontend also got reorganized into proper feature folders, and a couple of small logout and rate-limiter bugs were fixed along the way.
 
-### Jul 25–27, 2026
+### Jul 25–28, 2026
 
-The codebase was split in two: `backend/mystic_auth/` / `frontend/src/mystic_auth/` for the template's own internals, and a thin `backend/app/` / `frontend/src/app/` shell for project-specific code, connected by an `sdk.py`/`sdk.ts` + `app_sdk.py`/`app_sdk.ts` re-export surface (see [Using This Repository as a Template](../template-usage/overview.md)) — docs and tests got the same split, and `scripts/sync-upstream.sh` was added to pull future template updates into a project built from it, later switched from a plain merge to a squash merge (plus a tracked last-synced-commit file) so syncing stops grafting mystic-auth's own history into a derived repo. The production Docker setup got the same error-monitoring auto-wiring dev already had, alongside a blank-page-in-production frontend bug and a password-checking bug fixed, and a few dependencies bumped.
+The codebase was split in two: `backend/mystic_auth/` / `frontend/src/mystic_auth/` for the template's own internals, and a thin `backend/app/` / `frontend/src/app/` shell for project-specific code, connected by an `sdk.py`/`sdk.ts` + `app_sdk.py`/`app_sdk.ts` re-export surface (see [Using This Repository as a Template](../template-usage/overview.md)) — docs and tests got the same split, and `scripts/sync-upstream.sh` was added to pull future template updates into a project built from it. The production Docker setup, CI, and the sidebar/CORS/nav extension points all got hardened in the same stretch, alongside three new docs (`worked-example.md`, `common-patterns.md`, `rbac-quickstart.md`) and a reorganized backend unit-test folder.
 
-The rest of this stretch came from actually using the template on downstream projects and feeding what didn't fit back upstream: `App.tsx` importing straight from `mystic_auth/` internals instead of its own `sdk.ts` got fixed and `sdk.ts`'s exports filled out to match; a password-reset token was being signed synchronously, blocking the event loop, inconsistent with `jwt_service.py`'s own pattern; `create_system_user.py` learned to promote an already-existing account instead of just refusing; and a stray downstream-specific example got cleaned out of the template-usage doc. Alongside those fixes: the sidebar's first real extension point (`AppLayout`'s `extraNavItems`), multi-origin CORS, a CI container boot-and-smoke-test plus a full-suite-through-Docker rerun on pushes to `main`, three new docs (`worked-example.md`, `common-patterns.md`, `rbac-quickstart.md`) plus an optional `create_rbac_policies.py` seed script, and the backend unit-test folder reorganized into feature subfolders mirroring `backend/mystic_auth/`'s own layout instead of one 49-file flat dump.
+The rest came from actually running the template on downstream projects, not just reading the code — a handful of real bugs this way (an `sdk.ts` import bypass, an event-loop-blocking token signature, a Gunicorn timeout misconfiguration in the `bugsink` container, a stray example in a doc) plus one new day-to-day habit: `scripts/dev-up.sh`, replacing `docker compose up` as the default startup command so the terminal shows only real request traffic instead of every service's full boot noise.
 
 ---
 

@@ -9,13 +9,13 @@ You've created your own repository from this template (via GitHub's **Use this t
 - **Audit logging**: two append-only tables — security/session events, and every PBAC allow/deny decision. See [Database Design](../database/design.md#why-two-audit-tables-not-one).
 - **Frontend**: React 19 + TypeScript, Vite, Chakra UI v3, Zustand, TanStack Query. See [Frontend Architecture](../architecture/frontend.md).
 - **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Redis, Taskiq for async email, Alembic migrations, GitHub Actions CI.
-- **Error monitoring**: self-hosted Bugsink, on by default with `docker compose up`. See [Error Monitoring](../error-monitoring/overview.md).
+- **Error monitoring**: self-hosted Bugsink, on by default with the stack. See [Error Monitoring](../error-monitoring/overview.md).
 
 ## Quickstart
 
 1. Click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)**, then clone *your* new repo.
 2. `cp .env.example .env` — prefilled with working (fake) values, so this just works for local dev as-is. Only two things need real values before those specific features work: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ([OAuth setup](#oauth-setup-google)) and `FROM_EMAIL`/`GMAIL_APP_PASSWORD` ([Email setup](#email-setup)). Everything else runs fine without them.
-3. `docker compose up` — brings up backend, frontend, Postgres, Redis, Taskiq, and Bugsink, migrations included.
+3. `./scripts/dev-up.sh` — brings up backend, frontend, Postgres, Redis, Taskiq, and Bugsink, migrations included, then settles into showing just `backend`/`frontend` traffic instead of every service's full startup output (see [Docker Overview](../docker/overview.md#day-to-day-scriptsdev-upsh)). Plain `docker compose up` still works if you want everything's logs interleaved instead.
 
 Once it's up:
 

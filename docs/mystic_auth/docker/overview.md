@@ -10,7 +10,7 @@
 | `frontend` | `docker/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA — Vite dev server locally, nginx-served static build in prod |
 | `taskiq_worker` | `docker/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue — see [Background Workers](../background-workers/taskiq.md) |
 | `alembic` | `docker/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits; `backend`/`taskiq_worker` wait on its success in prod |
-| `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring, starts by default with `docker compose up`. See [Error Monitoring](../error-monitoring/overview.md) |
+| `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring, starts by default with the stack. See [Error Monitoring](../error-monitoring/overview.md) |
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy: creates its "MysticAuth" team/project (idempotent) and writes the seeded DSN(s) into the `bugsink_dsn` volume. Locally, writes both the backend and frontend DSN forms, and both `backend`/`frontend` read from the volume at their own startup. In prod, writes only the backend form and only `backend` reads it — `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time instead, so there's nothing for it to wait on at container startup (see [Error Monitoring](../error-monitoring/overview.md)) |
 
 `backend`, `taskiq_worker`, and `alembic` all build from the **same** `docker/backend.Dockerfile` image with different `command:` overrides — keeps dependency versions and application code identical across all three roles by construction.
@@ -104,7 +104,41 @@ Running as root here is scoped to this one throwaway test invocation — it has 
 | `frontend` (prod) | `wget` against `/` | |
 | `frontend` (dev) | none | Acceptable for local dev — Vite's own dev server failure is immediately visible in the terminal |
 | `taskiq_worker` | greps `/proc/*/cmdline` for `taskiq` | Overrides the inherited HTTP healthcheck from `backend.Dockerfile`, since the worker serves no HTTP and would otherwise always report unhealthy |
+| `bugsink` | `GET /health/ready` via a Python one-liner | Same reasoning as `backend`'s own check |
 | `alembic` | none | One-shot; `service_completed_successfully` is the signal other services wait on, not a healthcheck |
+| `bugsink-seed` | none | One-shot, same shape as `alembic` — creates the Bugsink project/DSN once, then exits 0 |
+
+### Day-to-day: `scripts/dev-up.sh`
+
+`docker compose up` (no `-d`) attaches to and interleaves *every* service's
+full stdout/stderr into one stream — Postgres's own boot log, Alembic's
+migration list, Bugsink's 100+ Django migrations, and (worst of it)
+Bugsink's own healthcheck hitting `/health/ready` every 10 seconds,
+forever, all mixed in with whatever you actually started the stack to look
+at. None of that is useful once the stack is actually up.
+
+`./scripts/dev-up.sh` is the recommended replacement for day-to-day use —
+see the README's Quickstart. It starts the stack detached, waits for every
+long-running service to report healthy (or just running, for `frontend`
+dev, which has no healthcheck — see the table above), prints one
+`docker compose ps`-style status line per service, then tails only
+`backend`/`frontend` — the two services with real request traffic. If a
+service fails to come up, the status table still prints (so you can see
+exactly which one), and the script exits non-zero instead of silently
+tailing a broken stack.
+
+It deliberately does **not** use `docker compose up --wait`, despite that
+being the obvious built-in choice: `--wait` treats *any* exited container
+as a failure to reach "running," with no exception for a one-shot job that
+exited 0 on purpose. `alembic` and `bugsink-seed` (see the table above)
+are exactly that — `--wait` reports this stack as failed on every single
+successful start, because those two containers correctly finished and
+exited. `scripts/dev-up.sh` polls the long-running services' own status
+text directly instead, entirely sidestepping that mismatch.
+
+Plain `docker compose up` still has its place — pass it directly when you
+want everything's full logs in one interleaved stream, e.g. actually
+debugging Postgres/Bugsink/Alembic startup itself rather than the app.
 
 ### Why `/app/logs` is a named volume, not part of the `./backend:/app` bind mount
 
