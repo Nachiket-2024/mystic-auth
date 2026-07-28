@@ -96,7 +96,7 @@ async def test_check_and_record_action_denies_when_already_locked(mocker):
     delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
 
     # Even a "successful" outcome must be denied once the account is already
-    # locked — this is the race-safety check that exists independently of
+    # locked : this is the race-safety check that exists independently of
     # any pre-check a caller performed earlier.
     allowed = await login_protection_service.check_and_record_action("key", success=True)
 
@@ -107,7 +107,7 @@ async def test_check_and_record_action_denies_when_already_locked(mocker):
 
 # ---------------------------- per-IP threshold/window overrides ----------------------------
 # These support login_handler.py's additive IP-keyed counter, which aggregates
-# failed attempts across ANY account from a single source IP — catching
+# failed attempts across ANY account from a single source IP : catching
 # credential-stuffing/spraying that the email-keyed counter alone can't see,
 # since no single email ever crosses its own threshold in that attack.
 

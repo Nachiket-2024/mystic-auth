@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 
 import { useAuthStore } from '@/store/authStore';
 import Sidebar from '@/layout/Sidebar';
@@ -89,7 +89,7 @@ describe('Sidebar', () => {
   });
 
   it('slots an extraItems link between two built-ins using order', () => {
-    // Dashboard is order:10, Audit Log is order:40 — 25 lands between them,
+    // Dashboard is order:10, Audit Log is order:40 : 25 lands between them,
     // after Users/Policies too (order:20/30) even though this caller can't
     // see those two (no matching permissions), confirming order is applied
     // to the full merged list, not just to the items actually rendered.

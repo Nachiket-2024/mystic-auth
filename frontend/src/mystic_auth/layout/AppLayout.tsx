@@ -10,7 +10,7 @@ interface AppLayoutProps {
     /**
      * Sidebar links for your own feature routes, appended after the
      * built-in ones (see navItems.ts's NAV_ITEMS). This is the supported way
-     * to extend the sidebar — never hand-edit navItems.ts itself, that file
+     * to extend the sidebar: never hand-edit navItems.ts itself, that file
      * is upstream-owned. Pass the same array on every route (e.g. define it
      * once in App.tsx and reuse it) so the sidebar doesn't change shape as
      * the user navigates. See
@@ -21,14 +21,14 @@ interface AppLayoutProps {
 
 /**
  * Shared shell (sidebar + top bar) for every authenticated page. Wraps a
- * page's content the same way ProtectedRoute wraps its access check — a
+ * page's content the same way ProtectedRoute wraps its access check: a
  * page component itself stays focused on its own content, not layout
  * chrome.
  */
 const AppLayout: React.FC<AppLayoutProps> = ({ children, extraNavItems }) => {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-    // Escape closes the off-canvas nav, same as clicking the backdrop —
+    // Escape closes the off-canvas nav, same as clicking the backdrop:
     // keyboard users shouldn't need a pointer to dismiss it.
     useEffect(() => {
         if (!mobileNavOpen) return;

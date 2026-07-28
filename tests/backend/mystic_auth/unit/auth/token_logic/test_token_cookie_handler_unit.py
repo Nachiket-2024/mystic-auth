@@ -13,7 +13,7 @@ def _set_cookie_headers(response: JSONResponse) -> list[str]:
 
 def test_refresh_token_cookie_is_scoped_to_auth_path():
     # Regression guard: refresh_token is only ever read by /auth/refresh,
-    # /auth/logout, and /auth/logout/all — all under /auth — so it must be
+    # /auth/logout, and /auth/logout/all : all under /auth : so it must be
     # scoped there instead of the site-wide default, which would send it to
     # /users/* and every other route that never needed it.
     response = token_cookie_handler.set_tokens_in_cookies(JSONResponse(content={}), TOKENS)
@@ -25,7 +25,7 @@ def test_refresh_token_cookie_is_scoped_to_auth_path():
 
 def test_access_token_cookie_is_not_path_restricted():
     # access_token is needed by both /auth/me and every /users/* route, so
-    # it must remain valid for the whole site — Starlette's default Path=/
+    # it must remain valid for the whole site : Starlette's default Path=/
     # (not narrowed to /auth like refresh_token below).
     response = token_cookie_handler.set_tokens_in_cookies(JSONResponse(content={}), TOKENS)
 

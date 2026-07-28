@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/test_policy_evaluator_unit.py
 #
-# Unit coverage for PolicyEvaluationEngine — the single place authorization
+# Unit coverage for PolicyEvaluationEngine : the single place authorization
 # decisions are actually computed. Pure and DB-free, so these tests build
 # Policy objects directly rather than mocking a repository or database.
 #
@@ -64,7 +64,7 @@ def test_grants_access_if_any_one_of_several_policies_allows():
 
 def test_inactive_policy_state_is_the_repositorys_responsibility_not_the_evaluators():
     # The evaluator trusts that only active policies were passed in (the
-    # repository filters is_active=True before evaluation) — it doesn't
+    # repository filters is_active=True before evaluation) : it doesn't
     # re-check is_active itself. Confirm a policy explicitly marked
     # is_active=False is still evaluated as a grant here, since re-checking
     # would be dead logic duplicating the repository's filter.
@@ -96,7 +96,7 @@ def test_self_only_condition_denies_when_resource_belongs_to_someone_else():
 
 def test_self_only_condition_denies_when_no_resource_is_supplied():
     # An ownership condition with nothing to check ownership against cannot
-    # be assumed satisfied — default-deny applies.
+    # be assumed satisfied : default-deny applies.
     policies = [_policy(["documents:read"], resource_type="documents", conditions={"self_only": True})]
 
     assert PolicyEvaluationEngine.evaluate(
@@ -187,7 +187,7 @@ def test_resource_attributes_condition_works_against_an_attribute_bearing_object
 
 
 def test_resource_attributes_and_self_only_can_be_combined():
-    # Both conditions must pass — ownership AND a resource-state check.
+    # Both conditions must pass : ownership AND a resource-state check.
     policies = [_policy(
         ["documents:publish"],
         resource_type="documents",
@@ -248,7 +248,7 @@ def test_context_attributes_condition_denies_when_no_context_is_supplied():
 
 def test_evaluation_never_references_role_two_role_free_policy_sets_differ_correctly():
     # There is no "role" concept anywhere in Policy or the evaluator's
-    # signature — authorization is 100% a function of assigned policies.
+    # signature : authorization is 100% a function of assigned policies.
     admin_like_policies = [_policy(["users:list_all", "users:update_any"])]
     plain_policies = [_policy(["users:read_own"])]
 
@@ -262,7 +262,7 @@ def test_evaluation_never_references_role_two_role_free_policy_sets_differ_corre
 
 # ---------------------------- evaluate_detailed (explainability) ----------------------------
 # evaluate_detailed now returns an AuthorizationDecision (see
-# evaluators/authorization_decision.py) rather than a bare dict — per
+# evaluators/authorization_decision.py) rather than a bare dict : per
 # claude.md's Authorization Decision Explainability, "detailed APIs should
 # use new structure". matched_policies/rejected_policies replace the old
 # granting_policy_names/"candidate minus granting" split.
@@ -295,7 +295,7 @@ def test_evaluate_detailed_agrees_with_evaluate_on_unconditional_allow():
 def test_evaluate_detailed_lists_a_policy_as_rejected_with_its_failed_condition_when_conditions_fail():
     # This is the whole point of evaluate_detailed over evaluate: telling
     # apart "no policy even applies" from "a policy applies but its
-    # conditions rejected this specific resource" — and now, which
+    # conditions rejected this specific resource" : and now, which
     # condition key specifically failed.
     policy = _policy(
         ["documents:publish"],
@@ -347,7 +347,7 @@ def test_evaluate_detailed_denial_reason_is_no_matching_policy_when_nothing_matc
 
 
 def test_evaluate_reuses_evaluate_detailed_and_agrees_with_it():
-    # evaluate() is now a thin wrapper — confirm it stays in lockstep with
+    # evaluate() is now a thin wrapper : confirm it stays in lockstep with
     # evaluate_detailed's own "allowed" field rather than drifting.
     policy = _policy(
         ["documents:publish"],

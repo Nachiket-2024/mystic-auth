@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 result_backend: RedisAsyncResultBackend[Any] = RedisAsyncResultBackend(redis_url=settings.REDIS_URL)
 
 # SimpleRetryMiddleware re-enqueues a task immediately (no backoff/delay) up
-# to a task's own `max_retries` label when the task raises — it does NOT
+# to a task's own `max_retries` label when the task raises : it does NOT
 # add a scheduler-based delay the way SmartRetryMiddleware's docs suggest,
 # since that requires a TaskiqScheduler/schedule_source this project doesn't
 # run; an immediate retry is the correct, simple fit for the one task here.
@@ -29,7 +29,7 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
     """Sends an email via the configured EmailSender. Returns True on success.
 
     Raises (rather than swallowing the exception) on failure so
-    SimpleRetryMiddleware can see it and re-enqueue — up to 3 attempts total.
+    SimpleRetryMiddleware can see it and re-enqueue : up to 3 attempts total.
     Every attempt, including ones that will be retried, logs its own full
     traceback, so a permanent failure that exhausts all retries still leaves
     a clear trail in the logs, not a silently dropped email.

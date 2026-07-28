@@ -1,10 +1,10 @@
 import React from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router";
 import { Heading, Text, VStack } from "@chakra-ui/react";
 
 import VerifyAccountButton from "./VerifyAccountButton";
 
-// Shared surface styling (theme surface/border tokens) — replaces this
+// Shared surface styling (theme surface/border tokens), replacing this
 // page's own hand-rolled Box with a plain border/shadow.
 import Card from "../../ui/Card";
 

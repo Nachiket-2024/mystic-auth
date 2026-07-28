@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Starts the full stack and waits for every long-running service to
 # actually report healthy (or just running, for the one service with no
-# healthcheck) before showing anything else — so a real startup failure is
+# healthcheck) before showing anything else : so a real startup failure is
 # a clean one-line-per-service table, not a scroll of interleaved logs to
 # spot it in.
 #
@@ -9,27 +9,28 @@
 # file includes one-shot init containers (alembic, bugsink-seed) that are
 # *supposed* to exit 0 once their job is done, but `--wait` treats any
 # exited container as a failure to reach "running", regardless of exit
-# code — it would report this stack as failed on every single successful
+# code : it would report this stack as failed on every single successful
 # start. This polls the actual long-running services directly instead.
 #
-# On success, tails only backend + frontend — real request traffic (API
-# calls, the frontend dev server's own activity) — never Postgres/Redis/
+# On success, tails only backend + frontend : real request traffic (API
+# calls, the frontend dev server's own activity) : never Postgres/Redis/
 # Bugsink/Taskiq/Alembic's internals or Bugsink's own health-check polling
 # noise. Backend exceptions still go to Bugsink (http://localhost:8010),
 # that's what it's for, not this terminal.
 #
-# This is the recommended day-to-day command — see README.md. Use plain
+# This is the recommended day-to-day command : see README.md. Use plain
 # `docker compose up` instead when you actually want every service's full
 # logs in one stream (e.g. debugging Postgres/Bugsink/Taskiq startup itself).
 #
-# Usage: ./scripts/dev-up.sh   (Git Bash or WSL on Windows, not PowerShell —
-# same reasoning as scripts/sync-upstream.sh)
+# Usage: ./scripts/dev-up.sh   (Git Bash or WSL on Windows)
+# PowerShell: .\scripts\dev-up.ps1
+# Command Prompt: scripts\dev-up.cmd
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# frontend has no healthcheck defined (docker-compose.yml) — "Up" is as
+# frontend has no healthcheck defined (docker-compose.yml) : "Up" is as
 # ready as it gets. Every other long-running service does have one.
 LONG_RUNNING_SERVICES=(postgres redis bugsink backend taskiq_worker frontend)
 TIMEOUT_SECONDS=180

@@ -56,7 +56,7 @@ async def test_failed_login_is_recorded_towards_lockout(mocker):
     assert response.status_code == 401
     # The bug this guards against: a failed login must be recorded with
     # success=False so it counts towards the lockout threshold, instead of
-    # being skipped entirely — for both the email and IP counters.
+    # being skipped entirely : for both the email and IP counters.
     record_mock.assert_any_call("login_lock:email:test@example.com", success=False)
     record_mock.assert_any_call(
         "login_lock:ip:unknown",
@@ -70,7 +70,7 @@ async def test_failed_login_is_recorded_towards_lockout(mocker):
 async def test_locked_source_ip_is_rejected_before_authentication_even_if_email_is_not_locked(mocker):
     # A different email tried from the same abusive IP must still be blocked
     # by the IP-keyed counter even though that specific email has never
-    # failed before — this is the credential-stuffing/spraying gap the
+    # failed before : this is the credential-stuffing/spraying gap the
     # email-only lockout could never see.
     def is_locked_side_effect(key, *args, **kwargs):
         return key.startswith("login_lock:ip:")

@@ -25,7 +25,7 @@ async def test_logout_all_without_refresh_token_returns_400(mocker):
 async def test_logout_all_with_undecodable_token_still_succeeds_and_clears_cookies(mocker):
     # A token that fails to decode at all (malformed, wrong signature, or
     # simply garbage) carries no recoverable email, so there's nothing left
-    # to revoke server-side — but the caller's goal (no valid session left
+    # to revoke server-side : but the caller's goal (no valid session left
     # in this browser) is still met, so this must clear cookies and report
     # success rather than error out.
     mocker.patch(f"{MODULE}.jwt_service.decode_payload", new_callable=AsyncMock, return_value=None)
@@ -43,7 +43,7 @@ async def test_logout_all_with_undecodable_token_still_succeeds_and_clears_cooki
 @pytest.mark.asyncio
 async def test_logout_all_with_wrong_type_token_does_not_revoke_but_still_clears_cookies(mocker):
     # decode_payload skips the revocation check (unlike verify_token), but
-    # must not also skip the "type" claim check — a wrong-type token (e.g.
+    # must not also skip the "type" claim check : a wrong-type token (e.g.
     # an access token mistakenly presented as the refresh_token cookie) must
     # never be treated as resolving a real email to revoke sessions for,
     # same as refresh_tokens() in refresh_token_service.py. It still clears
@@ -70,8 +70,8 @@ async def test_logout_all_with_already_revoked_token_still_resolves_email_and_re
     # Regression guard: right after a password change (which revokes every
     # refresh token for the account), this device's own refresh-token cookie
     # is already revoked. jwt_service.verify_token would reject it outright
-    # (no email recoverable), but decode_payload — which skips the
-    # revocation check, same as reuse-detection in refresh_token_service —
+    # (no email recoverable), but decode_payload : which skips the
+    # revocation check, same as reuse-detection in refresh_token_service :
     # still yields the owning email, so logout-all can still revoke whatever
     # sessions remain and clear cookies instead of erroring out.
     mocker.patch(
@@ -168,7 +168,7 @@ async def test_logout_all_with_already_revoked_token_still_records_an_accurate_a
 
 @pytest.mark.asyncio
 async def test_logout_all_with_undecodable_token_records_audit_entry_with_no_email(mocker):
-    # A token that fails to decode entirely has no recoverable email — the
+    # A token that fails to decode entirely has no recoverable email : the
     # audit entry must reflect that (None, not a crash trying to look one
     # up) rather than skipping the audit call altogether.
     mocker.patch(f"{MODULE}.jwt_service.decode_payload", new_callable=AsyncMock, return_value=None)

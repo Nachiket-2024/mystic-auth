@@ -186,7 +186,7 @@ def test_date_range_fails_safe_on_malformed_date():
 def test_date_range_fails_safe_when_neither_bound_present():
     """Regression: a date_range condition with no recognizable "start" or
     "end" (empty dict, or wrong field names like "start_date"/"end_date")
-    must deny — never silently treated as an unconstrained/always-allow
+    must deny : never silently treated as an unconstrained/always-allow
     range. condition_validator.py already blocks this at write time; this
     pins the evaluator's own independent fail-safe (defense in depth)."""
     handler = DateRangeCondition()
@@ -308,7 +308,7 @@ def test_service_ands_across_multiple_condition_keys():
 
 def test_service_fails_safe_on_unrecognized_condition_key():
     """An unknown/typo'd condition key must deny rather than be silently
-    ignored — an unenforceable restriction must never be treated as
+    ignored : an unenforceable restriction must never be treated as
     satisfied."""
     service = ConditionEvaluationService(default_condition_registry)
     assert service.evaluate({"totally_made_up_condition": True}, "u@example.com", None, None) is False

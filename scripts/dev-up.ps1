@@ -1,0 +1,111 @@
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+# Starts the full stack and waits for every long-running service to report
+# healthy, or just running for the frontend dev server, before tailing the
+# backend/frontend logs.
+#
+# This mirrors dev-up.sh for PowerShell users. It does not use
+# `docker compose up --wait` because alembic and bugsink-seed are one-shot
+# containers that should exit 0 after successful startup work.
+
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $RepoRoot
+
+$LongRunningServices = @(
+    "postgres",
+    "redis",
+    "bugsink",
+    "backend",
+    "taskiq_worker",
+    "frontend"
+)
+$TimeoutSeconds = 180
+$PollIntervalSeconds = 2
+
+function Get-ServiceStatus {
+    param([Parameter(Mandatory = $true)][string]$Service)
+
+    $status = docker compose ps --format "{{.Status}}" $Service 2>$null
+    if ($LASTEXITCODE -ne 0 -or $null -eq $status) {
+        return ""
+    }
+    return ($status -join "`n").Trim()
+}
+
+function Test-ServiceReady {
+    param([Parameter(Mandatory = $true)][string]$Service)
+
+    $status = Get-ServiceStatus -Service $Service
+    if ($status.Contains("(healthy)")) {
+        return $true
+    }
+    if ($Service -eq "frontend" -and $status.StartsWith("Up ")) {
+        return $true
+    }
+    return $false
+}
+
+function Test-ServiceFailed {
+    param([Parameter(Mandatory = $true)][string]$Service)
+
+    $status = Get-ServiceStatus -Service $Service
+    return ($status -eq "" -or $status.Contains("Exited") -or $status.Contains("Restarting"))
+}
+
+docker compose up -d
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+Write-Host ""
+Write-Host -NoNewline "Waiting for services to come up"
+
+$elapsed = 0
+$failedService = ""
+$notReady = 1
+
+while ($elapsed -lt $TimeoutSeconds) {
+    $notReady = 0
+
+    foreach ($service in $LongRunningServices) {
+        if (Test-ServiceFailed -Service $service) {
+            $failedService = $service
+            break
+        }
+        if (-not (Test-ServiceReady -Service $service)) {
+            $notReady += 1
+        }
+    }
+
+    if ($failedService -ne "" -or $notReady -eq 0) {
+        break
+    }
+
+    Write-Host -NoNewline "."
+    Start-Sleep -Seconds $PollIntervalSeconds
+    $elapsed += $PollIntervalSeconds
+}
+
+Write-Host ""
+Write-Host ""
+Write-Host "--- Stack status ---"
+docker compose ps --format "table {{.Service}}`t{{.Status}}"
+Write-Host ""
+
+if ($failedService -ne "") {
+    Write-Host "--- '$failedService' failed to start ---"
+    Write-Host "Check its logs: docker compose logs $failedService"
+    exit 1
+}
+if ($notReady -ne 0) {
+    Write-Host "--- Timed out after ${TimeoutSeconds}s waiting for services to become healthy ---"
+    Write-Host "Check whichever service above isn't healthy: docker compose logs <service>"
+    exit 1
+}
+
+Write-Host "--- Tailing backend + frontend (Ctrl+C stops watching, stack keeps running) ---"
+Write-Host "Backend errors/exceptions: http://localhost:8010 (Bugsink)"
+Write-Host ""
+docker compose logs -f backend frontend
+exit $LASTEXITCODE

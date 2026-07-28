@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/test_user_policies_me_route_unit.py
 #
-# Unit coverage for GET /authorization/users/me/policies — the self-service
+# Unit coverage for GET /authorization/users/me/policies : the self-service
 # "my own policy assignments" endpoint, added to support the frontend
 # authorization service's getUserPolicies() (no policies:read required,
 # mirroring GET /authorization/audit-log/me's own self-service rationale).
@@ -45,7 +45,7 @@ async def test_list_my_policies_scopes_to_caller_email(mocker):
 
 @pytest.mark.asyncio
 async def test_list_my_policies_never_accepts_a_different_users_email(mocker):
-    """There is no email parameter at all on this endpoint — it can only
+    """There is no email parameter at all on this endpoint : it can only
     ever return the authenticated caller's own policies, never anyone
     else's, regardless of what a client might try to pass."""
     current_user = {"email": "someone@example.com", "name": "Someone"}

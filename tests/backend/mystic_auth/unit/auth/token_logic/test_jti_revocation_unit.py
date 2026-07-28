@@ -115,7 +115,7 @@ async def test_revoke_token_without_jti_fails_gracefully(mocker):
 @pytest.mark.asyncio
 async def test_revoke_token_rejects_garbage_token_via_decode_payload(mocker):
     # revoke_token delegates decoding to decode_payload rather than a second,
-    # separately-maintained jwt.decode call — an undecodable token must fail
+    # separately-maintained jwt.decode call: an undecodable token must fail
     # the same way decode_payload does, not raise.
     set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
 
@@ -138,7 +138,7 @@ async def test_is_token_revoked_by_jti_checks_redis_key(mocker):
 @pytest.mark.asyncio
 async def test_is_token_revoked_by_jti_missing_jti_is_not_revoked():
     # Tokens with no jti (e.g. password reset tokens) were never eligible for
-    # this revocation mechanism — they must not be treated as revoked.
+    # this revocation mechanism, so they must not be treated as revoked.
     assert await jwt_service.is_token_revoked_by_jti(None) is False
 
 
@@ -232,7 +232,7 @@ async def test_claim_jti_for_rotation_succeeds_for_an_unclaimed_jti(mocker):
 
 @pytest.mark.asyncio
 async def test_claim_jti_for_rotation_fails_for_an_already_claimed_jti(mocker):
-    # Redis SET...NX returns None/False when the key already exists — this is
+    # Redis SET...NX returns None/False when the key already exists, this is
     # exactly what happens when two concurrent requests race on the same jti:
     # only the first SET succeeds, the second observes it already set.
     mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock, return_value=None)
@@ -241,7 +241,7 @@ async def test_claim_jti_for_rotation_fails_for_an_already_claimed_jti(mocker):
     claimed = await jwt_service.claim_jti_for_rotation("jti-1", 9999999999, "user@example.com")
 
     assert claimed is False
-    # No registry cleanup for a claim that didn't win — the winning caller's
+    # No registry cleanup for a claim that didn't win; the winning caller's
     # claim already did that.
     hdel_mock.assert_not_called()
 

@@ -61,7 +61,7 @@ async def oauth2_callback_google(
     code/state/error are all optional at the route layer (rather than required)
     so a cancelled consent screen or provider-reported error reaches the handler
     as a normal "invalid response" case, redirected cleanly to the frontend
-    login page — not a raw FastAPI 422 validation error.
+    login page, not a raw FastAPI 422 validation error.
     """
     return await oauth2_login_handler.handle_oauth2_callback(code, state, oauth_state, error, db=db, request=request)
 
@@ -108,7 +108,7 @@ async def password_reset_confirm(
     )
 
 
-# POST with the token in the body rather than GET with it as a query parameter — a
+# POST with the token in the body rather than GET with it as a query parameter : a
 # token in a URL ends up in browser history, server access logs, and any Referer
 # header sent from the post-verification page.
 @router.post("/verify-account")

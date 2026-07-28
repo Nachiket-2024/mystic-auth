@@ -162,7 +162,7 @@ async def test_route_returns_mixed_allowed_and_denied_checks(mocker):
 async def test_batch_response_never_exposes_matched_rejected_or_failed_conditions(mocker):
     """claude.md: 'Do not leak matched policies, rejected policies, or
     failed conditions through normal batch responses.' The response model
-    itself has no such fields — this proves the route doesn't smuggle them
+    itself has no such fields : this proves the route doesn't smuggle them
     in via extra attributes either."""
     batch = BatchAuthorizationCheckRequest(
         checks=[{"action": "documents:view", "resource_type": "documents"}]

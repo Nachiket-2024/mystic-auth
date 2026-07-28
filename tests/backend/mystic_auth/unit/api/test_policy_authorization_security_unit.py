@@ -5,7 +5,7 @@
 # app's own sensitive actions (Permission's fixed vocabulary) that they do
 # not already hold themselves, baseline policies must be undeletable and
 # unrenameable, and the last system_superuser assignment must be
-# irrevocable — all traced to concrete privilege-escalation / lockout
+# irrevocable, all traced to concrete privilege-escalation / lockout
 # scenarios below.
 from unittest.mock import AsyncMock, MagicMock
 
@@ -26,7 +26,7 @@ from fastapi import HTTPException
 
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 # create/update/delete_policy live in policy_crud_routes; assign/remove live
-# in policy_assignment_routes — each mocker.patch target below must match
+# in policy_assignment_routes: each mocker.patch target below must match
 # whichever module actually imported the name being patched (see the PBAC
 # route split in backend/mystic_auth/api/pbac_routes/).
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_crud_routes"
@@ -77,7 +77,7 @@ async def test_assert_authorized_to_grant_rejects_action_caller_lacks(mocker):
 async def test_assert_authorized_to_grant_ignores_actions_outside_the_app_own_vocabulary(mocker):
     """Arbitrary business-domain actions a downstream app defines for its
     own resources (e.g. "projects:read") are not this app's own sensitive
-    actions (Permission's fixed vocabulary) and must not be gated — PBAC
+    actions (Permission's fixed vocabulary) and must not be gated: PBAC
     policy authoring is meant to freely grant whatever a real deployment
     needs for its own resources."""
     authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
@@ -127,7 +127,7 @@ async def test_create_policy_allows_when_caller_holds_every_action(mocker):
 async def test_create_policy_allows_business_domain_actions_regardless_of_caller_holdings(mocker):
     """Pins the scoping decision: a caller with policies:create can create
     a policy for arbitrary downstream business actions (outside this app's
-    own Permission vocabulary) even if authorize() would say no for them —
+    own Permission vocabulary) even if authorize() would say no for them,
     the check must never even be consulted for such actions."""
     policy_data = PolicyCreate(name="app_policy", actions=["projects:read"], resource_type="projects")
     created = _make_policy(name="app_policy", actions=["projects:read"], resource_type="projects")
@@ -163,7 +163,7 @@ async def test_update_policy_blocks_adding_action_caller_does_not_hold(mocker):
 @pytest.mark.asyncio
 async def test_update_policy_allows_non_action_changes_without_grant_check(mocker):
     """Toggling is_active or editing description must not require the
-    escalation check at all — only an `actions` change does."""
+    escalation check at all: only an `actions` change does."""
     policy = _make_policy(name="some_policy")
     update_data = PolicyUpdate(is_active=False)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)

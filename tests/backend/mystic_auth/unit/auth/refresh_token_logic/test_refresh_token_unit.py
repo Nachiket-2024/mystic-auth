@@ -43,7 +43,7 @@ async def test_refresh_tokens_rejects_undecodable_token(mocker):
 @pytest.mark.asyncio
 async def test_refresh_tokens_rotates_for_account_with_no_role_claim(mocker):
     # decode_payload's returned claims carry no "role" key at all (the JWT
-    # role claim was removed entirely) — rotation must not depend on it.
+    # role claim was removed entirely); rotation must not depend on it.
     decode_mock = mocker.patch(
         f"{MODULE}.decode_payload",
         new_callable=AsyncMock,
@@ -77,10 +77,10 @@ async def test_refresh_tokens_rejects_wrong_type_token_without_treating_it_as_re
     result = await refresh_token_service.refresh_tokens("access-token-used-as-refresh")
 
     assert result is None
-    # A wrong-type token must be rejected before ever being claimed/revoked —
+    # A wrong-type token must be rejected before ever being claimed/revoked;
     # it should never be burned as if it were a genuine refresh token.
     claim_mock.assert_not_called()
-    # And, not being revoked, it's just rejected, not treated as reuse — no
+    # And, not being revoked, it's just rejected, not treated as reuse: no
     # session-wide revocation should be triggered.
     revoke_all_mock.assert_not_called()
 
@@ -117,7 +117,7 @@ async def test_refresh_tokens_reuse_with_missing_email_does_not_crash(mocker):
         return_value={"type": "refresh", "jti": "stolen-jti"},
     )
     # The claim is attempted (and fails) before email is required, so a
-    # reused token missing the email claim still reaches reuse handling —
+    # reused token missing the email claim still reaches reuse handling,
     # which itself copes with a missing email gracefully.
     mocker.patch(f"{MODULE}.claim_jti_for_rotation", new_callable=AsyncMock, return_value=False)
     revoke_all_mock = mocker.patch(
@@ -134,7 +134,7 @@ async def test_refresh_tokens_reuse_with_missing_email_does_not_crash(mocker):
 @pytest.mark.asyncio
 async def test_refresh_tokens_rejects_valid_type_token_missing_email_after_successful_claim(mocker):
     # A payload that claims successfully (jti wasn't already revoked) but
-    # carries no email claim at all must still be rejected — email is
+    # carries no email claim at all must still be rejected: email is
     # required to mint new tokens.
     mocker.patch(
         f"{MODULE}.decode_payload",
@@ -161,7 +161,7 @@ async def test_decode_payload_ignores_revocation_status(mocker):
     token = await jwt_service.create_refresh_token(email="user@example.com")
 
     # decode_payload must return the claims even though revoke status is never
-    # consulted — it's used precisely for tokens Redis already marks as revoked
+    # consulted : it's used precisely for tokens Redis already marks as revoked
     payload = await jwt_service.decode_payload(token)
 
     assert payload["email"] == "user@example.com"

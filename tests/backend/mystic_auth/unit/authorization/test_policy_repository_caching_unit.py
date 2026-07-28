@@ -2,7 +2,7 @@
 #
 # Coverage for PolicyRepository's cache-aside wiring around
 # get_active_policies_for_user, and the invalidation hooks in
-# update/delete/assign/remove — claude.md's Authorization Performance
+# update/delete/assign/remove : claude.md's Authorization Performance
 # Layer: "invalidation triggers: policy updates, deletion, assignment,
 # revocation", "no stale data served".
 from unittest.mock import AsyncMock, MagicMock
@@ -124,7 +124,7 @@ async def test_assign_policy_to_user_invalidates_only_that_users_cache_when_emai
 @pytest.mark.asyncio
 async def test_assign_policy_to_user_skips_invalidation_when_email_not_given(mocker):
     """Backward-compatible: system-side self-assignment (signup, OAuth2,
-    create_system_user.py) doesn't pass user_email — a brand-new user has
+    create_system_user.py) doesn't pass user_email : a brand-new user has
     nothing cached to invalidate, so this must not error or invalidate
     anything global."""
     cache = _mock_cache(mocker)

@@ -2,7 +2,7 @@
 #
 # Regression guard for email delivery reliability: send_email_task previously
 # caught every exception and returned False, which SimpleRetryMiddleware
-# never sees (it only reacts to a raised exception) — so a transient SMTP
+# never sees (it only reacts to a raised exception) : so a transient SMTP
 # failure silently dropped the email with no retry. The fix makes the task
 # raise on failure (after logging) so the middleware can re-enqueue it, up
 # to max_retries, while every attempt still leaves a full traceback in the

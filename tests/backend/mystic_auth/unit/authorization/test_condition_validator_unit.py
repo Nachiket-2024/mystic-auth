@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/unit/test_condition_validator_unit.py
 #
 # Unit coverage for validate_conditions (claude.md's "Policy Condition
-# Validation"): invalid policies must be rejected before storage — unknown
+# Validation"): invalid policies must be rejected before storage: unknown
 # keys, wrong types, missing required fields, invalid timezone/IP/dates.
 import pytest
 from backend.mystic_auth.authorization.conditions.condition_validator import (
@@ -131,7 +131,7 @@ def test_date_range_rejects_malformed_date():
 
 def test_date_range_canonical_field_names_are_start_and_end_only():
     """Regression pin: "start"/"end" are date_range's one canonical,
-    documented shape (matching "time"'s own start/end naming) — no
+    documented shape (matching "time"'s own start/end naming), no
     aliases like "start_date"/"end_date" are recognized. A dict using
     those names has neither "start" nor "end" from this validator's point
     of view, so it must be rejected exactly like an empty dict."""

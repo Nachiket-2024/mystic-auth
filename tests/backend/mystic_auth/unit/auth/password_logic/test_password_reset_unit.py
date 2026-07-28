@@ -48,7 +48,7 @@ async def test_send_reset_email_returns_false_for_unknown_user(mocker):
 # TOCTOU race where two concurrent requests with the same token could both
 # pass the check before either consumed it. A request that wins the GETDEL
 # but then fails a recoverable validation step restores the entry via
-# `redis_client.set` so the user can retry with the same link — see
+# `redis_client.set` so the user can retry with the same link, see
 # password_reset_service.py's docstring for the full rationale.
 
 FUTURE_EXP = 9999999999.0  # far-future JWT "exp" claim for restore-TTL math
@@ -196,7 +196,7 @@ async def test_reset_password_db_failure_restores_token_for_retry(mocker):
 
 @pytest.mark.asyncio
 async def test_reset_password_restore_ttl_is_capped_by_remaining_jwt_lifetime(mocker):
-    # The restored key's TTL must never outlive the token's own JWT expiry —
+    # The restored key's TTL must never outlive the token's own JWT expiry,
     # otherwise a persistent series of failed retries could keep the Redis
     # entry alive indefinitely regardless of the token's real expiration.
     import time

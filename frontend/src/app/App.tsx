@@ -1,9 +1,9 @@
 import React, { Suspense, lazy } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router";
 import { Flex, Heading, Text, VStack, Button } from "@chakra-ui/react";
 import type { StackProps } from "@chakra-ui/react";
 
-// LoginPage is loaded eagerly — it's the most common entry point for an
+// LoginPage is loaded eagerly since it's the most common entry point for an
 // unauthenticated visitor, so it shouldn't show a loading flash of its own
 // on top of App's own session-check gate. Every other route is route-level
 // code-split via React.lazy: none of them are needed until their route is
@@ -22,7 +22,7 @@ const ProfilePage = lazy(() => import("../mystic_auth/profile/ProfilePage"));
 
 // Runs the current-user query once and mirrors it into the Zustand auth
 // store (see its own docstring for why this must be called exactly once,
-// here at the app root) — not re-exported from sdk.ts since it's meant to
+// here at the app root), not re-exported from sdk.ts since it's meant to
 // be called exactly once, here, not from arbitrary feature code.
 import { useAuthSession } from "../mystic_auth/auth/current_user/useCurrentUserQuery";
 
@@ -53,7 +53,7 @@ const NotFoundPage: React.FC = () => {
 /**
  * NotAuthorizedPage
  * ----------------------------
- * The 403 page — where ProtectedRoute redirects an authenticated user who
+ * The 403 page: where ProtectedRoute redirects an authenticated user who
  * lacks a route's required permission (see authorization/ProtectedRoute.tsx).
  * Deliberately a separate page from NotFoundPage: "you don't have
  * permission" and "this page doesn't exist" are different situations a
@@ -94,7 +94,7 @@ const App: React.FC = () => {
 
     return (
         <Router>
-            {/* Toast queue renderer — mounted once at the app root (uses a
+            {/* Toast queue renderer, mounted once at the app root (uses a
                 Portal internally, so placement here doesn't affect layout) */}
             <Toaster />
 
@@ -109,13 +109,13 @@ const App: React.FC = () => {
                     `extraNavItems` prop (same NavItem shape as sdk.ts's
                     NavItem, e.g. `[{ label: "Projects", to: "/projects",
                     permission: APP_PERMISSIONS.PROJECTS_READ }]`) instead of
-                    editing mystic_auth/layout/navItems.ts — that file stays
+                    editing mystic_auth/layout/navItems.ts, since that file stays
                     upstream-owned. Define the array once above this Routes
                     block and pass the same reference to every AppLayout
                     usage, so the sidebar doesn't reshape as the user
                     navigates. See
                     docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points. */}
-                {/* "/" itself is never a real page — redirect to "/dashboard"
+                {/* "/" itself is never a real page: redirect to "/dashboard"
                     so the URL and the Sidebar's active-item highlight (which
                     matches against "/dashboard") both stay correct. */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />

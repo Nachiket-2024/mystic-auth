@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/test_authorization_dependency_unit.py
 #
-# Unit coverage for require_authorization — the FastAPI dependency factory
+# Unit coverage for require_authorization: the FastAPI dependency factory
 # every PBAC-protected route depends on. Called directly here the same way
 # FastAPI injects its inner `dependency` function in real requests, with an
 # explicit current_user dict and a fake Request, so these tests exercise
@@ -68,8 +68,8 @@ async def test_calls_the_authorization_service_with_the_declared_action_and_reso
 @pytest.mark.asyncio
 async def test_builds_a_real_context_from_the_request_connection(mocker):
     """The dependency must derive ip_address/current_time itself (via
-    build_authorization_context) from the actual request — never from
-    anything client-suppliable — and pass it through to the service."""
+    build_authorization_context) from the actual request, never from
+    anything client-suppliable, and pass it through to the service."""
     require_mock = mocker.patch(f"{MODULE}.authorization_service.require", new_callable=AsyncMock)
     dependency = require_authorization("users:list_all", "users")
 

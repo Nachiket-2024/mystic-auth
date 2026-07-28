@@ -227,7 +227,7 @@ async def test_rollback_policy_applies_target_definition_and_labels_history(mock
 async def test_rollback_policy_to_deleted_entry_restores_previous_definition(mocker):
     """A "deleted" history entry has no new_definition, but its
     previous_definition (the state right before deletion) is still a valid
-    rollback target — _definition_for_entry falls back to it."""
+    rollback target : _definition_for_entry falls back to it."""
     policy = _make_policy()
     pre_deletion_definition = {"name": "self_service", "actions": ["users:read_own"]}
     deleted_entry = _make_history_entry(

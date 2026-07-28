@@ -36,7 +36,7 @@ async def test_generate_and_store_state_persists_verifier_keyed_by_state(mocker)
     assert isinstance(state, str) and len(state) > 20
     assert isinstance(code_challenge, str) and len(code_challenge) > 20
     # code_challenge must never be the raw verifier itself (must be a SHA256
-    # digest of it) — anyone who could see the challenge would otherwise be
+    # digest of it) : anyone who could see the challenge would otherwise be
     # able to complete the PKCE exchange without ever having the verifier.
     set_mock.assert_awaited_once()
     args, kwargs = set_mock.call_args
@@ -68,7 +68,7 @@ async def test_consume_state_returns_verifier_once_then_rejected_on_replay(mocke
 @pytest.mark.asyncio
 async def test_generate_and_store_state_pkce_challenge_is_correct_sha256_derivation(mocker):
     # Pins the exact RFC 7636 S256 transform: code_challenge must be the
-    # base64url(no padding) of SHA256(code_verifier) — anything looser (e.g.
+    # base64url(no padding) of SHA256(code_verifier) : anything looser (e.g.
     # storing the verifier itself as the challenge) would let a network
     # observer of the authorization request alone complete the token
     # exchange without ever needing the verifier, defeating PKCE entirely.
@@ -108,7 +108,7 @@ async def test_exchange_code_for_tokens_sends_pkce_code_verifier_to_google(mocke
 async def test_exchange_code_for_tokens_fails_closed_on_pkce_mismatch(mocker):
     # The actual PKCE security property: if code_verifier doesn't match the
     # code_challenge sent at authorization time, Google rejects the token
-    # exchange (400 invalid_grant) — raise_for_status turns that into an
+    # exchange (400 invalid_grant) : raise_for_status turns that into an
     # exception, which this method must fail closed on (return None), never
     # returning any partial/fabricated token data.
     import httpx
@@ -332,7 +332,7 @@ async def test_callback_rejects_missing_email_verified_field(mocker):
     )
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.get_user_info",
-        # No email_verified field at all — must not be assumed trustworthy
+        # No email_verified field at all : must not be assumed trustworthy
         return_value={"email": "user@example.com", "name": "Test User"},
     )
     login_or_create_mock = mocker.patch(

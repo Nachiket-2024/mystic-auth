@@ -3,7 +3,7 @@
 # Focused coverage for claude.md's Authorization Decision Explainability
 # named test list: allowed-because-matched, denied-because-no-match,
 # denied-because-condition-failed, denied-because-invalid-context,
-# multiple-policies-one-grants-one-fails — plus the security requirement
+# multiple-policies-one-grants-one-fails, plus the security requirement
 # that require()'s user-facing error stays generic (never leaks which
 # policies were evaluated/rejected).
 from unittest.mock import AsyncMock

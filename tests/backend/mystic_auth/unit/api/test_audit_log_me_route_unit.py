@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/test_audit_log_me_route_unit.py
 #
-# Unit coverage for GET /authorization/audit-log/me — the self-service audit
+# Unit coverage for GET /authorization/audit-log/me, the self-service audit
 # endpoint (claude.md: "User self-service audit access"). Called directly as
 # a plain function, the same way FastAPI would inject it, so this exercises
 # the scoping logic without needing a running app or real DB.
@@ -15,7 +15,7 @@ MODULE = "backend.mystic_auth.api.pbac_routes.pbac_audit_log_routes"
 @pytest.mark.asyncio
 async def test_list_my_audit_log_scopes_to_caller_email(mocker):
     """Must return only the authenticated caller's own entries, without
-    requiring policies:read — and must never accept or use any other
+    requiring policies:read, and must never accept or use any other
     user's email."""
     current_user = {"email": "caller@example.com", "name": "Caller"}
     expected_entries = [object(), object()]

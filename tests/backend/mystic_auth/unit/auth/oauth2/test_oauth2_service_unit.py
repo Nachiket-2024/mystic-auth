@@ -36,7 +36,7 @@ async def test_login_or_create_user_existing_user_does_not_write_orphaned_sessio
 
     assert result == {"access_token": "access-token", "refresh_token": "refresh-token"}
     # The old `user_tokens:{email}` list was dead code nothing ever read, and
-    # grew forever with no TTL — it must no longer be written to.
+    # grew forever with no TTL, it must no longer be written to.
     rpush_mock.assert_not_called()
 
 
@@ -66,7 +66,7 @@ async def test_login_or_create_user_clears_password_on_pre_hijacked_unverified_a
     # Pre-hijacking regression guard: an attacker can register the victim's
     # email with an attacker-chosen password and never verify it. If linking
     # only flipped is_verified without also clearing hashed_password, the
-    # attacker's password would remain valid on the now-verified account —
+    # attacker's password would remain valid on the now-verified account,
     # letting them log in as the victim indefinitely after the victim's
     # first "Sign in with Google". The fix must clear hashed_password so the
     # attacker-set credential cannot survive the account being claimed.
@@ -91,7 +91,7 @@ async def test_login_or_create_user_clears_password_on_pre_hijacked_unverified_a
 
 @pytest.mark.asyncio
 async def test_login_or_create_user_rejects_reserved_system_account(mocker):
-    # OAuth2 login trusts Google's email_verified alone — there is no
+    # OAuth2 login trusts Google's email_verified alone, there is no
     # password check in this flow at all. Without this guard, anyone who
     # controls a Google account matching the (operator-chosen, potentially
     # real/Google-verifiable) email of the reserved system superuser could
@@ -111,7 +111,7 @@ async def test_login_or_create_user_rejects_reserved_system_account(mocker):
 
 @pytest.mark.asyncio
 async def test_login_or_create_user_rejects_deactivated_existing_user(mocker):
-    # Mirrors login_service.py's own is_active check for password login — a
+    # Mirrors login_service.py's own is_active check for password login: a
     # deactivated account must not receive fresh tokens via Google OAuth2 either.
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser(is_active=False))
     create_access_mock = mocker.patch(f"{MODULE}.jwt_service.create_access_token", new_callable=AsyncMock)
@@ -155,7 +155,7 @@ async def test_login_or_create_user_creates_new_verified_user(mocker):
     assert user_data["email"] == "new@example.com"
     assert user_data["is_verified"] is True
     assert user_data["hashed_password"] is None
-    # Role is metadata/display only and grants nothing — access comes from
+    # Role is metadata/display only and grants nothing : access comes from
     # the assigned self_service policy below, never the role. Set to the
     # same default UserRole.user password signup uses (see
     # signup_service.py), so every new account shows a role consistently
@@ -217,7 +217,7 @@ async def test_login_or_create_user_no_longer_accepts_device_id():
 
 @pytest.mark.asyncio
 async def test_login_or_create_user_normalizes_google_email_casing_for_lookup(mocker):
-    # user_info is Google's raw JSON response — it never passes through a
+    # user_info is Google's raw JSON response : it never passes through a
     # Pydantic schema, so oauth2_service.py must normalize it itself before
     # ever calling get_by_email, unlike the signup/login paths.
     get_by_email_mock = mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())

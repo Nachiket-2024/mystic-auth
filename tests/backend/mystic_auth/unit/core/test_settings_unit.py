@@ -32,7 +32,7 @@ _REQUIRED_FIELDS = {
 
 def test_settings_construction_succeeds_with_only_declared_fields():
     # Baseline: the fixture above actually is a complete, valid Settings
-    # payload — if this ever fails, the extra-field regression guards below
+    # payload : if this ever fails, the extra-field regression guards below
     # would be testing against a payload that was already broken for an
     # unrelated reason.
     Settings(**_REQUIRED_FIELDS)
@@ -40,15 +40,15 @@ def test_settings_construction_succeeds_with_only_declared_fields():
 
 def test_settings_ignores_env_vars_that_are_not_declared_fields():
     # Regression guard: the root .env is shared with docker-compose.yml's
-    # `env_file:` directive, which also passes it to infra-only services —
+    # `env_file:` directive, which also passes it to infra-only services :
     # REDIS_PASSWORD (redis-server's own auth) and BUGSINK_* (the optional
     # self-hosted error-monitoring service, see
     # docs/mystic_auth/error-monitoring/overview.md) have no corresponding Settings
     # field. pydantic-settings defaults to extra="forbid", which crashed
-    # Settings() construction the moment any such var was present — this
+    # Settings() construction the moment any such var was present : this
     # only actually surfaced when Settings' own env_file resolved to a real
     # file (true when cwd=/repo, e.g. running tests) rather than the app's
-    # own cwd=/app, where a relative ".env" never resolves to anything —
+    # own cwd=/app, where a relative ".env" never resolves to anything :
     # so the same .env silently worked for the running app while crashing
     # every test collection. Settings.Config now sets extra="ignore".
     payload = {
@@ -83,7 +83,7 @@ _OPTIONAL_FIELDS = (
 
 def test_optional_fields_default_when_unset(monkeypatch):
     # These fields are all optional so existing .env files/CI configs that
-    # predate them keep working unchanged — verify the defaults actually
+    # predate them keep working unchanged : verify the defaults actually
     # match what main.py/client_ip.py/sentry_service.py assume when unset.
     # The real repo-root .env (loaded by Settings.Config.env_file, and also
     # passed into this process's environment by docker-compose) sets several

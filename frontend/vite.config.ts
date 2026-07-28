@@ -6,18 +6,18 @@ export default defineConfig({
   plugins: [
     react(),
   ],
-  // No custom build.rollupOptions.output.manualChunks here — a prior
+  // No custom build.rollupOptions.output.manualChunks here: a prior
   // version forced every node_modules import into one "vendor" chunk for
   // better long-term caching (rarely-changing third-party code under a
   // stable hash, separate from app code that changes every deploy). That
   // broke production: app/src files like api/axiosInstance.ts both import
   // from and get imported by that vendor chunk, and Rollup placed shared
-  // CJS-interop helpers into axiosInstance's own chunk — creating a real
+  // CJS-interop helpers into axiosInstance's own chunk, creating a real
   // circular chunk dependency. ESM's live-binding semantics for circular
   // imports meant vendor.js called a binding from axiosInstance.js's chunk
   // before that chunk's module body had run far enough to define it,
   // throwing "TypeError: t is not a function" at the very top of the
-  // vendor bundle — the whole app failed to mount, a blank page with no
+  // vendor bundle: the whole app failed to mount, a blank page with no
   // build-time warning. Reverting to Rollup's own automatic chunking
   // (its default module-graph analysis doesn't create this circular
   // dependency) trades away that caching optimization for a build that

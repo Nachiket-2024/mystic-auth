@@ -2,7 +2,7 @@
 #
 # Cross-checks that condition_validator.py (write-time) and the condition
 # handlers (conditions/*.py, evaluation-time) agree on exactly one JSON
-# shape per condition type — claude.md's "Resolve Policy Condition Schema
+# shape per condition type : claude.md's "Resolve Policy Condition Schema
 # Consistency": one documented shape, one validator representation, one
 # evaluator representation, per condition. Each canonical payload below
 # must both pass validation and be understood (evaluate to the intended

@@ -5,7 +5,7 @@
 # straight into Argon2 hashing (password/name) or Redis/JWT operations
 # (tokens). These are pure schema-level unit tests since handlers take
 # plain str arguments and bypass FastAPI's request-parsing/validation layer
-# entirely — only a Pydantic model instantiation (or a real HTTP request,
+# entirely : only a Pydantic model instantiation (or a real HTTP request,
 # covered separately in integration tests) actually exercises these limits.
 import pytest
 from backend.mystic_auth.auth.login.login_schema import LoginSchema
@@ -77,7 +77,7 @@ def test_verify_account_schema_accepts_token_at_max_length():
 #
 # Regression guard: `User@Example.com` and `user@example.com` must be treated
 # as the same account. These schemas are the input boundary for signup,
-# login, and password-reset-request — normalizing here (in addition to the
+# login, and password-reset-request : normalizing here (in addition to the
 # CRUD-layer normalization in UserEmailCRUD) means the canonical lowercase
 # form flows through logs/tokens/audit from the earliest point.
 
@@ -100,7 +100,7 @@ def test_password_reset_request_schema_lowercases_mixed_case_email():
 #
 # Regression guard: these schemas back PUT /users/me and PUT /users/{email}
 # (self and admin password/profile changes) and previously had no
-# max_length at all on name/password, unlike signup_schema.SignupSchema —
+# max_length at all on name/password, unlike signup_schema.SignupSchema :
 # an unbounded password fed straight into Argon2 hashing is exactly the DoS
 # vector the signup cap exists to prevent.
 

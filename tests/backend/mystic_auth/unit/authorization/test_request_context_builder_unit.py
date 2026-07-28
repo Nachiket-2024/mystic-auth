@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/test_request_context_builder_unit.py
 #
-# Unit coverage for build_authorization_context — the one place every real
+# Unit coverage for build_authorization_context : the one place every real
 # authorization check derives ip_address/current_time/security_context
 # from (claude.md's "Wire Authorization Context Properly": centralized
 # builder, never trust client-supplied values, IP from the connection,
@@ -57,7 +57,7 @@ def test_forged_x_forwarded_for_header_is_never_used():
 
 def test_client_supplied_current_time_query_param_is_never_used():
     """A client cannot influence current_time by passing it as a query
-    param, header, or any other client-controlled input — only the
+    param, header, or any other client-controlled input : only the
     server's own clock is ever read."""
     request = _request(query_params={"current_time": "2000-01-01T00:00:00+00:00"})
     context = build_authorization_context(request)

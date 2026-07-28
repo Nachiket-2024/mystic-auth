@@ -13,7 +13,7 @@ class _FakeClient:
 
 
 class _FakeRequest:
-    """Duck-typed stand-in for fastapi.Request — the decorator only reads
+    """Duck-typed stand-in for fastapi.Request: the decorator only reads
     `.client.host`, and locates it via the `request` kwarg (not isinstance),
     so a real Request (whose `.client` is a read-only computed property) is
     unnecessary and awkward to construct here."""
@@ -128,7 +128,7 @@ async def test_rate_limited_account_extractor_failure_does_not_break_request(moc
 async def test_rate_limited_account_extractor_failure_is_logged(mocker):
     # A silently-skipped account_key_func failure means per-account
     # brute-force protection quietly stops applying with no signal that
-    # anything changed — this must be logged so it's visible.
+    # anything changed, so this must be logged to stay visible.
     _patch_incr(mocker, return_value=1)
     mocker.patch(f"{MODULE}.redis_client.expire", new_callable=AsyncMock)
     warning_mock = mocker.patch(f"{MODULE}.logger.warning")
@@ -163,7 +163,7 @@ async def test_record_request_only_sets_expiry_on_first_request_in_window(mocker
 @pytest.mark.asyncio
 async def test_record_request_fails_closed_on_redis_exception(mocker):
     # Deliberate, documented tradeoff (see docs/mystic_auth/security/decisions.md): a
-    # Redis outage must deny the request rather than silently allow it — the
+    # Redis outage must deny the request rather than silently allow it: the
     # safer default for an auth-focused template, even though it means a
     # Redis outage takes down every rate-limited route, not just caching.
     mocker.patch(f"{MODULE}.redis_client.incr", side_effect=ConnectionError("redis unreachable"))
@@ -200,5 +200,5 @@ async def test_rate_limited_skips_account_check_when_extractor_returns_none(mock
     result = await handler(request=_make_request())
 
     assert result == "ok"
-    # Only the IP key should have been checked — no ":account:" lookup at all
+    # Only the IP key should have been checked; no ":account:" lookup at all
     assert all(":account:" not in call.args[0] for call in incr_mock.call_args_list)

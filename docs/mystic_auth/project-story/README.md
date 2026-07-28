@@ -4,15 +4,15 @@
 
 This project started because I got tired of rebuilding the same authentication and authorization pieces for different startup take-home assignments.
 
-During 2025, while applying to startups, many take-home projects needed similar foundations with slightly different expectations — one needed email/password authentication, another needed OAuth2, another wanted RBAC. Each time, the actual product logic was slowed down because a large amount of time went into rebuilding the same authentication foundation.
+During 2025, while applying to startups, many take-home projects needed similar foundations with slightly different expectations: one needed email/password authentication, another needed OAuth2, another wanted RBAC. Each time, the actual product logic was slowed down because much time went into rebuilding the same authentication foundation.
 
 The original idea was simple:
 
 > Build auth + OAuth2 + a basic authorization layer once, then reuse it.
 
-I assumed this would take a week or two. Almost a year later — on and off, between a master's programme and long gaps where I didn't touch it at all — it's still going, and it grew into a full template with PBAC, audit logging, CI/CD, and a real test suite instead of the small module I set out to build.
+I assumed this would take a week or two. Almost a year later, after working on it on and off between a master's programme and long gaps where I didn't touch it at all, it's still going. It grew into a full template with PBAC, audit logging, CI/CD, and a real test suite instead of the small module I set out to build.
 
-Authentication looks small from the outside — a login endpoint, a logout endpoint, maybe a token — but it quickly becomes its own engineering domain. The project expanded into understanding and implementing:
+Authentication looks small from the outside: a login endpoint, a logout endpoint, maybe a token. It quickly becomes its own engineering domain. The project expanded into understanding and implementing:
 
 - refresh token rotation and reuse detection,
 - session storage decisions,
@@ -32,55 +32,61 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one — 51 commits on `main`, from the first on 18 Aug 2025 to the most recent on 28 Jul 2026. There's a several-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. 52 commits on `main`, from the first on 18 Aug 2025 to the most recent on 28 Jul 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
 
 ```mermaid
 timeline
     title Major milestones (main branch)
-    Aug 2025 : Auth foundation, role-based tables
-             : OAuth2, rate limiting, brute-force lockout
-             : httpOnly cookies, Redis-only tokens
-    Oct 2025 : Fully Dockerized (all services together)
-             : Celery replaced with Taskiq
-    Feb 2026 : Work resumes after 4-month gap
-             : Frontend rebuilt on Chakra UI
-    Apr 2026 : Role tables collapsed into one users table
-             : Forgot-password flow, HTML emails
-    Jul 2026 : PBAC + audit logging + CI/CD (single commit)
-             : Follow-up hardening, Bugsink + sdk.py/sdk.ts
-             : app / mystic_auth split, docker prod + dependency fixes
-             : Nav/sdk extension points, multi-origin CORS, CI container checks
+    Aug 2025: Auth foundation, role-based tables
+            : OAuth2, rate limiting, brute-force lockout
+            : Frontend skeleton, Tailwind tried and dropped
+    Sep 2025: httpOnly cookies, first full OAuth2 flow end-to-end
+            : Token table rework, backend fully commented
+            : Logout-all reworked, TokenCRUD/UserCRUD modularized
+            : Token tables removed for Redis-only sessions
+    Oct 2025: Fully Dockerized (all services together)
+            : Celery replaced with Taskiq
+            : Frontend flickering fixed, full auth flow reconfirmed
+    Feb 2026: Work resumes after 4-month gap
+            : Frontend rebuilt on Chakra UI
+    Apr 2026: Role tables collapsed into one users table
+            : Forgot-password flow, HTML emails
+    Jul 2026: PBAC + audit logging + CI/CD (single commit)
+            : Follow-up hardening, Bugsink + sdk.py/sdk.ts
+            : app / mystic_auth split, docker prod + dependency fixes
+            : Nav/sdk extension points, multi-origin CORS, CI container checks
+            : react-router security fix, DSN/logging polish, cleanup pass
 ```
 
-### Aug 18–23, 2025
+### Aug 18-23, 2025
 
 The first version focused on authentication. It started with a bare FastAPI skeleton, then in quick succession: modular auth logic with role-based tables, OAuth2 plus rate limiting and brute-force protection, a refactor of the auth flow and role tables around standard security practices, and a logout-from-all-devices endpoint (both on the 21st).
 
-Then role-based routes landed with `main.py`, and the run closed with a move to generic, permission-injected routes plus the first Alembic migration — the same day the frontend's first commits appeared: a bare TypeScript + React setup.
+Then role-based routes landed with `main.py`, and the run closed with a move to generic, permission-injected routes plus the first Alembic migration. That same day, the frontend's first commits appeared: a bare TypeScript + React setup.
 
-Rate limiting and brute-force protection showed up on day three, because security concerns became obvious while building the foundation — not because they were planned upfront.
+Rate limiting and brute-force protection showed up on day three because security concerns became obvious while building the foundation, not because they were planned upfront.
 
-### Aug 26–28, 2025
+### Aug 26-28, 2025
 
-Tailwind CSS was tried and then replaced by plain CSS. The same day, modular slice/types/button/form files and `store.ts` were added. Auth route pages were wired into `App.tsx`, and all `axios` calls were centralized into a single API folder — the frontend's first pass at having a consistent shape.
+Tailwind CSS was tried and then replaced by plain CSS. The same day, modular slice/types/button/form files and `store.ts` were added. Auth route pages were wired into `App.tsx`, and all `axios` calls were centralized into a single API folder: the frontend's first pass at having a consistent shape.
 
-The stretch that followed involved the biggest learning curve of the project so far.
+The stretch that followed involved the biggest learning curve of the project.
 
-### Aug 30 – Sep 2, 2025
+### Aug 30 - Sep 2, 2025
 
-Frontend imports were corrected and Tailwind re-added. Then HTTP-only cookies for tokens landed, and a basic OAuth2 flow started working end to end across frontend, backend, Redis, and Postgres — the first time all the moving pieces talked to each other. Auth code was modularized and a basic dashboard integrated into the frontend, and logout was reworked on both the frontend and backend, including component files for the logout/logout-all buttons.
+Frontend imports were corrected and Tailwind re-added. Then HTTP-only cookies for tokens landed, and a basic OAuth2 flow started working end-to-end across frontend, backend, Redis, and Postgres: the first time all the moving pieces talked to each other. Auth code was modularized and a basic dashboard integrated into the frontend, and logout was reworked on both the frontend and backend, including component files for the logout/logout-all buttons.
 
-### Sep 4–5, 2025
+### Sep 4-5, 2025
 
-The token table was changed and cookie-setting modularized. The backend was fully commented, with the token CRUD corrected across its call sites (the single largest commit of this stretch, at ~2,000 changed lines). The OAuth2 service logic and the frontend's auth slice/API were updated to match.
+The token table was changed and cookie-setting modularized. The backend was fully commented, with the token CRUD corrected across its call sites (the largest commit of this stretch, at ~2,000 changed lines). The OAuth2 service logic and the frontend's auth slice/API were updated to match.
 
 ### Sep 7, 2025
 
-Single-device OAuth2 login and logout both worked end to end with the updated token logic.
+Single-device OAuth2 login and logout both worked end-to-end with the updated token logic.
 
-### Sep 13–14, 2025
+### Sep 13-14, 2025
 
-The logout-all handler was reworked — its own commit message notes "not done yet" — alongside a round of backend commenting. Then `TokenCRUD` and `UserCRUD` were both fully modularized.
+The logout-all handler was reworked alongside a round of backend commenting; its own commit message notes "not done yet". Then `TokenCRUD` and `UserCRUD` were both fully modularized.
 
 ### Sep 16, 2025
 
@@ -88,21 +94,21 @@ Logout logic was updated so `is_active` correctly flips to `false` on logout.
 
 ### Sep 18, 2025
 
-The token table's field structure changed again — mostly a cleanup, with more lines removed than added as redundant fields were dropped.
+The token table's field structure changed again: mostly a cleanup, with more lines removed than added as redundant fields were dropped.
 
-### Sep 22–24, 2025
+### Sep 22-24, 2025
 
-Token tables were removed entirely in favor of Redis-only token management (the last of these commits again flagged "not done yet" mid-migration). OAuth2 login was re-verified against the new logic, and logout/logout-all was confirmed working end to end. `UserCRUD` was updated alongside a new signup page, and the stretch closed with logging added across the backend.
+Token tables were removed entirely in favor of Redis-only token management (the last of these commits again flagged "not done yet" mid-migration). OAuth2 login was re-verified against the new logic, and logout/logout-all was confirmed working end-to-end. `UserCRUD` was updated alongside a new signup page, and the stretch closed with logging added across the backend.
 
 This four-week stretch, from late August through late September, was where the project stopped being "just implementing features" and started being about the underlying security decisions. Questions like where tokens should live, how refresh-token reuse detection should work, and what logout-all should actually revoke became architectural decisions, not coding tasks.
 
 ### Oct 6, 2025
 
-The app was fully Dockerized, with OAuth2 login and logout tested end to end inside containers. This was the first time backend, frontend, PostgreSQL, Redis, background workers, migrations, and environment configuration were all managed together as one system, instead of pieces run separately.
+The app was fully Dockerized, with OAuth2 login and logout tested end-to-end inside containers. This was the first time backend, frontend, PostgreSQL, Redis, background workers, migrations, and environment configuration were all managed together as one system, instead of pieces run separately.
 
 ### Oct 10, 2025
 
-Celery was replaced with Taskiq. Celery was considered first because it's widely used, but since the backend was built around async patterns, the worker model created friction. After comparing ARQ, Dramatiq, and Taskiq, Taskiq fit the async-first approach best. This was a large commit (61 files), and its own message admits it left "frontend issues" behind — the swap wasn't clean on the first pass, even though the actual requirement (reliably sending verification and password-reset emails) was simple.
+Celery was replaced with Taskiq. Celery was considered first because it's widely used, but since the backend was built around async patterns, the worker model created friction. After comparing ARQ, Dramatiq, and Taskiq, Taskiq fit the async-first approach best (ARQ was close, but Taskiq's FastAPI integration was cleaner). This was a large commit (61 files), and its own message admits it left "frontend issues" behind: the swap wasn't clean on the first pass, even though the actual requirement (reliably sending verification and password-reset emails) was simple.
 
 ### Oct 14, 2025
 
@@ -112,19 +118,19 @@ The frontend flickering issue from the Taskiq swap was resolved, with signup, lo
 
 ### Feb 21, 2026
 
-Work resumed, after a roughly four-month gap, by fixing the OAuth2 login flow, which had drifted during the break.
+Work resumed after the 4-month gap by fixing the OAuth2 login flow, which hadn't been fully solid before the break.
 
-### Feb 26–28, 2026
+### Feb 26-28, 2026
 
 The UI was rebuilt on Chakra UI: the login page first, with Tailwind removed (the largest of the three commits, at ~2,000 changed lines), then signup, verify-account, and dashboard pages, and finally the dashboard updated to show real user details alongside a reworked signup page.
 
-The frontend also moved toward feature-based organization, mirroring the backend: auth, dashboard, profile, policies, users administration, audit logging. Redux was still the frontend state management foundation at this point.
+The frontend also moved toward feature-based organization, mirroring the backend: auth, dashboard, and profile. Redux was still the frontend state management foundation at this point.
 
 ---
 
 ### Apr 12, 2026
 
-Earlier role-based tables were collapsed into a single `users` table with a role enum — the authorization data model's first big simplification.
+Earlier role-based tables were collapsed into a single `users` table with a role enum: the authorization data model's first big simplification.
 
 ### Apr 14, 2026
 
@@ -138,7 +144,7 @@ The architecture wasn't designed perfectly from the beginning. Early on, I explo
 
 As the project grew, a problem became obvious: authentication flows aren't isolated files. A single feature could involve API routes, schemas, services, handlers, database models, frontend pages, API clients, state management, and tests. When these pieces were spread across unrelated folders, debugging got harder, because understanding one flow meant jumping across many locations.
 
-So instead of organizing only by technical type —
+So instead of organizing only by technical type:
 
 ```text
 controllers/
@@ -147,9 +153,9 @@ models/
 schemas/
 ```
 
-— I moved toward grouping related behavior together, by feature instead of by layer.
+I moved toward grouping related behavior together, by feature instead of by layer.
 
-Here's the structure right before the PBAC and Claude Code sprint — the last commit of the manual, ChatGPT-assisted era, on 14 Apr 2026 (the entry directly above):
+Here's the structure right before the PBAC and Claude Code sprint, in the last commit of the manual, ChatGPT-assisted era on 14 Apr 2026:
 
 ```text
 backend/
@@ -202,7 +208,7 @@ frontend/
     store/
 ```
 
-Grouping code around business flows, instead of forcing every feature across separate technical layers, made changes easier — everything needed for a feature lived close together. Changing login behavior meant working mostly inside the authentication area, not hunting across unrelated controller, service, and model folders.
+Grouping code around business flows, instead of forcing every feature across separate technical layers, made changes easier: everything needed for a feature lived close together. Changing login behavior meant working mostly inside the authentication area, not hunting across unrelated controller, service, and model folders.
 
 This wasn't chosen because it's the only "correct" architecture. It was chosen because, for this project's size and workflow, it made the system easier to understand, debug, and extend. That decision mattered even more later, when the PBAC and Claude Code sprint below brought the biggest change yet.
 
@@ -210,7 +216,7 @@ This wasn't chosen because it's the only "correct" architecture. It was chosen b
 
 ### Jul 14, 2026
 
-After a 3-month gap, the biggest change happened in a single commit: 364 files touched (+27,663/-8,184 lines), moving the project from a role-based authorization system to Policy-Based Access Control (PBAC). Instead of access being decided by a role column, authorization decisions are now based on assigned policies, allowed actions, resources, and optional conditions — roles became descriptive metadata rather than the source of truth for permissions. PBAC wasn't part of the original design; it was added once role-based access started showing its limits.
+After a 3-month gap, the biggest change happened in a single commit: 364 files touched (+27,663/-8,184 lines), moving the project from a role-based authorization system to Policy-Based Access Control (PBAC). Instead of access being decided by a role column, authorization decisions are now based on assigned policies, allowed actions, resources, and optional conditions. Roles became descriptive metadata rather than the source of truth for permissions. PBAC wasn't part of the original design; it was added once role-based access started showing its limits.
 
 That same commit also added audit logging, security hardening, improved headers and middleware, stronger cookie/security handling, CI/CD pipelines, extensive backend and frontend testing, and complete documentation. The project moved from "a reusable auth module" into a complete authentication and authorization foundation in one pass, not incrementally. Frontend state management was redesigned too, in the same commit: Redux was replaced with Zustand for client state and TanStack Query for server state.
 
@@ -220,26 +226,26 @@ A follow-up pass over the 14th's big commit, hardening it further now that it ha
 
 ### Jul 20, 2026
 
-Self-hosted error monitoring landed via Bugsink, so real errors get logged somewhere instead of just showing up in server logs. The `sdk.py`/`sdk.ts` files were introduced too — a single file on each side that re-exports the pieces meant to be built on, so future code doesn't have to reach into the template's internals directly. The frontend also got reorganized into proper feature folders, and a couple of small logout and rate-limiter bugs were fixed along the way.
+Running the template against my other projects surfaced a couple of small logout and rate-limiter bugs, fixed here. That's the kind of thing real usage catches that reading the code alone wouldn't. Alongside that, self-hosted error monitoring landed via Bugsink, so real errors get logged somewhere instead of just showing up in server logs. The `sdk.py`/`sdk.ts` files were introduced too, a single file on each side that re-exports the pieces meant to be built on, so future code doesn't have to reach into the template's internals directly. The frontend also got reorganized into proper feature folders.
 
-### Jul 25–28, 2026
+### Jul 25-28, 2026
 
-The codebase was split in two: `backend/mystic_auth/` / `frontend/src/mystic_auth/` for the template's own internals, and a thin `backend/app/` / `frontend/src/app/` shell for project-specific code, connected by an `sdk.py`/`sdk.ts` + `app_sdk.py`/`app_sdk.ts` re-export surface (see [Using This Repository as a Template](../template-usage/overview.md)) — docs and tests got the same split, and `scripts/sync-upstream.sh` was added to pull future template updates into a project built from it. The production Docker setup, CI, and the sidebar/CORS/nav extension points all got hardened in the same stretch, alongside three new docs (`worked-example.md`, `common-patterns.md`, `rbac-quickstart.md`) and a reorganized backend unit-test folder.
+This stretch turned the repo from "reusable codebase" into a real template. The code was split into upstream-owned internals (`backend/mystic_auth/`, `frontend/src/mystic_auth/`) and thin project-owned shells (`backend/app/`, `frontend/src/app/`), with `sdk.py`/`sdk.ts` and `app_sdk.py`/`app_sdk.ts` as the extension surface. Docs and tests were split the same way, `scripts/sync-upstream.sh` was added for future template updates, and the template-usage docs grew the ownership model, sync workflow, worked example, RBAC quickstart, and shared sidebar/CORS/nav extension points.
 
-The rest came from actually running the template on downstream projects, not just reading the code — a handful of real bugs this way (an `sdk.ts` import bypass, an event-loop-blocking token signature, a Gunicorn timeout misconfiguration in the `bugsink` container, a stray example in a doc) plus one new day-to-day habit: `scripts/dev-up.sh`, replacing `docker compose up` as the default startup command so the terminal shows only real request traffic instead of every service's full boot noise.
+The rest came from running the template against real downstream projects. That caught an `sdk.ts` import bypass, an event-loop-blocking token signature, logout and rate-limiter bugs, a Bugsink Gunicorn timeout issue, a prod OAuth redirect gotcha, and the stale `react-router-dom` package with an unpatched advisory, fixed by moving to `react-router` v8 and making npm audit blocking again. Docker and day-to-day operations were tightened too: `scripts/dev-up.sh` became the quieter default startup path, frontend Compose builds got `pull_policy: build`, `watch_for_late_dsn()` catches Bugsink's DSN after slow cold boots, backend logging became dev-readable and production-structured, and stale docs/comments/config were cleaned up.
 
 ---
 
 ## The tools that built it
 
-Two very different workflows built this project — a manual ChatGPT + VSCode loop for most of it, then Claude Code from Jul 2026 on — with its own diagram and detail split into its own page: see [The Tools That Built It](tools.md).
+Two very different workflows built this project: a manual ChatGPT + VSCode loop for most of it, then an agentic coding loop with Claude Code from July 2026 on and Codex joining from the commit of 28 July (Yeah, I hit my Claude Code weekly limit). The workflow details and diagram live in [The Tools That Built It](tools.md).
 
 ---
 
 ## Why it is a template now
 
-Somewhere during the infrastructure and security work, this stopped being just a personal shortcut. The problems solved here — authentication, sessions, permissions, security controls, audit trails, email workflows, testing — come up in almost every application with users.
+Somewhere during the infrastructure and security work, this stopped being just a personal shortcut. The problems solved here, authentication, sessions, permissions, security controls, audit trails, email workflows, and testing, come up in almost every application with users.
 
-The point of this template isn't just saving development time. It's a starting point with documented architectural decisions, tested authentication flows, reusable authorization patterns, and security considerations already handled — so a new project can start from a stronger baseline and focus on the actual product being built, instead of rebuilding the same foundation again.
+The point of this template isn't just saving development time. It's a starting point with documented architectural decisions, tested authentication flows, reusable authorization patterns, and security considerations already handled, so a new project can start from a stronger baseline and focus on the actual product being built.
 
 See [Using This Repository as a Template](../template-usage/overview.md) for how to adapt it.

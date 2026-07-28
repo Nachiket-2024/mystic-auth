@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/unit/test_create_rbac_policies_unit.py
 #
 # Covers create_rbac_policies.py: an interactive CLI script that seeds one
-# unconditioned, RBAC-shaped policy (name "role_<role>", conditions=None) —
+# unconditioned, RBAC-shaped policy (name "role_<role>", conditions=None) :
 # see docs/mystic_auth/authorization/rbac-quickstart.md for the concept.
 # Idempotent by name (skips, doesn't overwrite, if the policy already
 # exists) and refuses an empty role name or an empty actions list.
@@ -100,7 +100,7 @@ async def test_aborts_on_an_empty_actions_list(mocker):
     _patch_db_session(mocker)
     mocker.patch(f"{MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=None)
     create_mock = mocker.patch(f"{MODULE}.policy_repository.create", new_callable=AsyncMock)
-    # Blank actions input, and a stray-comma-only input — both yield an
+    # Blank actions input, and a stray-comma-only input : both yield an
     # empty actions list after filtering.
     mocker.patch("builtins.input", side_effect=["editor", "documents", " , , "])
 

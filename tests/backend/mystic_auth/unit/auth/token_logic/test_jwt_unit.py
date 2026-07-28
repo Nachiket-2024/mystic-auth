@@ -87,7 +87,7 @@ async def test_verify_token_rejects_refresh_token_presented_as_access(mocker):
 async def test_verify_token_passes_algorithm_allowlist_as_a_list(mocker):
     # Regression guard: PyJWT's `algorithms` parameter is typed as
     # Sequence[str], which a bare string technically satisfies (strings are
-    # sequences of characters) — passing settings.JWT_ALGORITHM directly
+    # sequences of characters), so passing settings.JWT_ALGORITHM directly
     # instead of [settings.JWT_ALGORITHM] would make PyJWT's internal
     # membership check an accidental substring match rather than an exact
     # list check. Not currently exploitable given a fixed trusted algorithm
@@ -125,7 +125,7 @@ async def test_decode_payload_passes_algorithm_allowlist_as_a_list(mocker):
 
 @pytest.mark.asyncio
 async def test_verify_token_rejects_a_genuinely_expired_token(mocker):
-    # Real wall-clock expiry (not a mocked decode) — PyJWT's own exp check
+    # Real wall-clock expiry (not a mocked decode): PyJWT's own exp check
     # must reject this, and verify_token must translate that into None
     # rather than letting jwt.ExpiredSignatureError escape uncaught.
     mocker.patch(
@@ -146,7 +146,7 @@ async def test_verify_token_rejects_a_genuinely_expired_token(mocker):
 @pytest.mark.asyncio
 async def test_decode_payload_rejects_a_genuinely_expired_token():
     # decode_payload is the "ignore revocation, but expiry still applies"
-    # path used by refresh rotation — must fail the same way on a real
+    # path used by refresh rotation, so it must fail the same way on a real
     # expired token, not just an undecodable/garbage one.
     expired_token = pyjwt.encode(
         {"email": "user@example.com", "type": "refresh", "exp": time.time() - 60},
@@ -242,7 +242,7 @@ async def test_refresh_token_service_requires_refresh_type_on_revoke(mocker):
 async def test_create_refresh_token_prunes_already_expired_registry_entries(mocker):
     """Regression guard: a jti was previously only ever removed from the
     per-user refresh-token registry hash by an explicit revoke/rotation/
-    logout-all — a token that simply went stale (never used again, just
+    logout-all; a token that simply went stale (never used again, just
     outlived by REFRESH_TOKEN_EXPIRE_MINUTES) left its entry there forever,
     growing the hash unboundedly over a deployment's lifetime. Minting a new
     token now sweeps already-expired entries from the same hash."""
@@ -291,7 +291,7 @@ async def test_create_verification_token_honors_explicit_expires_minutes():
     (15min default) regardless of the caller's requested expiry, while
     account_verification_service set the paired Redis single-use key's TTL
     (and the emailed wording) to RESET_TOKEN_EXPIRE_MINUTES (60min
-    default) — the JWT itself expired 45 minutes before the email/Redis
+    default), so the JWT itself expired 45 minutes before the email/Redis
     key said it should."""
     token = await jwt_service.create_verification_token(email="user@example.com", expires_minutes=60)
 

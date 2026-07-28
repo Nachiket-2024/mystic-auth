@@ -97,7 +97,7 @@ async def test_validate_password_strength_accepts_mixed_case_and_digit():
 # Regression guards for the missing "type" claim: previously a reset token's
 # JWT payload carried only email + exp, so any other validly-signed JWT with
 # an "email" claim (e.g. a stolen but still-valid access/refresh token, which
-# shares the same SECRET_KEY) would pass verify_reset_token's checks — the
+# shares the same SECRET_KEY) would pass verify_reset_token's checks : the
 # Redis single-use record was the only real gate against token-type confusion.
 
 @pytest.mark.asyncio

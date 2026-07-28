@@ -63,7 +63,7 @@ class AccountVerificationService:
         email: str,
         expires_minutes: int = settings.RESET_TOKEN_EXPIRE_MINUTES
     ) -> str:
-        # type="verify" — this token is only valid for email confirmation,
+        # type="verify": this token is only valid for email confirmation,
         # not for accessing any protected routes. expires_minutes must be
         # forwarded so the JWT's own exp claim matches the Redis single-use
         # key's TTL and the expiry stated in the verification email above.

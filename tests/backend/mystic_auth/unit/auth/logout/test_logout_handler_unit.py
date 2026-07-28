@@ -25,7 +25,7 @@ async def test_logout_without_refresh_token_returns_400(mocker):
 async def test_logout_with_already_revoked_token_still_succeeds_and_clears_cookies(mocker):
     # Regression guard: this is exactly what a stale/dead refresh-token
     # cookie looks like right after a password change (which revokes every
-    # refresh token for the account) — the presented cookie is already
+    # refresh token for the account) : the presented cookie is already
     # revoked, so revoke_refresh_token returns False. That must not be
     # treated as an error: the caller's goal (no valid session left in this
     # browser) is already true, so logout should still report success and
@@ -71,7 +71,7 @@ async def test_logout_clears_refresh_token_cookie_with_matching_auth_path(mocker
 @pytest.mark.asyncio
 async def test_logout_with_already_revoked_token_still_clears_refresh_cookie_with_matching_auth_path(mocker):
     # Same regression guard as above, specifically for the already-revoked
-    # path — a fix that clears cookies but forgets the matching path=/auth
+    # path : a fix that clears cookies but forgets the matching path=/auth
     # would silently reintroduce the original bug for this exact scenario.
     mocker.patch(f"{MODULE}.refresh_token_service.revoke_refresh_token", new_callable=AsyncMock, return_value=False)
 
@@ -86,7 +86,7 @@ async def test_logout_with_already_revoked_token_still_clears_refresh_cookie_wit
 async def test_logout_with_already_revoked_token_still_records_an_accurate_audit_entry(mocker):
     # The HTTP response is now a lenient 200 either way (see above), but the
     # security audit trail must still distinguish "revoked a live token"
-    # from "presented one that was already dead" — success=False here is
+    # from "presented one that was already dead" : success=False here is
     # what a real operator reviewing the audit log needs to see, even
     # though the caller-facing outcome looks identical.
     mocker.patch(f"{MODULE}.refresh_token_service.revoke_refresh_token", new_callable=AsyncMock, return_value=False)

@@ -2,7 +2,7 @@
 #
 # Proves create_policy/update_policy reject a malformed `conditions` block
 # with 422 *before* touching the repository (claude.md: "Must happen
-# before database writes") — and that a valid conditions block passes
+# before database writes") : and that a valid conditions block passes
 # through untouched.
 from unittest.mock import AsyncMock, MagicMock
 
@@ -111,7 +111,7 @@ async def test_update_policy_does_not_validate_when_conditions_untouched(mocker)
 @pytest.mark.asyncio
 async def test_update_policy_rejects_deactivating_a_baseline_policy(mocker):
     # is_active=False excludes a policy from evaluation for every holder at
-    # once (see policy_repository.py) — for system_superuser, that would
+    # once (see policy_repository.py) : for system_superuser, that would
     # silently strip every superuser (including the true system account) of
     # all access, bypassing both the rename/delete guards and the separate
     # "last remaining assignment" lockout guard on remove_policy_from_user
@@ -132,7 +132,7 @@ async def test_update_policy_rejects_deactivating_a_baseline_policy(mocker):
 
 @pytest.mark.asyncio
 async def test_update_policy_allows_reactivating_a_baseline_policy(mocker):
-    # Only is_active=False (deactivation) is blocked — re-activating a
+    # Only is_active=False (deactivation) is blocked : re-activating a
     # baseline policy that was somehow already inactive must still work.
     policy = _make_policy(name=SYSTEM_SUPERUSER_POLICY_NAME, is_active=False)
     update_data = PolicyUpdate(is_active=True)

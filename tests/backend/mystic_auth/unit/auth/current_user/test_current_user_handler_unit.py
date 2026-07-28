@@ -2,7 +2,7 @@
 #
 # current_user_handler.py backs GET /auth/me. These tests pin down its PBAC
 # behavior: the 'permissions' it returns must come from the caller's actual
-# *assigned policies* (via policy_repository), never from their role — two
+# *assigned policies* (via policy_repository), never from their role. Two
 # users with the identical role can hold different policies and therefore
 # see different permissions here.
 from unittest.mock import AsyncMock
@@ -110,7 +110,7 @@ async def test_two_users_with_the_same_role_can_have_different_permissions(mocke
 
 # ---------------------------- Users without roles ----------------------------
 # Per claude.md: role is metadata only, and "the system must support ...
-# users without roles" / "users without roles still work" — a roleless
+# users without roles" / "users without roles still work": a roleless
 # account must still authenticate and be authorized purely via its
 # assigned policies.
 
@@ -141,7 +141,7 @@ async def test_a_user_with_no_role_at_all_is_still_authenticated(mocker):
 @pytest.mark.asyncio
 async def test_a_user_with_no_role_gets_admin_level_permissions_if_assigned_admin_policies(mocker):
     # The strongest form of the claim: a roleless account is not limited to
-    # "basic" access — it gets exactly whatever its assigned policies grant,
+    # "basic" access: it gets exactly whatever its assigned policies grant,
     # same as any other account.
     mocker.patch(
         f"{MODULE}.jwt_service.verify_token",

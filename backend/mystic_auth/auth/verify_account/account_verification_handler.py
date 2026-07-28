@@ -35,7 +35,7 @@ class AccountVerificationHandler:
 
             email = payload["email"]
 
-            # Distinct namespace from login's "login_lock:email:" key — sharing
+            # Distinct namespace from login's "login_lock:email:" key: sharing
             # it would mean a burst of failed verification attempts (e.g. a
             # double-submitted, already-consumed link) counts towards, and can
             # trip, the unrelated login lockout for the same email. Same

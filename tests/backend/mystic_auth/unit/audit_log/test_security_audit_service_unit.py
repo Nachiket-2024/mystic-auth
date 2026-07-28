@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/unit/test_security_audit_service_unit.py
 #
 # Unit coverage for audit.services.security_audit_service.log_security_event
-# — the single choke point every auth handler calls to persist a security
+# : the single choke point every auth handler calls to persist a security
 # audit row. Mirrors AuthorizationService._log_decision's own contract: a
 # logging failure must never raise, since the real action it describes has
 # already happened (or failed) regardless of whether the audit write
@@ -81,7 +81,7 @@ async def test_log_security_event_never_raises_when_repository_fails(mocker):
 # ---------------------------- metadata redaction (defense-in-depth) ----------------------------
 #
 # No current call site passes sensitive data in metadata (all 11 call sites
-# only ever pass emails/counts) — this is a structural backstop against a
+# only ever pass emails/counts) : this is a structural backstop against a
 # future call site accidentally doing so, not a fix for an existing leak.
 
 @pytest.mark.asyncio

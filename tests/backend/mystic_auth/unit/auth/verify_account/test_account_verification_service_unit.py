@@ -2,13 +2,13 @@
 #
 # Regression guard for a Phase 1 auth-audit fix to verify_token:
 #   Single-use enforcement previously did a separate GET then DELETE against
-#   Redis — a TOCTOU race let two concurrent requests both pass the GET
+#   Redis, a TOCTOU race let two concurrent requests both pass the GET
 #   before either ran the DELETE, both treating a single-use token as valid.
 #   Fixed by using an atomic GETDEL.
 #
 # Token-purpose scoping (this token must never work anywhere else) is
-# enforced by jwt_service.verify_token via expected_type="verify" — see
-# test_account_verification_requires_verify_type in test_jwt_unit.py —
+# enforced by jwt_service.verify_token via expected_type="verify", see
+# test_account_verification_requires_verify_type in test_jwt_unit.py,
 # rather than by anything in this file.
 from unittest.mock import AsyncMock
 
@@ -35,7 +35,7 @@ async def test_verify_token_uses_atomic_getdel_not_separate_get_and_delete(mocke
 
     assert result == {"email": "user@example.com", "type": "verify"}
     getdel_mock.assert_awaited_once_with("verify:some-token")
-    # No separate GET/DELETE round-trip — the whole point of the fix is that
+    # No separate GET/DELETE round-trip: the whole point of the fix is that
     # a single atomic operation replaces the racy two-step check.
     get_mock.assert_not_called()
     delete_mock.assert_not_called()
@@ -62,7 +62,7 @@ async def test_create_verification_token_forwards_expires_minutes_to_jwt_service
     expires_minutes, so the JWT's own exp claim silently used
     ACCESS_TOKEN_EXPIRE_MINUTES (15min default) while the Redis single-use
     key TTL and the emailed wording both used RESET_TOKEN_EXPIRE_MINUTES
-    (60min default) — a user clicking between 15-60 minutes in got a
+    (60min default), so a user clicking between 15-60 minutes in got a
     confusing invalid/expired error despite the email promising the link
     should still work."""
     create_mock = mocker.patch(

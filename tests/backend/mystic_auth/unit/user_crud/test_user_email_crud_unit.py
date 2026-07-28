@@ -3,8 +3,8 @@
 # Regression guard for email-casing normalization: `User@Example.com` and
 # `user@example.com` must resolve to the same account. UserEmailCRUD is the
 # single choke point every lookup in the app goes through (login,
-# current-user, admin routes, OAuth2), so normalizing here — rather than
-# trusting every caller to normalize first — is what makes casing
+# current-user, admin routes, OAuth2), so normalizing here, rather than
+# trusting every caller to normalize first, is what makes casing
 # consistent everywhere without touching each call site.
 from unittest.mock import AsyncMock, MagicMock
 
@@ -12,7 +12,7 @@ import pytest
 from backend.mystic_auth.user_crud.user_crud_modules.user_base_crud import UserBaseCRUD
 from backend.mystic_auth.user_crud.user_crud_modules.user_email_crud import UserEmailCRUD
 
-# Real mapped model — select(...)/where(...) require an actual ORM-mapped
+# Real mapped model: select(...)/where(...) require an actual ORM-mapped
 # class or column expression, not a plain stand-in class.
 from backend.mystic_auth.user_table.user_model import User as _FakeModel
 
@@ -42,7 +42,7 @@ async def test_get_by_email_normalizes_casing_before_querying(mocker):
 
 @pytest.mark.asyncio
 async def test_get_by_email_finds_account_regardless_of_input_casing():
-    # No mocking of normalize_email here — exercises the real function so a
+    # No mocking of normalize_email here: exercises the real function so a
     # regression in its lowercase/strip logic would actually be caught.
     db = _make_db(scalar_return="fake-user-row")
     crud = UserEmailCRUD(_FakeModel)
@@ -55,7 +55,7 @@ async def test_get_by_email_finds_account_regardless_of_input_casing():
 @pytest.mark.asyncio
 async def test_update_by_email_normalizes_via_get_by_email(mocker):
     # update_by_email delegates to get_by_email, so normalization only needs
-    # to happen once — this guards against that delegation ever changing to
+    # to happen once, this guards against that delegation ever changing to
     # bypass get_by_email and losing normalization.
     normalize_mock = mocker.patch(f"{EMAIL_CRUD_MODULE}.normalize_email", return_value="user@example.com")
     db = _make_db(scalar_return=None)
@@ -84,8 +84,8 @@ async def test_create_normalizes_email_before_storing(mocker):
 
 @pytest.mark.asyncio
 async def test_create_does_not_require_an_email_field():
-    # create() is generic — not every obj_data dict necessarily carries an
-    # "email" key — must not raise a KeyError when it's absent.
+    # create() is generic, not every obj_data dict necessarily carries an
+    # "email" key, must not raise a KeyError when it's absent.
     db = AsyncMock()
     db.add = MagicMock()
     db.commit = AsyncMock()

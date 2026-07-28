@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/unit/test_context_wired_authorization_unit.py
 #
-# End-to-end (DB-free) proof that a real request's context — built by
-# build_authorization_context, never client-supplied — actually drives
+# End-to-end (DB-free) proof that a real request's context : built by
+# build_authorization_context, never client-supplied : actually drives
 # IP-based and time-based policy decisions through the real evaluator.
 # Per claude.md's "Wire Authorization Context Properly": add tests for
 # IP-based authorization, time-based authorization, and missing-context
@@ -75,7 +75,7 @@ def test_ip_based_authorization_denies_when_connection_has_no_client_info():
 def test_time_based_authorization_allows_during_business_hours():
     request = _request(client_host="10.0.0.1")
     context = build_authorization_context(request)
-    context["current_time"] = "2026-07-13T12:00:00+00:00"  # noon UTC — within 09:00-17:00
+    context["current_time"] = "2026-07-13T12:00:00+00:00"  # noon UTC : within 09:00-17:00
 
     allowed = policy_evaluation_engine.evaluate(
         [_business_hours_policy()], "reports:view", "reports", "user@example.com", context=context
@@ -86,7 +86,7 @@ def test_time_based_authorization_allows_during_business_hours():
 def test_time_based_authorization_denies_outside_business_hours():
     request = _request(client_host="10.0.0.1")
     context = build_authorization_context(request)
-    context["current_time"] = "2026-07-13T23:00:00+00:00"  # 11pm UTC — outside 09:00-17:00
+    context["current_time"] = "2026-07-13T23:00:00+00:00"  # 11pm UTC : outside 09:00-17:00
 
     allowed = policy_evaluation_engine.evaluate(
         [_business_hours_policy()], "reports:view", "reports", "user@example.com", context=context
@@ -98,7 +98,7 @@ def test_time_based_authorization_denies_outside_business_hours():
 # Only IP-gated policies have a meaningful "missing context" deny case:
 # there is no sensible default IP. Time conditions always have a fallback
 # (the real server clock), so "no context at all" is not itself a deny
-# condition for them — see test_time_condition's own fail-safe coverage
+# condition for them : see test_time_condition's own fail-safe coverage
 # (missing start/end, invalid timezone) for that handler's actual
 # fail-safe cases.
 

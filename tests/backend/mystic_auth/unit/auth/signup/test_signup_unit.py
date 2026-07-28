@@ -39,7 +39,7 @@ async def test_signup_weak_password_returns_400_before_touching_signup_service(m
 
     assert response.status_code == 400
     # A weak password must be rejected before any DB lookup/creation is
-    # attempted, and this rejection is independent of email — checking it
+    # attempted, and this rejection is independent of email : checking it
     # first also keeps it from ever interacting with enumeration resistance.
     signup_mock.assert_not_called()
     send_email_mock.assert_not_called()
@@ -77,8 +77,8 @@ async def test_signup_duplicate_email_returns_identical_response_without_sending
     )
 
     # A duplicate-email signup attempt must be indistinguishable from a
-    # successful one: same status code, same message body, and — unlike a
-    # genuinely new signup — no verification email sent to the existing account.
+    # successful one: same status code, same message body, and : unlike a
+    # genuinely new signup : no verification email sent to the existing account.
     assert dup_response.status_code == new_response.status_code == 200
     assert dup_response.body == new_response.body
     send_email_mock.assert_not_called()
@@ -156,7 +156,7 @@ async def test_signup_service_creates_new_unverified_user(mocker):
 async def test_signup_service_assigns_self_service_policy_to_new_user(mocker):
     # PBAC regression guard: a new account's access must come from an
     # explicit default policy assignment, never from its (metadata-only)
-    # role — see claude.md's "Roles" section.
+    # role : see claude.md's "Roles" section.
     mocker.patch(f"{SERVICE_MODULE}.user_crud.get_by_email", return_value=None)
     mocker.patch(f"{SERVICE_MODULE}.password_service.hash_password", return_value="hashed-value")
     mocker.patch(
@@ -183,7 +183,7 @@ async def test_signup_service_assigns_self_service_policy_to_new_user(mocker):
 @pytest.mark.asyncio
 async def test_signup_service_still_succeeds_if_default_policy_is_missing(mocker):
     # An operational/migration issue (baseline policy not seeded) must not
-    # take down signup entirely — it's logged loudly instead (see
+    # take down signup entirely : it's logged loudly instead (see
     # signup_service.py), and the account can be fixed up by an admin later.
     mocker.patch(f"{SERVICE_MODULE}.user_crud.get_by_email", return_value=None)
     mocker.patch(f"{SERVICE_MODULE}.password_service.hash_password", return_value="hashed-value")

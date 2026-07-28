@@ -3,7 +3,7 @@
 # Regression guard: refresh_token_service.refresh_tokens returns a plain
 # dict[str, str] (see refresh_token_service.py), but the handler previously
 # annotated it as TokenPairResponseSchema and accessed `.access_token` on
-# it directly — a dict has no such attribute, so every successful refresh
+# it directly : a dict has no such attribute, so every successful refresh
 # raised AttributeError and returned 500 instead of the new tokens. Only
 # caught by a real integration test (test_auth_api_integration.py) since
 # every unit test in this suite mocked at the service layer, never
@@ -64,7 +64,7 @@ async def test_handle_refresh_tokens_rejects_invalid_token(mocker):
 @pytest.mark.asyncio
 async def test_handle_refresh_tokens_rejects_missing_cookie_without_touching_redis(mocker):
     # Regression guard: refresh_token is read from the httponly cookie by
-    # the route (refresh_token_routes.py), not a JSON body — a client with
+    # the route (refresh_token_routes.py), not a JSON body : a client with
     # no session at all (cookie absent) must get the same 401 as an invalid
     # token, without spending a rate-limit/lockout Redis round-trip on a
     # request that was never going anywhere.
@@ -80,7 +80,7 @@ async def test_handle_refresh_tokens_rejects_missing_cookie_without_touching_red
 @pytest.mark.asyncio
 async def test_rate_limit_and_lockout_use_distinct_redis_keys(mocker):
     # Regression guard: rate_key and lock_key were previously the identical
-    # string "refresh:ip:{ip}" — rate_limiter_service.record_request (called
+    # string "refresh:ip:{ip}" : rate_limiter_service.record_request (called
     # on every request, success or failure) and login_protection_service's
     # failure counter shared that one key, so a handful of legitimate
     # refreshes alone could trip the 5-attempt lockout with zero real

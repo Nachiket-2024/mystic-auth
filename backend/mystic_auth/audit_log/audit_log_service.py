@@ -9,7 +9,7 @@ from .audit_log_repository import audit_log_repository
 
 logger = get_logger(__name__)
 
-# Known event_type values written by the auth handlers/services — kept as
+# Known event_type values written by the auth handlers/services, kept as
 # plain string constants (not an enum) since, unlike Permission, nothing else
 # in the app needs to reference these programmatically beyond passing the
 # literal string at each call site.
@@ -32,7 +32,7 @@ ACCOUNT_REACTIVATED = "account_reactivated"   # Restored from soft delete
 # persisted verbatim. Every current call site only ever passes emails/counts
 # (see call sites across auth/*, user_routes.py), so this is a defense-in-depth
 # backstop against a future call site accidentally passing something
-# sensitive — not a fix for an existing leak.
+# sensitive; not a fix for an existing leak.
 _SENSITIVE_METADATA_KEY_MARKERS = ("password", "hash", "token", "secret", "cookie", "jwt", "credential")
 
 
@@ -57,7 +57,7 @@ async def log_security_event(
 ) -> None:
     """
     Writes one security audit log row. A logging failure must never break the
-    actual auth action it's describing — caught and logged as a warning here,
+    actual auth action it's describing: caught and logged as a warning here,
     never re-raised. Mirrors AuthorizationService._log_decision's reasoning.
 
     `db=None` is accepted (rather than requiring a real session) purely so

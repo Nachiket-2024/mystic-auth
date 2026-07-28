@@ -3,7 +3,7 @@
 # Regression guard for the login timing side-channel: login() previously
 # returned immediately (skipping the Argon2 comparison) for "user not
 # found" and "user unverified", but performed a real hash comparison for
-# "wrong password on an existing, verified account" — an attacker could
+# "wrong password on an existing, verified account" : an attacker could
 # distinguish these cases purely by response latency, enabling account
 # enumeration despite every branch already returning the same generic
 # failure. The fix makes login() always perform exactly one comparison,
@@ -60,7 +60,7 @@ async def test_login_unverified_user_still_performs_a_hash_comparison(mocker):
 @pytest.mark.asyncio
 async def test_login_oauth2_only_user_with_no_password_uses_dummy_hash(mocker):
     # is_verified=True (OAuth2 users are pre-verified) but hashed_password
-    # is None — password login for such an account must still compare
+    # is None : password login for such an account must still compare
     # against something rather than skip straight to "wrong password".
     user = _FakeUser(is_verified=True, hashed_password=None)
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=user)
@@ -88,7 +88,7 @@ async def test_login_wrong_password_on_verified_account_still_fails(mocker):
 @pytest.mark.asyncio
 async def test_login_deactivated_account_is_blocked_even_with_correct_password(mocker):
     # A deactivated account must not receive tokens at all, even when the
-    # password is correct — current_user_handler.py would reject the tokens
+    # password is correct : current_user_handler.py would reject the tokens
     # on first use anyway, but issuing them here is wasteful/misleading.
     user = _FakeUser(is_verified=True, is_active=False, hashed_password="real-hash")
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=user)
@@ -131,7 +131,7 @@ async def test_login_missing_credentials_returns_none_without_hash_comparison(mo
 @pytest.mark.asyncio
 async def test_dummy_hash_is_a_real_argon2_hash_not_a_placeholder_string():
     # The dummy hash must be a genuine hash so verify_password performs
-    # real Argon2 work on it — a plain sentinel string would let the
+    # real Argon2 work on it : a plain sentinel string would let the
     # verify call short-circuit before doing any actual hashing/comparison,
     # reopening the exact timing gap this fix closes.
     assert password_service.DUMMY_HASH.startswith("$argon2")
