@@ -45,7 +45,7 @@ const ProfilePage: React.FC = () => {
     const isDirty = editedName !== (name ?? "") || newPassword.length > 0;
     useUnsavedChangesWarning(isDirty);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.SubmitEvent<HTMLDivElement>) => {
         e.preventDefault();
         setLocalError("");
 

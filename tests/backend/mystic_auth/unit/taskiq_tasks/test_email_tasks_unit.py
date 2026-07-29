@@ -10,8 +10,8 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from backend.mystic_auth.taskiq_tasks.email_tasks import broker, send_email_task
-from redis.exceptions import ResponseError
+from backend.mystic_auth.taskiq_tasks.email_tasks import ResilientRedisStreamBroker, broker, send_email_task
+from redis.exceptions import ConnectionError, ResponseError
 from taskiq import SimpleRetryMiddleware
 
 MODULE = "backend.mystic_auth.taskiq_tasks.email_tasks"
@@ -20,10 +20,13 @@ MODULE = "backend.mystic_auth.taskiq_tasks.email_tasks"
 @pytest.mark.asyncio
 async def test_send_email_task_returns_true_on_success(mocker):
     mocker.patch(f"{MODULE}.email_sender.send", new_callable=AsyncMock)
+    info_mock = mocker.patch(f"{MODULE}.logger.info")
 
     result = await send_email_task(to_email="user@example.com", subject="Hi", body="Body")
 
     assert result is True
+    info_mock.assert_any_call("Sending email to %s", "user@example.com")
+    info_mock.assert_any_call("Email sent successfully to %s", "user@example.com")
 
 
 @pytest.mark.asyncio
@@ -70,3 +73,51 @@ async def test_broker_startup_survives_concurrent_group_creation_race():
         redis_cls.return_value.__aenter__.return_value = redis_conn
 
         await broker._declare_consumer_group()  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_resilient_broker_redeclares_group_after_runtime_nogroup(mocker):
+    test_broker = ResilientRedisStreamBroker(url="redis://localhost:6379/0")
+    sentinel = object()
+    calls = 0
+
+    async def fake_listen(self):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ResponseError("NOGROUP No such key 'taskiq' or consumer group 'taskiq'")
+        yield sentinel
+
+    mocker.patch("taskiq_redis.redis_broker.RedisStreamBroker.listen", fake_listen)
+    declare_mock = mocker.patch.object(test_broker, "_declare_consumer_group", new_callable=AsyncMock)
+
+    listener = test_broker.listen()
+    message = await anext(listener)
+    await listener.aclose()
+
+    assert message is sentinel
+    declare_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_resilient_broker_reconnects_after_connection_drop(mocker):
+    test_broker = ResilientRedisStreamBroker(url="redis://localhost:6379/0")
+    sentinel = object()
+    calls = 0
+
+    async def fake_listen(self):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ConnectionError("Connection closed by server.")
+        yield sentinel
+
+    mocker.patch("taskiq_redis.redis_broker.RedisStreamBroker.listen", fake_listen)
+    sleep_mock = mocker.patch(f"{MODULE}.sleep", new_callable=AsyncMock)
+
+    listener = test_broker.listen()
+    message = await anext(listener)
+    await listener.aclose()
+
+    assert message is sentinel
+    sleep_mock.assert_awaited_once_with(1)

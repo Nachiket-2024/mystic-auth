@@ -24,6 +24,7 @@ Every request/response body is a Pydantic schema (`*_schema.py` beside each feat
 | POST | `/auth/password-reset/request` | public | per-email | Always returns the same generic response |
 | POST | `/auth/password-reset/confirm` | public | yes | Revokes all refresh tokens on success |
 | POST | `/auth/verify-account` | public | yes | Single-use Redis-backed token |
+| POST | `/auth/verify-account/request` | public | per-email | Always returns the same generic response |
 
 ## Refresh token: `/auth/refresh` (`api/auth_routes/refresh_token_routes.py`)
 

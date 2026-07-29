@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import MockAdapter from 'axios-mock-adapter';
 import api from '@/api/axiosInstance';
-import { verifyAccountApi } from '@/api/auth_api';
+import { verificationEmailRequestApi, verifyAccountApi } from '@/api/auth_api';
 
 const mock = new MockAdapter(api);
 
@@ -37,5 +37,17 @@ describe('verifyAccountApi', () => {
     mock.onPost('/auth/verify-account').reply(400, { error: 'Invalid or expired verification token' });
 
     await expect(verifyAccountApi('bad-token', 'test@example.com')).rejects.toThrow();
+  });
+
+  it('should request a new verification link by email', async () => {
+    const mockResponse = {
+      message: "If this account exists and still needs verification, we've sent a new verification link.",
+    };
+
+    mock.onPost('/auth/verify-account/request', { email: 'test@example.com' }).reply(200, mockResponse);
+
+    const response = await verificationEmailRequestApi({ email: 'test@example.com' });
+    expect(response.status).toBe(200);
+    expect(response.data).toEqual(mockResponse);
   });
 });

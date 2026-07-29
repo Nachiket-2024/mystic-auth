@@ -35,6 +35,8 @@ The signup endpoint always returns the same generic response regardless of wheth
 2. Redemption atomically `GETDEL`s the Redis key, so a token can't be replayed even if the JWT signature itself would still verify within its expiry window.
 3. Sets `is_verified=True`.
 
+If the verification link expires or has already been used, the frontend lets the user request a fresh link with `POST /auth/verify-account/request`. The request accepts an email address and always returns the same generic success response. The backend only sends a new email when the account exists and is still unverified, which avoids account enumeration and avoids spamming already-verified users.
+
 ## Login
 
 `POST /auth/login`:

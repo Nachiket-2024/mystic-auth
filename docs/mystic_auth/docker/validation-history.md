@@ -2,6 +2,24 @@
 
 A log of past live-verification passes against the running Docker stack: what was actually run, what it found, and what got fixed as a result. Each entry describes what was true *at the time of that pass*; it's a historical record, not current-state reference material (for that, see [Docker Overview](overview.md)). Test/file counts below are frozen at whatever they were during that specific pass, not kept in sync with the current suite.
 
+## Email worker logging, dev-up ErrorActionPreference crash, and always-fresh startup banners
+
+On July 29, 2026, verified three related fixes against the running Docker stack:
+
+- `send_email_task` (`backend/mystic_auth/taskiq_tasks/email_tasks.py`) switched from `get_logger` to a new `get_worker_logger` (`backend/mystic_auth/logging/logging_config.py`), and now logs `Sending email to {to_email}` before the send in addition to the existing `Email sent successfully to {to_email}`. Triggered a real password-reset request against the running stack (`curl -X POST /auth/password-reset/request`); both lines appeared live in `docker logs mystic-auth-taskiq_worker-1`, timestamped a few seconds apart around the actual SMTP round trip. `tests/backend/mystic_auth/unit/logging/test_logging_config_unit.py` and `tests/backend/mystic_auth/unit/taskiq_tasks/test_email_tasks_unit.py` (20 tests total) passed via `docker compose exec --user root -w /repo backend python -m pytest`, using the `MSYS_NO_PATHCONV=1` Git Bash workaround documented above.
+- `scripts/dev-up.ps1` had `$ErrorActionPreference = "Stop"` at the top. `docker compose build`/`up` write routine progress to stderr, which PowerShell 5.1 wraps into a terminating `NativeCommandError` under `Stop`, killing the script right after the first build line and before it ever reached the log tail. Reproduced by running the script via a PowerShell background job against a torn-down stack: it died on `docker compose up -d`'s own build output. Fixed by changing to `$ErrorActionPreference = "Continue"` and relying on the script's existing explicit `$LASTEXITCODE` checks. Re-ran the same way after the fix: the script completed end-to-end and the tail showed backend/frontend/taskiq_worker startup lines correctly.
+- Confirmed separately that `--since $TailSince` correctly omits a service's boot banner when that service was already running before the script's own invocation (expected `docker compose logs --since` behavior, not a bug). Added an explicit `docker compose restart backend taskiq_worker` right after `docker compose up -d` in both `dev-up.sh` and `dev-up.ps1` so the banner is fresh on every run, not just the first. Verified by re-running `dev-up.ps1` against an already-healthy stack: Uvicorn's startup lines and Taskiq's `Listening started` lines both appeared in the tail even though neither container had been recreated by `up -d` itself.
+
+## Dev-up log-tail update: taskiq_worker included
+
+On July 29, 2026, verified the dev helper log-tail update against the running Docker stack:
+
+- `docker compose config --quiet` passed.
+- `docker compose up -d` completed successfully.
+- `docker compose ps --format "table {{.Service}}\t{{.Status}}"` showed `postgres`, `redis`, `bugsink`, `backend`, and `taskiq_worker` healthy; `frontend` was running as expected for dev, where it has no healthcheck.
+- `docker compose logs --tail=20 backend frontend taskiq_worker` returned interleaved logs from all three tailed services, including `taskiq_worker` startup and "Listening started" lines.
+- Running `.\scripts\dev-up.ps1` reached the attached tail command `docker compose logs -f backend frontend taskiq_worker`; the process was then stopped manually so the validation command did not remain attached.
+
 ## Full stack: initial pass
 
 Ran `docker compose up -d --build` (dev compose) from the repo root and verified the stack end-to-end (template-preparation pass):

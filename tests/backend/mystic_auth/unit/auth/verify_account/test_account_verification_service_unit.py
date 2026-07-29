@@ -10,6 +10,7 @@
 # enforced by jwt_service.verify_token via expected_type="verify", see
 # test_account_verification_requires_verify_type in test_jwt_unit.py,
 # rather than by anything in this file.
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -91,3 +92,48 @@ async def test_verify_token_rejects_token_of_the_wrong_type(mocker):
 
     assert result is None
     getdel_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_verification_email_if_needed_sends_for_unverified_user(mocker):
+    user = SimpleNamespace(is_verified=False)
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=user)
+    send_mock = mocker.patch(
+        f"{MODULE}.AccountVerificationService.send_verification_email",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
+
+    result = await account_verification_service.send_verification_email_if_needed("user@example.com", db=None)
+
+    assert result is True
+    send_mock.assert_awaited_once_with("user@example.com")
+
+
+@pytest.mark.asyncio
+async def test_send_verification_email_if_needed_skips_unknown_email(mocker):
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=None)
+    send_mock = mocker.patch(
+        f"{MODULE}.AccountVerificationService.send_verification_email",
+        new_callable=AsyncMock,
+    )
+
+    result = await account_verification_service.send_verification_email_if_needed("missing@example.com", db=None)
+
+    assert result is False
+    send_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_verification_email_if_needed_skips_already_verified_user(mocker):
+    user = SimpleNamespace(is_verified=True)
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=user)
+    send_mock = mocker.patch(
+        f"{MODULE}.AccountVerificationService.send_verification_email",
+        new_callable=AsyncMock,
+    )
+
+    result = await account_verification_service.send_verification_email_if_needed("user@example.com", db=None)
+
+    assert result is False
+    send_mock.assert_not_called()

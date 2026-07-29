@@ -7,7 +7,7 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
-from backend.mystic_auth.logging.logging_config import get_logger, get_startup_logger
+from backend.mystic_auth.logging.logging_config import get_logger, get_startup_logger, get_worker_logger
 from pythonjsonlogger import json as jsonlogger
 
 MODULE = "backend.mystic_auth.logging.logging_config"
@@ -107,6 +107,29 @@ def test_get_logger_stream_handler_uses_json_in_production(mocker):
 
     stream_handlers = [h for h in logger.handlers if type(h) is logging.StreamHandler]
     assert isinstance(stream_handlers[0].formatter, jsonlogger.JsonFormatter)
+
+
+def test_get_worker_logger_info_reaches_the_terminal():
+    # Regression guard: background job lifecycle events (e.g. send_email_task
+    # starting/finishing) must be visible in `docker compose logs` at INFO,
+    # since there's no HTTP access log line marking when they happen : unlike
+    # get_logger()'s routine INFO, which is deliberately file-only.
+    logger = get_worker_logger("test_logging_config_worker_stream_level")
+
+    stream_handlers = [h for h in logger.handlers if type(h) is logging.StreamHandler]
+    assert stream_handlers, "expected a StreamHandler on the worker logger"
+    assert stream_handlers[0].level == logging.INFO
+
+
+def test_get_worker_logger_also_writes_to_the_file_handler():
+    # Unlike get_startup_logger() (terminal-only, few one-time facts), worker
+    # logs are per-task volume and should still land in access.log for later
+    # analysis, same as get_logger().
+    logger = get_worker_logger("test_logging_config_worker_has_file")
+
+    rotating_handlers = [h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)]
+    assert rotating_handlers, "expected a TimedRotatingFileHandler on the worker logger"
+    assert rotating_handlers[0].backupCount > 0
 
 
 def test_get_logger_file_handler_stays_json_even_in_dev(mocker):

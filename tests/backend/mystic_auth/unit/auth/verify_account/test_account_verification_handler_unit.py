@@ -82,3 +82,50 @@ async def test_lockout_from_repeated_failures_returns_429(mocker):
     )
 
     assert response.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_verification_email_request_always_returns_generic_200(mocker):
+    mocker.patch(
+        f"{MODULE}.account_verification_service.send_verification_email_if_needed",
+        return_value=False,
+    )
+
+    response = await account_verification_handler.handle_verification_email_request(
+        email="missing@example.com", db=None
+    )
+
+    assert response.status_code == 200
+    assert response.body
+
+
+@pytest.mark.asyncio
+async def test_verification_email_request_logs_only_when_email_is_sent(mocker):
+    mocker.patch(
+        f"{MODULE}.account_verification_service.send_verification_email_if_needed",
+        return_value=True,
+    )
+    log_mock = mocker.patch(f"{MODULE}.log_security_event")
+
+    response = await account_verification_handler.handle_verification_email_request(
+        email="user@example.com", db="fake-db"
+    )
+
+    assert response.status_code == 200
+    log_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_verification_email_request_does_not_log_unsent_request(mocker):
+    mocker.patch(
+        f"{MODULE}.account_verification_service.send_verification_email_if_needed",
+        return_value=False,
+    )
+    log_mock = mocker.patch(f"{MODULE}.log_security_event")
+
+    response = await account_verification_handler.handle_verification_email_request(
+        email="verified@example.com", db="fake-db"
+    )
+
+    assert response.status_code == 200
+    log_mock.assert_not_called()

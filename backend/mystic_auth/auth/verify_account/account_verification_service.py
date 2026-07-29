@@ -6,6 +6,7 @@ from ...emails.email_template_service import render_transactional_email
 from ...logging.logging_config import get_logger
 from ...redis.client import redis_client
 from ...taskiq_tasks.email_tasks import send_email_task
+from ...user_crud.user_crud_collector import user_crud
 
 logger = get_logger(__name__)
 
@@ -56,6 +57,25 @@ class AccountVerificationService:
 
         except Exception:
             logger.error("Error sending verification email:\n%s", traceback.format_exc())
+            return False
+
+    @staticmethod
+    async def send_verification_email_if_needed(email: str, db) -> bool:
+        try:
+            user = await user_crud.get_by_email(email, db)
+
+            if not user:
+                logger.info("Verification link requested for non-existing email: %s", email)
+                return False
+
+            if user.is_verified:
+                logger.info("Verification link requested for already verified email: %s", email)
+                return False
+
+            return await AccountVerificationService.send_verification_email(email)
+
+        except Exception:
+            logger.error("Error during verification email request:\n%s", traceback.format_exc())
             return False
 
     @staticmethod

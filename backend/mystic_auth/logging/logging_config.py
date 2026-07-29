@@ -113,6 +113,55 @@ def get_logger(name: str = "base_logger") -> logging.Logger:
     return logger
 
 
+def get_worker_logger(name: str = "worker") -> logging.Logger:
+    """
+    Like get_logger(), but INFO is terminal-visible instead of file-only.
+
+    get_logger() deliberately hides INFO from the terminal to keep it free
+    of per-request noise (see its docstring). Background jobs (e.g. the
+    Taskiq email task) are the opposite case: there's no HTTP access log
+    entry marking when they start/finish, and an operator watching
+    `docker compose logs` wants to see "task started" / "task done" lines
+    live, the same way Taskiq's own receiver logs already appear. So this
+    logger promotes INFO to the terminal while still writing to the same
+    JSON access log file as get_logger() for later analysis.
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(settings.LOG_LEVEL)
+    logger.propagate = False
+
+    if not logger.handlers:
+        file_formatter = jsonlogger.JsonFormatter(
+            '%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s'
+        )
+        stream_formatter = _make_stream_formatter(
+            json_fields='%(asctime)s %(levelname)s %(name)s %(request_id)s %(message)s',
+            console_fields='%(asctime)s %(levelname)-8s %(name)s [%(request_id)s] %(message)s',
+        )
+
+        request_id_filter = RequestIdFilter()
+
+        access_handler = TimedRotatingFileHandler(
+            ACCESS_LOG_PATH,
+            when="midnight",
+            interval=1,
+            backupCount=30
+        )
+        access_handler.setLevel(logging.INFO)
+        access_handler.setFormatter(file_formatter)
+        access_handler.addFilter(request_id_filter)
+
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(logging.INFO)
+        stream_handler.setFormatter(stream_formatter)
+        stream_handler.addFilter(request_id_filter)
+
+        logger.addHandler(access_handler)
+        logger.addHandler(stream_handler)
+
+    return logger
+
+
 def get_startup_logger(name: str = "startup") -> logging.Logger:
     """
     Returns a logger for one-time, boot-relevant facts (e.g. whether an

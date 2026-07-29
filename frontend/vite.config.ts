@@ -1,11 +1,25 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
   ],
+  resolve: {
+    // Must match the "@"/"@app" paths in tsconfig.app.json and the
+    // resolve.alias in vitest.config.ts, or dev-server/build-time
+    // resolution of "@/..." and "@app/..." imports diverges from what
+    // typecheck/tests see.
+    alias: {
+      '@': path.resolve(dirname, 'src/mystic_auth'),
+      '@app': path.resolve(dirname, 'src/app'),
+    },
+  },
   // No custom build.rollupOptions.output.manualChunks here: a prior
   // version forced every node_modules import into one "vendor" chunk for
   // better long-term caching (rarely-changing third-party code under a

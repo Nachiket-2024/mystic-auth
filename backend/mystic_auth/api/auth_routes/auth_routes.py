@@ -18,7 +18,7 @@ from ...auth.security.rate_limiter_service import rate_limiter_service
 from ...auth.signup.signup_handler import signup_handler
 from ...auth.signup.signup_schema import SignupSchema
 from ...auth.verify_account.account_verification_handler import account_verification_handler
-from ...auth.verify_account.verify_account_schema import VerifyAccountSchema
+from ...auth.verify_account.verify_account_schema import VerifyAccountRequestSchema, VerifyAccountSchema
 from ...database.connection import database
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -117,3 +117,13 @@ async def verify_account(
     payload: VerifyAccountSchema, request: Request, db: AsyncSession = Depends(database.get_session)
 ):
     return await account_verification_handler.handle_account_verification(payload.token, db=db, request=request)
+
+
+@router.post("/verify-account/request")
+@rate_limiter_service.rate_limited("verify_account_request", account_key_func=lambda kwargs: kwargs["payload"].email)
+async def verify_account_request(
+    payload: VerifyAccountRequestSchema, request: Request, db: AsyncSession = Depends(database.get_session)
+):
+    return await account_verification_handler.handle_verification_email_request(
+        payload.email, db=db, request=request
+    )

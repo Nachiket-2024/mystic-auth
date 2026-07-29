@@ -146,14 +146,27 @@ rem Command Prompt
 scripts\dev-up.cmd
 ```
 
-The helper script starts the stack detached, waits for every
-long-running service to report healthy (or just running, for `frontend`
-dev, which has no healthcheck: see the table above), prints one
-`docker compose ps`-style status line per service, then tails only
-`backend`/`frontend`: the two services with real request traffic. If a
-service fails to come up, the status table still prints (so you can see
-exactly which one), and the script exits non-zero instead of silently
-tailing a broken stack.
+The helper script starts the stack detached, explicitly restarts `backend`
+and `taskiq_worker` (so their own boot banner : Uvicorn's startup lines,
+Taskiq's "Listening started" : is always fresh and worth tailing, even on a
+rerun against a stack that was already up and Compose left both containers
+alone), waits for every long-running service to report healthy (or just
+running, for `frontend` dev, which has no healthcheck: see the table
+above), prints one `docker compose ps`-style status line per service, then
+tails fresh logs from `backend`/`frontend`/`taskiq_worker`: their startup
+banners, API traffic, frontend dev-server activity, and async email-task
+execution. It records a timestamp before starting Compose and passes that
+to `docker compose logs --since`, so old request/task activity from a
+previous, unrelated run doesn't get replayed as if it belonged to the
+current startup. If a service fails to come up, the status table still
+prints (so you can see exactly which one), and the script exits non-zero
+instead of silently tailing a broken stack.
+
+Because `backend`/`taskiq_worker` restart on every invocation, running the
+helper a second time while it (or another copy of it) is already tailing
+the same stack will restart both again out from under the first run : each
+invocation doesn't know about the other. Harmless (in-flight requests/tasks
+just retry), but expect an extra boot banner in that case.
 
 It deliberately does **not** use `docker compose up --wait`, despite that
 being the obvious built-in choice: `--wait` treats *any* exited container

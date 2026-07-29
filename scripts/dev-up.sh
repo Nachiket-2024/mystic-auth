@@ -12,11 +12,15 @@
 # code : it would report this stack as failed on every single successful
 # start. This polls the actual long-running services directly instead.
 #
-# On success, tails only backend + frontend : real request traffic (API
-# calls, the frontend dev server's own activity) : never Postgres/Redis/
-# Bugsink/Taskiq/Alembic's internals or Bugsink's own health-check polling
-# noise. Backend exceptions still go to Bugsink (http://localhost:8010),
-# that's what it's for, not this terminal.
+# On success, tails only backend + frontend + taskiq_worker: real request
+# traffic, the frontend dev server's own activity, and async email-task
+# execution. It still excludes Postgres/Redis/Bugsink/Alembic internals and
+# Bugsink's own health-check polling noise. Backend exceptions still go to
+# Bugsink (http://localhost:8010), that's what it's for, not this terminal.
+# backend and taskiq_worker are also explicitly `restart`ed after `up -d` so
+# their boot banner (Uvicorn's startup lines, Taskiq's "Listening started")
+# is always visible in that tail, even when this script is rerun against a
+# stack that was already up and neither container needed recreating.
 #
 # This is the recommended day-to-day command : see README.md. Use plain
 # `docker compose up` instead when you actually want every service's full
@@ -35,6 +39,7 @@ cd "$REPO_ROOT"
 LONG_RUNNING_SERVICES=(postgres redis bugsink backend taskiq_worker frontend)
 TIMEOUT_SECONDS=180
 POLL_INTERVAL=2
+TAIL_SINCE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 is_ready() {
     local status
@@ -56,6 +61,16 @@ is_failed() {
 }
 
 docker compose up -d
+
+# backend/taskiq_worker are the two services whose boot banner (Uvicorn's
+# "Application startup complete", Taskiq's "Listening started", etc.) is
+# actually useful to see. `docker compose up -d` leaves an already-running
+# container alone when nothing about it changed, so on a rerun against a
+# live stack those banners are from whenever it originally booted : older
+# than $TAIL_SINCE below, so the tail at the bottom would silently skip
+# them. Restarting the two here guarantees a fresh banner inside the
+# --since window on every run, not just the first.
+docker compose restart backend taskiq_worker
 
 echo
 printf "Waiting for services to come up"
@@ -94,7 +109,7 @@ elif [ "$not_ready" -ne 0 ]; then
     exit 1
 fi
 
-echo "--- Tailing backend + frontend (Ctrl+C stops watching, stack keeps running) ---"
+echo "--- Tailing backend + frontend + taskiq_worker (Ctrl+C stops watching, stack keeps running) ---"
 echo "Backend errors/exceptions: http://localhost:8010 (Bugsink)"
 echo
-exec docker compose logs -f backend frontend
+exec docker compose logs --since "$TAIL_SINCE" -f backend frontend taskiq_worker

@@ -32,7 +32,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
         setPasswordStrength(evaluatePasswordStrength(value));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.SubmitEvent<HTMLDivElement>) => {
         e.preventDefault();
 
         const passwordError = validatePassword(newPassword);

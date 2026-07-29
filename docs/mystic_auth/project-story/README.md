@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. 52 commits on `main`, from the first on 18 Aug 2025 to the most recent on 28 Jul 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. 53 commits on `main`, from the first on 18 Aug 2025 to the most recent on 29 Jul 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -53,9 +53,8 @@ timeline
             : Forgot-password flow, HTML emails
     Jul 2026: PBAC + audit logging + CI/CD (single commit)
             : Follow-up hardening, Bugsink + sdk.py/sdk.ts
-            : app / mystic_auth split, docker prod + dependency fixes
-            : Nav/sdk extension points, multi-origin CORS, CI container checks
-            : react-router security fix, DSN/logging polish, cleanup pass
+            : app / mystic_auth split, docker prod, extension points, CORS
+            : react-router fix, dev-up script fix, logging polish, resend-verification
 ```
 
 ### Aug 18-23, 2025
@@ -228,11 +227,11 @@ A follow-up pass over the 14th's big commit, hardening it further now that it ha
 
 Running the template against my other projects surfaced a couple of small logout and rate-limiter bugs, fixed here. That's the kind of thing real usage catches that reading the code alone wouldn't. Alongside that, self-hosted error monitoring landed via Bugsink, so real errors get logged somewhere instead of just showing up in server logs. The `sdk.py`/`sdk.ts` files were introduced too, a single file on each side that re-exports the pieces meant to be built on, so future code doesn't have to reach into the template's internals directly. The frontend also got reorganized into proper feature folders.
 
-### Jul 25-28, 2026
+### Jul 25-29, 2026
 
 This stretch turned the repo from "reusable codebase" into a real template. The code was split into upstream-owned internals (`backend/mystic_auth/`, `frontend/src/mystic_auth/`) and thin project-owned shells (`backend/app/`, `frontend/src/app/`), with `sdk.py`/`sdk.ts` and `app_sdk.py`/`app_sdk.ts` as the extension surface. Docs and tests were split the same way, `scripts/sync-upstream.sh` was added for future template updates, and the template-usage docs grew the ownership model, sync workflow, worked example, RBAC quickstart, and shared sidebar/CORS/nav extension points.
 
-The rest came from running the template against real downstream projects. That caught an `sdk.ts` import bypass, an event-loop-blocking token signature, logout and rate-limiter bugs, a Bugsink Gunicorn timeout issue, a prod OAuth redirect gotcha, and the stale `react-router-dom` package with an unpatched advisory, fixed by moving to `react-router` v8 and making npm audit blocking again. Docker and day-to-day operations were tightened too: `scripts/dev-up.sh` became the quieter default startup path, frontend Compose builds got `pull_policy: build`, `watch_for_late_dsn()` catches Bugsink's DSN after slow cold boots, backend logging became dev-readable and production-structured, and stale docs/comments/config were cleaned up.
+The rest came from running the template against real downstream projects. That caught an `sdk.ts` import bypass, an event-loop-blocking token signature, logout and rate-limiter bugs, a Bugsink Gunicorn timeout issue, a prod OAuth redirect gotcha, and the stale `react-router-dom` package with an unpatched advisory, fixed by moving to `react-router` v8 and making npm audit blocking again. Docker and day-to-day operations were tightened too: `scripts/dev-up.sh` became the quieter default startup path, frontend Compose builds got `pull_policy: build`, `watch_for_late_dsn()` catches Bugsink's DSN after slow cold boots, backend logging became dev-readable and production-structured, and stale docs/comments/config were cleaned up. A resend verification email flow was added for users who tried to verify their account after the verification link had expired, the background email worker got terminal-visible logging, and a PowerShell dev-up bug got fixed so the startup logs it always promised actually showed up.
 
 ---
 

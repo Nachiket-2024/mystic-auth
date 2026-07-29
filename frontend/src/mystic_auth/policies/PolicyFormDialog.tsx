@@ -97,7 +97,7 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
         onClose();
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.SubmitEvent<HTMLDivElement>) => {
         e.preventDefault();
 
         let conditions: Record<string, unknown> | undefined;

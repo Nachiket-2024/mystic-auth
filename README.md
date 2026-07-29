@@ -171,13 +171,19 @@ rem Command Prompt
 scripts\dev-up.cmd
 ```
 
-Starts every service, waits for each to actually report healthy, then
-prints a one-line-per-service status table and settles into tailing just
-`backend`/`frontend`, the two services with real request traffic (API
-calls, the frontend dev server). Postgres/Redis/Bugsink/Taskiq/Alembic's own
-startup and migration output, and Bugsink's health-check polling, don't
-show up here: they've already done their job by the time you see the
-tail start. Backend exceptions still go to Bugsink
+Starts every service, restarts `backend`/`taskiq_worker` so their startup
+banner is always fresh, waits for each to actually report healthy, then
+prints a one-line-per-service status table and settles into tailing fresh
+logs from just `backend`/`frontend`/`taskiq_worker`: their startup lines
+(Uvicorn's, Taskiq's "Listening started"), API calls, the frontend dev
+server, and async email-task execution (including
+`Sending email to {address}` / `Email sent successfully to {address}` once
+a signup/password-reset email actually goes out). Old, unrelated activity
+from a previous run isn't replayed. Postgres/Redis/Bugsink/Alembic startup
+and migration output, and Bugsink's health-check polling, don't show up
+here: they've already done their job by the time you see the tail start.
+Backend
+exceptions still go to Bugsink
 ([http://localhost:8010](http://localhost:8010)), not this terminal. See
 [Docker Overview](docs/mystic_auth/docker/overview.md#day-to-day-dev-up-helpers)
 for the full rationale, and what to do if a service fails to start.
@@ -289,7 +295,7 @@ Neither creation nor promotion is ever exposed via any API endpoint: CLI only, b
 | Feature | Details |
 |---|---|
 | Signup | Creates an account and assigns the baseline `self_service` policy; sends an email verification link |
-| Email Verification | Single-use, Redis-backed token |
+| Email Verification | Single-use, Redis-backed token; unverified users can request a fresh link after expiry |
 | Login | Timing-attack-resistant password check; returns JWT access + refresh tokens as httpOnly cookies |
 | Google OAuth2 (PKCE) | Creates or logs in a user; Google's own email verification is trusted, so no separate verification step is needed |
 | Token Refresh | Rotates the refresh token; reuse of an already-rotated token revokes every session for that account |

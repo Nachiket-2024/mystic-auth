@@ -17,14 +17,14 @@ You've created your own repository from this template (via GitHub's **Use this t
 2. `cp .env.example .env`: prefilled with working (fake) values, so this just works for local dev as-is. Only two things need real values before those specific features work: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ([OAuth setup](#oauth-setup-google)) and `FROM_EMAIL`/`GMAIL_APP_PASSWORD` ([Email setup](#email-setup)). Everything else runs fine without them.
 3. Run the dev helper for your shell: `./scripts/dev-up.sh` (Git Bash, WSL, Linux, macOS), `.\scripts\dev-up.ps1` (PowerShell), or `scripts\dev-up.cmd` (Command Prompt).
 
-   The helper brings up backend, frontend, Postgres, Redis, Taskiq, and Bugsink, migrations included, then settles into showing just `backend`/`frontend` traffic instead of every service's full startup output (see [Docker Overview](../docker/overview.md#day-to-day-dev-up-helpers)). Plain `docker compose up` still works if you want everything's logs interleaved instead.
+   The helper brings up backend, frontend, Postgres, Redis, Taskiq, and Bugsink, migrations included, then settles into showing just `backend`/`frontend`/`taskiq_worker` logs instead of every service's full startup output (see [Docker Overview](../docker/overview.md#day-to-day-dev-up-helpers)). Plain `docker compose up` still works if you want everything's logs interleaved instead.
 
 Once it's up:
 
 - **Backend docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Bugsink** (error monitoring): [http://localhost:8010](http://localhost:8010)
-- **Taskiq** (background worker, e.g. sending emails): no UI or port, it just runs. See [Background Workers: Taskiq](../background-workers/taskiq.md) if you want to watch its logs (`docker compose logs -f taskiq_worker`) or add your own tasks.
+- **Taskiq** (background worker, e.g. sending emails): no UI or port, it just runs. The dev helper includes it in the live log tail; use `docker compose logs -f taskiq_worker` when you want only worker logs. See [Background Workers: Taskiq](../background-workers/taskiq.md) to add your own tasks.
 - Postgres/Redis are reachable on `localhost:5433`/`localhost:6380` (non-default host ports, to avoid clashing with anything else you have running locally).
 
 Then create the reserved system superuser (one-time, CLI-only):

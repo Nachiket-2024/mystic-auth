@@ -26,7 +26,7 @@ const SignupForm: React.FC = () => {
         setPasswordStrength(evaluatePasswordStrength(value));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.SubmitEvent<HTMLDivElement>) => {
         e.preventDefault();
 
         const passwordError = validatePassword(password);

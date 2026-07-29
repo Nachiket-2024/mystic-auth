@@ -27,9 +27,9 @@ const OAuth2LoginButtonComponent: React.FC<OAuth2LoginButtonComponentProps> = ({
                 w="full"
                 bg="white"
                 color="gray.800"
-                border="1px solid"
+                border="gray.800"
                 borderColor="border.default"
-                _hover={{ bg: "gray.100" }}
+                _hover={{ bg: "gray.200" }}
                 size="lg"
                 onClick={onLogin}
             >

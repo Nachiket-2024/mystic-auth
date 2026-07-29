@@ -22,7 +22,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
         }
     }, [loginMutation.isSuccess, onSuccess]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.SubmitEvent<HTMLDivElement>) => {
         e.preventDefault();
         onAttempt?.();
         loginMutation.mutate({ email, password });
