@@ -2,6 +2,8 @@
 
 You've created your own repository from this template (via GitHub's **Use this template** button) to build your own product's authentication and authorization layer on top of it. This doc is a fast overview: what you get, how to run it, and where to make it yours. For how any specific piece actually works, see the rest of [`docs/`](../README.md).
 
+---
+
 ## What this template provides
 
 - **Authentication**: email+password with Argon2 hashing, email verification, rate limiting + brute-force lockout, Google OAuth2 (PKCE), JWT access+refresh tokens as httpOnly cookies, refresh-token rotation with reuse detection, logout/logout-all, forgot/reset password. See [Authentication Overview](../authentication/overview.md).
@@ -10,6 +12,8 @@ You've created your own repository from this template (via GitHub's **Use this t
 - **Frontend**: React 19 + TypeScript, Vite, Chakra UI v3, Zustand, TanStack Query. See [Frontend Architecture](../architecture/frontend.md).
 - **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Redis, Taskiq for async email, Alembic migrations, GitHub Actions CI.
 - **Error monitoring**: self-hosted Bugsink, on by default with the stack. See [Error Monitoring](../error-monitoring/overview.md).
+
+---
 
 ## Quickstart
 
@@ -35,11 +39,15 @@ docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
 
 See root [`README.md`](../../../README.md#-first-time-setup--creating-the-system-superuser) for the prompts.
 
+---
+
 ## Environment configuration
 
 Every setting is documented inline in [`.env.example`](../../../.env.example): treat that file as the source of truth, not this doc. `frontend/.env.example` only matters if you run the frontend locally with `npm run dev` instead of Docker.
 
 To rename the app: set `APP_NAME` and `VITE_APP_NAME` in the root `.env`, then `docker compose up --build` (the frontend value is baked in at build time). Nothing else hardcodes a product name. CI keeps using its own placeholder `APP_NAME` regardless; that's expected, not something to sync.
+
+---
 
 ## The `app/` + `mystic_auth/` split
 
@@ -89,13 +97,17 @@ Your own new feature folders (`backend/app/projects/`, `frontend/src/app/project
 
 The diagram above only shows code files, since it's tracing import relationships; the shared config files from the table above (`package.json`, `requirements.txt`, `docker-compose*.yml`, `.env.example`) don't import anything, but they're in the same "Shared" tier as `main.py`/`App.tsx` for the same reason: you're expected to add your own entries, and upstream may add or change its own later. See [Syncing Upstream Template Updates](syncing-upstream.md) for what a conflict in one of these actually looks like.
 
+---
+
 ## Frontend customization
 
 - **Theme**: `frontend/src/mystic_auth/theme/system.ts`: change the `brand` color scale to re-skin the app.
-- **Pages**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/`, `profile/`, `users/`, `policies/`, `audit_log/`). See [Frontend Architecture](../architecture/frontend.md#module-layout).
+- **Pages**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/`, `manage_sessions/`, `account_settings/`, `users/`, `policies/`, `audit_log/`). See [Frontend Architecture](../architecture/frontend.md#module-layout).
 - **Routing**: declared in `frontend/src/app/App.tsx`: add a `<Route>`, wrapped in `ProtectedRoute`.
 - **State**: Zustand (`frontend/src/mystic_auth/store/`) for client state, TanStack Query for server state: both re-exported from `sdk.ts`.
 - **Your own code** lives under `frontend/src/app/` (e.g. `frontend/src/app/projects/`), importing template pieces via `sdk.ts`/`app_sdk.ts`.
+
+---
 
 ## Shared-chrome extension points
 
@@ -123,7 +135,7 @@ const EXTRA_NAV_ITEMS: NavItem[] = [
 
 Items with a `permission` are gated the same way the built-in nav items are (wrapped in `IfCan`), so a caller who lacks it simply doesn't see the link, the same as any built-in one. Omitting `extraNavItems` entirely renders the sidebar exactly as before this prop existed, so adopting it (or upgrading a project that predates it) is never a breaking change.
 
-**Ordering.** By default your items render *after* every built-in one (Dashboard, Users, Policies, Audit Log, Profile), in the order you list them. That's what happens if you don't set `order` at all, so leaving it out is never a breaking change either. To interleave with the built-ins instead, give an item an `order` number: the built-ins are `10`/`20`/`30`/`40`/`50` (see `frontend/src/mystic_auth/layout/navItems.ts`), spaced out so you can slot in between any two without needing to know anyone else's exact value.
+**Ordering.** By default your items render *after* every built-in one (Dashboard, Users, Policies, Audit Log, Account Settings), in the order you list them. That's what happens if you don't set `order` at all, so leaving it out is never a breaking change either. To interleave with the built-ins instead, give an item an `order` number: the built-ins are `10`/`20`/`30`/`40`/`50` (see `frontend/src/mystic_auth/layout/navItems.ts`), spaced out so you can slot in between any two without needing to know anyone else's exact value.
 
 ```tsx
 const EXTRA_NAV_ITEMS: NavItem[] = [
@@ -136,11 +148,15 @@ Items sharing the same `order` (or all omitting it) keep their relative order fr
 
 If a future release adds an extension point to another shared component (e.g. the top bar), it'll follow this same shape: a typed, optional, additive prop, listed in this table.
 
+---
+
 ## Backend customization
 
 - **New domain/resource**: a new top-level package under `backend/app/` (sibling to `mystic_auth/`) with its own model/schema/CRUD/router, mounted in `backend/app/main.py`, importing from `backend/app/sdk.py`. See [Backend Architecture](../architecture/backend.md#module-layout) for the shape to follow.
 - **Database changes**: an Alembic migration under `backend/alembic/versions/`: no `create_all()`. See [Database Design](../database/design.md#migrations).
 - **Configuration**: settings live in `backend/mystic_auth/core/settings.py`: add new ones there, re-exported from `sdk.py` as `settings`.
+
+---
 
 ## PBAC usage
 
@@ -167,9 +183,13 @@ See [Worked Example: Adding a New Domain, End to End](worked-example.md) for all
 
 Don't need PBAC's full generality (conditions, per-resource scoping), just "everyone with role X gets these actions"? See [RBAC Quickstart](../authorization/rbac-quickstart.md): same policies, just unconditioned ones, no separate mechanism to learn.
 
+---
+
 ## Replacing the frontend entirely
 
 The backend is a stateless JSON API with no frontend-specific coupling: deleting `frontend/` and building a different client against it is supported. It expects cookie-based JWT auth (`access_token` + `refresh_token`, both httpOnly/secure/`SameSite=Strict`) from an origin matching `FRONTEND_BASE_URL`. Full route contract: [API Reference](../api/reference.md).
+
+---
 
 ## OAuth setup (Google)
 
@@ -178,6 +198,8 @@ The backend is a stateless JSON API with no frontend-specific coupling: deleting
 3. Fill in `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (e.g. `http://localhost:8000/auth/oauth2/callback/google` locally).
 
 See [OAuth2 / PKCE](../authentication/oauth2-pkce.md) for the mechanics and troubleshooting.
+
+---
 
 ## Email setup
 
@@ -189,19 +211,27 @@ See [OAuth2 / PKCE](../authentication/oauth2-pkce.md) for the mechanics and trou
 
 Without these, signup/verification/reset emails just fail to send (logged, retried 3 times): the rest of the app keeps working. See [Background Workers: Taskiq](../background-workers/taskiq.md).
 
+---
+
 ## Deployment
 
 See the [Deployment Guide](../deployment/guide.md) for prod Compose topology, required env vars, migrations, backups, and low-cost hosting options. Production Compose file: [`docker-compose.prod.yml`](../../../docker-compose.prod.yml).
 
+---
+
 ## Staying in sync with upstream template updates
 
 Pulling in fixes/features from the original template once your own project has diverged from it now lives in its own doc, including the full step-by-step walkthrough and a worked conflict-resolution example: see [Staying in Sync with Upstream Template Updates](syncing-upstream.md).
+
+---
 
 ## Where to go next
 
 - New to the codebase? Start at [`docs/mystic_auth/README.md`](../README.md) for the full index.
 - Building a protected feature? [Adding New Permissions](../authorization/adding-permissions.md), protect the route above, then [Writing and Testing Policies](../authorization/writing-testing-policies.md).
 - Something not behaving as documented? [PBAC Troubleshooting](../authorization/troubleshooting.md).
+
+---
 
 ## Getting help
 

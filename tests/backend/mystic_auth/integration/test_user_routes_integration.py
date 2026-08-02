@@ -72,7 +72,7 @@ async def _create_verified_user(
 ):
     """Signs up and verifies a user. `role` is set purely as display/
     grouping metadata (and, for system_email, to trigger the target-account
-    protection invariant in user_routes.py; see its module docstring for
+    protection invariant in user_management_routes.py; see its module docstring for
     why that's not an authorization decision). `policy_names` is what
     actually grants capability; defaults to just self_service, mirroring
     what real signup does (see signup_service.py)."""
@@ -306,6 +306,110 @@ async def test_admin_can_list_all_users(client, created_emails):
 
 
 @pytest.mark.asyncio
+async def test_list_all_users_reports_total_count_via_header(client, created_emails):
+    """X-Total-Count (UsersPage.tsx's numbered-pagination page count) must
+    reflect the true total, not just how many rows this one page returned."""
+    admin_email = _unique_email("admin")
+    await _create_admin(client, created_emails, admin_email)
+
+    full_resp = await client.get("/users/")
+    total = int(full_resp.headers["x-total-count"])
+    assert total == len(full_resp.json())
+
+    limited_resp = await client.get("/users/", params={"limit": 1})
+    # Same total regardless of the page size requested: X-Total-Count
+    # describes the whole result set, not this one page.
+    assert int(limited_resp.headers["x-total-count"]) == total
+    assert len(limited_resp.json()) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_all_users_search_filters_by_name_or_email(client, created_emails):
+    admin_email = _unique_email("admin")
+    await _create_admin(client, created_emails, admin_email)
+    target_email = _unique_email("findme")
+    # Ends logged in as target_email, so switch back to the admin
+    # afterwards to actually query the list.
+    await _create_verified_user(client, created_emails, target_email)
+    login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
+    assert login_resp.status_code == 200
+
+    resp = await client.get("/users/", params={"search": target_email.split("@")[0]})
+    assert resp.status_code == 200
+    emails = [u["email"] for u in resp.json()]
+    assert target_email in emails
+    assert admin_email not in emails
+    assert int(resp.headers["x-total-count"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_all_users_filters_by_role_and_is_verified(client, created_emails):
+    admin_email = _unique_email("admin")
+    await _create_admin(client, created_emails, admin_email)
+    plain_email = _unique_email("plainuser")
+    await _create_verified_user(client, created_emails, plain_email)
+    login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
+    assert login_resp.status_code == 200
+
+    admin_only = await client.get("/users/", params={"role": "admin", "is_verified": "true"})
+    assert admin_only.status_code == 200
+    admin_only_emails = [u["email"] for u in admin_only.json()]
+    assert admin_email in admin_only_emails
+    assert plain_email not in admin_only_emails
+    assert all(u["role"] == "admin" for u in admin_only.json())
+
+    user_only = await client.get("/users/", params={"role": "user"})
+    assert user_only.status_code == 200
+    user_only_emails = [u["email"] for u in user_only.json()]
+    assert plain_email in user_only_emails
+    assert admin_email not in user_only_emails
+
+
+@pytest.mark.asyncio
+async def test_list_all_users_filters_by_status(client, created_emails):
+    admin_email = _unique_email("admin")
+    await _create_admin(client, created_emails, admin_email)
+    deleted_email = _unique_email("softdeleted")
+    await _create_verified_user(client, created_emails, deleted_email)
+
+    login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
+    assert login_resp.status_code == 200
+    delete_resp = await client.delete(f"/users/{deleted_email}")
+    assert delete_resp.status_code == 200
+
+    deleted_only = await client.get("/users/", params={"status": "deleted", "search": deleted_email.split("@")[0]})
+    assert deleted_only.status_code == 200
+    deleted_emails = [u["email"] for u in deleted_only.json()]
+    assert deleted_email in deleted_emails
+
+    active_only = await client.get("/users/", params={"status": "active", "search": deleted_email.split("@")[0]})
+    assert active_only.status_code == 200
+    assert deleted_email not in [u["email"] for u in active_only.json()]
+
+
+@pytest.mark.asyncio
+async def test_list_all_users_sort_by_email(client, created_emails):
+    admin_email = _unique_email("admin")
+    await _create_admin(client, created_emails, admin_email)
+    prefix = _unique_email("sorttest").split("@")[0]
+    email_a = f"{prefix}-aaa@example.com"
+    email_b = f"{prefix}-bbb@example.com"
+    await _create_verified_user(client, created_emails, email_b)
+    await _create_verified_user(client, created_emails, email_a)
+
+    login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
+    assert login_resp.status_code == 200
+
+    resp = await client.get(
+        "/users/", params={"search": prefix, "sort_by": "email", "sort_dir": "asc"}
+    )
+    assert resp.status_code == 200
+    emails = [u["email"] for u in resp.json()]
+    assert emails == sorted(emails)
+    assert emails.index(email_a) < emails.index(email_b)
+
+
+@pytest.mark.asyncio
 async def test_admin_can_update_a_regular_user(client, created_emails):
     admin_email = _unique_email("admin")
     target_email = _unique_email("target")
@@ -326,7 +430,7 @@ async def test_admin_cannot_modify_system_user(client, created_emails):
     # lacked the system-user guard present on delete/role-update: an admin
     # could PUT a new password onto the system account and take it over
     # entirely. This guard is a target-resource invariant, not a PBAC
-    # decision; see user_routes.py's UserRole import note.
+    # decision; see user_management_routes.py's UserRole import note.
     admin_email = _unique_email("admin")
     system_email = _unique_email("system")
     await _create_system_user(client, created_emails, system_email)
@@ -463,7 +567,7 @@ async def test_soft_deleted_user_cannot_login(client, created_emails):
 async def test_soft_delete_revokes_the_deleted_users_active_session(client, created_emails):
     # A deleted account's existing refresh token must stop working
     # immediately, not just "eventually, once it expires on its own"; see
-    # delete_any_user's Step 4 in user_routes.py.
+    # delete_any_user's Step 4 in user_management_routes.py.
     admin_email = _unique_email("admin")
     target_email = _unique_email("target")
     await _create_verified_user(client, created_emails, target_email)

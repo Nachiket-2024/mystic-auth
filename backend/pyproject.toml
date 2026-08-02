@@ -1,6 +1,6 @@
 [tool.ruff]
 line-length = 120
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 # Deliberately not "ALL": rules picked for correctness and real bug classes
@@ -26,7 +26,7 @@ known-first-party = ["app", "mystic_auth"]
 "mystic_auth/scripts/create_rbac_policies.py" = ["ASYNC250"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.14"
 # sqlalchemy.ext.mypy.plugin: needed alongside pydantic's for accurate
 # ORM-attribute types (declarative Mapped[]/mapped_column() models) and for
 # recognizing DeclarativeBase-generated __init__ signatures.

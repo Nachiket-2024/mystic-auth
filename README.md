@@ -1,7 +1,7 @@
 # MysticAuth
 
-![Python](https://img.shields.io/badge/python-3.11+-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.140+-green?logo=fastapi)
+![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-green?logo=fastapi)
 ![React](https://img.shields.io/badge/React-19+-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
@@ -14,7 +14,7 @@
 
 ---
 
-## Overview
+## 🔎 Overview
 
 A reusable full-stack identity and access management template with authentication, OAuth2/PKCE integration, fine-grained Policy-Based Access Control (PBAC), and self-hosted error monitoring, all enabled by default. Every access decision is made by an assigned, active `Policy`; a user's `role` column is display/grouping metadata only and is never consulted when deciding what someone can do. Supports email+password and Google OAuth2 (with PKCE) login, fully async operations, and JWT authentication delivered as httpOnly cookies.
 
@@ -22,59 +22,77 @@ The product name shown in the UI and emails is configurable via the `APP_NAME` /
 
 See [`docs/mystic_auth/README.md`](docs/mystic_auth/README.md) for the full documentation set: architecture, authentication, authorization, database, API reference, background workers, security, testing, Docker, CI/CD, and deployment. See [`docs/mystic_auth/template-usage/overview.md`](docs/mystic_auth/template-usage/overview.md) for how to clone and customize this repo as a starting point for your own project.
 
-### Why this exists
+---
+
+### 💡 Why this exists
 
 This started as the same authentication/authorization foundation getting rebuilt from scratch for every startup take-home assignment that needed some combination of auth, OAuth2, and roles. It grew from a planned "small reusable module" into a full exploration of what auth actually involves, including refresh rotation, rate limiting, background email delivery, and a real test suite, as each rebuild kept surfacing another problem worth solving properly instead of again. See [Project Story](docs/mystic_auth/project-story/README.md) for the full history.
 
 ---
 
-## Screenshots
+## 🖼️ Screenshots
 
-### Login
+The screenshots below follow the path a user or administrator would normally
+take through the app: sign in, review their own dashboard and account, then
+move into system administration, policy management, and audit review.
+
+### 1. Sign In
 
 ![Login Page](screenshots/login.png)
 
 ---
 
-### User Dashboard (Normal User)
+### 2. Standard User Dashboard (limited sidebar)
 
 ![Dashboard](screenshots/dashboard.png)
 
 ---
 
-### System User Dashboard
+### 3. System Superuser Dashboard (full sidebar)
 
 ![System User Dashboard](screenshots/system_user_dashboard.png)
 
 ---
 
-### User Management
+### 4. Account Settings
+
+![Account Settings](screenshots/account_settings.png)
+
+---
+
+### 5. User Management
 
 ![User Management](screenshots/users.png)
 
 ---
 
-### Policy Management
+### 6. Policy Management
 
 ![Policy Management](screenshots/policies.png)
 
 ---
 
-### Edit Policy (PBAC)
+### 7. Edit Policy
 
 ![Edit Policy](screenshots/edit_policy.png)
 
 ---
 
-### Assign Policies
+### 8. Assign Policies
 
 ![Policy Assignment](screenshots/assign_policies.png)
 
 ---
 
-### Audit Logs (Dark Mode)
+### 9. Security Events
 
-![Audit Logs](screenshots/audit_log_dark_mode_system_user.png)
+![Security Events](screenshots/security_events.png)
+
+---
+
+### 10. Audit Logs
+
+![Audit Logs](screenshots/audit_log_system_user.png)
 
 ---
 
@@ -134,13 +152,13 @@ npm install --prefix frontend
 
 ## ⚙️ Environment Variables
 
-All environment variables are defined in `.env.example`, prefilled with working (obviously-fake) values so the stack boots as-is: copy it and go:
+All environment variables are defined in `.env.example`. The local database, Redis, app secrets, and Bugsink settings are prefilled with development placeholders so the stack can boot after copying the file:
 
 ```bash
 cp .env.example .env
 ```
 
-`SECRET_KEY`, `POSTGRES_*`, and the Bugsink secret key/admin login are all filled with `change_me_in_production`-style placeholders that pass validation and just work for local dev. Swap them for real values before deploying anywhere real (see [Security Decisions](docs/mystic_auth/security/decisions.md)). Only Google OAuth2 and email credentials genuinely need your own values, see below.
+`SECRET_KEY`, `POSTGRES_*`, and the Bugsink secret key/admin login are all filled with `change_me_in_production`-style placeholders that pass validation and are enough for local infrastructure. Swap them for real values before deploying anywhere real (see [Security Decisions](docs/mystic_auth/security/decisions.md)). The app can boot without real Google or SMTP values, but the full auth flow is not complete without them: password signup needs working email delivery for account verification, password reset needs email delivery, and Google OAuth2 needs your own `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and redirect URI.
 
 `frontend/.env.example` also exists, but only matters if you run the frontend locally with `npm run dev` instead of Docker. Running the stack via Docker, the frontend reads the root `.env`'s `VITE_*` values directly, so `frontend/.env` can be skipped.
 
@@ -171,26 +189,15 @@ rem Command Prompt
 scripts\dev-up.cmd
 ```
 
-Starts every service, restarts `backend`/`taskiq_worker` so their startup
-banner is always fresh, waits for each to actually report healthy, then
-prints a one-line-per-service status table and settles into tailing fresh
-logs from just `backend`/`frontend`/`taskiq_worker`: their startup lines
-(Uvicorn's, Taskiq's "Listening started"), API calls, the frontend dev
-server, and async email-task execution (including
-`Sending email to {address}` / `Email sent successfully to {address}` once
-a signup/password-reset email actually goes out). Old, unrelated activity
-from a previous run isn't replayed. Postgres/Redis/Bugsink/Alembic startup
-and migration output, and Bugsink's health-check polling, don't show up
-here: they've already done their job by the time you see the tail start.
-Backend
-exceptions still go to Bugsink
-([http://localhost:8010](http://localhost:8010)), not this terminal. See
-[Docker Overview](docs/mystic_auth/docker/overview.md#day-to-day-dev-up-helpers)
-for the full rationale, and what to do if a service fails to start.
+Starts every service, restarts `backend`/`taskiq_worker` so their startup banner is always fresh, waits for each to actually report healthy, then prints a one-line-per-service status table and settles into tailing fresh logs from just `backend`/`frontend`/`taskiq_worker`: their startup lines (Uvicorn's, Taskiq's "Listening started"), API calls, the frontend dev server, and async email-task execution (including `Sending email to {address}` / `Email sent successfully to {address}` once a signup/password-reset email actually goes out). Old, unrelated activity from a previous run isn't replayed. Postgres/Redis/Bugsink/Alembic startup and migration output, and Bugsink's health-check polling, don't show up here: they've already done their job by the time you see the tail start. Backend exceptions still go to Bugsink ([http://localhost:8010](http://localhost:8010)), not this terminal. See [Docker Overview](docs/mystic_auth/docker/overview.md#day-to-day-dev-up-helpers) for the full rationale, and what to do if a service fails to start.
 
 Want every service's full logs interleaved in one stream instead (e.g.
 debugging Postgres/Bugsink/Taskiq startup itself)? Plain `docker compose up`
-still does exactly that.
+still does exactly that:
+
+```bash
+docker compose up
+```
 
 Once the services are running:
 
@@ -290,7 +297,7 @@ Neither creation nor promotion is ever exposed via any API endpoint: CLI only, b
 
 ---
 
-## 🔐 Auth Flow
+## 🔁 Auth Flow
 
 | Feature | Details |
 |---|---|
@@ -298,9 +305,10 @@ Neither creation nor promotion is ever exposed via any API endpoint: CLI only, b
 | Email Verification | Single-use, Redis-backed token; unverified users can request a fresh link after expiry |
 | Login | Timing-attack-resistant password check; returns JWT access + refresh tokens as httpOnly cookies |
 | Google OAuth2 (PKCE) | Creates or logs in a user; Google's own email verification is trusted, so no separate verification step is needed |
-| Token Refresh | Rotates the refresh token; reuse of an already-rotated token revokes every session for that account |
-| Logout | Revokes the current refresh token, clears cookies |
-| Logout All | Revokes every refresh token for the account, across every device |
+| Token Refresh | Rotates the refresh token; reuse of an already-rotated token revokes only that one session's rotation chain, leaving every other device untouched |
+| Logout | Ends the current session |
+| Logout All | Ends every session for the account, across every device, instantly and in real time (see Manage Sessions) |
+| Manage Sessions | View every active session (device/browser, IP, last used) and revoke any one of them individually in real time; the current device is excluded, use Logout for that |
 | Forgot Password | User requests a reset link via email (same generic response whether or not the email is registered) |
 | Reset Password | User redeems the link, sets a new password (strength-validated, can't reuse the current password), and every other session is logged out |
 
@@ -312,7 +320,7 @@ See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for t
 
 - Policy-Based Access Control: every action is gated by an assigned policy, never by `role`
 - JWT access and refresh tokens stored as httpOnly, secure, `SameSite=Strict` cookies
-- Refresh token rotation with reuse detection (a replayed token revokes every session for that account)
+- Refresh token rotation with reuse detection, scoped to the compromised session's chain only, not the whole account
 - Dual rate limiting (per-IP and per-account) plus a separate brute-force lockout on login
 - Timing-attack-resistant login/signup/password-reset paths
 - Email verification required before password-based login
@@ -321,6 +329,8 @@ See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for t
 - Trusted-proxy-aware IP resolution (`TRUSTED_PROXY_IPS`) for rate limiting, lockout, and audit logging behind a reverse proxy
 - `SECRET_KEY` minimum-length enforcement at startup
 - Two independent audit logs: a security/session-event log and a PBAC decision log, see [Database Design](docs/mystic_auth/database/design.md#why-two-audit-tables-not-one)
+- Per-session tracking (device, IP, first/last seen) for self-service viewing and revocation, independent of but kept in sync with the Redis-backed account/chain version counters that actually govern token validity
+- Real-time cross-device session revocation push (Server-Sent Events + Redis Pub/Sub): logout-all, a targeted Manage Sessions revoke, or a password change reaches every open tab/device within milliseconds
 - System user protected from deletion, role changes, and OAuth2 login via API: CLI-only creation
 - Error monitoring (backend + frontend), enabled by default via self-hosted Bugsink so error data, which can carry PII, never has to leave your own infrastructure. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)
 

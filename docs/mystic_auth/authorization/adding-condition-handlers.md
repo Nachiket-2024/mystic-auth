@@ -48,6 +48,8 @@ class DeviceTrustCondition(ConditionHandler):
 - **Fail safe.** Malformed condition config, missing required resource/context, or any internal error must result in `False` (deny): wrap risky logic in `try/except`, never let an exception escape past this boundary, and never let an ambiguous case default to `True`.
 - Read only what you need from `resource`/`context`: don't reach into the database or make network calls. The engine calls this synchronously and expects it to be cheap.
 
+---
+
 ## 2. Register it with the registry
 
 Edit `backend/mystic_auth/authorization/conditions/condition_registry.py`:
@@ -59,6 +61,8 @@ default_condition_registry.register("device_trust", DeviceTrustCondition())
 ```
 
 This is the **only** place a new condition type needs to be wired in for evaluation to work. `ConditionEvaluationService` looks handlers up by key from this registry: it has no other knowledge of what condition types exist.
+
+---
 
 ## 3. Add validation
 
@@ -76,6 +80,8 @@ _VALIDATORS["device_trust"] = _validate_device_trust
 ```
 
 Also add `"device_trust"` to `_SUPPORTED_KEYS` in the same file: an unrecognized key is rejected outright, so forgetting this step means every policy using your new condition gets a 422 at creation time.
+
+---
 
 ## 4. Test the new condition handler
 
@@ -105,6 +111,8 @@ def test_device_trust_rejects_invalid_min_level():
 **Add a schema-consistency test** (see `tests/backend/mystic_auth/unit/authorization/test_condition_schema_consistency_unit.py`) proving the validator and the handler agree on the exact same JSON shape: this is what caught the `date_range` `start`/`end` naming as the one true canonical shape during this project's own condition-schema audit.
 
 **Optionally, a real-DB integration/security test** (see `tests/backend/mystic_auth/security/test_context_spoofing_security.py` for the pattern) proving the condition is enforced end-to-end through a real route, not just the handler in isolation.
+
+---
 
 ## What you should never need to change
 

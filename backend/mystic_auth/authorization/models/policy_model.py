@@ -67,7 +67,13 @@ class Policy(Base):
     # historical row necessarily has one.
     created_by: Mapped[str | None]
 
-    user_links: Mapped[list["UserPolicy"]] = relationship(back_populates="policy", cascade="all, delete-orphan")
+    # Quoted forward reference is required, not stylistic: UserPolicy is
+    # defined below in this same file, and without `from __future__ import
+    # annotations` this annotation is evaluated eagerly at class-body
+    # execution time, before UserPolicy exists.
+    user_links: Mapped[list["UserPolicy"]] = relationship(  # noqa: UP037
+        back_populates="policy", cascade="all, delete-orphan"
+    )
 
 
 class UserPolicy(Base):
@@ -95,4 +101,4 @@ class UserPolicy(Base):
     # migration-seeded / signup-time default assignments
     assigned_by: Mapped[str | None]
 
-    policy: Mapped["Policy"] = relationship(back_populates="user_links")
+    policy: Mapped[Policy] = relationship(back_populates="user_links")

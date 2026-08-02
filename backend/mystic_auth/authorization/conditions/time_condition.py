@@ -1,8 +1,12 @@
+import traceback
 from datetime import time as dt_time
 from zoneinfo import ZoneInfo
 
+from ...logging.logging_config import get_logger
 from .clock import resolve_current_datetime
 from .condition_handler import ConditionHandler
+
+logger = get_logger(__name__)
 
 
 class TimeCondition(ConditionHandler):
@@ -38,4 +42,9 @@ class TimeCondition(ConditionHandler):
             # Overnight range: wraps past midnight
             return current >= start or current <= end
         except Exception:
+            # Fails safe (see class docstring): a malformed time/timezone
+            # value denies rather than raising, but logged so a
+            # misconfigured policy doesn't silently deny forever with no
+            # trail an operator can find.
+            logger.warning("time condition failed to evaluate, denying:\n%s", traceback.format_exc())
             return False

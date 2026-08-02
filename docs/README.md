@@ -1,4 +1,4 @@
-# Documentation
+# 📚 Documentation
 
 - **[`mystic_auth/`](mystic_auth/README.md)**: the template's own reference docs, covering architecture, authentication, authorization (PBAC), database, API reference, background workers, security, testing, Docker, CI/CD, deployment, and [how to use this repo as a template](mystic_auth/template-usage/overview.md). It belongs to upstream, so don't edit it; merge future updates into it instead.
 - **[`app/`](app/README.md)**: where your own project's docs go. Empty by default, yours to fill in.

@@ -30,7 +30,8 @@ from .sdk import (  # noqa: E402, must follow load_dotenv() above, since sdk.py 
     refresh_token_router,
     security_audit_router,
     settings,
-    user_router,
+    user_management_router,
+    user_self_service_router,
     watch_for_late_dsn,
 )
 
@@ -94,6 +95,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
+    # Custom response headers are invisible to browser JS by default even
+    # when the request itself succeeds; without this, X-Total-Count (see
+    # list_all_users) is present on the wire but unreadable via axios.
+    expose_headers=["X-Total-Count"],
 )
 
 app.add_middleware(LoggingMiddleware)
@@ -118,7 +123,17 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(auth_router)
 app.include_router(refresh_token_router)
-app.include_router(user_router)
+# Split from a single user_routes.py into user_self_service_routes.py (GET/PUT
+# /users/me, no admin permission) and user_management_routes.py (users:list_all/
+# update_any/delete_any/purge/reactivate/assign_role, gated accordingly), see
+# backend/mystic_auth/api/user_routes/. Registration order matters here: the
+# self-service router must come first, since user_management_router's PUT
+# /users/{user_email} would otherwise shadow PUT /users/me (Starlette matches
+# routes in registration order across the whole app, not per-router) - the
+# same hazard policy_assignment_router's own /me-before-{email} ordering
+# below guards against within a single router.
+app.include_router(user_self_service_router)
+app.include_router(user_management_router)
 # Split from a single pbac_routes/policy_routes.py into feature-based modules
 # (CRUD, history, assignment, checks, audit log), see backend/mystic_auth/api/pbac_routes/.
 # Registration order matters: policy_assignment_router defines

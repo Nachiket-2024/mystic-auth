@@ -49,6 +49,16 @@ async def _refresh_with_cookie(client, refresh_token: str):
     return await client.post("/auth/refresh/")
 
 
+async def _get_me_with_access_token(client, access_token: str):
+    """Calls /auth/me with an explicit access_token cookie value, independent
+    of whatever the client's shared cookie jar currently holds - the
+    access_token counterpart to _refresh_with_cookie above, used to simulate
+    a second device's still-cached access token after the first device
+    revokes it account-wide (logout-all/password-reset/etc)."""
+    client.cookies.set("access_token", access_token, domain=_TEST_COOKIE_DOMAIN, path="/")
+    return await client.get("/auth/me")
+
+
 async def _signup_verify_login(client, created_emails, email: str, password: str = PASSWORD):
     """Shared setup: create a verified user and log in, returning the
     logged-in client (cookies persist on the client's cookie jar)."""
@@ -417,26 +427,46 @@ async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, 
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_reuse_revokes_all_sessions(client, created_emails):
+async def test_refresh_token_reuse_revokes_the_compromised_chain_only(client, created_emails):
+    """Reuse detection must kill the entire compromised rotation chain
+    (device A's own current, already-rotated-forward token included: it
+    might be the attacker's copy, not the legitimate client's), but must
+    leave a genuinely independent session (device B: a separate login, a
+    separate chain) alone. An earlier version revoked every session on the
+    account unconditionally, which meant a stale/already-revoked token
+    being replayed on ANY device (e.g. an old tab retrying after an
+    intentional logout-all elsewhere) could also kill an unrelated,
+    never-compromised session created afterward - see
+    docs/mystic_auth/authentication/session-management.md."""
     email = _unique_email()
     login_resp = await _signup_verify_login(client, created_emails, email)
     device_a_refresh = login_resp.cookies["refresh_token"]
 
-    # A second, independent session/device for the same user.
+    # A second, independent session/device for the same user: its own login,
+    # its own rotation chain, sharing nothing with device A's.
     second_login = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     device_b_refresh = second_login.cookies["refresh_token"]
 
-    # Rotate device A forward once (the legitimate use), then replay the
-    # original, now-revoked device A token, simulating a stolen refresh
-    # token being used after the real client already rotated it.
-    await _refresh_with_cookie(client, device_a_refresh)
+    # Rotate device A forward once (the legitimate use) - its current,
+    # descendant token, still part of the SAME chain as the one about to be
+    # replayed - then replay the original, now-revoked device A token,
+    # simulating a stolen refresh token being used after the real client
+    # already rotated it.
+    rotate_resp = await _refresh_with_cookie(client, device_a_refresh)
+    device_a_rotated_refresh = rotate_resp.cookies["refresh_token"]
     reuse_resp = await _refresh_with_cookie(client, device_a_refresh)
     assert reuse_resp.status_code == 401
 
-    # Reuse detection must revoke every active session for the user,
-    # including device B's still-otherwise-valid refresh token.
+    # The compromised chain is fully killed: both the reused token itself
+    # (already asserted above) and its legitimate-looking rotated
+    # descendant, since there is no way to tell from the registry alone
+    # which of the two is the attacker's copy.
+    device_a_rotated_resp = await _refresh_with_cookie(client, device_a_rotated_refresh)
+    assert device_a_rotated_resp.status_code == 401
+
+    # Device B never shared this chain and must be entirely unaffected.
     device_b_resp = await _refresh_with_cookie(client, device_b_refresh)
-    assert device_b_resp.status_code == 401
+    assert device_b_resp.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -555,6 +585,45 @@ async def test_logout_all_revokes_every_device(client, created_emails):
     b_resp = await _refresh_with_cookie(client, device_b_refresh)
     assert a_resp.status_code == 401
     assert b_resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_logout_all_immediately_invalidates_already_issued_access_tokens(client, created_emails):
+    """Regression guard: logout-all used to only revoke each device's
+    refresh token, leaving its still-valid (short-lived but not instant)
+    access token fully usable for up to ACCESS_TOKEN_EXPIRE_MINUTES - a
+    device that had already been logged in stayed logged in until it next
+    tried to refresh, not "immediately" as documented. Confirms
+    revoke_all_tokens_for_user's account_ver bump actually kills a
+    still-unexpired access token from a different device right away, not
+    just on its next refresh."""
+    email = _unique_email()
+    login_resp = await _signup_verify_login(client, created_emails, email)
+    device_a_access = login_resp.cookies["access_token"]
+
+    second_login = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
+    device_b_access = second_login.cookies["access_token"]
+
+    # Sanity check: both access tokens work before logout-all.
+    assert (await _get_me_with_access_token(client, device_a_access)).status_code == 200
+    assert (await _get_me_with_access_token(client, device_b_access)).status_code == 200
+
+    logout_all_resp = await client.post("/auth/logout/all")
+    assert logout_all_resp.status_code == 200
+
+    a_me_resp = await _get_me_with_access_token(client, device_a_access)
+    b_me_resp = await _get_me_with_access_token(client, device_b_access)
+    assert a_me_resp.status_code == 401
+    assert b_me_resp.status_code == 401
+
+    # A token minted *after* the revoke (e.g. logging back in) must still
+    # work. Validity is an integer version comparison (account_ver), not
+    # time-based, so this needs no delay to avoid same-second ambiguity -
+    # login_resp above already embeds the bumped account_ver.
+    fresh_login = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
+    assert fresh_login.status_code == 200
+    fresh_access = fresh_login.cookies["access_token"]
+    assert (await _get_me_with_access_token(client, fresh_access)).status_code == 200
 
 
 # ---------------------------- password reset ----------------------------
@@ -708,3 +777,23 @@ async def test_signup_account_key_rate_limit_is_tracked_in_real_redis(client, cr
     count = await redis_client.get(f"signup:account:{email}")
     assert count is not None
     assert int(count) == 1
+
+
+# ---------------------------- real-time session events (SSE) ----------------------------
+# The stream itself (real Redis Pub/Sub, heartbeats, disconnect handling) is
+# exercised directly against user_session/session_events.py in
+# tests/backend/mystic_auth/unit/user_session/test_session_events_unit.py, and
+# the end-to-end publish-on-revoke wiring in
+# test_manage_sessions_integration.py, not here: httpx's ASGITransport test
+# harness doesn't reliably support this endpoint's held-open streaming
+# response at all (even opening one with nothing else going on hangs
+# indefinitely), so trying to drive it through this specific test client is
+# fighting the harness, not testing real behavior. What's left worth
+# confirming at the route level, without actually opening the stream, is
+# that auth is enforced.
+
+@pytest.mark.asyncio
+async def test_session_events_stream_requires_authentication(client, created_emails):
+    resp = await client.get("/auth/session-events")
+
+    assert resp.status_code == 401

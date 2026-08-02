@@ -15,6 +15,8 @@ This template documents **self-hosted Bugsink** as the default path, for reasons
 
 Prefer Sentry's own hosted free tier instead? It works identically: see [Alternative: Sentry's hosted free tier](#alternative-sentrys-hosted-free-tier) below. Same SDK, same code, just a different DSN.
 
+---
+
 ## Quickstart (self-hosted Bugsink)
 
 No external account or sign-up is involved anywhere in this path: Bugsink is entirely self-hosted, and the only "credentials" are the superuser login you make up yourself in step 1. (Compare with [the Sentry-hosted alternative](#alternative-sentrys-hosted-free-tier) below, which does need a sentry.io account: that's the one path here that involves a third party.)
@@ -84,6 +86,8 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
 To turn it off again: clear `SENTRY_DSN`/`VITE_SENTRY_DSN` (or just don't set them): every capture call becomes a no-op immediately, no restart of Bugsink itself required. The `bugsink` container can keep running or be stopped independently (`docker compose stop bugsink bugsink-seed`), or removed from the stack entirely by deleting its service block from `docker-compose.yml`/`docker-compose.prod.yml` if you don't want it at all.
 
+---
+
 ## Using Bugsink
 
 Written for whoever's never touched Bugsink (or Sentry, or any error tracker like this) before: the concepts, not a pixel-perfect UI tour, since the UI itself is simple enough that "what am I even looking at" is the only real barrier.
@@ -94,6 +98,8 @@ Written for whoever's never touched Bugsink (or Sentry, or any error tracker lik
 - **Muting an Issue** is different from resolving: use it for something you've deliberately decided isn't worth fixing right now (a known third-party flake, noise from an edge case you're accepting): it stays out of your unresolved view without claiming you fixed anything.
 - **Projects and teams**: one Bugsink instance can hold multiple projects (e.g. if you later stand up another service pointed at the same Bugsink), each with its own DSN and its own Issues list, grouped under teams for who can see what. For a single-app setup like this template's default, one project is all you need.
 - **You won't see anything until something actually breaks.** There's no seed data: a fresh project's Issues list is empty by design. If you want to confirm the pipe works before waiting for a real bug, use the verification command in step 4 above.
+
+---
 
 ## What gets reported, and from where
 
@@ -122,9 +128,13 @@ flowchart LR
     SentrySDK --> Bugsink[("Bugsink<br/>(self-hosted)")]
 ```
 
+---
+
 ## User context
 
 The backend attaches the caller's email (read from their `access_token` cookie, best-effort: a missing/expired/invalid cookie just means no user context, never a failure to capture) so an error can be traced back to who hit it. Deliberately narrow: only an email is attached, not the SDK's broader automatic PII collection (request bodies, full cookie jars, etc.), which could otherwise capture credentials in transit: see `error_monitoring/sentry_service.py::init_sentry`'s own comment on `send_default_pii`.
+
+---
 
 ## Security notes
 
@@ -132,6 +142,8 @@ The backend attaches the caller's email (read from their `access_token` cookie, 
 - **Traces are 0% sampled** (`traces_sample_rate: 0` / `tracesSampleRate: 0`): this integration is error capture only, not performance monitoring/tracing. No request-body/timing data is sent beyond what an actual captured exception includes.
 - **`SECRET_KEY` vs. `BUGSINK_SECRET_KEY`**: these are two unrelated secrets for two unrelated purposes (this app's JWT signing key vs. Bugsink's own Django secret key): never reuse one for the other.
 - **A typo'd `SENTRY_DSN` can't take the app down.** `init_sentry()` runs at import time, before the app itself really exists: it deliberately catches any failure from `sentry_sdk.init()` (verified directly: a malformed DSN string does raise from the SDK) and logs a warning instead of letting it propagate, so a mistake in this one *optional* setting degrades to "monitoring is off" rather than "nothing works." See [Security Decisions](../security/decisions.md#a-malformed-sentry_dsn-must-never-crash-the-app).
+
+---
 
 ## Alternative: Sentry's hosted free tier
 
@@ -142,6 +154,8 @@ Since the integration only depends on the Sentry SDK protocol, pointing it at Se
 3. You don't need the `bugsink` Docker service for this path: stop it (`docker compose stop bugsink bugsink-seed`) or remove its service block from `docker-compose.yml`/`docker-compose.prod.yml` if you'd rather not run it alongside a hosted DSN.
 
 Trade-offs vs. self-hosted Bugsink: zero infrastructure to run/maintain, a more polished/mature UI: but error data (including any PII it contains) leaves your infrastructure, and the free tier caps at 5,000 events/month with events silently dropped past that (1 dashboard user).
+
+---
 
 ## Alternative: GlitchTip
 

@@ -1,0 +1,76 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...auth.password_logic.password_service import password_service
+from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
+from ...authorization.dependencies.authorization_dependency import require_authorization
+from ...authorization.permissions import Permission
+from ...database.connection import database
+from ...user_crud.user_crud_collector import user_crud
+from ...user_table.user_schema import UserRead, UserUpdate
+from ..route_helpers import get_or_404
+from .user_routes_shared import RESOURCE_TYPE, prepare_update_data
+
+# Split from the combined user_routes.py: this file is exactly the two
+# self-service endpoints (a caller acting on their own account), so it's
+# never gated by anything beyond users:read_own/update_own, unlike every
+# route in user_management_routes.py. Kept as its own router (rather than
+# folded into that one) so the two permission tiers can never accidentally
+# share a route by being defined in the same file, mirroring pbac_routes/'s
+# split by concern (policy_crud_routes.py, policy_assignment_routes.py, etc.).
+router = APIRouter(prefix="/users", tags=["Users"])
+
+
+@router.get("/me", response_model=UserRead)
+async def get_my_profile(
+    current_user: dict = Depends(require_authorization(Permission.USERS_READ_OWN.value, RESOURCE_TYPE)),
+    db: AsyncSession = Depends(database.get_session)
+):
+    email = current_user["email"]
+    user = await get_or_404(user_crud.get_by_email(email, db), "User not found")
+    return user
+
+
+@router.put("/me", response_model=UserRead)
+async def update_my_profile(
+    update_data: UserUpdate,
+    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_OWN.value, RESOURCE_TYPE)),
+    db: AsyncSession = Depends(database.get_session)
+):
+    email = current_user["email"]
+    user = await get_or_404(user_crud.get_by_email(email, db), "User not found")
+
+    # A stolen access-token cookie (e.g. via XSS) is otherwise enough to
+    # permanently lock the legitimate owner out by just setting a new
+    # password: no proof of the old one required. Skipped for an
+    # OAuth-only account (hashed_password is None) setting a password for
+    # the first time, since there's nothing yet to confirm against.
+    if update_data.password is not None and user.hashed_password is not None:
+        if not update_data.current_password or not await password_service.verify_password(
+            update_data.current_password, user.hashed_password
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+        # Same check password_reset_service.py already does for the forgot-
+        # password flow: a "change" that doesn't change anything shouldn't
+        # succeed, and shouldn't revoke every other session for no reason.
+        if await password_service.verify_password(update_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password must be different from the current password",
+            )
+
+    prepared_data = await prepare_update_data(update_data)
+    updated_user = await user_crud.update(db_obj=user, update_data=prepared_data, db=db)
+
+    # A password change rotates the credential, so any existing session
+    # (including this device's own refresh token) must not survive it,
+    # mirroring password_reset_service.py's identical reasoning: an account
+    # may be having its password changed specifically because it's
+    # compromised, so an attacker's session shouldn't outlive the change.
+    if "hashed_password" in prepared_data:
+        await refresh_token_service.revoke_all_tokens_for_user(email, db)
+
+    return updated_user

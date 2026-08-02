@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/unit/test_route_helpers_unit.py
 #
 # get_or_404 centralizes the "fetch by id/email/name, 404 if missing"
-# pattern previously duplicated ~15 times across user_routes.py and the
+# pattern previously duplicated ~15 times across user_routes/ and the
 # pbac_routes/ modules (Phase 6 architecture cleanup) : pinning its two
 # behaviors directly guards every route that now depends on it.
 import pytest

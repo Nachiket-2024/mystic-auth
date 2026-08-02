@@ -28,7 +28,7 @@ flowchart LR
 
 ### `frontend`: Frontend (typecheck + lint + test + build)
 
-- Node version is pinned to an explicit patch (`20.20.2`), not a bare major (`20`): ESLint 10 requires Node `^20.19.0 || ^22.13.0 || >=24` and Vite 8 requires `^20.19.0 || >=22.12.0`, both above some earlier Node 20 releases, so an explicit patch guarantees the floor is met rather than trusting whichever latest-20.x a runner happens to resolve.
+- Node version is pinned to an explicit patch (`22.22.0`), not a bare major (`22`): React Router 8 requires Node `>=22.22.0`, so an explicit patch guarantees the floor is met rather than trusting whichever latest-22.x a runner happens to resolve.
 - `npm ci --legacy-peer-deps`, then `npm audit --audit-level=high` (dependency vulnerability scan, blocking), then `npm run typecheck`, `npm run lint`, `npm run test:coverage` (not plain `test`, since coverage must actually be collected for `vitest.config.ts`'s `coverage.thresholds` to be evaluated at all), `npm run build`, each as a separate step (so the specific failing stage is visible in the Actions UI).
 
 ### `secrets-scan`: Secrets scan (gitleaks)
@@ -47,10 +47,12 @@ flowchart LR
 ### `docker-full-suite`: Full test suite via Docker (main only)
 
 - Gated to `if: github.event_name == 'push' && github.ref == 'refs/heads/main'`: does **not** run on pull requests, only once something actually merges to `main`.
-- Boots the backend stack (same `BUGSINK_SUPERUSER_EMAIL` override as `docker-build`, same reasoning), then runs the exact same three test tiers as the `backend` job above (unit → integration → security, same `--cov-fail-under=85` gate): but *inside the running backend container* via `docker compose exec --user root`, instead of on a bare GitHub Actions runner. `--user root` is required here: `pytest.ini`'s coverage output writes to `/repo` (the whole-repo bind mount), which native Linux won't let the container's non-root `app` user write into: see [Docker Overview: running a one-off command inside a container](../docker/overview.md#running-a-one-off-command-inside-a-container) for the full explanation (same underlying cause as `/app/logs` needing a named volume, just for coverage's output instead).
+- Boots the backend stack (same `BUGSINK_SUPERUSER_EMAIL` override as `docker-build`, same reasoning), then runs the exact same three test tiers as the `backend` job above (unit -> integration -> security, same `--cov-fail-under=85` gate): but *inside the running backend container* via `docker compose exec --user root`, instead of on a bare GitHub Actions runner. `--user root` is required here: `pytest.ini`'s coverage output writes to `/repo` (the whole-repo bind mount), which native Linux won't let the container's non-root `app` user write into: see [Docker Overview: running a one-off command inside a container](../docker/overview.md#running-a-one-off-command-inside-a-container) for the full explanation (same underlying cause as `/app/logs` needing a named volume, just for coverage's output instead).
 - Boots the frontend, then runs its full test suite inside that container the same way.
 - Same on-failure `docker compose logs` step as `docker-build`.
 - This is deliberately a repeat of tests already run natively above, not a different set of tests: the value is running them through the actual deployable image (real container filesystem, real installed dependencies, real compose networking) rather than a bare runner, catching container-specific drift the native jobs structurally cannot. It's gated to `main`-only rather than every PR because the code under test is identical either way, so doubling CI time on every single PR would mostly just re-prove what the native jobs already proved, for a real but narrow class of bug that surfaces at the point of merging, not the point of proposing a change.
+
+---
 
 ## What's covered
 
@@ -63,6 +65,8 @@ flowchart LR
 - Dependency vulnerability scanning on every push/PR: `pip-audit` (backend, blocking) and `npm audit --audit-level=high` (frontend, blocking). There is no scheduled/automated dependency-update bot in this repo; dependency bumps are a manual, deliberate action (see the header comment in `backend/requirements.txt`), not something that opens PRs on its own.
 - Secret scanning across full git history (`gitleaks`), independent of the backend/frontend jobs.
 
+---
+
 ## What's not covered (tracked, not silently missing)
 
 See [Concerns](../concerns/README.md) for the full entries:
@@ -70,6 +74,8 @@ See [Concerns](../concerns/README.md) for the full entries:
 - No image push to a registry and no deployment stage: deploying is a manual, documented process (see [Deployment Guide](../deployment/guide.md)), not automated.
 
 This is deliberately left as a documented gap rather than added: extending `ci.yml` with a deploy stage is a workflow change with its own blast radius (new required checks, new secrets, a specific hosting target to assume), and unnecessary cloud-specific tooling doesn't belong in a template repository with no assumed production target.
+
+---
 
 ## Local equivalents
 

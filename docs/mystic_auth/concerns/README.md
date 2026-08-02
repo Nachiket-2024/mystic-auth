@@ -16,6 +16,8 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 **Priority**: High for any real production use, N/A for local development.
 
+---
+
 ## Configuration
 
 ### One global rate-limit threshold for every endpoint
@@ -30,6 +32,8 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 **Priority**: Low, since the current layering (generic global limit + login-specific lockout) covers the highest-risk route already.
 
+---
+
 ## CI/CD
 
 ### No deploy automation
@@ -39,3 +43,15 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 **Why it exists**: Deliberate: this is a template repository with no assumed production target (see [Deployment Guide](../deployment/guide.md#free--low-cost-hosting-options) for provider-agnostic options); adding a deploy stage would need to assume a specific host.
 
 **Priority**: N/A, an intentional scope boundary, not a gap.
+
+### Performance tests are non-blocking in CI
+
+**Description**: The backend `performance` suite (`tests/backend/mystic_auth/performance`) runs in CI with `continue-on-error: true`, so a failure there is visible but never fails the build.
+
+**Impact**: A genuine performance regression could land on `main` without CI stopping it; only a human reviewing that job's result would catch it.
+
+**Why it exists**: These tests assert generous regression-alarm thresholds against a real Postgres/Redis, so timing is inherently noisier than a correctness test on shared/loaded runners: a slow CI runner or concurrent load can trip a timing assertion with no actual code regression behind it (observed directly during this repo's own manual test runs).
+
+**Possible fix**: Tighten the thresholds and/or the runner environment until false positives are rare enough to make the job blocking, or move to a dedicated, less noisy performance-testing environment instead of sharing CI's general-purpose runners.
+
+**Priority**: Low: correctness is still fully enforced elsewhere (unit/integration/security suites are all blocking); this only affects how fast a real performance regression would be noticed.

@@ -18,15 +18,19 @@ const DashboardPage = lazy(() => import("../mystic_auth/dashboard/DashboardPage"
 const UsersPage = lazy(() => import("../mystic_auth/users/UsersPage"));
 const PoliciesPage = lazy(() => import("../mystic_auth/policies/PoliciesPage"));
 const AuditLogPage = lazy(() => import("../mystic_auth/audit_log/AuditLogPage"));
-const ProfilePage = lazy(() => import("../mystic_auth/profile/ProfilePage"));
+const AccountSettingsPage = lazy(() => import("../mystic_auth/account_settings/AccountSettingsPage"));
 
 // Runs the current-user query once and mirrors it into the Zustand auth
 // store (see its own docstring for why this must be called exactly once,
 // here at the app root), not re-exported from sdk.ts since it's meant to
 // be called exactly once, here, not from arbitrary feature code.
 import { useAuthSession } from "../mystic_auth/auth/current_user/useCurrentUserQuery";
+// Real-time push for cross-tab/cross-device session revocation - same
+// "call exactly once, at the app root" reasoning as useAuthSession above.
+import { useSessionEventsStream } from "../mystic_auth/auth/useSessionEventsStream";
 
 import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, LoadingState } from "./sdk";
+import { BRAND_SOLID_HOVER_PROPS } from "../mystic_auth/ui/styles/buttonStyles";
 
 const NotFoundPage: React.FC = () => {
     const navigate = useNavigate();
@@ -42,6 +46,7 @@ const NotFoundPage: React.FC = () => {
                     size="md"
                     fontWeight="bold"
                     onClick={() => navigate("/")}
+                    {...BRAND_SOLID_HOVER_PROPS}
                 >
                     Go Home
                 </Button>
@@ -73,6 +78,7 @@ const NotAuthorizedPage: React.FC = () => {
                     size="md"
                     fontWeight="bold"
                     onClick={() => navigate("/")}
+                    {...BRAND_SOLID_HOVER_PROPS}
                 >
                     Go Home
                 </Button>
@@ -83,6 +89,7 @@ const NotAuthorizedPage: React.FC = () => {
 
 const App: React.FC = () => {
     useAuthSession();
+    useSessionEventsStream();
 
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -163,11 +170,11 @@ const App: React.FC = () => {
                     }
                 />
                 <Route
-                    path="/profile"
+                    path="/account-settings"
                     element={
                         <ProtectedRoute>
                             <AppLayout>
-                                <ProfilePage />
+                                <AccountSettingsPage />
                             </AppLayout>
                         </ProtectedRoute>
                     }

@@ -4,6 +4,8 @@
 
 Offloads slow, failure-prone I/O: sending email via SMTP: off the request/response cycle, so a signup/verification/password-reset request returns immediately instead of blocking on a mail server round trip.
 
+---
+
 ## Architecture
 
 `backend/mystic_auth/taskiq_tasks/email_tasks.py` defines a single [Taskiq](https://taskiq-python.github.io/) broker:
@@ -32,6 +34,8 @@ flowchart LR
     Worker -.->|"raises on failure,<br/>up to 3 retries"| Stream
 ```
 
+---
+
 ## Tasks
 
 | Task | Enqueued from | Purpose |
@@ -52,6 +56,8 @@ await send_email_task.kiq(
 
 `.kiq()` returns as soon as the task is enqueued in Redis: the caller (the signup/password-reset request handler) does not wait for the email to actually send. `send_email_task` logs `Sending email to {to_email}` right before handing off to `email_sender.send`, then `Email sent successfully to {to_email}` once it succeeds, both at INFO level, before returning `True`. It uses `logging_config.py::get_worker_logger()` rather than the usual `get_logger()`, so both lines are terminal-visible (`docker compose logs taskiq_worker`) instead of file-only: unlike an HTTP request, a background task has no access-log line marking when it starts/finishes, so an operator watching the terminal needs these two lines to see a send happen live, the same way Taskiq's own `Executing task ...` line already is.
 
+---
+
 ## Configuration
 
 | Setting | Purpose |
@@ -63,6 +69,8 @@ await send_email_task.kiq(
 | `SMTP_HOST` / `SMTP_PORT` | Optional; default to `smtp.gmail.com`/`587`. Override to point `SMTPEmailSender` at a different SMTP provider |
 | `APP_NAME` | Required; product name used in the email template's branding |
 
+---
+
 ## Failure handling and retries
 
 The broker runs `taskiq.SimpleRetryMiddleware`, and `send_email_task` is labeled `retry_on_error=True, max_retries=3`. On failure, `send_email_task` logs the full traceback and **raises** (rather than swallowing the exception): this is what lets the middleware see the failure and re-enqueue the task immediately (no backoff/delay: see the note below), up to 3 attempts total. A transient SMTP failure (a momentary Gmail outage, a network blip) now gets retried automatically instead of silently dropping the email.
@@ -70,6 +78,8 @@ The broker runs `taskiq.SimpleRetryMiddleware`, and `send_email_task` is labeled
 A permanent failure (e.g. bad SMTP credentials) still exhausts all 3 attempts: each attempt logs its own traceback, and the middleware itself logs a final "Maximum retries count is reached" warning, so the failure is visible in logs even though nothing pages an operator automatically. No dead-letter queue or external alerting is configured: an operator watching logs would see it, but nothing pages anyone automatically. Left as a deployment-specific follow-up, since this template doesn't assume a specific alerting stack.
 
 **Why no delay between retries**: `taskiq.SmartRetryMiddleware` supports exponential backoff, but only actually delays a retry when a `schedule_source` (a `TaskiqScheduler`) is configured: without one, its "delay" is a no-op label, which would be misleading to add. This project doesn't run a `TaskiqScheduler` (there's nothing else that needs one), so `SimpleRetryMiddleware`'s immediate re-enqueue is the correct, honest choice for the one task this app has.
+
+---
 
 ## Redis stream recovery
 
@@ -81,9 +91,13 @@ It also handles a dropped Redis connection while blocked in `XREADGROUP` (for ex
 
 Regression tests in `tests/backend/mystic_auth/unit/taskiq_tasks/test_email_tasks_unit.py` cover these mechanisms: `mkstream=True` + graceful `BUSYGROUP` handling for startup, re-declaration after a runtime `NOGROUP`, and reconnect after a runtime connection drop.
 
+---
+
 ## Testing
 
 `tests/backend/mystic_auth/unit/taskiq_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly: the success path, the failure-raises-for-retry path, that the broker's retry middleware and the task's `retry_on_error`/`max_retries` labels are actually configured, and the fresh-Redis startup race guard above. The call sites (`account_verification_service.py`, `password_reset_service.py`) are separately tested with `send_email_task.kiq` mocked/patched. See [Testing Overview](../testing/overview.md).
+
+---
 
 ## Troubleshooting
 

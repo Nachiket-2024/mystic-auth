@@ -61,12 +61,16 @@ This is the privilege-escalation guard working as intended (see [Architecture](a
 
 Also intentional (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)): these guard against permanently locking the system out of its own authorization management.
 
+---
+
 ## Logging and debugging
 
 - All authorization-relevant logging goes through `backend/mystic_auth/logging/logging_config.py`'s `get_logger(__name__)`: structured, module-scoped loggers.
 - `AuthorizationService._log_decision`'s own failures (a broken audit write) are caught and logged as a `warning`, never re-raised: an audit logging failure must never break the actual authorization decision it's describing. If you suspect audit entries are silently failing to write, check application logs for `"Failed to write authorization audit log entry"`.
 - `AuthorizationCacheService` similarly logs (and swallows) every Redis failure with a specific prefix per operation (`"Authorization cache read failed"`, `"...write failed"`, `"...invalidation failed"`, `"...namespace flush failed"`): grep for these to confirm whether a perceived staleness issue is actually a cache failure being silently absorbed.
 - The backend container's own request logs (`docker compose logs backend`) show every HTTP request/response; for a specific authorization decision, correlate by timestamp against the audit log's `created_at`.
+
+---
 
 ## Redis cache management
 
@@ -104,6 +108,8 @@ async def main():
 asyncio.run(main())
 "
 ```
+
+---
 
 ## Database connection issues
 

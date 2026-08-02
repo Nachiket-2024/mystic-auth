@@ -7,7 +7,7 @@
 # `frontend/`, and pinning it to a non-root UID would fight host/container
 # UID mismatches on that mount across different host OSes instead of just
 # working out of the box.
-FROM node:20.20.2-bullseye AS dev
+FROM node:22.22.0-bullseye AS dev
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ CMD ["npm", "run", "dev", "--", "--host"]
 # Produces the static production bundle (frontend/dist). Only reached when
 # building with --target production (or production's stage below, which
 # depends on it) : docker-compose.yml's dev service never builds this far.
-FROM node:20.20.2-bullseye AS builder
+FROM node:22.22.0-bullseye AS builder
 
 WORKDIR /app
 

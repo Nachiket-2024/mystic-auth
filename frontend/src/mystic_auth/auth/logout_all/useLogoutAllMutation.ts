@@ -5,6 +5,12 @@ import { extractApiErrorMessage } from "../../api/apiError";
 import { useAuthStore } from "../../store/authStore";
 import { queryClient } from "../../core/queryClient";
 import { CURRENT_USER_QUERY_KEY } from "../current_user/useCurrentUserQuery";
+import { SESSIONS_QUERY_KEY } from "../../manage_sessions/useSessionsQuery";
+import { MY_POLICIES_QUERY_KEY } from "../../policies/policyQueries";
+import {
+    MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY,
+    MY_SECURITY_AUDIT_LOG_QUERY_KEY,
+} from "../../audit_log/auditQueries";
 import type { LogoutResponse } from "../logout/logout_types";
 
 // Same reasoning as useLogoutMutation: setAuthenticated(false), not
@@ -22,6 +28,12 @@ export function useLogoutAllMutation() {
         onSuccess: () => {
             useAuthStore.getState().setAuthenticated(false);
             queryClient.setQueryData(CURRENT_USER_QUERY_KEY, null);
+            // Removed, not just invalidated: see useLogoutMutation's
+            // identical comment for why every "me"-scoped query needs this.
+            queryClient.removeQueries({ queryKey: SESSIONS_QUERY_KEY });
+            queryClient.removeQueries({ queryKey: MY_POLICIES_QUERY_KEY });
+            queryClient.removeQueries({ queryKey: MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY });
+            queryClient.removeQueries({ queryKey: MY_SECURITY_AUDIT_LOG_QUERY_KEY });
         },
     });
 }

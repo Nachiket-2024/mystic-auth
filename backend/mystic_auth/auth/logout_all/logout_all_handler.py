@@ -13,7 +13,9 @@ logger = get_logger(__name__)
 
 
 class LogoutAllHandler:
-    """Revokes all refresh tokens for a user and clears authentication cookies."""
+    """Revokes every session on the account (one account-wide Redis
+    version bump - see refresh_token_service.revoke_all_tokens_for_user)
+    and clears authentication cookies."""
 
     async def handle_logout_all(
         self, refresh_token: str | None, db: AsyncSession | None = None, request: Request | None = None
@@ -40,7 +42,7 @@ class LogoutAllHandler:
 
             email = payload.get("email") if payload and payload.get("type") == "refresh" else None
 
-            revoked_count = await refresh_token_service.revoke_all_tokens_for_user(email) if email else 0
+            revoked_count = await refresh_token_service.revoke_all_tokens_for_user(email, db) if email else 0
 
             await log_security_event(
                 LOGOUT_ALL,

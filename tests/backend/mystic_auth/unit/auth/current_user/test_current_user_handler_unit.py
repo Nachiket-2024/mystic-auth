@@ -5,6 +5,7 @@
 # *assigned policies* (via policy_repository), never from their role. Two
 # users with the identical role can hold different policies and therefore
 # see different permissions here.
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -16,13 +17,15 @@ MODULE = "backend.mystic_auth.auth.current_user.current_user_handler"
 
 class _FakeUser:
     def __init__(
-        self, name="Test User", email="user@example.com", role="user", is_active=True, hashed_password="hash"
+        self, name="Test User", email="user@example.com", role="user", is_active=True, hashed_password="hash",
+        created_at=None,
     ):
         self.name = name
         self.email = email
         self.role = UserRole(role) if role is not None else None
         self.is_active = is_active
         self.hashed_password = hashed_password
+        self.created_at = created_at or datetime(2026, 1, 1, tzinfo=UTC)
 
 
 class _FakePolicy:

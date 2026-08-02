@@ -1,6 +1,10 @@
 import ipaddress
+import traceback
 
+from ...logging.logging_config import get_logger
 from .condition_handler import ConditionHandler
+
+logger = get_logger(__name__)
 
 
 class NetworkCondition(ConditionHandler):
@@ -35,4 +39,9 @@ class NetworkCondition(ConditionHandler):
                     return True
             return False
         except Exception:
+            # Fails safe (see class docstring): a malformed IP/CIDR entry
+            # denies rather than raising, but logged so a misconfigured
+            # policy doesn't silently deny forever with no trail an
+            # operator can find.
+            logger.warning("network condition failed to evaluate, denying:\n%s", traceback.format_exc())
             return False

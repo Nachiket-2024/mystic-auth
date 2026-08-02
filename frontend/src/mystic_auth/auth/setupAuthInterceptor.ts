@@ -6,6 +6,10 @@ import { refreshTokenApi } from "../api/auth_api";
 import { useAuthStore } from "../store/authStore";
 import { queryClient } from "../core/queryClient";
 import { CURRENT_USER_QUERY_KEY } from "./current_user/useCurrentUserQuery";
+import { SESSIONS_QUERY_KEY } from "../manage_sessions/useSessionsQuery";
+import { MY_POLICIES_QUERY_KEY } from "../policies/policyQueries";
+import { MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY, MY_SECURITY_AUDIT_LOG_QUERY_KEY } from "../audit_log/auditQueries";
+import { toaster } from "../ui/toaster/toasterInstance";
 
 // Marks a request as already retried once (post-refresh) so it can't be retried again. Without
 // this, a request that still 401s right after a successful refresh (e.g. the refresh rotated the
@@ -101,8 +105,40 @@ export function setupAuthInterceptor(): void {
             // invalidate again, and so on forever. setQueryData writes the "logged out" result
             // directly into the cache without provoking another fetch, the same pattern
             // useLogoutMutation's onSuccess already uses.
+            // Only surface this when a real, previously-live session just
+            // died (was truly `true`, not the initial `null` every visitor
+            // starts at, e.g. someone loading /login directly, whose first
+            // GET /auth/me 401 is expected and not an "expiry"). Otherwise
+            // a page a user was actively working on (a half-filled form,
+            // etc.) silently redirects to /login with no explanation.
+            const hadLiveSession = useAuthStore.getState().isAuthenticated === true;
+
             useAuthStore.getState().setAuthenticated(false);
             queryClient.setQueryData(CURRENT_USER_QUERY_KEY, null);
+            // Removed, not just invalidated, same reasoning as
+            // useLogoutMutation's onSuccess: none of these "me"-scoped
+            // queries are keyed by email, so a stale one must never flash on
+            // screen for whoever logs in next in this browser - including
+            // right here, where the session died silently (token expiry),
+            // not via an explicit Logout that already handles this.
+            queryClient.removeQueries({ queryKey: SESSIONS_QUERY_KEY });
+            queryClient.removeQueries({ queryKey: MY_POLICIES_QUERY_KEY });
+            queryClient.removeQueries({ queryKey: MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY });
+            queryClient.removeQueries({ queryKey: MY_SECURITY_AUDIT_LOG_QUERY_KEY });
+
+            if (hadLiveSession) {
+                // "error" (not "warning"): every other toast in the app is
+                // success/error only (see UsersPage, PoliciesPage,
+                // ManageSessionsCard, etc.) - "warning"'s orange was the one
+                // toast in the app that didn't match either established
+                // color, in a theme-aware red/green pair that already works
+                // in both light and dark mode.
+                toaster.create({
+                    title: "Your session has expired",
+                    description: "Please log in again to continue.",
+                    type: "error",
+                });
+            }
 
             return Promise.reject(error);
         }

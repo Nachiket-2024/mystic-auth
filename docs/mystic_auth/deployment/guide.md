@@ -29,6 +29,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 **Testing `docker-compose.prod.yml` locally**: both compose files share the same root `.env`; there's no separate `.env.prod`. Its `FRONTEND_BASE_URL=http://localhost:5173` is the dev (Vite) port; prod serves on port 80 via nginx, so OAuth2/email redirect links (built from `FRONTEND_BASE_URL`) point at a dead port until you change it. Set `FRONTEND_BASE_URL=http://localhost` in `.env` before a local prod test, and set it back to `:5173` before returning to the dev-up helper. A real deployment doesn't hit this: there, `FRONTEND_BASE_URL` is your actual domain, set once.
 
+---
+
 ## Required production environment variables
 
 Same variables as `.env.example`, with these called out specifically for production:
@@ -40,11 +42,15 @@ Same variables as `.env.example`, with these called out specifically for product
 - `SENTRY_DSN` / `VITE_SENTRY_DSN`: optional, leave unset to keep error monitoring fully disabled. If enabling self-hosted Bugsink in production, `BUGSINK_SECRET_KEY`/`BUGSINK_SUPERUSER_EMAIL`/`BUGSINK_SUPERUSER_PASSWORD`/`BUGSINK_BASE_URL` also need real (non-`.env.example`-placeholder) values. **These two DSNs are not the same value in a self-hosted-Bugsink setup, and only one of them needs setting by hand**: `SENTRY_DSN` (backend, container-to-container) uses the Compose service address (`bugsink:8000`); `docker-compose.prod.yml`'s `bugsink-seed` service auto-wires this one for you, same as in dev, so leave it blank and let seeding fill it in. `VITE_SENTRY_DSN` (frontend, baked into the browser bundle at build time) is the one that genuinely needs a manual value: it needs whatever *publicly* reaches Bugsink in production, which, per its own no-exposed-port-by-default posture (see [Error Monitoring: security notes](../error-monitoring/overview.md#security-notes)), means a reverse-proxy route you set up deliberately, not `localhost`, and `bugsink-seed` has no way to know that address in advance. See [Error Monitoring](../error-monitoring/overview.md) for the full explanation, including the dev/prod split.
 - `VITE_API_BASE_URL` / `VITE_APP_NAME` / `VITE_SENTRY_DSN` / `VITE_SENTRY_ENVIRONMENT`: unlike every other variable in this list, these are consumed at **image build time**, not container runtime: `docker-compose.prod.yml`'s `frontend` service passes them to `docker/frontend.Dockerfile` as build args, since the production nginx image has no bind-mounted `frontend/.env` for Vite to read the way the dev target does. They must be set in the root `.env` (not just `frontend/.env`) before `docker compose -f docker-compose.prod.yml up -d --build`, since `docker compose` only reads the compose file's own directory for `${VAR}` interpolation, so a value that only exists in `frontend/.env` is invisible to `docker-compose.prod.yml`. Point `VITE_API_BASE_URL` at the real public backend origin, not `localhost`, unless the frontend and backend share an origin behind the same reverse proxy.
 
+---
+
 ## Database migrations
 
 The `alembic` service runs `alembic upgrade head` once and exits; `backend` and `taskiq_worker` both wait on it (`depends_on: alembic: condition: service_completed_successfully` in `docker-compose.prod.yml`) so nothing serves traffic against a schema that hasn't been migrated yet.
 
 Before applying a migration in production, review the generated migration script under `backend/alembic/versions/`: especially anything that drops or alters a column/table. Alembic's autogenerate is a starting point, not a guarantee of safety; a destructive migration should be reviewed like any other schema change before `alembic upgrade head` runs against production data.
+
+---
 
 ## Backups
 
@@ -69,9 +75,13 @@ docker compose exec postgres pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup-$(d
 docker compose exec -T postgres psql -U $POSTGRES_USER $POSTGRES_DB < backup-2026-07-13.sql
 ```
 
+---
+
 ## Graceful shutdown
 
 `backend/app/main.py` registers a FastAPI `lifespan` handler that runs on shutdown (e.g. `docker stop`, or a rolling restart under an orchestrator): it disposes the SQLAlchemy connection pool and closes the Redis client cleanly instead of relying on the process dying and the OS reclaiming the sockets.
+
+---
 
 ## Free / low-cost hosting options
 
@@ -102,6 +112,8 @@ Needs a long-running process, not a request-driven serverless function: Render's
 ### Practical combination for a $0 deployment
 
 Backend + worker on Render (two services from the same repo/image), frontend on Vercel/Netlify, Postgres on Neon, Redis on Upstash. Set `TRUSTED_PROXY_IPS` appropriately if the chosen backend host places its own reverse proxy in front of your container (most of the above do): otherwise per-IP rate limiting will silently collapse onto that proxy's IP for every request.
+
+---
 
 ## Limitations of this deployment approach
 

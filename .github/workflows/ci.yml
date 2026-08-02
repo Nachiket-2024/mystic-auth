@@ -97,7 +97,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.14.6"
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
@@ -161,10 +161,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Pinned patch version: ESLint 10 and Vite 8 both require a Node 20
-          # floor above some earlier 20.x releases, so major-only "20" isn't
-          # precise enough to guarantee compatibility.
-          node-version: "20.20.2"
+          # Pinned patch version: React Router 8 requires Node 22.22.0 or
+          # newer, so major-only "22" is not precise enough to guarantee
+          # compatibility.
+          node-version: "22.22.0"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 

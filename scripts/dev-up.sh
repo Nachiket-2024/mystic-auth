@@ -60,7 +60,13 @@ is_failed() {
     esac
 }
 
-docker compose up -d
+# --quiet-pull: without it, Compose's pull-progress table repaints itself
+# every frame; on terminals that can't redraw in place, each repaint prints
+# as a brand-new block of lines instead of overwriting the last one : looks
+# like it's stuck re-pulling the same image dozens of times when it's
+# really just one pull, redrawn. This silences that table; real pull
+# errors still surface via this command's own exit code.
+docker compose up -d --quiet-pull
 
 # backend/taskiq_worker are the two services whose boot banner (Uvicorn's
 # "Application startup complete", Taskiq's "Listening started", etc.) is

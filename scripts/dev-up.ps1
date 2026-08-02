@@ -64,7 +64,13 @@ function Test-ServiceFailed {
     return ($status -eq "" -or $status.Contains("Exited") -or $status.Contains("Restarting"))
 }
 
-docker compose up -d
+# --quiet-pull: without it, Compose's pull-progress table repaints itself
+# every frame, and PowerShell 5.1 can't redraw in place like a real TTY, so
+# each repaint prints as a brand-new block of lines instead of overwriting
+# the last one : looks like it's stuck re-pulling the same image dozens of
+# times when it's really just one pull, redrawn. This silences that table;
+# real pull errors still surface (non-zero exit, checked below).
+docker compose up -d --quiet-pull
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

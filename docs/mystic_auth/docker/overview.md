@@ -5,7 +5,7 @@
 | Service | Image / build | Purpose |
 |---|---|---|
 | `postgres` | `postgres:15` | Primary database |
-| `redis` | `redis:7` | Cache, rate limits, lockout counters, refresh-token jti registry, single-use tokens, taskiq broker |
+| `redis` | `redis:7` | Cache, rate limits, lockout counters, account/chain version counters, single-use refresh-token claims, taskiq broker |
 | `backend` | `docker/backend.Dockerfile` | FastAPI app (uvicorn) |
 | `frontend` | `docker/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
 | `taskiq_worker` | `docker/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue: see [Background Workers](../background-workers/taskiq.md) |
@@ -51,10 +51,12 @@ flowchart LR
     bugsink -->|healthy| bugsinkseed
 ```
 
+---
+
 ## Dockerfiles
 
-- **`docker/backend.Dockerfile`**: two-stage build: a `builder` stage compiles native dependencies (`gcc`, `libpq-dev`) into an isolated venv; the runtime stage is `python:3.11-slim` with only `libpq5` (runtime client lib, not the dev headers), running as a non-root `app` user. Ships a `HEALTHCHECK` against `/health/ready` as a fallback for when the image runs outside Compose (Compose's own healthcheck, defined per-service, is what actually gates dependent-service startup).
-- **`docker/frontend.Dockerfile`**: three stages: `dev` (default target: `node:20.20.2-bullseye`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user), `builder` (compiles the production bundle; takes `VITE_API_BASE_URL`/`VITE_APP_NAME`/`VITE_SENTRY_DSN`/`VITE_SENTRY_ENVIRONMENT` as build args, since this stage has no bind-mounted `frontend/.env` to read them from the way `dev` does: wired from the root `.env` via `docker-compose.prod.yml`'s `build.args`, see [Deployment Guide](../deployment/guide.md#required-production-environment-variables)), `production` (`nginx:1.27-alpine` serving the static build as a non-root `nginx` user, port 80, `HEALTHCHECK` via `wget`).
+- **`docker/backend.Dockerfile`**: two-stage build: a `builder` stage compiles native dependencies (`gcc`, `libpq-dev`) into an isolated venv; the runtime stage is `python:3.14.6-slim` with only `libpq5` (runtime client lib, not the dev headers), running as a non-root `app` user. Ships a `HEALTHCHECK` against `/health/ready` as a fallback for when the image runs outside Compose (Compose's own healthcheck, defined per-service, is what actually gates dependent-service startup).
+- **`docker/frontend.Dockerfile`**: three stages: `dev` (default target: `node:22.22.0-bullseye`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user), `builder` (compiles the production bundle; takes `VITE_API_BASE_URL`/`VITE_APP_NAME`/`VITE_SENTRY_DSN`/`VITE_SENTRY_ENVIRONMENT` as build args, since this stage has no bind-mounted `frontend/.env` to read them from the way `dev` does: wired from the root `.env` via `docker-compose.prod.yml`'s `build.args`, see [Deployment Guide](../deployment/guide.md#required-production-environment-variables)), `production` (`nginx:1.27-alpine` serving the static build as a non-root `nginx` user, port 80, `HEALTHCHECK` via `wget`).
 - **`docker/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP). No HSTS at this layer: by design, since TLS terminates in front of this container in a real deployment, not here (see [Security Hardening](../security/hardening.md#security-response-headers)).
 - **`.dockerignore`** (repo root: the build context for both Dockerfiles above is `.`, not `backend/`/`frontend/` individually, so its patterns are written relative to the repo root): excludes `backend/logs/` (real local request logs, previously leaking into the backend image: a real bug, not a hypothetical one, see [Security Decisions](../security/decisions.md#dockerignore-previously-let-local-files-leak-into-built-images)) and `**/`-recursive patterns for `__pycache__/`/`*.pyc`/`.pytest_cache/` (bare patterns without the `**/` prefix looked like they should already match at any depth but empirically didn't).
 
@@ -69,6 +71,8 @@ always fails (`pull access denied for mystic-auth-frontend, repository
 does not exist`) since this tag is never published, before falling back to
 building anyway. Harmless but noisy on every startup; `pull_policy: build`
 skips straight to building.
+
+---
 
 ## Dev vs. production compose
 
@@ -105,6 +109,8 @@ docker compose exec --user root -w /repo backend pytest tests/backend/
 ```
 
 Running as root here is scoped to this one throwaway test invocation: it has no bearing on the actual application, which still runs as its normal non-root `app` user by default (`backend.Dockerfile`'s `USER app`) for every real request it serves. One minor side effect worth knowing on native Linux specifically: `.coverage`/`htmlcov/` end up root-owned on the host afterward, so a later `rm -rf htmlcov/` may need `sudo`. Docker Desktop (Windows/Mac) doesn't have this wrinkle either, for the same permissive-bind-mount reason as above.
+
+---
 
 ## Healthchecks
 
@@ -188,6 +194,8 @@ Dev's `backend`/`taskiq_worker` services bind-mount `./backend:/app` for hot-rel
 That's invisible on Docker Desktop (Windows/Mac), which doesn't enforce host-container UID matching on bind mounts: but it's a hard failure on native Linux: a fresh clone has no `backend/logs/` at all (it's gitignored), the container's `app` user can't create one inside a directory it doesn't own, and `os.makedirs()` raises `PermissionError` at import time, before the app even starts serving. This is exactly what broke this repo's own CI the first time a job actually booted the dev compose stack on a real Linux runner (GitHub Actions) rather than testing natively or via a bind-mount-free `docker build`/`docker run`: every previous CI job had run one or the other, so this had been latent, unnoticed, since dev compose was first written.
 
 Fixed two ways together: `docker/backend.Dockerfile` now creates `/app/logs` and `chown`s it to the `app` user at build time (baked into the image), and `docker-compose.yml` mounts a Docker-managed volume (`backend_logs:/app/logs`) at that one path on top of the broader bind mount, for both `backend` and `taskiq_worker`. Docker initializes a fresh named volume by copying whatever already exists at that path in the image: ownership included: so the directory the app actually writes to always has the right owner, regardless of what UID owns the host's checkout. The tradeoff: `backend/logs/access.log` is no longer directly readable from the host filesystem in dev: use `docker compose exec backend tail -f logs/access.log`, or `docker compose logs backend` for WARNING+ (already terminal-visible regardless: see [Backend Architecture: Logging](../architecture/backend.md#logging)).
+
+---
 
 ## Validation history
 

@@ -1,8 +1,12 @@
+import traceback
 from datetime import date
 from zoneinfo import ZoneInfo
 
+from ...logging.logging_config import get_logger
 from .clock import resolve_current_datetime
 from .condition_handler import ConditionHandler
+
+logger = get_logger(__name__)
 
 
 class DateRangeCondition(ConditionHandler):
@@ -37,4 +41,9 @@ class DateRangeCondition(ConditionHandler):
                 return False
             return not (end_str and current_date > date.fromisoformat(end_str))
         except Exception:
+            # Fails safe (see class docstring): a malformed condition value
+            # (bad ISO date, etc.) denies rather than raising, but logged so
+            # a misconfigured policy doesn't silently deny forever with no
+            # trail an operator can find.
+            logger.warning("date_range condition failed to evaluate, denying:\n%s", traceback.format_exc())
             return False

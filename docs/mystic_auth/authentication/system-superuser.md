@@ -15,6 +15,8 @@ Enter system user password:
 System user 'you@example.com' created successfully.
 ```
 
+---
+
 ## If the email already belongs to an existing account
 
 Common if you forgot to bootstrap this first and already signed up or logged in via Google to test something. Rather than refusing outright, the script offers to promote that account instead, after an explicit confirmation, and the exact behavior depends on whether that account already has a password.
@@ -63,9 +65,13 @@ Enter system user password:
 
 The delete is a genuine, permanent deletion of that user row (not a soft delete), so confirm you actually mean this specific account before typing `y`. It's still safe with respect to audit history: both audit-log tables store the acting user's email as a snapshot string rather than a foreign key (see [Database Design](../database/design.md#why-two-audit-tables-not-one)), so deleting the user row never erases what that account did beforehand.
 
+---
+
 ## Declining either prompt
 
 Anything other than exactly `y` aborts with no changes made, and logs a warning server-side. Safe to run repeatedly (e.g. to double-check what it would do) without committing to anything until you actually confirm.
+
+---
 
 ## Why this is CLI-only
 

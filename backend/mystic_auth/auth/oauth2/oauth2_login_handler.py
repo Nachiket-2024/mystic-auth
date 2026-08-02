@@ -140,7 +140,7 @@ class OAuth2LoginHandler:
                 )
                 return self._redirect_to_login_clearing_state()
 
-            jwt_tokens_dict = await self.oauth2_service.login_or_create_user(db, user_info)
+            jwt_tokens_dict = await self.oauth2_service.login_or_create_user(db, user_info, request=request)
 
             # login_or_create_user returns None for every rejection case (the
             # reserved system account, a deactivated account, an unexpected
