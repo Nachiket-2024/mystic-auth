@@ -52,7 +52,7 @@ class Permission(str, enum.Enum):
 
     # Fine-grained actions for managing the authorization system itself
     # (policies and their assignment to users), see
-    # api/pbac_routes/policy_shared.py. Previously a single coarse
+    # api/pbac_routes/policy_permissions.py. Previously a single coarse
     # "policies:manage" action; split so e.g. a support role could be
     # granted policies:read (to inspect/audit) without also being able to
     # create, edit, delete, or (re)assign policies.

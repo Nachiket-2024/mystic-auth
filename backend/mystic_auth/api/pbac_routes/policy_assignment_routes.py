@@ -13,8 +13,8 @@ from ...authorization.schemas.policy_schema import PolicyAssignmentRequest, Poli
 from ...authorization.services.authorization_service import authorization_service
 from ...database.connection import database
 from ...user_crud.user_crud_collector import user_crud
-from ..route_helpers import get_or_404
-from .policy_shared import ASSIGN_DEPENDENCY, READ_DEPENDENCY, REVOKE_DEPENDENCY
+from ..get_or_404 import get_or_404
+from .policy_permissions import ASSIGN_DEPENDENCY, READ_DEPENDENCY, REVOKE_DEPENDENCY
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
 

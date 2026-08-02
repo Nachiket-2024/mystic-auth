@@ -4,10 +4,10 @@ import { Tabs } from "@chakra-ui/react";
 import PageContainer from "../ui/PageContainer";
 import { IfCan } from "../authorization/IfCan";
 import { PERMISSIONS } from "../authorization/permissions";
-import MyAuthorizationLog from "./MyAuthorizationLog";
-import AllAuthorizationLogSection from "./AllAuthorizationLogSection";
-import MySecurityLog from "./MySecurityLog";
-import AllSecurityLogSection from "./AllSecurityLogSection";
+import MyAuthorizationLog from "./authorization_log/MyAuthorizationLog";
+import AllAuthorizationLogSection from "./authorization_log/AllAuthorizationLogSection";
+import MySecurityLog from "./security_log/MySecurityLog";
+import AllSecurityLogSection from "./security_log/AllSecurityLogSection";
 
 /**
  * AuditLogPage
@@ -33,10 +33,18 @@ import AllSecurityLogSection from "./AllSecurityLogSection";
  * all page/reset state lives client-side while the actual data stays
  * server-side, so none of this depends on how many rows the log has grown to.
  *
- * Split across files by section (MyAuthorizationLog, AllAuthorizationLogSection,
- * MySecurityLog, AllSecurityLogSection, plus the two filter bars and shared
- * column defs in auditLogColumns.tsx/auditLogShared.ts): this file is just
- * the tab shell composing them, not the ~500-line single file this used to be.
+ * Split across files by section, grouped into two subfolders matching the
+ * two tabs - everything specific to just one tab lives inside it:
+ * authorization_log/ (MyAuthorizationLog, AllAuthorizationLogSection,
+ * AuthorizationFilterBar, its own columns.tsx/queries.ts/resourceTypes.ts)
+ * and security_log/ (MySecurityLog, AllSecurityLogSection,
+ * SecurityFilterBar, its own columns.tsx/queries.ts/eventTypes.ts, plus
+ * LoginTrendChart.tsx). What's genuinely identical for both tabs stays here
+ * instead of being duplicated into each: auditLogListConfig.ts
+ * (PAGE_SIZE/formatTimestamp/etc.) and auditLogPageResult.ts
+ * (X-Total-Count -> {rows,total} parsing, shared by both queries.ts files).
+ * This file is just the tab shell composing it all, not the ~500-line
+ * single file this used to be.
  */
 const AuditLogPage: React.FC = () => {
     return (

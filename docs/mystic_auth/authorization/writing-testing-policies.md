@@ -93,7 +93,7 @@ async def test_assigning_report_viewers_actually_grants_access(client, created_e
     assert resp.status_code == 200
 ```
 
-See `tests/backend/mystic_auth/integration/test_authorization_routes_integration.py` for the full fixture pattern (`_create_verified_user`, `_create_system_user`, `_create_user_with_custom_policy_actions`) and `tests/backend/mystic_auth/security/conftest.py` for the shared reusable version of the same helpers.
+See `tests/backend/mystic_auth/integration/authorization_test_accounts.py` for the full fixture pattern (`create_verified_user`, `create_system_user`, `create_user_with_custom_policy_actions`) and `tests/backend/mystic_auth/security/conftest.py` for the shared reusable version of the same helpers.
 
 ---
 

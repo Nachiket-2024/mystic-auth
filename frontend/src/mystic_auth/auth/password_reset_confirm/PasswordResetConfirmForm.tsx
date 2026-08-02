@@ -53,6 +53,11 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
 
     const hasTokenFromUrl = !!propToken;
     const rules = checkPasswordRules(newPassword);
+    const passwordErrorId = localError
+        ? "password-reset-confirm-local-error"
+        : resetConfirmMutation.isError
+            ? "password-reset-confirm-mutation-error"
+            : undefined;
 
     return (
         <Stack as="form" onSubmit={handleSubmit} w="full" gap={4}>
@@ -79,6 +84,8 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                     placeholder="New Password"
                     size="lg"
                     autoFocus={hasTokenFromUrl}
+                    aria-invalid={!!localError || resetConfirmMutation.isError}
+                    aria-describedby={passwordErrorId}
                 />
             </ChakraField.Root>
 
@@ -108,6 +115,8 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm New Password"
                     size="lg"
+                    aria-invalid={!!localError}
+                    aria-describedby={localError ? "password-reset-confirm-local-error" : undefined}
                 />
             </ChakraField.Root>
 
@@ -123,10 +132,10 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                 Reset Password
             </Button>
 
-            {localError && <FormAlert status="error">{localError}</FormAlert>}
+            {localError && <FormAlert status="error" id="password-reset-confirm-local-error">{localError}</FormAlert>}
 
             {resetConfirmMutation.isError && (
-                <FormAlert status="error">{resetConfirmMutation.error.message}</FormAlert>
+                <FormAlert status="error" id="password-reset-confirm-mutation-error">{resetConfirmMutation.error.message}</FormAlert>
             )}
 
             {resetConfirmMutation.isSuccess && (

@@ -145,7 +145,9 @@ async def test_oauth2_login_does_not_touch_password_of_already_verified_account(
     assert signup_resp.status_code == 200
     created_emails.append(email)
 
-    from backend.mystic_auth.auth.verify_account.account_verification_service import account_verification_service
+    from backend.mystic_auth.auth.verify_account.account_verification_service import (
+        account_verification_service,
+    )
     from backend.mystic_auth.redis.client import redis_client
 
     token = await account_verification_service.create_verification_token(email)

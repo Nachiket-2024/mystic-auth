@@ -10,7 +10,7 @@ FastAPI application (`backend/mystic_auth/`, with the entry point and extension 
 
 | Module | Purpose |
 |---|---|
-| `api/` | Route registration only: one `APIRouter` per feature, no business logic. Grouped: `auth_routes/`, `user_routes/`, `pbac_routes/`, `audit_log_routes/`, `health_routes/`, plus shared `route_helpers.py` |
+| `api/` | Route registration only: one `APIRouter` per feature, no business logic. Grouped: `auth_routes/`, `user_routes/` (`user_self_service_routes.py`, `user_management_routes.py`, `user_update_payload.py`), `pbac_routes/` (`policy_crud_routes.py`, `policy_history_routes.py`, `policy_assignment_routes.py`, `authorization_check_routes.py`, `pbac_audit_log_routes.py`, plus `policy_permissions.py`: the per-operation authorization dependencies and protected-policy-name guard every one of those files depends on), `audit_log_routes/`, `health_routes/`, plus `get_or_404.py` (the single `get_or_404` helper every route module above uses for its "fetch by id/email/name, 404 if missing" lookups) |
 | `auth/` | Authentication: signup, login, logout, logout-all, refresh-token rotation, password reset, account verification, Google OAuth2/PKCE, JWT/cookie handling; `auth/security/` holds `client_ip.py` (trusted-proxy-aware IP resolution), `security_headers_middleware.py`, `rate_limiter_service.py`, `login_protection_service.py`. See [Authentication Overview](../authentication/overview.md) |
 | `authorization/` | PBAC engine: policies, conditions, evaluator, caching, its own audit log. See [PBAC Architecture](../authorization/architecture.md) |
 | `audit_log/` | Security/session-event audit log (`security_audit_log` table), distinct from the PBAC audit log, see [Database Design](../database/design.md#why-two-audit-tables-not-one) |

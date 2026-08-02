@@ -6,7 +6,7 @@ The condition framework is modular by design:
 flowchart TD
     Engine["Authorization Engine<br/><small>policy_evaluator.py</small>"]
     Service["Condition Evaluation Service<br/><small>condition_evaluation_service.py</small>"]
-    Handlers["Condition Handlers<br/><small>conditions/*.py</small>"]
+    Handlers["Condition Handlers<br/><small>conditions/condition_types/*.py</small>"]
 
     Engine --> Service --> Handlers
 ```
@@ -15,10 +15,10 @@ Adding a new condition type **never** requires touching `PolicyEvaluationEngine`
 
 ## 1. Create the handler class
 
-New file, `backend/mystic_auth/authorization/conditions/device_trust_condition.py` (example: a hypothetical new condition):
+New file, `backend/mystic_auth/authorization/conditions/condition_types/device_trust_condition.py` (example: a hypothetical new condition) - alongside every other condition implementation, not `condition_registry.py`/`condition_validator.py`/`condition_evaluation_service.py`, which are the framework these handlers plug into, not handlers themselves:
 
 ```python
-from .condition_handler import ConditionHandler
+from ..condition_handler import ConditionHandler
 
 
 class DeviceTrustCondition(ConditionHandler):
@@ -55,7 +55,7 @@ class DeviceTrustCondition(ConditionHandler):
 Edit `backend/mystic_auth/authorization/conditions/condition_registry.py`:
 
 ```python
-from .device_trust_condition import DeviceTrustCondition
+from .condition_types.device_trust_condition import DeviceTrustCondition
 
 default_condition_registry.register("device_trust", DeviceTrustCondition())
 ```

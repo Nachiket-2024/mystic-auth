@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
 import api from '@/api/axiosInstance';
-import ManageSessionsCard from '@/manage_sessions/ManageSessionsCard';
+import ManageSessionsCard from '@/dashboard/manage_sessions/ManageSessionsCard';
 
 const mock = new MockAdapter(api);
 

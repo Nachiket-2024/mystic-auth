@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSessionEventsStream } from '@/auth/useSessionEventsStream';
 import { queryClient } from '@/core/queryClient';
 import { CURRENT_USER_QUERY_KEY } from '@/auth/current_user/useCurrentUserQuery';
-import { SESSIONS_QUERY_KEY } from '@/manage_sessions/useSessionsQuery';
+import { SESSIONS_QUERY_KEY } from '@/dashboard/manage_sessions/useSessionsQuery';
 
 class MockEventSource {
   url: string;

@@ -9,8 +9,8 @@ from ...authorization.repositories.audit_log_repository import audit_log_reposit
 from ...authorization.schemas.audit_log_schema import AuditLogEntryRead
 from ...database.connection import database
 from ...user_crud.user_crud_collector import user_crud
-from ..route_helpers import get_or_404
-from .policy_shared import READ_DEPENDENCY
+from ..get_or_404 import get_or_404
+from .policy_permissions import READ_DEPENDENCY
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
 

@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. 53 commits on `main`, from the first on 18 August, 2025 to the most recent on 29 July, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range; an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. 55 commits on `main`, from the first on 18 August, 2025 to the most recent on 3 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -238,6 +238,10 @@ The rest came from running the template against real downstream projects. That c
 ### 2 August, 2026
 
 Many UI improvements landed across account settings, dashboards, user management, policies, audit logs, shared tables, filters, pagination, and screenshots. Backend work expanded session management, audit data, user stats, token/session handling, and tests, while Python, Docker, CI, docs, and dependency pins were updated to match the new project state. Active Sessions and Last Login showing empty right after login, and Logout All not updating them instantly either, got fixed by pushing a real-time session-created event alongside the existing revoke one. A separate bug surfaced next: policy assignments, audit history, and login-trend data could leak across accounts logged into the same browser tab, since those query caches weren't cleared on logout or login. All of them were fixed together. The noisy `dev-up` pull-progress spam was quieted too, alongside a broader review of backend typing/logging fixes, new tests for previously uncovered modules, an accessibility fix in the shared confirm dialog, and a updating the screenshots in the README for the updated UI.
+
+### 3 August, 2026
+
+Several files and folders that had grown too large were split up. `authorization/conditions/`, the user and PBAC policy routes on the backend, and `audit_log/` plus the dashboard's session/last-login pieces on the frontend were each broken into smaller, clearly named pieces instead of one growing file, and the oversized integration test files got the same treatment to mirror those source-side splits. A fresh, check of the whole repo followed by which a stale CI doc line got corrected, several security-relevant backend functions gained missing type annotations, new unit tests closed coverage gaps in the database layer and user CRUD modules, and form validation errors across the auth pages got wired up with aria-invalid and aria-describedby so screen readers actually announce them.
 
 ---
 

@@ -8,8 +8,8 @@ from ...authorization.permissions import Permission
 from ...database.connection import database
 from ...user_crud.user_crud_collector import user_crud
 from ...user_table.user_schema import UserRead, UserUpdate
-from ..route_helpers import get_or_404
-from .user_routes_shared import RESOURCE_TYPE, prepare_update_data
+from ..get_or_404 import get_or_404
+from .user_update_payload import prepare_update_data
 
 # Split from the combined user_routes.py: this file is exactly the two
 # self-service endpoints (a caller acting on their own account), so it's
@@ -20,10 +20,12 @@ from .user_routes_shared import RESOURCE_TYPE, prepare_update_data
 # split by concern (policy_crud_routes.py, policy_assignment_routes.py, etc.).
 router = APIRouter(prefix="/users", tags=["Users"])
 
+_RESOURCE_TYPE = "users"
+
 
 @router.get("/me", response_model=UserRead)
 async def get_my_profile(
-    current_user: dict = Depends(require_authorization(Permission.USERS_READ_OWN.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_READ_OWN.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     email = current_user["email"]
@@ -34,7 +36,7 @@ async def get_my_profile(
 @router.put("/me", response_model=UserRead)
 async def update_my_profile(
     update_data: UserUpdate,
-    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_OWN.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_OWN.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     email = current_user["email"]

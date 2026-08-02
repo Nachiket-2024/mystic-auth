@@ -49,6 +49,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 bg="bg.canvas"
                 colorPalette="brand"
                 required
+                aria-invalid={loginMutation.isError}
+                aria-describedby={loginMutation.isError ? "login-error" : undefined}
             />
 
             <Input
@@ -60,6 +62,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 bg="bg.canvas"
                 colorPalette="brand"
                 required
+                aria-invalid={loginMutation.isError}
+                aria-describedby={loginMutation.isError ? "login-error" : undefined}
             />
 
             {/* Solid variant's default hover is only colorPalette.solid at 90%
@@ -97,7 +101,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
             </Text>
 
             {loginMutation.isError && (
-                <FormAlert status="error">
+                <FormAlert status="error" id="login-error">
                     {loginMutation.error.message}
                 </FormAlert>
             )}

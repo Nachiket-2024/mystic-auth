@@ -5,11 +5,9 @@ import { extractApiErrorMessage } from "../../api/apiError";
 import { useAuthStore } from "../../store/authStore";
 import { queryClient } from "../../core/queryClient";
 import { CURRENT_USER_QUERY_KEY } from "../current_user/useCurrentUserQuery";
-import { SESSIONS_QUERY_KEY } from "../../manage_sessions/useSessionsQuery";
-import {
-    MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY,
-    MY_SECURITY_AUDIT_LOG_QUERY_KEY,
-} from "../../audit_log/auditQueries";
+import { SESSIONS_QUERY_KEY } from "../../dashboard/manage_sessions/useSessionsQuery";
+import { MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY } from "../../audit_log/authorization_log/queries";
+import { MY_SECURITY_AUDIT_LOG_QUERY_KEY } from "../../audit_log/security_log/queries";
 import { MY_POLICIES_QUERY_KEY } from "../../policies/policyQueries";
 import type { CurrentUserProfile } from "../current_user/current_user_types";
 import type { LoginRequest } from "./login_types";

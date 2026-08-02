@@ -4,8 +4,8 @@ import settings from "../core/settings";
 import { queryClient } from "../core/queryClient";
 import { useAuthStore } from "../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "./current_user/useCurrentUserQuery";
-import { SESSIONS_QUERY_KEY } from "../manage_sessions/useSessionsQuery";
-import { LAST_LOGIN_QUERY_KEY } from "../audit_log/useLastLoginQuery";
+import { SESSIONS_QUERY_KEY } from "../dashboard/manage_sessions/useSessionsQuery";
+import { LAST_LOGIN_QUERY_KEY } from "../dashboard/useLastLoginQuery";
 
 /**
  * Opens a Server-Sent Events connection to GET /auth/session-events while

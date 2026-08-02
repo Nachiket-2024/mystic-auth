@@ -8,9 +8,9 @@ import { CalendarDays, Clock, LogOut, Mail, Monitor, Pencil, ShieldCheck, User }
 // the GET /auth/me network call or its own loading/error state machine.
 import { useCurrentUserQuery } from "../auth/current_user/useCurrentUserQuery";
 import { useLogoutAllMutation } from "../auth/logout_all/useLogoutAllMutation";
-import { useLastLoginQuery } from "../audit_log/useLastLoginQuery";
+import { useLastLoginQuery } from "./useLastLoginQuery";
 import { formatMemberSince, formatTimeOnly } from "../ui/dateFormat";
-import ManageSessionsCard from "../manage_sessions/ManageSessionsCard";
+import ManageSessionsCard from "./manage_sessions/ManageSessionsCard";
 
 import Card from "../ui/Card";
 import LoadingState from "../ui/LoadingState";

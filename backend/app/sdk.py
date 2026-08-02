@@ -65,7 +65,7 @@ database = _m("database.connection").database
 settings = _m("core.settings").settings
 
 # Small route helpers
-get_or_404 = _m("api.route_helpers").get_or_404
+get_or_404 = _m("api.get_or_404").get_or_404
 
 # Routers, mounted on the FastAPI app in main.py
 auth_router = _m("api.auth_routes.auth_routes").router

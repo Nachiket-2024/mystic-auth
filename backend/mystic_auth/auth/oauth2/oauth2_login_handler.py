@@ -30,7 +30,7 @@ class OAuth2LoginHandler:
         response.delete_cookie("oauth_state")
         return response
 
-    async def handle_oauth2_login_initiate(self):
+    async def handle_oauth2_login_initiate(self) -> RedirectResponse:
         try:
             google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
             scopes = "openid email profile"
@@ -80,7 +80,7 @@ class OAuth2LoginHandler:
         error: str | None = None,
         db: AsyncSession | None = None,
         request: Request | None = None,
-    ):
+    ) -> RedirectResponse:
         """
         code/state come from Google's redirect query params; error is Google's
         error code (e.g. "access_denied" when the user cancels the consent

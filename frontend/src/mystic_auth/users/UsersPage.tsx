@@ -1,18 +1,15 @@
 import React, { useState } from "react";
-import { Badge, HStack, Input, Stack, Text } from "@chakra-ui/react";
+import { HStack, Input, Stack } from "@chakra-ui/react";
 
 import PageContainer from "../ui/PageContainer";
-import DataTable, { type DataTableColumn } from "../ui/DataTable";
+import DataTable from "../ui/DataTable";
 import ConfirmDialog from "../ui/ConfirmDialog";
-import TableActionButton from "../ui/TableActionButton";
 import Pagination from "../ui/Pagination";
 import StyledSelect from "../ui/StyledSelect";
 import { SEARCH_INPUT_PROPS } from "../ui/styles/inputStyles";
 import { useDebouncedValue } from "../ui/hooks/useDebouncedValue";
 import { useSortState } from "../ui/hooks/useSortState";
 import { usePageResetOn } from "../ui/hooks/usePageResetOn";
-import { IfCan } from "../authorization/IfCan";
-import { PERMISSIONS } from "../authorization/permissions";
 import { toaster } from "../ui/toaster/toasterInstance";
 import { useAuthStore } from "../store/authStore";
 import { useUsersQuery } from "./userQueries";
@@ -26,14 +23,10 @@ import {
 import type { AdminUserRead } from "../api/users_api";
 import UserPoliciesDialog from "./UserPoliciesDialog";
 import UserDetailsDialog from "./UserDetailsDialog";
+import { ROLE_OPTIONS, capitalize, buildUsersColumns } from "./usersColumns";
 
-const ROLE_OPTIONS = ["user", "admin", "system"] as const;
 const PAGE_SIZE = 25;
 const ALL_VALUE = "";
-
-function capitalize(value: string): string {
-    return value.charAt(0).toUpperCase() + value.slice(1);
-}
 
 /** "" (a placeholder "All" option) maps to `undefined` (no filter applied). */
 function toBoolFilter(value: string): boolean | undefined {
@@ -153,125 +146,16 @@ const UsersPage: React.FC = () => {
         );
     };
 
-    const columns: DataTableColumn<AdminUserRead>[] = [
-        {
-            key: "name",
-            header: "Name",
-            sortable: true,
-            width: "22%",
-            truncate: true,
-            render: (u) => (
-                <Text fontWeight="medium">
-                    {u.name}
-                    {u.email === currentUserEmail && (
-                        <Badge ml={2} colorPalette="brand" variant="subtle" size="md">
-                            You
-                        </Badge>
-                    )}
-                </Text>
-            ),
-        },
-        { key: "email", header: "Email", sortable: true, width: "26%", truncate: true, render: (u) => u.email },
-        {
-            key: "role",
-            header: "Role",
-            sortable: true,
-            width: "150px",
-            render: (u) => (
-                <IfCan
-                    action={PERMISSIONS.USERS_ASSIGN_ROLE}
-                    fallback={
-                        <Text textTransform="capitalize" color={u.role ? undefined : "fg.muted"}>
-                            {u.role ?? "No role assigned"}
-                        </Text>
-                    }
-                >
-                    <StyledSelect
-                        w="130px"
-                        value={u.role ?? ""}
-                        onChange={(value) => setPendingRoleChange({ user: u, role: value })}
-                        ariaLabel={`Change role for ${u.email}`}
-                        textTransform="capitalize"
-                        options={ROLE_OPTIONS.map((role) => ({ value: role, label: capitalize(role) }))}
-                        disabled={u.email === currentUserEmail}
-                        title={u.email === currentUserEmail ? "You cannot change your own role" : undefined}
-                    />
-                </IfCan>
-            ),
-        },
-        {
-            key: "status",
-            header: "Status",
-            width: "170px",
-            render: (u) => (
-                <HStack gap={1}>
-                    <Badge colorPalette={u.is_verified ? "green" : "yellow"} size="md">
-                        {u.is_verified ? "Verified" : "Unverified"}
-                    </Badge>
-                    {u.deleted_at ? (
-                        <Badge colorPalette="red" size="md">Deleted</Badge>
-                    ) : (
-                        !u.is_active && <Badge colorPalette="red" size="md">Inactive</Badge>
-                    )}
-                </HStack>
-            ),
-        },
-        {
-            key: "row_actions",
-            header: "",
-            align: "end",
-            // A deleted row shows up to 4 buttons at once (View + Policies +
-            // Reactivate + Purge); 230px was only wide enough for ~2,
-            // wrapping onto a second line. Wide enough for all four on one
-            // line, on every row shape (1/2/3/4 buttons) this column ever
-            // renders.
-            width: "400px",
-            render: (u) => (
-                <HStack justify="flex-end" gap={2} wrap="wrap">
-                    <TableActionButton onClick={() => setViewingUser(u)}>
-                        View
-                    </TableActionButton>
-                    <IfCan action={PERMISSIONS.POLICIES_READ}>
-                        <TableActionButton onClick={() => setPoliciesUserEmail(u.email)}>
-                            Policies
-                        </TableActionButton>
-                    </IfCan>
-                    {u.deleted_at ? (
-                        <>
-                            <IfCan action={PERMISSIONS.USERS_REACTIVATE}>
-                                <TableActionButton
-                                    colorPalette="green"
-                                    onClick={() => handleReactivate(u.email)}
-                                    loading={reactivateMutation.isPending && reactivateMutation.variables?.userEmail === u.email}
-                                >
-                                    Reactivate
-                                </TableActionButton>
-                            </IfCan>
-                            <IfCan action={PERMISSIONS.USERS_PURGE}>
-                                <TableActionButton
-                                    colorPalette="red"
-                                    onClick={() => setPurgingUser(u)}
-                                    disabled={u.email === currentUserEmail}
-                                >
-                                    Purge
-                                </TableActionButton>
-                            </IfCan>
-                        </>
-                    ) : (
-                        <IfCan action={PERMISSIONS.USERS_DELETE_ANY}>
-                            <TableActionButton
-                                colorPalette="red"
-                                onClick={() => setDeletingUser(u)}
-                                disabled={u.email === currentUserEmail}
-                            >
-                                Delete
-                            </TableActionButton>
-                        </IfCan>
-                    )}
-                </HStack>
-            ),
-        },
-    ];
+    const columns = buildUsersColumns({
+        currentUserEmail,
+        onRoleChangeRequest: (user, role) => setPendingRoleChange({ user, role }),
+        onView: setViewingUser,
+        onPolicies: setPoliciesUserEmail,
+        onReactivate: handleReactivate,
+        reactivatingEmail: reactivateMutation.isPending ? reactivateMutation.variables?.userEmail : undefined,
+        onPurgeRequest: setPurgingUser,
+        onDeleteRequest: setDeletingUser,
+    });
 
     return (
         <PageContainer

@@ -61,6 +61,7 @@ const SignupForm: React.FC = () => {
     };
 
     const rules = checkPasswordRules(password);
+    const passwordErrorId = localError ? "signup-password-error" : signupMutation.isError ? "signup-mutation-error" : undefined;
 
     return (
         <Stack as="form" onSubmit={handleSubmit} w="full">
@@ -93,6 +94,8 @@ const SignupForm: React.FC = () => {
                     value={password}
                     onChange={e => handlePasswordChange(e.target.value)}
                     placeholder="Enter password"
+                    aria-invalid={!!localError || signupMutation.isError}
+                    aria-describedby={passwordErrorId}
                 />
                 {/* Always rendered, even before typing starts (showing a
                     neutral "-" placeholder): reserving this line's height
@@ -123,12 +126,14 @@ const SignupForm: React.FC = () => {
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     placeholder="Confirm password"
+                    aria-invalid={!!localError}
+                    aria-describedby={localError ? "signup-password-error" : undefined}
                 />
             </ChakraField.Root>
 
-            {localError && <FormAlert status="error">{localError}</FormAlert>}
+            {localError && <FormAlert status="error" id="signup-password-error">{localError}</FormAlert>}
             {signupMutation.isError && (
-                <FormAlert status="error">{signupMutation.error.message}</FormAlert>
+                <FormAlert status="error" id="signup-mutation-error">{signupMutation.error.message}</FormAlert>
             )}
             {signupMutation.isSuccess && (
                 <FormAlert status="success">{signupMutation.data.message}</FormAlert>

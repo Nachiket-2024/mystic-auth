@@ -112,11 +112,17 @@ const AccountSettingsPage: React.FC = () => {
                         <Stack as="form" onSubmit={handleNameSubmit} gap={4}>
                             <Field.Root>
                                 <Field.Label>Name</Field.Label>
-                                <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} {...SEARCH_INPUT_PROPS} />
+                                <Input
+                                    value={editedName}
+                                    onChange={(e) => setEditedName(e.target.value)}
+                                    aria-invalid={!!nameError || nameMutation.isError}
+                                    aria-describedby={nameError ? "name-local-error" : nameMutation.isError ? "name-mutation-error" : undefined}
+                                    {...SEARCH_INPUT_PROPS}
+                                />
                             </Field.Root>
 
-                            {nameError && <FormAlert status="error">{nameError}</FormAlert>}
-                            {nameMutation.isError && <FormAlert status="error">{nameMutation.error.message}</FormAlert>}
+                            {nameError && <FormAlert status="error" id="name-local-error">{nameError}</FormAlert>}
+                            {nameMutation.isError && <FormAlert status="error" id="name-mutation-error">{nameMutation.error.message}</FormAlert>}
 
                             <Button
                                 type="submit"
@@ -205,6 +211,8 @@ const AccountSettingsPage: React.FC = () => {
                                         ? "Leave blank to keep your current password"
                                         : "Add a password so you can also sign in without Google"
                                 }
+                                aria-invalid={!!passwordError || passwordMutation.isError}
+                                aria-describedby={passwordError ? "password-local-error" : passwordMutation.isError ? "password-mutation-error" : undefined}
                                 {...SEARCH_INPUT_PROPS}
                             />
                             {/* Always rendered (a neutral "-" before typing starts),
@@ -245,13 +253,15 @@ const AccountSettingsPage: React.FC = () => {
                                     value={currentPassword}
                                     onChange={(e) => setCurrentPassword(e.target.value)}
                                     placeholder="Required to confirm this change"
+                                    aria-invalid={!!passwordError}
+                                    aria-describedby={passwordError ? "password-local-error" : undefined}
                                     {...SEARCH_INPUT_PROPS}
                                 />
                             </Field.Root>
                         )}
 
-                        {passwordError && <FormAlert status="error">{passwordError}</FormAlert>}
-                        {passwordMutation.isError && <FormAlert status="error">{passwordMutation.error.message}</FormAlert>}
+                        {passwordError && <FormAlert status="error" id="password-local-error">{passwordError}</FormAlert>}
+                        {passwordMutation.isError && <FormAlert status="error" id="password-mutation-error">{passwordMutation.error.message}</FormAlert>}
 
                         <Button
                             type="submit"

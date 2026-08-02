@@ -43,8 +43,8 @@ from ...user_crud.user_crud_collector import UserStatus, user_crud
 # simply never *grant* access, which this doesn't; it only narrows access.
 from ...user_table.user_model import UserRole
 from ...user_table.user_schema import UserRead, UserRoleUpdate, UserStatsRead, UserUpdate
-from ..route_helpers import get_or_404
-from .user_routes_shared import RESOURCE_TYPE, prepare_update_data
+from ..get_or_404 import get_or_404
+from .user_update_payload import prepare_update_data
 
 # Split from the combined user_routes.py: every route here is gated by a
 # broader permission than plain self-service (users:list_all/update_any/
@@ -60,10 +60,12 @@ from .user_routes_shared import RESOURCE_TYPE, prepare_update_data
 # own comment on why order matters here).
 router = APIRouter(prefix="/users", tags=["Users"])
 
+_RESOURCE_TYPE = "users"
+
 
 @router.get("/stats", response_model=UserStatsRead)
 async def get_user_stats(
-    current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session),
 ):
     """Same permission as the list itself (users:list_all): this is purely
@@ -102,7 +104,7 @@ async def list_all_users(
         "Any other value (including unset) falls back to id.",
     ),
     sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
-    current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     # X-Total-Count (not part of the response body, response_model stays
@@ -128,7 +130,7 @@ async def list_all_users(
 async def update_any_user(
     user_email: str,
     update_data: UserUpdate,
-    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_ANY.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     user_email = normalize_email(user_email)
@@ -168,7 +170,7 @@ async def update_any_user(
 async def delete_any_user(
     user_email: str,
     request: Request,
-    current_user: dict = Depends(require_authorization(Permission.USERS_DELETE_ANY.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_DELETE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     """
@@ -213,7 +215,7 @@ async def delete_any_user(
 async def purge_user(
     user_email: str,
     request: Request,
-    current_user: dict = Depends(require_authorization(Permission.USERS_PURGE.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_PURGE.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     """
@@ -260,7 +262,7 @@ async def purge_user(
 async def reactivate_user(
     user_email: str,
     request: Request,
-    current_user: dict = Depends(require_authorization(Permission.USERS_REACTIVATE.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_REACTIVATE.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     user_email = normalize_email(user_email)
@@ -295,7 +297,7 @@ async def update_user_role(
     user_email: str,
     role_data: UserRoleUpdate,
     request: Request,
-    current_user: dict = Depends(require_authorization(Permission.USERS_ASSIGN_ROLE.value, RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_ASSIGN_ROLE.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     user_email = normalize_email(user_email)
@@ -317,7 +319,7 @@ async def update_user_role(
         await authorization_service.require(
             user_email=current_user["email"],
             action=Permission.USERS_ASSIGN_SYSTEM_ROLE.value,
-            resource_type=RESOURCE_TYPE,
+            resource_type=_RESOURCE_TYPE,
             db=db,
             context=build_authorization_context(request),
         )
