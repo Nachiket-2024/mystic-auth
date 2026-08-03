@@ -1,14 +1,18 @@
-# Background Workers (Taskiq)
+# Background Email Delivery
 
 ## Purpose
 
-Offloads slow, failure-prone I/O: sending email via SMTP: off the request/response cycle, so a signup/verification/password-reset request returns immediately instead of blocking on a mail server round trip.
+Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip.
 
 ---
 
 ## Architecture
 
-`backend/mystic_auth/taskiq_tasks/email_tasks.py` defines a single [Taskiq](https://taskiq-python.github.io/) broker:
+Request handlers enqueue mail by calling
+`backend/mystic_auth/taskiq_tasks/email_tasks.py::send_email_task.kiq(...)`.
+Taskiq writes the job to Redis and the `taskiq_worker` service consumes it.
+
+`backend/mystic_auth/taskiq_tasks/email_tasks.py` defines the default [Taskiq](https://taskiq-python.github.io/) broker:
 
 ```python
 result_backend = RedisAsyncResultBackend(redis_url=settings.REDIS_URL)
@@ -24,11 +28,11 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
     ...
 ```
 
-Redis is both the broker (a Redis Stream) and the result backend: no separate message-queue infrastructure. The `taskiq_worker` container consumes the same broker, running from the identical `docker/backend.Dockerfile` image as the `backend` service, just with a different `command:` (`taskiq worker mystic_auth.taskiq_tasks.email_tasks:broker`, no `--reload`: the worker doesn't need file-watch): see [Backend Architecture](../architecture/backend.md) for why one image serves three roles (`backend`, `taskiq_worker`, `alembic`).
+Redis is both the broker (a Redis Stream) and the result backend, so the Docker path needs no separate message-queue infrastructure. The `taskiq_worker` container consumes the same broker, running from the identical `docker/backend.Dockerfile` image as the `backend` service, just with a different `command:` (`taskiq worker mystic_auth.taskiq_tasks.email_tasks:broker`, no `--reload` because the worker does not need file-watch). See [Backend Architecture](../architecture/backend.md) for why one image serves three roles (`backend`, `taskiq_worker`, `alembic`).
 
 ```mermaid
-flowchart LR
-    Req["Request handler<br/><small>signup / password-reset</small>"] -- ".kiq(...): returns<br/>immediately" --> Stream[("Redis Stream<br/>broker + result backend")]
+flowchart TD
+    Req["Request handler<br/><small>signup / password-reset</small>"] -- "send_email_task.kiq(...)" --> Stream[("Redis Stream<br/>broker + result backend")]
     Stream --> Worker["taskiq_worker"]
     Worker -->|SMTP| Gmail[("Gmail SMTP")]
     Worker -.->|"raises on failure,<br/>up to 3 retries"| Stream
@@ -40,11 +44,11 @@ flowchart LR
 
 | Task | Enqueued from | Purpose |
 |---|---|---|
-| `send_email_task(to_email, subject, body, is_html=True)` | `auth/verify_account/account_verification_service.py`, `auth/password_logic/password_reset_service.py` | Sends the verification email and the password-reset email via the configured SMTP sender (`aiosmtplib`) |
+| `send_email_task(to_email, subject, body, is_html=True)` | `auth/verify_account/account_verification_service.py`, `auth/password_logic/password_reset_service.py` | Sends email from the Taskiq worker via the configured SMTP sender (`aiosmtplib`) |
 
 `send_email_task` itself doesn't talk to SMTP directly: it delegates to `emails/email_sender.py::email_sender` (an `EmailSender` protocol with one concrete `SMTPEmailSender` implementation). This is not a plugin system: swapping providers (e.g. SES, SendGrid, Postmark) means writing one new class and pointing `email_sender` at it, without touching the Taskiq task or its callers.
 
-Both call sites build the HTML body via `emails/email_template_service.py::render_transactional_email` (a shared template with the app name/support address baked in from settings), then enqueue with `.kiq(...)`:
+Both call sites build the HTML body via `emails/email_template_service.py::render_transactional_email` (a shared template with the app name/support address baked in from settings), then enqueue with `send_email_task.kiq(...)`:
 
 ```python
 await send_email_task.kiq(
@@ -54,7 +58,9 @@ await send_email_task.kiq(
 )
 ```
 
-`.kiq()` returns as soon as the task is enqueued in Redis: the caller (the signup/password-reset request handler) does not wait for the email to actually send. `send_email_task` logs `Sending email to {to_email}` right before handing off to `email_sender.send`, then `Email sent successfully to {to_email}` once it succeeds, both at INFO level, before returning `True`. It uses `logging_config.py::get_worker_logger()` rather than the usual `get_logger()`, so both lines are terminal-visible (`docker compose logs taskiq_worker`) instead of file-only: unlike an HTTP request, a background task has no access-log line marking when it starts/finishes, so an operator watching the terminal needs these two lines to see a send happen live, the same way Taskiq's own `Executing task ...` line already is.
+`.kiq()` returns as soon as the task is enqueued in Redis, so the signup or password-reset request handler does not wait for SMTP delivery.
+
+`send_email_task` logs `Sending email to {to_email}` right before handing off to `email_sender.send`, then `Email sent successfully to {to_email}` once it succeeds, both at INFO level, before returning `True`. It uses `logging_config.py::get_worker_logger()` rather than the usual `get_logger()`, so both lines are terminal-visible (`docker compose logs taskiq_worker`) instead of file-only. Background tasks have no HTTP access-log line marking when they start or finish, so these lifecycle logs make live sends visible while still writing to `logs/access.log`.
 
 ---
 
@@ -95,7 +101,7 @@ Regression tests in `tests/backend/mystic_auth/unit/taskiq_tasks/test_email_task
 
 ## Testing
 
-`tests/backend/mystic_auth/unit/taskiq_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly: the success path, the failure-raises-for-retry path, that the broker's retry middleware and the task's `retry_on_error`/`max_retries` labels are actually configured, and the fresh-Redis startup race guard above. The call sites (`account_verification_service.py`, `password_reset_service.py`) are separately tested with `send_email_task.kiq` mocked/patched. See [Testing Overview](../testing/overview.md).
+`tests/backend/mystic_auth/unit/taskiq_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly: the success path, the failure-raises-for-retry path, that the broker's retry middleware and the task's `retry_on_error`/`max_retries` labels are configured, and the fresh-Redis startup race guard above. The call sites (`account_verification_service.py`, `password_reset_service.py`) are separately tested with `send_email_task.kiq` mocked/patched. See [Testing Overview](../testing/overview.md).
 
 ---
 

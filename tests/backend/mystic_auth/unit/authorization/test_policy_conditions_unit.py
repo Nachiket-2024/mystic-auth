@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/test_policy_conditions_unit.py
 #
-# Unit coverage for the modular condition framework (claude.md's "Advanced
+# Unit coverage for the modular condition framework (the advanced
 # Policy Conditions"): Authorization Engine -> Condition Evaluation Service
 # -> Condition Handlers. Each handler is tested in isolation (no DB, no
 # evaluator), plus the service's dispatch/AND/fail-safe-on-unknown-key

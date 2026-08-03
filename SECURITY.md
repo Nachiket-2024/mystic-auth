@@ -1,33 +1,52 @@
 # Security Policy
 
+---
+
 ## Supported versions
 
-This is a template repository, not a versioned library with a support matrix: there is one line of development, `main`. Security fixes land there; if you've created your own repository from this template to build on top of it, pulling in fixes means merging from upstream (see [Staying in Sync with Upstream Template Updates](docs/mystic_auth/template-usage/syncing-upstream.md)).
+This is a template repository, not a versioned library with a support matrix.
+There is one line of development, `main`, and security fixes land there. If you
+created your own repository from this template, pull fixes by merging from
+upstream. See [Staying in Sync with Upstream Template Updates](docs/mystic_auth/template-usage/syncing-upstream.md).
 
 ---
 
 ## Reporting a vulnerability
 
-**Please do not open a public GitHub Issue for a security vulnerability.** A public issue discloses the problem (and often enough detail to exploit it) before a fix exists.
+**Please do not open a public GitHub Issue for a security vulnerability.** A
+public issue can disclose the problem before a fix exists.
 
-Instead, report it privately via [GitHub's private vulnerability reporting](https://github.com/Nachiket-2024/mystic-auth/security/advisories/new) (Security tab → "Report a vulnerability"). Include:
+Instead, report it privately via
+[GitHub's private vulnerability reporting](https://github.com/Nachiket-2024/mystic-auth/security/advisories/new)
+from the Security tab. Include:
 
 - What the vulnerability is and where it lives (file/route/component).
 - Steps to reproduce, or a proof-of-concept if you have one.
 - The impact as you understand it (what an attacker could actually do with it).
 
-You should get an acknowledgment within a few days. This is a template maintained on a best-effort basis, not a funded security team with a formal SLA, so please be patient, and thank you for reporting responsibly rather than disclosing publicly first.
+You should get an acknowledgment within a few days. This is a best-effort
+template, not a funded security team with a formal SLA.
 
 ---
 
 ## Scope
 
-This repo's own security posture is in scope: authentication (JWT/cookie handling, password hashing, rate limiting/lockout, OAuth2/PKCE), authorization (PBAC policy evaluation), and the audit logging around both. See [Security Hardening](docs/mystic_auth/security/hardening.md) and [Security Decisions](docs/mystic_auth/security/decisions.md) for what's already been deliberately considered; a report that turns out to already be covered there (with reasoning for why the current behavior is intentional) will get a pointer to that doc rather than a fix, unless the report identifies a flaw in the reasoning itself.
+This repo's own security posture is in scope. That includes authentication
+(JWT/cookie handling, password hashing, rate limiting, lockout, OAuth2/PKCE),
+authorization (PBAC policy evaluation), and audit logging around both. See
+[Security Hardening](docs/mystic_auth/security/hardening.md) and
+[Security Decisions](docs/mystic_auth/security/decisions.md) for issues that
+have already been considered. Reports already covered there will get a doc
+pointer unless they identify a flaw in the reasoning.
 
-**Out of scope**: vulnerabilities in this project's third-party dependencies (report those upstream, to the dependency's own maintainers; this repo scans for known dependency CVEs on every push/PR via `pip-audit`/`npm audit` in CI, see [CI/CD Overview](docs/mystic_auth/cicd/overview.md)), and anything specific to how *you've* deployed or customized your own copy of this template (a misconfigured reverse proxy, a `SECRET_KEY` committed to your own repo, etc.). Those aren't issues with this template's code.
+**Out of scope:** third-party dependency vulnerabilities and issues specific to
+how *you've* deployed or customized your own copy of this template. Report
+dependency vulnerabilities upstream to the maintainers. This repo scans for
+known dependency CVEs on every push and PR via `pip-audit` and `npm audit` in
+CI. See [CI/CD Overview](docs/mystic_auth/cicd/overview.md).
 
 ---
 
 ## Known, already-tracked gaps
 
-Not every limitation is a vulnerability to report: some are deliberate, documented scope boundaries. Check [Known Issues, Limitations & Technical Debt](docs/mystic_auth/concerns/README.md) first; it's the running list of what's already known and why it's not (yet, or ever) fixed.
+Not every limitation is a vulnerability to report. Some are deliberate, documented scope boundaries. Check [Known Issues, Limitations & Technical Debt](docs/mystic_auth/concerns/README.md) first for the running list of known gaps and rationale.

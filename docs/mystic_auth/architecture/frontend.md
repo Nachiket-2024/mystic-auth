@@ -64,7 +64,10 @@ Upstream stopped publishing `react-router-dom` past `7.18.1` and folded its expo
 | `/not-authorized` | public | 403 landing, where `ProtectedRoute` sends an authenticated-but-unauthorized user |
 | `*` | public | 404 |
 
-All protected routes are wrapped in `ProtectedRoute` (redirects unauthenticated → `/login`, unauthorized → `/not-authorized`) and `AppLayout` (sidebar/top-bar shell), so the shell only renders once access is actually confirmed.
+All protected routes are wrapped in `ProtectedRoute`, which redirects
+unauthenticated users to `/login` and unauthorized users to `/not-authorized`.
+`AppLayout` provides the sidebar and top-bar shell, so the shell renders only
+after access is confirmed.
 
 ---
 

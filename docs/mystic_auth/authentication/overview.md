@@ -25,7 +25,7 @@ Expiry is configured via `ACCESS_TOKEN_EXPIRE_MINUTES`/`REFRESH_TOKEN_EXPIRE_MIN
 2. Hash the password (Argon2, via `password_service.hash_password`) **unconditionally**, even on the duplicate-email path, since hashing is the expensive step: skipping it only when the email is free would let a timing attack distinguish "registered" from "not registered" even though the HTTP response is identical either way.
 3. Create the user row: `role=UserRole.user` (display-only, matches [Security Decisions](../security/decisions.md#role-is-never-used-to-decide-access)), `is_verified=False`, `is_active=True`.
 4. Assign the `self_service` policy: this, not the role, is what gives the new account access to its own profile (`users:read_own`/`users:update_own`).
-5. Send a verification email asynchronously (Taskiq).
+5. Queue a verification email asynchronously through `taskiq_tasks/email_tasks.py`.
 
 The signup endpoint always returns the same generic response regardless of whether the email was already taken, for the same enumeration-resistance reason as step 2.
 

@@ -13,9 +13,9 @@ class Policy(Base):
     A Policy is the primary authorization unit in this PBAC system. Users
     are authorized by the policies assigned to them (see UserPolicy below),
     never by their role: role is metadata only (display/reporting), per
-    claude.md's "Roles" section.
+    the role-as-metadata invariant.
 
-    Fields map directly onto claude.md's required policy shape:
+    Fields map directly onto the required policy shape:
       - identity/description: name, description
       - allowed actions: actions (a list of action-identifier strings, e.g.
         "users:read_own", the same vocabulary as authorization/permissions.py)
@@ -81,8 +81,8 @@ class UserPolicy(Base):
     Many-to-many assignment of policies to users. This is the ONLY thing
     that determines what a user can do, never their role. Two users with
     the identical role can hold different UserPolicy rows and therefore
-    have different authorization outcomes (see claude.md's Testing
-    Requirements: "identical roles can have different permissions").
+    have different authorization outcomes. Identical roles can have
+    different permissions because policy assignments, not roles, grant access.
     """
 
     __tablename__ = "user_policies"

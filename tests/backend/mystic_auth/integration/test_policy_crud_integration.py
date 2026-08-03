@@ -3,7 +3,7 @@
 # End-to-end coverage for policy_crud_routes.py (backend/mystic_auth/api/
 # pbac_routes/) against the real ASGI app, real PostgreSQL, and real Redis.
 # Split out of what used to be one 568-line
-# test_authorization_routes_integration.py. Per claude.md: "All management
+# test_authorization_routes_integration.py. "All management
 # actions must themselves use PBAC authorization": these tests prove that
 # gate on the policy CRUD surface specifically.
 import pytest

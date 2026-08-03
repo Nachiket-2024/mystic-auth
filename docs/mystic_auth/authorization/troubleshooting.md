@@ -77,8 +77,11 @@ Also intentional (see [Writing and Testing Policies](writing-testing-policies.md
 `authorization/caching/authorization_cache_service.py` is the **only** place authorization code talks to Redis. It caches exactly one thing: a user's active, assigned policy list (`authz:user_policies:{email}`, 60s TTL). It deliberately does **not** cache policy-lookup-by-name or final evaluation decisions: see the module's own docstring for the correctness reasons (a cached, session-detached `Policy` object fed into an update/delete would break SQLAlchemy's identity map; caching a final decision would risk serving a stale answer for genuinely time/context-sensitive conditions).
 
 **Invalidation happens automatically:**
-- Policy `update`/`delete` → flushes the *entire* `authz:user_policies:*` namespace (a policy's own definition change can affect every holder, and there's no cheap reverse index).
-- Policy assign/revoke via the management API → invalidates just that one user's cache entry.
+- Policy `update`/`delete` flushes the *entire* `authz:user_policies:*`
+  namespace. A policy definition change can affect every holder, and there is
+  no cheap reverse index.
+- Policy assign/revoke via the management API invalidates only that user's cache
+  entry.
 
 **If you suspect stale cached permissions:**
 

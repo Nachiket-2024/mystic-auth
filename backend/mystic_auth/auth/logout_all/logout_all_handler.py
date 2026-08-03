@@ -61,11 +61,11 @@ class LogoutAllHandler:
                 content={"message": f"Logged out from {revoked_count} devices"},
                 status_code=200
             )
-            resp.delete_cookie(key="access_token", httponly=True, secure=True, samesite="strict")
+            resp.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
             # path must match the path="/auth" refresh_token was set with
             # (token_cookie_handler.py), or the browser treats this as a different
             # cookie and never clears the real one.
-            resp.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="strict", path="/auth")
+            resp.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none", path="/auth")
 
             return resp
 

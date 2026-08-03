@@ -8,7 +8,7 @@ class SecurityContextCondition(ConditionHandler):
     context["security_context"] (the reserved sub-key every real
     authorization context carries, see
     context/request_context_builder.py), not the top-level context dict.
-    Per claude.md: this app does not implement MFA/device-trust
+    this app does not implement MFA/device-trust
     infrastructure itself: it only checks whatever fields a future trust-
     signal layer populates into that sub-key.
 

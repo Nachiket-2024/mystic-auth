@@ -20,9 +20,8 @@ class TimeCondition(ConditionHandler):
     [start, 23:59:59] union [00:00, end] rather than an always-false empty
     range.
 
-    Fails safe (denies) if start/end are missing, either isn't a valid
-    "HH:MM" time, or the timezone name is invalid, per claude.md's
-    "invalid context fails safely".
+    Fails safe by denying if start/end are missing, either value is not a
+    valid "HH:MM" time, or the timezone name is invalid.
     """
 
     def evaluate(self, condition_value, user_email, resource, context) -> bool:

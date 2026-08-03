@@ -10,11 +10,13 @@
 # /users/me, but were part of the same bug-fix investigation and stay
 # grouped with it rather than being scattered into an unrelated auth file).
 import pytest
+from backend.app.main import app
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
 )
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.user_crud.user_crud_collector import user_crud
+from httpx import ASGITransport, AsyncClient
 
 from .user_test_accounts import (
     PASSWORD,
@@ -37,7 +39,7 @@ async def test_regular_user_can_update_own_profile(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_roleless_user_can_authenticate_and_use_self_service(client, created_emails):
-    # Per claude.md's "Roles" section: "The system must support ... users
+    # Per the role-as-metadata invariant: "The system must support ... users
     # without roles". role is nullable precisely so this is possible (see
     # user_model.py): a roleless account must still authenticate (real
     # login, real JWT, real GET /auth/me) and be authorized purely via its
@@ -82,6 +84,37 @@ async def test_self_password_change_revokes_existing_sessions(client, created_em
         "/auth/login", json={"email": email, "password": "NewStrongPass456!"}
     )
     assert login_resp2.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_self_password_change_does_not_log_out_the_device_that_made_it(client, created_emails):
+    # A password change must revoke every OTHER session (see test above),
+    # but not the device the change was actually made from: that device
+    # just supplied the current password, so it already proved it isn't an
+    # attacker riding along on a stolen session.
+    email = unique_email()
+    await create_verified_user(client, created_emails, email)
+
+    # A second, independent "device": its own login, its own cookie jar.
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="https://testserver", follow_redirects=False) as other_device:
+        other_login = await other_device.post("/auth/login", json={"email": email, "password": PASSWORD})
+        assert other_login.status_code == 200
+        other_refresh_token = other_login.cookies["refresh_token"]
+
+        update_resp = await client.put(
+            "/users/me", json={"password": "NewStrongPass456!", "current_password": PASSWORD}
+        )
+        assert update_resp.status_code == 200
+
+        # The device that made the change is still authenticated, with no
+        # re-login required.
+        me_resp = await client.get("/users/me")
+        assert me_resp.status_code == 200
+
+        # The OTHER device's session was revoked by the same change.
+        other_refresh_resp = await post_with_refresh_cookie(other_device, "/auth/refresh/", other_refresh_token)
+        assert other_refresh_resp.status_code == 401
 
 
 @pytest.mark.asyncio

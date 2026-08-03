@@ -149,5 +149,38 @@ class SessionRepository:
         await db.commit()
         return result.rowcount or 0
 
+    @staticmethod
+    async def revoke_all_for_user_except_chain(db: AsyncSession, user_id: int, exempt_chain_id: str) -> int:
+        """Revoke every active session except the chain that changed password."""
+        stmt = (
+            update(UserSession)
+            .where(
+                UserSession.user_id == user_id,
+                UserSession.revoked_at.is_(None),
+                UserSession.chain_id != exempt_chain_id,
+            )
+            .values(revoked_at=datetime.now(UTC))
+        )
+        result = cast(CursorResult, await db.execute(stmt))
+        await db.commit()
+        return result.rowcount or 0
+
+    @staticmethod
+    async def rotate_by_chain_id(db: AsyncSession, chain_id: str, new_jti: str, new_expires_at: datetime) -> UserSession | None:
+        """Update a session after its exempted chain receives fresh tokens."""
+        result = await db.execute(
+            select(UserSession).where(UserSession.chain_id == chain_id, UserSession.revoked_at.is_(None))
+        )
+        session = result.scalar_one_or_none()
+        if session is None:
+            return None
+
+        session.current_jti = new_jti
+        session.expires_at = new_expires_at
+        session.last_used_at = datetime.now(UTC)
+        await db.commit()
+        await db.refresh(session)
+        return session
+
 
 session_repository = SessionRepository()

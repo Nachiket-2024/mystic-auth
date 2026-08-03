@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...auth.password_logic.password_service import password_service
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
+from ...auth.token_logic.jwt_service import jwt_service
+from ...auth.token_logic.token_cookie_handler import token_cookie_handler
+from ...auth.token_logic.token_schema import TokenPairResponseSchema
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
 from ...database.connection import database
 from ...user_crud.user_crud_collector import user_crud
+from ...user_session.session_service import session_service
 from ...user_table.user_schema import UserRead, UserUpdate
 from ..get_or_404 import get_or_404
 from .user_update_payload import prepare_update_data
@@ -36,8 +40,10 @@ async def get_my_profile(
 @router.put("/me", response_model=UserRead)
 async def update_my_profile(
     update_data: UserUpdate,
+    response: Response,
     current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_OWN.value, _RESOURCE_TYPE)),
-    db: AsyncSession = Depends(database.get_session)
+    db: AsyncSession = Depends(database.get_session),
+    access_token: str = Cookie(None),
 ):
     email = current_user["email"]
     user = await get_or_404(user_crud.get_by_email(email, db), "User not found")
@@ -55,9 +61,8 @@ async def update_my_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Current password is incorrect",
             )
-        # Same check password_reset_service.py already does for the forgot-
-        # password flow: a "change" that doesn't change anything shouldn't
-        # succeed, and shouldn't revoke every other session for no reason.
+        # Match password reset behavior: no-op password changes should not
+        # succeed or revoke sessions.
         if await password_service.verify_password(update_data.password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -67,12 +72,32 @@ async def update_my_profile(
     prepared_data = await prepare_update_data(update_data)
     updated_user = await user_crud.update(db_obj=user, update_data=prepared_data, db=db)
 
-    # A password change rotates the credential, so any existing session
-    # (including this device's own refresh token) must not survive it,
-    # mirroring password_reset_service.py's identical reasoning: an account
-    # may be having its password changed specifically because it's
-    # compromised, so an attacker's session shouldn't outlive the change.
+    # Password changes revoke other sessions because old credentials may be
+    # compromised. Keep the current chain because it supplied the current
+    # password, then reissue tokens so it survives the account-version bump.
     if "hashed_password" in prepared_data:
-        await refresh_token_service.revoke_all_tokens_for_user(email, db)
+        current_payload = await jwt_service.decode_payload(access_token) if access_token else None
+        chain_id = current_payload.get("chain") if current_payload else None
+
+        if chain_id:
+            await refresh_token_service.revoke_all_tokens_for_user_except_chain(email, chain_id, db)
+
+            new_access_token = await jwt_service.create_access_token(email, chain_id)
+            new_refresh_token = await jwt_service.create_refresh_token(email, chain_id)
+            token_cookie_handler.set_tokens_in_cookies(
+                response,
+                TokenPairResponseSchema(access_token=new_access_token, refresh_token=new_refresh_token),
+            )
+
+            # Keep Manage Sessions in sync without changing create_refresh_token's API.
+            new_refresh_payload = await jwt_service.decode_payload(new_refresh_token)
+            if new_refresh_payload and new_refresh_payload.get("jti") and new_refresh_payload.get("exp"):
+                await session_service.rotate_session_by_chain(
+                    db, chain_id, new_refresh_payload["jti"], new_refresh_payload["exp"], email=email
+                )
+        else:
+            # Authorization should already have read this cookie. If the chain
+            # is still unavailable, revoke the whole account instead.
+            await refresh_token_service.revoke_all_tokens_for_user(email, db)
 
     return updated_user

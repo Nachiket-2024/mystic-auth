@@ -3,7 +3,7 @@
 # End-to-end coverage for the persistent authorization audit log
 # (authorization/models/audit_log_model.py, .../repositories/audit_log_repository.py,
 # and the /authorization/audit-log query routes) against the real ASGI app,
-# real PostgreSQL, and real Redis. Per claude.md's Remaining PBAC Work item
+# real PostgreSQL, and real Redis. The PBAC audit logging requirement item
 # #1: "Authorization decisions must be auditable" : every real
 # authorize()/require() call (i.e. every hit on a PBAC-protected route)
 # must write a row automatically, with no route needing to opt in, and the

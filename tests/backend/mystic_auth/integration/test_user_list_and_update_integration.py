@@ -61,7 +61,7 @@ async def test_regular_user_cannot_update_another_user(client, created_emails):
 
 
 # ---------------------------- Core PBAC claims ----------------------------
-# Per claude.md's Testing Requirements: prove that identical roles can have
+# Per the PBAC testing requirements: prove that identical roles can have
 # different permissions, and that policies (not roles) determine access.
 
 @pytest.mark.asyncio
@@ -131,7 +131,7 @@ async def test_list_all_users_respects_limit_query_param(client, created_emails)
 
 
 # ---------------------------- Users without roles ----------------------------
-# Per claude.md's "Roles" section: "The system must support ... users
+# Per the role-as-metadata invariant: "The system must support ... users
 # without roles", and Testing Requirements: "users without roles still
 # work". role is nullable precisely so this is possible (see
 # user_model.py): a roleless account must still authenticate (real login,

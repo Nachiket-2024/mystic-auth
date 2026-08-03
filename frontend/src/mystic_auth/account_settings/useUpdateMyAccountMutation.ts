@@ -5,6 +5,7 @@ import type { UserUpdatePayload, AdminUserRead } from "../api/users_api";
 import { extractApiErrorMessage } from "../api/apiError";
 import { queryClient } from "../core/queryClient";
 import { CURRENT_USER_QUERY_KEY } from "../auth/current_user/useCurrentUserQuery";
+import { trackSessionRotatingRequest } from "../auth/sessionRotationGuard";
 
 /**
  * useUpdateMyAccountMutation
@@ -18,7 +19,12 @@ export function useUpdateMyAccountMutation() {
     return useMutation<AdminUserRead, Error, UserUpdatePayload>({
         mutationFn: async (payload) => {
             try {
-                return (await updateMyAccountApi(payload)).data;
+                // Only a password change rotates this device's session cookies
+                // server-side (see sessionRotationGuard.ts) - a name-only update
+                // never touches tokens, so it's not worth tracking.
+                const request = updateMyAccountApi(payload);
+                if (payload.password) trackSessionRotatingRequest(request);
+                return (await request).data;
             } catch (error) {
                 throw new Error(extractApiErrorMessage(error, "Failed to update profile"), { cause: error });
             }

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Dumps the Postgres database running in the `postgres` Docker Compose
 # service to a timestamped .sql file under backups/. Environment-driven
-# (reads POSTGRES_USER/POSTGRES_DB from .env) : no cloud/provider assumptions.
+# (reads POSTGRES_USER/POSTGRES_DB from .env). No cloud or provider assumptions.
 #
 # Usage: scripts/db_backup.sh [compose-file]
-#   compose-file defaults to docker-compose.yml; pass docker-compose.prod.yml
+#   compose-file defaults to docker-compose.yml; pass docker-compose.local-prod.yml
 #   to back up a production stack instead.
 
 set -euo pipefail
@@ -15,7 +15,7 @@ cd "$REPO_ROOT"
 COMPOSE_FILE="${1:-docker-compose.yml}"
 
 # Only pull the two vars we need, by name, rather than sourcing the whole
-# .env file : some values (e.g. GMAIL_APP_PASSWORD) contain unquoted spaces
+# .env file. Some values, such as GMAIL_APP_PASSWORD, contain unquoted spaces
 # that are valid to python-dotenv/pydantic but break a shell `source`.
 if [ -z "${POSTGRES_USER:-}" ] && [ -f .env ]; then
   POSTGRES_USER="$(grep -m1 '^POSTGRES_USER=' .env | cut -d= -f2-)"

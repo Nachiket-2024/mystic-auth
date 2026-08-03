@@ -120,7 +120,6 @@ The most sensitive policy in the system: it assigns the system role and manages 
   "description": "The most sensitive actions: assigning the system role and managing the authorization system itself.",
   "actions": [
     "users:assign_system_role",
-    "users:promote_to_admin",
     "policies:read",
     "policies:create",
     "policies:update",
@@ -136,9 +135,7 @@ The most sensitive policy in the system: it assigns the system role and manages 
 }
 ```
 
-Note: `users:promote_to_admin` is left over from a one-directional "promote to admin" endpoint that has since been removed in favor of the single bidirectional `PATCH /users/{user_email}/role` endpoint. That action string is never checked by any route now; it's harmless, inert data, kept as-is rather than editing migration history. New policies should not reference it.
-
-This policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py` (original actions) and updated in place by three later data migrations, each granting one more capability as it was added: `e2b6c8a4f1d5_split_policies_manage_action.py` (fine-grained `policies:*` split), `f3c1a9d7e5b2_grant_security_audit_read.py` (`security_audit:read`), and `b2c3d4e5f6a7_add_account_lifecycle_support.py` (`users:purge`, `users:reactivate`). It is protected: it can never be deleted or renamed via the management API (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)), and its last assignment can never be revoked (would leave nobody able to manage the authorization system at all).
+This policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py` and updated in place by later data migrations as capabilities changed. The current migrated shape includes the fine-grained `policies:*` actions, `security_audit:read`, `users:purge`, and `users:reactivate`. It is protected: it can never be deleted or renamed via the management API (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)), and its last assignment can never be revoked (would leave nobody able to manage the authorization system at all).
 
 ---
 

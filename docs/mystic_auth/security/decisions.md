@@ -20,7 +20,13 @@ CI now has a regression guard for the `backend/logs/` case specifically; see [CI
 
 PBAC (policy-based access control), not RBAC. `users.role` is nullable, display/grouping metadata only: every real authorization decision goes through an assigned, active `Policy` (see [../authorization/architecture.md](../authorization/architecture.md)). Two accounts with the identical role can have completely different effective permissions, and a roleless account (`role=NULL`) can still be fully authorized via policies alone.
 
-**Why not RBAC**: a static role → permission mapping means every new access pattern either overloads an existing role's meaning or requires a new role (and a code deploy) to express. Policies are data, not code: a new access pattern is a new policy row, assignable/revocable per-account without touching role definitions at all. The tradeoff is real: PBAC is more moving parts to reason about than "if role == admin." The `Permission` enum (`backend/mystic_auth/authorization/permissions.py`) still gives the action vocabulary the same fixed-set discipline a role enum would.
+**Why not RBAC**: a static role-permission mapping means every new access
+pattern either overloads an existing role's meaning or requires a new role and a
+code deploy. Policies are data, not code: a new access pattern is a new policy
+row, assignable and revocable per account without touching role definitions.
+The tradeoff is real: PBAC has more moving parts than `if role == admin`. The
+`Permission` enum (`backend/mystic_auth/authorization/permissions.py`) still
+gives the action vocabulary the same fixed-set discipline a role enum would.
 
 **Where this is enforced structurally, not just by convention**: every admin route in `user_management_routes.py` depends on `require_authorization(action, resource_type)`, never a role comparison. The handful of `role ==` checks that do exist (e.g. "the system account cannot be modified via these generic endpoints") are resource-protection invariants: they protect one specific reserved account from *every* caller regardless of what that caller is otherwise authorized to do, not authorization decisions. See the `UserRole` import comment at the top of `user_management_routes.py` for the exact reasoning, repeated at each guard site.
 
@@ -79,7 +85,14 @@ This replaced an earlier design that tracked every live refresh-token `jti` in a
 
 ## The signup/OAuth2 email race
 
-`user_crud.get_by_email` (existence check) and `user_crud.create` are not wrapped in a single atomic transaction in either `signup_service.py` or `oauth2_service.py`, so a genuine TOCTOU race between two concurrent requests for the same brand-new email is theoretically possible at the application level. This is closed at the database level instead: `users.email` carries a **unique constraint**, so the loser of the race gets an `IntegrityError`. Both call sites already wrap their entire body in a broad `except Exception` that logs and returns a clean failure (`False`/`None` → the handler's standard generic error response) rather than propagating a raw 500, so the practical outcome of the race is "one request succeeds, the other gets an ordinary-looking failure," not a duplicate account or an ugly stack trace to the client.
+`user_crud.get_by_email` (existence check) and `user_crud.create` are not wrapped
+in a single atomic transaction in either `signup_service.py` or
+`oauth2_service.py`, so a TOCTOU race between two concurrent requests for the
+same new email is theoretically possible at the application level. The database
+closes it with a **unique constraint** on `users.email`, so the loser gets an
+`IntegrityError`. Both call sites catch broad exceptions, log, and return a
+clean failure (`False` or `None`) that the handler turns into the standard
+generic error response.
 
 ---
 
@@ -103,7 +116,7 @@ Covers the admin-driven path too, not just self-service: an admin changing a *di
 
 ## `Settings` ignores env vars it doesn't declare, because `.env` is shared with Docker Compose
 
-`backend/mystic_auth/core/settings.py`'s `Settings.Config` sets `extra = "ignore"`, overriding pydantic-settings' own default of `extra = "forbid"`. Reason: the root `.env` isn't exclusively this app's config file: `docker-compose.yml`/`docker-compose.prod.yml`'s `env_file:` directive also hands the whole file to infra-only services that have no corresponding `Settings` field (`REDIS_PASSWORD` for `redis-server --requirepass`; `BUGSINK_*` for the optional self-hosted error-monitoring service, see [Error Monitoring](../error-monitoring/overview.md)).
+`backend/mystic_auth/core/settings.py`'s `Settings.Config` sets `extra = "ignore"`, overriding pydantic-settings' own default of `extra = "forbid"`. Reason: the root `.env` isn't exclusively this app's config file: Compose `env_file:` directives also hand the whole file to infra-only services that have no corresponding `Settings` field (`REDIS_PASSWORD` for `redis-server --requirepass`; `BUGSINK_*` for the optional self-hosted error-monitoring service, see [Error Monitoring](../error-monitoring/overview.md)).
 
 With the default `"forbid"`, any such var crashed `Settings()` construction outright: but only sometimes, which made it a confusing bug to track down: `Settings.env_file = ".env"` is a *relative* path, so it only resolves to a real file (triggering pydantic-settings' own direct file parse, which builds a dict of literally every key in the file: not just ones it recognizes) when the process's working directory is the repo root. The running app (`WORKDIR /app` in the Docker image) never hits this, since a relative `.env` there resolves to nothing and pydantic-settings falls back to reading only its declared fields from `os.environ`. Running the test suite with `-w /repo` (required so tests can import `backend.app...`/`backend.mystic_auth...`, per [Testing Overview](../testing/overview.md)) does hit it, since `/repo/.env` genuinely exists there: so the exact same `.env` silently worked for the running app while crashing every test collection. `extra = "ignore"` makes both paths behave identically instead. See `tests/backend/mystic_auth/unit/core/test_settings_unit.py`.
 
@@ -154,8 +167,6 @@ The app is fully async (FastAPI, SQLAlchemy async, `asyncio` throughout), and [T
 
 **Why this project chose Taskiq anyway**: the whole backend is already async end-to-end, and Redis is already a hard dependency for rate-limiting, login-lockout state, and refresh-token `jti` tracking: so a Redis-backed Taskiq broker (`RedisStreamBroker`) adds zero new infrastructure. Celery would either need its own broker (typically RabbitMQ, adding a service) or reuse Redis in a less idiomatic way (Celery-over-Redis is supported but is the less-travelled path in Celery's own ecosystem, with known limitations around visibility/ack timeouts). Given the task volume here is one job (email sending), Taskiq's smaller feature set is not a real cost: the deciding factor was avoiding a sync/async impedance mismatch and avoiding a second piece of broker infrastructure, not a claim that Taskiq is categorically better.
 
----
-
 ## Why MFA is not enabled
 
 No multi-factor authentication (TOTP, SMS, WebAuthn, or otherwise) is implemented: this is an intentionally deferred scope boundary for a template repository, not an oversight discovered late:
@@ -174,7 +185,7 @@ Recorded in one place rather than scattered across code comments: each of these 
 - **MFA / device trust**: see above.
 - **Per-endpoint rate-limit overrides**: one global `MAX_REQUESTS_PER_WINDOW`/`REQUEST_WINDOW_SECONDS` applies to every rate-limited route; the login-specific brute-force lockout layers a second, endpoint-specific control on top of the highest-risk route instead. See [Concerns](../concerns/README.md).
 - **Email provider swapping beyond SMTP**: `emails/email_sender.py` now isolates the transport behind an `EmailSender` protocol, but only one implementation (`SMTPEmailSender`) exists; adding SES/SendGrid/Postmark support is a new class, not a framework change, and is left for whoever needs a specific provider.
-- **Deploy automation**: CI verifies both Dockerfiles build but never pushes to a registry or deploys anywhere; this template assumes no specific production host (see [Deployment Guide](../deployment/guide.md#free--low-cost-hosting-options)).
+- **Deploy automation**: CI verifies both Dockerfiles build but never pushes to a registry or deploys anywhere; this template assumes no specific production host (see [Deployment Guide](../deployment/guide.md#production-host-requirements)).
 
 ---
 

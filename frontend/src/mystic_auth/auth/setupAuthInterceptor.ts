@@ -11,12 +11,19 @@ import { MY_POLICIES_QUERY_KEY } from "../policies/policyQueries";
 import { MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY } from "../audit_log/authorization_log/queries";
 import { MY_SECURITY_AUDIT_LOG_QUERY_KEY } from "../audit_log/security_log/queries";
 import { toaster } from "../ui/toaster/toasterInstance";
+import { getPendingSessionRotation } from "./sessionRotationGuard";
 
 // Marks a request as already retried once (post-refresh) so it can't be retried again. Without
 // this, a request that still 401s right after a successful refresh (e.g. the refresh rotated the
 // session for a *different*, stale reason) would loop forever between "refresh" and "retry".
+//
+// _retriedAfterRotation is a second, independent one-shot: see the pendingRotation branch below.
+// It can't reuse _retriedAfterRefresh, since that flag is what gates entry into this whole block -
+// reusing it would make the rotation-wait retry look like a second, disallowed pass instead of one
+// extra chance.
 interface RetryableRequestConfig extends AxiosRequestConfig {
     _retriedAfterRefresh?: boolean;
+    _retriedAfterRotation?: boolean;
 }
 
 // Auth endpoints deliberately excluded from the silent-refresh-and-retry path below. A 401 from
@@ -51,6 +58,12 @@ function refreshSession(): Promise<void> {
             });
     }
     return refreshInFlight;
+}
+
+async function refreshAndRetry(originalRequest: RetryableRequestConfig) {
+    await refreshSession();
+    originalRequest._retriedAfterRefresh = true;
+    return api(originalRequest);
 }
 
 /**
@@ -90,11 +103,38 @@ export function setupAuthInterceptor(): void {
 
             if (isEligibleForRefresh && originalRequest && !originalRequest._retriedAfterRefresh) {
                 try {
-                    await refreshSession();
-                    originalRequest._retriedAfterRefresh = true;
-                    return api(originalRequest);
+                    return await refreshAndRetry(originalRequest);
                 } catch {
-                    // Refresh itself failed. Fall through to marking the session unauthenticated.
+                    // Refresh itself failed (or, per the block below, failed only because
+                    // IT lost the same race). Fall through.
+                }
+            }
+
+            // Before giving up, check whether a session-rotating request (e.g. the
+            // account-settings password change) is still in flight: its account-wide
+            // Redis version bump can make even a currently-valid cookie look stale for
+            // the brief window before its own response lands with fresh ones (see
+            // sessionRotationGuard.ts). Deliberately NOT gated by isEligibleForRefresh -
+            // this must also catch POST /auth/refresh's own 401, since that endpoint is
+            // excluded from the block above (refreshing a refresh call would otherwise
+            // loop) and would otherwise fall straight through to the terminal branch
+            // below on the very first lost race, before the retry above ever gets a
+            // chance to matter. One extra attempt at the SAME request after the rotation
+            // settles (not another refresh - if this request WAS the refresh call, that
+            // would just repeat the race) tells a real session death (still 401s) apart
+            // from just having lost that race.
+            if (originalRequest && !originalRequest._retriedAfterRotation) {
+                const pendingRotation = getPendingSessionRotation();
+                if (pendingRotation) {
+                    originalRequest._retriedAfterRotation = true;
+                    await pendingRotation;
+                    try {
+                        return await api(originalRequest);
+                    } catch {
+                        // Still failing even after the rotation settled: fall through to
+                        // marking the session unauthenticated below, same as any other
+                        // genuinely-failed refresh.
+                    }
                 }
             }
 

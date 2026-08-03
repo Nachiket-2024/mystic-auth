@@ -24,40 +24,26 @@ from ...auth.refresh_token_logic.refresh_token_service import refresh_token_serv
 from ...authorization.context.request_context_builder import build_authorization_context
 from ...authorization.dependencies.authorization_dependency import require_authorization
 
-# PBAC: action vocabulary (permissions.py) and the authorization
-# dependency/service that decide access via assigned policies. Replaces the
-# removed RBAC-era require_permission / role_has_permission (a static role ->
-# permission mapping).
+# PBAC action vocabulary and policy-based authorization. Replaces the removed
+# static role-permission helpers.
 from ...authorization.permissions import Permission
 from ...authorization.services.authorization_service import authorization_service
 from ...database.connection import database
 from ...emails.email_normalization import normalize_email
 from ...user_crud.user_crud_collector import UserStatus, user_crud
 
-# UserRole is used ONLY for the target-account guards below (e.g. "the system
-# account can never be modified via these generic endpoints"). This is
-# deliberately not a PBAC authorization decision: it never asks "what
-# role/policies does the CALLER have": it protects one specific reserved
-# resource from every caller, regardless of what they're authorized to do in
-# general. Role may still be used as resource metadata/grouping; it must
-# simply never *grant* access, which this doesn't; it only narrows access.
+# UserRole is only used for target-account guards such as protecting the
+# reserved system account from generic endpoints. It is resource metadata, not
+# caller authorization; PBAC policies still decide access.
 from ...user_table.user_model import UserRole
 from ...user_table.user_schema import UserRead, UserRoleUpdate, UserStatsRead, UserUpdate
 from ..get_or_404 import get_or_404
 from .user_update_payload import prepare_update_data
 
-# Split from the combined user_routes.py: every route here is gated by a
-# broader permission than plain self-service (users:list_all/update_any/
-# delete_any/purge/reactivate/assign_role - actually two different tiers,
-# some granted by the user_administration policy, others only by
-# system_superuser - see PBAC Policy Examples), unlike
-# user_self_service_routes.py's two routes. Named "management", not "admin":
-# nothing here is gated by role (no admin role exists in this app's PBAC
-# model - see claude.md's "Roles" section), so the file name deliberately
-# avoids implying one. Registered AFTER user_self_service_router in main.py:
-# this router's /{user_email} wildcard would otherwise shadow /users/me and
-# /users/stats for any HTTP method both routers happen to share (see main.py's
-# own comment on why order matters here).
+# Management routes require broader PBAC permissions than self-service routes.
+# The name avoids implying role-based admin access because role is metadata.
+# main.py registers this router after self-service routes so /{user_email}
+# cannot shadow /users/me or /users/stats.
 router = APIRouter(prefix="/users", tags=["Users"])
 
 _RESOURCE_TYPE = "users"
@@ -84,12 +70,8 @@ async def get_user_stats(
 @router.get("/", response_model=list[UserRead])
 async def list_all_users(
     response: Response,
-    # Default unchanged at 1000 (not lowered to the frontend's own 25-per-
-    # page size): a caller that lists users with no explicit limit - a test,
-    # an SDK consumer, this repo's own test suite - reasonably expects
-    # "everyone", same as before pagination existed. The frontend always
-    # passes its own explicit limit/offset (see userQueries.ts), so nothing
-    # about the actual paginated UI depends on this default either way.
+    # Keep the historical "all users" default for API callers. The frontend
+    # passes its own explicit limit and offset.
     limit: int = Query(default=1000, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     search: str | None = Query(default=None, description="Case-insensitive substring match on name or email"),

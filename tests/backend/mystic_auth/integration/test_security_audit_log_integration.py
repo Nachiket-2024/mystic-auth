@@ -3,7 +3,7 @@
 # End-to-end coverage for the persistent security audit log
 # (audit_log/audit_log_model.py, audit_log/audit_log_repository.py,
 # and the /audit/security-log query routes) against the real ASGI app, real
-# PostgreSQL, and real Redis. Per claude.md's Phase 8 audit logging
+# PostgreSQL, and real Redis. Per security audit logging
 # requirement: security-sensitive auth events (login, logout, signup, etc.)
 # must be persisted automatically, and the query API itself must be
 # PBAC-gated (security_audit:read).
@@ -131,7 +131,7 @@ async def test_login_writes_success_and_failure_audit_entries(client, created_em
 async def test_policy_assign_and_revoke_write_audit_entries(client, created_emails):
     # Regression guard: assign/remove_policy_from_user used to write no
     # security audit entry at all, unlike every other privileged action
-    # (login, logout, account delete/purge/reactivate) - so granting or
+    # (login, logout, account delete/purge/reactivate), so granting or
     # revoking a policy, including system_superuser itself, left no trace
     # in the security log. This exercises the real API routes end-to-end.
     email = _unique_email("policytarget")

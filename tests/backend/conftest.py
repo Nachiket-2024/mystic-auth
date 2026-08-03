@@ -4,7 +4,7 @@
 # tests/backend/ (integration/, security/, performance/): an actual
 # PostgreSQL and actual Redis (via `docker compose up -d postgres redis`,
 # migrated with `docker compose run --rm alembic`), not mocks. See
-# claude.md's Testing sections: security-critical flows must be verified
+# the backend testing policy. Security-critical flows must be verified
 # against real DB/Redis state, since mocking either one hides exactly the
 # kind of bug (e.g. a Redis type mismatch, or a missing session-revocation
 # call) these tests exist to catch.

@@ -40,7 +40,7 @@ sequenceDiagram
     B->>S: GET callback + code, state
     activate S
     S->>S: Validate state == oauth_state cookie
-    S->>S: consume_state(state) → code_verifier<br/>(GETDEL, single-use)
+    S->>S: consume_state(state) returns code_verifier<br/>(GETDEL, single-use)
     S->>G: POST token exchange (code + code_verifier)
     G-->>S: access_token (Google's own)
     S->>G: GET userinfo (with that access_token)
@@ -104,16 +104,27 @@ See [Security Decisions: OAuth2 CSRF and account-hijacking protections](../secur
 
 ## Edge cases / error handling
 
-- User cancels the Google consent screen (`error=access_denied`) → redirect to login, no state/Redis touched.
-- `state` present but not in Redis (expired or already consumed) → redirect to login, logged as `warning`.
-- Token exchange succeeds but userinfo fetch fails, or vice versa → redirect to login; each external call is independently wrapped in `try/except` and logs its own failure.
-- `login_or_create_user` returns `None` (system-account block, deactivated account, unexpected error) → a `OAUTH2_LOGIN_SUCCESS` security-audit event is still written, but with `success=False`, so a blocked takeover attempt is reviewable rather than invisible.
+- User cancels the Google consent screen (`error=access_denied`): redirect to
+  login, no state or Redis entry touched.
+- `state` is present but not in Redis because it expired or was consumed:
+  redirect to login and log at `warning`.
+- Token exchange succeeds but userinfo fetch fails, or vice versa: redirect to
+  login. Each external call is independently wrapped in `try/except` and logs
+  its own failure.
+- `login_or_create_user` returns `None` because of a system-account block,
+  deactivated account, or unexpected error: a `OAUTH2_LOGIN_SUCCESS`
+  security-audit event is still written with `success=False`, so a blocked
+  takeover attempt is reviewable.
 
 ---
 
 ## Testing coverage
 
-`tests/backend/mystic_auth/unit/` covers `oauth2_login_handler`/`oauth2_service` with the Google HTTP calls mocked; `tests/backend/mystic_auth/integration/test_oauth_integration.py` exercises the initiate → callback flow against a real Redis instance. See [Testing Overview](../testing/overview.md).
+`tests/backend/mystic_auth/unit/` covers `oauth2_login_handler` and
+`oauth2_service` with Google HTTP calls mocked.
+`tests/backend/mystic_auth/integration/test_oauth_integration.py` exercises the
+initiate-to-callback flow against a real Redis instance. See
+[Testing Overview](../testing/overview.md).
 
 ---
 

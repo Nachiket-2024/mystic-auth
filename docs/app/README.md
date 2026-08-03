@@ -1,7 +1,15 @@
-# Your project's docs
+# Your Project's Docs
 
-Empty by default. This is where your own project's documentation goes, the same way `backend/app/` and `frontend/src/app/` are where your own code goes.
+This folder is empty by default. Put product-specific documentation here, the
+same way product-specific code belongs in `backend/app/` and
+`frontend/src/app/`.
 
-`docs/mystic_auth/` holds the template's own reference docs (architecture, authentication, authorization, etc.) and stays upstream's, so don't edit it; expect future `scripts/sync-upstream.sh` runs to update it cleanly, the same way you would with `backend/mystic_auth/` or `frontend/src/mystic_auth/`. Anything you write about your own product, your own domains, or your own decisions goes here in `docs/app/` instead, so a future sync never touches it.
+`docs/mystic_auth/` holds the template reference docs for architecture,
+authentication, authorization, and infrastructure. Treat that folder as
+upstream-owned so future `scripts/sync-upstream.sh` runs can merge cleanly.
+Anything about your product, domains, or decisions belongs in this folder.
 
-See [Using This Repository as a Template](../mystic_auth/template-usage/overview.md) for the full explanation of the `app/` vs `mystic_auth/` split, and [Worked Example: Adding a New Domain, End to End](../mystic_auth/template-usage/worked-example.md) for a copy-and-rename starting point for your first feature.
+See [Using This Repository as a Template](../mystic_auth/template-usage/overview.md)
+for the `app/` versus `mystic_auth/` split. See
+[Worked Example: Adding a New Domain, End to End](../mystic_auth/template-usage/worked-example.md)
+for a copy-and-rename starting point for your first feature.

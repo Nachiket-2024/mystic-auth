@@ -1,28 +1,20 @@
 #!/usr/bin/env bash
-# Starts the full stack and waits for every long-running service to
-# actually report healthy (or just running, for the one service with no
-# healthcheck) before showing anything else : so a real startup failure is
-# a clean one-line-per-service table, not a scroll of interleaved logs to
-# spot it in.
+# Starts the full stack, waits for long-running services, and prints a
+# one-line-per-service status table before tailing focused logs.
 #
-# Deliberately does NOT use `docker compose up --wait`: this repo's compose
-# file includes one-shot init containers (alembic, bugsink-seed) that are
-# *supposed* to exit 0 once their job is done, but `--wait` treats any
-# exited container as a failure to reach "running", regardless of exit
-# code : it would report this stack as failed on every single successful
-# start. This polls the actual long-running services directly instead.
+# Avoids `docker compose up --wait` because alembic and bugsink-seed are
+# one-shot containers that should exit 0 after startup work. This polls only
+# the long-running services.
 #
-# On success, tails only backend + frontend + taskiq_worker: real request
-# traffic, the frontend dev server's own activity, and async email-task
-# execution. It still excludes Postgres/Redis/Bugsink/Alembic internals and
-# Bugsink's own health-check polling noise. Backend exceptions still go to
-# Bugsink (http://localhost:8010), that's what it's for, not this terminal.
-# backend and taskiq_worker are also explicitly `restart`ed after `up -d` so
-# their boot banner (Uvicorn's startup lines, Taskiq's "Listening started")
-# is always visible in that tail, even when this script is rerun against a
-# stack that was already up and neither container needed recreating.
+# On success, tails only backend, frontend, and taskiq_worker logs. That keeps
+# request traffic, Vite output, and async email jobs visible without Postgres,
+# Redis, Alembic, or Bugsink health-check noise. Backend exceptions still go to
+# Bugsink at http://localhost:8010.
 #
-# This is the recommended day-to-day command : see README.md. Use plain
+# backend and taskiq_worker are restarted after `up -d` so their startup
+# banners are fresh even when the stack was already running.
+#
+# This is the recommended day-to-day command. See README.md. Use plain
 # `docker compose up` instead when you actually want every service's full
 # logs in one stream (e.g. debugging Postgres/Bugsink/Taskiq startup itself).
 #
@@ -34,7 +26,7 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# frontend has no healthcheck defined (docker-compose.yml) : "Up" is as
+# frontend has no healthcheck in docker-compose.yml, so "Up" is as
 # ready as it gets. Every other long-running service does have one.
 LONG_RUNNING_SERVICES=(postgres redis bugsink backend taskiq_worker frontend)
 TIMEOUT_SECONDS=180
@@ -60,22 +52,12 @@ is_failed() {
     esac
 }
 
-# --quiet-pull: without it, Compose's pull-progress table repaints itself
-# every frame; on terminals that can't redraw in place, each repaint prints
-# as a brand-new block of lines instead of overwriting the last one : looks
-# like it's stuck re-pulling the same image dozens of times when it's
-# really just one pull, redrawn. This silences that table; real pull
-# errors still surface via this command's own exit code.
+# --quiet-pull suppresses Compose's repainting pull-progress table. Real pull
+# errors still surface through this command's exit code.
 docker compose up -d --quiet-pull
 
-# backend/taskiq_worker are the two services whose boot banner (Uvicorn's
-# "Application startup complete", Taskiq's "Listening started", etc.) is
-# actually useful to see. `docker compose up -d` leaves an already-running
-# container alone when nothing about it changed, so on a rerun against a
-# live stack those banners are from whenever it originally booted : older
-# than $TAIL_SINCE below, so the tail at the bottom would silently skip
-# them. Restarting the two here guarantees a fresh banner inside the
-# --since window on every run, not just the first.
+# Restart these services so the final tail always includes fresh startup
+# banners, even when Compose reused already-running containers.
 docker compose restart backend taskiq_worker
 
 echo

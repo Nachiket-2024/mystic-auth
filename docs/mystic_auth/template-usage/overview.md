@@ -10,7 +10,7 @@ You've created your own repository from this template (via GitHub's **Use this t
 - **Authorization**: Policy-Based Access Control (PBAC), not RBAC. Every protected route is gated by an assigned `Policy`, not by a user's `role`. Policies are data (rows in Postgres), so a new access rule is a new policy, not a new deploy. See [PBAC Architecture](../authorization/architecture.md).
 - **Audit logging**: two append-only tables: security/session events, and every PBAC allow/deny decision. See [Database Design](../database/design.md#why-two-audit-tables-not-one).
 - **Frontend**: React 19 + TypeScript, Vite, Chakra UI v3, Zustand, TanStack Query. See [Frontend Architecture](../architecture/frontend.md).
-- **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Redis, Taskiq for async email, Alembic migrations, GitHub Actions CI.
+- **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Redis, Taskiq async email, Alembic migrations, GitHub Actions CI.
 - **Error monitoring**: self-hosted Bugsink, on by default with the stack. See [Error Monitoring](../error-monitoring/overview.md).
 
 ---
@@ -28,7 +28,7 @@ Once it's up:
 - **Backend docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Bugsink** (error monitoring): [http://localhost:8010](http://localhost:8010)
-- **Taskiq** (background worker, e.g. sending emails): no UI or port, it just runs. The dev helper includes it in the live log tail; use `docker compose logs -f taskiq_worker` when you want only worker logs. See [Background Workers: Taskiq](../background-workers/taskiq.md) to add your own tasks.
+- **Taskiq** (email worker): no UI or port, it just runs. The dev helper includes it in the live log tail. Use `docker compose logs -f taskiq_worker` when you want only worker logs. See [Background Email Delivery](../background-workers/taskiq.md).
 - Postgres/Redis are reachable on `localhost:5433`/`localhost:6380` (non-default host ports, to avoid clashing with anything else you have running locally).
 
 Then create the reserved system superuser (one-time, CLI-only):
@@ -57,20 +57,20 @@ Both backend and frontend are split into two trees, and every file in the repo f
 |---|---|---|---|
 | **Upstream-owned: never edit** | `backend/mystic_auth/`, `backend/app/sdk.py`, `frontend/src/mystic_auth/`, `frontend/src/app/sdk.ts`, `docs/mystic_auth/` | Only upstream | This is the template's actual implementation. Since you never touch it, every `scripts/sync-upstream.sh` merge applies here cleanly because there's nothing of yours for it to conflict with. |
 | **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `docs/app/`, root `README.md`, `SECURITY.md` | Only you | Upstream ships these once (`app_sdk.*` empty, the READMEs as generic starting points) and never edits them again in any future release. Since only you write to them, they never conflict either. |
-| **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `docker-compose.yml`, `docker-compose.prod.yml`, `.env.example` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a compose file), so they can't start empty the way `app_sdk.*` does. You're expected to extend them (register your own router, add your own `<Route>`, add your own dependency), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
+| **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `docker-compose.yml`, `docker-compose.local-prod.yml`, `docker-compose.prod.yml`, `.env.example` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a compose file), so they can't start empty the way `app_sdk.*` does. You're expected to extend them (register your own router, add your own `<Route>`, add your own dependency), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
 
 ```mermaid
 flowchart TB
-    subgraph upstream["🔒 Upstream-owned: never edit"]
+    subgraph upstream["Upstream-owned: never edit"]
         MA["mystic_auth/\ntemplate internals: auth, PBAC, API, UI"]
         SDK["sdk.py / sdk.ts\nextension surface: do not hand-edit"]
     end
 
-    subgraph shared["⚠️ Shared: extend in place, expect occasional conflicts"]
+    subgraph shared["Shared: extend in place, expect occasional conflicts"]
         ENTRY["main.py / App.tsx\nentry point, ships working"]
     end
 
-    subgraph yours["✅ Yours: upstream never touches again"]
+    subgraph yours["Yours: upstream never touches again"]
         APPSDK["app_sdk.py / app_sdk.ts\nyour re-exports: shipped empty"]
         FEATURES["your feature folders\ne.g. app/projects/"]
         DOCSAPP["docs/app/\nyour own docs"]
@@ -209,13 +209,13 @@ See [OAuth2 / PKCE](../authentication/oauth2-pkce.md) for the mechanics and trou
 | `GMAIL_APP_PASSWORD` | A Gmail [App Password](https://myaccount.google.com/apppasswords) (needs 2FA enabled) |
 | `SUPPORT_EMAIL` | Optional `Reply-To`, falls back to `FROM_EMAIL` |
 
-Without these, signup/verification/reset emails just fail to send (logged, retried 3 times): the rest of the app keeps working. See [Background Workers: Taskiq](../background-workers/taskiq.md).
+Without these, signup/verification/reset emails fail to send after retries, but the rest of the app keeps working. See [Background Email Delivery](../background-workers/taskiq.md).
 
 ---
 
 ## Deployment
 
-See the [Deployment Guide](../deployment/guide.md) for prod Compose topology, required env vars, migrations, backups, and low-cost hosting options. Production Compose file: [`docker-compose.prod.yml`](../../../docker-compose.prod.yml).
+See the [Deployment Guide](../deployment/guide.md) for Compose topology, required env vars, migrations, backups, and production host requirements. Use [`docker-compose.local-prod.yml`](../../../docker-compose.local-prod.yml) for a production-style local or self-hosted run behind an external TLS layer. Use [`docker-compose.prod.yml`](../../../docker-compose.prod.yml) for a VPS-style internet-facing deployment where Caddy terminates TLS.
 
 ---
 

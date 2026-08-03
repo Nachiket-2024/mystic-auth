@@ -16,8 +16,8 @@ logger = get_logger(__name__)
 
 class RefreshTokenService:
     """Rotates and revokes refresh tokens. Revocation is version-based
-    (jwt_service.bump_account_version / bump_chain_version), not identity-
-    based - see jwt_service.py's own docstring."""
+    (jwt_service.bump_account_version / bump_chain_version), not identity
+    based. See jwt_service.py for the version checks."""
 
     @staticmethod
     async def refresh_tokens(
@@ -52,7 +52,7 @@ class RefreshTokenService:
             # Checked before claiming: a token whose embedded account_ver/
             # chain_ver has already fallen behind was invalidated by an
             # explicit revoke (logout-all, a password change, a targeted
-            # Manage Sessions revoke) - simply stale, not evidence of theft,
+            # Manage Sessions revoke), simply stale, not evidence of theft,
             # so this is a quiet rejection, not reuse-detection. Without
             # this check, claim_jti_for_rotation alone (which only catches a
             # jti being redeemed *twice*) would happily rotate a stale-but-
@@ -68,8 +68,7 @@ class RefreshTokenService:
             # either the legitimate user retried a stale token, two concurrent
             # requests raced on the same token, or the token was stolen and is
             # being used by an attacker in parallel with its rightful owner.
-            # Either way, that's reuse - handled below, not treated as a
-            # routine invalid-token case.
+            # Either way, that is reuse, not a routine invalid-token case.
             claimed = await jwt_service.claim_jti_for_rotation(jti, payload.get("exp"), payload.get("email"))
             if not claimed:
                 await RefreshTokenService._handle_reuse_detected(payload, db, request)
@@ -106,16 +105,12 @@ class RefreshTokenService:
 
     @staticmethod
     async def revoke_all_tokens_for_user(email: str, db: AsyncSession | None = None) -> int:
-        """The whole-account revoke: logout-all, password change, account
-        deactivation/purge. One O(1) version bump invalidates every token
-        on the account immediately - no per-token iteration needed, unlike
-        the per-jti registry this replaced.
+        """Revoke every token for logout-all, password change, or account removal.
 
-        Returns how many sessions were active immediately before the bump
-        (from the best-effort Postgres mirror, 0 if `db` wasn't given),
-        purely for the caller's own audit/UX purposes (e.g. logout-all's
-        "Logged out from N devices" message) - the revoke itself doesn't
-        need this number."""
+        One account-version bump invalidates all tokens without iterating over
+        token ids. The return value is the pre-revoke active session count from
+        the best-effort Postgres mirror.
+        """
         try:
             active_count = await session_service.count_active_sessions(db, email)
 
@@ -130,14 +125,42 @@ class RefreshTokenService:
             return 0
 
     @staticmethod
+    async def revoke_all_tokens_for_user_except_chain(
+        email: str, exempt_chain_id: str, db: AsyncSession | None = None
+    ) -> int:
+        """Revoke all active sessions except one authenticated chain.
+
+        Used after an account-settings password change. The caller must mint
+        fresh tokens for exempt_chain_id because bumping the account version
+        invalidates every existing token, including the exempted session's old
+        tokens.
+
+        Returns the number of revoked sessions, excluding the exempted chain.
+        """
+        try:
+            active_count = await session_service.count_active_sessions(db, email)
+
+            await jwt_service.bump_account_version(email)
+            await session_service.revoke_all_sessions(db, email, exempt_chain_id=exempt_chain_id)
+            await publish_session_revoked(email)
+
+            return max(active_count - 1, 0)
+
+        except Exception:
+            logger.error(
+                "Error revoking all tokens except chain %s for user %s:\n%s",
+                exempt_chain_id, email, traceback.format_exc()
+            )
+            return 0
+
+    @staticmethod
     async def revoke_chain_for_user(email: str, chain_id: str, db: AsyncSession | None = None) -> None:
-        """The single-session revoke: a targeted Manage Sessions "End
-        session" goes through session_service.revoke_one_session directly
-        (it already has the session_id), but reuse-detection (below) and
-        anywhere else that only has a chain_id, not a session_id, comes
-        through here. Bumps only that one chain's version - every other
-        session on the account, including one from a completely
-        independent login that happens to exist right now, is untouched."""
+        """Revoke one token chain by chain_id.
+
+        Manage Sessions uses session_id and goes through session_service.
+        Reuse detection only has chain_id, so it comes through here. Other
+        chains on the account stay valid.
+        """
         try:
             await jwt_service.bump_chain_version(email, chain_id)
             await session_service.revoke_chain(db, chain_id)
@@ -166,7 +189,7 @@ class RefreshTokenService:
         chain_id = payload.get("chain")
         if chain_id:
             # Scoped: only the compromised chain (this reused token's own
-            # lineage) is revoked - see revoke_chain_for_user's docstring.
+            # lineage) is revoked. See revoke_chain_for_user.
             await RefreshTokenService.revoke_chain_for_user(email, chain_id, db)
             revoked_description = f"chain {chain_id}"
         else:

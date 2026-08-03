@@ -14,9 +14,9 @@
 
 ---
 
-## 🔎 Overview
+## Overview
 
-A reusable full-stack identity and access management template with authentication, OAuth2/PKCE integration, fine-grained Policy-Based Access Control (PBAC), and self-hosted error monitoring, all enabled by default. Every access decision is made by an assigned, active `Policy`; a user's `role` column is display/grouping metadata only and is never consulted when deciding what someone can do. Supports email+password and Google OAuth2 (with PKCE) login, fully async operations, and JWT authentication delivered as httpOnly cookies.
+A reusable full-stack identity and access management template with authentication, OAuth2/PKCE integration, fine-grained Policy-Based Access Control (PBAC), and self-hosted error monitoring, all enabled by default. Every access decision is made by an assigned, active `Policy`. A user's `role` column is display and grouping metadata only, and is never consulted when deciding what someone can do. Supports email and password login, Google OAuth2 with PKCE, fully async operations, and JWT authentication delivered as httpOnly cookies.
 
 The product name shown in the UI and emails is configurable via the `APP_NAME` / `VITE_APP_NAME` environment variables, not hardcoded.
 
@@ -24,13 +24,18 @@ See [`docs/mystic_auth/README.md`](docs/mystic_auth/README.md) for the full docu
 
 ---
 
-### 💡 Why this exists
+### Why this exists
 
-This started as the same authentication/authorization foundation getting rebuilt from scratch for every startup take-home assignment that needed some combination of auth, OAuth2, and roles. It grew from a planned "small reusable module" into a full exploration of what auth actually involves, including refresh rotation, rate limiting, background email delivery, and a real test suite, as each rebuild kept surfacing another problem worth solving properly instead of again. See [Project Story](docs/mystic_auth/project-story/README.md) for the full history.
+This started as the same authentication and authorization foundation getting
+rebuilt for startup take-home assignments that needed auth, OAuth2, and roles.
+It grew from a planned small reusable module into a fuller auth template with
+refresh rotation, rate limiting, background email delivery, and a real test
+suite. See [Project Story](docs/mystic_auth/project-story/README.md) for the
+full history.
 
 ---
 
-## 🖼️ Screenshots
+## Screenshots
 
 The screenshots below follow the path a user or administrator would normally
 take through the app: sign in, review their own dashboard and account, then
@@ -96,34 +101,50 @@ move into system administration, policy management, and audit review.
 
 ---
 
-## 🛠️ Stack
+## Stack
 
 - **Backend:** FastAPI (fully async), SQLAlchemy 2.0 (async, `asyncpg`), Alembic migrations
 - **Authentication:** Email + Password (Argon2 hashing, JWT access & refresh tokens), Google OAuth2 with PKCE
-- **Authorization:** Policy-Based Access Control (PBAC), see [PBAC Architecture](docs/mystic_auth/authorization/architecture.md)
+- **Authorization:** Policy-Based Access Control (PBAC). See
+  [PBAC Architecture](docs/mystic_auth/authorization/architecture.md)
 - **Frontend:** TypeScript, React 19 + Vite, Chakra UI v3
 - **State Management:** Zustand (client/session state) + TanStack Query (server state/caching)
 - **Database:** PostgreSQL (async)
-- **Caching & Tasks:** Redis + Taskiq (async background email delivery)
-- **Error Monitoring:** Self-hosted Bugsink, enabled by default, starts alongside everything else with the stack, no extra setup
-- **Deployment:** Docker (dev and production Compose files)
+- **Caching & Tasks:** Redis + Taskiq for async email delivery, caching, rate limiting, and token state
+- **Error Monitoring:** Self-hosted Bugsink, enabled by default with the stack
+- **Deployment:** Docker with development, local production, and internet-facing production Compose files
 
 ---
 
-## 🔐 Authentication & Authorization
+## Authentication & Authorization
 
-- **Authentication** answers *who is calling*: email+password or Google OAuth2/PKCE, JWT access+refresh token pair delivered as httpOnly, secure, `SameSite=Strict` cookies. See [Authentication Overview](docs/mystic_auth/authentication/overview.md) and [OAuth2 / PKCE](docs/mystic_auth/authentication/oauth2-pkce.md).
-- **Authorization** answers *what they're allowed to do*: every protected route depends on `require_authorization(action, resource_type)`, which checks the caller's assigned, active `Policy` rows (optionally condition-gated by time, network, ownership, and more). Nothing above that layer ever reads `role` to make an access decision. See [PBAC Architecture](docs/mystic_auth/authorization/architecture.md). Don't need per-resource conditions, just plain "role X gets these actions"? Same policies, just unconditioned ones, see [RBAC Quickstart](docs/mystic_auth/authorization/rbac-quickstart.md).
-- New accounts (signup or first-time OAuth2 login) are granted access via an explicit `self_service` policy assignment, not a default role.
-- `role` (`user` / `admin` / `system`) still exists on the `users` table as display/grouping metadata, and the reserved `system` account is excluded from OAuth2 login and from generic admin routes as a resource-protection invariant, but no route decides access by comparing `role`.
+- **Authentication** answers *who is calling*. It supports email/password and
+  Google OAuth2 with PKCE. JWT access and refresh tokens are delivered as
+  httpOnly, secure, `SameSite=Strict` cookies. See
+  [Authentication Overview](docs/mystic_auth/authentication/overview.md) and
+  [OAuth2 / PKCE](docs/mystic_auth/authentication/oauth2-pkce.md).
+- **Authorization** answers *what the caller may do*. Protected routes call
+  `require_authorization(action, resource_type)`, which evaluates the caller's
+  active `Policy` rows with optional conditions such as time, network, and
+  ownership. Routes do not use `role` for access decisions. See
+  [PBAC Architecture](docs/mystic_auth/authorization/architecture.md). For
+  role-like permission groups without per-resource conditions, use the same
+  policies without conditions. See
+  [RBAC Quickstart](docs/mystic_auth/authorization/rbac-quickstart.md).
+- New accounts receive access through an explicit `self_service` policy
+  assignment, not a default role.
+- `role` (`user` / `admin` / `system`) remains on `users` as display and
+  grouping metadata. The reserved `system` account is excluded from OAuth2
+  login and generic admin routes, but no route grants access by comparing
+  `role`.
 
 ---
 
-## 📥 Installation
+## Installation
 
 ### 1. Create your own repository from this template
 
-Click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)** on GitHub (or the green "Use this template" button at the top of the repo page) to create your own repository with a copy of this codebase: no shared git history, no fork relationship, just your own fresh repo to build on. Then clone *your* new repository:
+Click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)** on GitHub, or the green "Use this template" button at the top of the repo page. This creates your own repository with a copy of this codebase, no shared git history, and no fork relationship. Then clone *your* new repository:
 
 ```bash
 git clone https://github.com/<your-username>/<your-repo>.git
@@ -132,7 +153,7 @@ cd <your-repo>
 
 See [Using This Repository as a Template](docs/mystic_auth/template-usage/overview.md) for how to pull in future updates from this original template afterward.
 
-### 2. Set up the environment (only if running locally; skip if using Docker)
+### 2. Set up the environment if running locally
 
 > Instructions below assume that you are at the root of the repository while running the commands.
 
@@ -150,7 +171,7 @@ npm install --prefix frontend
 
 ---
 
-## ⚙️ Environment Variables
+## Environment Variables
 
 All environment variables are defined in `.env.example`. The local database, Redis, app secrets, and Bugsink settings are prefilled with development placeholders so the stack can boot after copying the file:
 
@@ -164,7 +185,7 @@ cp .env.example .env
 
 ---
 
-## 🚀 Run the App
+## Run the App
 
 > Instructions below assume that you are at the root of the repository while running the commands.
 
@@ -189,7 +210,19 @@ rem Command Prompt
 scripts\dev-up.cmd
 ```
 
-Starts every service, restarts `backend`/`taskiq_worker` so their startup banner is always fresh, waits for each to actually report healthy, then prints a one-line-per-service status table and settles into tailing fresh logs from just `backend`/`frontend`/`taskiq_worker`: their startup lines (Uvicorn's, Taskiq's "Listening started"), API calls, the frontend dev server, and async email-task execution (including `Sending email to {address}` / `Email sent successfully to {address}` once a signup/password-reset email actually goes out). Old, unrelated activity from a previous run isn't replayed. Postgres/Redis/Bugsink/Alembic startup and migration output, and Bugsink's health-check polling, don't show up here: they've already done their job by the time you see the tail start. Backend exceptions still go to Bugsink ([http://localhost:8010](http://localhost:8010)), not this terminal. See [Docker Overview](docs/mystic_auth/docker/overview.md#day-to-day-dev-up-helpers) for the full rationale, and what to do if a service fails to start.
+The helper starts every service, restarts `backend` and `taskiq_worker` so
+their startup banners are fresh, waits for health checks, prints a
+one-line-per-service status table, and tails fresh logs from `backend`,
+`frontend`, and `taskiq_worker`.
+
+The focused tail includes Uvicorn startup lines, Taskiq's "Listening started"
+line, API calls, the frontend dev server, and async email task execution. It
+does not replay old logs from earlier runs, and it keeps Postgres, Redis,
+Bugsink, Alembic, and Bugsink health-check noise out of the default view.
+Backend exceptions still go to Bugsink at
+[http://localhost:8010](http://localhost:8010). See
+[Docker Overview](docs/mystic_auth/docker/overview.md#day-to-day-dev-up-helpers)
+for failure handling.
 
 Want every service's full logs interleaved in one stream instead (e.g.
 debugging Postgres/Bugsink/Taskiq startup itself)? Plain `docker compose up`
@@ -201,18 +234,26 @@ docker compose up
 
 Once the services are running:
 
-- **Backend:** [http://localhost:8000/docs](http://localhost:8000/docs) - FastAPI API docs and endpoints
-- **Frontend:** [http://localhost:5173](http://localhost:5173) - React + Vite frontend
-- **PostgreSQL:** `localhost:5433` - Database ready for connections (non-default host port; containers reach it at `postgres:5432` internally)
-- **Redis:** `localhost:6380` - Cache, rate limiting, and Taskiq broker (non-default host port; containers reach it at `redis:6379` internally)
+- **Backend:** [http://localhost:8000/docs](http://localhost:8000/docs), FastAPI API docs and endpoints
+- **Frontend:** [http://localhost:5173](http://localhost:5173), React + Vite frontend
+- **PostgreSQL:** `localhost:5433`, database ready for connections. Containers reach it at `postgres:5432` internally
+- **Redis:** `localhost:6380`, cache, rate limiting, and Taskiq broker. Containers reach it at `redis:6379` internally
 - **Taskiq worker:** Automatically listens for async tasks (email sending)
-- **Alembic migrations:** Run automatically on stack startup via the dedicated `alembic` service (`alembic upgrade head`); in production Compose, `backend`/`taskiq_worker` also wait for it to complete before starting (see [Docker Overview](docs/mystic_auth/docker/overview.md))
+- **Alembic migrations:** Run automatically on stack startup via the dedicated
+  `alembic` service (`alembic upgrade head`). In production Compose, `backend`
+  and `taskiq_worker` wait for migrations before starting. See
+  [Docker Overview](docs/mystic_auth/docker/overview.md)
 
-See [Docker Overview](docs/mystic_auth/docker/overview.md) for the full service breakdown and [Deployment Guide](docs/mystic_auth/deployment/guide.md) for production Compose usage and free/low-cost hosting options.
+See [Docker Overview](docs/mystic_auth/docker/overview.md) for the full service breakdown and [Deployment Guide](docs/mystic_auth/deployment/guide.md) for production Compose usage and host requirements.
 
 ---
 
-**Self-hosted error monitoring (Bugsink) is part of the helper command above**: `dev-up.sh`, `dev-up.ps1`, `dev-up.cmd`, and plain `docker compose up` all start it by default alongside every other service. The `bugsink-seed` service then creates a "MysticAuth" project automatically and wires its DSN into `backend`/`frontend` for you, no manual project/DSN setup needed. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md) for the full walkthrough.
+**Self-hosted error monitoring (Bugsink) is part of the helper command above.**
+`dev-up.sh`, `dev-up.ps1`, `dev-up.cmd`, and plain `docker compose up` start
+it by default with the rest of the stack. The `bugsink-seed` service creates a
+"MysticAuth" project and wires its DSN into `backend` and `frontend`, so no
+manual project or DSN setup is needed. See
+[Error Monitoring](docs/mystic_auth/error-monitoring/overview.md).
 
 ---
 
@@ -237,8 +278,10 @@ uvicorn backend.app.main:app --reload
 ```
 
 - **Backend:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **PostgreSQL:** `localhost:5433` when using this repo's Docker service, or your own local Postgres port if you run it outside Docker
-- **Redis:** `localhost:6380` when using this repo's Docker service, or your own local Redis port if you run it outside Docker
+- **PostgreSQL:** `localhost:5433` with this repo's Docker service, or your own
+  local Postgres port when running it outside Docker
+- **Redis:** `localhost:6380` with this repo's Docker service, or your own
+  local Redis port when running it outside Docker
 
 #### 3. Start the Taskiq Worker
 
@@ -254,17 +297,18 @@ npm run dev --prefix frontend
 
 - **Frontend:** [http://localhost:5173](http://localhost:5173)
 
-**Self-hosted error monitoring (Bugsink)** still runs via Docker even in this local-run path: there's no bare-metal Bugsink install documented, since it's a single lightweight container:
+**Self-hosted error monitoring (Bugsink)** still runs via Docker in this local
+path. This repo documents the containerized Bugsink setup only:
 
 ```bash
 docker compose up -d bugsink bugsink-seed
 ```
 
-`bugsink-seed` still creates the "MysticAuth" project automatically here, but can't wire the DSN into your backend for you the way it does for the fully-Dockerized path above, since your backend isn't a container it can reach with a shared volume. Check `bugsink-seed`'s logs (`docker compose logs bugsink-seed`) for the DSN it printed, and set `SENTRY_DSN` in `.env` yourself using `http://<key>@localhost:8010/<id>` (same host Bugsink's UI gives you) rather than the `bugsink:8000` internal form. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md) for the full setup.
+`bugsink-seed` still creates the "MysticAuth" project automatically here, but it cannot wire the DSN into a backend running outside Docker. Check `bugsink-seed` logs with `docker compose logs bugsink-seed`, copy the printed DSN, and set `SENTRY_DSN` in `.env` using `http://<key>@localhost:8010/<id>` instead of the internal `bugsink:8000` form. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md) for the full setup.
 
 ---
 
-## 🔑 First-Time Setup: Creating the System Superuser
+## First-Time Setup: Creating the System Superuser
 
 After starting the app for the first time, create the reserved system account, a one-time step that seeds the account holding the `system_superuser` policy (see [PBAC Policy Examples](docs/mystic_auth/authorization/policy-examples.md)).
 
@@ -291,32 +335,37 @@ Enter system user password:
 System user 'you@example.com' created successfully.
 ```
 
-**If the email already belongs to an existing account** (e.g. you signed up or logged in via Google before running this), it offers to promote that account instead of refusing outright. This is a common case if you forgot to bootstrap this first, and it's handled differently depending on whether that account has a password. See [System Superuser: Bootstrapping and Promotion](docs/mystic_auth/authentication/system-superuser.md) for both flows in full, with real transcripts.
+**If the email already belongs to an existing account**, the CLI can promote
+that account instead of refusing. This covers the common case where you signed
+up or logged in with Google before bootstrapping the system user. Password and
+passwordless accounts follow different promotion flows. See
+[System Superuser: Bootstrapping and Promotion](docs/mystic_auth/authentication/system-superuser.md).
 
-Neither creation nor promotion is ever exposed via any API endpoint: CLI only, by design.
+Neither creation nor promotion is exposed through an API endpoint. This is CLI-only by design.
 
 ---
 
-## 🔁 Auth Flow
+## Auth Flow
 
 | Feature | Details |
 |---|---|
-| Signup | Creates an account and assigns the baseline `self_service` policy; sends an email verification link |
-| Email Verification | Single-use, Redis-backed token; unverified users can request a fresh link after expiry |
-| Login | Timing-attack-resistant password check; returns JWT access + refresh tokens as httpOnly cookies |
-| Google OAuth2 (PKCE) | Creates or logs in a user; Google's own email verification is trusted, so no separate verification step is needed |
-| Token Refresh | Rotates the refresh token; reuse of an already-rotated token revokes only that one session's rotation chain, leaving every other device untouched |
+| Signup | Creates an account, assigns the baseline `self_service` policy, and sends an email verification link |
+| Email Verification | Uses a single-use Redis-backed token. Unverified users can request a fresh link after expiry |
+| Login | Uses a timing-attack-resistant password check and returns JWT access and refresh tokens as httpOnly cookies |
+| Google OAuth2 (PKCE) | Creates or logs in a user. Google's own email verification is trusted, so no separate verification step is needed |
+| Token Refresh | Rotates the refresh token. Reuse of an already-rotated token revokes only that session's rotation chain, leaving every other device untouched |
 | Logout | Ends the current session |
 | Logout All | Ends every session for the account, across every device, instantly and in real time (see Manage Sessions) |
-| Manage Sessions | View every active session (device/browser, IP, last used) and revoke any one of them individually in real time; the current device is excluded, use Logout for that |
+| Manage Sessions | View every active session (device/browser, IP, last used) and revoke another device in real time. Use Logout for the current device |
 | Forgot Password | User requests a reset link via email (same generic response whether or not the email is registered) |
 | Reset Password | User redeems the link, sets a new password (strength-validated, can't reuse the current password), and every other session is logged out |
+| Change Password | User supplies the current password, gets fresh cookies for that device, and every other session is logged out |
 
 See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for the full mechanics of each flow.
 
 ---
 
-## 🛡️ Security Features
+## Security Features
 
 - Policy-Based Access Control: every action is gated by an assigned policy, never by `role`
 - JWT access and refresh tokens stored as httpOnly, secure, `SameSite=Strict` cookies
@@ -324,39 +373,53 @@ See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for t
 - Dual rate limiting (per-IP and per-account) plus a separate brute-force lockout on login
 - Timing-attack-resistant login/signup/password-reset paths
 - Email verification required before password-based login
-- Password strength validation on signup and password reset, with same-password reuse prevention
+- Password strength validation on signup, reset, and account settings, with same-password reuse prevention
 - Security response headers (CSP, HSTS, X-Frame-Options, etc.) on every response
-- Trusted-proxy-aware IP resolution (`TRUSTED_PROXY_IPS`) for rate limiting, lockout, and audit logging behind a reverse proxy
+- Trusted-proxy-aware IP resolution (`TRUSTED_PROXY_IPS`) for rate limiting,
+  lockout, and audit logging behind a reverse proxy
 - `SECRET_KEY` minimum-length enforcement at startup
-- Two independent audit logs: a security/session-event log and a PBAC decision log, see [Database Design](docs/mystic_auth/database/design.md#why-two-audit-tables-not-one)
-- Per-session tracking (device, IP, first/last seen) for self-service viewing and revocation, independent of but kept in sync with the Redis-backed account/chain version counters that actually govern token validity
-- Real-time cross-device session revocation push (Server-Sent Events + Redis Pub/Sub): logout-all, a targeted Manage Sessions revoke, or a password change reaches every open tab/device within milliseconds
+- Two independent audit logs: security/session events and PBAC decisions. See
+  [Database Design](docs/mystic_auth/database/design.md#why-two-audit-tables-not-one)
+- Per-session tracking for self-service viewing and revocation, kept in sync
+  with the Redis-backed account and chain version counters that govern token
+  validity
+- Real-time cross-device session revocation with Server-Sent Events and Redis
+  Pub/Sub. Logout-all, targeted Manage Sessions revoke, and password changes
+  reach every open tab or device within milliseconds
 - System user protected from deletion, role changes, and OAuth2 login via API: CLI-only creation
-- Error monitoring (backend + frontend), enabled by default via self-hosted Bugsink so error data, which can carry PII, never has to leave your own infrastructure. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)
+- Error monitoring for backend and frontend, enabled by default via self-hosted
+  Bugsink. Error data can contain PII, so this keeps it inside your
+  infrastructure. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)
 
 See [Security Hardening](docs/mystic_auth/security/hardening.md) and [Security Decisions](docs/mystic_auth/security/decisions.md) for the full detail and rationale, and [Known Issues & Concerns](docs/mystic_auth/concerns/README.md) for what's tracked as still outstanding.
 
 ---
 
-## 📝 Notes
+## Notes
 
 - All credentials and secrets are loaded from `.env`
 - **Alembic** is used for database migrations
 - **Redis + Taskiq** are used for async email delivery, caching, and rate limiting
 - OAuth2 setup requires Google Cloud credentials
-- **Zustand** manages client-side session state; **TanStack Query** manages all server-state caching
+- **Zustand** manages client-side session state. **TanStack Query** manages all server-state caching
 - **Type Safety:** Full TypeScript support across the frontend (feature modules, store, `sdk.ts`)
 - The system user can only be created via CLI: it is never exposed through any API endpoint
-- **Bugsink** (self-hosted error monitoring) starts by default with everything else, no separate account or setup step needed
+- **Bugsink** (self-hosted error monitoring) starts by default with the stack
 
 ---
 
-## 📚 Documentation
+## Documentation
 
-Full documentation lives in [`docs/mystic_auth/`](docs/mystic_auth/README.md), organized by feature/domain. If you're building your own project on top of this template, your own docs go in `docs/app/` instead, the same way your own code goes in `backend/app/`/`frontend/src/app/`. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](docs/mystic_auth/template-usage/overview.md#the-app--mystic_auth-split), and `scripts/sync-upstream.sh` for pulling in template updates on demand.
+Full documentation lives in [`docs/mystic_auth/`](docs/mystic_auth/README.md),
+organized by feature and domain. If you're building on this template, put your
+project docs in `docs/app/`, matching the `backend/app/` and `frontend/src/app/`
+code split. See
+[Using This Repository as a Template](docs/mystic_auth/template-usage/overview.md#the-app--mystic_auth-split)
+and `scripts/sync-upstream.sh`.
 
 - [Architecture](docs/mystic_auth/README.md#architecture) (system overview, backend, frontend)
-- [Authentication](docs/mystic_auth/README.md#authentication) & [OAuth2/PKCE](docs/mystic_auth/authentication/oauth2-pkce.md)
+- [Authentication](docs/mystic_auth/README.md#authentication) and
+  [OAuth2/PKCE](docs/mystic_auth/authentication/oauth2-pkce.md)
 - [Authorization (PBAC)](docs/mystic_auth/README.md#authorization-pbac)
 - [Database Design](docs/mystic_auth/database/design.md)
 - [API Reference](docs/mystic_auth/api/reference.md)
@@ -371,18 +434,21 @@ Full documentation lives in [`docs/mystic_auth/`](docs/mystic_auth/README.md), o
 
 ---
 
-## 🙋 Getting Help & Contributing
+## Getting Help & Contributing
 
 This is an open-source template, issues and pull requests are welcome:
 
-- Check the [documentation](docs/mystic_auth/README.md) first, especially [Known Issues & Concerns](docs/mystic_auth/concerns/README.md) and [PBAC Troubleshooting](docs/mystic_auth/authorization/troubleshooting.md), since your question may already be answered there.
+- Check the [documentation](docs/mystic_auth/README.md) first, especially
+  [Known Issues & Concerns](docs/mystic_auth/concerns/README.md) and
+  [PBAC Troubleshooting](docs/mystic_auth/authorization/troubleshooting.md).
 - Search [existing GitHub Issues](https://github.com/Nachiket-2024/mystic-auth/issues) before opening a new one.
-- If you've found a bug, open a new Issue with clear reproduction steps (what you ran, what you expected, what happened instead).
-- **Found a security vulnerability?** Don't open a public Issue for it. See [SECURITY.md](SECURITY.md) for how to report it privately.
+- If you've found a bug, open a new Issue with clear reproduction steps.
+- **Found a security vulnerability?** Don't open a public Issue. See
+  [SECURITY.md](SECURITY.md) for private reporting.
 - Fixes and improvements are welcome as Pull Requests.
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

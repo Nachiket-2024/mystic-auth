@@ -1,10 +1,10 @@
-# 📚 Documentation
+# Documentation
 
 Documentation for this full-stack template, organized by feature/domain to mirror the actual code layout (`backend/mystic_auth/<domain>/`, `frontend/src/mystic_auth/<domain>/`). If something here disagrees with the code, the code wins, so file an issue or update the doc.
 
 This is the template's own reference documentation, belonging to upstream and not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage/overview.md#the-app--mystic_auth-split) for the full reasoning.
 
-## 🏗️ Architecture
+## Architecture
 
 - [System Overview](architecture/system-overview.md): whole-stack component diagram, why the stack is split this way, request lifecycle
 - [Backend Architecture](architecture/backend.md): `backend/mystic_auth/` module layout, request pipeline, middleware
@@ -12,7 +12,7 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ---
 
-## 🔐 Authentication
+## Authentication
 
 - [Authentication Overview](authentication/overview.md): signup, verification, login, refresh/logout, password reset, JWT/cookie mechanics
 - [Session Management](authentication/session-management.md): active-session tracking, refresh-token rotation mirror, dashboard card behavior, revoke edge cases
@@ -21,7 +21,7 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ---
 
-## 🧭 Authorization (PBAC)
+## Authorization (PBAC)
 
 - [Architecture Overview](authorization/architecture.md): request flow, component responsibilities, integration points
 - [Policy JSON Examples](authorization/policy-examples.md): basic, conditioned, superuser, and self-service policies
@@ -35,25 +35,25 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ---
 
-## 🗄️ Database
+## Database
 
 - [Database Design](database/design.md): schema, foreign keys, account lifecycle (soft delete/purge/reactivate)
 
 ---
 
-## 🔌 API
+## API
 
 - [API Reference](api/reference.md): route inventory grouped by domain, request/response shapes, auth requirements
 
 ---
 
-## ⚙️ Background Workers
+## Background Email Delivery
 
-- [Taskiq Background Workers](background-workers/taskiq.md): broker setup, task definitions, failure handling
+- [Background Email Delivery](background-workers/taskiq.md): Taskiq worker setup, Redis broker behavior, failure handling
 
 ---
 
-## 🛡️ Security
+## Security
 
 - [Security Decisions](security/decisions.md): the *why* behind non-obvious security choices, plus known accepted gaps
 - [Security Hardening](security/hardening.md): rate limiting, lockout, security headers, CORS, cookie flags, consolidated
@@ -61,51 +61,51 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ---
 
-## 🧯 Error Monitoring
+## Error Monitoring
 
-- [Error Monitoring](error-monitoring/overview.md): enabled-by-default backend/frontend error reporting via the Sentry SDK protocol; self-hosted Bugsink quickstart, what gets reported, Sentry-hosted alternative
+- [Error Monitoring](error-monitoring/overview.md): enabled-by-default backend/frontend error reporting via the Sentry SDK protocol; self-hosted Bugsink quickstart and what gets reported
 
 ---
 
-## ✅ Testing
+## Testing
 
 - [Testing Overview](testing/overview.md): backend pytest suites, frontend vitest suites, coverage state, how to run
 
 ---
 
-## 🐳 Docker
+## Docker
 
 - [Docker Overview](docker/overview.md): services, Dockerfiles, dev vs. prod compose, healthchecks
 - [Docker Validation History](docker/validation-history.md): live-verification passes against the running stack, covering what was run, what it found, what got fixed
 
 ---
 
-## 🔄 CI/CD
+## CI/CD
 
 - [CI/CD Overview](cicd/overview.md): GitHub Actions workflow, jobs, gaps
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
-- [Deployment Guide](deployment/guide.md): dev vs. prod topology, environment variables, free/low-cost hosting options
+- [Deployment Guide](deployment/guide.md): dev vs. prod topology, environment variables, host requirements
 
 ---
 
-## 🧱 Concerns, Limitations & Technical Debt
+## Concerns, Limitations & Technical Debt
 
 - [Known Issues & Future Improvements](concerns/README.md): tracked limitations, technical debt, deferred security/performance work
 
 ---
 
-## 🧵 Project Story
+## Project Story
 
 - [Project Story](project-story/README.md): where this template came from and how it evolved, straight from the commit history
 - [The Tools That Built It](project-story/tools.md): the workflows that actually did the work, from manual ChatGPT + VSCode through Claude Code and the first Codex pass
 
 ---
 
-## 🧩 Using This as a Template
+## Using This as a Template
 
 - [Template Usage Guide](template-usage/overview.md): for anyone cloning this repo as a starting point for their own auth+PBAC project, covering quickstart, environment configuration, renaming the app, frontend/backend customization, OAuth/email setup, adding permissions and protecting routes, replacing the frontend, deployment
 - [Worked Example: Adding a New Domain, End to End](template-usage/worked-example.md): a copy-and-rename starting point, covering model, schema, router, migration, policy, frontend page, route, and nav link, wired together for one fake domain
@@ -113,12 +113,12 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ---
 
-## 👥 Who this is for
+## Who this is for
 
 Anyone adding a new protected endpoint, a new permission, a new condition type, or a new policy to this template; anyone integrating a new frontend feature against the API; anyone debugging why an authorization decision or a request came back the way it did; or anyone new to the codebase who needs the system-wide picture before touching auth, authorization, or infrastructure code.
 
 ---
 
-## 📌 Source of truth
+## Source of truth
 
 This documentation describes the code as it exists in `backend/mystic_auth/` and `frontend/src/mystic_auth/` at the time of writing. If something here disagrees with the code, the code wins.

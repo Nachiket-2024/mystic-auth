@@ -54,12 +54,12 @@ class LogoutHandler:
                 status_code=200
             )
 
-            resp.delete_cookie(key="access_token", httponly=True, secure=True, samesite="strict")
+            resp.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
 
             # path must match the path="/auth" it was set with
             # (token_cookie_handler.py), or the browser treats this as a different
             # cookie and never clears it.
-            resp.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="strict", path="/auth")
+            resp.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none", path="/auth")
 
             return resp
 

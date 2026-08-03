@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/unit/test_audit_log_me_route_unit.py
 #
 # Unit coverage for GET /authorization/audit-log/me, the self-service audit
-# endpoint (claude.md: "User self-service audit access"). Called directly as
+# endpoint ("User self-service audit access"). Called directly as
 # a plain function, the same way FastAPI would inject it, so this exercises
 # the scoping logic without needing a running app or real DB.
 from unittest.mock import AsyncMock

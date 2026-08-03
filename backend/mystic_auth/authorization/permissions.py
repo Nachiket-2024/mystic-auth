@@ -8,7 +8,7 @@ class Permission(str, enum.Enum):
     via authorization.dependencies.authorization_dependency.require_authorization
     or authorization.services.authorization_service.authorize/require.
 
-    Per claude.md: "Permissions represent possible actions only. ...
+    "Permissions represent possible actions only. ...
     Access is granted only when a policy evaluation allows the action."
     This enum is that action vocabulary : nothing more. It carries no
     role -> action mapping (that concept has been removed entirely); the

@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. 55 commits on `main`, from the first on 18 August, 2025 to the most recent on 3 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 4 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -69,9 +69,7 @@ Rate limiting and brute-force protection showed up on day three because security
 
 ### 26 August, 2025 - 28 August, 2025
 
-Tailwind CSS was tried and then replaced by plain CSS. The same day, modular slice/types/button/form files and `store.ts` were added. Auth route pages were wired into `App.tsx`, and all `axios` calls were centralized into a single API folder: the frontend's first pass at having a consistent shape.
-
-The stretch that followed involved the biggest learning curve of the project.
+Tailwind CSS was tried and then replaced by plain CSS. Modular slice/types/button/form files and `store.ts` were added. Auth route pages were wired into `App.tsx`, and all `axios` calls were centralized into a single API folder: the frontend's first consistent shape.
 
 ### 30 August, 2025 - 2 September, 2025
 
@@ -79,7 +77,7 @@ Frontend imports were corrected and Tailwind re-added. Then HTTP-only cookies fo
 
 ### 4 September, 2025 - 5 September, 2025
 
-The token table was changed and cookie-setting modularized. The backend was fully commented, with the token CRUD corrected across its call sites (the largest commit of this stretch, at ~2,000 changed lines). The OAuth2 service logic and the frontend's auth slice/API were updated to match.
+The token table was changed and cookie-setting modularized. The backend was fully commented, with the token CRUD corrected across its call sites (the largest commit in this range, at ~2,000 changed lines). The OAuth2 service logic and the frontend's auth slice/API were updated to match.
 
 ### 7 September, 2025
 
@@ -87,7 +85,7 @@ Single-device OAuth2 login and logout both worked end-to-end with the updated to
 
 ### 13 September, 2025 - 14 September, 2025
 
-The logout-all handler was reworked alongside a round of backend commenting; its own commit message notes "not done yet". Then `TokenCRUD` and `UserCRUD` were both fully modularized.
+The logout-all handler was reworked alongside a round of backend commenting; its own commit message notes that the work was still in progress. Then `TokenCRUD` and `UserCRUD` were both fully modularized.
 
 ### 16 September, 2025
 
@@ -99,9 +97,9 @@ The token table's field structure changed again: mostly a cleanup, with more lin
 
 ### 22 September, 2025 - 24 September, 2025
 
-Token tables were removed entirely in favor of Redis-only token management (the last of these commits again flagged "not done yet" mid-migration). OAuth2 login was re-verified against the new logic, and logout/logout-all was confirmed working end-to-end. `UserCRUD` was updated alongside a new signup page, and the stretch closed with logging added across the backend.
+Token tables were removed entirely in favor of Redis-only token management (the last of these commits again flagged the migration as still in progress). OAuth2 login was re-verified against the new logic, and logout/logout-all was confirmed working end-to-end. `UserCRUD` was updated alongside a new signup page, and backend logging was added across the backend.
 
-This four-week stretch, from late August through late September, was where the project stopped being "just implementing features" and started being about the underlying security decisions. Questions like where tokens should live, how refresh-token reuse detection should work, and what logout-all should actually revoke became architectural decisions, not coding tasks.
+This four-week range, from late August through late September, was where the project stopped being "just implementing features" and started being about the underlying security decisions. Questions like where tokens should live, how refresh-token reuse detection should work, and what logout-all should actually revoke became architectural decisions, not coding tasks.
 
 ### 6 October, 2025
 
@@ -109,11 +107,11 @@ The app was fully Dockerized, with OAuth2 login and logout tested end-to-end ins
 
 ### 10 October, 2025
 
-Celery was replaced with Taskiq. Celery was considered first because it's widely used, but since the backend was built around async patterns, the worker model created friction. After comparing ARQ, Dramatiq, and Taskiq, Taskiq fit the async-first approach best (ARQ was close, but Taskiq's FastAPI integration was cleaner). This was a large commit (61 files), and its own message admits it left "frontend issues" behind: the swap wasn't clean on the first pass, even though the actual requirement (reliably sending verification and password-reset emails) was simple.
+Celery was replaced with Taskiq. Celery was considered first because it's widely used, but since the backend was built around async patterns, the worker model created friction. After comparing ARQ, Dramatiq, and Taskiq, Taskiq fit the async-first approach best (ARQ was close, but Taskiq's FastAPI integration was cleaner). This was a large commit (61 files), and its own message admits it left "frontend issues" behind: the swap needed follow-up work, even though the actual requirement (reliably sending verification and password-reset emails) was simple.
 
 ### 14 October, 2025
 
-The frontend flickering issue from the Taskiq swap was resolved, with signup, login, logout, and logout-all all confirmed working again.
+The frontend flickering issue and the Taskiq swap was resolved, with signup, login, logout, and logout-all all confirmed working again.
 
 ---
 
@@ -123,7 +121,7 @@ Work resumed after the 4-month gap by fixing the OAuth2 login flow, which hadn't
 
 ### 26 February, 2026 - 28 February, 2026
 
-The UI was rebuilt on Chakra UI: the login page first, with Tailwind removed (the largest of the three commits, at ~2,000 changed lines), then signup, verify-account, and dashboard pages, and finally the dashboard updated to show real user details alongside a reworked signup page.
+The UI was rebuilt on Chakra UI: the login page first, with Tailwind removed (the largest of the three commits, at ~2,000 changed lines), then signup, verify-account, and dashboard pages. The dashboard was updated to show real user details alongside a reworked signup page.
 
 The frontend also moved toward feature-based organization, mirroring the backend: auth, dashboard, and profile. Redux was still the frontend state management foundation at this point.
 
@@ -219,11 +217,11 @@ This wasn't chosen because it's the only "correct" architecture. It was chosen b
 
 After a 3-month gap, the biggest change happened in a single commit: 364 files touched (+27,663/-8,184 lines), moving the project from a role-based authorization system to Policy-Based Access Control (PBAC). Instead of access being decided by a role column, authorization decisions are now based on assigned policies, allowed actions, resources, and optional conditions. Roles became descriptive metadata rather than the source of truth for permissions. PBAC wasn't part of the original design; it was added once role-based access started showing its limits.
 
-That same commit also added audit logging, security hardening, improved headers and middleware, stronger cookie/security handling, CI/CD pipelines, extensive backend and frontend testing, and complete documentation. The project moved from "a reusable auth module" into a complete authentication and authorization foundation in one pass, not incrementally. Frontend state management was redesigned too, in the same commit: Redux was replaced with Zustand for client state and TanStack Query for server state.
+That same commit also added audit logging, security hardening, improved headers and middleware, stronger cookie/security handling, CI/CD pipelines, extensive backend and frontend testing, and broad documentation. The project moved from "a reusable auth module" into a broader authentication and authorization foundation in one large change, not incrementally. Frontend state management was redesigned too, in the same commit: Redux was replaced with Zustand for client state and TanStack Query for server state.
 
 ### 18 July, 2026
 
-A follow-up pass over the 14 July, 2026 commit, hardening it further now that it had had a few days to settle. The main fixes: a couple of real session/token bugs (a roleless OAuth2 account getting logged out on refresh, a race condition in refresh-token rotation, an expired-token cleanup that never ran), a password-change flow that now asks for your current password and logs out other sessions, and a handful of smaller admin/config fixes. CI also got a real coverage gate and dependency scanning for the first time. This is roughly where `template-usage.md` and this file were first written, and the known-issues doc got trimmed down to what was still actually true.
+A couple of real session/token bugs (a roleless OAuth2 account getting logged out on refresh, a race condition in refresh-token rotation, an expired-token cleanup that never ran), a password-change flow that now asks for your current password and logs out other sessions, and a handful of smaller admin/config fixes were done. CI also got a real coverage gate and dependency scanning for the first time. This is roughly where `template-usage.md` and this file were first written, and the known-issues doc got trimmed down to what was still actually true.
 
 ### 20 July, 2026
 
@@ -231,17 +229,15 @@ Running the template against my other projects surfaced a couple of small logout
 
 ### 25 July, 2026 - 29 July, 2026
 
-This stretch turned the repo from "reusable codebase" into a real template. The code was split into upstream-owned internals (`backend/mystic_auth/`, `frontend/src/mystic_auth/`) and thin project-owned shells (`backend/app/`, `frontend/src/app/`), with `sdk.py`/`sdk.ts` and `app_sdk.py`/`app_sdk.ts` as the extension surface. Docs and tests were split the same way, `scripts/sync-upstream.sh` was added for future template updates, and the template-usage docs grew the ownership model, sync workflow, worked example, RBAC quickstart, and shared sidebar/CORS/nav extension points.
+This range turned the repo from "reusable codebase" into a real template which mainly happened because of running the template against real downstream projects. The code was split into upstream-owned internals (`backend/mystic_auth/`, `frontend/src/mystic_auth/`) and thin project-owned shells (`backend/app/`, `frontend/src/app/`), with `sdk.py`/`sdk.ts` and `app_sdk.py`/`app_sdk.ts` as the extension surface. Docs and tests were split the same way, `scripts/sync-upstream.sh` was added for future template updates, and the template-usage docs grew the ownership model, sync workflow, worked example, RBAC quickstart, and shared sidebar/CORS/nav extension points.
 
-The rest came from running the template against real downstream projects. That caught an `sdk.ts` import bypass, an event-loop-blocking token signature, logout and rate-limiter bugs, a Bugsink Gunicorn timeout issue, a prod OAuth redirect gotcha, and the stale `react-router-dom` package with an unpatched advisory, fixed by moving to `react-router` v8 and making npm audit blocking again. Docker and day-to-day operations were tightened too: `scripts/dev-up.sh` became the quieter default startup path, frontend Compose builds got `pull_policy: build`, `watch_for_late_dsn()` catches Bugsink's DSN after slow cold boots, backend logging became dev-readable and production-structured, and stale docs/comments/config were cleaned up. A resend verification email flow was added for users who tried to verify their account after the verification link had expired, the background email worker got terminal-visible logging, and a PowerShell dev-up bug got fixed so the startup logs it always promised actually showed up.
+Caught an `sdk.ts` import bypass, an event-loop-blocking token signature, logout and rate-limiter bugs, a Bugsink Gunicorn timeout issue, a deployed OAuth redirect gotcha, and the stale `react-router-dom` package with an unpatched advisory, fixed by moving to `react-router` v8 and making npm audit blocking again. Docker and day-to-day operations were tightened too: `scripts/dev-up.sh` became the quieter default startup path, frontend Compose builds got `pull_policy: build`, `watch_for_late_dsn()` catches Bugsink's DSN after slow cold boots, backend logging became dev-readable and deployment-structured, and stale docs/comments/config were cleaned up. A resend verification email flow was added for users who tried to verify their account after the verification link had expired, the background email worker got terminal-visible logging, and a PowerShell dev-up bug got fixed so the startup logs it always promised actually showed up.
 
-### 2 August, 2026
+### 2 August, 2026 - 4 August, 2026
 
-Many UI improvements landed across account settings, dashboards, user management, policies, audit logs, shared tables, filters, pagination, and screenshots. Backend work expanded session management, audit data, user stats, token/session handling, and tests, while Python, Docker, CI, docs, and dependency pins were updated to match the new project state. Active Sessions and Last Login showing empty right after login, and Logout All not updating them instantly either, got fixed by pushing a real-time session-created event alongside the existing revoke one. A separate bug surfaced next: policy assignments, audit history, and login-trend data could leak across accounts logged into the same browser tab, since those query caches weren't cleared on logout or login. All of them were fixed together. The noisy `dev-up` pull-progress spam was quieted too, alongside a broader review of backend typing/logging fixes, new tests for previously uncovered modules, an accessibility fix in the shared confirm dialog, and a updating the screenshots in the README for the updated UI.
+The template changed across UI, backend behavior, Docker, CI, tests, and documentation. The UI changed across account settings, dashboards, user management, policies, audit logs, shared tables, filters, pagination, and screenshots. Backend work expanded session management, audit data, user stats, token/session handling, typing, logging, and tests. Active Sessions and Last Login now update immediately after login and logout-all via real-time session events, and "me"-scoped query caches are cleared correctly so policy assignments, audit history, login trends, and session data cannot leak between accounts in the same browser tab. Password changes were tightened too, so the current device keeps a freshly rotated session while every other session is revoked.
 
-### 3 August, 2026
-
-Several files and folders that had grown too large were split up. `authorization/conditions/`, the user and PBAC policy routes on the backend, and `audit_log/` plus the dashboard's session/last-login pieces on the frontend were each broken into smaller, clearly named pieces instead of one growing file, and the oversized integration test files got the same treatment to mirror those source-side splits. A fresh, check of the whole repo followed by which a stale CI doc line got corrected, several security-relevant backend functions gained missing type annotations, new unit tests closed coverage gaps in the database layer and user CRUD modules, and form validation errors across the auth pages got wired up with aria-invalid and aria-describedby so screen readers actually announce them.
+The codebase was also split into smaller feature-shaped files where modules had grown too large, including authorization conditions, user routes, PBAC routes, audit log UI, dashboard session pieces, and matching integration tests. Docker and deployment coverage expanded with `docker-compose.local-prod.yml`, `docker-compose.prod.yml`, and `docker/Caddyfile`, while strict auth cookies, access-log rotation, Compose validation, CI documentation, dependency pins, and dev-up output were cleaned up. Repo-wide docs and comments were trimmed for stale wording, inaccurate operational notes, and alignment with the code after Docker validation.
 
 ---
 

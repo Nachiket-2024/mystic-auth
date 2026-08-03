@@ -47,7 +47,7 @@ class SessionService:
             ip_address = get_client_ip(request) if request is not None else None
             await session_repository.create(db, user_id, jti, chain_id, _to_datetime(exp), user_agent, ip_address)
             # Real-time nudge for any tab already open on this account (see
-            # publish_session_created's own docstring) - email is optional
+            # publish_session_created's own docstring). email is optional
             # only because a couple of tests call create_session directly
             # without it; both real login paths (login_service.py,
             # oauth2_service.py) always pass it.
@@ -77,7 +77,7 @@ class SessionService:
             # create_session call failed silently. Backfilling here means
             # every still-active session picks up a row within one
             # access-token lifetime (the next time it refreshes) instead of
-            # staying invisible forever - no need to log out and back in.
+            # staying invisible forever without a fresh login.
             if rotated is None and email:
                 user = await user_crud.get_by_email(email, db)
                 if user:
@@ -95,7 +95,7 @@ class SessionService:
         bumps its chain's Redis version (so it, and any access token
         sharing it, stop working immediately) and marks the matching
         Manage Sessions row revoked. This is what a plain, single-device
-        Logout actually does - without the chain bump, a refresh token
+        Logout actually does. Without the chain bump, a refresh token
         that leaked before logout would remain valid (by version) until it
         naturally expired, since clearing the browser's cookie only stops
         this one client from presenting it again."""
@@ -115,26 +115,61 @@ class SessionService:
             logger.warning("Failed to mark session revoked on logout:\n%s", traceback.format_exc())
 
     @staticmethod
-    async def revoke_all_sessions(db: AsyncSession | None, email: str | None) -> None:
-        """Postgres-side marking only. The actual account-wide revoke is
-        jwt_service.bump_account_version - see refresh_token_service.
-        revoke_all_tokens_for_user, the one caller that does both."""
+    async def revoke_all_sessions(
+        db: AsyncSession | None, email: str | None, exempt_chain_id: str | None = None
+    ) -> None:
+        """Mark sessions revoked in Postgres.
+
+        refresh_token_service performs the matching JWT version bump. When
+        exempt_chain_id is provided, that chain is kept active so the password
+        change flow can replace its tokens without logging out the device.
+        """
         if db is None or not email:
             return
         try:
             user = await user_crud.get_by_email(email, db)
             if user:
-                await session_repository.revoke_all_for_user(db, user.id)
+                if exempt_chain_id:
+                    await session_repository.revoke_all_for_user_except_chain(db, user.id, exempt_chain_id)
+                else:
+                    await session_repository.revoke_all_for_user(db, user.id)
         except Exception:
             logger.warning("Failed to mark all sessions revoked for %s:\n%s", email, traceback.format_exc())
 
     @staticmethod
+    async def rotate_session_by_chain(
+        db: AsyncSession | None,
+        chain_id: str,
+        new_jti: str,
+        new_exp: int | float | str,
+        email: str | None = None,
+        request: Request | None = None,
+    ) -> None:
+        """Record fresh tokens for a chain exempted from account-wide revoke."""
+        if db is None:
+            return
+        try:
+            rotated = await session_repository.rotate_by_chain_id(db, chain_id, new_jti, _to_datetime(new_exp))
+
+            if rotated is None and email:
+                user = await user_crud.get_by_email(email, db)
+                if user:
+                    user_agent = request.headers.get("user-agent") if request is not None else None
+                    ip_address = get_client_ip(request) if request is not None else None
+                    await session_repository.create(
+                        db, user.id, new_jti, chain_id, _to_datetime(new_exp), user_agent, ip_address
+                    )
+        except Exception:
+            logger.warning("Failed to rotate session by chain %s:\n%s", chain_id, traceback.format_exc())
+
+    @staticmethod
     async def revoke_chain(db: AsyncSession | None, chain_id: str) -> None:
-        """Postgres-side marking only, keyed by chain_id rather than a
-        session_id or jti - used by reuse-detection, where the chain_id is
-        the only identity available. See refresh_token_service.
-        revoke_chain_for_user, the one caller that also bumps the Redis
-        chain version."""
+        """Mark one chain revoked in Postgres.
+
+        Used by reuse detection when chain_id is the only session identity.
+        refresh_token_service.revoke_chain_for_user also bumps the Redis chain
+        version.
+        """
         if db is None:
             return
         try:
@@ -177,7 +212,7 @@ class SessionService:
             await jwt_service.bump_chain_version(email, session.chain_id)
         # Real-time nudge: the device that OWNED this session (not the
         # caller doing the revoking) is the one that needs to find out its
-        # session just ended - see publish_session_revoked's own docstring.
+        # session just ended. See publish_session_revoked.
         await publish_session_revoked(email)
         return session
 

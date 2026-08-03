@@ -16,7 +16,7 @@ class NetworkCondition(ConditionHandler):
 
     Fails safe (denies) if allowed_ips is empty, the context carries no
     ip_address at all, or either address string fails to parse, per
-    claude.md's explicit "missing IP context denial" / "invalid IP
+    missing IP context and invalid IP
     rejection" requirements.
     """
 

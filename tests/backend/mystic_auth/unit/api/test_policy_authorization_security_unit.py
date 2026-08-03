@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/test_policy_authorization_security_unit.py
 #
-# Security-review coverage (claude.md's "Authorization Security Review"):
+# Security-review coverage (authorization security review):
 # policy create/update/assign must never let a caller grant one of this
 # app's own sensitive actions (Permission's fixed vocabulary) that they do
 # not already hold themselves, baseline policies must be undeletable and

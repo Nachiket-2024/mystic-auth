@@ -1,23 +1,15 @@
 Set-StrictMode -Version Latest
 
-# Deliberately NOT $ErrorActionPreference = "Stop": docker compose (build
-# progress, pull progress, etc.) routinely writes routine, non-error output
-# to stderr. PowerShell 5.1 wraps every stderr line from a native command
-# into a terminating ErrorRecord when ErrorActionPreference is "Stop", which
-# killed this script immediately after the first `docker compose up -d`
-# line, before it ever reached the final `docker compose logs -f` tail :
-# so the taskiq_worker startup lines (and everything else) never appeared.
-# Native command failures are instead caught explicitly via $LASTEXITCODE
-# checks below, same as the existing check after `docker compose up -d`.
+# Keep native command stderr non-terminating. Docker Compose writes routine
+# progress to stderr on PowerShell 5.1, so failures are checked with
+# $LASTEXITCODE after each important command.
 $ErrorActionPreference = "Continue"
 
-# Starts the full stack and waits for every long-running service to report
-# healthy, or just running for the frontend dev server, before tailing the
-# backend/frontend/taskiq_worker logs.
+# Starts the full stack, waits for long-running services, and tails focused
+# backend, frontend, and taskiq_worker logs.
 #
-# This mirrors dev-up.sh for PowerShell users. It does not use
-# `docker compose up --wait` because alembic and bugsink-seed are one-shot
-# containers that should exit 0 after successful startup work.
+# Mirrors dev-up.sh for PowerShell users. Avoids `docker compose up --wait`
+# because alembic and bugsink-seed are successful one-shot containers.
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
@@ -64,25 +56,15 @@ function Test-ServiceFailed {
     return ($status -eq "" -or $status.Contains("Exited") -or $status.Contains("Restarting"))
 }
 
-# --quiet-pull: without it, Compose's pull-progress table repaints itself
-# every frame, and PowerShell 5.1 can't redraw in place like a real TTY, so
-# each repaint prints as a brand-new block of lines instead of overwriting
-# the last one : looks like it's stuck re-pulling the same image dozens of
-# times when it's really just one pull, redrawn. This silences that table;
-# real pull errors still surface (non-zero exit, checked below).
+# --quiet-pull suppresses Compose's repainting pull-progress table. Real pull
+# errors still surface as a non-zero exit code.
 docker compose up -d --quiet-pull
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-# backend/taskiq_worker are the two services whose boot banner (Uvicorn's
-# "Application startup complete", Taskiq's "Listening started", etc.) is
-# actually useful to see. `docker compose up -d` leaves an already-running
-# container alone when nothing about it changed, so on a rerun against a
-# live stack those banners are from whenever it originally booted : older
-# than $TailSince below, so the tail at the bottom would silently skip
-# them. Restarting the two here guarantees a fresh banner inside the
-# --since window on every run, not just the first.
+# Restart these services so the final tail always includes fresh startup
+# banners, even when Compose reused already-running containers.
 docker compose restart backend taskiq_worker
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

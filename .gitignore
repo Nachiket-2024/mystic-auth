@@ -75,9 +75,9 @@ logs/
 # ---------------------------- Database backups ----------------------------
 backups/
 
-# ---------------------------- AI Assistant / Development Tools ----------------------------
+# ---------------------------- Local Development Tools ----------------------------
 .claude/
-# Both cases: git match is case-sensitive on Linux (CI), unlike Windows/macOS.
+# Git matching is case-sensitive on Linux CI, unlike Windows and macOS.
 claude.md
 CLAUDE.md
 AGENTS.md
