@@ -151,7 +151,11 @@ services:
       - ./.env
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL:-}
+      # Caddy's tls directive (see docker/Caddyfile) requires a real-looking
+      # email address; it fails to parse the config entirely if this is
+      # blank. Falls back to a syntactically valid placeholder rather than
+      # empty, so an unset ACME_EMAIL doesn't crash-loop the container.
+      ACME_EMAIL: ${ACME_EMAIL:-you@example.com}
       BUGSINK_PUBLIC_DOMAIN: ${BUGSINK_PUBLIC_DOMAIN:-}
     ports:
       - "80:80"

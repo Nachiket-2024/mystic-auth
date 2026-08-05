@@ -1,60 +1,83 @@
 # Deployment Guide
 
----
+Reference material shared across all three deployment modes. For
+step-by-step instructions on running a given mode, see:
 
-## Dev vs Production vs Real Deployment
+- [Dev Deployment](dev.md): local development, hot reload, no TLS
+- [Local-Prod Deployment](local-prod.md): self-hosted production image shape,
+  exposed via a free Cloudflare Tunnel, no public server needed
+- [Prod Deployment](prod.md): your own server with Caddy-managed TLS
 
-There are three Compose files:
+New to the repo? Start with [Dev Deployment](dev.md). It's the mode you'll
+use day to day, and needs no domain, tunnel, or server.
 
-| | `docker-compose.yml` | `docker-compose.local-prod.yml` | `docker-compose.prod.yml` |
+## At a glance
+
+| | Dev | Local-Prod | Prod |
 |---|---|---|---|
-| Purpose | Local development | Production-style local or self-hosted run behind an external TLS layer | Internet-facing VPS-style deployment with Caddy-managed TLS |
+| Compose file | `docker-compose.yml` | `docker-compose.local-prod.yml` | `docker-compose.prod.yml` |
 | Frontend | Vite dev server (HMR) | nginx serving the static build | nginx serving the static build |
 | Source code | Bind-mounted from host | Baked into the image | Baked into the image |
 | Backend/worker reload | `--reload` on file change | Off | Off |
-| Restart policy | None (you restart manually) | `unless-stopped` | `unless-stopped` |
-| TLS | None (plain HTTP) | None; assumes an external terminator | Caddy, automatic Let's Encrypt certs |
-| Ports published to host | frontend/backend/postgres/redis, all on `localhost` | frontend (80) and backend (8000) | only Caddy (80/443); everything else is internal-only |
+| Restart policy | None (manual) | `unless-stopped` | `unless-stopped` |
+| Public entrypoint | None (`localhost` only) | Cloudflare Tunnel (`cloudflared`) | Caddy, automatic Let's Encrypt |
+| TLS | None | Terminates at Cloudflare's edge | Caddy, on the host |
+| Hosting model | Developer machine only | Your machine through Cloudflare Tunnel | Your own server with Caddy |
+| Needs a public server? | No | No. Quick Tunnel needs no domain, Named Tunnel needs your own Cloudflare-managed domain | Yes, a server with public IP + DNS |
+| Ports on host | frontend/backend/postgres/redis, all `localhost` | frontend (80) + backend (8000), for local debugging | only Caddy (80/443) |
 
-Local development:
+See [Docker Overview: dev vs. production compose](../docker/overview.md#dev-vs-production-compose)
+for the fuller service-by-service breakdown across all three Compose files.
+
+---
+
+## Choosing the right env template
+
+The root `.env` file is the only file Docker Compose reads by default. Pick
+one template for the mode you are running, copy it to `.env`, then edit that
+copy. Do not combine values from multiple templates unless the deployment doc
+for that mode explicitly says to.
+
+| Mode | Copy this file | Use with | Best for |
+|---|---|---|---|
+| Dev | `.env.example` | `docker-compose.yml` | Local development with hot reload |
+| Local-prod | `.env.local-prod.example` | `docker-compose.local-prod.yml` | Your machine through Cloudflare Tunnel |
+| Prod | `.env.prod.example` | `docker-compose.prod.yml` | Your own server with Caddy TLS |
 
 ```bash
-./scripts/docker/dev-up.sh      # Git Bash, WSL, Linux, macOS
-.\scripts\dev-up.ps1     # PowerShell
-scripts\dev-up.cmd       # Command Prompt
-```
+# Dev
+cp .env.example .env
+docker compose up
 
-Use plain `docker compose up` when you want every service's logs interleaved.
-See [Docker Overview](../docker/overview.md#day-to-day-dev-up-helpers).
-
-Production-style local or self-hosted run behind an external URL/TLS layer:
-
-```bash
+# Local-prod
+cp .env.local-prod.example .env
 docker compose -f docker-compose.local-prod.yml up -d --build
-```
 
-`docker-compose.local-prod.yml` assumes another reverse proxy or TLS terminator
-owns the public URL and TLS.
-It exposes plain HTTP on ports 80 for the frontend and 8000 for the backend,
-and it does not provision certificates itself. See [Docker Overview](../docker/overview.md).
-
-Internet-facing VPS-style deployment:
-
-```bash
+# Prod
+cp .env.prod.example .env
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-`docker-compose.prod.yml` is for a VPS or similar generous free or low-cost
-host where the Compose stack owns the public entrypoint. It adds a `caddy`
-service that terminates TLS itself (automatic Let's Encrypt certificates from
-`PUBLIC_DOMAIN`; see `docker/Caddyfile`) and is the only service with ports
-published to the host.
-`postgres`, `redis`, `backend`, and `frontend` stay reachable
-container-to-container by service name, but nothing outside the Docker
-network can reach them directly. Set `PUBLIC_DOMAIN` (and ideally
-`ACME_EMAIL`) in `.env` before the first `up`, and make sure DNS for that
-domain already points at the host's public IP, or certificate issuance
-fails.
+Important rules:
+
+- `.env` is user-managed local configuration. Keep it out of git.
+- The example files are checked in documentation and defaults. Update them
+  when the required settings change.
+- `frontend/.env.example` is only for running the frontend directly with
+  `npm run dev --prefix frontend`. Docker reads `VITE_*` values from the root
+  `.env`.
+- Production-style frontend values are baked into the image at build time:
+  `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SENTRY_DSN`, and
+  `VITE_SENTRY_ENVIRONMENT`. After changing any of them, rebuild the frontend
+  image with `--build`.
+- Runtime backend values, such as `DATABASE_URL`, `SECRET_KEY`,
+  `GOOGLE_REDIRECT_URI`, SMTP settings, and rate-limit settings, are read when
+  containers start. After changing them, recreate or restart the affected
+  containers.
+
+---
+
+## Single-origin frontend/backend routing
 
 The frontend container's nginx (`docker/nginx.frontend.conf`) also proxies API
 route prefixes to the backend. It forwards `/auth`, `/audit`, `/users`,
@@ -64,8 +87,9 @@ production-style Compose files, the frontend container is pinned to
 trust its `X-Forwarded-For` header.
 
 This single-origin setup works when `VITE_API_BASE_URL` is empty and
-`TRUSTED_PROXY_IPS=172.28.0.10`. Both values are documented in `.env.example`.
-If your TLS terminator sits in front of this nginx, forward to port 80 and let
+`TRUSTED_PROXY_IPS=172.28.0.10`. Both are set by default in
+`.env.local-prod.example` and `.env.prod.example`. If your TLS terminator
+sits in front of this nginx, forward to port 80 and let
 nginx proxy the API paths internally. `proxy_add_x_forwarded_for` appends rather
 than overwrites, so the client IP chain is preserved.
 
@@ -73,25 +97,26 @@ If you deploy the frontend elsewhere, point `VITE_API_BASE_URL` at the backend's
 real public origin. Set `TRUSTED_PROXY_IPS` to the proxy that actually sits in
 front of the backend for that topology.
 
-**Testing `docker-compose.local-prod.yml` locally:** all Compose files share the root
-`.env`; there is no separate `.env.prod`. The default
-`FRONTEND_BASE_URL=http://localhost:5173` points at the dev Vite port, while
-production Compose serves the frontend on port 80 through nginx. Set
-`FRONTEND_BASE_URL=http://localhost` before a local production test, then set it
-back to `http://localhost:5173` before returning to the dev-up helper. In a real
-deployment, `FRONTEND_BASE_URL` is your actual domain and is set once.
-
 ---
 
 ## Required production environment variables
 
-Same variables as `.env.example`, with these called out for production:
+`.env.local-prod.example` and `.env.prod.example` already set the values
+below correctly. This section explains the values you must review before
+real production use:
 
 - `ENVIRONMENT=production` disables `/docs`, `/redoc`, and `/openapi.json` on
   the backend. See `backend/app/main.py`.
 - Generate or rotate `SECRET_KEY`, `GOOGLE_CLIENT_SECRET`,
   `GMAIL_APP_PASSWORD`, and `POSTGRES_PASSWORD` for production. Do not reuse
   local `.env` or CI values.
+- Configure at least one user verification path before expecting normal users
+  to reach the dashboard. Password signup requires SMTP email delivery because
+  password accounts cannot log in until verified. Google login requires
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`, and
+  creates a verified account using Google's verified-email signal.
+- The CLI-created system superuser is the exception. It is marked verified by
+  the script and can sign in with its password without Google or SMTP.
 - Point `FRONTEND_BASE_URL` and `BACKEND_BASE_URL` at the real production
   hostnames. CORS in `backend/app/main.py` allows `FRONTEND_BASE_URL` plus
   comma-separated `FRONTEND_ADDITIONAL_BASE_URLS`. Leave the additional list
@@ -106,7 +131,7 @@ Same variables as `.env.example`, with these called out for production:
   values for `BUGSINK_SECRET_KEY`, `BUGSINK_SUPERUSER_EMAIL`,
   `BUGSINK_SUPERUSER_PASSWORD`, and `BUGSINK_BASE_URL`.
 - `SENTRY_DSN` and `VITE_SENTRY_DSN` differ in self-hosted Bugsink setups.
-  `SENTRY_DSN` is backend-only and can use `bugsink:8000`; `bugsink-seed`
+  `SENTRY_DSN` is backend-only and can use `bugsink:8000`. `bugsink-seed`
   auto-wires it through the shared volume. `VITE_SENTRY_DSN` is baked into the
   browser bundle at build time and must use the public route to Bugsink. See
   [Error Monitoring](../error-monitoring/overview.md).
@@ -115,7 +140,7 @@ Same variables as `.env.example`, with these called out for production:
   runtime. `docker-compose.local-prod.yml` and `docker-compose.prod.yml` pass them to
   `docker/frontend.Dockerfile` as build args. Set them in the root `.env` before
   `docker compose -f docker-compose.local-prod.yml up -d --build` or
-  `docker compose -f docker-compose.prod.yml up -d --build`; values only in
+  `docker compose -f docker-compose.prod.yml up -d --build`. Values only in
   `frontend/.env` are invisible to Compose interpolation.
 
 ---
@@ -190,7 +215,7 @@ At minimum, a production deployment needs:
 
 The backend, frontend nginx, Postgres, Redis, Taskiq worker, Alembic migration
 runner, and Bugsink services are all included in the Compose files. The email
-pipeline depends on the long-running `taskiq_worker` service connected to Redis;
+pipeline depends on the long-running `taskiq_worker` service connected to Redis.
 request-driven serverless backend deployments are intentionally out of scope.
 
 ---

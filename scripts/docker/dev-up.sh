@@ -19,8 +19,8 @@
 # logs in one stream (e.g. debugging Postgres/Bugsink/Taskiq startup itself).
 #
 # Usage: ./scripts/docker/dev-up.sh   (Git Bash or WSL on Windows)
-# PowerShell: .\scripts\dev-up.ps1
-# Command Prompt: scripts\dev-up.cmd
+# PowerShell: .\scripts\docker\dev-up.ps1
+# Command Prompt: scripts\docker\dev-up.cmd
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

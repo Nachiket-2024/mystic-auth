@@ -15,7 +15,7 @@ Adding a new condition type **never** requires touching `PolicyEvaluationEngine`
 
 ## 1. Create the handler class
 
-New file, `backend/mystic_auth/authorization/conditions/condition_types/device_trust_condition.py` (example: a hypothetical new condition) - alongside every other condition implementation, not `condition_registry.py`/`condition_validator.py`/`condition_evaluation_service.py`, which are the framework these handlers plug into, not handlers themselves:
+Add a new file beside the other condition implementations, for example `backend/mystic_auth/authorization/conditions/condition_types/device_trust_condition.py`. Do not put condition-specific logic in `condition_registry.py`, `condition_validator.py`, or `condition_evaluation_service.py`; those files are the framework the handlers plug into.
 
 ```python
 from ..condition_handler import ConditionHandler

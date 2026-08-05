@@ -30,8 +30,8 @@ python -m pytest tests/backend/mystic_auth/security -q
 python -m pytest tests/backend/mystic_auth/performance -q
 
 # Inside the Docker network. This avoids host/container Postgres port conflicts.
-# scripts/docker/backend-exec.sh (or .ps1/.cmd) wraps the --user root / MSYS_NO_PATHCONV
-# workarounds this needs -- see
+# scripts/docker/backend-exec.sh (or .ps1/.cmd) wraps the --user root and
+# MSYS_NO_PATHCONV workarounds this needs. See
 # docs/mystic_auth/docker/overview.md#running-a-one-off-command-inside-a-container.
 scripts/docker/backend-exec.sh python -m pytest tests/backend/
 ```

@@ -17,15 +17,15 @@
 # edge, where TLS terminates, then routes traffic to frontend:80 on the Docker
 # network. Internet traffic does not need host port forwarding.
 #
-# This runs a named tunnel (stable URL, survives host reboots/restarts) using
-# a token from Cloudflare Zero Trust. Requires TUNNEL_TOKEN in .env; see the
-# "Cloudflare Tunnel Config" block in .env.example for how to create one and
-# point its public hostname at http://frontend:80.
+# Default below is a Quick Tunnel: no Cloudflare account or domain needed.
+# Assigns a random https://<words>.trycloudflare.com URL on every container
+# start, which changes on every restart.
 #
-# For quick, throwaway testing without any Cloudflare account/domain setup,
-# swap the command below for: tunnel --no-autoupdate --url http://frontend:80
-# That runs a Quick Tunnel instead, which assigns a random
-# https://<words>.trycloudflare.com URL on every container start.
+# For a stable URL that survives restarts, switch to a named tunnel using a
+# token from Cloudflare Zero Trust: swap the command below for
+# `tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}`. Requires TUNNEL_TOKEN
+# in .env; see the "Cloudflare Tunnel Config" block in .env.local-prod.example
+# for how to create one and point its public hostname at http://frontend:80.
 #
 # frontend and backend still publish host ports below for local debugging only.
 services:
@@ -33,7 +33,11 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    # Quick Tunnel: no Cloudflare account/domain needed. Assigns a random
+    # https://<words>.trycloudflare.com URL on every container start/restart.
+    # Swap for `tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}` once a
+    # domain is added to a Cloudflare account (see file header comment).
+    command: tunnel --no-autoupdate --url http://frontend:80
     depends_on:
       frontend:
         condition: service_healthy

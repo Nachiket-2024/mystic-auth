@@ -83,7 +83,7 @@ skips straight to building.
 
 | | `docker-compose.yml` | `docker-compose.local-prod.yml` | `docker-compose.prod.yml` |
 |---|---|---|---|
-| Purpose | Local development | Production-style local or self-hosted run behind an external TLS layer | Internet-facing VPS-style deployment with Caddy-managed TLS |
+| Purpose | Local development | Self-hosted production image shape behind Cloudflare Tunnel or an external TLS layer | Self-hosted deployment on your own server with Caddy-managed TLS |
 | Frontend | Vite dev server, HMR, bind-mounted source | nginx serving the baked-in static build | nginx serving the baked-in static build, reached through Caddy |
 | Backend/worker | `--reload`, bind-mounted `./backend:/app` | No reload, code baked into the image | No reload, code baked into the image |
 | Restart policy | `restart: always` for Postgres/Redis only | `unless-stopped` on every long-running service | `unless-stopped` on every long-running service |
@@ -91,11 +91,11 @@ skips straight to building.
 | TLS | None | External terminator or tunnel | Caddy with automatic Let's Encrypt certificates |
 | `backend`/`taskiq_worker` startup gate | Postgres and Redis healthy | Postgres and Redis healthy, plus `alembic: service_completed_successfully` | Postgres and Redis healthy, plus `alembic: service_completed_successfully` |
 
-Use `docker-compose.local-prod.yml` when you want the production image/runtime shape but an external tool owns the public URL and TLS. Use `docker-compose.prod.yml` when the host itself should expose only Caddy on 80/443. See [Deployment Guide](../deployment/guide.md).
+Use `docker-compose.local-prod.yml` when you want to self-host the production image/runtime shape from a machine that does not own a public IP, with Cloudflare Tunnel or another external tool owning the public URL and TLS. Use `docker-compose.prod.yml` when the host itself should expose only Caddy on 80/443. See [Deployment Guide](../deployment/guide.md).
 
 ### Running a one-off command inside a container
 
-**Shortcut: `scripts/docker/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\docker\backend-exec.ps1 <command>` (PowerShell), or `scripts\docker\backend-exec.cmd <command>` (Command Prompt)** run this whole section's recommended invocation for you -- both workarounds below baked in, both harmless no-ops on a platform that doesn't need them. Use these day to day; the raw command is spelled out below for when you need something the wrapper doesn't cover, or just want to understand what it's doing.
+**Shortcut: `scripts/docker/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\docker\backend-exec.ps1 <command>` (PowerShell), or `scripts\docker\backend-exec.cmd <command>` (Command Prompt)** run this section's recommended invocation. Both workarounds below are built in and are harmless no-ops on platforms that do not need them. Use these day to day. The raw command is spelled out below for cases the wrapper does not cover.
 
 `docker compose exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see `docker-compose.yml`'s `backend` service).
 

@@ -88,7 +88,10 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ## Deployment
 
-- [Deployment Guide](deployment/guide.md): dev vs. prod topology, environment variables, host requirements
+- [Deployment Guide](deployment/guide.md): shared reference, environment variables, migrations, backups, host requirements
+- [Dev Deployment](deployment/dev.md): local development, hot reload, no TLS
+- [Local-Prod Deployment](deployment/local-prod.md): self-hosted production image shape exposed via a free Cloudflare Tunnel, no public server needed
+- [Prod Deployment](deployment/prod.md): self-hosted deployment on your own server with Caddy-managed TLS
 
 ---
 

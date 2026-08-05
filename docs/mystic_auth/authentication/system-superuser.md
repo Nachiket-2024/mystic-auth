@@ -1,6 +1,44 @@
 # System Superuser: Bootstrapping and Promotion
 
-`backend/mystic_auth/scripts/create_system_user.py` is the only way the reserved system account is ever created or granted; there is no API endpoint for either, by design (see [OAuth2 / PKCE: system account is blocked from OAuth2 login entirely](oauth2-pkce.md)). This page covers the script's full behavior; see the root [README](../../../README.md#-first-time-setup--creating-the-system-superuser) for the quick-start commands.
+`backend/mystic_auth/scripts/create_system_user.py` is the only way the reserved system account is ever created or granted; there is no API endpoint for either, by design (see [OAuth2 / PKCE: system account is blocked from OAuth2 login entirely](oauth2-pkce.md)).
+
+Run it after the stack is started and migrations have completed. Pick the command for the mode you are running.
+
+## Commands by run mode
+
+### Dev Docker
+
+Use this with `.env.example` and `docker-compose.yml`:
+
+```bash
+docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
+```
+
+### Local-prod Docker
+
+Use this with `.env.local-prod.example` and `docker-compose.local-prod.yml`, the self-hosted Cloudflare Tunnel mode:
+
+```bash
+docker compose -f docker-compose.local-prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
+```
+
+### Prod Docker
+
+Use this on the server that runs `.env.prod.example` and `docker-compose.prod.yml`:
+
+```bash
+docker compose -f docker-compose.prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
+```
+
+### Local Backend Without Docker
+
+Use this only if the backend is running directly on your host and can reach the configured Postgres and Redis:
+
+```bash
+PYTHONPATH=backend python -m mystic_auth.scripts.create_system_user
+```
+
+If you run any Docker command from a non-interactive shell or CI job, remove `-it`.
 
 ## Fresh account (the common case)
 

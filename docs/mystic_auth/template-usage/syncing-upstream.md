@@ -73,15 +73,17 @@ Rarely, `git apply`/`git merge` can report a normal result (clean, or an ordinar
 
 ```
 ERROR: the diff said these files should have changed, but none of them show up as changed, staged, or conflicted:
-  docs/screenshots/dashboard.png
+  screenshots/mystic_auth/dashboard.png
 
 This is the 'silent partial apply' failure mode -- ...
 Work around it by re-diffing with the listed path(s) excluded (':!path' per file), then applying that instead, e.g. for a single file:
-  git diff --binary <sha> upstream/main -- . ':!docs/screenshots/dashboard.png' | git apply --3way --index -
+  git diff --binary <sha> upstream/main -- . ':!screenshots/mystic_auth/dashboard.png' | git apply --3way --index -
 Then handle the excluded file(s) by hand (e.g. copy the file straight from upstream's working tree).
 ```
 
-Nothing is committed when this fires -- run the suggested command to apply everything except the problem file(s), then copy the excluded file(s) over by hand (e.g. `git show upstream/main:docs/screenshots/dashboard.png > docs/screenshots/dashboard.png`) before committing. Once resolved, run the sync script again to pick up where you left off.
+Nothing is committed when this fires -- run the suggested command to apply everything except the problem file(s), then copy the excluded file(s) over by hand (e.g. `git show upstream/main:screenshots/mystic_auth/dashboard.png > screenshots/mystic_auth/dashboard.png`) before committing. Once resolved, run the sync script again to pick up where you left off.
+
+Note: this template's own screenshots live under `screenshots/mystic_auth/`, following the same `app/`/`mystic_auth/` ownership split used everywhere else in the repo (see [overview.md](overview.md#the-app--mystic_auth-split)). Put your own project's screenshots in `screenshots/app/` instead: since upstream never touches that folder, a sync can never collide with anything you put there, which is what causes this failure mode in the first place.
 
 ---
 

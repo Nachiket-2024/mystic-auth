@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Thin wrapper around `docker compose exec` for the backend container, so
-# nobody has to remember the two Windows/Git Bash workarounds documented in
+# Thin wrapper around `docker compose exec` for the backend container. It
+# applies the two Windows/Git Bash workarounds documented in
 # docs/mystic_auth/docker/overview.md#running-a-one-off-command-inside-a-container:
 #
 #   - MSYS_NO_PATHCONV=1: Git Bash rewrites `-w /repo` into a Windows path
@@ -8,10 +8,10 @@
 #     "Cwd must be an absolute path" even though /repo plainly is one.
 #   - --user root: pytest.ini writes coverage output to /repo, which is
 #     bind-mounted with the host checkout's ownership, not the container's
-#     non-root `app` user -- native Linux only, harmless elsewhere.
+#     non-root `app` user. This matters on native Linux and is harmless elsewhere.
 #
-# Both are no-ops where they don't apply, so safe to use unconditionally on
-# every platform, for every command.
+# Both are no-ops where they do not apply, so this wrapper is safe to use on
+# every platform.
 #
 # Usage: scripts/docker/backend-exec.sh <command> [args...]
 #   scripts/docker/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit

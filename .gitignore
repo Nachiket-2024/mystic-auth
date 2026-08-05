@@ -6,6 +6,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+!.env.local-prod.example
+!.env.prod.example
 *.venv/
 venv/
 .envrc

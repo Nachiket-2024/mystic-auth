@@ -43,61 +43,61 @@ move into system administration, policy management, and audit review.
 
 ### 1. Sign In
 
-![Login Page](screenshots/login.png)
+![Login Page](screenshots/mystic_auth/login.png)
 
 ---
 
 ### 2. Standard User Dashboard (limited sidebar)
 
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](screenshots/mystic_auth/dashboard.png)
 
 ---
 
 ### 3. System Superuser Dashboard (full sidebar)
 
-![System User Dashboard](screenshots/system_user_dashboard.png)
+![System User Dashboard](screenshots/mystic_auth/system_user_dashboard.png)
 
 ---
 
 ### 4. Account Settings
 
-![Account Settings](screenshots/account_settings.png)
+![Account Settings](screenshots/mystic_auth/account_settings.png)
 
 ---
 
 ### 5. User Management
 
-![User Management](screenshots/users.png)
+![User Management](screenshots/mystic_auth/users.png)
 
 ---
 
 ### 6. Policy Management
 
-![Policy Management](screenshots/policies.png)
+![Policy Management](screenshots/mystic_auth/policies.png)
 
 ---
 
 ### 7. Edit Policy
 
-![Edit Policy](screenshots/edit_policy.png)
+![Edit Policy](screenshots/mystic_auth/edit_policy.png)
 
 ---
 
 ### 8. Assign Policies
 
-![Policy Assignment](screenshots/assign_policies.png)
+![Policy Assignment](screenshots/mystic_auth/assign_policies.png)
 
 ---
 
 ### 9. Security Events
 
-![Security Events](screenshots/security_events.png)
+![Security Events](screenshots/mystic_auth/security_events.png)
 
 ---
 
 ### 10. Audit Logs
 
-![Audit Logs](screenshots/audit_log_system_user.png)
+![Audit Logs](screenshots/mystic_auth/audit_log_system_user.png)
 
 ---
 
@@ -112,7 +112,7 @@ move into system administration, policy management, and audit review.
 - **Database:** PostgreSQL (async)
 - **Caching & Tasks:** Redis + Taskiq for async email delivery, caching, rate limiting, and token state
 - **Error Monitoring:** Self-hosted Bugsink, enabled by default with the stack
-- **Deployment:** Docker with development, local production, and internet-facing production Compose files
+- **Deployment:** Docker with dev, self-hosted local-prod through Cloudflare Tunnel, and prod on your own server through Caddy
 
 ---
 
@@ -153,7 +153,7 @@ cd <your-repo>
 
 See [Using This Repository as a Template](docs/mystic_auth/template-usage/overview.md) for how to pull in future updates from this original template afterward.
 
-### 2. Set up the environment if running locally
+### 2. Set up the environment if running locally (Skip if using Docker)
 
 > Instructions below assume that you are at the root of the repository while running the commands.
 
@@ -173,15 +173,29 @@ npm install --prefix frontend
 
 ## Environment Variables
 
-All environment variables are defined in `.env.example`. The local database, Redis, app secrets, and Bugsink settings are prefilled with development placeholders so the stack can boot after copying the file:
+Choose the env template that matches the Compose file you are running:
+
+| Mode | Copy | Compose file | Use case |
+|---|---|---|---|
+| Dev | `.env.example` | `docker-compose.yml` | Local development with hot reload |
+| Local-prod | `.env.local-prod.example` | `docker-compose.local-prod.yml` | Self-hosting through Cloudflare Tunnel |
+| Prod | `.env.prod.example` | `docker-compose.prod.yml` | Self-hosting on your own server |
+
+For local development, copy `.env.example`:
 
 ```bash
 cp .env.example .env
 ```
 
-`SECRET_KEY`, `POSTGRES_*`, and the Bugsink secret key/admin login are all filled with `change_me_in_production`-style placeholders that pass validation and are enough for local infrastructure. Swap them for real values before deploying anywhere real (see [Security Decisions](docs/mystic_auth/security/decisions.md)). The app can boot without real Google or SMTP values, but the full auth flow is not complete without them: password signup needs working email delivery for account verification, password reset needs email delivery, and Google OAuth2 needs your own `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and redirect URI.
+`SECRET_KEY`, `POSTGRES_*`, and the Bugsink secret key/admin login are all filled with `change_me_in_production`-style placeholders that pass validation and are enough for local infrastructure. Swap them for real values before deploying anywhere real (see [Security Decisions](docs/mystic_auth/security/decisions.md)). The containers can boot without real Google or SMTP values. The CLI-created system superuser can still sign in and view the dashboard because the script marks it verified. Regular users need one verification path: SMTP email delivery for password signup, or Google OAuth2 with your own `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and redirect URI.
 
 `frontend/.env.example` also exists, but only matters if you run the frontend locally with `npm run dev` instead of Docker. Running the stack via Docker, the frontend reads the root `.env`'s `VITE_*` values directly, so `frontend/.env` can be skipped.
+
+`.env.local-prod.example` is for self-hosting with Cloudflare Tunnel and no
+server. `.env.prod.example` is for your own server with a public IP, where this
+Compose stack owns TLS through Caddy. See
+[Choosing the right env template](docs/mystic_auth/deployment/guide.md#choosing-the-right-env-template)
+before switching modes.
 
 ---
 
@@ -189,7 +203,7 @@ cp .env.example .env
 
 > Instructions below assume that you are at the root of the repository while running the commands.
 
-> Configure your Google Cloud project and enable the OAuth API before use (see [OAuth2 / PKCE](docs/mystic_auth/authentication/oauth2-pkce.md) for the exact `GOOGLE_REDIRECT_URI` requirement).
+> Configure your Google Cloud project and enable the OAuth API before using Google login (see [OAuth2 / PKCE](docs/mystic_auth/authentication/oauth2-pkce.md) for the exact `GOOGLE_REDIRECT_URI` requirement). This is separate from the CLI-created system superuser path.
 
 ### Path 1. Docker (Recommended)
 
@@ -312,17 +326,35 @@ docker compose up -d bugsink bugsink-seed
 
 After starting the app for the first time, create the reserved system account, a one-time step that seeds the account holding the `system_superuser` policy (see [PBAC Policy Examples](docs/mystic_auth/authorization/policy-examples.md)).
 
-### Docker
+### Dev Docker
 
 ```bash
 docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
 ```
 
-### Local
+### Local-prod Docker
+
+Use this when you started the self-hosted Cloudflare Tunnel stack:
+
+```bash
+docker compose -f docker-compose.local-prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
+```
+
+### Prod Docker
+
+Run this on the server where `docker-compose.prod.yml` is running:
+
+```bash
+docker compose -f docker-compose.prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
+```
+
+### Local Backend Without Docker
 
 ```bash
 PYTHONPATH=backend python -m mystic_auth.scripts.create_system_user
 ```
+
+If you run the command from a non-interactive shell, remove `-it`.
 
 You'll be asked for an email first. If it's new, you'll then be prompted for a name and password to create the account:
 

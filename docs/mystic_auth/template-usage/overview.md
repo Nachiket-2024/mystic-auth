@@ -55,8 +55,8 @@ Both backend and frontend are split into two trees, and every file in the repo f
 
 | Tier | Files | Who edits it | Why |
 |---|---|---|---|
-| **Upstream-owned: never edit** | `backend/mystic_auth/`, `backend/app/sdk.py`, `frontend/src/mystic_auth/`, `frontend/src/app/sdk.ts`, `docs/mystic_auth/` | Only upstream | This is the template's actual implementation. Since you never touch it, every `scripts/upstream-sync/sync-upstream.sh` merge applies here cleanly because there's nothing of yours for it to conflict with. |
-| **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `docs/app/`, root `README.md`, `SECURITY.md` | Only you | Upstream ships these once (`app_sdk.*` empty, the READMEs as generic starting points) and never edits them again in any future release. Since only you write to them, they never conflict either. |
+| **Upstream-owned: never edit** | `backend/mystic_auth/`, `backend/app/sdk.py`, `frontend/src/mystic_auth/`, `frontend/src/app/sdk.ts`, `docs/mystic_auth/`, `screenshots/mystic_auth/` | Only upstream | This is the template's actual implementation. Since you never touch it, every `scripts/upstream-sync/sync-upstream.sh` merge applies here cleanly because there's nothing of yours for it to conflict with. |
+| **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `docs/app/`, `screenshots/app/`, root `README.md`, `SECURITY.md` | Only you | Upstream ships these once (`app_sdk.*` empty, the READMEs as generic starting points) and never edits them again in any future release. Since only you write to them, they never conflict either. |
 | **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `docker-compose.yml`, `docker-compose.local-prod.yml`, `docker-compose.prod.yml`, `.env.example` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a compose file), so they can't start empty the way `app_sdk.*` does. You're expected to extend them (register your own router, add your own `<Route>`, add your own dependency), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
 
 ```mermaid
@@ -215,7 +215,7 @@ Without these, signup/verification/reset emails fail to send after retries, but 
 
 ## Deployment
 
-See the [Deployment Guide](../deployment/guide.md) for Compose topology, required env vars, migrations, backups, and production host requirements. Use [`docker-compose.local-prod.yml`](../../../docker-compose.local-prod.yml) for a production-style local or self-hosted run behind an external TLS layer. Use [`docker-compose.prod.yml`](../../../docker-compose.prod.yml) for a VPS-style internet-facing deployment where Caddy terminates TLS.
+See the [Deployment Guide](../deployment/guide.md) for Compose topology, required env vars, migrations, backups, and production host requirements. Use [`docker-compose.local-prod.yml`](../../../docker-compose.local-prod.yml) for a production-style local or self-hosted run behind an external TLS layer. Use [`docker-compose.prod.yml`](../../../docker-compose.prod.yml) for self-hosting on your own server, where Caddy terminates TLS.
 
 ---
 

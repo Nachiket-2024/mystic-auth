@@ -40,7 +40,13 @@ extract_ids() {
   # not an error -- without it, `set -e` + `pipefail` would kill the whole
   # script the first time a migration with no parent (like the initial one)
   # got scanned.
-  grep -oE "['\"][a-f0-9]{6,}['\"]" <<<"$1" | tr -d "'\"" || true
+  # `paste -sd' ' -`: grep -o prints each match on its own line, but callers
+  # fold this into a space-delimited string (`ALL_DOWN_REVISIONS="$ALL_DOWN_REVISIONS $(...)"`)
+  # and match against it with `*" $REV "*` -- a tuple's second-and-later IDs
+  # need a real space before them, not the newline grep -o would leave. Using
+  # `paste` (rather than `tr '\n' ' '`) avoids a trailing space, which would
+  # otherwise corrupt single-ID `REV` values used as associative-array keys.
+  grep -oE "['\"][a-f0-9]{6,}['\"]" <<<"$1" | tr -d "'\"" | paste -sd' ' - || true
 }
 
 ALL_REVISIONS=""

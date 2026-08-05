@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 5 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 6 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
