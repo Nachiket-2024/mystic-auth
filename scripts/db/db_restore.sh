@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Restores a .sql dump (produced by scripts/db_backup.sh) into the `postgres`
+# Restores a .sql dump (produced by scripts/db/db_backup.sh) into the `postgres`
 # Docker Compose service. This is destructive because it overwrites rows and
 # tables defined by the dump, so it asks for confirmation unless -y/--yes is passed.
 #
-# Usage: scripts/db_restore.sh <backup-file> [compose-file] [-y|--yes]
+# Usage: scripts/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]
 #   compose-file defaults to docker-compose.yml.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 BACKUP_FILE=""
@@ -30,7 +30,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$BACKUP_FILE" ]; then
-  echo "Usage: scripts/db_restore.sh <backup-file> [compose-file] [-y|--yes]" >&2
+  echo "Usage: scripts/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]" >&2
   exit 1
 fi
 

@@ -18,12 +18,12 @@
 # `docker compose up` instead when you actually want every service's full
 # logs in one stream (e.g. debugging Postgres/Bugsink/Taskiq startup itself).
 #
-# Usage: ./scripts/dev-up.sh   (Git Bash or WSL on Windows)
+# Usage: ./scripts/docker/dev-up.sh   (Git Bash or WSL on Windows)
 # PowerShell: .\scripts\dev-up.ps1
 # Command Prompt: scripts\dev-up.cmd
 set -uo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 # frontend has no healthcheck in docker-compose.yml, so "Up" is as

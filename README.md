@@ -197,17 +197,17 @@ Use the helper for your shell:
 
 ```bash
 # Git Bash, WSL, Linux, macOS
-./scripts/dev-up.sh
+./scripts/docker/dev-up.sh
 ```
 
 ```powershell
 # PowerShell
-.\scripts\dev-up.ps1
+.\scripts\docker\dev-up.ps1
 ```
 
 ```bat
 rem Command Prompt
-scripts\dev-up.cmd
+scripts\docker\dev-up.cmd
 ```
 
 The helper starts every service, restarts `backend` and `taskiq_worker` so
@@ -415,7 +415,7 @@ organized by feature and domain. If you're building on this template, put your
 project docs in `docs/app/`, matching the `backend/app/` and `frontend/src/app/`
 code split. See
 [Using This Repository as a Template](docs/mystic_auth/template-usage/overview.md#the-app--mystic_auth-split)
-and `scripts/sync-upstream.sh`.
+and `scripts/upstream-sync/sync-upstream.sh`.
 
 - [Architecture](docs/mystic_auth/README.md#architecture) (system overview, backend, frontend)
 - [Authentication](docs/mystic_auth/README.md#authentication) and

@@ -95,6 +95,8 @@ Use `docker-compose.local-prod.yml` when you want the production image/runtime s
 
 ### Running a one-off command inside a container
 
+**Shortcut: `scripts/docker/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\docker\backend-exec.ps1 <command>` (PowerShell), or `scripts\docker\backend-exec.cmd <command>` (Command Prompt)** run this whole section's recommended invocation for you -- both workarounds below baked in, both harmless no-ops on a platform that doesn't need them. Use these day to day; the raw command is spelled out below for when you need something the wrapper doesn't cover, or just want to understand what it's doing.
+
 `docker compose exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see `docker-compose.yml`'s `backend` service).
 
 **On Windows, using Git Bash specifically:** this can fail with `OCI runtime exec failed: exec failed: Cwd must be an absolute path`, even though `/repo` clearly is one. Git Bash silently rewrites arguments that look like Unix paths into Windows paths before handing them to non-MSYS programs like `docker.exe`, which mangles `-w /repo` into something Docker no longer recognizes. Two ways around it, either works:
@@ -146,17 +148,17 @@ Use the helper for your shell:
 
 ```bash
 # Git Bash, WSL, Linux, macOS
-./scripts/dev-up.sh
+./scripts/docker/dev-up.sh
 ```
 
 ```powershell
 # PowerShell
-.\scripts\dev-up.ps1
+.\scripts\docker\dev-up.ps1
 ```
 
 ```bat
 rem Command Prompt
-scripts\dev-up.cmd
+scripts\docker\dev-up.cmd
 ```
 
 The helper script starts the stack detached, restarts `backend` and

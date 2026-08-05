@@ -107,5 +107,5 @@ Regression tests in `tests/backend/mystic_auth/unit/taskiq_tasks/test_email_task
 
 ## Troubleshooting
 
-- **Worker not picking up tasks**: confirm `taskiq_worker` can reach `REDIS_URL`: same Redis instance the `backend` container uses. `./scripts/dev-up.sh`, `.\scripts\dev-up.ps1`, and `scripts\dev-up.cmd` now include `taskiq_worker` in their live log tail; `docker compose logs taskiq_worker` still shows only the worker.
+- **Worker not picking up tasks**: confirm `taskiq_worker` can reach `REDIS_URL`: same Redis instance the `backend` container uses. `./scripts/docker/dev-up.sh`, `.\scripts\docker\dev-up.ps1`, and `scripts\docker\dev-up.cmd` now include `taskiq_worker` in their live log tail; `docker compose logs taskiq_worker` still shows only the worker.
 - **Emails not arriving**: check `GMAIL_APP_PASSWORD` is a valid App Password (not the account password) and that "Less secure app access" / App Passwords are enabled on the sending Google account; check the dev-up log tail or `docker compose logs taskiq_worker` for the logged traceback (`send_email_task` logs every failure with `logger.error`).

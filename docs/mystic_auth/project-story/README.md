@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 4 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 5 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -57,6 +57,7 @@ timeline
             : app / mystic_auth template split
             : Template docs, sync workflow, Docker/dev-up, logging
     August 2026: UI, backend changes, session/logout-all fixes
+            : Sync-script safety nets, scripts/ reorganized
 ```
 
 ### 18 August, 2025 - 23 August, 2025
@@ -229,15 +230,15 @@ Running the template against my other projects surfaced a couple of small logout
 
 ### 25 July, 2026 - 29 July, 2026
 
-This range turned the repo from "reusable codebase" into a real template which mainly happened because of running the template against real downstream projects. The code was split into upstream-owned internals (`backend/mystic_auth/`, `frontend/src/mystic_auth/`) and thin project-owned shells (`backend/app/`, `frontend/src/app/`), with `sdk.py`/`sdk.ts` and `app_sdk.py`/`app_sdk.ts` as the extension surface. Docs and tests were split the same way, `scripts/sync-upstream.sh` was added for future template updates, and the template-usage docs grew the ownership model, sync workflow, worked example, RBAC quickstart, and shared sidebar/CORS/nav extension points.
+This range turned the repo from "reusable codebase" into a real template which mainly happened because of running the template against real downstream projects. The code was split into upstream-owned internals (`backend/mystic_auth/`, `frontend/src/mystic_auth/`) and thin project-owned shells (`backend/app/`, `frontend/src/app/`), with `sdk.py`/`sdk.ts` and `app_sdk.py`/`app_sdk.ts` as the extension surface. Docs and tests were split the same way, `scripts/upstream-sync/sync-upstream.sh` was added for future template updates, and the template-usage docs grew the ownership model, sync workflow, worked example, RBAC quickstart, and shared sidebar/CORS/nav extension points.
 
 Caught an `sdk.ts` import bypass, an event-loop-blocking token signature, logout and rate-limiter bugs, a Bugsink Gunicorn timeout issue, a deployed OAuth redirect gotcha, and the stale `react-router-dom` package with an unpatched advisory, fixed by moving to `react-router` v8 and making npm audit blocking again. Docker and day-to-day operations were tightened too: `scripts/dev-up.sh` became the quieter default startup path, frontend Compose builds got `pull_policy: build`, `watch_for_late_dsn()` catches Bugsink's DSN after slow cold boots, backend logging became dev-readable and deployment-structured, and stale docs/comments/config were cleaned up. A resend verification email flow was added for users who tried to verify their account after the verification link had expired, the background email worker got terminal-visible logging, and a PowerShell dev-up bug got fixed so the startup logs it always promised actually showed up.
 
-### 2 August, 2026 - 4 August, 2026
+### 2 August, 2026 - 5 August, 2026
 
-The template changed across UI, backend behavior, Docker, CI, tests, and documentation. The UI changed across account settings, dashboards, user management, policies, audit logs, shared tables, filters, pagination, and screenshots. Backend work expanded session management, audit data, user stats, token/session handling, typing, logging, and tests. Active Sessions and Last Login now update immediately after login and logout-all via real-time session events, and "me"-scoped query caches are cleared correctly so policy assignments, audit history, login trends, and session data cannot leak between accounts in the same browser tab. Password changes were tightened too, so the current device keeps a freshly rotated session while every other session is revoked.
+The template changed across UI, backend behavior, Docker, CI, tests, and documentation. The UI changed across account settings, dashboards, user management, policies, audit logs, shared tables, filters, pagination, and screenshots. Backend work expanded session management, audit data, user stats, token/session handling, typing, logging, and tests, and the codebase was split into smaller feature-shaped files where modules had grown too large. Active Sessions and Last Login now update immediately after login and logout-all via real-time session events, "me"-scoped query caches are cleared correctly so data can't leak between accounts in the same browser tab, and password changes keep the current device's session while revoking every other one. Docker and deployment coverage expanded with `docker-compose.local-prod.yml`, `docker-compose.prod.yml`, and `docker/Caddyfile`, alongside strict auth cookies, access-log rotation, and Compose validation.
 
-The codebase was also split into smaller feature-shaped files where modules had grown too large, including authorization conditions, user routes, PBAC routes, audit log UI, dashboard session pieces, and matching integration tests. Docker and deployment coverage expanded with `docker-compose.local-prod.yml`, `docker-compose.prod.yml`, and `docker/Caddyfile`, while strict auth cookies, access-log rotation, Compose validation, CI documentation, dependency pins, and dev-up output were cleaned up. Repo-wide docs and comments were trimmed for stale wording, inaccurate operational notes, and alignment with the code after Docker validation.
+Running a real upstream sync with Claude Code against another one of my projects surfaced four real gaps in `sync-upstream.sh`: a binary file mid-patch could make `git apply --3way` silently drop the rest of the diff while still looking like a normal result, nothing caught two migrations landing on the same alembic head, comment-only rewording upstream kept forcing the same conflict every sync, and Windows/Git Bash friction was still a manual workaround instead of just working. All four got fixed, `scripts/` was reorganized into `upstream-sync/`, `docker/`, and `db/` subfolders, and docs across the repo were updated to match.
 
 ---
 

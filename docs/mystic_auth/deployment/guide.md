@@ -19,7 +19,7 @@ There are three Compose files:
 Local development:
 
 ```bash
-./scripts/dev-up.sh      # Git Bash, WSL, Linux, macOS
+./scripts/docker/dev-up.sh      # Git Bash, WSL, Linux, macOS
 .\scripts\dev-up.ps1     # PowerShell
 scripts\dev-up.cmd       # Command Prompt
 ```
@@ -134,22 +134,22 @@ or table. Alembic autogenerate is a starting point, not a safety guarantee.
 
 ## Backups
 
-`scripts/db_backup.sh` and `scripts/db_restore.sh` wrap the `pg_dump` and `psql`
+`scripts/db/db_backup.sh` and `scripts/db/db_restore.sh` wrap the `pg_dump` and `psql`
 commands below. They read `POSTGRES_USER` and `POSTGRES_DB` from `.env`, run
 through Docker Compose, and make no cloud or provider assumptions.
 
 ```bash
 # Dump the running postgres service to backups/<db>-<timestamp>.sql
-scripts/db_backup.sh
+scripts/db/db_backup.sh
 # Against the production compose file instead of the dev one:
-scripts/db_backup.sh docker-compose.local-prod.yml
+scripts/db/db_backup.sh docker-compose.local-prod.yml
 
 # Restore a dump. Use -y to skip confirmation.
-scripts/db_restore.sh backups/mystic_auth-20260717-120000.sql
+scripts/db/db_restore.sh backups/mystic_auth-20260717-120000.sql
 ```
 
 These scripts are the "how", not the "when". There is no scheduler in this repo
-because no specific production host is assumed. Wire `scripts/db_backup.sh` into
+because no specific production host is assumed. Wire `scripts/db/db_backup.sh` into
 whatever your host provides, such as cron, a systemd timer, managed Postgres
 backups, or a sidecar container. Choose a schedule that matches your data's
 change rate. Daily is a reasonable default for most small apps. Store dumps

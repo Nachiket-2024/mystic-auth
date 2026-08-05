@@ -96,7 +96,7 @@ docker compose exec redis redis-cli FLUSHDB   # nuclear option: clears everythin
 **Verifying it end-to-end** (useful after any change to the caching layer):
 
 ```bash
-docker compose exec -w /repo backend python -c "
+scripts/docker/backend-exec.sh python -c "
 import asyncio
 from backend.mystic_auth.authorization.caching.authorization_cache_service import authorization_cache_service
 from backend.mystic_auth.authorization.models.policy_model import Policy
@@ -129,7 +129,7 @@ tasklist /FI "PID eq <pid-from-above>"
 **Do not stop host services automatically**: this needs an explicit decision from whoever owns that machine (stop the conflicting service, or remap the Docker port again in `docker-compose.yml`). The safe workaround used throughout this project's own test suite: run everything **inside** the Docker network instead of from the host:
 
 ```bash
-docker compose exec --user root -w /repo backend python -m pytest tests/
+scripts/docker/backend-exec.sh python -m pytest tests/
 ```
 
 (`--user root` is needed on native Linux specifically, or pytest-cov's coverage output crashes with a permission error; on Windows with Git Bash, this command needs a separate small workaround too: see [Docker Overview: running a one-off command inside a container](../docker/overview.md#running-a-one-off-command-inside-a-container) for both.)

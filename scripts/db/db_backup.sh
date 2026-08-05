@@ -3,13 +3,13 @@
 # service to a timestamped .sql file under backups/. Environment-driven
 # (reads POSTGRES_USER/POSTGRES_DB from .env). No cloud or provider assumptions.
 #
-# Usage: scripts/db_backup.sh [compose-file]
+# Usage: scripts/db/db_backup.sh [compose-file]
 #   compose-file defaults to docker-compose.yml; pass docker-compose.local-prod.yml
 #   to back up a production stack instead.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 COMPOSE_FILE="${1:-docker-compose.yml}"

@@ -193,4 +193,4 @@ Recorded in one place rather than scattered across code comments: each of these 
 
 Recorded here rather than silently left unaddressed, so it's a deliberate backlog, not an oversight. (Forwarded-header trust, Redis authentication, and `SECRET_KEY` strength enforcement were also tracked here previously: all three are resolved and documented in [Security Hardening](hardening.md) now, rather than lingering here as crossed-out history.)
 
-- **No automated database backups**: `scripts/db_backup.sh`/`scripts/db_restore.sh` now script the `pg_dump`/`psql` runbook (see [Deployment Guide](../deployment/guide.md#backups)), but there's still no *scheduler* wired up anywhere in this repo, since no specific production host/cloud target is assumed to hang a cron job on.
+- **No automated database backups**: `scripts/db/db_backup.sh`/`scripts/db/db_restore.sh` now script the `pg_dump`/`psql` runbook (see [Deployment Guide](../deployment/guide.md#backups)), but there's still no *scheduler* wired up anywhere in this repo, since no specific production host/cloud target is assumed to hang a cron job on.

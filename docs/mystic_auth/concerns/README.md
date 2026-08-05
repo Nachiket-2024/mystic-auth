@@ -6,13 +6,13 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ### Database backups are scripted, but not scheduled
 
-**Description**: [Deployment Guide](../deployment/guide.md#backups) documents `scripts/db_backup.sh`/`scripts/db_restore.sh`, which wrap the `pg_dump`/`psql` commands (environment-driven, Docker-only, no cloud assumptions). What's still missing is a *scheduler*: these scripts still need to be wired into cron, systemd, a host backup feature, or a sidecar, since no specific production host is assumed by this template.
+**Description**: [Deployment Guide](../deployment/guide.md#backups) documents `scripts/db/db_backup.sh`/`scripts/db/db_restore.sh`, which wrap the `pg_dump`/`psql` commands (environment-driven, Docker-only, no cloud assumptions). What's still missing is a *scheduler*: these scripts still need to be wired into cron, systemd, a host backup feature, or a sidecar, since no specific production host is assumed by this template.
 
 **Impact**: Data loss risk in any real deployment until an operator wires the scripts into a schedule.
 
 **Why it exists**: No specific production host/cloud target is assumed by this template, so there's nothing to hang a cron job on generically.
 
-**Possible fix**: Add a cron entry, systemd timer, host backup feature, or sidecar container that calls `scripts/db_backup.sh` on a schedule. This is deployment-specific and left to whoever deploys this.
+**Possible fix**: Add a cron entry, systemd timer, host backup feature, or sidecar container that calls `scripts/db/db_backup.sh` on a schedule. This is deployment-specific and left to whoever deploys this.
 
 **Priority**: High for any real production use, N/A for local development.
 
