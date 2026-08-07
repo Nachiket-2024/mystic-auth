@@ -89,13 +89,13 @@ current tunnel URL is, and nginx proxies that same-origin request to
 `backend` internally. Nothing needs to track the tunnel URL for signup,
 password login, or browsing to work.
 
-**For Google login, yes — `FRONTEND_BASE_URL` must track the tunnel URL.**
+**For Google login, yes: `FRONTEND_BASE_URL` must track the tunnel URL.**
 Unlike every other flow, the OAuth2 callback (`oauth2_login_handler.py`)
 issues a hard, cross-origin redirect built from `FRONTEND_BASE_URL` after
 setting the auth cookies on the tunnel host. If `FRONTEND_BASE_URL` is
 stale (e.g. left at `http://localhost`), the browser gets sent to a
 different origin than the one holding the cookies, `/auth/me` comes back
-401, and the user is bounced to `/login` — even though the account was
+401, and the user is bounced to `/login`, even though the account was
 created/verified successfully server-side. Keep it in sync with
 `GOOGLE_REDIRECT_URI` below.
 

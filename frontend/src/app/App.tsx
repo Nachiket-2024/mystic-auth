@@ -1,7 +1,5 @@
 import React, { Suspense, lazy } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router";
-import { Flex, Heading, Text, VStack, Button } from "@chakra-ui/react";
-import type { StackProps } from "@chakra-ui/react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 
 // LoginPage is loaded eagerly since it's the most common entry point for an
 // unauthenticated visitor, so it shouldn't show a loading flash of its own
@@ -19,6 +17,8 @@ const UsersPage = lazy(() => import("../mystic_auth/users/UsersPage"));
 const PoliciesPage = lazy(() => import("../mystic_auth/policies/PoliciesPage"));
 const AuditLogPage = lazy(() => import("../mystic_auth/audit_log/AuditLogPage"));
 const AccountSettingsPage = lazy(() => import("../mystic_auth/account_settings/AccountSettingsPage"));
+const NotFoundPage = lazy(() => import("../mystic_auth/status_pages/NotFoundPage"));
+const NotAuthorizedPage = lazy(() => import("../mystic_auth/status_pages/NotAuthorizedPage"));
 
 // Runs the current-user query once and mirrors it into the Zustand auth
 // store (see its own docstring for why this must be called exactly once,
@@ -27,65 +27,9 @@ const AccountSettingsPage = lazy(() => import("../mystic_auth/account_settings/A
 import { useAuthSession } from "../mystic_auth/auth/current_user/useCurrentUserQuery";
 // Real-time push for cross-tab/cross-device session revocation - same
 // "call exactly once, at the app root" reasoning as useAuthSession above.
-import { useSessionEventsStream } from "../mystic_auth/auth/useSessionEventsStream";
+import { useSessionEventsStream } from "../mystic_auth/auth/session_lifecycle/useSessionEventsStream";
 
 import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, LoadingState } from "./sdk";
-import { BRAND_SOLID_HOVER_PROPS } from "../mystic_auth/ui/styles/buttonStyles";
-
-const NotFoundPage: React.FC = () => {
-    const navigate = useNavigate();
-    return (
-        <Flex align="center" justify="center" h="100vh" bg="bg.canvas" px={4} textAlign="center">
-            <VStack {...({ spacing: 4 } as StackProps)}>
-                <Heading color="fg.error" size="2xl">404</Heading>
-
-                <Text fontSize="xl" fontWeight="medium">Oops! Page Not Found</Text>
-
-                <Button
-                    colorPalette="brand"
-                    size="md"
-                    fontWeight="bold"
-                    onClick={() => navigate("/")}
-                    {...BRAND_SOLID_HOVER_PROPS}
-                >
-                    Go Home
-                </Button>
-            </VStack>
-        </Flex>
-    );
-};
-
-/**
- * NotAuthorizedPage
- * ----------------------------
- * The 403 page: where ProtectedRoute redirects an authenticated user who
- * lacks a route's required permission (see authorization/ProtectedRoute.tsx).
- * Deliberately a separate page from NotFoundPage: "you don't have
- * permission" and "this page doesn't exist" are different situations a
- * user shouldn't have to guess between.
- */
-const NotAuthorizedPage: React.FC = () => {
-    const navigate = useNavigate();
-    return (
-        <Flex align="center" justify="center" h="100vh" bg="bg.canvas" px={4} textAlign="center">
-            <VStack {...({ spacing: 4 } as StackProps)}>
-                <Heading color="fg.error" size="2xl">403</Heading>
-
-                <Text fontSize="xl" fontWeight="medium">You don't have permission to view this page</Text>
-
-                <Button
-                    colorPalette="brand"
-                    size="md"
-                    fontWeight="bold"
-                    onClick={() => navigate("/")}
-                    {...BRAND_SOLID_HOVER_PROPS}
-                >
-                    Go Home
-                </Button>
-            </VStack>
-        </Flex>
-    );
-};
 
 const App: React.FC = () => {
     useAuthSession();
