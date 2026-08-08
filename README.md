@@ -224,10 +224,10 @@ rem Command Prompt
 scripts\docker\dev-up.cmd
 ```
 
-The helper starts every service, restarts `backend` and `taskiq_worker` so
-their startup banners are fresh, waits for health checks, prints a
+The helper starts every service, restarts `backend`, `taskiq_worker`, and
+`taskiq_scheduler` so their startup banners are fresh, waits for health checks, prints a
 one-line-per-service status table, and tails fresh logs from `backend`,
-`frontend`, and `taskiq_worker`.
+`frontend`, `taskiq_worker`, and `taskiq_scheduler`.
 
 The focused tail includes Uvicorn startup lines, Taskiq's "Listening started"
 line, API calls, the frontend dev server, and async email task execution. It
@@ -253,9 +253,10 @@ Once the services are running:
 - **PostgreSQL:** `localhost:5433`, database ready for connections. Containers reach it at `postgres:5432` internally
 - **Redis:** `localhost:6380`, cache, rate limiting, and Taskiq broker. Containers reach it at `redis:6379` internally
 - **Taskiq worker:** Automatically listens for async tasks (email sending)
+- **Taskiq scheduler:** Retries failed email sends with exponential backoff, by polling a Redis-backed schedule and re-enqueueing due retries onto the worker
 - **Alembic migrations:** Run automatically on stack startup via the dedicated
-  `alembic` service (`alembic upgrade head`). In production Compose, `backend`
-  and `taskiq_worker` wait for migrations before starting. See
+  `alembic` service (`alembic upgrade head`). In production Compose, `backend`,
+  `taskiq_worker`, and `taskiq_scheduler` wait for migrations before starting. See
   [Docker Overview](docs/mystic_auth/docker/overview.md)
 
 See [Docker Overview](docs/mystic_auth/docker/overview.md) for the full service breakdown and [Deployment Guide](docs/mystic_auth/deployment/guide.md) for production Compose usage and host requirements.
@@ -301,6 +302,13 @@ uvicorn backend.app.main:app --reload
 
 ```bash
 PYTHONPATH=backend taskiq worker mystic_auth.taskiq_tasks.email_tasks:broker --reload
+```
+
+Also start the scheduler in a separate terminal, or backed-off email retries
+will sit in Redis and never fire:
+
+```bash
+PYTHONPATH=backend taskiq scheduler mystic_auth.taskiq_tasks.email_tasks:scheduler
 ```
 
 #### 4. Run the React frontend

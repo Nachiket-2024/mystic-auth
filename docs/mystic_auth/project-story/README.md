@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 8 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 9 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -59,7 +59,7 @@ timeline
     August 2026: UI, backend changes, session/logout-all fixes
             : Sync-script safety nets, scripts/ reorganized
             : Codebase restructure, PBAC/reset-token security fixes
-            : Navbar extension point, CI dependency-audit fix
+            : Navbar extension point, Taskiq scheduler
 ```
 
 ### 18 August, 2025 - 23 August, 2025
@@ -244,9 +244,9 @@ Running a real upstream sync with Claude Code against another one of my projects
 
 ### 7 August, 2026 - 9 August, 2026
 
-A 202-file restructure renamed and relocated files across frontend and backend to match the feature-based layout, tests included, and split `user_management_routes.py` into lifecycle, query, and update route files. Assigning the system role now requires an explicit `users:assign_system_role` check instead of the broader `users:assign_role` permission alone, and password reset confirmation now uses a reset-scoped token check instead of the generic JWT verifier, which had accepted any validly-signed token for the target account.
+A 202-file restructure renamed and relocated files across frontend and backend to match the feature-based layout, and split `user_management_routes.py` into lifecycle, query, and update route files. Assigning the system role now requires an explicit `users:assign_system_role` check instead of the broader `users:assign_role` permission, and password reset confirmation now uses a reset-scoped token check instead of the generic JWT verifier.
 
-The next day, `AppLayout` got an `extraNavbarContent` prop so downstream apps can add their own top-bar content the same way `extraNavItems` already lets them extend the sidebar, without touching `mystic_auth/` directly. A CI run around the same time also caught a high-severity `nanoid` advisory pulled in transitively through `vite`/`postcss`, resolved with `npm audit fix`. Toast notifications were also found overlapping the navbar's logout button, fixed by giving the toaster a top offset that clears the sticky navbar.
+The next two days mixed frontend polish with backend reliability work: an `extraNavbarContent` prop for downstream navbar customization, a fixed `nanoid` advisory, a toast/navbar overlap fix, and a Taskiq retry fix. Retries had been re-enqueuing immediately with no delay, so `SmartRetryMiddleware` plus a new `taskiq_scheduler` container now give failed email sends real exponential backoff instead.
 
 ---
 

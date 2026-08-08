@@ -70,9 +70,9 @@ full first-run walkthrough (cloning, `.env`, first `docker compose up`).
 scripts\docker\dev-up.cmd       # Command Prompt
 ```
 
-The helper starts the stack detached, restarts `backend` and
-`taskiq_worker` so their startup banners are fresh, waits for health
-checks, then tails logs from `backend`/`frontend`/`taskiq_worker`. See
+The helper starts the stack detached, restarts `backend`,
+`taskiq_worker`, and `taskiq_scheduler` so their startup banners are fresh, waits for health
+checks, then tails logs from `backend`/`frontend`/`taskiq_worker`/`taskiq_scheduler`. See
 [Docker Overview: day-to-day dev-up helpers](../docker/overview.md#day-to-day-dev-up-helpers)
 for why this is preferred over plain `docker compose up`.
 

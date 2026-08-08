@@ -264,7 +264,7 @@ for the full explanation of each.
 
 See [Docker Overview: dev vs. production compose](../docker/overview.md#dev-vs-production-compose)
 for the full table. In short: no bind mounts, no reload, `unless-stopped`
-restart policy, `alembic` gates `backend`/`taskiq_worker` startup, and TLS
+restart policy, `alembic` gates `backend`/`taskiq_worker`/`taskiq_scheduler` startup, and TLS
 terminates at Cloudflare's edge rather than in a container you run.
 
 Use `docker-compose.prod.yml` instead (see [Prod Deployment](prod.md)) if

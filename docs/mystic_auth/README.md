@@ -49,7 +49,7 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ## Background Email Delivery
 
-- [Background Email Delivery](background-workers/taskiq.md): Taskiq worker setup, Redis broker behavior, failure handling
+- [Background Email Delivery](background-workers/taskiq.md): Taskiq worker/scheduler setup, Redis broker behavior, backoff retries, failure handling
 
 ---
 
