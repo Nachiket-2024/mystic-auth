@@ -116,6 +116,7 @@ Some UI, like the sidebar, is rendered by mystic_auth/ but genuinely needs to re
 | Component | Extension prop | Shape |
 |---|---|---|
 | `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string; order?: number }` |
+| `AppLayout` (re-exported from `sdk.ts`) | `extraNavbarContent?: React.ReactNode` | Any renderable node: the top bar's own built-ins (name, ThemeToggle, LogoutButton) are bespoke components rather than a uniform list, so this slot is free-form instead of a typed item array. |
 
 Pass the same array to every `<AppLayout>` usage in your `App.tsx` (define it once, above your `<Routes>`, and reuse the reference) so the sidebar doesn't reshape as the user navigates between routes:
 
@@ -146,7 +147,19 @@ const EXTRA_NAV_ITEMS: NavItem[] = [
 
 Items sharing the same `order` (or all omitting it) keep their relative order from the array they were given in: ties never get shuffled.
 
-If a future release adds an extension point to another shared component (e.g. the top bar), it'll follow this same shape: a typed, optional, additive prop, listed in this table.
+**Top bar.** `extraNavbarContent` renders wherever you pass it, to the left of ThemeToggle/LogoutButton, no permission gating or ordering of its own since it's a single free-form slot rather than a list:
+
+```tsx
+import { AppLayout } from "./sdk";
+import NotificationsBell from "./notifications/NotificationsBell";
+
+// ...
+<AppLayout extraNavItems={EXTRA_NAV_ITEMS} extraNavbarContent={<NotificationsBell />}>
+    <ProjectsPage />
+</AppLayout>
+```
+
+If a future release adds an extension point to another shared component, it'll follow this same shape: a typed, optional, additive prop, listed in this table.
 
 ---
 

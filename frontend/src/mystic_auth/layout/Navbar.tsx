@@ -8,6 +8,18 @@ import { ICON_BUTTON_PROPS } from "../ui/styles/buttonStyles";
 
 interface NavbarProps {
     onToggleSidebar: () => void;
+    /**
+     * App-supplied content (buttons, icons, links, ...) rendered in the top
+     * bar's action cluster, to the left of ThemeToggle/LogoutButton. Unlike
+     * Sidebar's `extraItems` (a declarative link list, since sidebar entries
+     * are all "the same shape"), the top bar's own built-ins are each
+     * bespoke components, so this is a free-form ReactNode slot rather than
+     * a typed item array: pass whatever you'd render anywhere else. See
+     * AppLayout's own docstring and
+     * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+     * Optional and defaults to none, so existing callers see no change.
+     */
+    extraContent?: React.ReactNode;
 }
 
 /**
@@ -16,7 +28,7 @@ interface NavbarProps {
  * existing LogoutButton container (unchanged, already owns its own
  * mutation/navigation logic).
  */
-const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
+const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent }) => {
     const name = useAuthStore((s) => s.name);
 
     return (
@@ -54,6 +66,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
             </Flex>
 
             <Flex align="center" gap={3}>
+                {extraContent}
                 <ThemeToggle />
                 <LogoutButton />
             </Flex>

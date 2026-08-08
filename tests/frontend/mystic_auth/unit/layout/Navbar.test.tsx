@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,13 +11,13 @@ import Navbar from '@/layout/Navbar';
 
 const initialAuthState = useAuthStore.getState();
 
-function renderNavbar(onToggleSidebar = vi.fn()) {
+function renderNavbar(onToggleSidebar = vi.fn(), extraContent?: ReactNode) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const utils = render(
     <ChakraProvider value={defaultSystem}>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
-          <Navbar onToggleSidebar={onToggleSidebar} />
+          <Navbar onToggleSidebar={onToggleSidebar} extraContent={extraContent} />
         </MemoryRouter>
       </QueryClientProvider>
     </ChakraProvider>
@@ -57,5 +58,11 @@ describe('Navbar', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Toggle navigation menu' }));
 
     expect(onToggleSidebar).toHaveBeenCalledOnce();
+  });
+
+  it('renders app-supplied extraContent in the action cluster', () => {
+    renderNavbar(vi.fn(), <button>Notifications</button>);
+
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
   });
 });
