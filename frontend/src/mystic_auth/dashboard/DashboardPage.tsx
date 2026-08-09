@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Box, Heading, Container, Text, Separator, EmptyState, HStack, Stack, Button, Flex } from "@chakra-ui/react";
+import { Badge, Box, Heading, Container, Text, Separator, EmptyState, HStack, Stack, Flex } from "@chakra-ui/react";
 import { useNavigate } from "react-router";
 import { CalendarDays, Clock, LogOut, Mail, Monitor, Pencil, ShieldCheck, User } from "lucide-react";
 
@@ -17,7 +17,6 @@ import LoadingState from "../ui/LoadingState";
 import FormAlert from "../ui/FormAlert";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import TableActionButton from "../ui/TableActionButton";
-import { SECONDARY_BUTTON_PROPS } from "../ui/styles/buttonStyles";
 
 interface StatItemProps {
     icon: React.ReactNode;
@@ -193,14 +192,14 @@ const DashboardPage: React.FC = () => {
                             <Separator orientation="vertical" display={{ base: "none", md: "block" }} />
 
                             <Stack gap={4} minW="140px" flexShrink={0} alignSelf="flex-start">
-                                <Button
+                                <TableActionButton
                                     size="sm"
                                     fontSize="15px"
+                                    colorPalette="orange"
                                     onClick={() => navigate("/account-settings")}
-                                    {...SECONDARY_BUTTON_PROPS}
                                 >
                                     <Pencil size={16} aria-hidden="true" /> Account Settings
-                                </Button>
+                                </TableActionButton>
                                 <TableActionButton
                                     size="sm"
                                     fontSize="15px"

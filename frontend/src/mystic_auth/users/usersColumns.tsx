@@ -115,11 +115,11 @@ export function buildUsersColumns({
             width: "400px",
             render: (u) => (
                 <HStack justify="flex-end" gap={2} wrap="wrap">
-                    <TableActionButton onClick={() => onView(u)}>
+                    <TableActionButton colorPalette="blue" onClick={() => onView(u)}>
                         View
                     </TableActionButton>
                     <IfCan action={PERMISSIONS.POLICIES_READ}>
-                        <TableActionButton onClick={() => onPolicies(u.email)}>
+                        <TableActionButton colorPalette="purple" onClick={() => onPolicies(u.email)}>
                             Policies
                         </TableActionButton>
                     </IfCan>

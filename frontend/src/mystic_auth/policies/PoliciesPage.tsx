@@ -142,7 +142,7 @@ const PoliciesPage: React.FC = () => {
             render: (p) => (
                 <HStack justify="flex-end" gap={2}>
                     <IfCan action={PERMISSIONS.POLICIES_UPDATE}>
-                        <TableActionButton onClick={() => openEditForm(p)}>
+                        <TableActionButton colorPalette="orange" onClick={() => openEditForm(p)}>
                             Edit
                         </TableActionButton>
                     </IfCan>
