@@ -126,6 +126,10 @@ real production use:
   the real client IP from `X-Forwarded-For`. Leave it unset for direct backend
   traffic. See [Security Hardening](../security/hardening.md#rate-limiting) and
   [Authorization Context Builder](../authorization/architecture.md#authorization-context-builder).
+- `DEFAULT_APP_POLICIES` auto-assigns your own app's policies to every user
+  once verified, alongside `self_service`. Leave it unset if your app has no
+  default permissions beyond `self_service`. See [Writing and Testing
+  Policies](../authorization/writing-testing-policies.md#giving-every-user-a-second-default-policy).
 - `SENTRY_DSN` and `VITE_SENTRY_DSN` are optional. Leave them unset to disable
   error monitoring. If you enable self-hosted Bugsink in production, set real
   values for `BUGSINK_SECRET_KEY`, `BUGSINK_SUPERUSER_EMAIL`,

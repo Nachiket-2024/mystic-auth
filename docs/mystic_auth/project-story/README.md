@@ -59,7 +59,7 @@ timeline
     August 2026: UI, backend changes, session/logout-all fixes
             : Sync-script safety nets, scripts/ reorganized
             : Codebase restructure, PBAC/reset-token security fixes
-            : Navbar extension point, Taskiq scheduler
+            : Navbar and DEFAULT_APP_POLICIES extension point
 ```
 
 ### 18 August, 2025 - 23 August, 2025
@@ -244,9 +244,9 @@ Running a real upstream sync with Claude Code against another one of my projects
 
 ### 7 August, 2026 - 9 August, 2026
 
-A 202-file restructure renamed and relocated files across frontend and backend to match the feature-based layout, and split `user_management_routes.py` into lifecycle, query, and update route files. Assigning the system role now requires an explicit `users:assign_system_role` check instead of the broader `users:assign_role` permission, and password reset confirmation now uses a reset-scoped token check instead of the generic JWT verifier.
+A 202-file restructure renamed and relocated files across frontend and backend to match the feature-based layout, splitting `user_management_routes.py` into lifecycle, query, and update route files. Alongside it: an explicit `users:assign_system_role` check replaced the broader `users:assign_role` permission for the system role, password reset confirmation moved to a reset-scoped token check, a `nanoid` advisory was fixed, a toast/navbar overlap resolved, and Taskiq retries got real exponential backoff via `SmartRetryMiddleware` and a new `taskiq_scheduler` container.
 
-The next two days mixed frontend polish with backend reliability work: an `extraNavbarContent` prop for downstream navbar customization, a fixed `nanoid` advisory, a toast/navbar overlap fix, and a Taskiq retry fix. Retries had been re-enqueuing immediately with no delay, so `SmartRetryMiddleware` plus a new `taskiq_scheduler` container now give failed email sends real exponential backoff instead.
+Building other projects on top of mystic-auth surfaced two real extension gaps. One project needed its own navbar links without editing the shared sidebar, so an `extraNavbarContent` prop was added while another needed to grant a second default policy to every user, which meant hand-editing upstream's signup/OAuth2 code, so a `DEFAULT_APP_POLICIES` setting was added instead, letting a downstream app grant its own default policies to every verified user without touching those files.
 
 ---
 

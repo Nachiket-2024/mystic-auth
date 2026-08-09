@@ -132,7 +132,9 @@ move into system administration, policy management, and audit review.
   policies without conditions. See
   [RBAC Quickstart](docs/mystic_auth/authorization/rbac-quickstart.md).
 - New accounts receive access through an explicit `self_service` policy
-  assignment, not a default role.
+  assignment, not a default role. A downstream app can grant its own default
+  policies too, via `DEFAULT_APP_POLICIES`, with no template code to edit. See
+  [Writing and Testing Policies](docs/mystic_auth/authorization/writing-testing-policies.md#giving-every-user-a-second-default-policy).
 - `role` (`user` / `admin` / `system`) remains on `users` as display and
   grouping metadata. The reserved `system` account is excluded from OAuth2
   login and generic admin routes, but no route grants access by comparing
