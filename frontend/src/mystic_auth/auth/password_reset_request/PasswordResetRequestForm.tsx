@@ -5,6 +5,7 @@ import { Field as ChakraField } from "@chakra-ui/react";
 import { usePasswordResetRequestMutation } from "./usePasswordResetRequestMutation";
 import { useCooldown } from "../../ui/hooks/useCooldown";
 import FormAlert from "../../ui/FormAlert";
+import { FAST_HOVER_TRANSITION } from "../../ui/styles/buttonStyles";
 
 const PasswordResetRequestForm: React.FC = () => {
     const [email, setEmail] = useState("");
@@ -50,6 +51,7 @@ const PasswordResetRequestForm: React.FC = () => {
                 disabled={cooldown > 0 || resetRequestMutation.isPending}
                 loadingText="Sending..."
                 _hover={{ bg: "brand.700" }}
+                transition={FAST_HOVER_TRANSITION}
             >
                 {cooldown > 0 ? `Try again in ${cooldown}s` : "Request Password Reset"}
             </Button>

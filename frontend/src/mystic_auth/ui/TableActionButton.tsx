@@ -1,6 +1,8 @@
 import React from "react";
 import { Button, type ButtonProps } from "@chakra-ui/react";
 
+import { FAST_HOVER_TRANSITION } from "./styles/buttonStyles";
+
 // red/green/orange/blue/purple cover every colorPalette this app currently
 // passes to a row-action button (Delete/Purge -> red; Reactivate -> green;
 // Edit -> orange; View -> blue; Policies -> purple). Each carries its own
@@ -106,6 +108,7 @@ const TableActionButton: React.FC<TableActionButtonProps> = ({ colorPalette, ...
             borderColor={palette.border}
             bg={palette.bg}
             color={palette.color}
+            transition={FAST_HOVER_TRANSITION}
             _hover={{ bg: palette.hoverBg, borderColor: palette.hoverBorder, color: palette.hoverColor }}
             _dark={{
                 borderColor: palette.borderDark,

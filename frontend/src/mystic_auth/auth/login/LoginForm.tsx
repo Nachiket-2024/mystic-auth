@@ -4,6 +4,7 @@ import { Link } from "react-router";
 
 import { useLoginMutation } from "./useLoginMutation";
 import FormAlert from "../../ui/FormAlert";
+import { FAST_HOVER_TRANSITION } from "../../ui/styles/buttonStyles";
 
 interface LoginFormProps {
     onSuccess?: () => void;
@@ -80,6 +81,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 loading={loginMutation.isPending}
                 loadingText="Logging in..."
                 _hover={{ bg: "brand.700" }}
+                transition={FAST_HOVER_TRANSITION}
             >
                 Login
             </Button>

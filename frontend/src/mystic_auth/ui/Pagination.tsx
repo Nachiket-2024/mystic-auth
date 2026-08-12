@@ -2,7 +2,7 @@ import React from "react";
 import { Button, HStack, Text } from "@chakra-ui/react";
 import type { StackProps } from "@chakra-ui/react";
 
-import { BRAND_SOLID_HOVER_PROPS } from "./styles/buttonStyles";
+import { BRAND_SOLID_HOVER_PROPS, FAST_HOVER_TRANSITION } from "./styles/buttonStyles";
 
 interface PaginationProps extends Omit<StackProps, "children" | "page" | "onChange"> {
     page: number;
@@ -33,6 +33,7 @@ const INACTIVE_PAGE_PROPS = {
         borderColor: "gray.500",
         _hover: { bg: "gray.300", borderColor: "gray.300", color: "gray.900" },
     },
+    transition: FAST_HOVER_TRANSITION,
 };
 
 // Active page: brand.solid already has plenty of contrast on its own; this

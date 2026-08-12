@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { Box, Stack, Text } from "@chakra-ui/react";
 import { Link, NavLink } from "react-router";
 
 import { IfCan } from "../authorization/IfCan";
 import { NAV_ITEMS, type NavItem } from "./navItems";
 import { APP_NAME } from "../core/settings";
+import { useThemeStore } from "../store/themeStore";
 
 interface SidebarProps {
     isOpen: boolean;
@@ -20,6 +21,66 @@ interface SidebarProps {
      */
     extraItems?: NavItem[];
 }
+
+interface SidebarNavLinkProps {
+    to: string;
+    onClick: () => void;
+    label: string;
+}
+
+/**
+ * Single nav entry. Needs its own hover flag (rather than a plain CSS
+ * `:hover` rule) because NavLink's `style` prop only takes a function of
+ * `{ isActive }` - there's no `isHovered` Chakra pseudo-prop equivalent
+ * available here without introducing a stylesheet, so hover is tracked the
+ * same way `isActive` already drives color/background below.
+ */
+const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label }) => {
+    const [isHovered, setIsHovered] = useState(false);
+    const isDark = useThemeStore((s) => s.colorMode === "dark");
+
+    // Raw brand scale steps (not the brand.subtle/selected semantic tokens)
+    // - those are shared with StatTile/StyledSelect, and at their
+    // light-mode values (brand.50/100) both read as barely-there against
+    // the sidebar's white bg.surface (see system.ts's own comment on
+    // brand.selected re: brand.50 being "barely-there" for this exact kind
+    // of use). One step further along the scale each, in whichever
+    // direction is "more visible" for the current mode, so hover/active are
+    // both actually visible without touching the shared tokens' other
+    // consumers. NavLink's style prop can't consume Chakra's _dark
+    // condition (that's CSS-selector-based, this is inline styles), hence
+    // reading colorMode directly instead.
+    // Dark mode's scale runs the opposite direction from light's: a lower
+    // number is brighter/more prominent against a dark surface, so hover
+    // (less emphasis than active) takes the higher, closer-to-background
+    // number - same brand.900/800 pairing system.ts's own subtle/selected
+    // tokens already use for exactly this reason.
+    const hoverBg = isDark ? "var(--chakra-colors-brand-900)" : "var(--chakra-colors-brand-100)";
+    const activeBg = isDark ? "var(--chakra-colors-brand-800)" : "var(--chakra-colors-brand-200)";
+
+    return (
+        <NavLink
+            to={to}
+            onClick={onClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            style={({ isActive }) => ({
+                display: "block",
+                padding: "8px 12px",
+                borderRadius: "6px",
+                fontWeight: isActive ? 600 : 500,
+                color: isActive ? "var(--chakra-colors-brand-fg)" : "var(--chakra-colors-fg-default)",
+                background: isActive ? activeBg : isHovered ? hoverBg : "transparent",
+                // Fast, snappy feedback rather than Chakra's default ~200ms
+                // recipe transition, which reads as sluggish for something
+                // as immediate as a hover response.
+                transition: "background-color 0.1s ease",
+            })}
+        >
+            {label}
+        </NavLink>
+    );
+};
 
 /**
  * Primary app navigation. Permanently visible on md+ screens; on smaller
@@ -84,21 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
             <Stack p={3} gap={1} data-testid="nav-links">
                 {items.map((item) => {
                     const link = (
-                        <NavLink
-                            key={item.to}
-                            to={item.to}
-                            onClick={onNavigate}
-                            style={({ isActive }) => ({
-                                display: "block",
-                                padding: "8px 12px",
-                                borderRadius: "6px",
-                                fontWeight: isActive ? 600 : 500,
-                                color: isActive ? "var(--chakra-colors-brand-fg)" : "var(--chakra-colors-fg-default)",
-                                background: isActive ? "var(--chakra-colors-brand-selected)" : "transparent",
-                            })}
-                        >
-                            {item.label}
-                        </NavLink>
+                        <SidebarNavLink key={item.to} to={item.to} onClick={onNavigate} label={item.label} />
                     );
 
                     if (!item.permission) return link;

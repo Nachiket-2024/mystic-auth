@@ -248,6 +248,10 @@ A 202-file restructure matched frontend and backend to the feature-based layout,
 
 Downstream use kept surfacing real extension gaps: an `extraNavbarContent` prop let a project add its own navbar links without touching the shared sidebar, and a `DEFAULT_APP_POLICIES` setting let another grant a second default policy to every user without hand-editing upstream's signup/OAuth2 code. Row-action buttons across the tables got distinct, dark-mode-aware colors. A downstream bug report then caught that the oauth2 unit tests, and three auth/authorization integration tests asserting exact policy sets, only passed because `DEFAULT_APP_POLICIES` happened to be empty in this repo's own CI, so the unit tests were fixed to mock the extension point directly and the integration suite got a conftest that forces it empty, instead of either depending on that env var.
 
+### 12 August, 2026
+
+Sidebar links got a hover state, and the same fast, snappy hover transition (`FAST_HOVER_TRANSITION`) was extracted and applied consistently across buttons, pagination, and table action buttons.
+
 ---
 
 ## The tools that built it
