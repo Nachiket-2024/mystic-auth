@@ -6,6 +6,8 @@ import { IfCan } from "../authorization/IfCan";
 import { NAV_ITEMS, type NavItem } from "./navItems";
 import { APP_NAME } from "../core/settings";
 import { useThemeStore } from "../store/themeStore";
+import { useLanguageStore } from "../store/languageStore";
+import translations from "../translations/translations";
 
 interface SidebarProps {
     isOpen: boolean;
@@ -91,6 +93,16 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label }) =
  * enforced by ProtectedRoute.
  */
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => {
+    // Chrome (this sidebar, plus Navbar) always renders in chromeLanguage,
+    // not the page-wide translation language - see Navbar.tsx's matching comment
+    // and store/languageStore.ts's LanguageMode docstring.
+    const chromeLanguage = useLanguageStore((s) => s.chromeLanguage);
+    const t = translations.getFixedT(chromeLanguage, "layout");
+    // Built-in items pass a "namespace:key" translation key (see NavItem's
+    // own docstring in navItems.ts); app-supplied extraItems pass a plain
+    // display string instead, which exists() reliably tells apart since a
+    // literal label is never itself a registered translation key.
+    const resolveLabel = (label: string): string => (translations.exists(label, { lng: chromeLanguage }) ? t(label) : label);
     // Array.prototype.sort is stable (guaranteed since ES2019), so two items
     // with the same order (or both missing one) keep their relative
     // position from the merged array rather than getting shuffled.
@@ -104,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
     return (
         <Box
             as="nav"
-            aria-label="Main navigation"
+            aria-label={t("mainNavigation")}
             position={{ base: "fixed", md: "sticky" }}
             top={0}
             left={0}
@@ -145,7 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
             <Stack p={3} gap={1} data-testid="nav-links">
                 {items.map((item) => {
                     const link = (
-                        <SidebarNavLink key={item.to} to={item.to} onClick={onNavigate} label={item.label} />
+                        <SidebarNavLink key={item.to} to={item.to} onClick={onNavigate} label={resolveLabel(item.label)} />
                     );
 
                     if (!item.permission) return link;

@@ -63,6 +63,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, extraNavItems, extraNav
                     display={{ base: "block", md: "none" }}
                     onClick={() => setMobileNavOpen(false)}
                     aria-hidden="true"
+                    data-testid="mobile-nav-backdrop"
                 />
             )}
 

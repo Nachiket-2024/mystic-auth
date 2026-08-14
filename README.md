@@ -59,43 +59,49 @@ move into system administration, policy management, and audit review.
 
 ---
 
-### 4. Account Settings
+### 4. System Superuser Dashboard (Hindi)
+
+![System User Dashboard Hindi](screenshots/mystic_auth/system_user_dashboard_hindi.png)
+
+---
+
+### 5. Account Settings
 
 ![Account Settings](screenshots/mystic_auth/account_settings.png)
 
 ---
 
-### 5. User Management
+### 6. User Management
 
 ![User Management](screenshots/mystic_auth/users.png)
 
 ---
 
-### 6. Policy Management
+### 7. Policy Management
 
 ![Policy Management](screenshots/mystic_auth/policies.png)
 
 ---
 
-### 7. Edit Policy
+### 8. Edit Policy
 
 ![Edit Policy](screenshots/mystic_auth/edit_policy.png)
 
 ---
 
-### 8. Assign Policies
+### 9. Assign Policies
 
 ![Policy Assignment](screenshots/mystic_auth/assign_policies.png)
 
 ---
 
-### 9. Security Events
+### 10. Security Events
 
 ![Security Events](screenshots/mystic_auth/security_events.png)
 
 ---
 
-### 10. Audit Logs
+### 11. Audit Logs
 
 ![Audit Logs](screenshots/mystic_auth/audit_log_system_user.png)
 
@@ -108,6 +114,9 @@ move into system administration, policy management, and audit review.
 - **Authorization:** Policy-Based Access Control (PBAC). See
   [PBAC Architecture](docs/mystic_auth/authorization/architecture.md)
 - **Frontend:** TypeScript, React 19 + Vite, Chakra UI v3
+- **Translations:** English, Hindi, Marathi, and Gujarati via `react-i18next`, including mixed
+  English-chrome/translated-content modes. See
+  [Translations Overview](docs/mystic_auth/translations/overview.md)
 - **State Management:** Zustand (client/session state) + TanStack Query (server state/caching)
 - **Database:** PostgreSQL (async)
 - **Caching & Tasks:** Redis + Taskiq for async email delivery, caching, rate limiting, and token state
@@ -260,17 +269,14 @@ Once the services are running:
   `alembic` service (`alembic upgrade head`). In production Compose, `backend`,
   `taskiq_worker`, and `taskiq_scheduler` wait for migrations before starting. See
   [Docker Overview](docs/mystic_auth/docker/overview.md)
+- **Bugsink:** [http://localhost:8010](http://localhost:8010), self-hosted error
+  monitoring, started by default with the rest of the stack by `dev-up.sh`,
+  `dev-up.ps1`, `dev-up.cmd`, and plain `docker compose up`. The `bugsink-seed`
+  service creates a "MysticAuth" project and wires its DSN into `backend` and
+  `frontend`, so no manual project or DSN setup is needed. See
+  [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)
 
 See [Docker Overview](docs/mystic_auth/docker/overview.md) for the full service breakdown and [Deployment Guide](docs/mystic_auth/deployment/guide.md) for production Compose usage and host requirements.
-
----
-
-**Self-hosted error monitoring (Bugsink) is part of the helper command above.**
-`dev-up.sh`, `dev-up.ps1`, `dev-up.cmd`, and plain `docker compose up` start
-it by default with the rest of the stack. The `bugsink-seed` service creates a
-"MysticAuth" project and wires its DSN into `backend` and `frontend`, so no
-manual project or DSN setup is needed. See
-[Error Monitoring](docs/mystic_auth/error-monitoring/overview.md).
 
 ---
 
@@ -336,13 +342,20 @@ docker compose up -d bugsink bugsink-seed
 
 After starting the app for the first time, create the reserved system account, a one-time step that seeds the account holding the `system_superuser` policy (see [PBAC Policy Examples](docs/mystic_auth/authorization/policy-examples.md)).
 
-### Dev Docker
+### Non-interactive (recommended for repeated resets)
+`local-scripts/{dev,local-prod,prod}/create-system-user.{sh,ps1,bat}` pipe the fresh-account prompts in for you against the matching Compose file, so you don't have to retype them every time you reset a local stack. Copy the `system-user.env.example` next to the script you're using, fill in real values, then run it. Each `system-user.env` is ignored by both `.gitignore` and `.dockerignore`, so filling it in never risks committing real credentials. See [System Superuser: Bootstrapping and Promotion](docs/mystic_auth/authentication/system-superuser.md#non-interactive-bootstrap-scripts) for details.
+
+---
+
+### Interactive, by run mode
+
+#### Dev Docker
 
 ```bash
 docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
 ```
 
-### Local-prod Docker
+#### Local-prod Docker
 
 Use this when you started the self-hosted Cloudflare Tunnel stack:
 
@@ -350,7 +363,7 @@ Use this when you started the self-hosted Cloudflare Tunnel stack:
 docker compose -f docker-compose.local-prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
 ```
 
-### Prod Docker
+#### Prod Docker
 
 Run this on the server where `docker-compose.prod.yml` is running:
 
@@ -358,7 +371,7 @@ Run this on the server where `docker-compose.prod.yml` is running:
 docker compose -f docker-compose.prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
 ```
 
-### Local Backend Without Docker
+#### Local Backend Without Docker
 
 ```bash
 PYTHONPATH=backend python -m mystic_auth.scripts.create_system_user
@@ -433,6 +446,8 @@ See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for t
   Bugsink. Error data can contain PII, so this keeps it inside your
   infrastructure. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)
 
+**MFA (TOTP/SMS/WebAuthn) is not enabled by default**, though the policy hooks to support it already exist (`security_context.mfa_verified`). See [Why MFA is not enabled](docs/mystic_auth/security/decisions.md#why-mfa-is-not-enabled) for how to add and wire it in.
+
 See [Security Hardening](docs/mystic_auth/security/hardening.md) and [Security Decisions](docs/mystic_auth/security/decisions.md) for the full detail and rationale, and [Known Issues & Concerns](docs/mystic_auth/concerns/README.md) for what's tracked as still outstanding.
 
 ---
@@ -467,6 +482,7 @@ and `scripts/upstream-sync/sync-upstream.sh`.
 - [API Reference](docs/mystic_auth/api/reference.md)
 - [Background Workers](docs/mystic_auth/background-workers/taskiq.md)
 - [Security](docs/mystic_auth/README.md#security)
+- [Translations](docs/mystic_auth/translations/overview.md)
 - [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)
 - [Testing](docs/mystic_auth/testing/overview.md)
 - [Docker](docs/mystic_auth/docker/overview.md)

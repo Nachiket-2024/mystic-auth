@@ -106,6 +106,15 @@ const App: React.FC = () => {
                         // No permission prop: every authenticated user can see
                         // their own audit trail (see AuditLogPage's docstring
                         // for how the "All users" tab is gated separately).
+                        //
+                        // Added your own PBAC resource types or actions for
+                        // your own business domain? Give AuditLogPage
+                        // `extraResourceTypes`/`extraActions` (string[]) so
+                        // they show up in the "Authorization decisions"
+                        // filter dropdowns too, instead of hand-editing
+                        // mystic_auth/audit_log/authorization_log/authorizationLogResourceTypes.ts.
+                        // See
+                        // docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
                         <ProtectedRoute>
                             <AppLayout>
                                 <AuditLogPage />

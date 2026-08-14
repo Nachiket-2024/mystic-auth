@@ -117,6 +117,8 @@ Some UI, like the sidebar, is rendered by mystic_auth/ but genuinely needs to re
 |---|---|---|
 | `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string; order?: number }` |
 | `AppLayout` (re-exported from `sdk.ts`) | `extraNavbarContent?: React.ReactNode` | Any renderable node: the top bar's own built-ins (name, ThemeToggle, LogoutButton) are bespoke components rather than a uniform list, so this slot is free-form instead of a typed item array. |
+| `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraResourceTypes?: string[]` | Appended after this app's own `AUTHORIZATION_RESOURCE_TYPES` in the "Authorization decisions" filter's resource dropdown. |
+| `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraActions?: string[]` | Appended after `PERMISSIONS`' own action strings in the same filter's action dropdown. |
 
 Pass the same array to every `<AppLayout>` usage in your `App.tsx` (define it once, above your `<Routes>`, and reuse the reference) so the sidebar doesn't reshape as the user navigates between routes:
 
@@ -158,6 +160,17 @@ import NotificationsBell from "./notifications/NotificationsBell";
     <ProjectsPage />
 </AppLayout>
 ```
+
+**Audit log filters.** Unlike `AppLayout`, `AuditLogPage` isn't behind `sdk.ts`: it's a page component, imported directly in `App.tsx` the same way `DashboardPage`/`UsersPage`/`PoliciesPage` are, so you already edit that import site directly to add routes. If your app extends the PBAC resource-type or action vocabulary for its own domain (e.g. adding resource types beyond this app's own `users`/`policies`/`security_audit`), pass `extraResourceTypes`/`extraActions` so your own values show up in the "Authorization decisions" tab's filter dropdowns instead of only ever showing this app's built-in vocabulary:
+
+```tsx
+<AuditLogPage
+    extraResourceTypes={["projects", "invoices"]}
+    extraActions={["projects:read", "projects:write"]}
+/>
+```
+
+Omitting either prop renders both dropdowns exactly as before these props existed.
 
 If a future release adds an extension point to another shared component, it'll follow this same shape: a typed, optional, additive prop, listed in this table.
 

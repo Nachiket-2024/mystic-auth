@@ -46,7 +46,10 @@ cp .env.local-prod.example .env
 You can boot before filling in Google or SMTP credentials. The CLI-created
 system superuser can still sign in and view the dashboard because the script
 marks it verified. Regular users need one verification path: SMTP for password
-signup, email verification, and password reset, or Google OAuth2 login.
+signup, email verification, and password reset, or Google OAuth2 login. See
+[System Superuser](../authentication/system-superuser.md) for the interactive
+command, or `local-scripts/local-prod/create-system-user.*` for a
+non-interactive version.
 
 Do not start local-prod from `.env.example`. That file points the frontend at
 localhost dev ports and leaves production routing values unset. See

@@ -2,8 +2,11 @@ import React from "react";
 import { Box, Flex, IconButton, Text } from "@chakra-ui/react";
 
 import { useAuthStore } from "../store/authStore";
+import { useLanguageStore } from "../store/languageStore";
+import translations from "../translations/translations";
 import LogoutButton from "../auth/logout/LogoutButton";
 import ThemeToggle from "./ThemeToggle";
+import LanguageToggle from "./LanguageToggle";
 import { ICON_BUTTON_PROPS } from "../ui/styles/buttonStyles";
 
 interface NavbarProps {
@@ -29,6 +32,13 @@ interface NavbarProps {
  * mutation/navigation logic).
  */
 const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent }) => {
+    // Chrome (this navbar, plus Sidebar) always renders in chromeLanguage,
+    // not the page-wide translation language: it's English by default and stays
+    // English even in the "en+hi"/"en+mr" mixed modes, only switching along
+    // with the rest of the app for the plain "hi"/"mr" modes. See
+    // store/languageStore.ts's LanguageMode docstring.
+    const chromeLanguage = useLanguageStore((s) => s.chromeLanguage);
+    const t = translations.getFixedT(chromeLanguage, "layout");
     const name = useAuthStore((s) => s.name);
 
     return (
@@ -48,7 +58,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent }) => {
         >
             <Flex align="center" gap={3}>
                 <IconButton
-                    aria-label="Toggle navigation menu"
+                    aria-label={t("toggleNavigationMenu")}
                     onClick={onToggleSidebar}
                     display={{ base: "inline-flex", md: "none" }}
                     size="sm"
@@ -59,7 +69,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent }) => {
                 {name && (
                     <Box>
                         <Text fontSize="15px" color="fg.muted">
-                            Signed in as <Text as="span" fontWeight="semibold" color="fg.default">{name}</Text>
+                            {t("signedInAs")} <Text as="span" fontWeight="semibold" color="fg.default">{name}</Text>
                         </Text>
                     </Box>
                 )}
@@ -67,6 +77,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent }) => {
 
             <Flex align="center" gap={3}>
                 {extraContent}
+                <LanguageToggle />
                 <ThemeToggle />
                 <LogoutButton />
             </Flex>

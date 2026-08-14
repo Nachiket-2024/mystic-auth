@@ -44,8 +44,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 128M
+          cpus: "1"
+          memory: 256M
 
   postgres:
     image: postgres:15
@@ -70,8 +70,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"
-          memory: 1G
+          cpus: "2"
+          memory: 2G
 
   redis:
     image: redis:7
@@ -87,8 +87,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 256M
+          cpus: "1"
+          memory: 512M
 
   backend:
     build:
@@ -133,8 +133,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"
-          memory: 512M
+          cpus: "2"
+          memory: 1G
 
   frontend:
     # Explicit, prod-specific tag. See docker-compose.yml's frontend
@@ -179,8 +179,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 256M
+          cpus: "1"
+          memory: 512M
 
   taskiq_worker:
     build:
@@ -210,8 +210,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"
-          memory: 512M
+          cpus: "2"
+          memory: 1G
 
   # Polls the schedule_source RedisScheduleSource for retries SmartRetryMiddleware
   # scheduled with a backoff delay, and re-enqueues them onto taskiq_worker's
@@ -243,7 +243,7 @@ services:
       resources:
         limits:
           cpus: "1"
-          memory: 256M
+          memory: 512M
 
   # One-shot migration runner. No restart policy because restarting it
   # would just re-apply an already-applied migration in a loop.
@@ -329,8 +329,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "1"
-          memory: 512M
+          cpus: "2"
+          memory: 1G
 
   # One-shot, idempotent Bugsink project seeder. No restart policy.
   bugsink-seed:

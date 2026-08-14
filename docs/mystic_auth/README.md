@@ -67,6 +67,12 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ---
 
+## Translations
+
+- [Translations Overview](translations/overview.md): supported languages (English, Hindi, Marathi, Gujarati) and mixed English-chrome modes, translation-store architecture, step-by-step tutorial for adding a new language
+
+---
+
 ## Testing
 
 - [Testing Overview](testing/overview.md): backend pytest suites, frontend vitest suites, coverage state, how to run

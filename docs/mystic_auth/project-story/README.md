@@ -60,6 +60,7 @@ timeline
             : Sync-script safety nets, scripts/ reorganized
             : Codebase restructure, PBAC/reset-token security fixes
             : Navbar and DEFAULT_APP_POLICIES extension point
+            : Language toggle and i18n scaffolding
 ```
 
 ### 18 August, 2025 - 23 August, 2025
@@ -251,6 +252,10 @@ Downstream use kept surfacing real extension gaps: an `extraNavbarContent` prop 
 ### 12 August, 2026
 
 Sidebar links got a hover state, and the same fast, snappy hover transition (`FAST_HOVER_TRANSITION`) was extracted and applied consistently across buttons, pagination, and table action buttons.
+
+### 15 August, 2026
+
+A language toggle and translations store were added on the frontend, backed by a new `AppError` exception type that carries an error code/params through the API so the frontend can look up a translated message instead of showing the raw English `detail` string.
 
 ---
 
