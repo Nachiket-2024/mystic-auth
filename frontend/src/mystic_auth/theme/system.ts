@@ -1,84 +1,63 @@
 import { createSystem, defaultConfig } from "@chakra-ui/react";
 import type { SystemConfig } from "@chakra-ui/react";
 
+// App-owned re-skin point: see docs/mystic_auth/template-usage/overview.md
+// and app/theme.ts's own docstring. Merged in below, after this file's own
+// config, so a fork's overrides (e.g. a different `brand` scale) win without
+// ever requiring an edit to this upstream-owned file.
+import appThemeOverrides from "../../app/theme";
+import { tokens } from "./themeTokens";
+import { semanticTokens } from "./themeSemanticTokens";
+import { textStyles, recipes, globalCss } from "./themeStyles";
+
 /**
  * Formalizes the palette the app was already using ad hoc (teal for primary actions, gray
  * neutrals, red/green feedback) into theme tokens, so components reference tokens instead of
  * repeating raw hex/scale values.
+ *
+ * Assembled from themeTokens.ts (raw color/duration/spacing scale),
+ * themeSemanticTokens.ts (named color roles resolved against that scale),
+ * and themeStyles.ts (text styles, recipe overrides, global page CSS) -
+ * split into those files purely to keep each one a manageable size; this
+ * file owns only the final SystemConfig shape and its merge into
+ * createSystem below.
+ *
+ * `as SystemConfig["theme"]`: Chakra's recursive TokenSchema type only
+ * resolves an inline `_light`/`_dark` conditional shadow value (see
+ * themeTokens.ts's `shadows`) when it's contextually typed as part of one
+ * literal SystemConfig object, which this file's whole point is to avoid -
+ * each token group needs to stay independently editable in its own file.
+ * The cast is a type-checker limitation workaround, not a behavior change:
+ * every value below is the same literal this repo already shipped as one
+ * inline config.
  */
 const config: SystemConfig = {
     theme: {
-        tokens: {
-            colors: {
-                brand: {
-                    50: { value: "#e6fffa" },
-                    100: { value: "#b2f5ea" },
-                    200: { value: "#81e6d9" },
-                    300: { value: "#4fd1c5" },
-                    400: { value: "#38b2ac" },
-                    500: { value: "#319795" },
-                    600: { value: "#2c7a7b" },
-                    700: { value: "#285e61" },
-                    800: { value: "#234e52" },
-                    900: { value: "#1d4044" },
-                },
-            },
-        },
-        semanticTokens: {
-            colors: {
-                // Primary brand action color (buttons, links, active states)
-                brand: {
-                    solid: { value: "{colors.brand.600}" },
-                    contrast: { value: "white" },
-                    // Dark-mode aware unlike `muted` below: brand.600 text stays
-                    // legible on a light brand.50 surface, but on `subtle`'s dark
-                    // brand.900 surface (or bg.canvas/bg.surface) it's too close in
-                    // brightness to the background, so dark mode lightens it.
-                    fg: { value: { _light: "{colors.brand.600}", _dark: "{colors.brand.300}" } },
-                    muted: { value: "{colors.brand.100}" },
-                    // Soft, low-emphasis brand surface, for large areas
-                    // (header/footer bands) that need to read as "branded"
-                    // without brand.solid's high-contrast weight. Dark-mode
-                    // aware unlike `muted` above: a light teal-50 tint would
-                    // read as a jarring light patch on an otherwise dark
-                    // page, so dark mode uses a low-brightness brand-tinted
-                    // surface instead of the same light tint.
-                    subtle: { value: { _light: "{colors.brand.50}", _dark: "{colors.brand.900}" } },
-                    // One step darker/lighter than `subtle` above: `subtle` is meant for
-                    // large low-emphasis surfaces, but that same brand.50 tint read as
-                    // barely-there when reused for the sidebar's active-link background in
-                    // light mode. `selected` exists for small, must-be-noticed highlights
-                    // (nav active state, list selection) where `subtle` is too pale.
-                    selected: { value: { _light: "{colors.brand.100}", _dark: "{colors.brand.800}" } },
-                    emphasized: { value: "{colors.brand.700}" },
-                    focusRing: { value: "{colors.brand.500}" },
-                },
-                // Page/app surfaces
-                "bg.canvas": { value: { _light: "{colors.gray.100}", _dark: "{colors.gray.900}" } },
-                "bg.surface": { value: { _light: "white", _dark: "{colors.gray.800}" } },
-                // One step darker/lighter than Chakra's stock gray.200/gray.700: those blended
-                // into bg.surface/bg.canvas closely enough that table borders, card outlines,
-                // and dividers were barely visible in either color mode.
-                "border.default": { value: { _light: "{colors.gray.300}", _dark: "{colors.gray.600}" } },
-                // Overrides Chakra's own global `border` token (used by Input/Textarea/Select's
-                // outline variant, not just our own `border.default` above). Its stock dark value
-                // is gray.800, identical to bg.surface's dark value, so every form field's border
-                // was invisible against the card behind it. Same value as border.default above,
-                // just under the key Chakra's built-in recipes actually consume.
-                border: { value: { _light: "{colors.gray.300}", _dark: "{colors.gray.600}" } },
-                // Text
-                "fg.default": { value: { _light: "{colors.gray.700}", _dark: "{colors.gray.100}" } },
-                "fg.muted": { value: { _light: "{colors.gray.500}", _dark: "{colors.gray.400}" } },
-                "fg.error": { value: { _light: "{colors.red.600}", _dark: "{colors.red.400}" } },
-                "fg.success": { value: { _light: "{colors.green.600}", _dark: "{colors.green.400}" } },
-            },
-        },
-    },
+        tokens,
+        semanticTokens,
+        textStyles,
+        recipes,
+    } as unknown as SystemConfig["theme"],
+    globalCss,
 };
 
 /**
  * Merges `config` on top of Chakra's `defaultConfig` (rather than replacing it, which is what
  * passing a bare custom config to createSystem would do) so the app keeps every default
- * token/recipe and only overrides what's listed above.
+ * token/recipe and only overrides what's listed above, then merges `appThemeOverrides` on top of
+ * that so a fork's own re-skin (app/theme.ts) wins last without editing this file.
  */
-export const system = createSystem(defaultConfig, config);
+export const system = createSystem(defaultConfig, config, appThemeOverrides);
+
+// Composed from the `durations.hover`/`easings.hover` tokens (themeTokens.ts)
+// via `system.token()` (which resolves to a `var(--chakra-...)` reference,
+// not a literal value) so overriding either token from app/theme.ts changes
+// this too, without needing to reconstruct the string. Properties list is
+// fixed here rather than tokenized itself - which CSS properties need a
+// hover transition is a per-component concern, not something a re-skin
+// needs to retune. Value is unchanged from the original hardcoded constant
+// this replaces (0.1s ease on background-color/border-color/color).
+const HOVER_TRANSITION_PROPERTIES = ["background-color", "border-color", "color"];
+export const FAST_HOVER_TRANSITION = HOVER_TRANSITION_PROPERTIES.map(
+    (property) => `${property} ${system.token("durations.hover")} ${system.token("easings.hover")}`
+).join(", ");

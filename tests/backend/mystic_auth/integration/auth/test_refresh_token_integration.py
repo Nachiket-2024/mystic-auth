@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt as pyjwt
 import pytest
+
 from backend.mystic_auth.core.settings import settings
 
 from .auth_test_accounts import (

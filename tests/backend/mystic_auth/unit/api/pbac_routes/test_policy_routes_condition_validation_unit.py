@@ -7,6 +7,8 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
+
 from backend.mystic_auth.api.pbac_routes.policy_crud_routes import (
     create_policy,
     update_policy,
@@ -18,7 +20,6 @@ from backend.mystic_auth.authorization.schemas.policy_schema import (
     PolicyCreate,
     PolicyUpdate,
 )
-from fastapi import HTTPException
 
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_crud_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"

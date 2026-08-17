@@ -6,6 +6,8 @@ You've created your own repository from this template (via GitHub's **Use this t
 
 ## What this template provides
 
+This template ships the authenticated app shell (sidebar, top bar, and the auth/PBAC/audit-log pages listed below) plus a minimal pre-auth landing page at `/` (`frontend/src/app/landing_page/LandingPage.tsx`, mounted in `frontend/src/app/App.tsx`) that redirects an already-signed-in visitor straight to `/dashboard`. It's a worked example of the "outside the auth shell" page shape, not a page meant to ship as-is - rename, restyle, or replace it freely (see [worked example §6](worked-example.md#6-a-pre-auth-landing-page)).
+
 - **Authentication**: email+password with Argon2 hashing, email verification, rate limiting + brute-force lockout, Google OAuth2 (PKCE), JWT access+refresh tokens as httpOnly cookies, refresh-token rotation with reuse detection, logout/logout-all, forgot/reset password. See [Authentication Overview](../authentication/overview.md).
 - **Authorization**: Policy-Based Access Control (PBAC), not RBAC. Every protected route is gated by an assigned `Policy`, not by a user's `role`. Policies are data (rows in Postgres), so a new access rule is a new policy, not a new deploy. See [PBAC Architecture](../authorization/architecture.md).
 - **Audit logging**: two append-only tables: security/session events, and every PBAC allow/deny decision. See [Database Design](../database/design.md#why-two-audit-tables-not-one).
@@ -56,7 +58,7 @@ Both backend and frontend are split into two trees, and every file in the repo f
 | Tier | Files | Who edits it | Why |
 |---|---|---|---|
 | **Upstream-owned: never edit** | `backend/mystic_auth/`, `backend/app/sdk.py`, `frontend/src/mystic_auth/`, `frontend/src/app/sdk.ts`, `docs/mystic_auth/`, `screenshots/mystic_auth/` | Only upstream | This is the template's actual implementation. Since you never touch it, every `scripts/upstream-sync/sync-upstream.sh` merge applies here cleanly because there's nothing of yours for it to conflict with. |
-| **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `docs/app/`, `screenshots/app/`, root `README.md`, `SECURITY.md` | Only you | Upstream ships these once (`app_sdk.*` empty, the READMEs as generic starting points) and never edits them again in any future release. Since only you write to them, they never conflict either. |
+| **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `frontend/src/app/theme.ts`, `docs/app/`, `screenshots/app/`, root `README.md`, `SECURITY.md` | Only you | Upstream ships these once (`app_sdk.*`/`theme.ts` empty, the READMEs as generic starting points) and never edits them again in any future release. Since only you write to them, they never conflict either. |
 | **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `docker-compose.yml`, `docker-compose.local-prod.yml`, `docker-compose.prod.yml`, `.env.example` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a compose file), so they can't start empty the way `app_sdk.*` does. You're expected to extend them (register your own router, add your own `<Route>`, add your own dependency), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
 
 ```mermaid
@@ -101,7 +103,7 @@ The diagram above only shows code files, since it's tracing import relationships
 
 ## Frontend customization
 
-- **Theme**: `frontend/src/mystic_auth/theme/system.ts`: change the `brand` color scale to re-skin the app.
+- **Theme**: `frontend/src/app/theme.ts` (empty by default, like `app_sdk.ts`): set your own `brand` color scale here to re-skin the app. Merged on top of `mystic_auth/theme/system.ts`'s own config, so it never needs editing directly.
 - **Pages**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/`, `manage_sessions/`, `account_settings/`, `users/`, `policies/`, `audit_log/`). See [Frontend Architecture](../architecture/frontend.md#module-layout).
 - **Routing**: declared in `frontend/src/app/App.tsx`: add a `<Route>`, wrapped in `ProtectedRoute`.
 - **State**: Zustand (`frontend/src/mystic_auth/store/`) for client state, TanStack Query for server state: both re-exported from `sdk.ts`.
@@ -115,8 +117,11 @@ Some UI, like the sidebar, is rendered by mystic_auth/ but genuinely needs to re
 
 | Component | Extension prop | Shape |
 |---|---|---|
-| `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string; order?: number }` |
+| `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string; order?: number; icon?: LucideIcon }` |
 | `AppLayout` (re-exported from `sdk.ts`) | `extraNavbarContent?: React.ReactNode` | Any renderable node: the top bar's own built-ins (name, ThemeToggle, LogoutButton) are bespoke components rather than a uniform list, so this slot is free-form instead of a typed item array. |
+| `CommandPalette` (re-exported from `sdk.ts`, mounted once in `App.tsx`) | `extraNavItems?: NavItem[]` | Same `NavItem`s you give `AppLayout` - pass the same reference so the palette's "Pages" results match the sidebar. |
+| `CommandPalette` (re-exported from `sdk.ts`, mounted once in `App.tsx`) | `extraSearchItems?: SearchItem[]` | `SearchItem` (also re-exported from `sdk.ts`): a specific feature/section *within* one of your pages (not a whole page - that's what `extraNavItems` is for), surfaced by the palette's content search once the query is non-empty. |
+| `AppLayout` (re-exported from `sdk.ts`) | `onOpenCommandPalette?: () => void` | Renders the clickable "search" button in the navbar (hidden below the `md` breakpoint) that opens the same `CommandPalette` instance. Cmd+K/Ctrl+K works without it (that shortcut is wired globally in `App.tsx`); omitting this prop just means there's no visible button for it, mouse-only users would have no way to open the palette. |
 | `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraResourceTypes?: string[]` | Appended after this app's own `AUTHORIZATION_RESOURCE_TYPES` in the "Authorization decisions" filter's resource dropdown. |
 | `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraActions?: string[]` | Appended after `PERMISSIONS`' own action strings in the same filter's action dropdown. |
 
@@ -160,6 +165,59 @@ import NotificationsBell from "./notifications/NotificationsBell";
     <ProjectsPage />
 </AppLayout>
 ```
+
+**Command palette (Cmd+K / Ctrl+K).** `CommandPalette` is mounted once at the app root in `App.tsx`, not inside `AppLayout`, so it takes its extension props there instead. Pass the same `onOpenCommandPalette` handler to every `<AppLayout>` so the navbar's search button opens this one instance:
+
+```tsx
+const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+const openCommandPalette = () => setIsPaletteOpen(true);
+
+// ...
+<AppLayout extraNavItems={EXTRA_NAV_ITEMS} onOpenCommandPalette={openCommandPalette}>
+    <ProjectsPage />
+</AppLayout>
+
+<CommandPalette
+    isOpen={isPaletteOpen}
+    onClose={() => setIsPaletteOpen(false)}
+    extraNavItems={EXTRA_NAV_ITEMS}
+    extraSearchItems={EXTRA_SEARCH_ITEMS}
+/>
+```
+
+`extraNavItems` is the exact same array you already pass to every `<AppLayout>` - reusing it keeps the palette's "Pages" results and the sidebar in sync automatically. `extraSearchItems` is for content search: a specific settings tab, a specific filtered view, anything a user might type a keyword for that isn't a whole page's own nav label. Each `SearchItem` is:
+
+```ts
+interface SearchItem {
+    label: string;              // primary display text
+    detail?: string;            // secondary text, e.g. distinguishes two items sharing a label
+    group: string;              // the page/section this belongs to - shown as detail's fallback,
+                                 // and folded into the search text (typing the page name matches too)
+    matchKeys?: string[];       // extra strings folded into search text without being displayed
+    to: string;                 // destination, e.g. "/projects?tab=billing" or "/projects#danger-zone"
+    permission?: string;
+    icon?: LucideIcon;
+}
+```
+
+`label`/`detail`/`group`/`matchKeys` each accept either a plain string or an i18next `"namespace:key"` (resolved in the chrome language, same convention `NavItem.label` uses) - use translation keys if your app is localized, plain strings otherwise. A result's search text is `label + detail + group + matchKeys` joined, so you don't need to hand-maintain a separate keyword list in sync with whatever visible copy you're already reusing:
+
+```tsx
+import { CommandPalette, type SearchItem } from "./sdk";
+import { CreditCard } from "lucide-react";
+
+const EXTRA_SEARCH_ITEMS: SearchItem[] = [
+    {
+        label: "Billing",
+        group: "Projects",
+        matchKeys: ["Invoices", "Payment method"],
+        to: "/projects?tab=billing",
+        icon: CreditCard,
+    },
+];
+```
+
+For a `to` that points at a specific tab (`?tab=billing`) or a specific in-page section (`#danger-zone`), your page needs to actually read that on mount - see `AccountSettingsPage`/`AuditLogPage` for the query-param-driven-tab pattern (read once via `useSearchParams`, force a remount with `key={initialTab}` so a later deep-link while the page is already open still switches tabs), or `AppLayout`'s `useScrollToHash` for the `#hash` case (mounted once in `AppLayout` already, so any element with a matching `id` on any of your pages gets scrolled to automatically - just give it an `id`, no extra wiring needed). Omitting `extraSearchItems` entirely renders the palette exactly as before this prop existed.
 
 **Audit log filters.** Unlike `AppLayout`, `AuditLogPage` isn't behind `sdk.ts`: it's a page component, imported directly in `App.tsx` the same way `DashboardPage`/`UsersPage`/`PoliciesPage` are, so you already edit that import site directly to add routes. If your app extends the PBAC resource-type or action vocabulary for its own domain (e.g. adding resource types beyond this app's own `users`/`policies`/`security_audit`), pass `extraResourceTypes`/`extraActions` so your own values show up in the "Authorization decisions" tab's filter dropdowns instead of only ever showing this app's built-in vocabulary:
 

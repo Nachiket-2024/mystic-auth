@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Cookie, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...auth.password_logic.password_service import password_service
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
+from ...auth.security.rate_limiter_service import rate_limiter_service
 from ...auth.token_logic.jwt_service import jwt_service
 from ...auth.token_logic.token_cookie_handler import token_cookie_handler
 from ...auth.token_logic.token_schema import TokenPairResponseSchema
@@ -12,17 +13,24 @@ from ...core.errors import AppError
 from ...database.connection import database
 from ...user_crud.user_crud_collector import user_crud
 from ...user_crud.user_crud_modules.user_update_payload_preparation import prepare_update_data
+from ...user_lifecycle.account_deletion_confirm_handler import account_deletion_confirm_handler
+from ...user_lifecycle.account_deletion_confirm_schema import AccountDeleteConfirmSchema
+from ...user_lifecycle.account_deletion_service import account_deletion_service
+from ...user_lifecycle.user_self_deletion_service import finalize_self_deletion
 from ...user_session.session_service import session_service
-from ...user_table.user_schema import UserRead, UserUpdate
+
+# UserRole is only used for the system-account guard on self-delete, same
+# resource-protection reasoning as user_lifecycle_routes.py's identical
+# import comment: it's metadata, not a caller-authorization decision.
+from ...user_table.user_model import UserRole
+from ...user_table.user_schema import UserRead, UserSelfDeleteRequest, UserUpdate
 from ..get_or_404.get_or_404 import get_or_404
 
-# Split from the combined user_routes.py: this file is exactly the two
-# self-service endpoints (a caller acting on their own account), so it's
-# never gated by anything beyond users:read_own/update_own, unlike every
-# route in user_management_routes.py. Kept as its own router (rather than
-# folded into that one) so the two permission tiers can never accidentally
-# share a route by being defined in the same file, mirroring pbac_routes/'s
-# split by concern (policy_crud_routes.py, policy_assignment_routes.py, etc.).
+# Self-service endpoints only (acting on current_user, never a
+# path-parameterized user_email), so this router is never gated by anything
+# beyond users:read_own/update_own. Kept separate from
+# user_management_routes.py so the two permission tiers can't accidentally
+# share a route by being defined in the same file.
 router = APIRouter(prefix="/users", tags=["Users"])
 
 _RESOURCE_TYPE = "users"
@@ -104,3 +112,88 @@ async def update_my_profile(
             await refresh_token_service.revoke_all_tokens_for_user(email, db)
 
     return updated_user
+
+
+@router.delete("/me")
+async def delete_my_account(
+    delete_request: UserSelfDeleteRequest,
+    request: Request,
+    response: Response,
+    current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_OWN.value, _RESOURCE_TYPE)),
+    db: AsyncSession = Depends(database.get_session),
+):
+    """
+    Self-service soft delete: is_active=False + deleted_at=now, same
+    mechanics as delete_any_user (user_lifecycle_routes.py), just acting on
+    current_user's own row instead of a path-parameterized user_email.
+    Deliberately does NOT purge: permanent removal only ever happens via the
+    scheduled grace-period job (taskiq_tasks/account_purge_tasks.py) or an
+    admin's separate, more sensitive users:purge action, never synchronously
+    on a self-service request.
+
+    An account with a password re-authenticates and is deleted immediately,
+    synchronously, in this same request. An OAuth-only account
+    (hashed_password is None) has no password to re-confirm with, so it
+    can't get the same synchronous proof of intent from just an active
+    session cookie (a stolen access-token cookie would otherwise be enough
+    to delete the account outright) - see account_deletion_service.py for
+    its async, email-confirmed equivalent instead.
+    """
+    email = current_user["email"]
+    user = await get_or_404(user_crud.get_by_email(email, db), "User not found", code="USER_NOT_FOUND")
+
+    if user.role == UserRole.system:
+        raise AppError(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="SYSTEM_USER_CANNOT_BE_DELETED",
+            detail="System user cannot be deleted"
+        )
+
+    if user.hashed_password is not None:
+        # Re-authentication: proves whoever is holding this session's
+        # cookies is actually the account owner, same rationale (and same
+        # reused hashing call) as the current-password gate on a
+        # self-service password change above.
+        if not delete_request.current_password or not await password_service.verify_password(
+            delete_request.current_password, user.hashed_password
+        ):
+            raise AppError(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="CURRENT_PASSWORD_INCORRECT",
+                detail="Current password is incorrect",
+            )
+
+        await finalize_self_deletion(user, db, request=request)
+
+        # The session was just revoked server-side above; without also
+        # clearing these cookies the browser keeps holding now-dead ones,
+        # same fix as logout_handler.py's delete_cookie calls (refresh_token
+        # needs path="/auth" to match how token_cookie_handler.py set it).
+        response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
+        response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none", path="/auth")
+
+        return {"detail": "Your account has been deleted"}
+
+    # OAuth-only: nothing to synchronously re-confirm with, so this doesn't
+    # delete yet - it sends a confirmation link and leaves the account (and
+    # this session) untouched until POST /users/me/confirm-delete redeems it.
+    await account_deletion_service.send_deletion_email(user, db)
+
+    return {
+        "detail": "Check your email to confirm deleting your account",
+        "confirmation_required": True,
+    }
+
+
+# POST with the token in the body, not a GET query param (same reasoning as
+# /auth/verify-account): a token in a URL ends up in browser history, access
+# logs, and Referer headers. Unauthenticated by design, same trust model as
+# POST /auth/password-reset/confirm: the signed, single-use token is the
+# proof of intent, so this link must work from whatever device/browser the
+# caller opened their email in, not just the one that requested deletion.
+@router.post("/me/confirm-delete")
+@rate_limiter_service.rate_limited("account_delete_confirm")
+async def confirm_delete_my_account(
+    payload: AccountDeleteConfirmSchema, request: Request, db: AsyncSession = Depends(database.get_session)
+):
+    return await account_deletion_confirm_handler.handle_confirm_delete(payload.token, db=db, request=request)

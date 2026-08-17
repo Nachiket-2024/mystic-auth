@@ -14,14 +14,14 @@ Deployment Guide.
 ## Which mode do I want?
 
 There are two ways to expose your local-prod stack to the internet, both
-via Cloudflare Tunnel. Pick one and follow that section start to finish —
+via Cloudflare Tunnel. Pick one and follow that section start to finish:
 each is a complete, standalone walkthrough, so you don't need to read the
 other one first.
 
-- **Quick Tunnel** — zero Cloudflare account, zero domain, up in a couple
+- **Quick Tunnel**: zero Cloudflare account, zero domain, up in a couple
   of minutes. The public URL is random and changes every time you restart
   the stack. Good for a quick test.
-- **Named Tunnel** — needs a domain on a free Cloudflare account. A bit
+- **Named Tunnel**: needs a domain on a free Cloudflare account. A bit
   more setup, but the URL is stable, so you configure Google login once
   and never touch it again.
 
@@ -84,7 +84,7 @@ that URL. That's because `VITE_API_BASE_URL` is left empty, so the
 frontend calls the API on whatever origin it was loaded from, and nginx
 proxies that same-origin request to `backend` internally. Google login
 needs a few more steps, since it's the one flow tied to the exact tunnel
-URL — continue below to enable it.
+URL: continue below to enable it.
 
 ---
 
@@ -110,7 +110,7 @@ In the [Google Cloud Console](https://console.cloud.google.com/), under
 **APIs & Services**, **Credentials**, your OAuth 2.0 Client ID, add
 `<that URL>/auth/oauth2/callback/google` under **Authorized redirect URIs**
 and `<that URL>` under **Authorized JavaScript origins**. Old entries from
-past restarts can be removed, or left there — Google allows multiple.
+past restarts can be removed, or left there (Google allows multiple).
 
 ---
 
@@ -133,7 +133,7 @@ nothing reads it at runtime, so it never needs to track the tunnel URL.)
 **Step 7: Apply it.**
 
 `.env` values here are read at container runtime, not baked into the
-image, so a plain restart is enough — **no `--build`**:
+image, so a plain restart is enough (**no `--build`**):
 
 ```bash
 docker compose -f docker-compose.local-prod.yml up -d
@@ -167,7 +167,7 @@ this working.
 cp .env.local-prod.example .env
 ```
 
-Same file as Option A — see Step 1 there for what it preconfigures. Do not
+Same file as Option A: see Step 1 there for what it preconfigures. Do not
 start local-prod from `.env.example`; that file is for the dev stack.
 
 ---
@@ -226,7 +226,7 @@ command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
 docker compose -f docker-compose.local-prod.yml up -d --build
 ```
 
-Open `https://your-hostname` in a browser — that's your app, live at a
+Open `https://your-hostname` in a browser: that's your app, live at a
 stable address. Unlike Quick Tunnel, this URL doesn't change, so Steps 4
 and 5 are one-time setup, not something you repeat on every restart. See
 [OAuth2 / PKCE](../authentication/oauth2-pkce.md#troubleshooting) if login

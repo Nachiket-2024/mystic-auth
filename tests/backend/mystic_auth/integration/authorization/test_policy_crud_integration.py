@@ -7,6 +7,7 @@
 # actions must themselves use PBAC authorization": these tests prove that
 # gate on the policy CRUD surface specifically.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,

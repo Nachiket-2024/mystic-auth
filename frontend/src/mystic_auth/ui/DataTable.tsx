@@ -1,12 +1,16 @@
 import React from "react";
-import { Box, Skeleton, Table, EmptyState } from "@chakra-ui/react";
+import { Box, Checkbox, HStack, Table, Text, EmptyState } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import FormAlert from "./FormAlert";
 import { ariaSortFor, renderHeaderCell } from "./DataTableSortableHeader";
+import DataTableSkeleton from "./DataTableSkeleton";
+import { useDataTableSelection } from "./DataTableSelection";
+import { plainTextOf, STICKY_HEADER_CELL_PROPS } from "./DataTableStyles";
 import type { SortState } from "./hooks/useSortState";
 import { useLanguageStore } from "../store/languageStore";
 import { formatNumber } from "../translations/numerals";
+import { FAST_HOVER_TRANSITION } from "../theme/system";
 
 export interface DataTableColumn<T> {
     key: string;
@@ -19,14 +23,26 @@ export interface DataTableColumn<T> {
      * backend - every current caller's column keys already match the
      * backend's own allowlisted sortable column names 1:1. */
     sortable?: boolean;
-    /** Fixed width (e.g. "160px"), applied via <colgroup> below with
+    /** Fixed width (e.g. "10rem"), applied via <colgroup> below with
      * `table-layout: fixed`. Without this, a plain HTML table sizes each
      * column from its own current cell contents, so switching filters/tabs
      * (a shorter name, an empty IP, a different badge set) reflows every
      * column width on every render - distracting movement that has nothing
      * to do with the data itself. Give a fixed width to any column whose
      * content varies a lot in length; columns left unset share the
-     * remaining space evenly. */
+     * remaining space evenly - AS LONG AS every column in the table is
+     * either unset or a percentage. Mixing an unset/percentage column with
+     * this table's OWN rem-sized columns doesn't reliably share leftover
+     * space under `table-layout: fixed`: once the rem-sized columns alone
+     * exceed the container's width (e.g. several action/status columns on
+     * a 1024px-wide viewport), the unset column can get squeezed to a few
+     * illegible px instead of the table properly overflowing into
+     * Table.ScrollArea's horizontal scroll. Give every column in a table
+     * that has ANY rem-sized column a rem width too, so the total is
+     * deterministic and a too-narrow viewport scrolls the whole table
+     * instead of silently truncating just that one column (see
+     * usersColumns.tsx's Name/Email and PoliciesPage.tsx's actions_list for
+     * the fix applied after finding this the hard way). */
     width?: string;
     /** Clips this column's content to one line with a trailing ellipsis
      * instead of letting it overflow into the next column - the fix for a
@@ -41,42 +57,6 @@ export interface DataTableColumn<T> {
     truncate?: boolean;
 }
 
-/** Only a plain string/number render result can safely become a `title`
- * tooltip - anything else (badges, buttons, a name+badge Text node) is a
- * React element, not text, and can't be stringified without risk. */
-function plainTextOf(node: React.ReactNode): string | undefined {
-    if (typeof node === "string" || typeof node === "number") return String(node);
-    return undefined;
-}
-
-// Every table here can end up wider than its container (a phone screen, or
-// just a lot of columns) and falls back to Table.ScrollArea's own
-// horizontal scroll - but a plain overflow:auto div gives no visual hint
-// that there's more to see off to the side, so a table that's actually
-// scrollable can look like it's simply cut off. The classic four-background
-// "scroll shadow" trick fixes that with pure CSS: two opaque gradients
-// (matching the table's own background) that cover the shadow entirely at
-// each scrolled-to-the-edge extreme, and two shadow gradients underneath -
-// `background-attachment: local` scrolls the opaque ones WITH the content
-// (so they cover the shadow once you've scrolled past that edge) while
-// `scroll` pins the shadow gradients to the viewport (so they only show
-// while there's still more content in that direction). Colors reference
-// Chakra's own CSS custom properties, so this needs no separate dark-mode
-// override - the variable's value already flips with color mode.
-const SCROLL_SHADOW_CSS = {
-    background: `
-        linear-gradient(to right, var(--chakra-colors-bg-surface) 30%, transparent),
-        linear-gradient(to left, var(--chakra-colors-bg-surface) 30%, transparent) 100% 0,
-        linear-gradient(to right, var(--chakra-colors-blackAlpha-400), transparent),
-        linear-gradient(to left, var(--chakra-colors-blackAlpha-400), transparent) 100% 0
-    `,
-    backgroundRepeat: "no-repeat" as const,
-    backgroundColor: "bg.surface",
-    backgroundSize: "24px 100%, 24px 100%, 10px 100%, 10px 100%",
-    backgroundPosition: "0 0, 100% 0, 0 0, 100% 0",
-    backgroundAttachment: "local, local, scroll, scroll" as const,
-};
-
 interface DataTableProps<T> {
     columns: DataTableColumn<T>[];
     rows: T[] | undefined;
@@ -85,6 +65,13 @@ interface DataTableProps<T> {
     isError?: boolean;
     errorMessage?: string;
     emptyMessage?: string;
+    /** Icon shown above `emptyMessage` in the empty state (e.g. a lucide-react
+     * icon element). Omit for a bare title, same as before this prop existed. */
+    emptyIcon?: React.ReactNode;
+    /** Action rendered below `emptyMessage`, for empty states with an obvious
+     * next step (e.g. a "Create Policy" button when a management list has
+     * zero rows and no filter is narrowing it). Omit for a dead-end message. */
+    emptyAction?: React.ReactNode;
     /** Rows of skeleton placeholders shown while isLoading, mirrors the
      * shape of the real table rather than swapping to a spinner, so the
      * layout doesn't jump once data arrives. */
@@ -104,12 +91,32 @@ interface DataTableProps<T> {
      * row position isn't meaningful (e.g. one already keyed by a visible
      * id/name column). */
     startIndex?: number;
+    /** Prepends a checkbox column (per-row + a header "select all" that
+     * covers every currently-rendered row) and a selected-count indicator
+     * above the table. This only adds the selection UI itself - it's the
+     * caller's job to wire the resulting keys up to an actual bulk action
+     * (or not: a table can be selectable purely so a caller can read off
+     * `onSelectionChange` without offering any bulk button yet). Requires
+     * `selectedKeys`/`onSelectionChange` below; omit all three for a plain,
+     * non-selectable table, same as before this prop existed. */
+    selectable?: boolean;
+    /** Currently-selected row keys (same key space as `rowKey`), owned by
+     * the caller so selection can survive a page/filter change if the
+     * caller wants that, or be cleared on one if it doesn't. */
+    selectedKeys?: ReadonlySet<string | number>;
+    /** Called with the full next selection set on every checkbox toggle
+     * (row or select-all) - never just the changed key - so the caller can
+     * treat it as the new source of truth without diffing it themselves. */
+    onSelectionChange?: (keys: Set<string | number>) => void;
 }
 
 /**
  * Generic table with a shared loading/error/empty treatment, so every
  * management list page (Users, Policies, Audit Log) doesn't reimplement the same three
- * conditional branches around a bare Chakra Table.
+ * conditional branches around a bare Chakra Table. Selection bookkeeping
+ * lives in DataTableSelection.ts, the loading skeleton in
+ * DataTableSkeleton.tsx, and shared style constants in DataTableStyles.ts -
+ * this file owns only the loaded-state render.
  */
 function DataTable<T>({
     columns,
@@ -119,18 +126,30 @@ function DataTable<T>({
     isError,
     errorMessage,
     emptyMessage,
+    emptyIcon,
+    emptyAction,
     skeletonRowCount = 5,
     sort,
     onSortChange,
     startIndex,
+    selectable,
+    selectedKeys,
+    onSelectionChange,
 }: DataTableProps<T>) {
     const { t } = useTranslation("ui_text");
-    const language = useLanguageStore((s) => s.pageLanguage);
+    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
+    // even in a mixed "en+hi" mode, the same way dates already do (see
+    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    const language = useLanguageStore((s) => s.chromeLanguage);
     const showRowNumbers = startIndex !== undefined;
+
+    const { selectedOnScreenCount, isAllSelected, isSomeSelected, toggleRow, toggleAll, clearSelection } =
+        useDataTableSelection({ rows, rowKey, selectedKeys, onSelectionChange });
 
     const colgroup = (
         <colgroup>
-            {showRowNumbers && <col style={{ width: "48px" }} />}
+            {selectable && <col style={{ width: "2.75rem" }} />}
+            {showRowNumbers && <col style={{ width: "3rem" }} />}
             {columns.map((col) => (
                 <col key={col.key} style={col.width ? { width: col.width } : undefined} />
             ))}
@@ -139,47 +158,13 @@ function DataTable<T>({
 
     if (isLoading) {
         return (
-            // fontSize here (not size="md"/"lg", which only changes cell
-            // padding, not text) cascades to every cell/header that doesn't
-            // set its own - one bump for every table's plain text at once,
-            // to match the row-action buttons' and status badges' own size.
-            <Table.ScrollArea borderWidth="1px" borderColor="border.default" rounded="lg" css={SCROLL_SHADOW_CSS}>
-                <Table.Root size="sm" css={{ tableLayout: "fixed", width: "100%", fontSize: "15px" }}>
-                    {colgroup}
-                    <Table.Header>
-                        <Table.Row>
-                            {showRowNumbers && <Table.ColumnHeader w="1%" fontSize="16px">#</Table.ColumnHeader>}
-                            {columns.map((col) => (
-                                <Table.ColumnHeader
-                                    key={col.key}
-                                    textAlign={col.align}
-                                    overflow="hidden"
-                                    fontSize="16px"
-                                    aria-sort={ariaSortFor(col, sort)}
-                                >
-                                    {renderHeaderCell(col, sort)}
-                                </Table.ColumnHeader>
-                            ))}
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
-                            <Table.Row key={rowIndex}>
-                                {showRowNumbers && (
-                                    <Table.Cell>
-                                        <Skeleton height="16px" />
-                                    </Table.Cell>
-                                )}
-                                {columns.map((col) => (
-                                    <Table.Cell key={col.key}>
-                                        <Skeleton height="16px" />
-                                    </Table.Cell>
-                                ))}
-                            </Table.Row>
-                        ))}
-                    </Table.Body>
-                </Table.Root>
-            </Table.ScrollArea>
+            <DataTableSkeleton
+                columns={columns}
+                colgroup={colgroup}
+                showRowNumbers={showRowNumbers}
+                skeletonRowCount={skeletonRowCount}
+                sort={sort}
+            />
         );
     }
 
@@ -189,28 +174,82 @@ function DataTable<T>({
 
     if (!rows || rows.length === 0) {
         return (
-            <EmptyState.Root size="sm">
+            <EmptyState.Root size="md">
                 <EmptyState.Content>
+                    {emptyIcon && (
+                        // A bare icon glyph on its own reads as thin/
+                        // accidental at this size - a soft accent-tinted
+                        // circle behind it gives the empty state some visual
+                        // weight, matching the treatment DashboardPage's own
+                        // identity avatar already uses for its icon-in-a-
+                        // circle.
+                        <EmptyState.Indicator
+                            bg="accent.subtle"
+                            color="accent.fg"
+                            rounded="full"
+                            boxSize="16"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="center"
+                        >
+                            {emptyIcon}
+                        </EmptyState.Indicator>
+                    )}
                     <EmptyState.Title>{emptyMessage ?? t("noDataAvailable")}</EmptyState.Title>
+                    {emptyAction}
                 </EmptyState.Content>
             </EmptyState.Root>
         );
     }
 
     return (
-        <Table.ScrollArea borderWidth="1px" borderColor="border.default" rounded="lg">
-            <Table.Root size="sm" striped css={{ tableLayout: "fixed", width: "100%", fontSize: "15px" }}>
+        <>
+            {selectable && selectedOnScreenCount > 0 && (
+                <HStack justify="space-between" mb={2} px={1}>
+                    <Text fontSize="sm" color="fg.muted">
+                        {t("selectedCount", { count: selectedOnScreenCount })}
+                    </Text>
+                    <Text as="button" fontSize="sm" color="brand.fg" fontWeight="medium" onClick={clearSelection}>
+                        {t("clearSelection")}
+                    </Text>
+                </HStack>
+            )}
+            {/* maxH caps this table's own height once it has enough rows to
+                exceed it, turning Table.ScrollArea (already overflow:auto on
+                both axes, for the horizontal scroll-shadow above) into a real
+                vertical scroll container too - which is what makes the sticky
+                header cells below actually stick to something instead of the
+                whole page scrolling past a header that "sticks" to nothing. A
+                table with fewer rows than fit in 70dvh never hits this cap, so
+                it renders exactly as before (no inner scrollbar, no clipping). */}
+            <Table.ScrollArea borderWidth="1px" borderColor="border.default" rounded="lg" maxH="70dvh">
+            <Table.Root size="sm" striped css={{ tableLayout: "fixed", width: "100%", fontSize: "md" }}>
                 {colgroup}
                 <Table.Header>
                     <Table.Row>
-                        {showRowNumbers && <Table.ColumnHeader w="1%" fontSize="16px">#</Table.ColumnHeader>}
+                        {selectable && (
+                            <Table.ColumnHeader w="1%" {...STICKY_HEADER_CELL_PROPS}>
+                                <Checkbox.Root
+                                    checked={isAllSelected ? true : isSomeSelected ? "indeterminate" : false}
+                                    onCheckedChange={toggleAll}
+                                    aria-label={t("selectAllRows")}
+                                >
+                                    <Checkbox.HiddenInput />
+                                    <Checkbox.Control />
+                                </Checkbox.Root>
+                            </Table.ColumnHeader>
+                        )}
+                        {showRowNumbers && (
+                            <Table.ColumnHeader w="1%" fontSize="md" {...STICKY_HEADER_CELL_PROPS}>#</Table.ColumnHeader>
+                        )}
                         {columns.map((col) => (
                             <Table.ColumnHeader
                                 key={col.key}
                                 textAlign={col.align}
                                 overflow="hidden"
-                                fontSize="16px"
+                                fontSize="md"
                                 aria-sort={ariaSortFor(col, sort)}
+                                {...STICKY_HEADER_CELL_PROPS}
                                 onClick={col.sortable ? () => onSortChange?.(col.key) : undefined}
                                 onKeyDown={
                                     col.sortable
@@ -247,7 +286,25 @@ function DataTable<T>({
                 </Table.Header>
                 <Table.Body>
                     {rows.map((row, rowIndex) => (
-                        <Table.Row key={rowKey(row)}>
+                        // bg.emphasized (Chakra's own default for that token) is
+                        // exactly one step past bg.muted, which is what the
+                        // `striped` variant above already uses for its own
+                        // alternating row background - so hover reads as a
+                        // deliberate further step, not a color unrelated to the
+                        // stripe underneath it.
+                        <Table.Row key={rowKey(row)} _hover={{ bg: "bg.emphasized" }} transition={FAST_HOVER_TRANSITION}>
+                            {selectable && (
+                                <Table.Cell>
+                                    <Checkbox.Root
+                                        checked={selectedKeys?.has(rowKey(row)) ?? false}
+                                        onCheckedChange={() => toggleRow(rowKey(row))}
+                                        aria-label={t("selectRow")}
+                                    >
+                                        <Checkbox.HiddenInput />
+                                        <Checkbox.Control />
+                                    </Checkbox.Root>
+                                </Table.Cell>
+                            )}
                             {showRowNumbers && (
                                 <Table.Cell color="fg.muted">{formatNumber((startIndex as number) + rowIndex + 1, language)}</Table.Cell>
                             )}
@@ -274,7 +331,8 @@ function DataTable<T>({
                     ))}
                 </Table.Body>
             </Table.Root>
-        </Table.ScrollArea>
+            </Table.ScrollArea>
+        </>
     );
 }
 

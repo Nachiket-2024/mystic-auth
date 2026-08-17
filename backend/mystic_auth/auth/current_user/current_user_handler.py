@@ -70,19 +70,12 @@ class CurrentUserHandler:
             policies = await policy_repository.get_active_policies_for_user(user.email, db)
             permissions = {action for policy in policies for action in (policy.actions or [])}
 
-            # From the best-effort Postgres mirror (user_sessions), not
-            # Redis: real token validity is governed by version counters
-            # now (jwt_service.py), which have no "list every live session"
-            # operation of their own - a version number says whether ONE
-            # presented token is still current, not how many exist.
-            #
-            # Only computed for GET /auth/me (include_active_sessions=True),
-            # not for this same method's other caller, the shared
-            # get_current_user dependency behind nearly every protected
-            # route: that field is only ever read from the /auth/me
-            # response, so every other route was paying for a query whose
-            # result it never used. See docs/mystic_auth/authentication/
-            # session-management.md#active-session-count-on-authme.
+            # From the best-effort Postgres mirror (user_sessions), not Redis:
+            # version counters (jwt_service.py) govern real token validity but
+            # can't list live sessions. Only computed when include_active_sessions
+            # is True (i.e. for GET /auth/me), since every other protected route
+            # via get_current_user never reads this field. See
+            # docs/mystic_auth/authentication/session-management.md#active-session-count-on-authme.
             active_sessions = (
                 await session_service.count_active_sessions(db, user.email) if include_active_sessions else 0
             )

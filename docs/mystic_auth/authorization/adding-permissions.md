@@ -16,7 +16,7 @@ Naming convention: `"<resource>:<action>[_<scope>]"`: e.g. `USERS_UPDATE_OWN` vs
 
 ### A note on scope
 
-Every member of `Permission` is treated as one of this app's own **known-sensitive actions**: see `AuthorizationService.assert_authorized_to_grant`'s `_KNOWN_SENSITIVE_ACTIONS` set, which is derived directly from this enum. Adding a permission here means:
+Every member of `Permission` is treated as one of this app's own **known-sensitive actions**: see `AuthorizationService.assert_authorized_to_grant`'s `_KNOWN_SENSITIVE_ACTIONS` set, which is derived directly from this enum. The check itself lives in `authorization/services/authorization_grant_guard.py::assert_authorized_to_grant`, a module-level function (kept out of `authorization_service.py` to avoid a circular import); `AuthorizationService` re-exposes it as a static method purely so every call site can keep saying `authorization_service.assert_authorized_to_grant(...)`. Adding a permission here means:
 
 - It's subject to the privilege-escalation guard: a caller can never create/update/assign a policy granting this action unless they already hold it themselves.
 - It's meant for **this application's own identity/authorization concerns** (user management, policy management). A downstream project's own business-domain actions (e.g. `"documents:view"`, `"projects:create"`) do **not** need to go in this enum at all: policies can grant arbitrary action strings freely, and only strings actually listed in `Permission` are escalation-guarded. Only add an enum member here if the action is sensitive enough that you want that guard to apply.

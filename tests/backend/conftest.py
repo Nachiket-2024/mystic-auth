@@ -72,14 +72,20 @@ if "REDIS_URL" not in os.environ:
 
 # ---------------------------- Imports (after env overrides above) ----------------------------
 import pytest_asyncio
-from backend.app.main import app
-from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
+
+from backend.app.main import app
+from backend.mystic_auth.database.connection import database
+from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.taskiq_tasks.email_tasks import (
+    broker,
+    result_backend,
+    schedule_source,
+)
 
 # pytest-asyncio hands each test function its own event loop, but
 # `database.engine`'s connection pool is a module-level singleton shared
@@ -106,6 +112,19 @@ async def _flush_redis_test_db():
     # Redis: drop pooled connections so the next test (a different loop)
     # opens fresh ones instead of reusing ones bound to this loop.
     await redis_client.connection_pool.disconnect()
+    # taskiq_tasks/email_tasks.py's broker/result_backend/schedule_source
+    # are module-level singletons too, each holding its own Redis
+    # connection pool built at import time, before any test's event loop
+    # exists. A test that triggers a `.kiq()` call (e.g. via the
+    # verify-account/signup flow) binds that pool to its own loop; without
+    # disconnecting here, the next such test reuses a pool bound to an
+    # already-closed loop and fails with "Future attached to a different
+    # loop" / "Event loop is closed".
+    await broker.connection_pool.disconnect()
+    await result_backend.redis_pool.disconnect()
+    # ListRedisScheduleSource keeps its pool as a "private" attribute,
+    # unlike RedisStreamBroker/RedisAsyncResultBackend above.
+    await schedule_source._connection_pool.disconnect()
 
 
 # ---------------------------- HTTP client ----------------------------

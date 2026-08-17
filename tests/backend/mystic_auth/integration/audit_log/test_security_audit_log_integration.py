@@ -11,6 +11,8 @@ import uuid
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import text
+
 from backend.mystic_auth.auth.verify_account.account_verification_service import (
     account_verification_service,
 )
@@ -25,7 +27,6 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.redis.client import redis_client
 from backend.mystic_auth.user_crud.user_crud_collector import user_crud
-from sqlalchemy import text
 
 PASSWORD = "StrongPass123!"
 

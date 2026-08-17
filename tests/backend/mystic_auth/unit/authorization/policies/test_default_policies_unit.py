@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.authorization.policies import default_policies
 
 MODULE = "backend.mystic_auth.authorization.policies.default_policies"

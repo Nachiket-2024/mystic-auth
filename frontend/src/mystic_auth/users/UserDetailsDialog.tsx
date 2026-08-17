@@ -1,9 +1,10 @@
 import React from "react";
 import { Badge, Button, Dialog, HStack, Portal, Stack, Text } from "@chakra-ui/react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { DIALOG_BACKDROP_PROPS, DIALOG_CONTENT_PROPS } from "../ui/styles/dialogStyles";
-import { SECONDARY_BUTTON_PROPS } from "../ui/styles/buttonStyles";
+import { CLOSE_TRIGGER_PROPS, SECONDARY_BUTTON_PROPS } from "../ui/styles/buttonStyles";
 import { formatDateTime } from "../ui/dateFormat";
 import { useLanguageStore } from "../store/languageStore";
 import type { ManagedUserRead } from "../api/users_api";
@@ -24,7 +25,7 @@ interface DetailRowProps {
  * off, so nothing in it should re-truncate the same content. */
 const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
     <Stack gap={0.5}>
-        <Text fontSize="13px" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" color="fg.muted">
+        <Text fontSize="sm" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" color="fg.muted">
             {label}
         </Text>
         {/* as="div", not Text's default <p>: the Status row's value is an
@@ -32,7 +33,7 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
             nest inside a <p> - this wrapper has to stay block-agnostic
             since every row shares it regardless of what kind of content
             it holds. */}
-        <Text as="div" fontSize="15px" wordBreak="break-word">
+        <Text as="div" fontSize="md" wordBreak="break-word">
             {children}
         </Text>
     </Stack>
@@ -105,7 +106,13 @@ const UserDetailsDialog: React.FC<UserDetailsDialogProps> = ({ isOpen, user, onC
                                 {t("ui_text:close")}
                             </Button>
                         </Dialog.Footer>
-                        <Dialog.CloseTrigger />
+                        {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
+                            (unlike v2) - without explicit children it was an empty
+                            0x0 button, invisible to every user, not just screen
+                            readers (axe-core button-name audit). */}
+                        <Dialog.CloseTrigger aria-label={t("ui_text:closeDialog")} {...CLOSE_TRIGGER_PROPS}>
+                            <X size={16} aria-hidden="true" />
+                        </Dialog.CloseTrigger>
                     </Dialog.Content>
                 </Dialog.Positioner>
             </Portal>

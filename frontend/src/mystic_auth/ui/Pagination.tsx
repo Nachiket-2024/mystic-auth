@@ -3,7 +3,8 @@ import { Button, HStack, Text } from "@chakra-ui/react";
 import type { StackProps } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
-import { BRAND_SOLID_HOVER_PROPS, FAST_HOVER_TRANSITION } from "./styles/buttonStyles";
+import { BRAND_SOLID_HOVER_PROPS } from "./styles/buttonStyles";
+import { FAST_HOVER_TRANSITION } from "../theme/system";
 import { useLanguageStore } from "../store/languageStore";
 import { formatNumber } from "../translations/numerals";
 
@@ -85,7 +86,10 @@ function buildPageList(page: number, totalPages: number, siblingCount = 1): (num
  */
 const Pagination: React.FC<PaginationProps> = ({ page, totalPages, onPageChange, ...rest }) => {
     const { t } = useTranslation("ui_text");
-    const language = useLanguageStore((s) => s.pageLanguage);
+    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
+    // even in a mixed "en+hi" mode, the same way dates already do (see
+    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    const language = useLanguageStore((s) => s.chromeLanguage);
     const pages = buildPageList(page, Math.max(1, totalPages));
 
     return (

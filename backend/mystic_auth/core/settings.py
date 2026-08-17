@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     BACKEND_BASE_URL: str                           # Used to build auth redirect URLs back from the frontend
     FRONTEND_BASE_URL: str                          # Primary frontend origin, used to build redirect/email links (OAuth callback, verification, password reset), and always CORS-allowed
-    FRONTEND_ADDITIONAL_BASE_URLS: str = ""          # Optional, comma-separated extra CORS-allowed origins (e.g. a second domain, staging alongside prod). Never used for redirect/email links: those always point at FRONTEND_BASE_URL alone, so there's one canonical link target regardless of how many origins are CORS-allowed.
+    FRONTEND_ADDITIONAL_BASE_URLS: str              # Optional, comma-separated extra CORS-allowed origins (e.g. a second domain, staging alongside prod). Empty string = none. Never used for redirect/email links: those always point at FRONTEND_BASE_URL alone, so there's one canonical link target regardless of how many origins are CORS-allowed.
 
     DATABASE_URL: str                               # Async PostgreSQL connection URL
     POSTGRES_USER: str
@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_MINUTES: int
     JWT_ALGORITHM: str
     RESET_TOKEN_EXPIRE_MINUTES: int
+    ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES: int        # OAuth-only self-service account-deletion confirmation link lifetime, in minutes. See user_lifecycle/account_deletion_service.py.
 
     GOOGLE_CLIENT_ID: str                           # OAuth2 credentials for Gmail login
     GOOGLE_CLIENT_SECRET: str
@@ -29,10 +30,10 @@ class Settings(BaseSettings):
 
     FROM_EMAIL: str                                 # Email address used to send verification/password-reset emails
     GMAIL_APP_PASSWORD: str                         # Gmail App password for the FROM_EMAIL account
-    SUPPORT_EMAIL: str = ""                         # Reply-to/contact address shown in email footers (defaults to FROM_EMAIL if unset)
+    SUPPORT_EMAIL: str                              # Reply-to/contact address shown in email footers. Empty string falls back to FROM_EMAIL.
 
-    SMTP_HOST: str = "smtp.gmail.com"               # SMTP server host (defaulted to Gmail so existing .env files keep working; override to point emails/email_sender.py at another provider)
-    SMTP_PORT: int = 587                            # SMTP server port (587 = STARTTLS, Gmail's default)
+    SMTP_HOST: str                                  # SMTP server host (e.g. smtp.gmail.com)
+    SMTP_PORT: int                                  # SMTP server port (587 = STARTTLS, Gmail's default)
 
     APP_NAME: str                                    # Product name shown in email branding and API responses
 
@@ -43,30 +44,25 @@ class Settings(BaseSettings):
     MAX_REQUESTS_PER_WINDOW: int                    # Rate limit: max requests per window
     REQUEST_WINDOW_SECONDS: int                     # Rate limit window size, in seconds
 
-    LOG_LEVEL: str = "INFO"                         # Application log level (defaulted so existing .env files/CI keep working)
+    LOG_LEVEL: str                                  # Application log level (e.g. INFO)
 
-    ENVIRONMENT: str = "development"                # "development" or "production" (defaulted so existing .env files/CI keep working); gates docs/redoc exposure in main.py
+    ENVIRONMENT: str                                # "development" or "production"; gates docs/redoc exposure in main.py
 
-    TRUSTED_PROXY_IPS: str = ""                     # Comma-separated reverse proxy IPs to trust X-Forwarded-For from (see auth/security/client_ip.py). Empty (default) = never trust it, use request.client.host as-is.
+    TRUSTED_PROXY_IPS: str                          # Comma-separated reverse proxy IPs to trust X-Forwarded-For from (see auth/security/client_ip.py). Empty string = never trust it, use request.client.host as-is.
 
-    SENTRY_DSN: str = ""                            # Optional. Sentry-protocol error-monitoring DSN (works with Sentry itself, or a self-hosted Sentry-SDK-compatible server like Bugsink; see docs/mystic_auth/error-monitoring/overview.md). Empty (default) = error monitoring disabled entirely, no SDK call is ever made.
-    SENTRY_ENVIRONMENT: str = ""                    # Optional. Tag reported alongside every event (e.g. "production", "staging"). Falls back to ENVIRONMENT if unset.
+    SENTRY_DSN: str                                 # Optional. Sentry-protocol error-monitoring DSN (works with Sentry itself, or a self-hosted Sentry-SDK-compatible server like Bugsink; see docs/mystic_auth/error-monitoring/overview.md). Empty string = error monitoring disabled entirely, no SDK call is ever made.
+    SENTRY_ENVIRONMENT: str                         # Optional. Tag reported alongside every event (e.g. "production", "staging"). Empty string falls back to ENVIRONMENT.
 
-    DEFAULT_APP_POLICIES: str = ""                  # Optional, comma-separated policy names auto-assigned to every user once verified, alongside self_service. Empty (default) = self_service only. See authorization/policies/default_policies.py.
+    DEFAULT_APP_POLICIES: str                       # Optional, comma-separated policy names auto-assigned to every user once verified, alongside self_service. Empty string = self_service only. See authorization/policies/default_policies.py.
 
-    # The root .env is shared with docker-compose.yml/docker-compose.prod.yml's
-    # `env_file:` directive, which also passes it to infra-only services
-    # (e.g. REDIS_PASSWORD for redis-server, BUGSINK_* for the optional
-    # monitoring service, see docs/mystic_auth/error-monitoring/overview.md) that
-    # have no corresponding Settings field. pydantic-settings defaults to
-    # extra="forbid", which only actually bites when Settings' own
-    # env_file resolves to a real file, true when running from the repo
-    # root (e.g. tests, which need cwd=/repo to import `backend.app...`),
-    # not when running the app itself (cwd=/app, where a relative
-    # ".env" doesn't resolve to anything, so only explicitly-declared
-    # fields are ever read from the process environment either way).
-    # "ignore" makes both paths behave identically instead of a
-    # test-only crash on any env var this app doesn't itself declare.
+    ACCOUNT_PURGE_GRACE_DAYS: int                   # Days a soft-deleted (deleted_at set) account is kept before the daily taskiq_tasks/account_purge_tasks.py job hard-purges it. See docs/mystic_auth/security/decisions.md#account-lifecycle.
+
+    # The root .env is shared with docker-compose's `env_file:` directive, which
+    # also passes it to infra-only services (REDIS_PASSWORD, BUGSINK_*, etc.)
+    # with no corresponding Settings field. pydantic-settings' default
+    # extra="forbid" would only bite when cwd=/repo (tests), not cwd=/app (the
+    # real app, where the relative ".env" doesn't resolve). "ignore" makes both
+    # paths behave the same instead of a test-only crash on undeclared env vars.
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @field_validator("SECRET_KEY")

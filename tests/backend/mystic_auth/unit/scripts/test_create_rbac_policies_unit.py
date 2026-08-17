@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.scripts.create_rbac_policies import (
     _policy_name_for_role,
     create_rbac_policy,

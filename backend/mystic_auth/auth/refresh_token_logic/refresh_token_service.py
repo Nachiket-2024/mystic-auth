@@ -49,16 +49,12 @@ class RefreshTokenService:
                 )
                 return None
 
-            # Checked before claiming: a token whose embedded account_ver/
-            # chain_ver has already fallen behind was invalidated by an
-            # explicit revoke (logout-all, a password change, a targeted
-            # Manage Sessions revoke), simply stale, not evidence of theft,
-            # so this is a quiet rejection, not reuse-detection. Without
-            # this check, claim_jti_for_rotation alone (which only catches a
-            # jti being redeemed *twice*) would happily rotate a stale-but-
-            # never-yet-used refresh token into a brand new, fully valid
-            # session, defeating the whole point of the revoke that just
-            # happened.
+            # Checked before claiming: a token with a stale account_ver/chain_ver
+            # was invalidated by an explicit revoke, not stolen, so this is a
+            # quiet rejection, not reuse-detection. Without it, claim_jti_for_rotation
+            # alone (which only catches a jti redeemed *twice*) would happily
+            # rotate a stale-but-never-used token into a fresh valid session,
+            # defeating the revoke that just happened.
             if not await jwt_service.is_current_version(payload):
                 return None
 

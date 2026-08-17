@@ -4,6 +4,7 @@ from typing import Any
 
 from redis.exceptions import ConnectionError, ResponseError
 from taskiq import AsyncBroker, SmartRetryMiddleware, TaskiqScheduler
+from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_redis import ListRedisScheduleSource, RedisAsyncResultBackend, RedisStreamBroker
 
 from ..core.settings import settings
@@ -60,7 +61,18 @@ broker: AsyncBroker = ResilientRedisStreamBroker(
     )
 )
 
-scheduler = TaskiqScheduler(broker=broker, sources=[schedule_source])
+# LabelScheduleSource reads the `schedule=[...]` label taskiq_tasks/
+# account_purge_tasks.py's `@broker.task` carries and turns it into a cron
+# trigger; schedule_source above is unrelated (it's SmartRetryMiddleware's
+# per-retry due-time store, not a cron source), so both are needed.
+scheduler = TaskiqScheduler(broker=broker, sources=[schedule_source, LabelScheduleSource(broker)])
+
+# Imported for its side effect: registering account_purge_tasks' labeled
+# task on `broker`. Both docker-compose's taskiq_worker and taskiq_scheduler
+# services point their command at this module (`email_tasks:broker` /
+# `email_tasks:scheduler`), so this is the one place that needs to import it
+# for the scheduled purge job to be visible to either process.
+from . import account_purge_tasks  # noqa: E402,F401
 
 
 @broker.task(retry_on_error=True, max_retries=3)

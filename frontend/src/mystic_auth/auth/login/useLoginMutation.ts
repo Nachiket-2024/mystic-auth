@@ -13,20 +13,12 @@ import type { CurrentUserProfile } from "../current_user/current_user_types";
 import type { LoginRequest } from "./login_types";
 
 // mutationFn logs in, then fetches the fresh profile, so the mutation only
-// resolves once the session is fully confirmed. A plain "invalidate and
-// hope the query refetches in time" would risk a caller reading
-// isAuthenticated before the refetch lands. onSuccess writes straight into
-// the Zustand store and the shared query cache so every consumer
-// (useAuthStore subscribers and the app-level useCurrentUserQuery) is
-// consistent immediately, not after another round trip. Every other
-// "me"-scoped query (sessions, policies, audit history) is also invalidated
-// here: none of them are keyed by email, so without this a stale response
-// cached for whoever was last logged in in this tab could otherwise show
-// through for this account too, until its own staleTime happened to expire.
-// This also covers what useSessionEventsStream's SSE nudge would eventually
-// do anyway: that connection only opens once isAuthenticated flips true (see
-// App.tsx), i.e. after this same onSuccess runs, so this tab's own login
-// would otherwise miss the very event meant to tell it about itself.
+// resolves once the session is fully confirmed (a plain "invalidate and hope
+// the refetch lands in time" risks a caller reading isAuthenticated too
+// early). onSuccess also invalidates every other "me"-scoped query (sessions,
+// policies, audit history): none are keyed by email, so without this a stale
+// response cached for whoever was last logged in in this tab could show
+// through for the new account until its own staleTime expired.
 export function useLoginMutation() {
     return useMutation<CurrentUserProfile, Error, LoginRequest>({
         mutationFn: async (payload) => {

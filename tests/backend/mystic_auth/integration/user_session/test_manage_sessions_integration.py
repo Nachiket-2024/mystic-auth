@@ -9,14 +9,15 @@ import uuid
 
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+
 from backend.app.main import app
 from backend.mystic_auth.auth.verify_account.account_verification_service import (
     account_verification_service,
 )
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.redis.client import redis_client
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
 
 PASSWORD = "StrongPass123!"
 

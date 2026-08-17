@@ -1,9 +1,6 @@
-// Chakra's default recipe transition (~200ms) reads as sluggish for
-// something as immediate as a hover response, across every button style
-// below (and TableActionButton.tsx's own copy of this same value) - shared
-// here so the "snappy" feel stays identical everywhere instead of each
-// button style drifting to its own duration.
-export const FAST_HOVER_TRANSITION = "background-color 0.1s ease, border-color 0.1s ease, color 0.1s ease";
+// Tokenized in theme/system.ts (durations.hover / easings.hover), so it's
+// overridable from app/theme.ts the same way brand colors are.
+import { FAST_HOVER_TRANSITION } from "../../theme/system";
 
 // Solid variant's default hover is only colorPalette.solid at 90% opacity -
 // too subtle a shift to read as a hover state (originally fixed one-off on
@@ -62,18 +59,46 @@ export const SECONDARY_BUTTON_PROPS = {
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Navbar's icon-only controls (theme toggle, mobile menu toggle).
-// variant="ghost" is invisible until hovered - no border, no background - so
-// against Navbar's own bg.surface these read as bare icons, not controls,
-// same issue SECONDARY_BUTTON_PROPS fixes for text buttons. Same solid-fill
-// hover as SECONDARY_BUTTON_PROPS above (still includes a hover text color:
-// ThemeToggle's/Navbar's glyphs are plain characters, not colored emoji
-// images, so they do pick up `color`).
+// Navbar's icon-only controls (theme toggle, mobile menu toggle), also
+// reused by AuthLayout's font/language/theme cluster. variant="ghost" is
+// invisible until hovered - no border, no background - so against either
+// host background these read as bare icons, not controls, same issue
+// SECONDARY_BUTTON_PROPS fixes for text buttons. Light-mode bg is gray.200,
+// not gray.100: Navbar/Sidebar sit on bg.surface (white) where gray.100
+// stands out fine, but AuthLayout sits directly on bg.canvas, which *is*
+// gray.100 - the old value made the button fill and page background
+// identical, leaving only a 1px border to signal "control" on every auth
+// page. gray.200 reads as a distinct step against both white and gray.100.
+// Same solid-fill hover as SECONDARY_BUTTON_PROPS above (still includes a
+// hover text color: ThemeToggle's/Navbar's glyphs are plain characters, not
+// colored emoji images, so they do pick up `color`).
 export const ICON_BUTTON_PROPS = {
     variant: "plain" as const,
     borderWidth: "1px",
     borderColor: "gray.500",
-    bg: "gray.100",
+    bg: "gray.200",
+    _hover: { bg: "gray.600", borderColor: "gray.700", color: "white" },
+    _dark: {
+        borderColor: "gray.500",
+        bg: "gray.700",
+        _hover: { bg: "gray.300", borderColor: "gray.300", color: "gray.900" },
+    },
+    transition: FAST_HOVER_TRANSITION,
+};
+
+// Dialog.CloseTrigger (the X in the corner of every dialog) ships with no
+// visual state of its own - no border, no background, and its hover is
+// just a barely-there opacity shift, same class of "doesn't read as a
+// control" issue ICON_BUTTON_PROPS/SECONDARY_BUTTON_PROPS fix for their own
+// controls. Same solid-fill treatment, sized down (padding/borderRadius)
+// since this button is icon-only and sits inline with the dialog title
+// rather than in a footer.
+export const CLOSE_TRIGGER_PROPS = {
+    borderWidth: "1px",
+    borderColor: "gray.500",
+    bg: "gray.200",
+    borderRadius: "md",
+    p: "1.5",
     _hover: { bg: "gray.600", borderColor: "gray.700", color: "white" },
     _dark: {
         borderColor: "gray.500",

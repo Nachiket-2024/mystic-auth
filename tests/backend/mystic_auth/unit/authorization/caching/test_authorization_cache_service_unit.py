@@ -8,6 +8,7 @@ import json
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.authorization.caching.authorization_cache_service import (
     _user_policies_key,
     authorization_cache_service,

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import jwt as pyjwt
 import pytest
+
 from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
 from backend.mystic_auth.core.settings import settings
 
@@ -195,10 +196,11 @@ async def test_verify_token_without_expected_type_skips_type_check(mocker):
 
 @pytest.mark.asyncio
 async def test_current_user_handler_requires_access_type(mocker):
+    from fastapi import HTTPException
+
     from backend.mystic_auth.auth.current_user.current_user_handler import (
         current_user_handler,
     )
-    from fastapi import HTTPException
 
     verify_mock = mocker.patch(
         "backend.mystic_auth.auth.current_user.current_user_handler.jwt_service.verify_token",

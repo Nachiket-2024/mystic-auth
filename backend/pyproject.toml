@@ -13,7 +13,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app", "mystic_auth"]
+known-first-party = ["app", "mystic_auth", "backend"]
 
 [tool.ruff.lint.per-file-ignores]
 # Interactive CLI entrypoints run via `python -m`, outside an app event loop.

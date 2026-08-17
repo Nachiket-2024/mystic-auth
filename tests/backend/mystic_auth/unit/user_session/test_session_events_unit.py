@@ -3,6 +3,7 @@ import json
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.user_session.session_events import (
     publish_session_revoked,
     session_event_stream,

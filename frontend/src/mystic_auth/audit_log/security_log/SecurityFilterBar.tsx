@@ -24,7 +24,7 @@ const SecurityFilterBar: React.FC<SecurityFilterBarProps> = ({
     return (
         <HStack gap={3} mb={4} wrap="wrap">
             <StyledSelect
-                w="220px"
+                w="56"
                 ariaLabel={t("security.filterBar.filterByEvent")}
                 value={eventType}
                 onChange={setEventType}
@@ -39,12 +39,12 @@ const SecurityFilterBar: React.FC<SecurityFilterBarProps> = ({
                 aria-label={t("security.filterBar.filterByIpAddress")}
                 value={ipAddress}
                 onChange={(e) => setIpAddress(e.target.value)}
-                w="160px"
+                w="40"
                 {...SEARCH_INPUT_PROPS}
             />
 
             <StyledSelect
-                w="140px"
+                w="36"
                 ariaLabel={t("security.filterBar.filterByResult")}
                 value={success}
                 onChange={setSuccess}

@@ -5,6 +5,7 @@
 # batches rejected before evaluation, and a denied result never leaks
 # which policy was involved.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
 )

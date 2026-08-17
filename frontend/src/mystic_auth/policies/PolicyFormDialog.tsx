@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { Button, Dialog, Field, Input, Portal, Stack, Textarea } from "@chakra-ui/react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { PolicyRead } from "../api/policies_api";
 import FormAlert from "../ui/FormAlert";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { DIALOG_BACKDROP_PROPS, DIALOG_CONTENT_PROPS } from "../ui/styles/dialogStyles";
-import { BRAND_SOLID_HOVER_PROPS, SECONDARY_BUTTON_PROPS } from "../ui/styles/buttonStyles";
+import { BRAND_SOLID_HOVER_PROPS, CLOSE_TRIGGER_PROPS, SECONDARY_BUTTON_PROPS } from "../ui/styles/buttonStyles";
 
 export interface PolicyFormValues {
     name: string;
@@ -214,7 +215,13 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
                                     {policy ? t("policies:formDialog.saveChanges") : t("policies:formDialog.createPolicy")}
                                 </Button>
                             </Dialog.Footer>
-                            <Dialog.CloseTrigger />
+                            {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
+                                (unlike v2) - without explicit children it was an empty
+                                0x0 button, invisible to every user, not just screen
+                                readers (axe-core button-name audit). */}
+                            <Dialog.CloseTrigger aria-label={t("ui_text:closeDialog")} {...CLOSE_TRIGGER_PROPS}>
+                                <X size={16} aria-hidden="true" />
+                            </Dialog.CloseTrigger>
                         </Dialog.Content>
                     </Dialog.Positioner>
                 </Portal>

@@ -5,8 +5,9 @@
 # pbac_routes/ modules (Phase 6 architecture cleanup) : pinning its two
 # behaviors directly guards every route that now depends on it.
 import pytest
-from backend.mystic_auth.api.get_or_404.get_or_404 import get_or_404
 from fastapi import HTTPException
+
+from backend.mystic_auth.api.get_or_404.get_or_404 import get_or_404
 
 
 async def _fetch(value):

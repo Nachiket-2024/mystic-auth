@@ -10,6 +10,7 @@
 import uuid
 
 import pytest_asyncio
+
 from backend.mystic_auth.auth.verify_account.account_verification_service import (
     account_verification_service,
 )

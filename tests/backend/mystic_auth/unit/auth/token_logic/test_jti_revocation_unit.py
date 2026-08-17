@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
 
 MODULE = "backend.mystic_auth.auth.token_logic.jwt_service"
@@ -92,6 +93,7 @@ async def test_verify_token_rejects_when_jti_is_already_claimed(mocker):
     token = await jwt_service.create_refresh_token(email="user@example.com", chain_id="chain-1")
 
     import jwt as pyjwt
+
     from backend.mystic_auth.core.settings import settings
     payload = pyjwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
 

@@ -58,7 +58,7 @@ See [Database Design: migrations](../database/design.md#migrations). No `create_
 
 ## 4. Grant access via a policy, not a role
 
-Nothing above grants anyone access by itself. `require_authorization` only checks whether the caller holds an active policy covering `("projects:read", "projects")`. Create one (via `/policies` in the UI, or the `POST /authorization/policies/` API) and assign it to whichever users/roles should see this data. See [Policy JSON Examples](../authorization/policy-examples.md) if you want a template to start from.
+Nothing above grants anyone access by itself. `require_authorization` only checks whether the caller holds an active policy covering `("projects:read", "projects")`. Create one (via `/policies` in the UI, or the `POST /authorization/policies` API) and assign it to whichever users/roles should see this data. See [Policy JSON Examples](../authorization/policy-examples.md) if you want a template to start from.
 
 ---
 
@@ -81,8 +81,8 @@ export default ProjectsPage;
 
 ```tsx
 // frontend/src/app/App.tsx, add the route
-import { AppLayout, ProtectedRoute, type NavItem } from "./sdk";
-const ProjectsPage = lazy(() => import("./projects/ProjectsPage"));
+import { AppLayout, ProtectedRoute, trackedLazy, type NavItem } from "./sdk";
+const ProjectsPage = trackedLazy(() => import("./projects/ProjectsPage"));
 
 const EXTRA_NAV_ITEMS: NavItem[] = [
     { label: "Projects", to: "/projects", permission: APP_PERMISSIONS.PROJECTS_READ },
@@ -99,3 +99,35 @@ const EXTRA_NAV_ITEMS: NavItem[] = [
 ```
 
 That's the whole loop: a gated backend route, a migration for its table, a policy that actually grants access, and a frontend page that's route-protected and only advertised in the sidebar to callers who can see it. Every other domain you add follows the same five steps.
+
+---
+
+## 6. A pre-auth landing page
+
+`/projects` above lives *inside* the authenticated app shell (`AppLayout`, `ProtectedRoute`). Not every page does - a marketing/landing page at `/` needs to render before login, with no sidebar, no nav item, and no permission check. `frontend/src/app/landing_page/LandingPage.tsx` is the reference example for this second shape: a plain page, route-mounted directly, that only reads from `../sdk` (here, `useAuthStore` to bounce an already-signed-in visitor straight to `/dashboard`, and `APP_NAME` for the header - the same values `LoginPage`/`SignupPage` use).
+
+```tsx
+// frontend/src/app/landing_page/LandingPage.tsx
+import { Navigate } from "react-router";
+import { useAuthStore, APP_NAME } from "../sdk";
+
+const LandingPage: React.FC = () => {
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+
+    return <>{/* hero, pitch, CTAs into /signup and /login */}</>;
+};
+
+export default LandingPage;
+```
+
+```tsx
+// frontend/src/app/App.tsx: "/" mounts LandingPage directly, no AppLayout/
+// ProtectedRoute wrapper, and no NavItem - a landing page isn't a
+// sidebar destination.
+const LandingPage = trackedLazy(() => import("./landing_page/LandingPage"));
+// inside <Routes>:
+<Route path="/" element={<LandingPage />} />
+```
+
+Any other pre-auth or chrome-free page (a public status page, a docs page embedded in the app, an unsubscribe-confirmation page) follows this same shape: its own directory under `app/`, mounted as a bare `<Route>`, reading only what it needs from `../sdk`.

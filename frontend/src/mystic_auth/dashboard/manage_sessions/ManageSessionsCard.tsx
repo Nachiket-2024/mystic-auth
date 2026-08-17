@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Badge, Heading, HStack, Text } from "@chakra-ui/react";
 import type { CardRootProps } from "@chakra-ui/react";
+import { MonitorOff } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 
@@ -77,7 +78,7 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
         {
             key: "device",
             header: t("manageSessions.deviceColumn"),
-            width: "220px",
+            width: "13.75rem",
             render: (s) => {
                 const label = parseUserAgent(s.user_agent);
                 return (
@@ -94,29 +95,29 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
                 );
             },
         },
-        { key: "ip_address", header: t("manageSessions.ipColumn"), width: "140px", truncate: true, render: (s) => s.ip_address ?? t("manageSessions.ipUnknown") },
+        { key: "ip_address", header: t("manageSessions.ipColumn"), width: "8.75rem", truncate: true, render: (s) => s.ip_address ?? t("manageSessions.ipUnknown") },
         {
             key: "created_at",
             header: t("manageSessions.signedInColumn"),
-            width: "190px",
+            width: "11.875rem",
             truncate: true,
             // Matches the enlarged date stats in the Welcome card right
             // above this table - the table's own default cell text
             // read noticeably smaller sitting directly under those.
-            render: (s) => <Text fontSize="15px">{formatDateTime(s.created_at, language)}</Text>,
+            render: (s) => <Text fontSize="md">{formatDateTime(s.created_at, language)}</Text>,
         },
         {
             key: "last_used_at",
             header: t("manageSessions.lastSeenColumn"),
-            width: "190px",
+            width: "11.875rem",
             truncate: true,
-            render: (s) => <Text fontSize="15px">{formatDateTime(s.last_used_at, language)}</Text>,
+            render: (s) => <Text fontSize="md">{formatDateTime(s.last_used_at, language)}</Text>,
         },
         {
             key: "row_actions",
             header: "",
             align: "end",
-            width: "110px",
+            width: "6.875rem",
             render: (s) => (
                 <TableActionButton
                     colorPalette="red"
@@ -133,8 +134,8 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
     ];
 
     return (
-        <Card p={6} {...cardProps}>
-            <Heading as="h2" size="md" mb={4}>
+        <Card p="density.cardPadding" {...cardProps}>
+            <Heading as="h2" size="md" mb={4} textStyle="sectionHeader">
                 {t("manageSessions.heading")}
             </Heading>
 
@@ -146,6 +147,7 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
                 isError={isError}
                 errorMessage={t("manageSessions.errorLoadSessions")}
                 emptyMessage={t("manageSessions.noActiveSessions")}
+                emptyIcon={<MonitorOff size={32} aria-hidden="true" />}
                 startIndex={0}
             />
 

@@ -4,19 +4,12 @@ import { getMySessionsApi } from "../../api/auth_api";
 
 export const SESSIONS_QUERY_KEY = ["sessions", "me"] as const;
 
-// Same reasoning as useCurrentUserQuery's own REVALIDATE_INTERVAL_MS: this
-// card only fetches once on mount otherwise, then relies on the shared 30s
-// staleTime plus whatever happens to trigger a refetch (window focus, a
-// revoke mutation invalidating it). Logging in on another device doesn't
-// invalidate this query at all, so without a poll of its own the list could
-// sit showing an old device count well after the "Active sessions" stat
-// above it (which does poll) had already moved on - the two visibly
-// disagreeing until something else happened to refresh this one.
-//
-// This is a fallback, not the primary mechanism - useSessionEventsStream.ts
-// (SSE) invalidates this query in real time whenever a session actually
-// changes, so this poll only needs to cover the rare case that connection
-// silently drops.
+// Same reasoning as useCurrentUserQuery's own REVALIDATE_INTERVAL_MS: logging
+// in on another device doesn't invalidate this query, so without its own poll
+// the list could sit showing a stale device count after the "Active sessions"
+// stat above it (which does poll) had already moved on. This is just a
+// fallback: useSessionEventsStream.ts (SSE) invalidates it in real time, so
+// this poll only needs to cover a silently dropped connection.
 const REVALIDATE_INTERVAL_MS = 2 * 60 * 1000;
 
 /** The current user's own active login sessions (Manage Sessions card),

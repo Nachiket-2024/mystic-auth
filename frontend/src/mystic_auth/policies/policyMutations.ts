@@ -68,6 +68,12 @@ export function useDeletePolicyMutation() {
     });
 }
 
+/**
+ * useAssignPolicyMutation / useRevokePolicyMutation
+ * ----------------------------
+ * Invalidates UserPoliciesDialog's cached policy list on success so it
+ * reflects the backend's confirmed state.
+ */
 export function useAssignPolicyMutation() {
     return useMutation<unknown, Error, { userEmail: string; policyName: string }>({
         mutationFn: async ({ userEmail, policyName }) => {

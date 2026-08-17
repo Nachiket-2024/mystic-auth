@@ -11,6 +11,7 @@ import statistics
 import time
 
 import pytest
+
 from backend.mystic_auth.auth.password_logic.password_service import (
     password_service,
 )

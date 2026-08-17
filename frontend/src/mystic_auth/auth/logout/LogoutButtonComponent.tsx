@@ -29,8 +29,8 @@ const LogoutButtonComponent: React.FC<LogoutButtonComponentProps> = ({
                 {...DESTRUCTIVE_SOLID_HOVER_PROPS}
                 color="white"
                 size="lg"
-                w="160px"
-                h="40px"
+                w="40"
+                h="10"
             >
                 {t("logout.logoutButton")}
             </Button>

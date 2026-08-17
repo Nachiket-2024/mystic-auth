@@ -14,14 +14,14 @@ import { formatTimestamp } from "../auditLogListConfig";
 // via the caller's own useTranslation("audit_log") `t`.
 export function getAuthorizationColumns(t: TFunction<"audit_log">, language: SupportedLanguage): DataTableColumn<AuthorizationAuditLogEntryRead>[] {
     return [
-        { key: "created_at", header: t("authorization.columns.when"), width: "190px", truncate: true, render: (e) => formatTimestamp(e.created_at, language), sortable: true },
-        { key: "user_email", header: t("authorization.columns.user"), width: "26%", truncate: true, render: (e) => e.user_email, sortable: true },
-        { key: "action", header: t("authorization.columns.action"), width: "22%", truncate: true, render: (e) => e.action, sortable: true },
-        { key: "resource_type", header: t("authorization.columns.resource"), width: "150px", truncate: true, render: (e) => e.resource_type, sortable: true },
+        { key: "created_at", header: t("authorization.columns.when"), width: "11.875rem", truncate: true, render: (e) => formatTimestamp(e.created_at, language), sortable: true },
+        { key: "user_email", header: t("authorization.columns.user"), width: "16rem", truncate: true, render: (e) => e.user_email, sortable: true },
+        { key: "action", header: t("authorization.columns.action"), width: "14rem", truncate: true, render: (e) => e.action, sortable: true },
+        { key: "resource_type", header: t("authorization.columns.resource"), width: "9.375rem", truncate: true, render: (e) => e.resource_type, sortable: true },
         {
             key: "allowed",
             header: t("authorization.columns.result"),
-            width: "120px",
+            width: "7.5rem",
             render: (e) => (
                 <Badge colorPalette={e.allowed ? "green" : "red"} size="md">
                     {e.allowed ? t("authorization.results.allowed") : t("authorization.results.denied")}

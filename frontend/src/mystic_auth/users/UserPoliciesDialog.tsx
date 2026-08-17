@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Badge, Box, Button, Dialog, HStack, Portal, Stack, Text, Wrap } from "@chakra-ui/react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useUserPoliciesQuery, usePoliciesQuery } from "../policies/policyQueries";
@@ -13,7 +14,8 @@ import { IfCan } from "../authorization/IfCan";
 import { PERMISSIONS } from "../authorization/permissions";
 import { useAuthStore } from "../store/authStore";
 import { DIALOG_BACKDROP_PROPS, DIALOG_CONTENT_PROPS } from "../ui/styles/dialogStyles";
-import { BRAND_SOLID_HOVER_PROPS, SECONDARY_BUTTON_PROPS } from "../ui/styles/buttonStyles";
+import { BRAND_SOLID_HOVER_PROPS, CLOSE_TRIGGER_PROPS, SECONDARY_BUTTON_PROPS } from "../ui/styles/buttonStyles";
+import { FAST_HOVER_TRANSITION } from "../theme/system";
 
 interface UserPoliciesDialogProps {
     isOpen: boolean;
@@ -36,14 +38,11 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
     const [revokingPolicy, setRevokingPolicy] = useState<string | null>(null);
 
     // Reset on every open (same "adjust during render" pattern as
-    // PolicyFormDialog.tsx, not an effect, to avoid an extra render).
-    // Without this, closing the dialog mid-flow - e.g. clicking a policy
-    // into `selectedPolicy` then dismissing via backdrop/Escape without
-    // clicking Assign, or clicking "Revoke" on one user then dismissing
-    // without confirming - leaves that state behind. Reopening for a
-    // DIFFERENT user then either pre-selects a stale policy in the Assign
-    // dropdown, or immediately pops the revoke ConfirmDialog describing
-    // the wrong user with no click needed to summon it.
+    // PolicyFormDialog.tsx, not an effect, to avoid an extra render). Without
+    // this, dismissing the dialog mid-flow (e.g. via backdrop/Escape without
+    // confirming) leaves stale state behind, so reopening for a different
+    // user could pre-select a stale policy or pop the revoke confirm dialog
+    // unprompted, describing the wrong user.
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     if (isOpen !== prevIsOpen) {
         setPrevIsOpen(isOpen);
@@ -154,8 +153,17 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
                                                                 revokeMutation.isPending &&
                                                                 revokeMutation.variables?.policyName === p.name
                                                             }
+                                                            // Plain ghost is invisible at rest and its stock hover is
+                                                            // too faint against the brand badge it sits in - same
+                                                            // "reads as a static glyph, not a button" issue
+                                                            // ICON_BUTTON_PROPS/PasswordInput's toggle fix elsewhere.
+                                                            // Red tint (not gray) since this is the destructive
+                                                            // revoke action, echoing TableActionButton's red palette.
+                                                            _hover={{ bg: "red.100", color: "fg.error" }}
+                                                            _dark={{ _hover: { bg: "red.900" } }}
+                                                            transition={FAST_HOVER_TRANSITION}
                                                         >
-                                                            ✕
+                                                            <X size={12} aria-hidden="true" />
                                                         </Button>
                                                     </IfCan>
                                                 </HStack>
@@ -197,7 +205,13 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
                                 {t("ui_text:close")}
                             </Button>
                         </Dialog.Footer>
-                        <Dialog.CloseTrigger />
+                        {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
+                            (unlike v2) - without explicit children it was an empty
+                            0x0 button, invisible to every user, not just screen
+                            readers (axe-core button-name audit). */}
+                        <Dialog.CloseTrigger aria-label={t("ui_text:closeDialog")} {...CLOSE_TRIGGER_PROPS}>
+                            <X size={16} aria-hidden="true" />
+                        </Dialog.CloseTrigger>
                     </Dialog.Content>
                 </Dialog.Positioner>
             </Portal>
@@ -206,7 +220,7 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
                 just loses whatever that policy granted, no undo) - every
                 other destructive action in the app (delete/purge a user,
                 delete a policy) already goes through ConfirmDialog, this
-                one-click "✕" button was the odd one out. */}
+                one-click X button was the odd one out. */}
             <ConfirmDialog
                 isOpen={!!revokingPolicy}
                 title={t("users:policiesDialog.revokeDialogTitle")}

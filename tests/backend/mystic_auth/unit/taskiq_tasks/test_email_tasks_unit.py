@@ -10,13 +10,14 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from redis.exceptions import ConnectionError, ResponseError
+from taskiq import SmartRetryMiddleware
+
 from backend.mystic_auth.taskiq_tasks.email_tasks import (
     ResilientRedisStreamBroker,
     broker,
     send_email_task,
 )
-from redis.exceptions import ConnectionError, ResponseError
-from taskiq import SmartRetryMiddleware
 
 MODULE = "backend.mystic_auth.taskiq_tasks.email_tasks"
 

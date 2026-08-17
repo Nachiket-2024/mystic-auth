@@ -14,13 +14,10 @@ import { toaster } from "../../ui/toaster/toasterInstance";
 import { getPendingSessionRotation, wasSessionRecentlyRotated } from "./sessionRotationGuard";
 
 // Marks a request as already retried once (post-refresh) so it can't be retried again. Without
-// this, a request that still 401s right after a successful refresh (e.g. the refresh rotated the
-// session for a *different*, stale reason) would loop forever between "refresh" and "retry".
-//
-// _retriedAfterRotation is a second, independent one-shot: see the pendingRotation branch below.
-// It can't reuse _retriedAfterRefresh, since that flag is what gates entry into this whole block -
-// reusing it would make the rotation-wait retry look like a second, disallowed pass instead of one
-// extra chance.
+// this, a request that still 401s right after a successful refresh would loop forever between
+// "refresh" and "retry". _retriedAfterRotation is a second, independent one-shot for the
+// pendingRotation branch below; it can't reuse _retriedAfterRefresh, since that flag is what
+// gates entry into this whole block.
 interface RetryableRequestConfig extends AxiosRequestConfig {
     _retriedAfterRefresh?: boolean;
     _retriedAfterRotation?: boolean;
@@ -111,27 +108,20 @@ export function setupAuthInterceptor(): void {
             }
 
             // Before giving up, check whether a session-rotating request (e.g. the
-            // account-settings password change) is still in flight: its account-wide
-            // Redis version bump can make even a currently-valid cookie look stale for
-            // the brief window before its own response lands with fresh ones (see
-            // sessionRotationGuard.ts). Deliberately NOT gated by isEligibleForRefresh -
-            // this must also catch POST /auth/refresh's own 401, since that endpoint is
-            // excluded from the block above (refreshing a refresh call would otherwise
-            // loop) and would otherwise fall straight through to the terminal branch
-            // below on the very first lost race, before the retry above ever gets a
-            // chance to matter. One extra attempt at the SAME request after the rotation
-            // settles (not another refresh - if this request WAS the refresh call, that
-            // would just repeat the race) tells a real session death (still 401s) apart
-            // from just having lost that race.
+            // account-settings password change) is still in flight: its account-wide Redis
+            // version bump can make even a currently-valid cookie look stale for the brief
+            // window before its own response lands with fresh ones (sessionRotationGuard.ts).
+            // Deliberately NOT gated by isEligibleForRefresh, since this must also catch
+            // POST /auth/refresh's own 401 (excluded from the block above to avoid looping).
+            // One extra attempt at the SAME request after rotation settles (not another
+            // refresh) tells a real session death apart from just losing that race.
             if (originalRequest && !originalRequest._retriedAfterRotation) {
                 const pendingRotation = getPendingSessionRotation();
-                // Even if the rotation isn't (or is no longer) pending, this 401 might
-                // still belong to a straggler request whose response was already on its
-                // way back with stale cookies when the rotation completed moments ago -
-                // see wasSessionRecentlyRotated's own comment. Retrying costs nothing
-                // extra here: cookies are already fresh by the time this runs, so a
-                // straggler succeeds immediately and a genuinely dead session just 401s
-                // again.
+                // This 401 might also belong to a straggler request whose response was
+                // already on its way back with stale cookies when rotation completed
+                // moments ago (see wasSessionRecentlyRotated). Retrying costs nothing:
+                // cookies are already fresh, so a straggler succeeds and a dead session
+                // just 401s again.
                 if (pendingRotation || wasSessionRecentlyRotated()) {
                     originalRequest._retriedAfterRotation = true;
                     if (pendingRotation) await pendingRotation;
@@ -146,19 +136,13 @@ export function setupAuthInterceptor(): void {
             }
 
             // Not eligible, or refresh/retry failed: the session is genuinely over. Use
-            // setQueryData(null), NOT invalidateQueries: invalidating a still-mounted/active
-            // query (useAuthSession keeps this one mounted for the app's whole lifetime)
-            // triggers TanStack Query's automatic refetch of that query, which would
-            // immediately re-request GET /auth/me, 401 again, land back in this exact branch,
-            // invalidate again, and so on forever. setQueryData writes the "logged out" result
-            // directly into the cache without provoking another fetch, the same pattern
-            // useLogoutMutation's onSuccess already uses.
-            // Only surface this when a real, previously-live session just
-            // died (was truly `true`, not the initial `null` every visitor
-            // starts at, e.g. someone loading /login directly, whose first
-            // GET /auth/me 401 is expected and not an "expiry"). Otherwise
-            // a page a user was actively working on (a half-filled form,
-            // etc.) silently redirects to /login with no explanation.
+            // setQueryData(null), NOT invalidateQueries: invalidating a still-mounted query
+            // (useAuthSession keeps this one mounted app-wide) would trigger an automatic
+            // refetch of GET /auth/me, 401 again, and loop forever. setQueryData writes the
+            // "logged out" result directly, same pattern as useLogoutMutation's onSuccess.
+            // Only surface the toast below when a real, previously-live session just died
+            // (not the initial `null` every visitor starts at, e.g. loading /login directly),
+            // otherwise a page the user was actively working on redirects with no explanation.
             const hadLiveSession = useAuthStore.getState().isAuthenticated === true;
 
             useAuthStore.getState().setAuthenticated(false);

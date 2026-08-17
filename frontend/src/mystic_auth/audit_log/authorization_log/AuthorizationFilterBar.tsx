@@ -43,7 +43,7 @@ const AuthorizationFilterBar: React.FC<AuthorizationFilterBarProps> = ({
     return (
         <HStack gap={3} mb={4} wrap="wrap">
             <StyledSelect
-                w="220px"
+                w="56"
                 ariaLabel={t("authorization.filterBar.filterByAction")}
                 value={action}
                 onChange={setAction}
@@ -55,7 +55,7 @@ const AuthorizationFilterBar: React.FC<AuthorizationFilterBarProps> = ({
             />
 
             <StyledSelect
-                w="160px"
+                w="40"
                 ariaLabel={t("authorization.filterBar.filterByResourceType")}
                 value={resourceType}
                 onChange={setResourceType}
@@ -67,7 +67,7 @@ const AuthorizationFilterBar: React.FC<AuthorizationFilterBarProps> = ({
             />
 
             <StyledSelect
-                w="140px"
+                w="36"
                 ariaLabel={t("authorization.filterBar.filterByResult")}
                 value={allowed}
                 onChange={setAllowed}

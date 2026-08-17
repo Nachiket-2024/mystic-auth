@@ -1,3 +1,5 @@
+import { LayoutDashboard, ScrollText, Settings, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+
 import { PERMISSIONS } from "../authorization/permissions";
 
 export interface NavItem {
@@ -29,6 +31,14 @@ export interface NavItem {
      * interleave with the built-ins.
      */
     order?: number;
+    /** Rendered muted-gray at rest, brand-colored when the item's route is
+     * active (see Sidebar's SidebarNavLink). Optional so app-supplied
+     * `extraNavItems` without one keep rendering label-only, same as before
+     * this field existed - purely additive. Also reused by PageContainer's
+     * `icon` prop on that same feature's own page, so the sidebar entry and
+     * the page title show the identical glyph rather than two different
+     * icons for one feature. */
+    icon?: LucideIcon;
 }
 
 /**
@@ -45,13 +55,13 @@ export interface NavItem {
  * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
  */
 export const NAV_ITEMS: NavItem[] = [
-    { label: "layout:nav.dashboard", to: "/dashboard", order: 10 },
-    { label: "layout:nav.users", to: "/users", permission: PERMISSIONS.USERS_LIST_ALL, order: 20 },
-    { label: "layout:nav.policies", to: "/policies", permission: PERMISSIONS.POLICIES_READ, order: 30 },
+    { label: "layout:nav.dashboard", to: "/dashboard", order: 10, icon: LayoutDashboard },
+    { label: "layout:nav.users", to: "/users", permission: PERMISSIONS.USERS_LIST_ALL, order: 20, icon: Users },
+    { label: "layout:nav.policies", to: "/policies", permission: PERMISSIONS.POLICIES_READ, order: 30, icon: ShieldCheck },
     // No permission required: every authenticated user can view their own
     // audit trail (GET /authorization/audit-log/me, GET /audit/security-log/me)
     // The page itself additionally shows an "All Users" tab gated by
     // policies:read/security_audit:read for callers who hold those.
-    { label: "layout:nav.auditLog", to: "/audit-log", order: 40 },
-    { label: "layout:nav.accountSettings", to: "/account-settings", order: 50 },
+    { label: "layout:nav.auditLog", to: "/audit-log", order: 40, icon: ScrollText },
+    { label: "layout:nav.accountSettings", to: "/account-settings", order: 50, icon: Settings },
 ];

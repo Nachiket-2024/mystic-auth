@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 
 
 class UserLifecycleCRUD:
@@ -46,3 +47,13 @@ class UserLifecycleCRUD:
         await db.commit()
         await db.refresh(db_obj)
         return db_obj
+
+    async def get_deleted_before(self, cutoff: datetime, db: AsyncSession):
+        """Every soft-deleted account (deleted_at set) whose deleted_at is
+        older than `cutoff` : backs the scheduled grace-period purge job
+        (taskiq_tasks/account_purge_tasks.py), which passes
+        now - settings.ACCOUNT_PURGE_GRACE_DAYS."""
+        result = await db.execute(
+            select(self.model).where(self.model.deleted_at.isnot(None), self.model.deleted_at < cutoff)
+        )
+        return result.scalars().all()

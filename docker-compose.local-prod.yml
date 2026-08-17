@@ -215,7 +215,10 @@ services:
 
   # Polls the schedule_source RedisScheduleSource for retries SmartRetryMiddleware
   # scheduled with a backoff delay, and re-enqueues them onto taskiq_worker's
-  # broker once due. Without this process, retry delay/backoff labels are inert.
+  # broker once due. Without this process, retry delay/backoff labels are
+  # inert. Also runs the cron-labeled account_purge_tasks job (daily
+  # grace-period hard-purge of soft-deleted accounts) via LabelScheduleSource;
+  # taskiq_worker below is what actually executes it once due.
   taskiq_scheduler:
     build:
       context: .

@@ -9,6 +9,7 @@
 # than folded into either routes file's test file) since each test here
 # exercises both CRUD and assignment routes together in one pass.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
 )

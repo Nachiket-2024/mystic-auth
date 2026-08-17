@@ -14,8 +14,13 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ## Authentication
 
-- [Authentication Overview](authentication/overview.md): signup, verification, login, refresh/logout, password reset, JWT/cookie mechanics
+- [Authentication Overview](authentication/overview.md): JWT/cookie mechanics, refresh-token rotation, current-session lookups, and links to every flow below
+- [Signup and Email Verification](authentication/signup-and-verification.md): account creation, verification token issue/redeem, resend
+- [Login](authentication/login.md): rate limiting, brute-force lockout, timing-attack resistance
+- [Logout and Logout-All](authentication/logout.md): single-device vs. whole-account session termination, idempotency
+- [Password Reset and Password Change](authentication/password-reset.md): forgot-password flow, self-service and admin password change
 - [Session Management](authentication/session-management.md): active-session tracking, refresh-token rotation mirror, dashboard card behavior, revoke edge cases
+- [Account Deletion and Purge](authentication/account-deletion.md): self-service delete (password re-confirm and OAuth email-confirm paths), admin delete/reactivate/purge, and the scheduled grace-period purge job
 - [OAuth2 / PKCE](authentication/oauth2-pkce.md): Google OAuth2 login flow, PKCE code-challenge mechanics, CSRF state protection
 - [System Superuser: Bootstrapping and Promotion](authentication/system-superuser.md): `create_system_user.py`'s full behavior, covering fresh creation, promoting an existing account, and the Google-only-account special case
 

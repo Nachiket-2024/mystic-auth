@@ -1,9 +1,17 @@
 # tests/backend/mystic_auth/unit/test_settings_unit.py
+import pytest
+from pydantic import ValidationError
+
 from backend.mystic_auth.core.settings import Settings
 
-_REQUIRED_FIELDS = {
+# Every Settings field is required, no Python-level defaults: .env (or the
+# process environment) is the single source of truth for every value, dev
+# and prod alike. This fixture is a complete, valid payload; the tests below
+# poke at deviations from it.
+_ALL_FIELDS = {
     "BACKEND_BASE_URL": "http://localhost:8000",
     "FRONTEND_BASE_URL": "http://localhost:5173",
+    "FRONTEND_ADDITIONAL_BASE_URLS": "",
     "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/db",
     "POSTGRES_USER": "user",
     "POSTGRES_PASSWORD": "pass",
@@ -13,6 +21,7 @@ _REQUIRED_FIELDS = {
     "REFRESH_TOKEN_EXPIRE_MINUTES": 43200,
     "JWT_ALGORITHM": "HS256",
     "RESET_TOKEN_EXPIRE_MINUTES": 60,
+    "ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES": 60,
     "GOOGLE_CLIENT_ID": "client-id",
     "GOOGLE_CLIENT_SECRET": "client-secret",
     "GOOGLE_REDIRECT_URI": "http://localhost:8000/auth/oauth2/callback/google",
@@ -20,6 +29,9 @@ _REQUIRED_FIELDS = {
     "CACHE_DEFAULT_TTL": 300,
     "FROM_EMAIL": "from@example.com",
     "GMAIL_APP_PASSWORD": "app-password",
+    "SUPPORT_EMAIL": "",
+    "SMTP_HOST": "smtp.gmail.com",
+    "SMTP_PORT": 587,
     "APP_NAME": "TestApp",
     "LOGIN_LOCKOUT_TIME": 300,
     "MAX_FAILED_LOGIN_ATTEMPTS": 5,
@@ -27,15 +39,38 @@ _REQUIRED_FIELDS = {
     "MAX_FAILED_LOGIN_ATTEMPTS_PER_IP": 20,
     "MAX_REQUESTS_PER_WINDOW": 100,
     "REQUEST_WINDOW_SECONDS": 60,
+    "LOG_LEVEL": "INFO",
+    "ENVIRONMENT": "development",
+    "TRUSTED_PROXY_IPS": "",
+    "SENTRY_DSN": "",
+    "SENTRY_ENVIRONMENT": "",
+    "DEFAULT_APP_POLICIES": "",
+    "ACCOUNT_PURGE_GRACE_DAYS": 30,
 }
 
 
 def test_settings_construction_succeeds_with_only_declared_fields():
     # Baseline: the fixture above actually is a complete, valid Settings
-    # payload : if this ever fails, the extra-field regression guards below
-    # would be testing against a payload that was already broken for an
-    # unrelated reason.
-    Settings(**_REQUIRED_FIELDS)
+    # payload : if this ever fails, the other tests in this file would be
+    # testing against a payload that was already broken for an unrelated
+    # reason.
+    Settings(_env_file=None, **_ALL_FIELDS)
+
+
+@pytest.mark.parametrize("missing_field", sorted(_ALL_FIELDS))
+def test_settings_construction_fails_when_any_field_is_missing(missing_field, monkeypatch):
+    # Every field is required: .env is the source of truth, not a Python
+    # default. A field silently falling back would mean a real deployment
+    # could start up misconfigured without any error. monkeypatch.delenv is
+    # needed alongside omitting the kwarg: _env_file=None only disables
+    # reading a dotenv file, pydantic-settings still falls back to the real
+    # process environment (set here by docker-compose's env_file:), which
+    # this suite runs inside.
+    monkeypatch.delenv(missing_field, raising=False)
+    payload = {key: value for key, value in _ALL_FIELDS.items() if key != missing_field}
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **payload)
 
 
 def test_settings_ignores_env_vars_that_are_not_declared_fields():
@@ -52,7 +87,7 @@ def test_settings_ignores_env_vars_that_are_not_declared_fields():
     # so the same .env silently worked for the running app while crashing
     # every test collection. Settings.Config now sets extra="ignore".
     payload = {
-        **_REQUIRED_FIELDS,
+        **_ALL_FIELDS,
         "REDIS_PASSWORD": "redis-password",
         "BUGSINK_SECRET_KEY": "bugsink-secret",
         "BUGSINK_SUPERUSER_EMAIL": "admin@example.com",
@@ -60,95 +95,28 @@ def test_settings_ignores_env_vars_that_are_not_declared_fields():
         "BUGSINK_BASE_URL": "http://localhost:8010",
     }
 
-    settings = Settings(**payload)
+    settings = Settings(_env_file=None, **payload)
 
     assert settings.APP_NAME == "TestApp"
     assert not hasattr(settings, "REDIS_PASSWORD")
-
-
-# ---------------------------- optional field defaults ----------------------------
-
-_OPTIONAL_FIELDS = (
-    "SUPPORT_EMAIL",
-    "SMTP_HOST",
-    "SMTP_PORT",
-    "LOG_LEVEL",
-    "ENVIRONMENT",
-    "TRUSTED_PROXY_IPS",
-    "FRONTEND_ADDITIONAL_BASE_URLS",
-    "SENTRY_DSN",
-    "SENTRY_ENVIRONMENT",
-)
-
-
-def test_optional_fields_default_when_unset(monkeypatch):
-    # These fields are all optional so existing .env files/CI configs that
-    # predate them keep working unchanged : verify the defaults actually
-    # match what main.py/client_ip.py/sentry_service.py assume when unset.
-    # The real repo-root .env (loaded by Settings.Config.env_file, and also
-    # passed into this process's environment by docker-compose) sets several
-    # of these, so it must be cleared from both places for this test to
-    # actually observe the field defaults rather than the real deployment's
-    # config.
-    for field in _OPTIONAL_FIELDS:
-        monkeypatch.delenv(field, raising=False)
-
-    settings = Settings(_env_file=None, **_REQUIRED_FIELDS)
-
-    assert settings.SUPPORT_EMAIL == ""
-    assert settings.SMTP_HOST == "smtp.gmail.com"
-    assert settings.SMTP_PORT == 587
-    assert settings.LOG_LEVEL == "INFO"
-    assert settings.ENVIRONMENT == "development"
-    assert settings.TRUSTED_PROXY_IPS == ""
-    assert settings.FRONTEND_ADDITIONAL_BASE_URLS == ""
-    assert settings.SENTRY_DSN == ""
-    assert settings.SENTRY_ENVIRONMENT == ""
-
-
-def test_optional_fields_can_be_overridden():
-    payload = {
-        **_REQUIRED_FIELDS,
-        "SUPPORT_EMAIL": "support@example.com",
-        "SMTP_HOST": "smtp.example.com",
-        "SMTP_PORT": 2525,
-        "LOG_LEVEL": "DEBUG",
-        "ENVIRONMENT": "production",
-        "TRUSTED_PROXY_IPS": "10.0.0.1,10.0.0.2",
-        "FRONTEND_ADDITIONAL_BASE_URLS": "https://staging.example.com,https://www.example.com",
-        "SENTRY_DSN": "https://public@sentry.example.com/1",
-        "SENTRY_ENVIRONMENT": "staging",
-    }
-
-    settings = Settings(**payload)
-
-    assert settings.SUPPORT_EMAIL == "support@example.com"
-    assert settings.SMTP_HOST == "smtp.example.com"
-    assert settings.SMTP_PORT == 2525
-    assert settings.LOG_LEVEL == "DEBUG"
-    assert settings.ENVIRONMENT == "production"
-    assert settings.TRUSTED_PROXY_IPS == "10.0.0.1,10.0.0.2"
-    assert settings.FRONTEND_ADDITIONAL_BASE_URLS == "https://staging.example.com,https://www.example.com"
-    assert settings.SENTRY_DSN == "https://public@sentry.example.com/1"
-    assert settings.SENTRY_ENVIRONMENT == "staging"
 
 
 # ---------------------------- cors_allowed_origins ----------------------------
 
 
 def test_cors_allowed_origins_is_just_frontend_base_url_when_additional_unset():
-    settings = Settings(**_REQUIRED_FIELDS)
+    settings = Settings(_env_file=None, **_ALL_FIELDS)
 
     assert settings.cors_allowed_origins == ["http://localhost:5173"]
 
 
 def test_cors_allowed_origins_includes_additional_origins_in_order():
     payload = {
-        **_REQUIRED_FIELDS,
+        **_ALL_FIELDS,
         "FRONTEND_ADDITIONAL_BASE_URLS": "https://staging.example.com,https://www.example.com",
     }
 
-    settings = Settings(**payload)
+    settings = Settings(_env_file=None, **payload)
 
     assert settings.cors_allowed_origins == [
         "http://localhost:5173",
@@ -159,11 +127,11 @@ def test_cors_allowed_origins_includes_additional_origins_in_order():
 
 def test_cors_allowed_origins_ignores_blank_entries_and_stray_whitespace():
     payload = {
-        **_REQUIRED_FIELDS,
+        **_ALL_FIELDS,
         "FRONTEND_ADDITIONAL_BASE_URLS": " https://staging.example.com , , https://www.example.com ,",
     }
 
-    settings = Settings(**payload)
+    settings = Settings(_env_file=None, **payload)
 
     assert settings.cors_allowed_origins == [
         "http://localhost:5173",
@@ -174,10 +142,30 @@ def test_cors_allowed_origins_ignores_blank_entries_and_stray_whitespace():
 
 def test_cors_allowed_origins_deduplicates_a_repeated_origin():
     payload = {
-        **_REQUIRED_FIELDS,
+        **_ALL_FIELDS,
         "FRONTEND_ADDITIONAL_BASE_URLS": "http://localhost:5173,https://www.example.com",
     }
 
-    settings = Settings(**payload)
+    settings = Settings(_env_file=None, **payload)
 
     assert settings.cors_allowed_origins == ["http://localhost:5173", "https://www.example.com"]
+
+
+# ---------------------------- default_app_policy_names ----------------------------
+
+
+def test_default_app_policy_names_is_empty_when_unset():
+    settings = Settings(_env_file=None, **_ALL_FIELDS)
+
+    assert settings.default_app_policy_names == []
+
+
+def test_default_app_policy_names_parses_deduplicates_and_trims():
+    payload = {
+        **_ALL_FIELDS,
+        "DEFAULT_APP_POLICIES": " billing_admin , support_agent, billing_admin ,",
+    }
+
+    settings = Settings(_env_file=None, **payload)
+
+    assert settings.default_app_policy_names == ["billing_admin", "support_agent"]

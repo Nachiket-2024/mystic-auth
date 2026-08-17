@@ -220,8 +220,8 @@ At minimum, a production deployment needs:
 The backend, frontend nginx, Postgres, Redis, Taskiq worker, Taskiq scheduler,
 Alembic migration runner, and Bugsink services are all included in the Compose
 files. The email pipeline depends on the long-running `taskiq_worker` and
-`taskiq_scheduler` services connected to Redis.
-request-driven serverless backend deployments are intentionally out of scope.
+`taskiq_scheduler` services connected to Redis; request-driven serverless
+backend deployments are intentionally out of scope.
 
 ---
 

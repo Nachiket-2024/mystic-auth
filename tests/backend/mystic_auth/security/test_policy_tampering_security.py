@@ -6,6 +6,7 @@
 # never be revoked : even by a genuine system_superuser holder. Unit
 # tests already cover this with mocks; these hit the real API + real DB.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,

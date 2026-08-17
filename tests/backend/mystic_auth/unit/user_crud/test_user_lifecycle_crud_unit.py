@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from backend.mystic_auth.user_crud.user_crud_modules.user_lifecycle_crud import (
     UserLifecycleCRUD,
 )

@@ -69,6 +69,15 @@ class UserUpdate(BaseModel):
     current_password: str | None = Field(default=None, max_length=128)
 
 
+class UserSelfDeleteRequest(BaseModel):
+    """Body for DELETE /users/me. Required (re-authentication) for an
+    account that already has a password, same current-password gate as
+    UserUpdate.current_password above; optional only for an OAuth-only
+    account (hashed_password=None) with nothing to confirm against."""
+
+    current_password: str | None = Field(default=None, max_length=128)
+
+
 class UserStatsRead(BaseModel):
     """Aggregate counts backing the Users page's summary card. Independent
     of whatever page/filters the caller currently has applied to the main

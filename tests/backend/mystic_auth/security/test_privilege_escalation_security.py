@@ -7,6 +7,7 @@
 # actions (Permission's vocabulary) that they don't already hold. Unit
 # tests already cover this with mocks; these hit the real API + real DB.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SYSTEM_SUPERUSER_POLICY_NAME,
 )

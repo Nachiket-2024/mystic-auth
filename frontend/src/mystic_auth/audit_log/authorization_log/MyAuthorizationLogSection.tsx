@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ClipboardList } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import DataTable from "../../ui/DataTable";
@@ -57,6 +58,7 @@ const MyAuthorizationLogSection: React.FC<MyAuthorizationLogSectionProps> = ({
                 isLoading={isLoading}
                 isError={isError}
                 emptyMessage={t("authorization.emptyFiltered")}
+                emptyIcon={<ClipboardList size={32} aria-hidden="true" />}
                 sort={sort}
                 onSortChange={toggleSort}
                 startIndex={(page - 1) * PAGE_SIZE}

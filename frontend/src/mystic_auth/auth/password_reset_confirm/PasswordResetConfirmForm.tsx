@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { Stack, Input, Button, Text } from "@chakra-ui/react";
+import { Stack, Input, Button } from "@chakra-ui/react";
 import { Field as ChakraField } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import { usePasswordResetConfirmMutation } from "./usePasswordResetConfirmMutation";
 import FormAlert from "../../ui/FormAlert";
+import PasswordInput from "../../ui/PasswordInput";
 import { BRAND_SOLID_HOVER_PROPS } from "../../ui/styles/buttonStyles";
 
 // Shared password policy logic and checklist UI: kept identical to
 // SignupForm so the two flows can't drift apart again.
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../password_rules/passwordRules";
 import PasswordRulesChecklist from "../password_rules/PasswordRulesChecklist";
+import PasswordStrengthMeter from "../password_rules/PasswordStrengthMeter";
 
 interface PasswordResetConfirmFormProps {
     token: string;
@@ -79,8 +81,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
 
             <ChakraField.Root required>
                 <ChakraField.Label>{t("passwordResetConfirm.newPasswordLabel")}</ChakraField.Label>
-                <Input
-                    type="password"
+                <PasswordInput
                     value={newPassword}
                     onChange={(e) => handlePasswordChange(e.target.value)}
                     placeholder={t("passwordResetConfirm.newPasswordPlaceholder")}
@@ -93,26 +94,18 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
 
             {/* Always rendered, even before typing starts (showing a
                 neutral "-" placeholder): kept identical to SignupForm so
-                the strength label filling in never shifts the fields
+                the strength meter filling in never shifts the fields
                 below it. */}
-            <Text
-                fontSize="15px"
-                fontWeight="bold"
-                color={
-                    passwordStrength === "Weak" ? "red.500" :
-                    passwordStrength === "Medium" ? "orange.400" :
-                    passwordStrength === "Strong" ? "green.500" : "fg.muted"
-                }
-            >
-                {t("passwordResetConfirm.strengthLabel", { strength: passwordStrength || "-" })}
-            </Text>
+            <PasswordStrengthMeter
+                password={newPassword}
+                label={t("passwordResetConfirm.strengthLabel", { strength: passwordStrength || "-" })}
+            />
 
-            <PasswordRulesChecklist rules={rules} fontSize="15px" />
+            <PasswordRulesChecklist rules={rules} fontSize="md" pristine={!newPassword} />
 
             <ChakraField.Root required>
                 <ChakraField.Label>{t("passwordResetConfirm.confirmNewPasswordLabel")}</ChakraField.Label>
-                <Input
-                    type="password"
+                <PasswordInput
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder={t("passwordResetConfirm.confirmNewPasswordPlaceholder")}

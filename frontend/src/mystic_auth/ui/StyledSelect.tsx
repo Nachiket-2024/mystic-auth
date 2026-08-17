@@ -65,11 +65,11 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                     // trigger's height/padding - both share the same 14px
                     // textStyle. Explicit override so this matches the
                     // 15px now used for table text/buttons elsewhere.
-                    fontSize="15px"
+                    fontSize="md"
                     _hover={{ borderColor: "gray.600" }}
                     _focusVisible={{ borderColor: "brand.solid", boxShadow: "0 0 0 1px var(--chakra-colors-brand-solid)" }}
                     _dark={{ borderColor: "gray.600", _hover: { borderColor: "gray.400" } }}
-                    transition="border-color 0.1s ease, box-shadow 0.1s ease"
+                    transition="border-color var(--chakra-durations-hover) var(--chakra-easings-hover), box-shadow var(--chakra-durations-hover) var(--chakra-easings-hover)"
                 >
                     <Select.ValueText />
                     <Select.IndicatorGroup>
@@ -91,8 +91,14 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                         borderWidth="1px"
                         borderColor="border.default"
                         bg="bg.surface"
-                        boxShadow="lg"
-                        fontSize="15px"
+                        // Same layered density.card elevation Card.tsx uses
+                        // (theme/system.ts), not Chakra's stock boxShadow="lg",
+                        // so every elevated surface in the app - cards and
+                        // popovers alike - shares one deliberate look instead
+                        // of each defaulting to its own stock Chakra shadow.
+                        boxShadow="density.card"
+                        rounded="density.control"
+                        fontSize="md"
                     >
                         {options.map((option) => (
                             <Select.Item

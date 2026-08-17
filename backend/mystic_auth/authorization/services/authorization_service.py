@@ -11,20 +11,11 @@ from ...core.errors import AppError
 from ...logging.logging_config import get_logger
 from ..evaluators.authorization_decision import AuthorizationDecision
 from ..evaluators.policy_evaluator import policy_evaluation_engine
-
-# The app's own fixed, known-sensitive action vocabulary: see
-# assert_authorized_to_grant for why only these are escalation-guarded.
-from ..permissions import Permission
 from ..repositories.audit_log_repository import audit_log_repository
 from ..repositories.policy_repository import policy_repository
+from .authorization_grant_guard import assert_authorized_to_grant
 
 logger = get_logger(__name__)
-
-# Actions this app itself defines and knows to be sensitive (identity and
-# authorization-management actions, see permissions.py). Only these are
-# subject to the privilege-escalation guard below; see that method's
-# docstring for why arbitrary other action strings are deliberately exempt.
-_KNOWN_SENSITIVE_ACTIONS = frozenset(permission.value for permission in Permission)
 
 
 class AuthorizationService:
@@ -286,57 +277,12 @@ class AuthorizationService:
                 detail="Insufficient permissions",
             )
 
-    @staticmethod
-    async def assert_authorized_to_grant(
-        caller_email: str,
-        actions: list[str],
-        resource_type: str,
-        db: AsyncSession,
-    ) -> None:
-        """
-        Guards against privilege escalation: `caller_email` is the user
-        attempting to create/update a policy, or assign one to someone
-        (possibly themselves), and `actions` is the full set of actions
-        that would end up granted as a result. For every action in
-        `actions` that is one of this app's own known-sensitive actions
-        (Permission's fixed vocabulary, identity and authorization-
-        management actions), confirms the caller is already authorized for
-        it, raising HTTP 403 on the first one the caller doesn't already
-        hold. Any action outside that vocabulary, an arbitrary business-
-        domain action a downstream application built on this template
-        defines for its own resources (e.g. "projects:read"), is skipped
-        entirely.
-
-        Creating a policy, editing a policy's actions, or assigning a
-        policy to a user must never be able to hand out (to anyone,
-        including the caller themselves) one of *this app's own* sensitive
-        actions that the caller doesn't already have, otherwise holding
-        only policies:create+policies:assign (without system_superuser
-        itself) would let a caller mint an all-powerful policy and assign
-        it to themselves.
-
-        Deliberately scoped to Permission's fixed vocabulary rather than
-        every action string: PBAC policies in this template are meant to
-        freely grant whatever actions a downstream application defines for
-        its own business resources; policies:create/assign is a
-        general-purpose policy-authoring capability, not itself the
-        resource being protected. Only this app's built-in identity/
-        authorization actions are sensitive enough to guard here. Called
-        from api/pbac_routes/policy_crud_routes.py's create/update
-        endpoints and policy_assignment_routes.py's assign endpoint,
-        never bypassed by going straight to the repository from a route.
-        """
-        for action in actions:
-            if action not in _KNOWN_SENSITIVE_ACTIONS:
-                continue
-            allowed = await AuthorizationService.authorize(caller_email, action, resource_type, db)
-            if not allowed:
-                raise AppError(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    code="CANNOT_GRANT_UNHELD_ACTION",
-                    detail=f"Cannot grant action '{action}': you do not hold it yourself",
-                    params={"action": action},
-                )
+    # Privilege-escalation guard for granting policies/actions. Kept as a
+    # module-level function in authorization_grant_guard.py (this class just
+    # re-exports it as a static method, preserving every existing
+    # `authorization_service.assert_authorized_to_grant(...)` call site) - see
+    # that module's own docstring for why this check exists and what it does.
+    assert_authorized_to_grant = staticmethod(assert_authorized_to_grant)
 
 
 authorization_service = AuthorizationService()

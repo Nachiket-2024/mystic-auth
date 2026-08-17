@@ -4,9 +4,10 @@
 # guards that it's actually wired to settings.REDIS_URL with
 # decode_responses=True (every caller assumes str, not bytes, back from
 # Redis), since nothing else in the suite asserts on its construction.
+from redis.asyncio import Redis
+
 from backend.mystic_auth.core.settings import settings
 from backend.mystic_auth.redis.client import redis_client
-from redis.asyncio import Redis
 
 
 def test_redis_client_is_a_redis_instance():

@@ -1,6 +1,12 @@
 {
     "pageTitle": "Account Settings",
     "pageDescription": "Update your name and password.",
+    "tabs": {
+        "profile": "Profile",
+        "password": "Password",
+        "status": "Account Status",
+        "danger": "Danger Zone"
+    },
     "profileName": {
         "nameLabel": "Name",
         "noChanges": "No changes to save",
@@ -32,5 +38,31 @@
         "loadingPolicies": "Loading your policies...",
         "failedLoadPolicies": "Failed to load your policies",
         "noPolicies": "No policies assigned."
+    },
+    "deleteAccount": {
+        "title": "Delete account",
+        "description": "Deleting your account deactivates it immediately and signs you out everywhere. It stays recoverable by an administrator for a short grace period, after which it's permanently and irreversibly removed.",
+        "oauthOnlyDescription": "Deleting your account requires confirming by email. Once you confirm, it deactivates immediately and signs you out everywhere. It stays recoverable by an administrator for a short grace period, after which it's permanently and irreversibly removed.",
+        "currentPasswordLabel": "Current password",
+        "currentPasswordPlaceholder": "Required to confirm this action",
+        "currentPasswordRequired": "Enter your current password to delete your account",
+        "deleteButton": "Delete my account",
+        "confirmTitle": "Delete your account?",
+        "confirmDescription": "This deactivates your account and signs you out everywhere right away. It can still be recovered by an administrator during the grace period, but after that it's permanently deleted and cannot be undone.",
+        "confirmButton": "Yes, delete my account",
+        "oauthOnlyConfirmDescription": "We'll email you a confirmation link. Your account isn't deleted until you click it - clicking it deactivates your account and signs you out everywhere right away. It can still be recovered by an administrator during the grace period, but after that it's permanently deleted and cannot be undone.",
+        "oauthOnlyConfirmButton": "Send confirmation email",
+        "deletedToast": "Your account has been deleted",
+        "confirmationEmailSent": "Check your email for a link to confirm deleting your account. The link will expire after a while, so confirm soon if you want to proceed."
+    },
+    "confirmDeletePage": {
+        "heading": "Confirm Account Deletion",
+        "subtitle": "Click the button below to permanently confirm you want to delete your account.",
+        "linkExpired": "Link expired or already used?",
+        "backToAccountSettings": "Back to Account Settings"
+    },
+    "confirmDeleteButton": {
+        "confirming": "Deleting your account...",
+        "submitButton": "Confirm Account Deletion"
     }
 }

@@ -8,30 +8,9 @@ import jwt
 from ...core.settings import settings
 from ...logging.logging_config import get_logger
 from ...redis.client import redis_client
+from .token_version_store import token_version_store
 
 logger = get_logger(__name__)
-
-# Redis key for a user's account-wide token version: every access/refresh
-# token embeds the version that was current when it was minted (see
-# create_access_token/create_refresh_token), and is rejected the moment
-# that number no longer matches. Bumping this one integer (bump_account_version)
-# is what "logout everywhere" actually is - no per-token bookkeeping, no
-# iterating anything: every token on the account, minted before the bump,
-# stops matching in one atomic INCR. Never expires: it has to keep meaning
-# the same thing for as long as the account exists, since a token minted
-# long after the last bump must still match it correctly.
-ACCOUNT_VERSION_KEY = "account_ver:{email}"
-
-# Redis key for one login's version, scoped to its chain_id (see
-# create_refresh_token's own docstring for what a chain is). Bumping this
-# (bump_chain_version) ends exactly that one session - logout, a targeted
-# Manage Sessions revoke, or reuse-detection containing a compromised
-# chain - without touching any other session on the account. TTL'd to the
-# refresh-token lifetime on bump: once that elapses, nothing could still be
-# validly using this chain_id anyway (a fresh login never reuses an old
-# chain_id), so the key can safely disappear instead of accumulating one
-# per revoked session forever.
-CHAIN_VERSION_KEY = "chain_ver:{email}:{chain_id}"
 
 
 class JWTService:
@@ -241,53 +220,14 @@ class JWTService:
 
         return await redis_client.exists(f"revoked:{jti}") == 1
 
-    async def get_account_version(self, email: str) -> int:
-        """Current account-wide version, 0 if it has never been bumped
-        (i.e. this account has never had a whole-account revoke)."""
-        try:
-            raw = await redis_client.get(ACCOUNT_VERSION_KEY.format(email=email))
-            return int(raw) if raw is not None else 0
-        except Exception:
-            logger.warning("Failed to read account version for %s:\n%s", email, traceback.format_exc())
-            return 0
-
-    async def get_chain_version(self, email: str, chain_id: str) -> int:
-        """Current version for one chain, 0 if it has never been bumped
-        (i.e. this specific session has never been individually revoked)."""
-        try:
-            raw = await redis_client.get(CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id))
-            return int(raw) if raw is not None else 0
-        except Exception:
-            logger.warning(
-                "Failed to read chain version for %s/%s:\n%s", email, chain_id, traceback.format_exc()
-            )
-            return 0
-
-    async def bump_account_version(self, email: str) -> None:
-        """The whole-account revoke: logout-all, password change, account
-        deactivation/purge, and reuse-detection on a token with no chain
-        claim of its own (unknown lineage, so the maximally-safe response).
-        Every token on the account, minted before this call, stops
-        matching on its very next use."""
-        try:
-            await redis_client.incr(ACCOUNT_VERSION_KEY.format(email=email))
-        except Exception:
-            logger.warning("Failed to bump account version for %s:\n%s", email, traceback.format_exc())
-
-    async def bump_chain_version(self, email: str, chain_id: str) -> None:
-        """The single-session revoke: logout (this device only), a
-        targeted Manage Sessions "End session", and reuse-detection scoped
-        to the compromised chain specifically. Every token sharing this
-        chain_id, minted before this call, stops matching on its next use;
-        every other chain on the account is completely unaffected."""
-        try:
-            key = CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id)
-            await redis_client.incr(key)
-            await redis_client.expire(key, settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60)
-        except Exception:
-            logger.warning(
-                "Failed to bump chain version for %s/%s:\n%s", email, chain_id, traceback.format_exc()
-            )
+    # Account/chain version reads and bumps live in token_version_store.py
+    # (Redis-backed revocation bookkeeping), re-exported here as bound
+    # methods so every existing `jwt_service.get_account_version(...)`-style
+    # call site keeps working unchanged.
+    get_account_version = token_version_store.get_account_version
+    get_chain_version = token_version_store.get_chain_version
+    bump_account_version = token_version_store.bump_account_version
+    bump_chain_version = token_version_store.bump_chain_version
 
     async def is_current_version(self, payload: dict) -> bool:
         """False (revoked) if either the token's embedded account_ver or

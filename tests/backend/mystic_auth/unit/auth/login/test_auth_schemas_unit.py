@@ -8,6 +8,8 @@
 # entirely : only a Pydantic model instantiation (or a real HTTP request,
 # covered separately in integration tests) actually exercises these limits.
 import pytest
+from pydantic import ValidationError
+
 from backend.mystic_auth.auth.login.login_schema import LoginSchema
 from backend.mystic_auth.auth.password_reset_confirm.password_reset_confirm_schema import (
     PasswordResetConfirmSchema,
@@ -20,7 +22,6 @@ from backend.mystic_auth.auth.verify_account.verify_account_schema import (
     VerifyAccountSchema,
 )
 from backend.mystic_auth.user_table.user_schema import UserCreate, UserUpdate
-from pydantic import ValidationError
 
 
 def test_signup_rejects_name_over_max_length():

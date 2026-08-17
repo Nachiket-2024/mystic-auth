@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.security.rate_limiter_service import rate_limiter_service
 
 MODULE = "backend.mystic_auth.auth.security.rate_limiter_service"

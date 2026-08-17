@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from backend.mystic_auth.error_monitoring import sentry_service
 
 MODULE = "backend.mystic_auth.error_monitoring.sentry_service"

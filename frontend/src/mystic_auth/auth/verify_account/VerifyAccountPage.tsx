@@ -1,6 +1,6 @@
 import React from "react";
 import { useSearchParams, useNavigate } from "react-router";
-import { Heading, Text, VStack, Stack, StackSeparator } from "@chakra-ui/react";
+import { Box, Heading, Text, VStack, Stack, StackSeparator } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import VerifyAccountButton from "./VerifyAccountButton";
@@ -12,6 +12,7 @@ import Card from "../../ui/Card";
 
 // Shared brand header + footer shell for every unauthenticated page.
 import AuthLayout from "../../layout/AuthLayout";
+import Logo from "../../layout/Logo";
 
 const VerifyAccountPage: React.FC = () => {
     const { t } = useTranslation("auth");
@@ -29,7 +30,11 @@ const VerifyAccountPage: React.FC = () => {
         <AuthLayout variant="status">
             {/* Same card width/padding/heading scale as every other auth
                 page (Login, Signup, Forgot/Reset Password). */}
-            <Card w="450px" maxW="md" p={{ base: 5, md: 7 }} textAlign="center">
+            <Card w="full" maxW="md" p={{ base: 5, md: 7 }} textAlign="center">
+                <Box mb={4}>
+                    <Logo />
+                </Box>
+
                 <Heading size="xl" color="brand.fg" mb={2}>
                     {t("verifyAccountPage.heading")}
                 </Heading>

@@ -8,6 +8,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from backend.mystic_auth.api.health_routes.health_routes import health, health_ready
 
 MODULE = "backend.mystic_auth.api.health_routes.health_routes"

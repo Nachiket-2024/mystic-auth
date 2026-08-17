@@ -8,6 +8,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from backend.mystic_auth.user_crud.user_crud_modules.user_role_crud import UserRoleCRUD
 from backend.mystic_auth.user_table.user_model import User as _FakeModel
 from backend.mystic_auth.user_table.user_model import UserRole

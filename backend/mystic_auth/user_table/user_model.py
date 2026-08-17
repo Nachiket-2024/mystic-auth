@@ -41,19 +41,14 @@ class User(Base):
     # Nullable for OAuth-only users.
     hashed_password: Mapped[str | None]
 
-    # Single role assigned to the user : mutually exclusive. Stored as a
-    # native DB enum for data integrity. Nullable: role is display/grouping
-    # metadata only (see authorization/ for the actual PBAC decision-maker,
-    # which never reads this column) : the system must support accounts with
-    # no role at all, authorized purely through assigned policies.
+    # Nullable: role is display/grouping metadata only (see authorization/ for
+    # the actual PBAC decision-maker, which never reads this column) - accounts
+    # with no role at all are authorized purely through assigned policies.
     #
-    # Deliberately no Python-side `default=` here: SQLAlchemy applies a
-    # column default whenever the value supplied at construction is None,
-    # treating "explicitly None" the same as "omitted" : which would make it
-    # impossible for any caller (including tests) to actually persist a
-    # roleless account by passing role=None. Every real creation path
-    # (signup_service.py, scripts/create_system_user.py) already sets role
-    # explicitly, so no caller relied on a fallback default in practice.
+    # Deliberately no Python-side `default=` here: SQLAlchemy applies a column
+    # default whenever the constructor value is None, treating "explicitly
+    # None" the same as "omitted", which would make it impossible for any
+    # caller (including tests) to persist a roleless account via role=None.
     role: Mapped[UserRole | None] = mapped_column(Enum(UserRole))
 
     is_verified: Mapped[bool] = mapped_column(default=False)

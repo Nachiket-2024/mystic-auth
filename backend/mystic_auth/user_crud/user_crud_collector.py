@@ -80,6 +80,9 @@ class UserCRUDCollector:
     async def reactivate(self, db_obj, db: AsyncSession):
         return await self.lifecycle.reactivate(db_obj, db)
 
+    async def get_deleted_before(self, cutoff, db: AsyncSession):
+        return await self.lifecycle.get_deleted_before(cutoff, db)
+
 
 # Always import this instance (not the class) wherever CRUD operations are needed.
 user_crud = UserCRUDCollector(User)

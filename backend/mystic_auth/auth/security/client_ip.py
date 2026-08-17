@@ -14,18 +14,25 @@ _TRUSTED_PROXY_IPS = frozenset(
 def get_client_ip(request: Request) -> str | None:
     """
     Resolves the real client IP for audit logging, rate limiting, and
-    authorization context.
+    authorization context (including PBAC's NetworkCondition, which gates
+    access on this value - see conditions/network_condition.py).
 
     request.client.host is the literal TCP peer: in a direct deployment (no
     reverse proxy) this is already the real client; behind a reverse proxy
     it's the proxy's own address instead. The X-Forwarded-For header is only
     trusted if that TCP peer is itself one of this deployment's configured
     reverse proxies (TRUSTED_PROXY_IPS), otherwise any internet client could
-    set X-Forwarded-For to whatever it likes and impersonate any IP. When
-    trusted, the left-most entry is used: nginx's proxy_pass appends the real
-    client to any X-Forwarded-For it received, so the first entry is the
-    original client and any entries after it were appended by closer proxy
-    hops.
+    set X-Forwarded-For to whatever it likes and impersonate any IP.
+
+    When trusted, the RIGHT-most entry is used, not the left-most: nginx's
+    proxy_pass appends the real client to whatever X-Forwarded-For it
+    received rather than overwriting it, so a client that connects directly
+    to the trusted proxy can freely prepend fake entries of its own (e.g.
+    "X-Forwarded-For: 10.0.0.1") before ever reaching it. With only a single
+    trusted hop configured here, the entry the trusted proxy itself appended
+    - the last one - is the only one that cannot have been forged by the
+    caller; trusting the first entry instead would let any caller spoof
+    their apparent IP and bypass IP-restricted PBAC policies outright.
 
     Returns None if request.client is unavailable (e.g. a test client with no
     real transport).
@@ -39,4 +46,5 @@ def get_client_ip(request: Request) -> str | None:
     if not forwarded_for:
         return peer_ip
 
-    return forwarded_for.split(",")[0].strip() or peer_ip
+    entries = [entry.strip() for entry in forwarded_for.split(",") if entry.strip()]
+    return entries[-1] if entries else peer_ip

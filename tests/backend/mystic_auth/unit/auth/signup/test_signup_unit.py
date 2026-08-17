@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.signup.signup_handler import signup_handler
 from backend.mystic_auth.auth.signup.signup_service import signup_service
 

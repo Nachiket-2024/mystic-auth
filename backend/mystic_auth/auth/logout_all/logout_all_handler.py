@@ -27,17 +27,12 @@ class LogoutAllHandler:
                     status_code=400
                 )
 
-            # decode_payload, not verify_token: an already-revoked refresh
-            # token (e.g. this device's own session, killed moments ago by a
-            # password change that revokes every refresh token for the
-            # account) must still resolve to its owning email so the rest of
-            # that account's sessions can be revoked and cookies cleared,
-            # instead of failing outright and leaving stale cookies behind.
-            # decode_payload skips the revocation check verify_token does,
-            # but NOT the "type" claim check: a wrong-type token (e.g. an
-            # access token mistakenly presented here) must still be rejected
-            # for revocation purposes, same as refresh_tokens() in
-            # refresh_token_service.py.
+            # decode_payload, not verify_token: an already-revoked refresh token
+            # must still resolve to its owning email so the rest of that
+            # account's sessions can be revoked and cookies cleared, rather than
+            # failing outright and leaving stale cookies behind. It still enforces
+            # the "type" claim, though, so a wrong-type token is still rejected
+            # (same as refresh_tokens() in refresh_token_service.py).
             payload = await jwt_service.decode_payload(refresh_token)
 
             email = payload.get("email") if payload and payload.get("type") == "refresh" else None

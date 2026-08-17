@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Badge, Box, Heading, Container, Text, Separator, EmptyState, HStack, Stack, Flex } from "@chakra-ui/react";
 import { useNavigate } from "react-router";
-import { CalendarDays, Clock, LogOut, Mail, Monitor, Pencil, ShieldCheck, User } from "lucide-react";
+import { CalendarDays, Clock, LogOut, Mail, Monitor, Pencil, ShieldCheck, User, UserX } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 // Reuses the same TanStack Query cache entry that useAuthSession() (called
@@ -15,7 +15,7 @@ import { useLanguageStore } from "../store/languageStore";
 import ManageSessionsCard from "./manage_sessions/ManageSessionsCard";
 
 import Card from "../ui/Card";
-import LoadingState from "../ui/LoadingState";
+import DashboardIdentityCardSkeleton from "./DashboardIdentityCardSkeleton";
 import FormAlert from "../ui/FormAlert";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import TableActionButton from "../ui/TableActionButton";
@@ -35,7 +35,7 @@ const StatItem: React.FC<StatItemProps> = ({ icon, label, value }) => (
     <Box textAlign="center" flexShrink={0}>
         <HStack gap={1} justify="center" color="fg.muted" whiteSpace="nowrap">
             {icon}
-            <Text fontSize="14px" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" whiteSpace="nowrap">
+            <Text fontSize="sm" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" whiteSpace="nowrap">
                 {label}
             </Text>
         </HStack>
@@ -82,7 +82,7 @@ const DashboardPage: React.FC = () => {
                 already wide/horizontal by nature. */}
             <Card p={7} color="fg.default">
                 {isLoading ? (
-                    <LoadingState message={t("loadingDetails")} />
+                    <DashboardIdentityCardSkeleton loadingLabel={t("loadingDetails")} />
                 ) : isError ? (
                     <Box><FormAlert status="error">{t("unableToFetch")}</FormAlert></Box>
                 ) : user ? (
@@ -114,7 +114,7 @@ const DashboardPage: React.FC = () => {
                                     display="flex"
                                     alignItems="center"
                                     justifyContent="center"
-                                    boxSize="56px"
+                                    boxSize="14"
                                     flexShrink={0}
                                     borderRadius="full"
                                     bg="brand.subtle"
@@ -125,7 +125,7 @@ const DashboardPage: React.FC = () => {
 
                                 <Box>
                                     <HStack gap={2} wrap="wrap">
-                                        <Heading as="h1" fontSize="21px" fontWeight="semibold">
+                                        <Heading as="h1" fontSize="xl" fontWeight="semibold">
                                             {user.name}
                                         </Heading>
                                         <Badge
@@ -133,7 +133,7 @@ const DashboardPage: React.FC = () => {
                                             variant="subtle"
                                             px={2.5}
                                             py={1}
-                                            fontSize="15px"
+                                            fontSize="md"
                                             borderRadius="full"
                                             textTransform="capitalize"
                                             display="inline-flex"
@@ -146,7 +146,7 @@ const DashboardPage: React.FC = () => {
                                     </HStack>
                                     <Box display="flex" alignItems="center" gap={2} color="fg.muted" mt={1}>
                                         <Mail size={16} aria-hidden="true" />
-                                        <Text fontSize="16px">{user.email}</Text>
+                                        <Text fontSize="md">{user.email}</Text>
                                     </Box>
                                 </Box>
                             </HStack>
@@ -166,7 +166,7 @@ const DashboardPage: React.FC = () => {
                                 <StatItem
                                     icon={<CalendarDays size={15} aria-hidden="true" />}
                                     label={t("memberSince")}
-                                    value={<Text fontSize="16px" fontWeight="semibold">{formatMemberSince(user.created_at, language)}</Text>}
+                                    value={<Text fontSize="md" fontWeight="semibold">{formatMemberSince(user.created_at, language)}</Text>}
                                 />
                                 <StatItem
                                     icon={<Clock size={15} aria-hidden="true" />}
@@ -180,27 +180,27 @@ const DashboardPage: React.FC = () => {
                                             // keeps that column no wider than "Member since"/
                                             // "Active sessions" instead of stretching the whole row.
                                             <Box lineHeight="1.3">
-                                                <Text fontSize="16px" fontWeight="semibold">{formatMemberSince(lastLoginAt, language)}</Text>
-                                                <Text fontSize="15px" fontWeight="medium" color="fg.muted">{formatTimeOnly(lastLoginAt, language)}</Text>
+                                                <Text fontSize="md" fontWeight="semibold">{formatMemberSince(lastLoginAt, language)}</Text>
+                                                <Text fontSize="md" fontWeight="medium" color="fg.muted">{formatTimeOnly(lastLoginAt, language)}</Text>
                                             </Box>
                                         ) : (
-                                            <Text fontSize="16px" fontWeight="semibold">-</Text>
+                                            <Text fontSize="md" fontWeight="semibold">-</Text>
                                         )
                                     }
                                 />
                                 <StatItem
                                     icon={<Monitor size={15} aria-hidden="true" />}
                                     label={user.active_sessions === 1 ? t("activeSession") : t("activeSessions")}
-                                    value={<Text fontSize="16px" fontWeight="semibold">{user.active_sessions}</Text>}
+                                    value={<Text fontSize="md" fontWeight="semibold">{user.active_sessions}</Text>}
                                 />
                             </HStack>
 
                             <Separator orientation="vertical" display={{ base: "none", md: "block" }} />
 
-                            <Stack gap={4} minW="140px" flexShrink={0} alignSelf="flex-start">
+                            <Stack gap={4} minW="36" flexShrink={0} alignSelf="flex-start">
                                 <TableActionButton
                                     size="sm"
-                                    fontSize="16px"
+                                    fontSize="md"
                                     colorPalette="orange"
                                     onClick={() => navigate("/account-settings")}
                                 >
@@ -208,7 +208,7 @@ const DashboardPage: React.FC = () => {
                                 </TableActionButton>
                                 <TableActionButton
                                     size="sm"
-                                    fontSize="16px"
+                                    fontSize="md"
                                     colorPalette="red"
                                     loading={logoutAllMutation.isPending}
                                     onClick={() => setConfirmOpen(true)}
@@ -221,15 +221,30 @@ const DashboardPage: React.FC = () => {
                         {logoutAllMutation.isError && <FormAlert status="error">{logoutAllMutation.error.message}</FormAlert>}
                     </Stack>
                 ) : (
-                    <EmptyState.Root size="sm">
+                    <EmptyState.Root size="md">
                         <EmptyState.Content>
+                            <EmptyState.Indicator
+                                bg="accent.subtle"
+                                color="accent.fg"
+                                rounded="full"
+                                boxSize="16"
+                                display="flex"
+                                alignItems="center"
+                                justifyContent="center"
+                            >
+                                <UserX size={32} aria-hidden="true" />
+                            </EmptyState.Indicator>
                             <EmptyState.Title>{t("noUserData")}</EmptyState.Title>
                         </EmptyState.Content>
                     </EmptyState.Root>
                 )}
             </Card>
 
-            <ManageSessionsCard />
+            {/* id target for CommandPalette's "Manage Sessions" content-search
+                result (see layout/searchItems.ts) - AppLayout's
+                useScrollToHash scrolls here after navigating in on
+                /dashboard#manage-sessions. */}
+            <ManageSessionsCard id="manage-sessions" />
             </Stack>
 
             <ConfirmDialog

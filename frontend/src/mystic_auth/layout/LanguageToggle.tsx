@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Portal, Select, createListCollection, visuallyHiddenStyle } from "@chakra-ui/react";
+import { Flex, Portal, Select, createListCollection, visuallyHiddenStyle } from "@chakra-ui/react";
 
 import {
     LANGUAGE_MODES,
@@ -46,7 +46,7 @@ const LanguageToggle: React.FC = () => {
                 if (next) setMode(next);
             }}
             size="sm"
-            width="170px"
+            width="fit-content"
         >
             <Select.HiddenSelect aria-label={t("language")} />
             {/* See StyledSelect.tsx's matching comment: without this,
@@ -61,13 +61,53 @@ const LanguageToggle: React.FC = () => {
                     shares ICON_BUTTON_PROPS directly so the two can't drift
                     apart the way the old hand-duplicated values could. */}
                 <Select.Trigger
-                    fontSize="15px"
+                    fontSize="md"
                     {...ICON_BUTTON_PROPS}
+                    display="grid"
                 >
-                    <Select.ValueText />
-                    <Select.IndicatorGroup>
-                        <Select.Indicator />
-                    </Select.IndicatorGroup>
+                    {/* Same technique as FontSizeControl.tsx's matching
+                        comment: an invisible stack built from the *same*
+                        Select.Item/Select.ItemIndicator parts Select.Content
+                        below renders, wrapped in the same p="1"/borderWidth
+                        Content itself has, so this reproduces the panel's
+                        real padding/icon chrome exactly instead of just
+                        approximating it - a mismatch there previously left
+                        the open panel's item row a few px too narrow and
+                        forced a horizontal scrollbar inside it. Sharing the
+                        grid cell (both "1 / 1") with the visible row below
+                        means the trigger's width grows to fit the longest
+                        language label - not just whichever one is currently
+                        selected - and the panel (via Select.Root's default
+                        sameWidth positioning) matches it exactly. */}
+                    <Flex
+                        gridArea="1 / 1"
+                        direction="column"
+                        h="0"
+                        overflow="hidden"
+                        p="1"
+                        borderWidth="1px"
+                        fontSize="md"
+                        visibility="hidden"
+                        aria-hidden
+                    >
+                        {options.map((option) => (
+                            <Select.Item key={option.value} item={option}>
+                                <Select.ItemText>{option.label}</Select.ItemText>
+                                <Select.ItemIndicator />
+                            </Select.Item>
+                        ))}
+                    </Flex>
+                    <Flex gridArea="1 / 1" justifyContent="space-between" alignItems="center">
+                        {/* Recipe default caps this at maxW 80% assuming a
+                            fixed-width trigger; now that the trigger sizes to
+                            fit-content, that percentage resolves against
+                            nothing and truncates the label (e.g. "English" ->
+                            "En..."), so it's dropped here. */}
+                        <Select.ValueText maxW="none" />
+                        <Select.IndicatorGroup>
+                            <Select.Indicator />
+                        </Select.IndicatorGroup>
+                    </Flex>
                 </Select.Trigger>
             </Select.Control>
             <Portal>
@@ -77,7 +117,7 @@ const LanguageToggle: React.FC = () => {
                         borderColor="border.default"
                         bg="bg.surface"
                         boxShadow="lg"
-                        fontSize="15px"
+                        fontSize="md"
                     >
                         {options.map((option) => (
                             <Select.Item

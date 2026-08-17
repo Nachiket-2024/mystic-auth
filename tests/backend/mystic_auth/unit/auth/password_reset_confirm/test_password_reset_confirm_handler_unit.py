@@ -6,6 +6,7 @@
 # (weak new password, reused old password, stale token) would count towards
 # and could trip the unrelated login lockout for the same email.
 import pytest
+
 from backend.mystic_auth.auth.password_reset_confirm.password_reset_confirm_handler import (
     password_reset_confirm_handler,
 )

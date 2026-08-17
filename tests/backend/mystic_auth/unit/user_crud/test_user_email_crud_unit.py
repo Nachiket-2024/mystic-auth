@@ -9,6 +9,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from backend.mystic_auth.user_crud.user_crud_modules.user_base_crud import UserBaseCRUD
 from backend.mystic_auth.user_crud.user_crud_modules.user_email_crud import (
     UserEmailCRUD,

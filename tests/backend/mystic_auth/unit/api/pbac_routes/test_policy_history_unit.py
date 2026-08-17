@@ -9,6 +9,8 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
+
 from backend.mystic_auth.api.pbac_routes.policy_history_routes import (
     _definition_for_entry,
     compare_policy_history,
@@ -21,7 +23,6 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
 from backend.mystic_auth.authorization.schemas.policy_history_schema import (
     PolicyRollbackRequest,
 )
-from fastapi import HTTPException
 
 REPO_MODULE = "backend.mystic_auth.authorization.repositories.policy_repository"
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_history_routes"

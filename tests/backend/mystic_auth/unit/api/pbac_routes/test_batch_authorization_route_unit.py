@@ -9,6 +9,8 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic import ValidationError
+
 from backend.mystic_auth.api.pbac_routes.authorization_check_routes import (
     batch_check_authorization,
 )
@@ -19,7 +21,6 @@ from backend.mystic_auth.authorization.schemas.batch_authorization_schema import
     MAX_BATCH_SIZE,
     BatchAuthorizationCheckRequest,
 )
-from pydantic import ValidationError
 
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.authorization_check_routes"
 

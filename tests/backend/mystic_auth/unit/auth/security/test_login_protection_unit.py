@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.security.login_protection_service import (
     login_protection_service,
 )

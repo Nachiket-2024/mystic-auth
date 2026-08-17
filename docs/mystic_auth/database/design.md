@@ -69,7 +69,7 @@ The single, unified identity table: password and OAuth2 (Google) accounts share 
 | `id` | int, PK | |
 | `name` | string | |
 | `email` | string, **unique**, indexed | The DB-level unique constraint is what actually prevents a duplicate account under a signup/OAuth2-login race; see [Security Decisions](../security/decisions.md#the-signupoauth2-email-race). |
-| `hashed_password` | string, nullable | Argon2 hash. **Null for OAuth2-only accounts**: there is no password to check, and `login_service.py` handles a null hash safely (compares against a dummy hash rather than short-circuiting, for timing-attack resistance; see [Authentication Flows](../authentication/overview.md#login)). |
+| `hashed_password` | string, nullable | Argon2 hash. **Null for OAuth2-only accounts**: there is no password to check, and `login_service.py` handles a null hash safely (compares against a dummy hash rather than short-circuiting, for timing-attack resistance; see [Login](../authentication/login.md)). |
 | `role` | enum (`user`/`admin`/`system`), nullable | **Display/grouping metadata only; never consulted for an access decision.** See [Security Decisions](../security/decisions.md#role-is-never-used-to-decide-access). Nullable because the system must support a roleless account authorized purely through policies. |
 | `is_verified` | bool | Email ownership confirmed (via the verification flow, or implicitly via Google's `email_verified`). |
 | `is_active` | bool | **The single flag every auth check point gates on** (`login_service.py`, `oauth2_service.py`, `current_user_handler.py`). Also what soft delete reuses; see Account Lifecycle below. |
@@ -110,21 +110,28 @@ One row per login session, backing the "Manage Sessions" dashboard card. `curren
 
 ## Account lifecycle
 
+See [Account Deletion and Purge](../authentication/account-deletion.md) for the full flow end to
+end, including the OAuth-only-account email-confirmation path and sequence diagrams. Summary below.
+
 Three operations, two permissions, deliberately separate:
 
 | Operation | Endpoint | Permission | Reversible? |
 |---|---|---|---|
-| Soft delete (default) | `DELETE /users/{email}` | `users:delete_any` | Yes, via reactivate |
+| Soft delete (admin) | `DELETE /users/{email}` | `users:delete_any` | Yes, via reactivate |
+| Soft delete (self-service) | `DELETE /users/me` | `users:update_own` + current password | Yes, via reactivate (admin-only) |
 | Reactivate | `PATCH /users/{email}/reactivate` | `users:reactivate` | N/A |
-| Purge (hard delete) | `DELETE /users/{email}/purge` | `users:purge` | **No** |
+| Purge (hard delete, manual) | `DELETE /users/{email}/purge` | `users:purge` | **No** |
+| Purge (hard delete, automatic) | daily `taskiq_tasks/account_purge_tasks.py` job | N/A (system-initiated) | **No** |
 
 **Soft delete** (`user_lifecycle_crud.py::soft_delete`) sets `is_active=False` + `deleted_at=now()`. It deliberately reuses the *same* `is_active` flag every login/session check already gates on, rather than adding a second "is this user deleted" check to every one of those call sites. The row, its `user_policies` assignments, and all audit history are untouched, so reactivation restores exactly the access the account had before, with nothing to re-grant. The route also explicitly calls `refresh_token_service.revoke_all_tokens_for_user()`, because `POST /auth/refresh/` itself never checks the database (see [Authentication Flows](../authentication/overview.md#refresh-token-rotation)); without this, a still-valid refresh token could keep minting fresh (if practically useless, since `current_user_handler` re-checks `is_active` on every request) access tokens until it expired on its own.
 
-**Purge** (`DELETE /users/{email}/purge`) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`); `authorization_audit_log`/`security_audit_log` rows are untouched (string snapshot, not FK, see above), so the historical record of what the account did survives even though the account itself is gone. Gated by `users:purge`, a distinct and more sensitive permission from `users:delete_any`, granted only by the seeded `system_superuser` policy, never `user_administration`. An admin who can delete accounts day-to-day cannot irreversibly destroy one.
+**Purge** (`DELETE /users/{email}/purge`, or the daily automatic job below) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`); `authorization_audit_log`/`security_audit_log` rows are untouched (string snapshot, not FK, see above), so the historical record of what the account did survives even though the account itself is gone. The manual route is gated by `users:purge`, a distinct and more sensitive permission from `users:delete_any`, granted only by the seeded `system_superuser` policy, never `user_administration`. An admin who can delete accounts day-to-day cannot irreversibly destroy one. Both the manual route and the automatic job call the same `purge_user_account()` (`backend/mystic_auth/user_lifecycle/user_purge_service.py`) so the revoke → audit → delete sequence can never drift between the two call sites.
 
-Both soft-delete and purge write a security audit event (`account_deleted`/`account_purged`) *before or as part of* the operation. For purge specifically, the audit write happens **before** the row is deleted, since the event itself is what makes the irreversible action reviewable afterward.
+Both soft-delete and purge write a security audit event *before or as part of* the operation. For purge specifically, the audit write happens **before** the row is deleted, since the event itself is what makes the irreversible action reviewable afterward.
 
-The system account (`role=UserRole.system`) is excluded from all three operations via the same target-account guard already used for its other admin-route protections (see `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py` and `user_management_update_routes.py`). The delete and purge routes also reject the caller's own account: the frontend disables those actions against your own row, but the backend enforces it independently, since a sole admin deleting or purging themselves would be an unrecoverable lockout.
+The system account (`role=UserRole.system`) is excluded from all lifecycle operations, including self-service delete, via the same target-account guard already used for its other admin-route protections (see `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py`, `user_self_service_routes.py`, and `user_management_update_routes.py`). The admin delete and purge routes also reject the caller's own account: the frontend disables those actions against your own row, but the backend enforces it independently, since a sole admin deleting or purging themselves through the *admin* route would be an unrecoverable lockout. Self-service delete has no such guard, since acting on your own account is the entire point of `DELETE /users/me`; it instead requires re-submitting the current password (verified via the same `password_service.verify_password` call the self-service password-change flow uses) so a hijacked session cookie alone isn't enough to delete the account.
+
+**Self-service delete** (`DELETE /users/me`, `user_self_service_routes.py::delete_my_account`) is soft-delete only: it never purges synchronously. It writes `account_deleted_self` (distinct from admin-initiated `account_deleted`) so the audit log distinguishes the two at a glance. A soft-deleted account (self- or admin-initiated) isn't kept forever: the automatic purge job (`taskiq_tasks/account_purge_tasks.py`, registered on the existing taskiq broker and cron-scheduled at 03:00 UTC daily via `taskiq.schedule_sources.LabelScheduleSource`, added to the `taskiq_scheduler` service's `TaskiqScheduler` sources alongside the pre-existing retry `schedule_source`) queries `user_lifecycle_crud.py::get_deleted_before(cutoff)` for every account whose `deleted_at` predates `now - settings.ACCOUNT_PURGE_GRACE_DAYS` (default 30 days) and purges each one. This is what gives self-service deletion an actual recovery window (the account can only be restored by an admin's `PATCH /users/{email}/reactivate` during the grace period) instead of either purging immediately (no recovery at all) or accumulating soft-deleted rows forever.
 
 ---
 

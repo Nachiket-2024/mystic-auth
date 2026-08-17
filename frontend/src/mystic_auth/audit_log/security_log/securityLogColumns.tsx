@@ -14,11 +14,11 @@ import { formatTimestamp } from "../auditLogListConfig";
 // via the caller's own useTranslation("audit_log") `t`.
 export function getSecurityColumns(t: TFunction<"audit_log">, language: SupportedLanguage): DataTableColumn<SecurityAuditLogEntryRead>[] {
     return [
-        { key: "created_at", header: t("security.columns.when"), width: "190px", truncate: true, render: (e) => formatTimestamp(e.created_at, language), sortable: true },
+        { key: "created_at", header: t("security.columns.when"), width: "11.875rem", truncate: true, render: (e) => formatTimestamp(e.created_at, language), sortable: true },
         {
             key: "user_email",
             header: t("security.columns.user"),
-            width: "26%",
+            width: "16rem",
             truncate: true,
             // Genuinely unattributable, not a bug: the refresh token behind this
             // event (logout/logout-all) was expired or undecodable by the time
@@ -28,11 +28,11 @@ export function getSecurityColumns(t: TFunction<"audit_log">, language: Supporte
             render: (e) => e.user_email ?? <Text color="fg.muted">{t("security.columns.unknownUser")}</Text>,
             sortable: true,
         },
-        { key: "event_type", header: t("security.columns.event"), width: "22%", truncate: true, render: (e) => e.event_type, sortable: true },
+        { key: "event_type", header: t("security.columns.event"), width: "14rem", truncate: true, render: (e) => e.event_type, sortable: true },
         {
             key: "ip_address",
             header: t("security.columns.ip"),
-            width: "150px",
+            width: "9.375rem",
             truncate: true,
             render: (e) => e.ip_address ?? <Text color="fg.muted">{t("security.columns.unknownIp")}</Text>,
             sortable: true,
@@ -40,7 +40,7 @@ export function getSecurityColumns(t: TFunction<"audit_log">, language: Supporte
         {
             key: "success",
             header: t("security.columns.result"),
-            width: "120px",
+            width: "7.5rem",
             render: (e) => (
                 <Badge colorPalette={e.success ? "green" : "red"} size="md">
                     {e.success ? t("security.results.success") : t("security.results.failed")}

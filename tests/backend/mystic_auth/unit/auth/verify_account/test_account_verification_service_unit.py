@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.verify_account.account_verification_service import (
     account_verification_service,
 )

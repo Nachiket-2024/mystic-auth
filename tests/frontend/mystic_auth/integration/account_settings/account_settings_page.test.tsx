@@ -49,19 +49,29 @@ describe('AccountSettingsPage', () => {
     });
   });
 
-  it("renders the caller's own editable name and effective policies from the auth store", async () => {
+  it("renders the caller's own editable name on the Profile tab", async () => {
     renderAccountSettings();
 
     // Email/role are deliberately not repeated here: DashboardPage already
     // shows them as read-only context, so this page only holds the name
     // field (actually editable here) plus policies.
     expect(screen.getByDisplayValue('Test User')).toBeInTheDocument();
+  });
+
+  it('renders effective policies on the Account Status tab', async () => {
+    renderAccountSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('tab', { name: 'Account Status' }));
     await screen.findByText('self_service');
   });
 
   it('shows "Set" for an account with a password and "Not set" for an OAuth2-only account', async () => {
     seedProfile({ hasPassword: false });
     renderAccountSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('tab', { name: 'Account Status' }));
 
     expect(await screen.findByText('Not set')).toBeInTheDocument();
     expect(
@@ -108,6 +118,7 @@ describe('AccountSettingsPage', () => {
     renderAccountSettings();
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Password' }));
     const passwordInput = screen.getByPlaceholderText(/leave blank to keep your current password/i);
     await user.type(passwordInput, 'weak');
     await user.click(screen.getByRole('button', { name: /update password/i }));
@@ -119,6 +130,7 @@ describe('AccountSettingsPage', () => {
     renderAccountSettings();
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Password' }));
     const passwordInput = screen.getByPlaceholderText(/leave blank to keep your current password/i);
     await user.type(passwordInput, 'NewPassword1');
     await user.click(screen.getByRole('button', { name: /update password/i }));
@@ -144,6 +156,7 @@ describe('AccountSettingsPage', () => {
     renderAccountSettings();
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole('tab', { name: 'Password' }));
     const passwordInput = screen.getByPlaceholderText(/leave blank to keep your current password/i);
     await user.type(passwordInput, 'NewPassword1');
     const currentPasswordInput = await screen.findByPlaceholderText(/required to confirm this change/i);
@@ -174,8 +187,8 @@ describe('AccountSettingsPage', () => {
 
     renderAccountSettings();
     const user = userEvent.setup();
-    await screen.findByText('Not set');
 
+    await user.click(screen.getByRole('tab', { name: 'Password' }));
     const passwordInput = screen.getByPlaceholderText(/add a password so you can also sign in without google/i);
     await user.type(passwordInput, 'NewPassword1');
     await user.click(screen.getByRole('button', { name: /set password/i }));

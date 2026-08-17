@@ -4,6 +4,8 @@
 # about them (email normalization, password length caps, has_password
 # derivation) was only exercised indirectly through route/CRUD tests.
 import pytest
+from pydantic import ValidationError
+
 from backend.mystic_auth.user_table.user_model import UserRole
 from backend.mystic_auth.user_table.user_schema import (
     UserCreate,
@@ -12,7 +14,6 @@ from backend.mystic_auth.user_table.user_schema import (
     UserStatsRead,
     UserUpdate,
 )
-from pydantic import ValidationError
 
 
 def test_user_create_normalizes_email_casing():

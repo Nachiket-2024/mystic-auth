@@ -6,6 +6,7 @@
 # double-submitted, already-consumed link racing the single-use check) would
 # count towards and could trip the unrelated login lockout for the same email.
 import pytest
+
 from backend.mystic_auth.auth.verify_account.account_verification_handler import (
     account_verification_handler,
 )

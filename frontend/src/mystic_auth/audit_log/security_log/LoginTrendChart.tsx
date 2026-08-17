@@ -74,12 +74,11 @@ function niceMax(value: number): number {
  */
 const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isError }) => {
     const { t } = useTranslation("audit_log");
-    const language = useLanguageStore((s) => s.pageLanguage);
-    // Day/month labels (formatDayLabel/formatAxisLabel below) use
-    // chromeLanguage instead - see AllAuthorizationLogSection.tsx's matching
-    // comment. Everything else here (the success/failure counts) is plain
-    // numeral formatting, not a date, so it stays on the page language.
-    const dateLanguage = useLanguageStore((s) => s.chromeLanguage);
+    // chromeLanguage, not pageLanguage, for every number/date in this chart -
+    // see AllAuthorizationLogSection.tsx's matching comment. Numerals stay in
+    // English/ASCII digits even in a mixed "en+hi" mode; only the translated
+    // labels (t()) switch with pageLanguage.
+    const language = useLanguageStore((s) => s.chromeLanguage);
     const [hovered, setHovered] = useState<number | null>(null);
 
     if (isLoading) return <Skeleton height={`${CHART_HEIGHT + 70}px`} />;
@@ -100,23 +99,23 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isEr
             <Stack gap={1} mb={3}>
                 <HStack gap={5} wrap="wrap">
                     <HStack gap={2}>
-                        <Box w="12px" h="12px" borderRadius="3px" bg="green.500" />
+                        <Box w="3" h="3" borderRadius="sm" bg="green.500" />
                         <Text fontSize="sm" color="fg.muted">{t("security.successCount", { count: formatNumber(totalSuccess, language) })}</Text>
                     </HStack>
                     <HStack gap={2}>
-                        <Box w="12px" h="12px" borderRadius="3px" bg="red.500" />
+                        <Box w="3" h="3" borderRadius="sm" bg="red.500" />
                         <Text fontSize="sm" color="fg.muted">{t("security.failedCount", { count: formatNumber(totalFailure, language) })}</Text>
                     </HStack>
                 </HStack>
                 <Text fontSize="xs" color="fg.muted">
-                    {formatDayLabel(data[0].date, dateLanguage)} to {formatDayLabel(data[data.length - 1].date, dateLanguage)}
+                    {formatDayLabel(data[0].date, language)} to {formatDayLabel(data[data.length - 1].date, language)}
                 </Text>
             </Stack>
 
             <HStack align="stretch" gap={2}>
                 {/* Y-axis: 0 / half / max, evenly spaced against the same
                     plotHeight the bars themselves scale against. */}
-                <Stack justify="space-between" h={`${CHART_HEIGHT}px`} w={`${Y_AXIS_WIDTH}px`} flexShrink={0} pb="12px">
+                <Stack justify="space-between" h={`${CHART_HEIGHT}px`} w={`${Y_AXIS_WIDTH}px`} flexShrink={0} pb="3">
                     <Text fontSize="xs" color="fg.muted" textAlign="right">{formatNumber(scaleMax, language)}</Text>
                     <Text fontSize="xs" color="fg.muted" textAlign="right">{formatNumber(Math.round(scaleMax / 2), language)}</Text>
                     <Text fontSize="xs" color="fg.muted" textAlign="right">{formatNumber(0, language)}</Text>
@@ -141,15 +140,15 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isEr
                             whiteSpace="nowrap"
                         >
                             <Text fontSize="sm" fontWeight="semibold" mb={1}>
-                                {formatDayLabel(hoveredPoint.date, dateLanguage)}
+                                {formatDayLabel(hoveredPoint.date, language)}
                             </Text>
                             <HStack gap={1.5}>
-                                <Box w="8px" h="8px" borderRadius="2px" bg="green.500" />
+                                <Box w="2" h="2" borderRadius="xs" bg="green.500" />
                                 <Text fontSize="xs" color="fg.muted">{t("security.successLabel")}</Text>
                                 <Text fontSize="xs" fontWeight="semibold">{formatNumber(hoveredPoint.success, language)}</Text>
                             </HStack>
                             <HStack gap={1.5}>
-                                <Box w="8px" h="8px" borderRadius="2px" bg="red.500" />
+                                <Box w="2" h="2" borderRadius="xs" bg="red.500" />
                                 <Text fontSize="xs" color="fg.muted">{t("security.failedLabel")}</Text>
                                 <Text fontSize="xs" fontWeight="semibold">{formatNumber(hoveredPoint.failure, language)}</Text>
                             </HStack>
@@ -238,12 +237,12 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isEr
                         {data.map((point, i) => (
                             <Box key={point.date} w={`${dayWidth}%`} textAlign="center">
                                 <Text
-                                    fontSize="11px"
+                                    fontSize="xs"
                                     whiteSpace="nowrap"
                                     color={hovered === i ? "fg.default" : "fg.muted"}
                                     fontWeight={hovered === i ? "semibold" : "normal"}
                                 >
-                                    {formatAxisLabel(point.date, dateLanguage)}
+                                    {formatAxisLabel(point.date, language)}
                                 </Text>
                             </Box>
                         ))}

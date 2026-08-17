@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { Badge, Button, HStack, Input, Text, Wrap } from "@chakra-ui/react";
+import { Pencil, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import PageContainer from "../ui/PageContainer";
 import DataTable, { type DataTableColumn } from "../ui/DataTable";
 import ConfirmDialog from "../ui/ConfirmDialog";
-import TableActionButton from "../ui/TableActionButton";
+import TableActionIconButton from "../ui/TableActionIconButton";
 import { SEARCH_INPUT_PROPS } from "../ui/styles/inputStyles";
 import { BRAND_SOLID_HOVER_PROPS } from "../ui/styles/buttonStyles";
 import { IfCan } from "../authorization/IfCan";
@@ -109,7 +110,7 @@ const PoliciesPage: React.FC = () => {
         {
             key: "name",
             header: t("policies:columns.name"),
-            width: "220px",
+            width: "13.75rem",
             truncate: true,
             render: (p) => (
                 <Text fontWeight="medium">
@@ -122,14 +123,21 @@ const PoliciesPage: React.FC = () => {
                 </Text>
             ),
         },
-        { key: "resource_type", header: t("policies:columns.resourceType"), width: "150px", truncate: true, render: (p) => p.resource_type },
+        { key: "resource_type", header: t("policies:columns.resourceType"), width: "9.375rem", truncate: true, render: (p) => p.resource_type },
         {
             key: "actions_list",
             header: t("policies:columns.actions"),
+            // Explicit width, not left unset: table-layout:fixed only gives an
+            // unset column "whatever's left" when every other column is also
+            // unset/percentage. Mixed with this table's rem-sized columns, an
+            // unset column here collapsed to illegible px (same root cause as
+            // usersColumns.tsx's Name/Email fix). Badges wrap (Wrap below), so
+            // a fixed width just means more rows, not disappearing content.
+            width: "20rem",
             render: (p) => (
                 <Wrap gap={1}>
                     {p.actions.map((a) => (
-                        <Badge key={a} colorPalette="brand" variant="subtle" fontSize="15px" px={2} py={0.5}>
+                        <Badge key={a} colorPalette="brand" variant="subtle" fontSize="md" px={2} py={0.5}>
                             {a}
                         </Badge>
                     ))}
@@ -140,23 +148,24 @@ const PoliciesPage: React.FC = () => {
             key: "row_actions",
             header: "",
             align: "end",
-            // 150px only fit the English "Edit"/"Delete" labels; Hindi/Marathi
-            // translations (e.g. "संपादित करें"/"काढून टाका") are noticeably
-            // longer and got clipped by the table's fixed-width, overflow-hidden
-            // cell. Widened and wrapped the same way usersColumns.tsx's own
-            // row-actions column already handles multiple/longer buttons.
-            width: "260px",
+            // Icon-only buttons (tooltip + aria-label carry the text), same
+            // reasoning as usersColumns.tsx's row_actions: a fixed-width
+            // text column can't fit every locale's translation (Hindi/
+            // Marathi's "Edit"/"Delete" run noticeably longer than English),
+            // so a fixed-size icon is the only way to guarantee this stays
+            // on one line without wrapping or scrolling in every language.
+            width: "5.5rem",
             render: (p) => (
-                <HStack justify="flex-end" gap={2} wrap="wrap">
+                <HStack justify="flex-end" gap={1.5} wrap="nowrap">
                     <IfCan action={PERMISSIONS.POLICIES_UPDATE}>
-                        <TableActionButton colorPalette="orange" onClick={() => openEditForm(p)}>
-                            {t("policies:columns.edit")}
-                        </TableActionButton>
+                        <TableActionIconButton colorPalette="orange" label={t("policies:columns.edit")} onClick={() => openEditForm(p)}>
+                            <Pencil size={16} aria-hidden="true" />
+                        </TableActionIconButton>
                     </IfCan>
                     <IfCan action={PERMISSIONS.POLICIES_DELETE}>
-                        <TableActionButton colorPalette="red" onClick={() => setDeletingPolicy(p)}>
-                            {t("ui_text:delete")}
-                        </TableActionButton>
+                        <TableActionIconButton colorPalette="red" label={t("ui_text:delete")} onClick={() => setDeletingPolicy(p)}>
+                            <Trash2 size={16} aria-hidden="true" />
+                        </TableActionIconButton>
                     </IfCan>
                 </HStack>
             ),
@@ -166,6 +175,7 @@ const PoliciesPage: React.FC = () => {
     return (
         <PageContainer
             title={t("policies:page.title")}
+            icon={ShieldCheck}
             description={t("policies:page.description")}
             actions={<PolicyStatsCard policies={policies} isLoading={isLoading} />}
             headerExtra={
@@ -194,6 +204,16 @@ const PoliciesPage: React.FC = () => {
                 isError={isError}
                 errorMessage={t("policies:page.failedToLoadPolicies")}
                 emptyMessage={search ? t("policies:page.noPoliciesMatchSearch") : t("policies:page.noPoliciesYet")}
+                emptyIcon={<ShieldOff size={32} aria-hidden="true" />}
+                emptyAction={
+                    !search ? (
+                        <IfCan action={PERMISSIONS.POLICIES_CREATE}>
+                            <Button colorPalette="brand" onClick={openCreateForm} {...BRAND_SOLID_HOVER_PROPS}>
+                                {t("policies:page.createPolicy")}
+                            </Button>
+                        </IfCan>
+                    ) : undefined
+                }
                 startIndex={0}
             />
 

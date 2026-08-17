@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Input } from "@chakra-ui/react";
+import { ClipboardList } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import DataTable from "../../ui/DataTable";
@@ -78,6 +79,7 @@ const AllAuthorizationLogSection: React.FC<AllAuthorizationLogSectionProps> = ({
                 isLoading={isLoading}
                 isError={isError}
                 emptyMessage={search ? t("authorization.emptySearch") : t("authorization.emptyFiltered")}
+                emptyIcon={<ClipboardList size={32} aria-hidden="true" />}
                 sort={sort}
                 onSortChange={toggleSort}
                 startIndex={(page - 1) * PAGE_SIZE}

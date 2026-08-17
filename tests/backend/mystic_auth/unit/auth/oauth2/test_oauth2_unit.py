@@ -4,6 +4,7 @@ import hashlib
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.oauth2.oauth2_login_handler import oauth2_login_handler
 from backend.mystic_auth.auth.oauth2.oauth2_service import (
     OAUTH2_STATE_TTL_SECONDS,

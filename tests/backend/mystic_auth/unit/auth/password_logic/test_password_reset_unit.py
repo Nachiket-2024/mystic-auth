@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.password_logic.password_reset_service import (
     password_reset_service,
 )

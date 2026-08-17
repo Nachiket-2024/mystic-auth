@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.scripts.create_system_user import (
     SYSTEM_ROLE,
     SYSTEM_USER_POLICY_NAMES,

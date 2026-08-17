@@ -9,6 +9,8 @@
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
+
 from backend.mystic_auth.authorization.evaluators.policy_evaluator import (
     PolicyEvaluationEngine,
 )
@@ -16,7 +18,6 @@ from backend.mystic_auth.authorization.models.policy_model import Policy
 from backend.mystic_auth.authorization.services.authorization_service import (
     authorization_service,
 )
-from fastapi import HTTPException
 
 MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 

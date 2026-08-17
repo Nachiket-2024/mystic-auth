@@ -1,11 +1,12 @@
 # tests/backend/mystic_auth/unit/test_token_cookie_handler_unit.py
 import pytest
+from fastapi.responses import JSONResponse
+
 from backend.mystic_auth.auth.token_logic.token_cookie_handler import (
     token_cookie_handler,
 )
 from backend.mystic_auth.auth.token_logic.token_schema import TokenPairResponseSchema
 from backend.mystic_auth.core.settings import settings
-from fastapi.responses import JSONResponse
 
 TOKENS = TokenPairResponseSchema(access_token="access-value", refresh_token="refresh-value")
 

@@ -8,8 +8,9 @@
 # measured).
 import uuid
 
-from backend.mystic_auth.database.connection import database
 from sqlalchemy import text
+
+from backend.mystic_auth.database.connection import database
 
 
 def unique_tag() -> str:

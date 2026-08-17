@@ -24,7 +24,7 @@ export interface UsersFilters {
     sortDir?: SortDirection;
 }
 
-export function useUsersQuery(page: number, pageSize: number, filters: UsersFilters = {}) {
+export function useUsersQuery(page: number, pageSize: number, filters: UsersFilters = {}, enabled = true) {
     return useQuery<UsersPage>({
         queryKey: [...USERS_QUERY_KEY, page, pageSize, filters],
         queryFn: async () => {
@@ -42,6 +42,10 @@ export function useUsersQuery(page: number, pageSize: number, filters: UsersFilt
         // without it, switching pages would flash the table's loading
         // skeleton and could shift the page's height mid-navigation.
         placeholderData: keepPreviousData,
+        // CommandPalette reuses this hook to search users on-demand and
+        // needs to skip the request entirely while its query is empty,
+        // rather than fetching (and caching) an unfiltered first page.
+        enabled,
     });
 }
 

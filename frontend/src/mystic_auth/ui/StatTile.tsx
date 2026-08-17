@@ -19,22 +19,25 @@ export interface StatTileProps {
     ariaLabel?: string;
 }
 
-// NOT the same solid-fill hover TableActionButton/Pagination use: those
-// only ever hold one text color, so swapping to a solid fill + a single
-// inverted hover text color works there. A stat tile holds several colors
-// at once (a green/yellow/red/default number plus a separately-muted
-// label), and a solid gray.600/gray.300 fill washed both of those out
-// (dark text vanishing on a dark fill, light text on a light one) - this
-// was the actual bug report. `brand.subtle`/`brand.selected` are the
-// app's own existing "highlighted without inverting" language (see
-// Sidebar's active-link background), a light tinted wash designed to sit
-// behind existing text colors rather than replace them, so every number's
-// own color and the muted label both stay exactly as readable as at rest.
+// NOT the same solid-fill hover TableActionButton/Pagination use: those only
+// hold one text color, but a stat tile holds several at once (a colored
+// number plus a muted label), and a solid fill washed both out (this was the
+// actual bug report). `brand.subtle`/`brand.selected` (Sidebar's existing
+// "highlighted without inverting" language) is a light tinted wash that sits
+// behind existing text colors instead of replacing them.
 const STAT_TILE_HOVER_PROPS = {
     borderWidth: "1px",
     borderColor: "transparent",
-    transition: "background 0.15s ease, border-color 0.15s ease",
+    transition: "background var(--chakra-durations-fast) var(--chakra-easings-hover), border-color var(--chakra-durations-fast) var(--chakra-easings-hover)",
     _hover: { bg: "brand.selected", borderColor: "brand.solid" },
+    // Plain Box as="button" gets no recipe styling at all (unlike a real
+    // Chakra Button), so without this a keyboard user tabbing here saw only
+    // the bare browser-default outline - present, but visually
+    // inconsistent with every other focusable control in the app (Button/
+    // Input/StyledSelect all render a brand-colored ring via their own
+    // recipe's _focusVisible). Chakra's _focusVisible style prop still
+    // works here since it's a core style prop, not recipe-specific.
+    _focusVisible: { outline: "2px solid", outlineColor: "brand.solid", outlineOffset: "2px" },
 };
 
 /**
@@ -45,7 +48,10 @@ const STAT_TILE_HOVER_PROPS = {
  */
 const StatTile: React.FC<StatTileProps> = ({ label, value, isLoading, color = "fg.default", onClick, ariaLabel }) => {
     const { t } = useTranslation("ui_text");
-    const language = useLanguageStore((s) => s.pageLanguage);
+    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
+    // even in a mixed "en+hi" mode, the same way dates already do (see
+    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    const language = useLanguageStore((s) => s.chromeLanguage);
     return (
     <Box
         textAlign="center"
@@ -61,13 +67,18 @@ const StatTile: React.FC<StatTileProps> = ({ label, value, isLoading, color = "f
         })}
     >
         {isLoading ? (
-            <Skeleton height="30px" mx="auto" w="48px" />
+            // bg.muted, not Skeleton's default bg.emphasized: this tile sits
+            // inside a Card (bg.surface), and in dark mode bg.emphasized
+            // resolves to the exact same gray.800 as bg.surface (see
+            // theme/system.ts) - an invisible skeleton, even mid-pulse,
+            // since the color never actually differs from the card behind it.
+            <Skeleton height="8" mx="auto" w="12" bg="bg.muted" />
         ) : (
-            <Text fontSize="28px" fontWeight="bold" color={color} lineHeight="1">
+            <Text fontSize="3xl" fontWeight="bold" color={color} lineHeight="1">
                 {formatNumber(value, language)}
             </Text>
         )}
-        <Text fontSize="16px" color="fg.muted" mt={1} whiteSpace="nowrap">
+        <Text fontSize="md" color="fg.muted" mt={1} whiteSpace="nowrap">
             {label}
         </Text>
     </Box>

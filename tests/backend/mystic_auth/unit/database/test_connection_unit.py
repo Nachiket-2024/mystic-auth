@@ -14,9 +14,10 @@
 # its own comment), so asserting on the singleton here would really be
 # asserting on conftest's override, not on Database's own default behavior.
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.mystic_auth.core.settings import settings
 from backend.mystic_auth.database.connection import Database, database
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def test_database_engine_is_configured_from_settings_database_url():

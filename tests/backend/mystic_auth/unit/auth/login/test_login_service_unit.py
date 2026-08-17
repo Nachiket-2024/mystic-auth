@@ -12,6 +12,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.login.login_service import login_service
 from backend.mystic_auth.auth.password_logic.password_service import password_service
 

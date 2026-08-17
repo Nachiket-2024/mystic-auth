@@ -7,8 +7,9 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from backend.mystic_auth.api.pbac_routes.pbac_audit_log_routes import list_my_audit_log
 from fastapi import Response
+
+from backend.mystic_auth.api.pbac_routes.pbac_audit_log_routes import list_my_audit_log
 
 MODULE = "backend.mystic_auth.api.pbac_routes.pbac_audit_log_routes"
 

@@ -10,6 +10,7 @@
 # test_user_list_and_update_integration.py covers viewing/editing an
 # existing account.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,

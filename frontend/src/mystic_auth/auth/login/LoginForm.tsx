@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Input, Button, Stack, Text } from "@chakra-ui/react";
-import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import { useLoginMutation } from "./useLoginMutation";
 import FormAlert from "../../ui/FormAlert";
-import { FAST_HOVER_TRANSITION } from "../../ui/styles/buttonStyles";
+import PasswordInput from "../../ui/PasswordInput";
+import AuthInlineLink from "../../ui/AuthInlineLink";
+import { FAST_HOVER_TRANSITION } from "../../theme/system";
 
 interface LoginFormProps {
     onSuccess?: () => void;
@@ -56,8 +57,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 aria-describedby={loginMutation.isError ? "login-error" : undefined}
             />
 
-            <Input
-                type="password"
+            <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t("login.passwordPlaceholder")}
@@ -93,15 +93,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 textAlign="right"
                 width="100%"
             >
-                <Link
-                    to="/password-reset-request"
-                    style={{
-                        color: "var(--chakra-colors-brand-fg)",
-                        fontWeight: 600,
-                    }}
-                >
+                <AuthInlineLink to="/password-reset-request">
                     {t("login.forgotPassword")}
-                </Link>
+                </AuthInlineLink>
             </Text>
 
             {loginMutation.isError && (

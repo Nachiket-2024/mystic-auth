@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...audit_log.audit_log_service import (
     ACCOUNT_DELETED,
-    ACCOUNT_PURGED,
     ACCOUNT_REACTIVATED,
     log_security_event,
 )
@@ -27,6 +26,7 @@ from ...user_crud.user_crud_collector import user_crud
 # UserRole is only used for target-account guards such as protecting the
 # reserved system account from generic endpoints. It is resource metadata, not
 # caller authorization; PBAC policies still decide access.
+from ...user_lifecycle.user_purge_service import purge_user_account
 from ...user_table.user_model import UserRole
 from ...user_table.user_schema import UserRead
 from ..get_or_404.get_or_404 import get_or_404
@@ -134,27 +134,15 @@ async def purge_user(
             detail="Cannot purge your own account through this endpoint"
         )
 
-    # The row is about to disappear, so sessions must be revoked before
-    # deletion. revoke_all_tokens_for_user also marks every Manage Sessions
-    # row revoked, which is redundant work here specifically (users.id's ON
-    # DELETE CASCADE removes those rows a moment later anyway, unlike
-    # delete_any_user's soft-delete case, where the rows survive) but
-    # harmless, and keeping one call site rather than a purge-specific
-    # variant is worth that one extra write.
-    revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
-
-    # Recorded before the row is deleted, since the event itself is what makes
-    # this irreversible action reviewable after the fact.
-    await log_security_event(
-        ACCOUNT_PURGED,
-        db,
-        user_email=user_email,
-        success=True,
-        request=request,
-        metadata={"purged_by": current_user["email"], "sessions_revoked": revoked_count},
-    )
-
-    await user_crud.delete(db_obj=user, db=db)
+    # Shared with the scheduled grace-period purge job (see
+    # user_lifecycle/user_purge_service.py) so both go through the exact
+    # same revoke -> audit -> delete sequence: revoke_all_tokens_for_user
+    # also marks every Manage Sessions row revoked, which is redundant work
+    # here specifically (users.id's ON DELETE CASCADE removes those rows a
+    # moment later anyway, unlike delete_any_user's soft-delete case, where
+    # the rows survive) but harmless, and keeping one call site rather than
+    # a purge-specific variant is worth that one extra write.
+    await purge_user_account(user, db, purged_by=current_user["email"], request=request)
     return {"detail": f"User {user_email} permanently removed"}
 
 

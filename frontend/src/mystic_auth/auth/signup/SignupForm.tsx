@@ -1,17 +1,19 @@
 import React, { useState } from "react";
 import { Stack, Input, Button, Text } from "@chakra-ui/react";
 import { Field as ChakraField } from "@chakra-ui/react";
-import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import { useSignupMutation } from "./useSignupMutation";
 import FormAlert from "../../ui/FormAlert";
+import PasswordInput from "../../ui/PasswordInput";
+import AuthInlineLink from "../../ui/AuthInlineLink";
 import { BRAND_SOLID_HOVER_PROPS } from "../../ui/styles/buttonStyles";
 
 // Shared password policy logic and checklist UI, kept identical to
 // PasswordResetConfirmForm so the two flows can't drift apart again.
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../password_rules/passwordRules";
 import PasswordRulesChecklist from "../password_rules/PasswordRulesChecklist";
+import PasswordStrengthMeter from "../password_rules/PasswordStrengthMeter";
 
 const SignupForm: React.FC = () => {
     const { t } = useTranslation("auth");
@@ -67,7 +69,12 @@ const SignupForm: React.FC = () => {
 
     return (
         <Stack as="form" onSubmit={handleSubmit} w="full">
-            <Stack direction="row">
+            {/* Column on narrow screens: side-by-side Name/Email is what makes
+                this card genuinely wider than the other auth cards (see
+                SignupPage's own comment), but that same width is exactly
+                what overflowed a 375px viewport before this broke to a
+                single column there. */}
+            <Stack direction={{ base: "column", sm: "row" }}>
                 <ChakraField.Root required flex={1}>
                     <ChakraField.Label>{t("signup.nameLabel")}</ChakraField.Label>
                     <Input
@@ -91,8 +98,7 @@ const SignupForm: React.FC = () => {
 
             <ChakraField.Root required>
                 <ChakraField.Label>{t("signup.passwordLabel")}</ChakraField.Label>
-                <Input
-                    type="password"
+                <PasswordInput
                     value={password}
                     onChange={e => handlePasswordChange(e.target.value)}
                     placeholder={t("signup.passwordPlaceholder")}
@@ -101,30 +107,22 @@ const SignupForm: React.FC = () => {
                 />
                 {/* Always rendered, even before typing starts (showing a
                     neutral "-" placeholder): reserving this line's height
-                    from the very first render means the strength label
+                    from the very first render means the strength meter
                     filling in never shifts the fields below it, unlike a
                     conditionally-mounted line that only appears once
                     passwordStrength has a value. */}
-                <Text
+                <PasswordStrengthMeter
+                    password={password}
+                    label={t("signup.strengthLabel", { strength: passwordStrength || "-" })}
                     mt={1}
-                    fontSize="15px"
-                    fontWeight="bold"
-                    color={
-                        passwordStrength === "Weak" ? "red.500" :
-                        passwordStrength === "Medium" ? "orange.400" :
-                        passwordStrength === "Strong" ? "green.500" : "fg.muted"
-                    }
-                >
-                    {t("signup.strengthLabel", { strength: passwordStrength || "-" })}
-                </Text>
+                />
             </ChakraField.Root>
 
-            <PasswordRulesChecklist rules={rules} fontSize="15px" />
+            <PasswordRulesChecklist rules={rules} fontSize="md" pristine={!password} />
 
             <ChakraField.Root required>
                 <ChakraField.Label>{t("signup.confirmPasswordLabel")}</ChakraField.Label>
-                <Input
-                    type="password"
+                <PasswordInput
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     placeholder={t("signup.confirmPasswordPlaceholder")}
@@ -161,11 +159,11 @@ const SignupForm: React.FC = () => {
                 button, so the two auth pages read as one consistent
                 pattern instead of two different conventions for the same
                 "wrong page? go to the other one" action. */}
-            <Text fontSize="16px" color="fg.muted" textAlign="center">
+            <Text fontSize="md" color="fg.muted" textAlign="center">
                 {t("signup.alreadyHaveAccount")}{" "}
-                <Link to="/login" style={{ color: "var(--chakra-colors-brand-fg)", fontWeight: 600 }}>
+                <AuthInlineLink to="/login">
                     {t("signup.login")}
-                </Link>
+                </AuthInlineLink>
             </Text>
         </Stack>
     );

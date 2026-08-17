@@ -16,7 +16,10 @@ interface VerificationEmailRequestFormProps {
 
 const VerificationEmailRequestForm: React.FC<VerificationEmailRequestFormProps> = ({ initialEmail = "" }) => {
     const { t } = useTranslation("auth");
-    const language = useLanguageStore((s) => s.pageLanguage);
+    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
+    // even in a mixed "en+hi" mode, the same way dates already do (see
+    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    const language = useLanguageStore((s) => s.chromeLanguage);
     const [email, setEmail] = useState(initialEmail);
     const { cooldown, startCooldown } = useCooldown();
     const requestMutation = useVerificationEmailRequestMutation();

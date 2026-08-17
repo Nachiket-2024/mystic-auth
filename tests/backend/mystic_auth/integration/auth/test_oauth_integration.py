@@ -12,8 +12,9 @@ import uuid
 from unittest.mock import AsyncMock
 
 import pytest
-from backend.mystic_auth.database.connection import database
 from sqlalchemy import text
+
+from backend.mystic_auth.database.connection import database
 
 HANDLER_MODULE = "backend.mystic_auth.auth.oauth2.oauth2_login_handler"
 PASSWORD = "StrongPass123!"

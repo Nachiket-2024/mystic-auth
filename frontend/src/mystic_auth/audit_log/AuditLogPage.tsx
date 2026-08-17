@@ -1,6 +1,8 @@
 import React from "react";
 import { Tabs } from "@chakra-ui/react";
+import { ScrollText } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 
 import PageContainer from "../ui/PageContainer";
 import { IfCan } from "../authorization/IfCan";
@@ -63,20 +65,31 @@ interface AuditLogPageProps {
 const AuditLogPage: React.FC<AuditLogPageProps> = ({ extraResourceTypes, extraActions }) => {
     const { t } = useTranslation("audit_log");
 
+    // Read-once initializers (see AccountSettingsPage's matching comment
+    // for the `key` reasoning): CommandPalette's content-search results
+    // (layout/searchItems.ts) navigate to e.g.
+    // /audit-log?category=security&scope=all to land on a specific
+    // category+scope pair. `scope` is shared meaning across both category
+    // branches (each has its own independent inner Tabs.Root), so it's read
+    // once here rather than per-branch.
+    const [searchParams] = useSearchParams();
+    const initialCategory = searchParams.get("category") ?? "authorization";
+    const initialScope = searchParams.get("scope") ?? "mine";
+
     return (
-        <PageContainer title={t("page.title")} description={t("page.description")}>
-            <Tabs.Root defaultValue="authorization" mb={4} lazyMount unmountOnExit>
+        <PageContainer title={t("page.title")} icon={ScrollText} description={t("page.description")}>
+            <Tabs.Root key={initialCategory} defaultValue={initialCategory} mb={4} lazyMount unmountOnExit>
                 <Tabs.List>
-                    <Tabs.Trigger value="authorization" fontSize="15px">{t("tabs.authorizationDecisions")}</Tabs.Trigger>
-                    <Tabs.Trigger value="security" fontSize="15px">{t("tabs.securityEvents")}</Tabs.Trigger>
+                    <Tabs.Trigger value="authorization" fontSize="md">{t("tabs.authorizationDecisions")}</Tabs.Trigger>
+                    <Tabs.Trigger value="security" fontSize="md">{t("tabs.securityEvents")}</Tabs.Trigger>
                 </Tabs.List>
 
                 <Tabs.Content value="authorization">
-                    <Tabs.Root defaultValue="mine" lazyMount unmountOnExit>
+                    <Tabs.Root key={initialScope} defaultValue={initialScope} lazyMount unmountOnExit>
                         <Tabs.List>
-                            <Tabs.Trigger value="mine" fontSize="15px">{t("tabs.myActivity")}</Tabs.Trigger>
+                            <Tabs.Trigger value="mine" fontSize="md">{t("tabs.myActivity")}</Tabs.Trigger>
                             <IfCan action={PERMISSIONS.POLICIES_READ}>
-                                <Tabs.Trigger value="all" fontSize="15px">{t("tabs.allUsers")}</Tabs.Trigger>
+                                <Tabs.Trigger value="all" fontSize="md">{t("tabs.allUsers")}</Tabs.Trigger>
                             </IfCan>
                         </Tabs.List>
                         <Tabs.Content value="mine">
@@ -97,11 +110,11 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ extraResourceTypes, extraAc
                 </Tabs.Content>
 
                 <Tabs.Content value="security">
-                    <Tabs.Root defaultValue="mine" lazyMount unmountOnExit>
+                    <Tabs.Root key={initialScope} defaultValue={initialScope} lazyMount unmountOnExit>
                         <Tabs.List>
-                            <Tabs.Trigger value="mine" fontSize="15px">{t("tabs.myActivity")}</Tabs.Trigger>
+                            <Tabs.Trigger value="mine" fontSize="md">{t("tabs.myActivity")}</Tabs.Trigger>
                             <IfCan action={PERMISSIONS.SECURITY_AUDIT_READ}>
-                                <Tabs.Trigger value="all" fontSize="15px">{t("tabs.allUsers")}</Tabs.Trigger>
+                                <Tabs.Trigger value="all" fontSize="md">{t("tabs.allUsers")}</Tabs.Trigger>
                             </IfCan>
                         </Tabs.List>
                         <Tabs.Content value="mine">

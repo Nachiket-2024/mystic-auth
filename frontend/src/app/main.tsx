@@ -10,6 +10,14 @@ import ErrorBoundary from '../mystic_auth/ui/ErrorBoundary.tsx';
 // top of Chakra's defaultConfig rather than replacing it.
 import { system } from '../mystic_auth/theme/system.ts';
 
+// Self-hosted (not a Google Fonts CDN request, consistent with this
+// template's other self-hosted defaults - Bugsink, no external trackers) -
+// registers "InterVariable" as an installed font before first paint, which
+// system.ts's fonts.heading/fonts.body tokens then reference. A CSS-only
+// import (no JS export), so it has no direct consumer - imported here purely
+// for that load side effect, same reasoning as themeStore.ts below.
+import '@fontsource-variable/inter';
+
 // Auth/permissions state itself lives in Zustand (store/authStore.ts),
 // which needs no Provider since it's a module-level singleton reachable
 // from any component directly.
@@ -22,6 +30,11 @@ import { queryClient } from "../mystic_auth/core/queryClient.ts";
 // causing a visible flash of the wrong theme for a user who previously
 // chose dark mode.
 import '../mystic_auth/store/themeStore.ts';
+
+// Same reasoning as themeStore.ts above, for the persisted font-size
+// preference: applies before first paint, avoiding a flash of the default
+// size for a user who previously chose small/large.
+import '../mystic_auth/store/fontSizeStore.ts';
 
 // Same reasoning as themeStore.ts above, for the persisted/browser language
 // preference: languageStore.ts itself eagerly imports and initializes

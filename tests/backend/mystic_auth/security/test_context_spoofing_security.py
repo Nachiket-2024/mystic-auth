@@ -13,6 +13,7 @@
 # suite has a real client IP of 127.0.0.1, regardless of any header a test
 # sends.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
 )

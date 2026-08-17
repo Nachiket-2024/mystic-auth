@@ -6,13 +6,16 @@ import { useTranslation } from "react-i18next";
 import { usePasswordResetRequestMutation } from "./usePasswordResetRequestMutation";
 import { useCooldown } from "../../ui/hooks/useCooldown";
 import FormAlert from "../../ui/FormAlert";
-import { FAST_HOVER_TRANSITION } from "../../ui/styles/buttonStyles";
+import { FAST_HOVER_TRANSITION } from "../../theme/system";
 import { useLanguageStore } from "../../store/languageStore";
 import { formatNumber } from "../../translations/numerals";
 
 const PasswordResetRequestForm: React.FC = () => {
     const { t } = useTranslation("auth");
-    const language = useLanguageStore((s) => s.pageLanguage);
+    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
+    // even in a mixed "en+hi" mode, the same way dates already do (see
+    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    const language = useLanguageStore((s) => s.chromeLanguage);
     const [email, setEmail] = useState("");
     const { cooldown, startCooldown } = useCooldown();
 

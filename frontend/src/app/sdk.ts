@@ -37,6 +37,26 @@ export * as authorizationService from "../mystic_auth/authorization/authorizatio
 export { default as AppLayout } from "../mystic_auth/layout/AppLayout";
 export type { NavItem } from "../mystic_auth/layout/navItems";
 
+// Cmd+K palette (mounted once in App.tsx, not AppLayout - see its own
+// docstring). Takes the same `extraNavItems` you give AppLayout, plus
+// `extraSearchItems` (SearchItem) so your own page's searchable content -
+// not just whole pages - shows up in the palette's content search too. See
+// docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+export { default as CommandPalette } from "../mystic_auth/layout/CommandPalette";
+export type { SearchItem } from "../mystic_auth/layout/searchItems";
+
+// Brand mark: icon badge + wordmark (falls back to /favicon.svg + APP_NAME
+// unless VITE_APP_LOGO_URL is set). Use this instead of hand-rolling your
+// own heading/image pair on pages outside AppLayout (e.g. a landing page),
+// so a logo change (favicon.svg or VITE_APP_LOGO_URL) updates everywhere.
+export { default as Logo } from "../mystic_auth/layout/Logo";
+
+// Route-splitting: use in place of React.lazy for your own routed pages so
+// they drive the same shared RouteProgressBar this template's own routes
+// do (see App.tsx). Plain React.lazy still works, it just won't show
+// loading progress for that route.
+export { trackedLazy } from "../mystic_auth/ui/trackedLazy";
+
 // Mount once at your app root (see App.tsx) so any component/thunk can call
 // toaster.create({...})
 export { Toaster } from "../mystic_auth/ui/toaster/toaster";
@@ -44,6 +64,17 @@ export { toaster } from "../mystic_auth/ui/toaster/toasterInstance";
 
 // Generic UI primitives: no identity/PBAC coupling of their own, reused
 // as-is by your own feature pages the same way this template's own pages do.
+// SECONDARY_BUTTON_PROPS: spread onto a Button instead of variant="ghost" -
+// ghost has no border/background so it disappears against a page background
+// until hovered; this gives it a visible fill/border plus a real hover
+// state instead.
+export { SECONDARY_BUTTON_PROPS } from "../mystic_auth/ui/styles/buttonStyles";
+// BRAND_SOLID_HOVER_PROPS / BRAND_OUTLINE_HOVER_PROPS: spread onto a
+// colorPalette="brand" solid/outline Button (e.g. LoginForm's submit
+// button) for a visible hover state - the stock Chakra hover for both is
+// too subtle a shift to read as a real hover. Use these on your own
+// brand-colored CTAs to match.
+export { BRAND_SOLID_HOVER_PROPS, BRAND_OUTLINE_HOVER_PROPS } from "../mystic_auth/ui/styles/buttonStyles";
 export { default as LoadingState } from "../mystic_auth/ui/LoadingState";
 export { default as Card } from "../mystic_auth/ui/Card";
 export { default as PageContainer } from "../mystic_auth/ui/PageContainer";

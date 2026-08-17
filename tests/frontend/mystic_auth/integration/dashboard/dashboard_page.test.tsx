@@ -32,7 +32,11 @@ describe('DashboardPage', () => {
     mock.onGet('/auth/me').reply(() => new Promise(() => {})); // never resolves
     renderDashboard();
 
-    expect(screen.getByText('Loading your details...')).toBeInTheDocument();
+    // The identity card renders a skeleton (not the old plain-text
+    // spinner) while loading; role="status" is the accessible signal a
+    // screen reader gets that the card is still loading (see
+    // DashboardIdentityCardSkeleton's own docstring).
+    expect(screen.getByRole('status')).toHaveTextContent('Loading your details...');
   });
 
   it('renders the current user once GET /auth/me resolves', async () => {

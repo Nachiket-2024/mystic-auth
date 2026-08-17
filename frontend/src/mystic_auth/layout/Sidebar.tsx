@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { Box, Stack, Text } from "@chakra-ui/react";
+import { Box, HStack, Stack } from "@chakra-ui/react";
 import { Link, NavLink } from "react-router";
+import type { LucideIcon } from "lucide-react";
 
 import { IfCan } from "../authorization/IfCan";
 import { NAV_ITEMS, type NavItem } from "./navItems";
-import { APP_NAME } from "../core/settings";
+import Logo from "./Logo";
 import { useThemeStore } from "../store/themeStore";
 import { useLanguageStore } from "../store/languageStore";
 import translations from "../translations/translations";
+import { prefetchRoute } from "./routePrefetch";
+import { FAST_HOVER_TRANSITION } from "../theme/system";
 
 interface SidebarProps {
     isOpen: boolean;
@@ -28,6 +31,7 @@ interface SidebarNavLinkProps {
     to: string;
     onClick: () => void;
     label: string;
+    icon?: LucideIcon;
 }
 
 /**
@@ -37,49 +41,84 @@ interface SidebarNavLinkProps {
  * available here without introducing a stylesheet, so hover is tracked the
  * same way `isActive` already drives color/background below.
  */
-const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label }) => {
+const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, icon: Icon }) => {
     const [isHovered, setIsHovered] = useState(false);
     const isDark = useThemeStore((s) => s.colorMode === "dark");
 
-    // Raw brand scale steps (not the brand.subtle/selected semantic tokens)
-    // - those are shared with StatTile/StyledSelect, and at their
-    // light-mode values (brand.50/100) both read as barely-there against
-    // the sidebar's white bg.surface (see system.ts's own comment on
-    // brand.selected re: brand.50 being "barely-there" for this exact kind
-    // of use). One step further along the scale each, in whichever
-    // direction is "more visible" for the current mode, so hover/active are
-    // both actually visible without touching the shared tokens' other
-    // consumers. NavLink's style prop can't consume Chakra's _dark
-    // condition (that's CSS-selector-based, this is inline styles), hence
-    // reading colorMode directly instead.
-    // Dark mode's scale runs the opposite direction from light's: a lower
-    // number is brighter/more prominent against a dark surface, so hover
+    // Raw brand scale steps, not the shared brand.subtle/selected tokens:
+    // those read as barely-there (brand.50/100) against the sidebar's white
+    // bg.surface, so hover/active go one step further along the scale
+    // without touching the shared tokens' other consumers. NavLink's style
+    // prop can't consume Chakra's _dark condition (CSS-selector-based, not
+    // inline styles), hence reading colorMode directly. Dark mode's scale
+    // runs the opposite direction: a lower number is brighter, so hover
     // (less emphasis than active) takes the higher, closer-to-background
-    // number - same brand.900/800 pairing system.ts's own subtle/selected
-    // tokens already use for exactly this reason.
+    // number - same brand.900/800 pairing system.ts's subtle/selected use.
     const hoverBg = isDark ? "var(--chakra-colors-brand-900)" : "var(--chakra-colors-brand-100)";
     const activeBg = isDark ? "var(--chakra-colors-brand-800)" : "var(--chakra-colors-brand-200)";
+    // brand.fg (brand.600) against this light-mode activeBg (brand.200)
+    // measured 3.41:1 - under WCAG AA's 4.5:1 (axe-core color-contrast
+    // audit): brand.fg was tuned for the lighter brand.50/100 surfaces
+    // brand.subtle/selected use elsewhere, not this one-step-darker
+    // activeBg. brand.700 clears 4.5:1 against brand.200 (~5:1); dark
+    // mode's activeBg/brand.fg pairing already passes, so only light needs
+    // the override.
+    const activeColor = isDark ? "var(--chakra-colors-brand-fg)" : "var(--chakra-colors-brand-700)";
 
     return (
         <NavLink
             to={to}
+            className="mystic-sidebar-link"
             onClick={onClick}
-            onMouseEnter={() => setIsHovered(true)}
+            onMouseEnter={() => {
+                setIsHovered(true);
+                prefetchRoute(to);
+            }}
             onMouseLeave={() => setIsHovered(false)}
+            onFocus={() => prefetchRoute(to)}
             style={({ isActive }) => ({
                 display: "block",
-                padding: "8px 12px",
-                borderRadius: "6px",
+                // Left edge carries a 3px accent bar on the active item (see
+                // borderLeft below); padding-left is reduced by that same
+                // 3px so the label doesn't shift sideways when a link
+                // becomes active - every link reserves the space whether or
+                // not its border is currently visible.
+                padding: "0.625rem var(--chakra-spacing-3) 0.625rem calc(var(--chakra-spacing-3) - 3px)",
+                borderRadius: "var(--chakra-radii-md)",
+                borderLeft: isActive ? "3px solid var(--chakra-colors-brand-solid)" : "3px solid transparent",
+                // A small nudge above Chakra's "md" font-size token (there's
+                // no token between md and lg in the default scale, and lg
+                // reads as too large here) - still derived from the design
+                // token via CSS var, the same way this file already reads
+                // brand-fg/brand-9xx colors, rather than a fully hardcoded
+                // px/rem value.
+                fontSize: "calc(var(--chakra-font-sizes-md) * 1.0625)",
                 fontWeight: isActive ? 600 : 500,
-                color: isActive ? "var(--chakra-colors-brand-fg)" : "var(--chakra-colors-fg-default)",
+                color: isActive ? activeColor : "var(--chakra-colors-fg-default)",
                 background: isActive ? activeBg : isHovered ? hoverBg : "transparent",
                 // Fast, snappy feedback rather than Chakra's default ~200ms
                 // recipe transition, which reads as sluggish for something
-                // as immediate as a hover response.
-                transition: "background-color 0.1s ease",
+                // as immediate as a hover response. Sourced from the same
+                // durations.hover/easings.hover tokens FAST_HOVER_TRANSITION
+                // composes elsewhere (already covers border-color, which the
+                // active indicator's borderLeft above animates on), rather
+                // than a separate hardcoded copy.
+                transition: FAST_HOVER_TRANSITION,
             })}
         >
-            {label}
+            {({ isActive }) => (
+                <HStack gap={2.5}>
+                    {Icon && (
+                        <Icon
+                            size={17}
+                            aria-hidden="true"
+                            color={isActive ? activeColor : "var(--chakra-colors-fg-muted)"}
+                            style={{ flexShrink: 0, transition: FAST_HOVER_TRANSITION }}
+                        />
+                    )}
+                    <Box as="span">{label}</Box>
+                </HStack>
+            )}
         </NavLink>
     );
 };
@@ -114,6 +153,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
           )
         : NAV_ITEMS;
     return (
+        <>
+        {/* NavLink's `style` prop only takes a plain object (no pseudo-class
+            support - see SidebarNavLink's own comment on why hover is
+            tracked via state instead), so :focus-visible can't be expressed
+            through it the way _focusVisible works on a real Chakra
+            component. A scoped stylesheet is the only way to give this link
+            the same brand-colored focus ring every other focusable control
+            in the app gets from its own recipe. React 19 hoists/dedupes
+            <style> by href (same mechanism RouteProgressBar's own keyframes
+            rely on), so this is a no-op on re-render, not a re-insert. */}
+        <style href="mystic-sidebar-link-focus" precedence="low">
+            {".mystic-sidebar-link:focus-visible { outline: 2px solid var(--chakra-colors-brand-solid); outline-offset: 2px; }"}
+        </style>
         <Box
             as="nav"
             aria-label={t("mainNavigation")}
@@ -121,14 +173,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
             top={0}
             left={0}
             h="100vh"
-            w="240px"
+            w="60"
             flexShrink={0}
             bg="bg.surface"
             borderRight="1px solid"
             borderColor="border.default"
             zIndex="overlay"
             transform={{ base: isOpen ? "translateX(0)" : "translateX(-100%)", md: "none" }}
-            transition="transform 0.2s ease"
+            transition="transform var(--chakra-durations-base) var(--chakra-easings-hover)"
             display="flex"
             flexDirection="column"
         >
@@ -148,16 +200,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
                 flexShrink={0}
             >
                 <Link to="/dashboard" onClick={onNavigate} style={{ textDecoration: "none" }}>
-                    <Text fontWeight="bold" fontSize="22px" color="brand.fg">
-                        {APP_NAME}
-                    </Text>
+                    <Logo size="sm" />
                 </Link>
             </Box>
 
             <Stack p={3} gap={1} data-testid="nav-links">
                 {items.map((item) => {
                     const link = (
-                        <SidebarNavLink key={item.to} to={item.to} onClick={onNavigate} label={resolveLabel(item.label)} />
+                        <SidebarNavLink
+                            key={item.to}
+                            to={item.to}
+                            onClick={onNavigate}
+                            label={resolveLabel(item.label)}
+                            icon={item.icon}
+                        />
                     );
 
                     if (!item.permission) return link;
@@ -170,6 +226,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
                 })}
             </Stack>
         </Box>
+        </>
     );
 };
 

@@ -10,6 +10,8 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
+
 from backend.mystic_auth.api.pbac_routes.policy_assignment_routes import (
     assign_policy_to_user,
     remove_policy_from_user,
@@ -30,7 +32,6 @@ from backend.mystic_auth.authorization.schemas.policy_schema import (
 from backend.mystic_auth.authorization.services.authorization_service import (
     AuthorizationService,
 )
-from fastapi import HTTPException
 
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 # create/update/delete_policy live in policy_crud_routes; assign/remove live

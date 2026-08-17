@@ -1,8 +1,9 @@
 import { Badge, HStack, Text } from "@chakra-ui/react";
+import { Eye, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
 
 import type { DataTableColumn } from "../ui/DataTable";
-import TableActionButton from "../ui/TableActionButton";
+import TableActionIconButton from "../ui/TableActionIconButton";
 import StyledSelect from "../ui/StyledSelect";
 import { IfCan } from "../authorization/IfCan";
 import { PERMISSIONS } from "../authorization/permissions";
@@ -48,7 +49,13 @@ export function buildUsersColumns({
             key: "name",
             header: t("users:columns.name"),
             sortable: true,
-            width: "22%",
+            // Fixed rem, not a percentage: table-layout:fixed resolves a
+            // percentage column against the table's own rendered width, so
+            // mixing it with the other rem-sized columns squeezed Name/Email
+            // to illegible px once fixed columns exceeded a 1024px viewport,
+            // instead of the table overflowing into Table.ScrollArea's
+            // horizontal scroll. All-rem widths make the total deterministic.
+            width: "12rem",
             truncate: true,
             render: (u) => (
                 <Text fontWeight="medium">
@@ -61,12 +68,12 @@ export function buildUsersColumns({
                 </Text>
             ),
         },
-        { key: "email", header: t("users:columns.email"), sortable: true, width: "26%", truncate: true, render: (u) => u.email },
+        { key: "email", header: t("users:columns.email"), sortable: true, width: "16rem", truncate: true, render: (u) => u.email },
         {
             key: "role",
             header: t("users:columns.role"),
             sortable: true,
-            width: "150px",
+            width: "9.375rem",
             render: (u) => (
                 <IfCan
                     action={PERMISSIONS.USERS_ASSIGN_ROLE}
@@ -77,7 +84,7 @@ export function buildUsersColumns({
                     }
                 >
                     <StyledSelect
-                        w="130px"
+                        w="32"
                         value={u.role ?? ""}
                         onChange={(value) => onRoleChangeRequest(u, value)}
                         ariaLabel={t("users:columns.changeRoleAriaLabel", { email: u.email })}
@@ -92,7 +99,7 @@ export function buildUsersColumns({
         {
             key: "status",
             header: t("users:columns.status"),
-            width: "170px",
+            width: "10.625rem",
             render: (u) => (
                 <HStack gap={1}>
                     <Badge colorPalette={u.is_verified ? "green" : "yellow"} size="md">
@@ -110,52 +117,60 @@ export function buildUsersColumns({
             key: "row_actions",
             header: "",
             align: "end",
-            // A deleted row shows up to 4 buttons at once (View + Policies +
-            // Reactivate + Purge); 230px was only wide enough for ~2,
-            // wrapping onto a second line. Wide enough for all four on one
-            // line, on every row shape (1/2/3/4 buttons) this column ever
-            // renders.
-            width: "400px",
+            // A deleted row shows up to 4 actions at once (View + Policies +
+            // Reactivate + Purge), vs. 3 for an active row. Icon-only buttons
+            // (TableActionIconButton) rather than text pills, since a
+            // translated label like Marathi's "कायमचे काढून टाका" (Purge) is
+            // 4-5x wider than English, keeping every row's actions on one
+            // line in every locale without the table needing to scroll.
+            width: "9rem",
             render: (u) => (
-                <HStack justify="flex-end" gap={2} wrap="wrap">
-                    <TableActionButton colorPalette="blue" onClick={() => onView(u)}>
-                        {t("users:columns.view")}
-                    </TableActionButton>
+                <HStack justify="flex-end" gap={1.5} wrap="nowrap">
+                    <TableActionIconButton colorPalette="blue" label={t("users:columns.view")} onClick={() => onView(u)}>
+                        <Eye size={16} aria-hidden="true" />
+                    </TableActionIconButton>
                     <IfCan action={PERMISSIONS.POLICIES_READ}>
-                        <TableActionButton colorPalette="purple" onClick={() => onPolicies(u.email)}>
-                            {t("users:columns.policies")}
-                        </TableActionButton>
+                        <TableActionIconButton
+                            colorPalette="purple"
+                            label={t("users:columns.policies")}
+                            onClick={() => onPolicies(u.email)}
+                        >
+                            <ShieldCheck size={16} aria-hidden="true" />
+                        </TableActionIconButton>
                     </IfCan>
                     {u.deleted_at ? (
                         <>
                             <IfCan action={PERMISSIONS.USERS_REACTIVATE}>
-                                <TableActionButton
+                                <TableActionIconButton
                                     colorPalette="green"
+                                    label={t("users:columns.reactivate")}
                                     onClick={() => onReactivate(u.email)}
                                     loading={reactivatingEmail === u.email}
                                 >
-                                    {t("users:columns.reactivate")}
-                                </TableActionButton>
+                                    <RotateCcw size={16} aria-hidden="true" />
+                                </TableActionIconButton>
                             </IfCan>
                             <IfCan action={PERMISSIONS.USERS_PURGE}>
-                                <TableActionButton
+                                <TableActionIconButton
                                     colorPalette="red"
+                                    label={t("users:columns.purge")}
                                     onClick={() => onPurgeRequest(u)}
                                     disabled={u.email === currentUserEmail}
                                 >
-                                    {t("users:columns.purge")}
-                                </TableActionButton>
+                                    <Trash2 size={16} aria-hidden="true" />
+                                </TableActionIconButton>
                             </IfCan>
                         </>
                     ) : (
                         <IfCan action={PERMISSIONS.USERS_DELETE_ANY}>
-                            <TableActionButton
+                            <TableActionIconButton
                                 colorPalette="red"
+                                label={t("ui_text:delete")}
                                 onClick={() => onDeleteRequest(u)}
                                 disabled={u.email === currentUserEmail}
                             >
-                                {t("ui_text:delete")}
-                            </TableActionButton>
+                                <Trash2 size={16} aria-hidden="true" />
+                            </TableActionIconButton>
                         </IfCan>
                     )}
                 </HStack>

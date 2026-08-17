@@ -41,67 +41,73 @@ The screenshots below follow the path a user or administrator would normally
 take through the app: sign in, review their own dashboard and account, then
 move into system administration, policy management, and audit review.
 
-### 1. Sign In
+### 1. Landing Page
+
+![Landing Page](screenshots/mystic_auth/landing_page.png)
+
+---
+
+### 2. Sign In
 
 ![Login Page](screenshots/mystic_auth/login.png)
 
 ---
 
-### 2. Standard User Dashboard (limited sidebar)
+### 3. Standard User Dashboard (limited sidebar)
 
 ![Dashboard](screenshots/mystic_auth/dashboard.png)
 
 ---
 
-### 3. System Superuser Dashboard (full sidebar)
+### 4. System Superuser Dashboard (full sidebar)
 
 ![System User Dashboard](screenshots/mystic_auth/system_user_dashboard.png)
 
 ---
 
-### 4. System Superuser Dashboard (Hindi)
+### 5. System Superuser Dashboard (Hindi)
 
 ![System User Dashboard Hindi](screenshots/mystic_auth/system_user_dashboard_hindi.png)
 
 ---
 
-### 5. Account Settings
+### 6. Account Settings
 
 ![Account Settings](screenshots/mystic_auth/account_settings.png)
 
 ---
 
-### 6. User Management
+### 7. User Management
 
 ![User Management](screenshots/mystic_auth/users.png)
 
 ---
 
-### 7. Policy Management
+### 8. Policy Management
 
 ![Policy Management](screenshots/mystic_auth/policies.png)
 
 ---
 
-### 8. Edit Policy
+### 9. Edit Policy
 
 ![Edit Policy](screenshots/mystic_auth/edit_policy.png)
 
 ---
 
-### 9. Assign Policies
+### 10. Assign Policies
 
 ![Policy Assignment](screenshots/mystic_auth/assign_policies.png)
 
 ---
 
-### 10. Security Events
+### 11. Security Events
 
 ![Security Events](screenshots/mystic_auth/security_events.png)
 
 ---
 
-### 11. Audit Logs
+### 12. Audit Logs
 
 ![Audit Logs](screenshots/mystic_auth/audit_log_system_user.png)
 
@@ -264,7 +270,7 @@ Once the services are running:
 - **PostgreSQL:** `localhost:5433`, database ready for connections. Containers reach it at `postgres:5432` internally
 - **Redis:** `localhost:6380`, cache, rate limiting, and Taskiq broker. Containers reach it at `redis:6379` internally
 - **Taskiq worker:** Automatically listens for async tasks (email sending)
-- **Taskiq scheduler:** Retries failed email sends with exponential backoff, by polling a Redis-backed schedule and re-enqueueing due retries onto the worker
+- **Taskiq scheduler:** Retries failed email sends with exponential backoff, by polling a Redis-backed schedule and re-enqueueing due retries onto the worker; also drives the daily scheduled hard-purge of soft-deleted accounts past their grace period
 - **Alembic migrations:** Run automatically on stack startup via the dedicated
   `alembic` service (`alembic upgrade head`). In production Compose, `backend`,
   `taskiq_worker`, and `taskiq_scheduler` wait for migrations before starting. See

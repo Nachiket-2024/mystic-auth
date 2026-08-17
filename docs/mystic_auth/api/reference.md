@@ -24,8 +24,8 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 
 | Method | Path | Auth | Rate limited | Notes |
 |---|---|---|---|---|
-| POST | `/auth/signup` | public | per-email | See [Authentication Overview](../authentication/overview.md#signup) |
-| POST | `/auth/login` | public | per-IP + per-account, plus lockout | See [Login](../authentication/overview.md#login) |
+| POST | `/auth/signup` | public | per-email | See [Signup and Email Verification](../authentication/signup-and-verification.md) |
+| POST | `/auth/login` | public | per-IP + per-account, plus lockout | See [Login](../authentication/login.md) |
 | GET | `/auth/oauth2/login/google` | public | yes | Redirects to Google consent screen, see [OAuth2 / PKCE](../authentication/oauth2-pkce.md) |
 | GET | `/auth/oauth2/callback/google` | public | yes | Google redirects here with `code`/`state` |
 | GET | `/auth/me` | session | yes | Re-verifies JWT + re-queries user row every call |
@@ -55,6 +55,8 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 |---|---|---|---|
 | GET | `/users/me` | `users:read_own` | Caller's own account details, backing the Account Settings page |
 | PUT | `/users/me` | `users:update_own` | Accepts an optional `password` field, hashed and renamed before reaching the CRUD layer, see [Database Design](../database/design.md#users). If `password` is set and the account already has one, a matching `current_password` is also required, see [Security Decisions](../security/decisions.md#self-service-password-change-requires-the-current-password) |
+| DELETE | `/users/me` | `users:update_own` | Self-service delete. Password accounts: soft-deletes synchronously (requires `current_password`). OAuth-only accounts: sends a confirmation email instead, `{"confirmation_required": true}`, nothing deleted yet. See [Account Deletion and Purge](../authentication/account-deletion.md) |
+| POST | `/users/me/confirm-delete` | public | Rate-limited. Redeems the OAuth-only-account deletion confirmation link (`token`), single-use; own `account_delete_confirm_lock:` lockout namespace |
 | GET | `/users/stats` | `users:list_all` | Aggregate whole-table counts for the Users page summary card: total, verified, unverified, inactive. Uses the same permission as `/users/` because it is another view of the same user-management data |
 | GET | `/users/` | `users:list_all` | All users; supports `search`/`role`/`is_verified`/`status`/`sort_by`/`sort_dir`, see [List endpoint conventions](#list-endpoint-conventions) |
 | PUT | `/users/{user_email}` | `users:update_any` | System account is excluded via a target-account guard |
@@ -101,4 +103,4 @@ Split across `policy_crud_routes.py`, `policy_history_routes.py`, `policy_assign
 
 ## Error responses
 
-Every route shares one global exception handler (`main.py`'s `@app.exception_handler(Exception)`): any unhandled exception is logged with a stack trace and returned as a generic `500 {"detail": "Internal Server Error"}`, so no internal exception detail (message, type, traceback) ever reaches the client. Expected failures use FastAPI's normal `HTTPException` mechanism (`400`/`401`/`403`/`404`/`409`/`422`) with a specific `detail` message per case.
+Every route shares one global exception handler (`main.py`'s `@app.exception_handler(Exception)`): any unhandled exception is logged with a stack trace and returned as a generic `500 {"detail": "Internal Server Error"}`, so no internal exception detail (message, type, traceback) ever reaches the client. Expected failures use FastAPI's normal `HTTPException` mechanism (`400`/`401`/`403`/`404`/`409`/`422`) with a specific `detail` message per case, or `core/errors.py`'s `AppError`, caught by a second, more specific `@app.exception_handler(AppError)` and returned as `{"detail", "code", "params"}`. `code` is a stable, machine-readable identifier (e.g. `"INVALID_CREDENTIALS"`) the frontend translates client-side (`api/apiError.ts`, see [Translations Overview](../translations/overview.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts)); routes not yet migrated to `AppError` fall back to a plain `HTTPException` `detail` string with no `code`. See [Security Hardening: error handling](../security/hardening.md#error-handling).

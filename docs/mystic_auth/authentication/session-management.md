@@ -23,6 +23,8 @@ Token validity is version-based, not identity-based. Every access and refresh to
 - `account_ver`: the whole account's version. Bumping it (`jwt_service.bump_account_version`, one Redis `INCR`) invalidates every token on the account immediately, with no per-token iteration.
 - `chain_ver`, scoped to the token's `chain` claim. The `chain` value is a random id minted once at login and carried forward unchanged across every rotation of that login. Bumping it (`jwt_service.bump_chain_version`) ends exactly that one session and leaves every other session on the account untouched.
 
+The actual Redis reads/writes (`account_ver:{email}` and `chain_ver:{email}:{chain_id}` keys) live in `auth/token_logic/token_version_store.py`'s `TokenVersionStore`, not in `jwt_service.py` itself. `jwt_service` imports it and re-exposes `get_account_version`/`get_chain_version`/`bump_account_version`/`bump_chain_version` as its own attributes, so every caller above (and everywhere else in this doc) goes through `jwt_service`, never `token_version_store` directly. `chain_ver` keys carry a TTL matching `REFRESH_TOKEN_EXPIRE_MINUTES`; `account_ver` never expires. All Redis errors on a read are swallowed and logged, returning `0` (a version any real token will already exceed, so a Redis outage fails open rather than locking every session out).
+
 `verify_token` rejects a token the instant either embedded number falls behind Redis's current value. There is no registry of live tokens to maintain, prune, or iterate: a revoke is always a single `INCR`, regardless of how many devices are logged in.
 
 Refresh-token rotation is additionally single-use, a narrower and orthogonal concern versioning doesn't cover: `jwt_service.claim_jti_for_rotation` uses an atomic `SET...NX` per `jti` so the exact same refresh token can never be redeemed twice (a real replay, or two concurrent requests racing the same token), whether or not its version is still current.
@@ -66,12 +68,42 @@ A token minted before chain tracking shipped carries no `chain` claim; reuse of 
 
 ## Real-time push
 
-Server-side revocation always takes effect immediately (the next request from an affected session gets `401`, see [Authentication overview](overview.md#current-session-lookups-get-authme)), but a browser tab that isn't actively making requests has no way to notice that on its own. Two layers cover this:
+Server-side revocation always takes effect immediately (the next request from an affected session gets `401`, see [Authentication overview](overview.md#current-session-lookups-get-authme)), but a browser tab that isn't actively making requests has no way to notice that on its own.
 
-- **Background poll (fallback)**: `useCurrentUserQuery` and `useSessionsQuery` both refetch every 2 minutes, including in a backgrounded tab (`refetchIntervalInBackground`). This is what keeps a tab correct even if the connection below silently drops and doesn't reconnect.
-- **Push (primary)**: `GET /auth/session-events` is a Server-Sent Events stream, one per open tab, subscribed to a per-account Redis Pub/Sub channel (`session_events:{email}`). `user_session/session_events.publish_session_revoked` is called from every revocation path, including `refresh_token_service.revoke_all_tokens_for_user`, `revoke_chain_for_user`, and `session_service.revoke_one_session`. Logout-all, password changes, account deactivation/purge, reuse detection, and a targeted Manage Sessions revoke reach every open tab within milliseconds, not on the next poll.
+```mermaid
+sequenceDiagram
+    participant TabA as Tab A (revokes)
+    participant API as Backend
+    participant R as Redis Pub/Sub
+    participant TabB as Tab B (same account, another device)
 
-The published event is deliberately just `{"type": "revoked"}`, a "something changed, go check now" nudge, not an authoritative "you are logged out" message. The channel is shared by every session on the account, and a sibling session's revoke must never log an unrelated tab out by itself. On receiving it, the frontend (`useSessionEventsStream.ts`) invalidates the current-user and sessions queries, so the answer always comes from a real `GET /auth/me` or `GET /auth/sessions` call.
+    TabA->>API: Any revoke (logout-all, targeted revoke, password change, ...)
+    API->>API: publish_session_revoked(email)
+    API->>R: PUBLISH session_events:{email} {"type": "revoked"}
+    R-->>TabB: pushed over open GET /auth/session-events stream
+    TabB->>TabB: invalidate current-user + sessions queries
+    TabB->>API: GET /auth/me / GET /auth/sessions (real check)
+    API-->>TabB: 401, or a shorter session list
+```
+
+1. **Push (primary).** `GET /auth/session-events` is a Server-Sent Events stream, one per open tab,
+   subscribed to a per-account Redis Pub/Sub channel (`session_events:{email}`).
+   `user_session/session_events.publish_session_revoked` is called from every revocation path,
+   including `refresh_token_service.revoke_all_tokens_for_user`, `revoke_chain_for_user`, and
+   `session_service.revoke_one_session`. Logout-all, password changes, account
+   deactivation/purge, reuse detection, and a targeted Manage Sessions revoke reach every open tab
+   within milliseconds, not on the next poll.
+2. **The published event is deliberately minimal**: just `{"type": "revoked"}`, a "something
+   changed, go check now" nudge, not an authoritative "you are logged out" message. The channel is
+   shared by every session on the account, and a sibling session's revoke must never log an
+   unrelated tab out by itself.
+3. **On receiving it**, the frontend (`useSessionEventsStream.ts`) invalidates the current-user and
+   sessions queries, so the answer always comes from a real `GET /auth/me` or `GET /auth/sessions`
+   call, never the push event's own payload.
+4. **Background poll (fallback).** `useCurrentUserQuery` and `useSessionsQuery` both independently
+   refetch every 2 minutes, including in a backgrounded tab (`refetchIntervalInBackground`). This
+   is what keeps a tab eventually correct even if the SSE connection above silently drops and
+   doesn't reconnect.
 
 The stream requires authentication the same way `GET /auth/me` does, sends a heartbeat comment line every 20s to keep proxies/load balancers from treating an idle-but-healthy connection as dead, and is not `@rate_limited`: that decorator is built around short request/response calls within a rolling window, not one connection a client holds open for its whole session.
 
@@ -98,11 +130,24 @@ The response never exposes `current_jti`, `chain_id`, raw JWTs, token expiry int
 
 `DELETE /auth/sessions/{session_id}` ends another active session owned by the current user:
 
-- Missing, already-revoked, or foreign sessions return `404`.
-- The caller's current session returns `400`; the UI should use the normal Logout action for the current device.
-- A successful revoke marks the row `revoked_at`, bumps that session's `chain_ver` in Redis (`jwt_service.bump_chain_version`), and records a security audit event.
+```mermaid
+flowchart TD
+    Start(["DELETE /auth/sessions/{session_id}"]) --> Own{"Row exists, active,\nand owned by caller?"}
+    Own -- "no (missing/revoked/foreign)" --> R404["404"]
+    Own -- "yes" --> Current{"Is this the caller's\nown current session?"}
+    Current -- "yes" --> R400["400 - use Logout instead"]
+    Current -- "no" --> Bump["bump_chain_version()\nmark row revoked_at\nlog security audit event"]
+    Bump --> R200["200"]
+```
 
-The ownership check happens before the version bump, so a caller cannot use guessed ids to revoke another user's session.
+1. **Ownership check runs first.** A missing, already-revoked, or foreign (belongs to another
+   user) session id returns `404`, before any version is touched, so a caller cannot use guessed
+   ids to probe for or revoke another user's session.
+2. **The caller's own current session is rejected with `400`**, not silently allowed: the UI
+   should use the normal Logout action for the current device, keeping "end this device" and "end
+   another device" as two distinct, unambiguous actions.
+3. **A successful revoke** marks the row `revoked_at`, bumps that session's `chain_ver` in Redis
+   (`jwt_service.bump_chain_version`), and records a security audit event, in that order.
 
 ---
 

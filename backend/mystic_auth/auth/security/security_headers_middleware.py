@@ -5,15 +5,11 @@ from starlette.types import ASGIApp
 
 from ...core.settings import settings
 
-# FastAPI's own auto-generated /docs (Swagger UI) and /redoc pages: the only
-# HTML this otherwise-JSON-only API serves, and the one place the blanket
-# `default-src 'none'` CSP below can't apply as-is: both pages load their
-# JS/CSS from a CDN (Swagger UI's inline init script too), and ReDoc pulls a
-# Google Fonts stylesheet, so the strict policy left them silently rendering
-# as a blank page (200 OK, but every asset blocked) rather than an error
-# anyone would notice was CSP, not a real failure. /openapi.json itself is
-# plain JSON and doesn't need the relaxed policy, but including it here is
-# harmless since a JSON response has nothing for a CSP to block anyway.
+# FastAPI's auto-generated /docs and /redoc pages load JS/CSS from a CDN
+# (and ReDoc pulls a Google Fonts stylesheet), so the blanket
+# `default-src 'none'` CSP below would silently render them as a blank page
+# instead of a visible error. /openapi.json is included too since JSON has
+# nothing for a CSP to block anyway, so the relaxed policy is harmless there.
 _DOCS_PATHS = frozenset({"/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"})
 
 _DOCS_CSP = (
@@ -51,16 +47,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             else "default-src 'none'; frame-ancestors 'none'"
         )
 
-        # Forces browsers to only reach this origin over HTTPS for a year,
-        # including subdomains: protects against protocol-downgrade and
-        # cookie-sidejacking attacks on the access/refresh token cookies
-        # (already secure=True, but HSTS closes the gap before the first
-        # secure connection is established). Gated on ENVIRONMENT (checked
-        # fresh per request, not cached, so it stays correct if settings
-        # changed after import) since sending it in a non-production
-        # deployment served over plain HTTP would pin HSTS for a full year
-        # against real traffic sooner than intended, with no way to turn it
-        # off short of a code change.
+        # Pins HTTPS for a year (closing the gap before the first secure
+        # connection, since cookies are already secure=True). Gated on
+        # ENVIRONMENT, checked fresh per request, because sending it from a
+        # non-production deployment served over plain HTTP would pin HSTS
+        # against real traffic with no easy way to undo it.
         if settings.ENVIRONMENT.lower() == "production":
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 

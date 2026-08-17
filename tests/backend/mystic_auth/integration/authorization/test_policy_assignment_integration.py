@@ -7,6 +7,7 @@
 # policy via this API actually changes what an account can do (the real
 # end-to-end point of the whole system), not just that the DB row changed.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     USER_ADMINISTRATION_POLICY_NAME,

@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 10 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 18 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -60,7 +60,8 @@ timeline
             : Sync-script safety nets, scripts/ reorganized
             : Codebase restructure, PBAC/reset-token security fixes
             : Navbar and DEFAULT_APP_POLICIES extension point
-            : Language toggle and i18n scaffolding
+            : Language toggle and i18n addition
+            : Account deletion/purge, PBAC grant guard, command palette
 ```
 
 ### 18 August, 2025 - 23 August, 2025
@@ -256,6 +257,10 @@ Sidebar links got a hover state, and the same fast, snappy hover transition (`FA
 ### 15 August, 2026
 
 A language toggle and translations store were added on the frontend, backed by a new `AppError` exception type that carries an error code/params through the API so the frontend can look up a translated message instead of showing the raw English `detail` string.
+
+### 18 August, 2026
+
+Self-service account deletion plus admin purge, a PBAC grant guard stopping a user from granting a policy more privileged than their own, a command palette (Cmd+K), route-loading/font-size UI infrastructure, and hi/gu/mr translations across every namespace were implemented, alongside a round of fixes (an `X-Forwarded-For` spoofing bug, a command-palette i18n leak, a stale mypy suppression). Docs were brought up to date to match, split one page per authentication flow with a diagram each.
 
 ---
 

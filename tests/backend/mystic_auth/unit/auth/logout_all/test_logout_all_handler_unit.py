@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.logout_all.logout_all_handler import logout_all_handler
 
 MODULE = "backend.mystic_auth.auth.logout_all.logout_all_handler"

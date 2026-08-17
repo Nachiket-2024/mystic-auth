@@ -5,15 +5,11 @@
  * dropdown offers exactly the values the backend actually writes, instead
  * of a typed-in string that can never match a real row.
  */
-// "login" (not "login_success"/"login_failure" as two separate options) -
-// the Result filter (Success/Failed) already lets you narrow to one or the
-// other, so listing both outcomes again here as if they were distinct event
-// types was redundant and let you pick a combination that could never match
-// anything (event=login_success + Result=Failed). The backend's own
-// event_type column still stores "login_success"/"login_failure" as two
-// literal values (see audit_log_service.py) - this "login" value is a
-// UI-only alias the repository's filter expands back into both
-// (audit_log_repository.py's _apply_filters).
+// "login" (not "login_success"/"login_failure" as two options): the Result
+// filter (Success/Failed) already narrows to one or the other, so listing
+// both here too let you pick an impossible combination (event=login_success
+// + Result=Failed). The backend still stores both literal values; "login" is
+// a UI-only alias that audit_log_repository.py's _apply_filters expands back.
 export const SECURITY_EVENT_TYPES = [
     "login",
     "logout",

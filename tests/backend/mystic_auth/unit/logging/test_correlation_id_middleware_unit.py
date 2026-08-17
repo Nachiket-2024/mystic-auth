@@ -7,15 +7,16 @@
 # RequestIdFilter tags every log line for the request).
 import uuid
 
+from starlette.applications import Starlette
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
 from backend.mystic_auth.logging.correlation_id_middleware import (
     REQUEST_ID_HEADER,
     CorrelationIdMiddleware,
     request_id_ctx_var,
 )
-from starlette.applications import Starlette
-from starlette.responses import PlainTextResponse
-from starlette.routing import Route
-from starlette.testclient import TestClient
 
 
 def _build_app():

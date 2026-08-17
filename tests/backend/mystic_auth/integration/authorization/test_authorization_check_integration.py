@@ -5,6 +5,7 @@
 # and real Redis. Split out of what used to be one 568-line
 # test_authorization_routes_integration.py.
 import pytest
+
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     USER_ADMINISTRATION_POLICY_NAME,

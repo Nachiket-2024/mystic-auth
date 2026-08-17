@@ -32,7 +32,7 @@ const PolicyStatsCard: React.FC<PolicyStatsCardProps> = ({ policies, isLoading }
     const resourceTypes = policies ? new Set(policies.map((p) => p.resource_type)).size : undefined;
 
     return (
-        <Card p={4} w={{ base: "full", md: "280px" }}>
+        <Card p={4} w={{ base: "full", md: "72" }}>
             <SimpleGrid columns={2} gap={4}>
                 <StatTile label={t("policies:statsCard.totalPolicies")} value={totalPolicies} isLoading={isLoading} color="blue.500" />
                 <StatTile label={t("policies:statsCard.active")} value={activePolicies} isLoading={isLoading} color="green.500" />

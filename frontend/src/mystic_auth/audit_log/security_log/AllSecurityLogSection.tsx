@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Heading, Input } from "@chakra-ui/react";
+import { History } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import Card from "../../ui/Card";
@@ -47,7 +48,7 @@ const AllSecurityLogSection: React.FC = () => {
     return (
         <>
             <Card p={4} mb={4}>
-                <Heading as="h3" size="md" mb={3}>{t("security.loginActivity")}</Heading>
+                <Heading as="h3" size="md" mb={3} textStyle="sectionHeader">{t("security.loginActivity")}</Heading>
                 <LoginTrendChart data={trend.data} isLoading={trend.isLoading} isError={trend.isError} />
             </Card>
             <Input
@@ -72,6 +73,7 @@ const AllSecurityLogSection: React.FC = () => {
                 isLoading={isLoading}
                 isError={isError}
                 emptyMessage={search ? t("security.emptySearch") : t("security.emptyFiltered")}
+                emptyIcon={<History size={32} aria-hidden="true" />}
                 sort={sort}
                 onSortChange={toggleSort}
                 startIndex={(page - 1) * PAGE_SIZE}

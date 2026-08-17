@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from backend.app.main import global_exception_handler
 
 MODULE = "backend.app.main"

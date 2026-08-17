@@ -9,10 +9,11 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import HTTPException
+
 from backend.mystic_auth.authorization.dependencies.authorization_dependency import (
     require_authorization,
 )
-from fastapi import HTTPException
 
 MODULE = "backend.mystic_auth.authorization.dependencies.authorization_dependency"
 

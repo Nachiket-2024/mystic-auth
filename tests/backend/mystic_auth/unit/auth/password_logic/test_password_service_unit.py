@@ -10,6 +10,7 @@ import time
 
 import jwt as pyjwt
 import pytest
+
 from backend.mystic_auth.auth.password_logic.password_service import password_service
 from backend.mystic_auth.core.settings import settings
 

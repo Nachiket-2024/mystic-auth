@@ -10,18 +10,12 @@ export const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             retry: false,
-            // Default was 0, so every remount (e.g. navigating away from and
-            // back to a page) and every window refocus was treated as
-            // "stale" and silently refetched in the background - harmless
-            // for correctness (TanStack still shows cached data instantly)
-            // but it meant duplicate network calls on nearly every
-            // navigation, e.g. DashboardPage's own useCurrentUserQuery call
-            // re-hitting GET /auth/me moments after App.tsx's root
-            // useAuthSession call already had. 30s is short enough that
-            // another user's change (a role edit, a revoked policy) still
-            // shows up within one page-load of it happening, while
-            // absorbing the "tabbed away and back" and "navigated back to
-            // this page" cases that don't need a fresh round-trip.
+            // Default of 0 treats every remount and window refocus as stale,
+            // causing duplicate network calls on nearly every navigation
+            // (e.g. DashboardPage's useCurrentUserQuery re-hitting GET
+            // /auth/me moments after App.tsx's root useAuthSession already
+            // had). 30s absorbs those cases while still surfacing another
+            // user's change within one page-load.
             staleTime: 30 * 1000,
         },
     },

@@ -55,7 +55,7 @@ const AccountStatusCard: React.FC<AccountStatusCardProps> = ({ hasPassword }) =>
             <Box borderTopWidth="1px" borderColor="border.default" my={3} />
 
             <Stack gap={2}>
-                <Heading as="h2" size="md">
+                <Heading as="h2" size="md" textStyle="sectionHeader">
                     {t("accountStatus.myPermissions")}
                 </Heading>
                 {policiesLoading ? (
@@ -65,7 +65,7 @@ const AccountStatusCard: React.FC<AccountStatusCardProps> = ({ hasPassword }) =>
                 ) : myPolicies && myPolicies.policies.length > 0 ? (
                     <Wrap gap={2}>
                         {myPolicies.policies.map((p) => (
-                            <Badge key={p.name} colorPalette="brand" variant="subtle" size="md" fontSize="15px">
+                            <Badge key={p.name} colorPalette="brand" variant="subtle" size="md" fontSize="md">
                                 {p.name}
                             </Badge>
                         ))}

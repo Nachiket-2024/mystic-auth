@@ -6,9 +6,10 @@
 # Mapped[...]/mapped_column() model style to type-check under the
 # SQLAlchemy mypy plugin, see Base's own docstring), rather than silently
 # regressing to the legacy declarative_base() factory.
-from backend.mystic_auth.database.base import Base
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from backend.mystic_auth.database.base import Base
 
 
 def test_base_is_a_declarative_base():

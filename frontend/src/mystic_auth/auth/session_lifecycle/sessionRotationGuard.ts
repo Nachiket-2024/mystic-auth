@@ -26,16 +26,12 @@
 let pendingRotation: Promise<unknown> | null = null;
 let rotationSettledAt: number | null = null;
 
-// The rotating request settling only means ITS OWN response (and therefore
-// its Set-Cookie headers) has landed - it says nothing about any OTHER
-// request that was independently in flight at the same time (a background
-// poll, a sidebar permissions fetch, ...) using the same old cookies. That
-// request's own 401 can still be working its way back from the server a
-// few ticks after the rotation itself resolved, purely due to normal
-// network/scheduling jitter, not because the session actually died. Without
-// this grace window, such a straggler finds pendingRotation already cleared
-// and falls straight through to "session expired" even though a plain
-// retry (cookies are already fresh by then) would have succeeded.
+// The rotating request settling only means ITS OWN Set-Cookie headers have
+// landed, not that every other request in flight with the old cookies has
+// finished. Such a straggler's 401 can still arrive a few ticks later purely
+// from network/scheduling jitter. Without this grace window, it would find
+// pendingRotation already cleared and be treated as "session expired" even
+// though a plain retry (cookies are already fresh) would have succeeded.
 const RECENTLY_ROTATED_GRACE_MS = 3000;
 
 export function trackSessionRotatingRequest<T>(request: Promise<T>): Promise<T> {

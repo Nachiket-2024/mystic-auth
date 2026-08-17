@@ -2,6 +2,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+
 from backend.mystic_auth.auth.refresh_token_logic.refresh_token_service import (
     refresh_token_service,
 )

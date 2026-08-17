@@ -9,6 +9,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from backend.mystic_auth.audit_log import audit_log_service
 from backend.mystic_auth.audit_log.audit_log_service import (
     LOGIN_SUCCESS,

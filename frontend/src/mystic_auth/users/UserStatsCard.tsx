@@ -41,7 +41,7 @@ const UserStatsCard: React.FC<UserStatsCardProps> = ({
     if (isError) return null;
 
     return (
-        <Card p={4} w={{ base: "full", md: "280px" }}>
+        <Card p={4} w={{ base: "full", md: "72" }}>
             <SimpleGrid columns={2} gap={4}>
                 <StatTile
                     label={t("users:statsCard.totalUsers")} value={data?.total} isLoading={isLoading} onClick={onFilterTotal}
