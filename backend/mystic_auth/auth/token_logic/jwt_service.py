@@ -51,6 +51,8 @@ class JWTService:
             "chain_ver": chain_ver,
             "iat": now.timestamp(),
             "exp": expire,
+            "iss": settings.JWT_ISSUER,
+            "aud": settings.JWT_AUDIENCE,
         }
 
         return await asyncio.to_thread(jwt.encode, payload, settings.SECRET_KEY, settings.JWT_ALGORITHM)
@@ -84,6 +86,8 @@ class JWTService:
             "chain_ver": chain_ver,
             "iat": now.timestamp(),
             "exp": expire,
+            "iss": settings.JWT_ISSUER,
+            "aud": settings.JWT_AUDIENCE,
         }
 
         return await asyncio.to_thread(jwt.encode, payload, settings.SECRET_KEY, settings.JWT_ALGORITHM)
@@ -110,7 +114,14 @@ class JWTService:
         )
         jti = uuid.uuid4().hex
 
-        payload = {"email": email, "type": "verify", "jti": jti, "exp": expire}
+        payload = {
+            "email": email,
+            "type": "verify",
+            "jti": jti,
+            "exp": expire,
+            "iss": settings.JWT_ISSUER,
+            "aud": settings.JWT_AUDIENCE,
+        }
 
         return await asyncio.to_thread(jwt.encode, payload, settings.SECRET_KEY, settings.JWT_ALGORITHM)
 
@@ -129,9 +140,27 @@ class JWTService:
             # membership check an accidental substring match instead of an
             # exact one. A list is the only form PyJWT's own docs endorse for
             # this parameter.
+            #
+            # options={"verify_aud": False}: PyJWT auto-rejects (regardless
+            # of whether an `audience=` kwarg is even passed) the instant an
+            # "aud" claim is merely *present* in the payload, which would
+            # hard-break every token minted before this claim existed. iss
+            # doesn't need the same override - PyJWT only checks it when an
+            # `issuer=` kwarg is explicitly passed, which this never does.
+            # has_valid_issuer_and_audience() below does the real
+            # iss/aud comparison instead, with the graceful "absent is fine,
+            # present-and-wrong is not" semantics this class uses everywhere
+            # else (see its own docstring).
             payload = await asyncio.to_thread(
-                jwt.decode, token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+                jwt.decode,
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM],
+                options={"verify_aud": False},
             )
+
+            if not self.has_valid_issuer_and_audience(payload):
+                return None
 
             if await self.is_token_revoked_by_jti(payload.get("jti")):
                 return None
@@ -170,8 +199,17 @@ class JWTService:
         payload for a revoked token.
         """
         try:
+            # verify_aud disabled here too: this method's contract is
+            # "signature and expiry only" (see docstring above), and an
+            # unconditioned jwt.decode auto-rejects on the mere presence of
+            # an "aud" claim - see verify_token's own comment on the same
+            # options= kwarg for why.
             return await asyncio.to_thread(
-                jwt.decode, token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+                jwt.decode,
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM],
+                options={"verify_aud": False},
             )
 
         except jwt.PyJWTError:
@@ -219,6 +257,27 @@ class JWTService:
             return False
 
         return await redis_client.exists(f"revoked:{jti}") == 1
+
+    def has_valid_issuer_and_audience(self, payload: dict) -> bool:
+        """False (reject) only when "iss"/"aud" is present and wrong; True
+        (including for a token minted before this feature shipped, carrying
+        neither claim) whenever there's nothing to compare against - same
+        "nothing to check against, so don't reject" reasoning as
+        is_current_version's account_ver/chain_ver checks and
+        is_token_revoked_by_jti's jti-less early return.
+
+        Checked outside jwt.decode's own audience=/issuer= kwargs
+        (rather than passed to it) deliberately: those raise/reject the
+        instant the claim is *missing*, which would be a hard break for
+        any token minted before JWT_ISSUER/JWT_AUDIENCE existed, instead of
+        the graceful, additive rollout every other claim in this class gets.
+        """
+        iss = payload.get("iss")
+        if iss is not None and iss != settings.JWT_ISSUER:
+            return False
+
+        aud = payload.get("aud")
+        return aud is None or aud == settings.JWT_AUDIENCE
 
     # Account/chain version reads and bumps live in token_version_store.py
     # (Redis-backed revocation bookkeeping), re-exported here as bound

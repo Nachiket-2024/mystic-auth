@@ -128,14 +128,16 @@ The most sensitive policy in the system: it assigns the system role and manages 
     "policies:revoke",
     "security_audit:read",
     "users:purge",
-    "users:reactivate"
+    "users:reactivate",
+    "rate_limits:read",
+    "rate_limits:reset"
   ],
   "resource_type": "*",
   "is_active": true
 }
 ```
 
-This policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py` and updated in place by later data migrations as capabilities changed. The current migrated shape includes the fine-grained `policies:*` actions, `security_audit:read`, `users:purge`, and `users:reactivate`. It is protected: it can never be deleted or renamed via the management API (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)), and its last assignment can never be revoked (would leave nobody able to manage the authorization system at all).
+This policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py` and updated in place by later data migrations as capabilities changed. The current migrated shape includes the fine-grained `policies:*` actions, `security_audit:read`, `users:purge`, `users:reactivate`, and (most recently) `rate_limits:read`/`rate_limits:reset` for the rate-limit admin dashboard (`GET`/`DELETE /rate-limits/...`, see `api/rate_limit_routes/rate_limit_routes.py`). It is protected: it can never be deleted or renamed via the management API (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)), and its last assignment can never be revoked (would leave nobody able to manage the authorization system at all).
 
 ---
 

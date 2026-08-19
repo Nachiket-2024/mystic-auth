@@ -73,9 +73,9 @@ full first-run walkthrough (cloning, `.env`, first `docker compose up`).
 scripts\docker\dev-up.cmd       # Command Prompt
 ```
 
-The helper starts the stack detached, restarts `backend`,
-`taskiq_worker`, and `taskiq_scheduler` so their startup banners are fresh, waits for health
-checks, then tails logs from `backend`/`frontend`/`taskiq_worker`/`taskiq_scheduler`. See
+The helper starts the stack detached, restarts `backend` and
+`procrastinate_worker` so their startup banners are fresh, waits for health
+checks, then tails logs from `backend`/`frontend`/`procrastinate_worker`. See
 [Docker Overview: day-to-day dev-up helpers](../docker/overview.md#day-to-day-dev-up-helpers)
 for why this is preferred over plain `docker compose up`.
 
@@ -126,7 +126,7 @@ All published to `localhost` for direct access:
 
 - Source code is bind-mounted (`./backend:/app`, `frontend/`), not baked
   into the image. Edits take effect immediately.
-- `backend`/`taskiq_worker` run with `--reload`.
+- `backend` runs with `--reload`.
 - No `restart:` policy beyond Postgres/Redis. You restart manually.
 - No `alembic: service_completed_successfully` gate on `backend` startup.
 - No Cloudflare Tunnel, no Caddy: everything is `localhost`-only, no public

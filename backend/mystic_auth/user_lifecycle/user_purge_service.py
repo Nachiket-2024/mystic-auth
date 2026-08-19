@@ -16,7 +16,7 @@ async def purge_user_account(
     """
     Hard-delete path shared by the admin `DELETE /users/{email}/purge` route
     (user_lifecycle_routes.py::purge_user) and the scheduled grace-period
-    purge job (taskiq_tasks/account_purge_tasks.py), so both go through the
+    purge job (procrastinate_tasks/account_purge_tasks.py), so both go through the
     exact same revoke -> audit -> delete sequence rather than two
     independently-maintained copies of it.
 

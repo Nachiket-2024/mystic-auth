@@ -1,7 +1,7 @@
 import { Badge } from "@chakra-ui/react";
 import type { TFunction } from "i18next";
 
-import type { DataTableColumn } from "../../ui/DataTable";
+import type { DataTableColumn } from "../../ui/DataTable/DataTable";
 import type { AuthorizationAuditLogEntryRead } from "../../api/audit_api";
 import type { SupportedLanguage } from "../../translations/translations";
 import { formatTimestamp } from "../auditLogListConfig";

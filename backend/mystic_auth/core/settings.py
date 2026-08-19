@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_MINUTES: int
     JWT_ALGORITHM: str
+    JWT_ISSUER: str                                 # "iss" claim minted into every access/refresh/verify JWT and checked on verify_token(); distinguishes this deployment's tokens from any other service/environment that happens to share SECRET_KEY. Typically BACKEND_BASE_URL.
+    JWT_AUDIENCE: str                               # "aud" claim minted into every access/refresh/verify JWT and checked on verify_token(); the token's intended consumer. Typically BACKEND_BASE_URL too, since this API is both the issuer and the resource server that validates its own tokens.
     RESET_TOKEN_EXPIRE_MINUTES: int
     ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES: int        # OAuth-only self-service account-deletion confirmation link lifetime, in minutes. See user_lifecycle/account_deletion_service.py.
 
@@ -50,12 +52,16 @@ class Settings(BaseSettings):
 
     TRUSTED_PROXY_IPS: str                          # Comma-separated reverse proxy IPs to trust X-Forwarded-For from (see auth/security/client_ip.py). Empty string = never trust it, use request.client.host as-is.
 
+    GEOIP_DB_PATH: str                              # Path to a local MaxMind GeoLite2-City .mmdb file, used to resolve login IPs to city/country for Manage Sessions' Location column (see user_session/session_geolocation.py). Empty string = geolocation disabled, Location shows "Unknown". Free MaxMind account + license key required to download the .mmdb; it can't ship in this repo (MaxMind's license forbids redistribution).
+
     SENTRY_DSN: str                                 # Optional. Sentry-protocol error-monitoring DSN (works with Sentry itself, or a self-hosted Sentry-SDK-compatible server like Bugsink; see docs/mystic_auth/error-monitoring/overview.md). Empty string = error monitoring disabled entirely, no SDK call is ever made.
     SENTRY_ENVIRONMENT: str                         # Optional. Tag reported alongside every event (e.g. "production", "staging"). Empty string falls back to ENVIRONMENT.
 
     DEFAULT_APP_POLICIES: str                       # Optional, comma-separated policy names auto-assigned to every user once verified, alongside self_service. Empty string = self_service only. See authorization/policies/default_policies.py.
 
-    ACCOUNT_PURGE_GRACE_DAYS: int                   # Days a soft-deleted (deleted_at set) account is kept before the daily taskiq_tasks/account_purge_tasks.py job hard-purges it. See docs/mystic_auth/security/decisions.md#account-lifecycle.
+    ACCOUNT_PURGE_GRACE_DAYS: int                   # Days a soft-deleted (deleted_at set) account is kept before the daily procrastinate_tasks/account_purge_tasks.py job hard-purges it. See docs/mystic_auth/security/decisions.md#account-lifecycle.
+
+    USER_EXPORT_MAX_ROWS: int                       # Hard ceiling on GET /users/export's filtered row count (that endpoint has no offset/limit of its own - see user_management_query_routes.py). A request matching more rows than this is rejected rather than loading them all into memory in one query.
 
     # The root .env is shared with docker-compose's `env_file:` directive, which
     # also passes it to infra-only services (REDIS_PASSWORD, BUGSINK_*, etc.)
@@ -94,6 +100,15 @@ class Settings(BaseSettings):
         # error messages/logs deterministically, never for CORS semantics
         # itself (allow_origins is checked as an unordered set of matches).
         return list(dict.fromkeys([self.FRONTEND_BASE_URL, *(o for o in extra if o)]))
+
+    @property
+    def procrastinate_database_url(self) -> str:
+        """DATABASE_URL, translated from SQLAlchemy's `postgresql+asyncpg://`
+        dialect prefix to the bare `postgresql://` DSN Procrastinate's
+        PsycopgConnector expects. Procrastinate opens its own psycopg
+        connection pool, entirely separate from the SQLAlchemy engine
+        `database.py` builds from DATABASE_URL as-is."""
+        return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
 
     @property
     def default_app_policy_names(self) -> list[str]:

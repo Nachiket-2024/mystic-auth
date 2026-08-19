@@ -22,6 +22,8 @@ export const PERMISSIONS = {
     POLICIES_ASSIGN: "policies:assign",
     POLICIES_REVOKE: "policies:revoke",
     SECURITY_AUDIT_READ: "security_audit:read",
+    RATE_LIMITS_READ: "rate_limits:read",
+    RATE_LIMITS_RESET: "rate_limits:reset",
 } as const;
 
 export type PermissionValue = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

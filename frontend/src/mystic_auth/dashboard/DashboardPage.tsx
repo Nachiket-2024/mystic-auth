@@ -18,7 +18,7 @@ import Card from "../ui/Card";
 import DashboardIdentityCardSkeleton from "./DashboardIdentityCardSkeleton";
 import FormAlert from "../ui/FormAlert";
 import ConfirmDialog from "../ui/ConfirmDialog";
-import TableActionButton from "../ui/TableActionButton";
+import TableActionButton from "../ui/table_actions/TableActionButton";
 
 interface StatItemProps {
     icon: React.ReactNode;
@@ -67,9 +67,14 @@ const DashboardPage: React.FC = () => {
     const logoutAllMutation = useLogoutAllMutation();
     const [confirmOpen, setConfirmOpen] = useState(false);
 
+    // isSuccess OR isError: useLogoutAllMutation clears local auth state in
+    // onSettled regardless of outcome (see its own comment for why - a
+    // NO_REFRESH_TOKEN_COOKIE 400 is a real, reachable response here), so
+    // navigation must follow every settled mutation, not just a successful
+    // one, or a failed call leaves the user stuck on this now-stale page.
     useEffect(() => {
-        if (logoutAllMutation.isSuccess) navigate("/login");
-    }, [logoutAllMutation.isSuccess, navigate]);
+        if (logoutAllMutation.isSuccess || logoutAllMutation.isError) navigate("/login");
+    }, [logoutAllMutation.isSuccess, logoutAllMutation.isError, navigate]);
 
     return (
         <Container maxW="8xl">
@@ -241,7 +246,7 @@ const DashboardPage: React.FC = () => {
             </Card>
 
             {/* id target for CommandPalette's "Manage Sessions" content-search
-                result (see layout/searchItems.ts) - AppLayout's
+                result (see layout/command_palette/searchItems.ts) - AppLayout's
                 useScrollToHash scrolls here after navigating in on
                 /dashboard#manage-sessions. */}
             <ManageSessionsCard id="manage-sessions" />
@@ -252,6 +257,7 @@ const DashboardPage: React.FC = () => {
                 title={t("logoutAllDialog.title")}
                 description={t("logoutAllDialog.description")}
                 confirmLabel={t("logoutAllDialog.confirmLabel")}
+                isDestructive={false}
                 isLoading={logoutAllMutation.isPending}
                 onConfirm={() => {
                     logoutAllMutation.mutate();

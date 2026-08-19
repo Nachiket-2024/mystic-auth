@@ -52,6 +52,15 @@ class UserSession(Base):
     user_agent: Mapped[str | None]
     ip_address: Mapped[str | None]
 
+    # Best-effort geolocation of ip_address at the time this row was
+    # created, resolved via session_geolocation.py (a local MaxMind
+    # GeoLite2-City database). Both null whenever ip_address is null,
+    # GEOIP_DB_PATH is unset, or the lookup otherwise fails - never
+    # re-resolved afterward even if ip_address's real-world location
+    # data changes, same "first-login snapshot" spirit as created_at.
+    city: Mapped[str | None]
+    country: Mapped[str | None]
+
     # First-login time for this session; never updated by rotation.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

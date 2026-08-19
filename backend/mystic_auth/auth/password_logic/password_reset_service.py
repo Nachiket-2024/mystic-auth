@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 from ...core.settings import settings
 from ...emails.email_template_service import render_transactional_email
 from ...logging.logging_config import get_logger
+from ...procrastinate_tasks.email_tasks import send_email_task
 from ...redis.client import redis_client
-from ...taskiq_tasks.email_tasks import send_email_task
 from ...user_crud.user_crud_collector import user_crud
 from ..refresh_token_logic.refresh_token_service import refresh_token_service
 from .password_service import password_service
@@ -55,7 +55,7 @@ class PasswordResetService:
                 ignore_note="If you didn't request a password reset, you can safely ignore this email; your password will remain unchanged.",
             )
 
-            await send_email_task.kiq(
+            await send_email_task.defer_async(
                 to_email=email,
                 subject=email_subject,
                 body=email_body,

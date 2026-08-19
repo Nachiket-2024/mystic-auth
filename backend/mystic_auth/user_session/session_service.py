@@ -9,6 +9,7 @@ from ..auth.token_logic.jwt_service import jwt_service
 from ..logging.logging_config import get_logger
 from ..user_crud.user_crud_collector import user_crud
 from .session_events import publish_session_created, publish_session_revoked
+from .session_geolocation import resolve_city_country
 from .session_model import UserSession
 from .session_repository import session_repository
 
@@ -45,7 +46,10 @@ class SessionService:
         try:
             user_agent = request.headers.get("user-agent") if request is not None else None
             ip_address = get_client_ip(request) if request is not None else None
-            await session_repository.create(db, user_id, jti, chain_id, _to_datetime(exp), user_agent, ip_address)
+            city, country = resolve_city_country(ip_address)
+            await session_repository.create(
+                db, user_id, jti, chain_id, _to_datetime(exp), user_agent, ip_address, city, country
+            )
             # Real-time nudge for any tab already open on this account (see
             # publish_session_created's own docstring). email is optional
             # only because a couple of tests call create_session directly
@@ -83,8 +87,9 @@ class SessionService:
                 if user:
                     user_agent = request.headers.get("user-agent") if request is not None else None
                     ip_address = get_client_ip(request) if request is not None else None
+                    city, country = resolve_city_country(ip_address)
                     await session_repository.create(
-                        db, user.id, new_jti, chain_id, _to_datetime(new_exp), user_agent, ip_address
+                        db, user.id, new_jti, chain_id, _to_datetime(new_exp), user_agent, ip_address, city, country
                     )
         except Exception:
             logger.warning("Failed to rotate session jti:\n%s", traceback.format_exc())
@@ -156,8 +161,9 @@ class SessionService:
                 if user:
                     user_agent = request.headers.get("user-agent") if request is not None else None
                     ip_address = get_client_ip(request) if request is not None else None
+                    city, country = resolve_city_country(ip_address)
                     await session_repository.create(
-                        db, user.id, new_jti, chain_id, _to_datetime(new_exp), user_agent, ip_address
+                        db, user.id, new_jti, chain_id, _to_datetime(new_exp), user_agent, ip_address, city, country
                     )
         except Exception:
             logger.warning("Failed to rotate session by chain %s:\n%s", chain_id, traceback.format_exc())

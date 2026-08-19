@@ -21,7 +21,7 @@ class _FakeUser:
 async def test_send_reset_email_persists_single_use_token_in_redis(mocker):
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.create_reset_token", return_value="reset-token-abc")
-    mocker.patch(f"{MODULE}.send_email_task.kiq", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.send_email_task.defer_async", new_callable=AsyncMock)
     set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
 
     result = await password_reset_service.send_reset_email("user@example.com", db=None)

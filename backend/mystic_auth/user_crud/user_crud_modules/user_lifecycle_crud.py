@@ -51,7 +51,7 @@ class UserLifecycleCRUD:
     async def get_deleted_before(self, cutoff: datetime, db: AsyncSession):
         """Every soft-deleted account (deleted_at set) whose deleted_at is
         older than `cutoff` : backs the scheduled grace-period purge job
-        (taskiq_tasks/account_purge_tasks.py), which passes
+        (procrastinate_tasks/account_purge_tasks.py), which passes
         now - settings.ACCOUNT_PURGE_GRACE_DAYS."""
         result = await db.execute(
             select(self.model).where(self.model.deleted_at.isnot(None), self.model.deleted_at < cutoff)

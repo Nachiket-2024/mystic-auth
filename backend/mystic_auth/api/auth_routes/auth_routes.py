@@ -21,12 +21,45 @@ from ...auth.security.client_ip import get_client_ip
 from ...auth.security.rate_limiter_service import rate_limiter_service
 from ...auth.signup.signup_handler import signup_handler
 from ...auth.signup.signup_schema import SignupSchema
+from ...auth.token_logic.jwt_service import jwt_service
 from ...auth.verify_account.account_verification_handler import account_verification_handler
 from ...auth.verify_account.verify_account_schema import VerifyAccountRequestSchema, VerifyAccountSchema
 from ...database.connection import database
 from ...user_session.session_events import session_event_stream
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+async def _access_token_account_key(kwargs: dict) -> str | None:
+    """account_key_func for token-only routes (get_current_user, logout,
+    logout_all, list_sessions, revoke_session): none of these have a
+    request-body field to read an email from synchronously, only an
+    access_token cookie. Reads it either from a declared `access_token`
+    Cookie() param (list_sessions, revoke_session, get_current_user) or, for
+    routes that only read cookies off `request` directly (logout,
+    logout_all), from there instead - so this one function covers both
+    styles.
+
+    Uses jwt_service.decode_payload, not verify_token: real signature +
+    expiry verification (never trusts an unverified/tampered token as an
+    account key), but deliberately skips verify_token's revocation/version
+    Redis lookups - those exist to decide whether to let the *request*
+    through, not to decide what bucket to rate-limit it under, so skipping
+    them keeps this a local, fast, no-extra-round-trip decode. Missing/
+    invalid/expired token -> None, same as any other account_key_func miss:
+    the caller falls back to IP-only rate limiting for that request rather
+    than the request failing.
+    """
+    access_token = kwargs.get("access_token")
+    if not access_token:
+        request = kwargs.get("request")
+        access_token = request.cookies.get("access_token") if request else None
+
+    if not access_token:
+        return None
+
+    payload = await jwt_service.decode_payload(access_token)
+    return payload.get("email") if payload else None
 
 
 @router.post("/signup")
@@ -72,7 +105,7 @@ async def oauth2_callback_google(
 
 
 @router.get("/me")
-@rate_limiter_service.rate_limited("get_current_user")
+@rate_limiter_service.rate_limited("get_current_user", account_key_func=_access_token_account_key)
 async def get_current_user(
     request: Request, access_token: str = Cookie(None), db: AsyncSession = Depends(database.get_session)
 ):
@@ -112,21 +145,21 @@ async def session_events(
 
 
 @router.post("/logout")
-@rate_limiter_service.rate_limited("logout")
+@rate_limiter_service.rate_limited("logout", account_key_func=_access_token_account_key)
 async def logout(request: Request, db: AsyncSession = Depends(database.get_session)):
     refresh_token = request.cookies.get("refresh_token")
     return await logout_handler.handle_logout(refresh_token, db=db, request=request)
 
 
 @router.post("/logout/all")
-@rate_limiter_service.rate_limited("logout_all")
+@rate_limiter_service.rate_limited("logout_all", account_key_func=_access_token_account_key)
 async def logout_all(request: Request, db: AsyncSession = Depends(database.get_session)):
     refresh_token = request.cookies.get("refresh_token")
     return await logout_all_handler.handle_logout_all(refresh_token, db=db, request=request)
 
 
 @router.get("/sessions", response_model=list[SessionRead])
-@rate_limiter_service.rate_limited("list_sessions")
+@rate_limiter_service.rate_limited("list_sessions", account_key_func=_access_token_account_key)
 async def list_sessions(
     request: Request,
     access_token: str = Cookie(None),
@@ -137,7 +170,7 @@ async def list_sessions(
 
 
 @router.delete("/sessions/{session_id}")
-@rate_limiter_service.rate_limited("revoke_session")
+@rate_limiter_service.rate_limited("revoke_session", account_key_func=_access_token_account_key)
 async def revoke_session(
     session_id: int,
     request: Request,

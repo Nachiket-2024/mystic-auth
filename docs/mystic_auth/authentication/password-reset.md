@@ -89,7 +89,7 @@ flowchart TD
    the account is compromised, so an attacker's existing session shouldn't outlive it. An ordinary
    profile update with no password field never triggers this.
 
-See [Security Decisions: self-service password change requires the current password](../security/decisions.md#self-service-password-change-requires-the-current-password).
+See [Security Decisions: self-service password change requires the current password](../security/decisions-auth.md#self-service-password-change-requires-the-current-password).
 
 ---
 
@@ -97,7 +97,7 @@ See [Security Decisions: self-service password change requires the current passw
 
 `tests/backend/mystic_auth/unit/auth/password_logic/test_password_reset_unit.py` and
 `tests/backend/mystic_auth/unit/auth/password_reset_confirm/` cover the token issue/redeem and
-strength-validation logic; `tests/backend/mystic_auth/integration/auth/test_logout_password_reset_integration.py`
+strength-validation logic; `tests/backend/mystic_auth/integration/auth/test_password_reset_integration.py`
 exercises the full reset path, including the session-revocation side effect, against real
 Postgres/Redis. See [Testing Overview](../testing/overview.md).
 

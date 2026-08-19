@@ -1,17 +1,18 @@
 # tests/backend/mystic_auth/integration/user_crud/test_account_purge_task_integration.py
 #
 # End-to-end coverage for the scheduled grace-period hard-purge job
-# (backend/mystic_auth/taskiq_tasks/account_purge_tasks.py) against the real
-# ASGI app, real PostgreSQL, and real Redis (see conftest.py). Companion to
-# test_user_account_lifecycle_integration.py's manual-purge coverage and
-# test_user_self_service_routes_integration.py's self-delete coverage: this
-# file is what proves the two are actually connected by the daily job.
+# (backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py) against
+# the real ASGI app, real PostgreSQL, and real Redis (see conftest.py).
+# Companion to test_user_account_lifecycle_integration.py's manual-purge
+# coverage and test_user_self_service_routes_integration.py's self-delete
+# coverage: this file is what proves the two are actually connected by the
+# daily job.
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.taskiq_tasks.account_purge_tasks import (
+from backend.mystic_auth.procrastinate_tasks.account_purge_tasks import (
     purge_expired_soft_deleted_accounts,
 )
 from backend.mystic_auth.user_crud.user_crud_collector import user_crud
@@ -38,7 +39,7 @@ async def _soft_delete_with_deleted_at(email: str, deleted_at: datetime) -> None
 @pytest.mark.asyncio
 async def test_purge_job_only_purges_accounts_past_the_grace_period(client, created_emails, mocker):
     mocker.patch(
-        "backend.mystic_auth.taskiq_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 7
+        "backend.mystic_auth.procrastinate_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 7
     )
 
     expired_email = unique_email("expired")
@@ -49,7 +50,7 @@ async def test_purge_job_only_purges_accounts_past_the_grace_period(client, crea
     await _soft_delete_with_deleted_at(expired_email, datetime.now(UTC) - timedelta(days=10))
     await _soft_delete_with_deleted_at(recent_email, datetime.now(UTC) - timedelta(days=1))
 
-    purged_count = await purge_expired_soft_deleted_accounts()
+    purged_count = await purge_expired_soft_deleted_accounts(timestamp=0)
     assert purged_count == 1
 
     async with database.async_session() as session:
@@ -65,13 +66,13 @@ async def test_purge_job_only_purges_accounts_past_the_grace_period(client, crea
 @pytest.mark.asyncio
 async def test_purge_job_ignores_accounts_that_were_never_deleted(client, created_emails, mocker):
     mocker.patch(
-        "backend.mystic_auth.taskiq_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 0
+        "backend.mystic_auth.procrastinate_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 0
     )
 
     email = unique_email()
     await create_verified_user(client, created_emails, email)
 
-    purged_count = await purge_expired_soft_deleted_accounts()
+    purged_count = await purge_expired_soft_deleted_accounts(timestamp=0)
     assert purged_count == 0
 
     async with database.async_session() as session:
@@ -83,7 +84,7 @@ async def test_purge_job_ignores_accounts_that_were_never_deleted(client, create
 @pytest.mark.asyncio
 async def test_purge_job_revokes_sessions_of_purged_accounts(client, created_emails, mocker):
     mocker.patch(
-        "backend.mystic_auth.taskiq_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 7
+        "backend.mystic_auth.procrastinate_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 7
     )
 
     email = unique_email()
@@ -92,7 +93,7 @@ async def test_purge_job_revokes_sessions_of_purged_accounts(client, created_ema
 
     await _soft_delete_with_deleted_at(email, datetime.now(UTC) - timedelta(days=10))
 
-    purged_count = await purge_expired_soft_deleted_accounts()
+    purged_count = await purge_expired_soft_deleted_accounts(timestamp=0)
     assert purged_count == 1
 
     refresh_resp = await post_with_refresh_cookie(client, "/auth/refresh/", refresh_token)

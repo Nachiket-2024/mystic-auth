@@ -11,14 +11,14 @@ There are five independent jobs. The first four run on every push and PR. The
 fifth runs only on a push to `main`.
 
 ```mermaid
-flowchart LR
-    Trigger(["Push / PR to main"])
-    TriggerMain(["Push to main only"])
+flowchart TD
+    Trigger(["Push / PR<br/>to main"])
+    TriggerMain(["Push to<br/>main only"])
 
-    Trigger --> Backend["backend<br/><small>lint, type-check, bandit,<br/>pip-audit, pytest (85% cov gate)</small>"]
+    Trigger --> Backend["backend<br/><small>lint, type-check, bandit,<br/>pip-audit, pytest<br/>(85% cov gate)</small>"]
     Trigger --> Frontend["frontend<br/><small>typecheck, lint,<br/>test:coverage, build</small>"]
-    Trigger --> Secrets["secrets-scan<br/><small>gitleaks, full git history</small>"]
-    Trigger --> DockerBuild["docker-build<br/><small>build both images, assert no leaked logs,<br/>boot the dev stack, smoke-test it</small>"]
+    Trigger --> Secrets["secrets-scan<br/><small>gitleaks,<br/>full git history</small>"]
+    Trigger --> DockerBuild["docker-build<br/><small>build both images,<br/>assert no leaked logs,<br/>boot the dev stack,<br/>smoke-test it</small>"]
     TriggerMain --> DockerFullSuite["docker-full-suite<br/><small>full backend + frontend suites,<br/>run inside the actual containers</small>"]
 ```
 
@@ -64,7 +64,7 @@ flowchart LR
 
 - Builds `docker/backend.Dockerfile` and `docker/frontend.Dockerfile --target production` to confirm both images still build cleanly.
 - Validates all three Compose files parse: `docker-compose.yml`, `docker-compose.local-prod.yml`, and `docker-compose.prod.yml`.
-- Runs the built backend image and asserts `/app/logs` exists but is **empty**: a regression guard for a real bug found during a pre-release image-contents audit (local access-log files, with real request data, were previously getting baked into the image via a `.dockerignore` gap: see [Security Decisions](../security/decisions.md#dockerignore-previously-let-local-files-leak-into-built-images)). The directory itself is expected to exist (the app creates it on import); this only checks that no host-side log content rode along inside it.
+- Runs the built backend image and asserts `/app/logs` exists but is **empty**: a regression guard for a real bug found during a pre-release image-contents audit (local access-log files, with real request data, were previously getting baked into the image via a `.dockerignore` gap: see [Security Decisions](../security/decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images)). The directory itself is expected to exist (the app creates it on import); this only checks that no host-side log content rode along inside it.
 - Boots the real dev stack with `docker compose up -d --build postgres redis
   alembic backend frontend`, waits for `/health/ready` and the frontend dev
   server, checks response bodies, and tears the stack down. This verifies the
@@ -146,7 +146,7 @@ npm run typecheck --prefix frontend && npm run lint --prefix frontend && npm run
 gitleaks detect --source . -v
 
 # Docker image builds (from repo root)
-docker build -f docker/backend.Dockerfile -t backend:local .
+docker build --target runtime -f docker/backend.Dockerfile -t backend:local .
 docker build --target production -f docker/frontend.Dockerfile -t frontend:local .
 
 # Boot + smoke-test the dev stack, the same thing docker-build does on every PR
@@ -161,7 +161,10 @@ docker compose down -v && rm .env
 # does on every push to main
 cp .env.example .env
 sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' .env
-docker compose up -d --build postgres redis alembic backend
+# BACKEND_BUILD_TARGET=test builds docker/backend.Dockerfile's `test` stage
+# (runtime image + pytest), so pytest is available inside the container below
+# without the runtime image everyone else deploys ever shipping test tooling.
+BACKEND_BUILD_TARGET=test docker compose up -d --build postgres redis alembic backend
 # --user root: needed on native Linux, or pytest-cov's coverage output
 # (written to /repo, the whole-repo bind mount) crashes with a permission
 # error: see docs/mystic_auth/docker/overview.md's "running a one-off

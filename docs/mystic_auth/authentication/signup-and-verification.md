@@ -11,7 +11,7 @@ list next to every other flow.
 | `backend/mystic_auth/auth/signup/signup_service.py`, `signup_handler.py` | Creates the row, hashes the password, assigns `self_service`, queues the verification email |
 | `backend/mystic_auth/auth/verify_account/account_verification_service.py`, `account_verification_handler.py` | Issues/redeems the verification token, resend logic |
 | `backend/mystic_auth/api/auth_routes/auth_routes.py` | `POST /auth/signup`, `POST /auth/verify-account`, `POST /auth/verify-account/request` |
-| `backend/mystic_auth/taskiq_tasks/email_tasks.py` | Sends the verification email asynchronously |
+| `backend/mystic_auth/procrastinate_tasks/email_tasks.py` | Sends the verification email asynchronously |
 | `frontend/src/mystic_auth/auth/signup/`, `auth/verify_account/` | `SignupForm`, `VerifyAccountButton`, resend-cooldown UI |
 
 ---
@@ -23,7 +23,7 @@ sequenceDiagram
     participant U as User (browser)
     participant API as Backend
     participant DB as Postgres
-    participant Q as Taskiq
+    participant Q as Procrastinate
     participant E as Email
 
     U->>API: POST /auth/signup {email, password, name}
@@ -45,7 +45,7 @@ sequenceDiagram
    on the free-email path would let a timing attack distinguish "registered" from "not registered"
    even though both paths return the same HTTP response.
 2. **Row creation.** `role=UserRole.user` is display-only (see
-   [Security Decisions: role is never used to decide access](../security/decisions.md#role-is-never-used-to-decide-access)).
+   [Security Decisions: role is never used to decide access](../security/decisions-auth.md#role-is-never-used-to-decide-access)).
    `is_verified=False`, `is_active=True`. The `self_service` policy assignment, not the role, is
    what actually grants the new account `users:read_own`/`users:update_own`.
 3. **Always the same response.** Whether or not the email was already taken, the endpoint returns
@@ -115,4 +115,4 @@ Postgres/Redis. See [Testing Overview](../testing/overview.md).
 ## See also
 
 - [Authentication Flows](overview.md): tokens/cookies, and how this fits alongside login/OAuth2.
-- [Security Decisions](../security/decisions.md): the enumeration-resistance and timing rationale.
+- [Security Decisions: Auth & Session](../security/decisions-auth.md): the enumeration-resistance and timing rationale.

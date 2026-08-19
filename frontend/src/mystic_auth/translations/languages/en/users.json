@@ -87,6 +87,7 @@
         "changeRoleDialogTitle": "Change role",
         "changeRoleDialogDescription": "Change {{email}}'s role to \"{{role}}\"? Role is display/grouping metadata only : this does not itself change what they're permitted to do.",
         "changeRoleConfirmLabel": "Change role",
-        "userReactivatedToast": "User reactivated"
+        "userReactivatedToast": "User reactivated",
+        "exportCsv": "Export CSV"
     }
 }

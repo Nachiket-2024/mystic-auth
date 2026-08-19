@@ -10,6 +10,7 @@ import enAuthorization from "./languages/en/authorization.json";
 import enAuditLog from "./languages/en/audit_log.json";
 import enAccountSettings from "./languages/en/account_settings.json";
 import enDashboard from "./languages/en/dashboard.json";
+import enRateLimits from "./languages/en/rate_limits.json";
 import enStatusPages from "./languages/en/status_pages.json";
 import enErrors from "./languages/en/errors.json";
 
@@ -22,6 +23,7 @@ import hiAuthorization from "./languages/hi/authorization.json";
 import hiAuditLog from "./languages/hi/audit_log.json";
 import hiAccountSettings from "./languages/hi/account_settings.json";
 import hiDashboard from "./languages/hi/dashboard.json";
+import hiRateLimits from "./languages/hi/rate_limits.json";
 import hiStatusPages from "./languages/hi/status_pages.json";
 import hiErrors from "./languages/hi/errors.json";
 
@@ -34,6 +36,7 @@ import mrAuthorization from "./languages/mr/authorization.json";
 import mrAuditLog from "./languages/mr/audit_log.json";
 import mrAccountSettings from "./languages/mr/account_settings.json";
 import mrDashboard from "./languages/mr/dashboard.json";
+import mrRateLimits from "./languages/mr/rate_limits.json";
 import mrStatusPages from "./languages/mr/status_pages.json";
 import mrErrors from "./languages/mr/errors.json";
 
@@ -46,6 +49,7 @@ import guAuthorization from "./languages/gu/authorization.json";
 import guAuditLog from "./languages/gu/audit_log.json";
 import guAccountSettings from "./languages/gu/account_settings.json";
 import guDashboard from "./languages/gu/dashboard.json";
+import guRateLimits from "./languages/gu/rate_limits.json";
 import guStatusPages from "./languages/gu/status_pages.json";
 import guErrors from "./languages/gu/errors.json";
 
@@ -61,6 +65,7 @@ export const NAMESPACES = [
     "audit_log",
     "account_settings",
     "dashboard",
+    "rate_limits",
     "status_pages",
     "errors",
 ] as const;
@@ -89,6 +94,7 @@ translations.use(initReactI18next).init({
             audit_log: enAuditLog,
             account_settings: enAccountSettings,
             dashboard: enDashboard,
+            rate_limits: enRateLimits,
             status_pages: enStatusPages,
             errors: enErrors,
         },
@@ -102,6 +108,7 @@ translations.use(initReactI18next).init({
             audit_log: hiAuditLog,
             account_settings: hiAccountSettings,
             dashboard: hiDashboard,
+            rate_limits: hiRateLimits,
             status_pages: hiStatusPages,
             errors: hiErrors,
         },
@@ -115,6 +122,7 @@ translations.use(initReactI18next).init({
             audit_log: mrAuditLog,
             account_settings: mrAccountSettings,
             dashboard: mrDashboard,
+            rate_limits: mrRateLimits,
             status_pages: mrStatusPages,
             errors: mrErrors,
         },
@@ -128,6 +136,7 @@ translations.use(initReactI18next).init({
             audit_log: guAuditLog,
             account_settings: guAccountSettings,
             dashboard: guDashboard,
+            rate_limits: guRateLimits,
             status_pages: guStatusPages,
             errors: guErrors,
         },

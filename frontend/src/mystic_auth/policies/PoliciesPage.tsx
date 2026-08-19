@@ -4,9 +4,9 @@ import { Pencil, ShieldCheck, ShieldOff, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import PageContainer from "../ui/PageContainer";
-import DataTable, { type DataTableColumn } from "../ui/DataTable";
+import DataTable, { type DataTableColumn } from "../ui/DataTable/DataTable";
 import ConfirmDialog from "../ui/ConfirmDialog";
-import TableActionIconButton from "../ui/TableActionIconButton";
+import TableActionIconButton from "../ui/table_actions/TableActionIconButton";
 import { SEARCH_INPUT_PROPS } from "../ui/styles/inputStyles";
 import { BRAND_SOLID_HOVER_PROPS } from "../ui/styles/buttonStyles";
 import { IfCan } from "../authorization/IfCan";

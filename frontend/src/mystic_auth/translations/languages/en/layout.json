@@ -26,6 +26,7 @@
         "dashboard": "Dashboard",
         "users": "Users",
         "policies": "Policies",
+        "rateLimits": "Rate Limits",
         "auditLog": "Audit Log",
         "accountSettings": "Account Settings"
     }

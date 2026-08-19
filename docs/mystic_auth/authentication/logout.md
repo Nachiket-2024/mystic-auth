@@ -22,15 +22,18 @@ safe to call against an already-dead token.
 ```mermaid
 flowchart TD
     subgraph Logout["POST /auth/logout"]
-        L1["Decode refresh token claims\n(decode_payload, not verify_token)"] --> L2["Bump chain_ver for this chain_id"]
-        L2 --> L3["Mark matching user_sessions row revoked"]
-        L3 --> L4["Clear access_token + refresh_token cookies"]
+        L1["Decode refresh token claims\n(decode_payload, not verify_token)"] --> L2["Bump chain_ver\nfor this chain_id"]
+        L2 --> L3["Mark matching\nuser_sessions row revoked"]
+        L3 --> L4["Clear access_token +\nrefresh_token cookies"]
         L4 --> L5["200"]
     end
+```
 
+```mermaid
+flowchart TD
     subgraph LogoutAll["POST /auth/logout/all"]
         A1["Decode refresh token claims\n(decode_payload, not verify_token)"] --> A2["Bump account_ver\n(one INCR, ends every session)"]
-        A2 --> A3["Clear access_token + refresh_token cookies"]
+        A2 --> A3["Clear access_token +\nrefresh_token cookies"]
         A3 --> A4["200"]
     end
 ```
@@ -79,7 +82,7 @@ browser tab. See [Session Management: frontend behavior](session-management.md#f
 `tests/backend/mystic_auth/unit/auth/logout/test_logout_handler_unit.py` and
 `tests/backend/mystic_auth/unit/auth/logout_all/test_logout_all_handler_unit.py` cover both
 handlers, including the already-dead-token idempotency case;
-`tests/backend/mystic_auth/integration/auth/test_logout_password_reset_integration.py` and the
+`tests/backend/mystic_auth/integration/auth/test_logout_integration.py` and the
 session-management integration suite exercise both against real Postgres/Redis. See
 [Testing Overview](../testing/overview.md).
 

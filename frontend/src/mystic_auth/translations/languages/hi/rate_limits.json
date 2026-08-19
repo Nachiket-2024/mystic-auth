@@ -1,0 +1,28 @@
+{
+    "page": {
+        "title": "दर सीमाएँ",
+        "description": "Redis-आधारित लाइव दर-सीमा काउंटर, प्रति IP और प्रति खाता।",
+        "filterByEndpoint": "एंडपॉइंट द्वारा फ़िल्टर करें",
+        "allEndpoints": "सभी एंडपॉइंट",
+        "identifierPlaceholder": "ईमेल या IP से खोजें...",
+        "filterByIdentifier": "ईमेल या IP से खोजें",
+        "filterByScope": "स्कोप के अनुसार फ़िल्टर करें",
+        "allScopes": "सभी स्कोप",
+        "scopeIp": "IP",
+        "scopeAccount": "खाता",
+        "scopeEmail": "लॉगिन लॉकआउट",
+        "endpointColumn": "एंडपॉइंट",
+        "scopeColumn": "स्कोप",
+        "identifierColumn": "पहचानकर्ता / ईमेल",
+        "requestsColumn": "अनुरोध",
+        "resetsAtColumn": "रीसेट समय",
+        "noExpiry": "अभी सेट नहीं",
+        "reset": "रीसेट करें",
+        "truncatedNote": "5,000 से अधिक मेल खाते लिमिटर। कुल और पृष्ठ संख्या अनुमानित है; सटीक गिनती के लिए अपने फ़िल्टर सीमित करें।",
+        "failedToLoad": "दर सीमाएँ लोड करने में विफल",
+        "noActiveLimits": "कोई सक्रिय दर सीमा नहीं",
+        "resetToast": "दर सीमा रीसेट हुई",
+        "resetDialogTitle": "दर सीमा रीसेट करें",
+        "resetDialogDescription": "\"{{identifier}}\" के लिए \"{{endpoint}}\" सीमा रीसेट करें? वे तुरंत फिर से अनुरोध कर सकेंगे, जैसे विंडो अभी शुरू हुई हो।"
+    }
+}

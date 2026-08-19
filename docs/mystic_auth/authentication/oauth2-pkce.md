@@ -98,7 +98,7 @@ A random `state = secrets.token_urlsafe(32)` is generated alongside the PKCE pai
 
 ## Security considerations
 
-See [Security Decisions: OAuth2 CSRF and account-hijacking protections](../security/decisions.md#oauth2-csrf-and-account-hijacking-protections) for the consolidated rationale, and [Security Hardening](../security/hardening.md) for the rate limits applied to both OAuth2 routes.
+See [Security Decisions: OAuth2 CSRF and account-hijacking protections](../security/decisions-auth.md#oauth2-csrf-and-account-hijacking-protections) for the consolidated rationale, and [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting) for the rate limits applied to both OAuth2 routes.
 
 ---
 

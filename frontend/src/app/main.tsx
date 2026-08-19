@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ChakraProvider } from '@chakra-ui/react';
 
 import App from './App.tsx';
-import ErrorBoundary from '../mystic_auth/ui/ErrorBoundary.tsx';
+import ErrorBoundary from '../mystic_auth/ui/routing/ErrorBoundary.tsx';
 
 // The app's custom Chakra system (theme tokens/semantic tokens), built on
 // top of Chakra's defaultConfig rather than replacing it.

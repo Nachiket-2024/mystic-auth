@@ -112,7 +112,7 @@ export default defineConfig({
         'json',
         'html',
       ],
-      // Current coverage is ~90%/84%/84%/91% (statements/branches/functions/
+      // Current coverage is ~90%/80%/82%/91% (statements/branches/functions/
       // lines, see docs/mystic_auth/testing/overview.md); thresholds sit a few points
       // below that as a regression alarm, not a strict target, so
       // incidental coverage drift doesn't flap CI red. Only enforced when

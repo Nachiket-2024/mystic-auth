@@ -4,8 +4,8 @@ from ...auth.token_logic.jwt_service import jwt_service
 from ...core.settings import settings
 from ...emails.email_template_service import render_transactional_email
 from ...logging.logging_config import get_logger
+from ...procrastinate_tasks.email_tasks import send_email_task
 from ...redis.client import redis_client
-from ...taskiq_tasks.email_tasks import send_email_task
 from ...user_crud.user_crud_collector import user_crud
 
 logger = get_logger(__name__)
@@ -50,7 +50,7 @@ class AccountVerificationService:
                 ignore_note="If you didn't create an account with us, you can safely ignore this email.",
             )
 
-            await send_email_task.kiq(
+            await send_email_task.defer_async(
                 to_email=email,
                 subject=email_subject,
                 body=email_body

@@ -87,6 +87,7 @@
         "changeRoleDialogTitle": "भूमिका बदलें",
         "changeRoleDialogDescription": "{{email}} की भूमिका \"{{role}}\" में बदलें? भूमिका केवल प्रदर्शन/समूहीकरण मेटाडेटा है : इससे उन्हें जो करने की अनुमति है वह नहीं बदलता।",
         "changeRoleConfirmLabel": "भूमिका बदलें",
-        "userReactivatedToast": "उपयोगकर्ता पुनः सक्रिय किया गया"
+        "userReactivatedToast": "उपयोगकर्ता पुनः सक्रिय किया गया",
+        "exportCsv": "CSV निर्यात करें"
     }
 }

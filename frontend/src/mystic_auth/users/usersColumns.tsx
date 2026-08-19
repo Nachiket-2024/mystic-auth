@@ -2,8 +2,8 @@ import { Badge, HStack, Text } from "@chakra-ui/react";
 import { Eye, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
 
-import type { DataTableColumn } from "../ui/DataTable";
-import TableActionIconButton from "../ui/TableActionIconButton";
+import type { DataTableColumn } from "../ui/DataTable/DataTable";
+import TableActionIconButton from "../ui/table_actions/TableActionIconButton";
 import StyledSelect from "../ui/StyledSelect";
 import { IfCan } from "../authorization/IfCan";
 import { PERMISSIONS } from "../authorization/permissions";

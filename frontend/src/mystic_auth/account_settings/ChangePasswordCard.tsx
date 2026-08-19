@@ -5,8 +5,7 @@ import { useTranslation } from "react-i18next";
 import Card from "../ui/Card";
 import FormAlert from "../ui/FormAlert";
 import PasswordInput from "../ui/PasswordInput";
-import PasswordRulesChecklist from "../auth/password_rules/PasswordRulesChecklist";
-import PasswordStrengthMeter from "../auth/password_rules/PasswordStrengthMeter";
+import PasswordStrengthPanel from "../auth/password_rules/PasswordStrengthPanel";
 import { useUpdateMyAccountMutation } from "./useUpdateMyAccountMutation";
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../auth/password_rules/passwordRules";
 import { toaster } from "../ui/toaster/toasterInstance";
@@ -75,7 +74,7 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
     };
 
     return (
-        <Card p={5} flex="1" flexBasis="80" maxW="lg">
+        <Card p={5} flex="1" flexBasis="80" maxW="3xl">
             <Heading as="h2" size="md" mb={3} textStyle="sectionHeader">
                 {hasPassword ? t("changePassword.changeTitle") : t("changePassword.setTitle")}
             </Heading>
@@ -94,23 +93,24 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                         aria-describedby={passwordError ? "password-local-error" : passwordMutation.isError ? "password-mutation-error" : undefined}
                         {...SEARCH_INPUT_PROPS}
                     />
-                    {/* Always rendered (a neutral "-" before typing starts),
-                        same reasoning as SignupForm/PasswordResetConfirmForm:
-                        reserving this line's height from the first render
-                        means it filling in never shifts the fields below it. */}
-                    <PasswordStrengthMeter
-                        password={newPassword}
-                        label={t("changePassword.strengthLabel", { strength: strength || "-" })}
-                        mt={1}
-                    />
                 </Field.Root>
 
                 {/* Directly below New password, not after Current
                     password: these rules describe the new password
                     you're typing above, not the confirmation field
                     below, so they read more naturally attached to
-                    the field they're actually validating. */}
-                <PasswordRulesChecklist rules={rules} pristine={!isDirty} />
+                    the field they're actually validating. Always rendered
+                    (pristine before typing starts), same reasoning as
+                    SignupForm/PasswordResetConfirmForm: reserving this
+                    block's height from the first render means it filling
+                    in never shifts the fields below it. */}
+                <PasswordStrengthPanel
+                    password={newPassword}
+                    label={t("changePassword.strengthLabel", { strength: strength || "-" })}
+                    rules={rules}
+                    pristine={!isDirty}
+                    mt={1}
+                />
 
                 {/* Always rendered when the account has a password to
                     confirm against, not only once newPassword has a

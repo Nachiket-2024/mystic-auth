@@ -83,3 +83,10 @@ export const reactivateUserApi = (userEmail: string) =>
 
 export const updateUserRoleApi = (userEmail: string, role: string) =>
     api.patch(`/users/${encodeURIComponent(userEmail)}/role`, { role });
+
+// CSV of every user matching the given filters (no limit/offset - always
+// the whole filtered set, unlike listUsersApi's paginated page). Same
+// filter params as the list, blob response so UsersPage can turn it into
+// a real file download.
+export const exportUsersApi = (params: ListUsersParams = {}) =>
+    api.get<Blob>("/users/export", { params: toApiParams(params), responseType: "blob" });

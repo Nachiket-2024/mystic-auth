@@ -17,6 +17,10 @@ interface UsersFilterBarProps {
     setVerified: (v: string) => void;
     status: string;
     setStatus: (v: string) => void;
+    /** Rendered right next to the search input (e.g. Export CSV), so it
+     * reads as a sibling action on the search row rather than drifting to
+     * the far edge of the page header. */
+    searchRowExtra?: React.ReactNode;
 }
 
 /** UsersPage's search box + role/verified/status filters. Split out of
@@ -25,19 +29,22 @@ interface UsersFilterBarProps {
  * themselves; UsersPage still owns the state and the server-side query it
  * drives. */
 const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
-    search, setSearch, role, setRole, verified, setVerified, status, setStatus,
+    search, setSearch, role, setRole, verified, setVerified, status, setStatus, searchRowExtra,
 }) => {
     const { t } = useTranslation(["users", "ui_text"]);
 
     return (
         <Stack gap={3}>
-            <Input
-                placeholder={t("users:page.searchPlaceholder")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                maxW="sm"
-                {...SEARCH_INPUT_PROPS}
-            />
+            <HStack gap={3} wrap="wrap">
+                <Input
+                    placeholder={t("users:page.searchPlaceholder")}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    maxW="sm"
+                    {...SEARCH_INPUT_PROPS}
+                />
+                {searchRowExtra}
+            </HStack>
 
             <HStack gap={3} wrap="wrap">
                 <StyledSelect

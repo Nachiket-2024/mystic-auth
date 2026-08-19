@@ -28,7 +28,9 @@ Every session is a pair of JWTs, delivered as httpOnly cookies: never readable b
 
 Expiry is configured via `ACCESS_TOKEN_EXPIRE_MINUTES`/`REFRESH_TOKEN_EXPIRE_MINUTES` (`.env.example`) and encoded in each JWT's own `exp` claim. The cookie's `max_age` is a separate, independent browser-side hint, not the source of truth; a request with an expired-but-not-yet-cookie-cleared token is still rejected by signature/`exp` verification (`jwt_service.verify_token`).
 
-**Claims**: `email`, `type` (`"access"` or `"refresh"`; a refresh token can never be used where an access token is expected, and vice versa), `jti` (unique ID, used for refresh-token revocation; see below), `chain` (stable per-login-session id, see [Session Management](session-management.md#source-of-truth)), `exp`. Signed with `HS256` using `SECRET_KEY` (`.env`, required, no default). Deliberately no `role` claim: role is display-only metadata, resolved fresh from the database on every request (alongside PBAC permissions) rather than trusted from a token that could go stale, see [Authorization Model](../authorization/architecture.md).
+**Claims**: `email`, `type` (`"access"` or `"refresh"`; a refresh token can never be used where an access token is expected, and vice versa), `jti` (unique ID, used for refresh-token revocation; see below), `chain` (stable per-login-session id, see [Session Management](session-management.md#source-of-truth)), `exp`, `iss`/`aud` (`JWT_ISSUER`/`JWT_AUDIENCE`, `.env`, typically both `BACKEND_BASE_URL`; distinguishes this deployment's tokens from any other service/environment that happens to share `SECRET_KEY`). Signed with `HS256` using `SECRET_KEY` (`.env`, required, no default). Deliberately no `role` claim: role is display-only metadata, resolved fresh from the database on every request (alongside PBAC permissions) rather than trusted from a token that could go stale, see [Authorization Model](../authorization/architecture.md).
+
+`verify_token` checks `iss`/`aud` itself (`has_valid_issuer_and_audience`), not PyJWT's own `issuer=`/`audience=` kwargs: a token is rejected only if the claim is *present and wrong*, never merely *absent*. That keeps any token minted before `JWT_ISSUER`/`JWT_AUDIENCE` existed valid until it naturally expires, instead of hard-invalidating every session on the deployment that first turns the setting on.
 
 ---
 
@@ -42,7 +44,7 @@ flowchart TD
     B --> C{"account_ver/chain_ver<br/>still current?"}
     C -- "no (stale)" --> S["Reject - simply invalid,<br/>not treated as reuse"]
     C -- "yes" --> D{"jti already<br/>claimed?"}
-    D -- "yes (reused/stolen)" --> E["Bump that chain's version<br/>(or account-wide if no chain claim)"]
+    D -- "yes (reused/stolen)" --> E["Bump that chain's version<br/>(or account-wide<br/>if no chain claim)"]
     E --> F["Log at critical"]
     D -- "no (clean)" --> G["Claim jti, issue new<br/>access + refresh pair<br/>(same chain_id)"]
 ```
@@ -58,6 +60,6 @@ Token validity is version-based, governed by Redis (`account_ver`/`chain_ver` co
 
 ## Current-session lookups (`GET /auth/me`)
 
-Every call re-verifies the JWT *and* re-queries the database for the user row. This is deliberate, not just "how it happened to be written": it's what makes `is_active=False` (deactivation, soft delete) take effect on the *very next request*, rather than only once the access token's own `exp` is reached. See [Security Decisions](../security/decisions.md#why-current-user-lookups-re-query-the-database-every-time).
+Every call re-verifies the JWT *and* re-queries the database for the user row. This is deliberate, not just "how it happened to be written": it's what makes `is_active=False` (deactivation, soft delete) take effect on the *very next request*, rather than only once the access token's own `exp` is reached. See [Security Decisions](../security/decisions-auth.md#why-current-user-lookups-re-query-the-database-every-time).
 
 Server-side revocation (logout-all, password change, account deactivation, refresh-token reuse detection) is effective immediately: the very next request from an affected session gets `401`. Noticing that client-side is a separate concern. `useCurrentUserQuery` (`frontend/src/mystic_auth/auth/current_user/useCurrentUserQuery.ts`) is mounted once, at the app root, for the app's whole lifetime, so it does not re-run just because the user navigates between pages inside the SPA, and each page's own data query independently caches for the same 30s `staleTime`. Without a background poll, a tab that already had every page's data cached could sit showing "signed in" for a while after being revoked elsewhere, since nothing it does would happen to issue a fresh request that could actually surface the resulting `401`. `refetchInterval`/`refetchIntervalInBackground` on that query is what actually notices a revocation on its own, independent of user interaction or window focus.

@@ -4,7 +4,7 @@ This doc covers the full account-deletion lifecycle across backend, frontend, an
 cleanup job: self-service delete (both the password-account and OAuth-only-account paths), admin
 delete/reactivate/purge, and the automatic grace-period purge. It is split out of
 [Database Design: Account lifecycle](../database/design.md#account-lifecycle) and
-[Security Decisions](../security/decisions.md) so the full flow, end to end, lives in one place
+[Security Decisions: Product](../security/decisions-product.md) so the full flow, end to end, lives in one place
 with the sequence of each path made explicit.
 
 ## Feature map
@@ -16,7 +16,7 @@ with the sequence of each path made explicit.
 | Admin routes | `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py` | `DELETE /users/{email}`, `DELETE /users/{email}/purge`, `PATCH /users/{email}/reactivate` |
 | Purge routine | `backend/mystic_auth/user_lifecycle/user_purge_service.py` | `purge_user_account()`, shared by the manual purge route and the scheduled job |
 | Soft-delete mechanics | `backend/mystic_auth/user_crud/user_crud_modules/user_lifecycle_crud.py` | `soft_delete`, `reactivate`, `get_deleted_before(cutoff)` |
-| Scheduled job | `backend/mystic_auth/taskiq_tasks/account_purge_tasks.py` | Daily 03:00 UTC purge of accounts past their grace period |
+| Scheduled job | `backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py` | Daily 03:00 UTC purge of accounts past their grace period |
 | Frontend | `frontend/src/mystic_auth/account_settings/DeleteAccountCard.tsx`, `confirm_delete/ConfirmDeleteAccountPage.tsx` | Delete UI, password re-confirm, "check your email" state, the public `/confirm-delete` landing page |
 | Tests | `tests/backend/mystic_auth/integration/user_lifecycle/`, matching unit suites, `tests/frontend/mystic_auth/*/account_settings/` | End-to-end and unit coverage for every path below |
 
@@ -37,12 +37,12 @@ flowchart TD
     Start(["DELETE /users/me"]) --> HasPw{"hashed_password set?"}
     HasPw -- "yes (password account)" --> Verify["Verify current_password"]
     Verify -- "wrong" --> Fail401["401"]
-    Verify -- "correct" --> Finalize["finalize_self_deletion()\nsoft-delete -> revoke sessions -> audit"]
+    Verify -- "correct" --> Finalize["finalize_self_deletion()\nsoft-delete -> revoke\nsessions -> audit"]
     Finalize --> ClearCookies["Clear access/refresh cookies"]
     ClearCookies --> Done200["200, account soft-deleted now"]
 
     HasPw -- "no (OAuth-only account)" --> SendEmail["Mint account_delete JWT\nStore in Redis, single-use\nEmail /confirm-delete link"]
-    SendEmail --> Pending["200, confirmation_required: true\naccount untouched, session still valid"]
+    SendEmail --> Pending["200, confirmation_required: true\naccount untouched\nsession still valid"]
 ```
 
 ### Path A: password account (synchronous)
@@ -140,13 +140,13 @@ the one routine both purge paths call, so they can never drift apart:
    survives the account itself.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Manual
         Admin["Admin: DELETE /users/{email}/purge"]
     end
     subgraph Scheduled["Daily 03:00 UTC"]
-        Cron["taskiq_tasks/account_purge_tasks.py"]
-        Query["get_deleted_before(now - ACCOUNT_PURGE_GRACE_DAYS)"]
+        Cron["procrastinate_tasks/\naccount_purge_tasks.py"]
+        Query["get_deleted_before\n(now - ACCOUNT_PURGE_GRACE_DAYS)"]
         Cron --> Query
     end
     Admin --> Purge["purge_user_account()"]
@@ -154,10 +154,10 @@ flowchart LR
     Purge --> Revoke["Revoke sessions"] --> Audit["Audit: account_purged"] --> HardDelete["Hard delete row"]
 ```
 
-The scheduled job (`account_purge_tasks.py::purge_expired_soft_deleted_accounts`) is registered on
-the existing Taskiq broker and cron-scheduled via `taskiq.schedule_sources.LabelScheduleSource`,
-added to the `taskiq_scheduler` service's `TaskiqScheduler` sources alongside the pre-existing retry
-`schedule_source` (see [Background Email Delivery](../background-workers/taskiq.md)). It queries
+The scheduled job (`account_purge_tasks.py::purge_expired_soft_deleted_accounts`) is registered via
+`@app.periodic(cron="0 3 * * *")` and deferred automatically by the Procrastinate worker's own
+internal periodic-task deferrer: no separate scheduler process is involved (see
+[Background Email Delivery](../background-workers/procrastinate.md)). It queries
 `user_lifecycle_crud.get_deleted_before(cutoff)` for every account whose `deleted_at` predates
 `now - settings.ACCOUNT_PURGE_GRACE_DAYS` (default 30 days) and purges each one with
 `purged_by="system:grace_period_purge"`. This is what gives self-service deletion (and admin
@@ -218,7 +218,7 @@ Both live in `backend/mystic_auth/core/settings.py` and are set via `.env`.
 
 - [Database Design: Account lifecycle](../database/design.md#account-lifecycle): schema-level view
   of soft delete vs. purge, foreign keys, and cascade behavior.
-- [Security Decisions](../security/decisions.md): the *why* behind re-authentication requirements
+- [Security Decisions: Product](../security/decisions-product.md): the *why* behind re-authentication requirements
   on both paths.
 - [Session Management](session-management.md): how session revocation (step 2 of every path above)
   actually works.

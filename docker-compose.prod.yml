@@ -66,6 +66,7 @@ services:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      target: runtime
     restart: unless-stopped
     env_file:
       - ./.env
@@ -88,6 +89,12 @@ services:
         condition: service_completed_successfully
     volumes:
       - bugsink_dsn:/shared/bugsink-dsn:ro
+      # Read-only: only geoipupdate (below) writes here. Always mounted, even
+      # when the geoip profile isn't enabled - an empty volume just means
+      # GEOIP_DB_PATH (if set at all) points at a missing file, which
+      # session_geolocation.py already handles by logging once and falling
+      # back to "Unknown" (see docs/mystic_auth/security/hardening.md#session-geolocation).
+      - geoip_data:/usr/share/GeoIP:ro
     # No host port published; only frontend's nginx (same Docker network)
     # ever needs to reach this service, as backend:8000.
     healthcheck:
@@ -112,14 +119,17 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
         VITE_APP_NAME: ${VITE_APP_NAME}
+        VITE_APP_LOGO_URL: ${VITE_APP_LOGO_URL}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
         VITE_SENTRY_ENVIRONMENT: ${VITE_SENTRY_ENVIRONMENT}
     # Stable address used by TRUSTED_PROXY_IPS: FastAPI sees this container
     # as the immediate peer for API requests nginx.frontend.conf proxies
     # through. Caddy sits in front of this, appending its own hop to
-    # X-Forwarded-For; get_client_ip() (backend/mystic_auth/auth/security/
-    # client_ip.py) already reads the left-most entry, so the extra hop
-    # needs no code change, only TRUSTED_PROXY_IPS staying pinned here.
+    # X-Forwarded-For same way; get_client_ip() (backend/mystic_auth/auth/
+    # security/client_ip.py) walks the header from the right and discards
+    # any entry matching a TRUSTED_PROXY_IPS hop, so Caddy's own pinned
+    # address (see the caddy service below) needs to be in that list too,
+    # or its hop gets mistaken for the real client.
     networks:
       default:
         ipv4_address: 172.28.0.10
@@ -157,6 +167,12 @@ services:
       # empty, so an unset ACME_EMAIL doesn't crash-loop the container.
       ACME_EMAIL: ${ACME_EMAIL:-you@example.com}
       BUGSINK_PUBLIC_DOMAIN: ${BUGSINK_PUBLIC_DOMAIN:-}
+    # Stable address used by TRUSTED_PROXY_IPS (see the frontend service's
+    # identical comment above) - lets get_client_ip() tell Caddy's own
+    # appended X-Forwarded-For hop apart from the real client's address.
+    networks:
+      default:
+        ipv4_address: 172.28.0.11
     ports:
       - "80:80"
       - "443:443"
@@ -173,25 +189,39 @@ services:
           cpus: "0.5"
           memory: 256M
 
-  taskiq_worker:
+  # Runs both background jobs this template has (send_email_task, the daily
+  # account-purge cron): Procrastinate's worker process runs its own
+  # periodic-task deferrer internally (see
+  # docs/mystic_auth/background-workers/procrastinate.md), so unlike taskiq
+  # this needs no separate scheduler container/process at all.
+  procrastinate_worker:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      target: runtime
     restart: unless-stopped
     env_file:
       - ./.env
-    command: sh -c "taskiq worker mystic_auth.taskiq_tasks.email_tasks:broker"
+    command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
-      - REDIS_URL=${REDIS_URL}
+      # The `procrastinate` console-script entrypoint (unlike `python -c` or
+      # uvicorn's own sys.path handling) does not add the working directory
+      # to sys.path, so without this the app fails to load with "Could not
+      # load app from mystic_auth.procrastinate_tasks.procrastinate_app.app"
+      # and the container restart-loops. docker-compose.yml (dev) sets this
+      # for the same reason.
+      PYTHONPATH: /app
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       alembic:
         condition: service_completed_successfully
+    # Override the backend image healthcheck. This container serves no HTTP;
+    # `procrastinate healthchecks` instead confirms the app's DB connection
+    # works and the procrastinate_jobs table exists, a stronger signal than
+    # taskiq's old /proc-grep-for-a-process-name check.
     healthcheck:
-      test: ["CMD-SHELL", "for p in /proc/[0-9]*/cmdline; do grep -aq taskiq \"$$p\" 2>/dev/null && exit 0; done; exit 1"]
+      test: ["CMD", "procrastinate", "--app=mystic_auth.procrastinate_tasks.procrastinate_app.app", "healthchecks"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -202,45 +232,11 @@ services:
           cpus: "1"
           memory: 512M
 
-  # Polls the schedule_source RedisScheduleSource for retries SmartRetryMiddleware
-  # scheduled with a backoff delay, and re-enqueues them onto taskiq_worker's
-  # broker once due. Without this process, retry delay/backoff labels are
-  # inert. Also runs the cron-labeled account_purge_tasks job (daily
-  # grace-period hard-purge of soft-deleted accounts) via LabelScheduleSource;
-  # taskiq_worker below is what actually executes it once due.
-  taskiq_scheduler:
-    build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    command: sh -c "taskiq scheduler mystic_auth.taskiq_tasks.email_tasks:scheduler"
-    environment:
-      - REDIS_URL=${REDIS_URL}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      alembic:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD-SHELL", "for p in /proc/[0-9]*/cmdline; do grep -aq taskiq \"$$p\" 2>/dev/null && exit 0; done; exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "1"
-          memory: 256M
-
   alembic:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      target: runtime
     env_file:
       - ./.env
     command: alembic upgrade head
@@ -249,6 +245,32 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Optional. Keeps backend's mounted GeoLite2-City.mmdb (see backend's
+  # geoip_data mount above) current, using MaxMind's own official updater
+  # instead of a hand-rolled cron script - it re-checks for a new database
+  # on its own schedule (GEOIPUPDATE_FREQUENCY, hours) for as long as this
+  # container runs. Off by default, matching geolocation itself being off by
+  # default: start it with `docker compose -f docker-compose.prod.yml
+  # --profile geoip up -d --build` after setting GEOIPUPDATE_ACCOUNT_ID /
+  # GEOIPUPDATE_LICENSE_KEY (free MaxMind account) and GEOIP_DB_PATH in
+  # .env. See docs/mystic_auth/security/hardening.md#session-geolocation.
+  geoipupdate:
+    image: ghcr.io/maxmind/geoipupdate:latest
+    restart: unless-stopped
+    profiles: ["geoip"]
+    environment:
+      GEOIPUPDATE_ACCOUNT_ID: ${GEOIPUPDATE_ACCOUNT_ID:-}
+      GEOIPUPDATE_LICENSE_KEY: ${GEOIPUPDATE_LICENSE_KEY:-}
+      GEOIPUPDATE_EDITION_IDS: GeoLite2-City
+      GEOIPUPDATE_FREQUENCY: "72"
+    volumes:
+      - geoip_data:/usr/share/GeoIP
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
 
   bugsink:
     image: bugsink/bugsink:2
@@ -352,6 +374,10 @@ volumes:
   # volume (persists across `docker compose down`), not ephemeral.
   caddy_data:
   caddy_config:
+  # Shared between geoipupdate (writer, --profile geoip only) and backend
+  # (reader, always mounted). Persists across restarts so backend isn't left
+  # without a database while geoipupdate re-downloads on its own schedule.
+  geoip_data:
 
 networks:
   default:

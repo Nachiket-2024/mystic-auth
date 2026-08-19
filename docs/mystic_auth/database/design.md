@@ -51,12 +51,16 @@ erDiagram
         string chain_id "nullable, indexed"
         string user_agent "nullable"
         string ip_address "nullable"
+        string city "nullable, geolocation"
+        string country "nullable, geolocation"
         timestamp expires_at
         timestamp revoked_at "nullable"
     }
 ```
 
 `authorization_audit_log` and `security_audit_log` are drawn with no relationship lines above; this is deliberate, since `user_email` is a snapshot string, not a foreign key to `users.id`, so the audit trail survives even after the user row is purged. See [Why two audit tables, not one](#why-two-audit-tables-not-one) and each table's own section below.
+
+---
 
 ## Tables
 
@@ -68,9 +72,9 @@ The single, unified identity table: password and OAuth2 (Google) accounts share 
 |---|---|---|
 | `id` | int, PK | |
 | `name` | string | |
-| `email` | string, **unique**, indexed | The DB-level unique constraint is what actually prevents a duplicate account under a signup/OAuth2-login race; see [Security Decisions](../security/decisions.md#the-signupoauth2-email-race). |
+| `email` | string, **unique**, indexed | The DB-level unique constraint is what actually prevents a duplicate account under a signup/OAuth2-login race; see [Security Decisions](../security/decisions-auth.md#the-signupoauth2-email-race). |
 | `hashed_password` | string, nullable | Argon2 hash. **Null for OAuth2-only accounts**: there is no password to check, and `login_service.py` handles a null hash safely (compares against a dummy hash rather than short-circuiting, for timing-attack resistance; see [Login](../authentication/login.md)). |
-| `role` | enum (`user`/`admin`/`system`), nullable | **Display/grouping metadata only; never consulted for an access decision.** See [Security Decisions](../security/decisions.md#role-is-never-used-to-decide-access). Nullable because the system must support a roleless account authorized purely through policies. |
+| `role` | enum (`user`/`admin`/`system`), nullable | **Display/grouping metadata only; never consulted for an access decision.** See [Security Decisions](../security/decisions-auth.md#role-is-never-used-to-decide-access). Nullable because the system must support a roleless account authorized purely through policies. |
 | `is_verified` | bool | Email ownership confirmed (via the verification flow, or implicitly via Google's `email_verified`). |
 | `is_active` | bool | **The single flag every auth check point gates on** (`login_service.py`, `oauth2_service.py`, `current_user_handler.py`). Also what soft delete reuses; see Account Lifecycle below. |
 | `deleted_at` | timestamp, nullable | Soft-delete marker. `NULL` = never deleted. Set by soft delete, cleared by reactivation. |
@@ -98,7 +102,7 @@ Separate audit vocabulary from the table above: login/logout/signup/OAuth2/passw
 
 ### `user_sessions`
 
-One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Redis (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Redis-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management.md).
+One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Redis (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Redis-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management.md).
 
 ---
 
@@ -121,7 +125,7 @@ Three operations, two permissions, deliberately separate:
 | Soft delete (self-service) | `DELETE /users/me` | `users:update_own` + current password | Yes, via reactivate (admin-only) |
 | Reactivate | `PATCH /users/{email}/reactivate` | `users:reactivate` | N/A |
 | Purge (hard delete, manual) | `DELETE /users/{email}/purge` | `users:purge` | **No** |
-| Purge (hard delete, automatic) | daily `taskiq_tasks/account_purge_tasks.py` job | N/A (system-initiated) | **No** |
+| Purge (hard delete, automatic) | daily `procrastinate_tasks/account_purge_tasks.py` job | N/A (system-initiated) | **No** |
 
 **Soft delete** (`user_lifecycle_crud.py::soft_delete`) sets `is_active=False` + `deleted_at=now()`. It deliberately reuses the *same* `is_active` flag every login/session check already gates on, rather than adding a second "is this user deleted" check to every one of those call sites. The row, its `user_policies` assignments, and all audit history are untouched, so reactivation restores exactly the access the account had before, with nothing to re-grant. The route also explicitly calls `refresh_token_service.revoke_all_tokens_for_user()`, because `POST /auth/refresh/` itself never checks the database (see [Authentication Flows](../authentication/overview.md#refresh-token-rotation)); without this, a still-valid refresh token could keep minting fresh (if practically useless, since `current_user_handler` re-checks `is_active` on every request) access tokens until it expired on its own.
 
@@ -131,10 +135,10 @@ Both soft-delete and purge write a security audit event *before or as part of* t
 
 The system account (`role=UserRole.system`) is excluded from all lifecycle operations, including self-service delete, via the same target-account guard already used for its other admin-route protections (see `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py`, `user_self_service_routes.py`, and `user_management_update_routes.py`). The admin delete and purge routes also reject the caller's own account: the frontend disables those actions against your own row, but the backend enforces it independently, since a sole admin deleting or purging themselves through the *admin* route would be an unrecoverable lockout. Self-service delete has no such guard, since acting on your own account is the entire point of `DELETE /users/me`; it instead requires re-submitting the current password (verified via the same `password_service.verify_password` call the self-service password-change flow uses) so a hijacked session cookie alone isn't enough to delete the account.
 
-**Self-service delete** (`DELETE /users/me`, `user_self_service_routes.py::delete_my_account`) is soft-delete only: it never purges synchronously. It writes `account_deleted_self` (distinct from admin-initiated `account_deleted`) so the audit log distinguishes the two at a glance. A soft-deleted account (self- or admin-initiated) isn't kept forever: the automatic purge job (`taskiq_tasks/account_purge_tasks.py`, registered on the existing taskiq broker and cron-scheduled at 03:00 UTC daily via `taskiq.schedule_sources.LabelScheduleSource`, added to the `taskiq_scheduler` service's `TaskiqScheduler` sources alongside the pre-existing retry `schedule_source`) queries `user_lifecycle_crud.py::get_deleted_before(cutoff)` for every account whose `deleted_at` predates `now - settings.ACCOUNT_PURGE_GRACE_DAYS` (default 30 days) and purges each one. This is what gives self-service deletion an actual recovery window (the account can only be restored by an admin's `PATCH /users/{email}/reactivate` during the grace period) instead of either purging immediately (no recovery at all) or accumulating soft-deleted rows forever.
+**Self-service delete** (`DELETE /users/me`, `user_self_service_routes.py::delete_my_account`) is soft-delete only: it never purges synchronously. It writes `account_deleted_self` (distinct from admin-initiated `account_deleted`) so the audit log distinguishes the two at a glance. A soft-deleted account (self- or admin-initiated) isn't kept forever: the automatic purge job (`procrastinate_tasks/account_purge_tasks.py`, registered via `@app.periodic(cron="0 3 * * *")` and deferred automatically by the Procrastinate worker's own internal periodic-task deferrer, no separate scheduler process involved) queries `user_lifecycle_crud.py::get_deleted_before(cutoff)` for every account whose `deleted_at` predates `now - settings.ACCOUNT_PURGE_GRACE_DAYS` (default 30 days) and purges each one. This is what gives self-service deletion an actual recovery window (the account can only be restored by an admin's `PATCH /users/{email}/reactivate` during the grace period) instead of either purging immediately (no recovery at all) or accumulating soft-deleted rows forever.
 
 ---
 
 ## Migrations
 
-Every schema change is an Alembic migration under `backend/alembic/versions/`, applied via the dedicated one-shot `alembic` service (`alembic upgrade head`). In the production-style Compose files, `backend`, `taskiq_worker`, and `taskiq_scheduler` wait for it to complete before starting (`depends_on: ... condition: service_completed_successfully`); the dev `docker-compose.yml` runs the `alembic` service alongside the others without gating startup on it. Data-only migrations (e.g. granting a new permission to a seeded policy, backfilling a default role) follow the same process as schema migrations; see [../authorization/adding-permissions.md](../authorization/adding-permissions.md) for the exact pattern.
+Every schema change is an Alembic migration under `backend/alembic/versions/`, applied via the dedicated one-shot `alembic` service (`alembic upgrade head`). In the production-style Compose files, `backend` and `procrastinate_worker` wait for it to complete before starting (`depends_on: ... condition: service_completed_successfully`); the dev `docker-compose.yml` runs the `alembic` service alongside the others without gating startup on it. Data-only migrations (e.g. granting a new permission to a seeded policy, backfilling a default role) follow the same process as schema migrations; see [../authorization/adding-permissions.md](../authorization/adding-permissions.md) for the exact pattern.

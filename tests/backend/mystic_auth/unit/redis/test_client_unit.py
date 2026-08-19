@@ -15,8 +15,8 @@ def test_redis_client_is_a_redis_instance():
 
 
 def test_redis_client_decodes_responses_to_str():
-    # Every caller (rate_limiter_service, session_service, taskiq broker)
-    # treats Redis replies as str; bytes back would break them silently.
+    # Every caller (rate_limiter_service, session_service) treats Redis
+    # replies as str; bytes back would break them silently.
     assert redis_client.connection_pool.connection_kwargs["decode_responses"] is True
 
 

@@ -80,7 +80,7 @@ async def test_verify_deletion_token_rejects_expired_token():
 @pytest.mark.asyncio
 async def test_send_deletion_email_persists_single_use_token_in_redis(mocker):
     mocker.patch(f"{MODULE}.account_deletion_service.create_account_deletion_token", return_value="delete-token-abc")
-    mocker.patch(f"{MODULE}.send_email_task.kiq", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.send_email_task.defer_async", new_callable=AsyncMock)
     set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
 
     result = await account_deletion_service.send_deletion_email(_FakeUser(), db=None)

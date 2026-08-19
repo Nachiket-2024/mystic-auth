@@ -13,10 +13,15 @@ const LogoutButton: React.FC = () => {
     };
 
     useEffect(() => {
-        if (logoutMutation.isSuccess) {
+        // isSuccess OR isError, not isSuccess alone: useLogoutMutation clears
+        // local auth state in onSettled (runs either way - see its own
+        // comment), so navigation must follow the same "always leave this
+        // page" rule, or a 400/500 from POST /auth/logout would leave the
+        // user stuck looking at a now-unauthenticated page with no redirect.
+        if (logoutMutation.isSuccess || logoutMutation.isError) {
             navigate("/login");
         }
-    }, [logoutMutation.isSuccess, navigate]);
+    }, [logoutMutation.isSuccess, logoutMutation.isError, navigate]);
 
     return (
         <LogoutButtonComponent

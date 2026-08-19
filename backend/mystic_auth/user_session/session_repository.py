@@ -25,6 +25,8 @@ class SessionRepository:
         expires_at: datetime,
         user_agent: str | None,
         ip_address: str | None,
+        city: str | None = None,
+        country: str | None = None,
     ) -> UserSession:
         now = datetime.now(UTC)
         session = UserSession(
@@ -33,6 +35,8 @@ class SessionRepository:
             chain_id=chain_id,
             user_agent=user_agent,
             ip_address=ip_address,
+            city=city,
+            country=country,
             last_used_at=now,
             expires_at=expires_at,
         )

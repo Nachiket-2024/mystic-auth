@@ -62,6 +62,8 @@ jobs:
       ACCESS_TOKEN_EXPIRE_MINUTES: "15"
       REFRESH_TOKEN_EXPIRE_MINUTES: "43200"
       JWT_ALGORITHM: HS256
+      JWT_ISSUER: http://localhost:8000
+      JWT_AUDIENCE: http://localhost:8000
       RESET_TOKEN_EXPIRE_MINUTES: "60"
       ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES: "60"
 
@@ -92,11 +94,17 @@ jobs:
       ENVIRONMENT: development
       TRUSTED_PROXY_IPS: ""
 
+      # Empty = geolocation disabled (see core/geolocation.py); no .mmdb
+      # file is available in CI, so session tests exercise the fail-open
+      # "Unknown" path rather than a real lookup.
+      GEOIP_DB_PATH: ""
+
       SENTRY_DSN: ""
       SENTRY_ENVIRONMENT: ""
 
       DEFAULT_APP_POLICIES: ""
       ACCOUNT_PURGE_GRACE_DAYS: "30"
+      USER_EXPORT_MAX_ROWS: "50000"
 
       PYTHONPATH: ${{ github.workspace }}
 
@@ -236,7 +244,7 @@ jobs:
           rm .env
 
       - name: Build backend image
-        run: docker build -f docker/backend.Dockerfile -t backend:ci .
+        run: docker build --target runtime -f docker/backend.Dockerfile -t backend:ci .
 
       - name: Build frontend production image
         run: docker build --target production -f docker/frontend.Dockerfile -t frontend:ci .
@@ -294,7 +302,13 @@ jobs:
       - uses: actions/checkout@v4
 
       # Same CI-only Bugsink DSN wait shortcut as docker-build.
+      # BACKEND_BUILD_TARGET=test builds the backend from the Dockerfile's
+      # `test` stage so pytest is available inside the container below,
+      # without the runtime image everyone else deploys ever shipping test
+      # tooling.
       - name: Boot the backend stack
+        env:
+          BACKEND_BUILD_TARGET: test
         run: |
           cp .env.example .env
           sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' .env

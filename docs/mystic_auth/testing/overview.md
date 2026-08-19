@@ -14,8 +14,8 @@ integration, and security tests append to the same coverage data.
 | Suite | Path | Covers |
 |---|---|---|
 | App wrapper | `tests/backend/app/` (1 file) | The thin `backend/app/` wrapper itself: the global exception handler wired up in `app/main.py` |
-| Unit | `tests/backend/mystic_auth/unit/` (66 files, feature subfolders mirror `backend/mystic_auth/`) | Auth flows, authorization service/evaluator/cache, condition validation, policy routes/history/repository caching, rate limiting, lockout, middleware, security headers, route helpers, logging config, email tasks, user CRUD, ORM/schema coverage, database and Redis singletons, error monitoring, session events, account deletion/purge, and `Settings` behavior |
-| Integration | `tests/backend/mystic_auth/integration/` (17 files plus shared account helpers) | Audit log, policy CRUD, policy assignment, authorization checks, auth flows, health, manage sessions, OAuth, security headers, user self-service, user list/update, and account lifecycle against real DB/Redis and a real HTTP client |
+| Unit | `tests/backend/mystic_auth/unit/` (68 files, feature subfolders mirror `backend/mystic_auth/`) | Auth flows, authorization service/evaluator/cache, condition validation, policy routes/history/repository caching, rate limiting, lockout, middleware, security headers, route helpers, logging config, email tasks, user CRUD, ORM/schema coverage, database and Redis singletons, error monitoring, session events, account deletion/purge, and `Settings` behavior |
+| Integration | `tests/backend/mystic_auth/integration/` (20 files plus shared account helpers) | Audit log, policy CRUD, policy assignment, authorization checks, auth flows, health, manage sessions, OAuth, security headers, rate limit dashboard, session geolocation, user export, user self-service, user list/update, and account lifecycle against real DB/Redis and a real HTTP client |
 | Security | `tests/backend/mystic_auth/security/` (5 files) | Batch authorization abuse, context spoofing, invalid condition payload, policy tampering, privilege escalation |
 | Performance | `tests/backend/mystic_auth/performance/` (1 file) | Authorization performance |
 
@@ -56,8 +56,8 @@ enforced only by `vitest run --coverage`, so CI runs `test:coverage`.
 | Suite | Path | Covers |
 |---|---|---|
 | App wrapper | `tests/frontend/app/` (1 file) | Routing declared in `frontend/src/app/App.tsx` |
-| Unit | `tests/frontend/mystic_auth/unit/` (49 files) | API clients, refresh interceptor, auth/session hooks, SSE invalidation, authorization components and hooks, password rules, user-agent parsing, unsaved-change handling, theme/language stores, command palette, route-loading UX, shared UI components, error boundary reporting, and optional error monitoring |
-| Integration | `tests/frontend/mystic_auth/integration/` (12 files) | Audit log page, auth flow, dashboard, login, Manage Sessions, password policy consistency, PBAC authorization flow, policies page, users page, and account settings |
+| Unit | `tests/frontend/mystic_auth/unit/` (51 files) | API clients, refresh interceptor, auth/session hooks, SSE invalidation, authorization components and hooks, password rules, user-agent parsing, unsaved-change handling, theme/language stores, command palette, route-loading UX, shared UI components, error boundary reporting, optional error monitoring, translation key parity across languages, and mobile-overflow regressions |
+| Integration | `tests/frontend/mystic_auth/integration/` (13 files) | Audit log page, auth flow, dashboard, login, Manage Sessions, password policy consistency, PBAC authorization flow, policies page, rate limits page, users page, and account settings |
 
 **Running:**
 

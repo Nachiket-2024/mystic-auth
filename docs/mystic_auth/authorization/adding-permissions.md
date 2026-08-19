@@ -29,6 +29,7 @@ The three baseline policies (`self_service`, `user_administration`, `system_supe
 
 - `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py`: the original seed.
 - `backend/alembic/versions/e2b6c8a4f1d5_split_policies_manage_action.py`: an example of a later **data-only migration** that updated one seeded policy's `actions` array in place.
+- `backend/alembic/versions/c4d5e6f7a8b9_grant_rate_limits_read.py` and `backend/alembic/versions/44a59c2f57a3_grant_rate_limits_reset.py`: a more recent pair of data-only migrations, one per new `Permission` member, each granting a single new action to `system_superuser` via `array_append`/`array_remove` rather than restating the whole `actions` array. Same effect as the `sa.table(...)`/`.update()` pattern below, just via a raw `sa.text()` `UPDATE ... SET actions = array_append(actions, ...)`: either form is fine for a single-action grant; prefer the explicit `_NEW_ACTIONS`/`_OLD_ACTIONS` list form above when a migration changes more than one action at once, since `array_append`/`array_remove` calls don't compose as cleanly for a multi-action diff.
 
 This is deliberate: migrations are a historical record and must keep producing the same rows years from now even if `permissions.py`'s constants are later renamed or removed. `authorization/policies/default_policies.py` only holds the three policy **name** constants (`SELF_SERVICE_POLICY_NAME`, etc.): used to look up and assign already-seeded policies: never the actual action lists.
 

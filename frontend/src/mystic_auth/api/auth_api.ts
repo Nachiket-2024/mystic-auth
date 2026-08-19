@@ -3,6 +3,8 @@ import api from "./axiosInstance";
 export interface SessionRead {
     id: number;
     ip_address: string | null;
+    city: string | null;
+    country: string | null;
     user_agent: string | null;
     created_at: string;
     last_used_at: string;

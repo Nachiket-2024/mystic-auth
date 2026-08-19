@@ -27,6 +27,8 @@ from .sdk import (  # noqa: E402, must follow load_dotenv() above, since sdk.py 
     policy_assignment_router,
     policy_crud_router,
     policy_history_router,
+    procrastinate_app,
+    rate_limit_router,
     redis_client,
     refresh_token_router,
     security_audit_router,
@@ -62,10 +64,17 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     the sockets.
     """
     dsn_watcher = asyncio.create_task(watch_for_late_dsn())
+    # Opens procrastinate_app's psycopg connection pool, so request handlers
+    # calling send_email_task.defer_async(...) (password reset, account
+    # verification, account deletion) have a live connector to defer onto
+    # from the very first request. Separate from database.engine's
+    # SQLAlchemy pool; see settings.procrastinate_database_url.
+    await procrastinate_app.open_async()
     yield
     dsn_watcher.cancel()
     await database.engine.dispose()
     await redis_client.aclose()
+    await procrastinate_app.close_async()
 
 
 # In production, the interactive API docs are disabled: they're a debugging
@@ -100,8 +109,10 @@ app.add_middleware(
     allow_headers=["Content-Type"],
     # Custom response headers are invisible to browser JS by default even
     # when the request itself succeeds; without this, X-Total-Count (see
-    # list_all_users) is present on the wire but unreadable via axios.
-    expose_headers=["X-Total-Count"],
+    # list_all_users) and Content-Disposition (see export_users, read by
+    # useExportUsersMutation for the download filename) are present on the
+    # wire but unreadable via axios.
+    expose_headers=["X-Total-Count", "Content-Disposition"],
 )
 
 app.add_middleware(LoggingMiddleware)
@@ -166,6 +177,7 @@ app.include_router(policy_assignment_router)
 app.include_router(authorization_check_router)
 app.include_router(pbac_audit_log_router)
 app.include_router(security_audit_router)
+app.include_router(rate_limit_router)
 app.include_router(health_router)
 
 

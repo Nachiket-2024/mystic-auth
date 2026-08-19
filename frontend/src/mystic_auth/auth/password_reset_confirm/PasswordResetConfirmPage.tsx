@@ -11,8 +11,8 @@ import Card from "../../ui/Card";
 import AuthInlineLink from "../../ui/AuthInlineLink";
 
 // Shared brand header + footer shell for every unauthenticated page.
-import AuthLayout from "../../layout/AuthLayout";
-import Logo from "../../layout/Logo";
+import AuthLayout from "../../layout/auth_layout/AuthLayout";
+import Logo from "../../layout/app_layout/Logo";
 
 const PasswordResetConfirmPage: React.FC = () => {
     const { t } = useTranslation("auth");
@@ -23,8 +23,8 @@ const PasswordResetConfirmPage: React.FC = () => {
 
     return (
         <AuthLayout>
-            <Card w="full" maxW="md" p={{ base: 5, md: 7 }}>
-                <Stack align="center" textAlign="center" separator={<StackSeparator />}>
+            <Card w="full" maxW="3xl" p={{ base: 5, md: 7 }}>
+                <Stack align="center" textAlign="center" gap={2} separator={<StackSeparator />}>
                     <Logo />
                     <Heading size="xl" color="brand.fg">
                         {t("passwordResetConfirmPage.heading")}

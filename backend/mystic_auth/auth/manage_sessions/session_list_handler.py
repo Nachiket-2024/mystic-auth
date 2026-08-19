@@ -43,6 +43,8 @@ class SessionListHandler:
                 SessionRead(
                     id=s.id,
                     ip_address=s.ip_address,
+                    city=s.city,
+                    country=s.country,
                     user_agent=s.user_agent,
                     created_at=s.created_at,
                     last_used_at=s.last_used_at,

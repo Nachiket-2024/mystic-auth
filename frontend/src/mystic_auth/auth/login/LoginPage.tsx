@@ -13,12 +13,12 @@ import AuthInlineLink from "../../ui/AuthInlineLink";
 import Card from "../../ui/Card";
 
 // Shared brand header + footer shell for every unauthenticated page.
-import AuthLayout from "../../layout/AuthLayout";
+import AuthLayout from "../../layout/auth_layout/AuthLayout";
 
 // The brand mark itself: replaces the old plain "Welcome" heading, since
 // this is the first (and most identity-critical) card a visitor sees. See
 // Logo's own docstring.
-import Logo from "../../layout/Logo";
+import Logo from "../../layout/app_layout/Logo";
 
 // This page reads isAuthenticated from the Zustand auth store, the single
 // source of truth for "is anyone logged in right now" regardless of method

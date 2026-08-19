@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 18 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 20 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -59,9 +59,9 @@ timeline
     August 2026: UI, backend changes, session/logout-all fixes
             : Sync-script safety nets, scripts/ reorganized
             : Codebase restructure, PBAC/reset-token security fixes
-            : Navbar and DEFAULT_APP_POLICIES extension point
             : Language toggle and i18n addition
             : Account deletion/purge, PBAC grant guard, command palette
+            : Replaced Taskiq with Procrastinate, added rate-limit dashboard, geolocation
 ```
 
 ### 18 August, 2025 - 23 August, 2025
@@ -220,7 +220,9 @@ This wasn't chosen because it's the only "correct" architecture. It was chosen b
 
 ### 14 July, 2026
 
-After a 3-month gap, the biggest change happened in a single commit: 364 files touched (+27,663/-8,184 lines), moving the project from a role-based authorization system to Policy-Based Access Control (PBAC). Instead of access being decided by a role column, authorization decisions are now based on assigned policies, allowed actions, resources, and optional conditions. Roles became descriptive metadata rather than the source of truth for permissions. PBAC wasn't part of the original design; it was added once role-based access started showing its limits.
+After a 3-month gap, the biggest change happened in a single commit: 364 files touched (+27,663/-8,184 lines), moving the project from a role-based authorization system to Policy-Based Access Control (PBAC). Instead of access being decided by a role column, authorization decisions are now based on assigned policies, allowed actions, resources, and optional conditions. Roles became descriptive metadata rather than the source of truth for permissions. 
+
+PBAC wasn't part of the original design. I set up RBAC on the backend first. The frontend was not built yet. Then I considered PBAC instead for clearer and more granular permissions. Since the RBAC UI was not done, switching now would not break much. The backend RBAC work was minimal anyway, so removing it was easy. Adding PBAC took more effort, but it was worth doing early. So I replaced RBAC with PBAC entirely.
 
 That same commit also added audit logging, security hardening, improved headers and middleware, stronger cookie/security handling, CI/CD pipelines, extensive backend and frontend testing, and broad documentation. The project moved from "a reusable auth module" into a broader authentication and authorization foundation in one large change, not incrementally. Frontend state management was redesigned too, in the same commit: Redux was replaced with Zustand for client state and TanStack Query for server state.
 
@@ -262,11 +264,14 @@ A language toggle and translations store were added on the frontend, backed by a
 
 Self-service account deletion plus admin purge, a PBAC grant guard stopping a user from granting a policy more privileged than their own, a command palette (Cmd+K), route-loading/font-size UI infrastructure, and hi/gu/mr translations across every namespace were implemented, alongside a round of fixes (an `X-Forwarded-For` spoofing bug, a command-palette i18n leak, a stale mypy suppression). Docs were brought up to date to match, split one page per authentication flow with a diagram each.
 
+### 20 August, 2026
+Taskiq was replaced with Procrastinate for background jobs, and Manage Sessions gained offline GeoIP-based location, JWT issuer/audience claims, an admin rate-limits dashboard, and a user-export row cap. The full docs set was overhauled to match: stale references removed, diagrams redrawn vertically and fixed for legibility, and every page restructured tutorial-style.
+
 ---
 
 ## The tools that built it
 
-Two very different workflows built this project: a manual ChatGPT + VSCode loop for most of it, then an agentic coding loop with Claude Code from July 2026 on and Codex joining from the commit of 28 July, 2026 (Yeah, I hit my Claude Code weekly limit). The workflow details and diagram live in [The Tools That Built It](tools.md).
+Two very different workflows built this project: a manual ChatGPT + VSCode loop for most of it, then an agentic coding loop with Claude Code from July 2026 on and Codex joining from the commit of 28 July, 2026 (Yeah, I hit my Claude Code weekly limit) for a few days until I exhausted my free Codex credits. The workflow details and diagram live in [The Tools That Built It](tools.md).
 
 ---
 

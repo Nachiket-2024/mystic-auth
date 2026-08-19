@@ -5,13 +5,13 @@
 ```mermaid
 flowchart TD
     Request(["Request"])
-    Auth["Authentication<br/><small>auth/current_user</small>"]
-    Ctx["Authorization Context Builder<br/><small>authorization/context/request_context_builder.py</small>"]
-    Svc["Authorization Service<br/><small>authorization/services/authorization_service.py</small>"]
-    Eng["Policy Evaluation Engine<br/><small>authorization/evaluators/policy_evaluator.py</small>"]
-    Cond["Condition Evaluation Service<br/><small>authorization/conditions/condition_evaluation_service.py</small>"]
-    Dec["Authorization Decision<br/><small>authorization/evaluators/authorization_decision.py</small>"]
-    Log["Audit Log<br/><small>authorization/repositories/audit_log_repository.py</small>"]
+    Auth["Authentication<br/><small>current_user_<br/>dependency.py</small>"]
+    Ctx["Authorization<br/>Context Builder<br/><small>request_context_<br/>builder.py</small>"]
+    Svc["Authorization<br/>Service<br/><small>authorization_<br/>service.py</small>"]
+    Eng["Policy Evaluation<br/>Engine<br/><small>policy_evaluator.py</small>"]
+    Cond["Condition<br/>Evaluation Service<br/><small>condition_evaluation_<br/>service.py</small>"]
+    Dec["Authorization<br/>Decision<br/><small>authorization_<br/>decision.py</small>"]
+    Log["Audit Log<br/><small>audit_log_<br/>repository.py</small>"]
 
     Request --> Auth --> Ctx --> Svc --> Eng --> Cond --> Dec --> Log
 ```

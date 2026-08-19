@@ -38,10 +38,10 @@ Working through ChatGPT's suggestions and adjusting them to fit the real codebas
 
 ---
 
-## 14 July, 2026 - 18 August, 2026
+## 14 July, 2026 - 20 August, 2026
 
 Two days before this stretch started, I bought a Claude Code Pro plan to try it out. The Claude Code loop above replaced the ChatGPT + VSCode loop for the rest of the project. The first commit with it, on 14 July, 2026, was the big one: PBAC, audit logging, security hardening, the Redux-to-Zustand/TanStack-Query migration, CI/CD pipelines, documentation, and 650+ tests, all in one sitting, because the existing feature-based architecture meant most of it could be added as new domains rather than a rewrite. I hit the 5-hour usage window 2-3 times and used roughly 65% of my weekly quota just on that one commit.
 
 Everything after that kept using the same agentic loop, in smaller passes rather than one big sprint; each one is described in the [Project Story](README.md#how-it-evolved). The foundation and architecture already existed by this point, so the main advantage was cutting implementation friction, not changing the overall direction. The decisions and trade-offs still came from the understanding built over the earlier phase.
 
-Codex was used for the first time on 28 July, 2026, mainly because I hit my weekly limit on Claude Code 😅. Its role has been similar to the Claude Code loop above: read the existing codebase, compare docs against the current implementation, apply focused cleanup, and report what changed without rewriting the architecture.
+Codex was used for the first time on 28 July, 2026, mainly because I hit my weekly limit on Claude Code 😅. Its role had been similar to the Claude Code loop above: read the existing codebase, compare docs against the current implementation, apply focused cleanup, and report what changed without rewriting the architecture. Currently I only use Claude Code since I have already exhausted the free Codex credits I had.

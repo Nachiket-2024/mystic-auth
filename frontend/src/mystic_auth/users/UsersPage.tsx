@@ -1,11 +1,15 @@
 import React, { useState } from "react";
-import { Users, UsersRound } from "lucide-react";
+import { Button } from "@chakra-ui/react";
+import { Download, Users, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 
 import PageContainer from "../ui/PageContainer";
-import DataTable from "../ui/DataTable";
+import DataTable from "../ui/DataTable/DataTable";
 import Pagination from "../ui/Pagination";
+import { BRAND_SOLID_HOVER_PROPS } from "../ui/styles/buttonStyles";
+import { IfCan } from "../authorization/IfCan";
+import { PERMISSIONS } from "../authorization/permissions";
 import { useDebouncedValue } from "../ui/hooks/useDebouncedValue";
 import { useSortState } from "../ui/hooks/useSortState";
 import { usePageResetOn } from "../ui/hooks/usePageResetOn";
@@ -18,6 +22,7 @@ import {
     usePurgeUserMutation,
     useReactivateUserMutation,
     useUpdateUserRoleMutation,
+    useExportUsersMutation,
 } from "./userMutations";
 import type { ManagedUserRead } from "../api/users_api";
 import UsersFilterBar, { ALL_VALUE } from "./UsersFilterBar";
@@ -99,6 +104,19 @@ const UsersPage: React.FC = () => {
     const purgeMutation = usePurgeUserMutation();
     const reactivateMutation = useReactivateUserMutation();
     const roleMutation = useUpdateUserRoleMutation();
+    const exportMutation = useExportUsersMutation();
+
+    const handleExport = () => {
+        exportMutation.mutate(
+            {
+                search: debouncedSearch,
+                role: role || undefined,
+                isVerified: toBoolFilter(verified),
+                status: status || undefined,
+            },
+            { onError: (error) => toaster.create({ title: error.message, type: "error" }) }
+        );
+    };
 
     const handleRoleChangeConfirm = () => {
         if (!pendingRoleChange) return;
@@ -208,6 +226,20 @@ const UsersPage: React.FC = () => {
                     setVerified={setVerified}
                     status={status}
                     setStatus={setStatus}
+                    searchRowExtra={
+                        <IfCan action={PERMISSIONS.USERS_LIST_ALL}>
+                            <Button
+                                size="sm"
+                                colorPalette="brand"
+                                onClick={handleExport}
+                                loading={exportMutation.isPending}
+                                {...BRAND_SOLID_HOVER_PROPS}
+                            >
+                                <Download size={16} />
+                                {t("users:page.exportCsv")}
+                            </Button>
+                        </IfCan>
+                    }
                 />
             }
         >

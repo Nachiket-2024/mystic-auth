@@ -68,7 +68,7 @@ Nothing above grants anyone access by itself. `require_authorization` only check
 // frontend/src/app/projects/ProjectsPage.tsx
 import { PageContainer, DataTable, type DataTableColumn } from "../app_sdk"; // your own re-exports, see app_sdk.ts
 import { IfCan } from "../sdk";
-import { APP_PERMISSIONS } from "../access/permissions"; // your own action vocabulary, see overview.md#shared-chrome-extension-points
+import { APP_PERMISSIONS } from "../access/permissions"; // your own action vocabulary, see frontend-customization.md#shared-chrome-extension-points
 
 const ProjectsPage: React.FC = () => {
     // fetch + render your projects here, see an existing mystic_auth/*

@@ -4,9 +4,9 @@ The condition framework is modular by design:
 
 ```mermaid
 flowchart TD
-    Engine["Authorization Engine<br/><small>policy_evaluator.py</small>"]
-    Service["Condition Evaluation Service<br/><small>condition_evaluation_service.py</small>"]
-    Handlers["Condition Handlers<br/><small>conditions/condition_types/*.py</small>"]
+    Engine["Authorization<br/>Engine<br/><small>policy_evaluator.py</small>"]
+    Service["Condition<br/>Evaluation Service<br/><small>condition_evaluation_<br/>service.py</small>"]
+    Handlers["Condition<br/>Handlers<br/><small>condition_types/*.py</small>"]
 
     Engine --> Service --> Handlers
 ```

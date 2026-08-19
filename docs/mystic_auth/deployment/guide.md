@@ -121,10 +121,35 @@ real production use:
   hostnames. CORS in `backend/app/main.py` allows `FRONTEND_BASE_URL` plus
   comma-separated `FRONTEND_ADDITIONAL_BASE_URLS`. Leave the additional list
   unset for a single-origin deployment.
+- `JWT_ISSUER` and `JWT_AUDIENCE` are required settings minted into every
+  access/refresh/verify JWT's `iss`/`aud` claims and checked back on
+  `verify_token()`. Typically both `BACKEND_BASE_URL`, since this API is both
+  the token issuer and the sole resource server that validates its own
+  tokens. Update them alongside `BACKEND_BASE_URL` when the domain changes.
+- `GEOIP_DB_PATH` is optional: a path to a local MaxMind GeoLite2-City
+  `.mmdb` file, used to resolve login IPs to city/country for the "Manage
+  Sessions" dashboard's Location column. Leave it empty to disable
+  geolocation (Location shows "Unknown"); nothing else depends on it. The
+  `.mmdb` file itself can't ship in this repo (MaxMind's license forbids
+  redistribution) — download it yourself with a free MaxMind account and
+  license key, then mount or bake it into the image at that path. Under
+  Docker, `docker-compose.local-prod.yml`/`docker-compose.prod.yml` ship an
+  optional `geoipupdate` service that fetches and refreshes it for you, but
+  it's gated behind the `geoip` Compose profile — setting `GEOIP_DB_PATH`
+  and the `GEOIPUPDATE_*` values in `.env` alone does nothing until you also
+  pass `--profile geoip` on `docker compose up`. See
+  [Session Geolocation](../geolocation/overview.md)
+  for the full walkthrough, Docker and non-Docker.
+- `USER_EXPORT_MAX_ROWS` caps how many rows `GET /users/export` will return
+  in one filtered request (that endpoint has no offset/limit of its own).
+  A request matching more rows than this is rejected rather than loaded
+  entirely into memory. The default of `50000` is a reasonable starting
+  point; raise it only if you expect a larger user base and have sized the
+  backend accordingly.
 - Set `TRUSTED_PROXY_IPS` to your reverse proxy's address when a proxy sits in
   front of the backend. This lets rate limiting, lockout, and audit logging read
   the real client IP from `X-Forwarded-For`. Leave it unset for direct backend
-  traffic. See [Security Hardening](../security/hardening.md#rate-limiting) and
+  traffic. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting) and
   [Authorization Context Builder](../authorization/architecture.md#authorization-context-builder).
 - `DEFAULT_APP_POLICIES` auto-assigns your own app's policies to every user
   once verified, alongside `self_service`. Leave it unset if your app has no
@@ -151,8 +176,8 @@ real production use:
 
 ## Database migrations
 
-The `alembic` service runs `alembic upgrade head` once and exits. `backend`,
-`taskiq_worker`, and `taskiq_scheduler` all wait on it using Compose's `service_completed_successfully`
+The `alembic` service runs `alembic upgrade head` once and exits. `backend`
+and `procrastinate_worker` both wait on it using Compose's `service_completed_successfully`
 condition, so nothing serves traffic against an unmigrated schema.
 
 Before applying a migration in production, review the generated script under
@@ -217,10 +242,10 @@ At minimum, a production deployment needs:
 - A backup schedule for Postgres dumps or volume snapshots.
 - Monitoring and alerting appropriate for the environment.
 
-The backend, frontend nginx, Postgres, Redis, Taskiq worker, Taskiq scheduler,
+The backend, frontend nginx, Postgres, Redis, Procrastinate worker,
 Alembic migration runner, and Bugsink services are all included in the Compose
-files. The email pipeline depends on the long-running `taskiq_worker` and
-`taskiq_scheduler` services connected to Redis; request-driven serverless
+files. The email pipeline depends on the long-running `procrastinate_worker`
+service connected to Postgres; request-driven serverless
 backend deployments are intentionally out of scope.
 
 ---

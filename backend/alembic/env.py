@@ -32,11 +32,24 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _include_name(name, type_, parent_names):
+    """Excludes Procrastinate's own tables/types (procrastinate_jobs,
+    procrastinate_events, ...) from autogenerate diffing. Their schema is
+    applied via raw SQL straight from the installed `procrastinate` package
+    (see versions/a4c1e8f2b6d3_add_procrastinate_schema.py), not declared as
+    SQLAlchemy models here - without this, `alembic check`/`revision
+    --autogenerate` would see them as present in the DB but absent from
+    target_metadata and propose dropping them every time.
+    """
+    return not (type_ in ("table", "type") and name is not None and name.startswith("procrastinate_"))
+
+
 def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_name=_include_name,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -56,7 +69,7 @@ async def run_migrations_online():
 
 def do_run_migrations(connection: Connection):
     """Run Alembic migrations using a synchronous connection."""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(connection=connection, target_metadata=target_metadata, include_name=_include_name)
     with context.begin_transaction():
         context.run_migrations()
 

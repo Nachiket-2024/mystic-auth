@@ -11,8 +11,7 @@ import { BRAND_SOLID_HOVER_PROPS } from "../../ui/styles/buttonStyles";
 // Shared password policy logic and checklist UI: kept identical to
 // SignupForm so the two flows can't drift apart again.
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../password_rules/passwordRules";
-import PasswordRulesChecklist from "../password_rules/PasswordRulesChecklist";
-import PasswordStrengthMeter from "../password_rules/PasswordStrengthMeter";
+import PasswordStrengthPanel from "../password_rules/PasswordStrengthPanel";
 
 interface PasswordResetConfirmFormProps {
     token: string;
@@ -64,7 +63,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
             : undefined;
 
     return (
-        <Stack as="form" onSubmit={handleSubmit} w="full" gap={4}>
+        <Stack as="form" onSubmit={handleSubmit} w="full" gap={3}>
             {!hasTokenFromUrl && (
                 <ChakraField.Root required>
                     <ChakraField.Label>{t("passwordResetConfirm.resetTokenLabel")}</ChakraField.Label>
@@ -96,12 +95,12 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                 neutral "-" placeholder): kept identical to SignupForm so
                 the strength meter filling in never shifts the fields
                 below it. */}
-            <PasswordStrengthMeter
+            <PasswordStrengthPanel
                 password={newPassword}
                 label={t("passwordResetConfirm.strengthLabel", { strength: passwordStrength || "-" })}
+                rules={rules}
+                pristine={!newPassword}
             />
-
-            <PasswordRulesChecklist rules={rules} fontSize="md" pristine={!newPassword} />
 
             <ChakraField.Root required>
                 <ChakraField.Label>{t("passwordResetConfirm.confirmNewPasswordLabel")}</ChakraField.Label>

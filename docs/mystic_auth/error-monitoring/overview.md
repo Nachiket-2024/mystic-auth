@@ -108,14 +108,14 @@ Written for whoever's never touched Bugsink (or Sentry, or any error tracker lik
 |---|---|---|
 | Backend | Any exception that reaches `main.py`'s global exception handler (i.e. anything not already turned into a normal HTTP error response by a route) | `backend/mystic_auth/error_monitoring/sentry_service.py::capture_exception` |
 | Backend (manual) | Anything your own route/service code catches but still wants tracked | `capture_exception`, re-exported from `backend/app/sdk.py` |
-| Frontend | An uncaught render error anywhere in the component tree | `frontend/src/mystic_auth/ui/ErrorBoundary.tsx` calls `core/errorMonitoring.ts::reportError` |
+| Frontend | An uncaught render error anywhere in the component tree | `frontend/src/mystic_auth/ui/routing/ErrorBoundary.tsx` calls `core/errorMonitoring.ts::reportError` |
 | Frontend (manual) | Anything your own component/hook code catches but still wants tracked | `reportError`, re-exported from `frontend/src/app/sdk.ts` |
 | Frontend (automatic) | Uncaught `window.onerror`/unhandled promise rejections | Sentry SDK's own default browser instrumentation, once initialized |
 
 **Not reported automatically**: a normal `403`/`404`/validation error: those are expected API responses handled by the calling code (a toast, an inline `FormAlert`), not exceptions. Reporting every expected error response would drown out the events that actually indicate a bug.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Backend["Backend"]
         BErr["Unhandled exception<br/><small>reaches main.py's global<br/>exception handler</small>"]
     end
@@ -142,7 +142,7 @@ The backend attaches the caller's email (read from their `access_token` cookie, 
 - **Bugsink needs its own operational security**, same as Postgres/Redis already do in this stack: self-hosting only guarantees the *data* stays on your infrastructure, not that the service is automatically locked down. It has no host port exposed in production-style Compose by default (unlike the frontend entrypoint): reaching it in production means an SSH tunnel, a VPN, or a reverse-proxy route you add deliberately, not something exposed by default.
 - **Traces are 0% sampled** (`traces_sample_rate: 0` / `tracesSampleRate: 0`): this integration is error capture only, not performance monitoring/tracing. No request-body/timing data is sent beyond what an actual captured exception includes.
 - **`SECRET_KEY` vs. `BUGSINK_SECRET_KEY`**: these are two unrelated secrets for two unrelated purposes (this app's JWT signing key vs. Bugsink's own Django secret key): never reuse one for the other.
-- **A typo'd `SENTRY_DSN` can't take the app down.** `init_sentry()` runs at import time, before the app itself really exists: it deliberately catches any failure from `sentry_sdk.init()` (verified directly: a malformed DSN string does raise from the SDK) and logs a warning instead of letting it propagate, so a mistake in this one *optional* setting degrades to "monitoring is off" rather than "nothing works." See [Security Decisions](../security/decisions.md#a-malformed-sentry_dsn-must-never-crash-the-app).
+- **A typo'd `SENTRY_DSN` can't take the app down.** `init_sentry()` runs at import time, before the app itself really exists: it deliberately catches any failure from `sentry_sdk.init()` (verified directly: a malformed DSN string does raise from the SDK) and logs a warning instead of letting it propagate, so a mistake in this one *optional* setting degrades to "monitoring is off" rather than "nothing works." See [Security Decisions](../security/decisions-infra.md#a-malformed-sentry_dsn-must-never-crash-the-app).
 
 ---
 

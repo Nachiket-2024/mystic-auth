@@ -11,8 +11,8 @@ import Card from "../../ui/Card";
 import AuthInlineLink from "../../ui/AuthInlineLink";
 
 // Shared brand header + footer shell for every unauthenticated page.
-import AuthLayout from "../../layout/AuthLayout";
-import Logo from "../../layout/Logo";
+import AuthLayout from "../../layout/auth_layout/AuthLayout";
+import Logo from "../../layout/app_layout/Logo";
 
 // Unauthenticated by design (same trust model as PasswordResetConfirmPage /
 // VerifyAccountPage): reached via the link in the OAuth-only account

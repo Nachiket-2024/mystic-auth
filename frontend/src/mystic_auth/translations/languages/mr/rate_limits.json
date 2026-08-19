@@ -1,0 +1,28 @@
+{
+    "page": {
+        "title": "दर मर्यादा",
+        "description": "Redis-आधारित थेट दर-मर्यादा काउंटर, प्रत्येक IP आणि प्रत्येक खात्यासाठी.",
+        "filterByEndpoint": "एंडपॉइंटनुसार फिल्टर करा",
+        "allEndpoints": "सर्व एंडपॉइंट",
+        "identifierPlaceholder": "ईमेल किंवा IP ने शोधा...",
+        "filterByIdentifier": "ईमेल किंवा IP ने शोधा",
+        "filterByScope": "स्कोपनुसार फिल्टर करा",
+        "allScopes": "सर्व स्कोप",
+        "scopeIp": "IP",
+        "scopeAccount": "खाते",
+        "scopeEmail": "लॉगिन लॉकआउट",
+        "endpointColumn": "एंडपॉइंट",
+        "scopeColumn": "स्कोप",
+        "identifierColumn": "ओळखकर्ता / ईमेल",
+        "requestsColumn": "विनंत्या",
+        "resetsAtColumn": "रीसेट वेळ",
+        "noExpiry": "अजून सेट नाही",
+        "reset": "रीसेट करा",
+        "truncatedNote": "5,000 पेक्षा जास्त जुळणारे लिमिटर. एकूण आणि पान संख्या अंदाजे आहे; अचूक संख्येसाठी तुमचे फिल्टर संकुचित करा.",
+        "failedToLoad": "दर मर्यादा लोड करण्यात अयशस्वी",
+        "noActiveLimits": "कोणतीही सक्रिय दर मर्यादा नाही",
+        "resetToast": "दर मर्यादा रीसेट झाली",
+        "resetDialogTitle": "दर मर्यादा रीसेट करा",
+        "resetDialogDescription": "\"{{identifier}}\" साठी \"{{endpoint}}\" मर्यादा रीसेट करायची? विंडो नुकतीच सुरू झाल्यासारखे ते लगेच पुन्हा विनंत्या करू शकतील."
+    }
+}

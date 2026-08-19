@@ -7,7 +7,7 @@
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue?logo=postgresql)
 ![Redis](https://img.shields.io/badge/Redis-7+-red?logo=redis)
-![Taskiq](https://img.shields.io/badge/Taskiq-async-orange)
+![Procrastinate](https://img.shields.io/badge/Procrastinate-async-orange)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen?logo=githubactions)
 ![Bugsink](https://img.shields.io/badge/Error%20Monitoring-Bugsink-purple)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -101,13 +101,19 @@ move into system administration, policy management, and audit review.
 
 ---
 
-### 11. Security Events
+### 11. Rate Limits
+
+![Rate Limits](screenshots/mystic_auth/rate_limits.png)
+
+---
+
+### 12. Security Events
 
 ![Security Events](screenshots/mystic_auth/security_events.png)
 
 ---
 
-### 12. Audit Logs
+### 13. Audit Logs
 
 ![Audit Logs](screenshots/mystic_auth/audit_log_system_user.png)
 
@@ -125,7 +131,8 @@ move into system administration, policy management, and audit review.
   [Translations Overview](docs/mystic_auth/translations/overview.md)
 - **State Management:** Zustand (client/session state) + TanStack Query (server state/caching)
 - **Database:** PostgreSQL (async)
-- **Caching & Tasks:** Redis + Taskiq for async email delivery, caching, rate limiting, and token state
+- **Caching & Tasks:** Redis for caching, rate limiting, and token state; Procrastinate (Postgres-native, no separate broker) for async email delivery and the daily account-purge job
+- **Session Geolocation:** `geoip2` reading a local, offline MaxMind GeoLite2-City database (optional, no third-party lookups)
 - **Error Monitoring:** Self-hosted Bugsink, enabled by default with the stack
 - **Deployment:** Docker with dev, self-hosted local-prod through Cloudflare Tunnel, and prod on your own server through Caddy
 
@@ -241,13 +248,13 @@ rem Command Prompt
 scripts\docker\dev-up.cmd
 ```
 
-The helper starts every service, restarts `backend`, `taskiq_worker`, and
-`taskiq_scheduler` so their startup banners are fresh, waits for health checks, prints a
+The helper starts every service, restarts `backend` and `procrastinate_worker`
+so their startup banners are fresh, waits for health checks, prints a
 one-line-per-service status table, and tails fresh logs from `backend`,
-`frontend`, `taskiq_worker`, and `taskiq_scheduler`.
+`frontend`, and `procrastinate_worker`.
 
-The focused tail includes Uvicorn startup lines, Taskiq's "Listening started"
-line, API calls, the frontend dev server, and async email task execution. It
+The focused tail includes Uvicorn startup lines, Procrastinate's job-execution
+lines, API calls, the frontend dev server, and async email task execution. It
 does not replay old logs from earlier runs, and it keeps Postgres, Redis,
 Bugsink, Alembic, and Bugsink health-check noise out of the default view.
 Backend exceptions still go to Bugsink at
@@ -256,7 +263,7 @@ Backend exceptions still go to Bugsink at
 for failure handling.
 
 Want every service's full logs interleaved in one stream instead (e.g.
-debugging Postgres/Bugsink/Taskiq startup itself)? Plain `docker compose up`
+debugging Postgres/Bugsink/Procrastinate startup itself)? Plain `docker compose up`
 still does exactly that:
 
 ```bash
@@ -268,12 +275,11 @@ Once the services are running:
 - **Backend:** [http://localhost:8000/docs](http://localhost:8000/docs), FastAPI API docs and endpoints
 - **Frontend:** [http://localhost:5173](http://localhost:5173), React + Vite frontend
 - **PostgreSQL:** `localhost:5433`, database ready for connections. Containers reach it at `postgres:5432` internally
-- **Redis:** `localhost:6380`, cache, rate limiting, and Taskiq broker. Containers reach it at `redis:6379` internally
-- **Taskiq worker:** Automatically listens for async tasks (email sending)
-- **Taskiq scheduler:** Retries failed email sends with exponential backoff, by polling a Redis-backed schedule and re-enqueueing due retries onto the worker; also drives the daily scheduled hard-purge of soft-deleted accounts past their grace period
+- **Redis:** `localhost:6380`, cache, rate limiting, and token-version state. Containers reach it at `redis:6379` internally
+- **Procrastinate worker:** Automatically listens for async tasks (email sending) and retries failed sends with exponential backoff, tracked directly on the job row in Postgres; its own internal periodic-task deferrer also drives the daily scheduled hard-purge of soft-deleted accounts past their grace period, with no separate scheduler process
 - **Alembic migrations:** Run automatically on stack startup via the dedicated
-  `alembic` service (`alembic upgrade head`). In production Compose, `backend`,
-  `taskiq_worker`, and `taskiq_scheduler` wait for migrations before starting. See
+  `alembic` service (`alembic upgrade head`). In production Compose, `backend`
+  and `procrastinate_worker` wait for migrations before starting. See
   [Docker Overview](docs/mystic_auth/docker/overview.md)
 - **Bugsink:** [http://localhost:8010](http://localhost:8010), self-hosted error
   monitoring, started by default with the rest of the stack by `dev-up.sh`,
@@ -312,18 +318,15 @@ uvicorn backend.app.main:app --reload
 - **Redis:** `localhost:6380` with this repo's Docker service, or your own
   local Redis port when running it outside Docker
 
-#### 3. Start the Taskiq Worker
+#### 3. Start the Procrastinate Worker
 
 ```bash
-PYTHONPATH=backend taskiq worker mystic_auth.taskiq_tasks.email_tasks:broker --reload
+PYTHONPATH=backend procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker
 ```
 
-Also start the scheduler in a separate terminal, or backed-off email retries
-will sit in Redis and never fire:
-
-```bash
-PYTHONPATH=backend taskiq scheduler mystic_auth.taskiq_tasks.email_tasks:scheduler
-```
+Unlike the old Taskiq setup, this single process also handles retries and the
+daily scheduled account-purge job internally: there's no separate scheduler
+process to start.
 
 #### 4. Run the React frontend
 
@@ -417,7 +420,7 @@ Neither creation nor promotion is exposed through an API endpoint. This is CLI-o
 | Token Refresh | Rotates the refresh token. Reuse of an already-rotated token revokes only that session's rotation chain, leaving every other device untouched |
 | Logout | Ends the current session |
 | Logout All | Ends every session for the account, across every device, instantly and in real time (see Manage Sessions) |
-| Manage Sessions | View every active session (device/browser, IP, last used) and revoke another device in real time. Use Logout for the current device |
+| Manage Sessions | View every active session (device/browser, IP, approximate location, last used) and revoke another device in real time. Use Logout for the current device |
 | Forgot Password | User requests a reset link via email (same generic response whether or not the email is registered) |
 | Reset Password | User redeems the link, sets a new password (strength-validated, can't reuse the current password), and every other session is logged out |
 | Change Password | User supplies the current password, gets fresh cookies for that device, and every other session is logged out |
@@ -431,7 +434,7 @@ See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for t
 - Policy-Based Access Control: every action is gated by an assigned policy, never by `role`
 - JWT access and refresh tokens stored as httpOnly, secure, `SameSite=Strict` cookies
 - Refresh token rotation with reuse detection, scoped to the compromised session's chain only, not the whole account
-- Dual rate limiting (per-IP and per-account) plus a separate brute-force lockout on login
+- Dual rate limiting (per-IP and per-account) plus a separate brute-force lockout on login, viewable and manually resettable from an admin-only Rate Limits dashboard (`rate_limits:read` / `rate_limits:reset` policies)
 - Timing-attack-resistant login/signup/password-reset paths
 - Email verification required before password-based login
 - Password strength validation on signup, reset, and account settings, with same-password reuse prevention
@@ -444,6 +447,13 @@ See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for t
 - Per-session tracking for self-service viewing and revocation, kept in sync
   with the Redis-backed account and chain version counters that govern token
   validity
+- Approximate session location (city/country) resolved from a local MaxMind
+  GeoLite2-City database, entirely offline: no IP is ever sent to a
+  third-party geolocation service. Optional; shows "Unknown" if `GEOIP_DB_PATH`
+  is unset
+- `JWT_ISSUER` / `JWT_AUDIENCE` claims minted into and validated on every
+  access, refresh, and verification token, so tokens from a different
+  deployment sharing the same `SECRET_KEY` are rejected
 - Real-time cross-device session revocation with Server-Sent Events and Redis
   Pub/Sub. Logout-all, targeted Manage Sessions revoke, and password changes
   reach every open tab or device within milliseconds
@@ -452,7 +462,7 @@ See [Authentication Overview](docs/mystic_auth/authentication/overview.md) for t
   Bugsink. Error data can contain PII, so this keeps it inside your
   infrastructure. See [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)
 
-**MFA (TOTP/SMS/WebAuthn) is not enabled by default**, though the policy hooks to support it already exist (`security_context.mfa_verified`). See [Why MFA is not enabled](docs/mystic_auth/security/decisions.md#why-mfa-is-not-enabled) for how to add and wire it in.
+**MFA (TOTP/SMS/WebAuthn) is not enabled by default**, though the policy hooks to support it already exist (`security_context.mfa_verified`). See [Why MFA is not enabled](docs/mystic_auth/security/decisions-product.md#why-mfa-is-not-enabled) for how to add and wire it in.
 
 See [Security Hardening](docs/mystic_auth/security/hardening.md) and [Security Decisions](docs/mystic_auth/security/decisions.md) for the full detail and rationale, and [Known Issues & Concerns](docs/mystic_auth/concerns/README.md) for what's tracked as still outstanding.
 
@@ -462,7 +472,7 @@ See [Security Hardening](docs/mystic_auth/security/hardening.md) and [Security D
 
 - All credentials and secrets are loaded from `.env`
 - **Alembic** is used for database migrations
-- **Redis + Taskiq** are used for async email delivery, caching, and rate limiting
+- **Redis** is used for caching and rate limiting; **Procrastinate** (Postgres-native) for async email delivery
 - OAuth2 setup requires Google Cloud credentials
 - **Zustand** manages client-side session state. **TanStack Query** manages all server-state caching
 - **Type Safety:** Full TypeScript support across the frontend (feature modules, store, `sdk.ts`)
@@ -486,7 +496,7 @@ and `scripts/upstream-sync/sync-upstream.sh`.
 - [Authorization (PBAC)](docs/mystic_auth/README.md#authorization-pbac)
 - [Database Design](docs/mystic_auth/database/design.md)
 - [API Reference](docs/mystic_auth/api/reference.md)
-- [Background Workers](docs/mystic_auth/background-workers/taskiq.md)
+- [Background Workers](docs/mystic_auth/background-workers/procrastinate.md)
 - [Security](docs/mystic_auth/README.md#security)
 - [Translations](docs/mystic_auth/translations/overview.md)
 - [Error Monitoring](docs/mystic_auth/error-monitoring/overview.md)

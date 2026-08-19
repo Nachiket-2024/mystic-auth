@@ -60,4 +60,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # state/code during the callback).
         response.headers["Referrer-Policy"] = "no-referrer"
 
+        # This is a JSON API with no page of its own that would ever invoke
+        # camera/mic/geolocation/etc.: denying every browser feature closes
+        # off a class of clickjacking-adjacent abuse at zero functional cost,
+        # same rationale as X-Frame-Options/CSP above.
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        )
+
         return response

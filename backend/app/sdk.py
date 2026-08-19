@@ -84,6 +84,7 @@ policy_assignment_router = _m("api.pbac_routes.policy_assignment_routes").router
 authorization_check_router = _m("api.pbac_routes.authorization_check_routes").router
 pbac_audit_log_router = _m("api.pbac_routes.pbac_audit_log_routes").router
 security_audit_router = _m("api.audit_log_routes.audit_log_routes").router
+rate_limit_router = _m("api.rate_limit_routes.rate_limit_routes").router
 health_router = _m("api.health_routes.health_routes").router
 
 # Display/grouping metadata only, never a gating decision, see
@@ -92,6 +93,13 @@ UserRole = _m("user_table.user_model").UserRole
 
 # Redis client singleton, closed on shutdown in main.py's lifespan
 redis_client = _m("redis.client").redis_client
+
+# Procrastinate app singleton (background email + scheduled account-purge
+# tasks, see docs/mystic_auth/background-workers/procrastinate.md). Opened/
+# closed alongside the DB engine/Redis client in main.py's lifespan, since
+# `.defer_async()` calls from request handlers need its connector's psycopg
+# pool already open.
+procrastinate_app = _m("procrastinate_tasks.procrastinate_app").app
 
 # Logging/observability middleware and helpers, wired up in main.py
 LoggingMiddleware = _m("logging.logging_middleware").LoggingMiddleware
@@ -135,9 +143,11 @@ __all__ = [
     "authorization_check_router",
     "pbac_audit_log_router",
     "security_audit_router",
+    "rate_limit_router",
     "health_router",
     "UserRole",
     "redis_client",
+    "procrastinate_app",
     "LoggingMiddleware",
     "CorrelationIdMiddleware",
     "get_logger",

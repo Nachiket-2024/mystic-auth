@@ -6,8 +6,10 @@ import {
     purgeUserApi,
     reactivateUserApi,
     updateUserRoleApi,
+    exportUsersApi,
     type UserUpdatePayload,
     type ManagedUserRead,
+    type ListUsersParams,
 } from "../api/users_api";
 import { extractApiErrorMessage } from "../api/apiError";
 import { queryClient } from "../core/queryClient";
@@ -74,6 +76,35 @@ export function useReactivateUserMutation() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+        },
+    });
+}
+
+/** Extracts the server-picked filename (users_export_<timestamp>.csv,
+ * see export_users' Content-Disposition header) rather than hardcoding one
+ * client-side, so the two stay in sync automatically. */
+function filenameFromContentDisposition(contentDisposition: string | undefined): string {
+    const match = contentDisposition?.match(/filename="([^"]+)"/);
+    return match?.[1] ?? "users_export.csv";
+}
+
+export function useExportUsersMutation() {
+    return useMutation<void, Error, ListUsersParams>({
+        mutationFn: async (params) => {
+            try {
+                const response = await exportUsersApi(params);
+                const filename = filenameFromContentDisposition(response.headers["content-disposition"]);
+                const url = URL.createObjectURL(response.data);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                throw new Error(extractApiErrorMessage(error, "Failed to export users"), { cause: error });
+            }
         },
     });
 }

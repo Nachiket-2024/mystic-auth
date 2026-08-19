@@ -11,8 +11,8 @@ import VerificationEmailRequestForm from "./VerificationEmailRequestForm";
 import Card from "../../ui/Card";
 
 // Shared brand header + footer shell for every unauthenticated page.
-import AuthLayout from "../../layout/AuthLayout";
-import Logo from "../../layout/Logo";
+import AuthLayout from "../../layout/auth_layout/AuthLayout";
+import Logo from "../../layout/app_layout/Logo";
 
 const VerifyAccountPage: React.FC = () => {
     const { t } = useTranslation("auth");

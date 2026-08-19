@@ -8,7 +8,7 @@ Every request/response body is a Pydantic schema (`*_schema.py` beside each feat
 
 - **Auth requirement** `session` means "a valid `access_token` cookie, no specific permission" (`Depends(get_current_user)`); a `permission:action` value means `Depends(require_authorization(action, resource_type))`, see [PBAC Architecture](../authorization/architecture.md). `public` means no cookie required at all.
 - All cookies are httpOnly; the API is never called with a bearer token/header. See [Authentication Overview](../authentication/overview.md#tokens-and-cookies).
-- Rate-limited routes (marked below) are gated by `rate_limiter_service.rate_limited(...)`. See [Security Hardening](../security/hardening.md#rate-limiting).
+- Rate-limited routes (marked below) are gated by `rate_limiter_service.rate_limited(...)`. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting).
 
 ### List endpoint conventions
 
@@ -54,11 +54,12 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/users/me` | `users:read_own` | Caller's own account details, backing the Account Settings page |
-| PUT | `/users/me` | `users:update_own` | Accepts an optional `password` field, hashed and renamed before reaching the CRUD layer, see [Database Design](../database/design.md#users). If `password` is set and the account already has one, a matching `current_password` is also required, see [Security Decisions](../security/decisions.md#self-service-password-change-requires-the-current-password) |
+| PUT | `/users/me` | `users:update_own` | Accepts an optional `password` field, hashed and renamed before reaching the CRUD layer, see [Database Design](../database/design.md#users). If `password` is set and the account already has one, a matching `current_password` is also required, see [Security Decisions](../security/decisions-auth.md#self-service-password-change-requires-the-current-password) |
 | DELETE | `/users/me` | `users:update_own` | Self-service delete. Password accounts: soft-deletes synchronously (requires `current_password`). OAuth-only accounts: sends a confirmation email instead, `{"confirmation_required": true}`, nothing deleted yet. See [Account Deletion and Purge](../authentication/account-deletion.md) |
 | POST | `/users/me/confirm-delete` | public | Rate-limited. Redeems the OAuth-only-account deletion confirmation link (`token`), single-use; own `account_delete_confirm_lock:` lockout namespace |
 | GET | `/users/stats` | `users:list_all` | Aggregate whole-table counts for the Users page summary card: total, verified, unverified, inactive. Uses the same permission as `/users/` because it is another view of the same user-management data |
 | GET | `/users/` | `users:list_all` | All users; supports `search`/`role`/`is_verified`/`status`/`sort_by`/`sort_dir`, see [List endpoint conventions](#list-endpoint-conventions) |
+| GET | `/users/export` | `users:list_all` | CSV export of every user matching `search`/`role`/`is_verified`/`status` (no `limit`/`offset`: always the whole filtered set). Rejected with `400 EXPORT_TOO_LARGE` if the filtered set exceeds `USER_EXPORT_MAX_ROWS` (`.env.example`, default `50000`); narrow the filters instead |
 | PUT | `/users/{user_email}` | `users:update_any` | System account is excluded via a target-account guard |
 | DELETE | `/users/{user_email}` | `users:delete_any` | Soft delete, see [Account Lifecycle](../database/design.md#account-lifecycle) |
 | DELETE | `/users/{user_email}/purge` | `users:purge` | Hard delete, irreversible |
@@ -84,6 +85,15 @@ Split across `policy_crud_routes.py`, `policy_history_routes.py`, `policy_assign
 
 ---
 
+## Rate limits: `/rate-limits` (`api/rate_limit_routes/rate_limit_routes.py`)
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/rate-limits/` | `rate_limits:read` | Lists live Redis-backed rate-limit counters (Rate Limit Dashboard). Numbered pagination via `page`/`page_size`: the server walks the matching keyspace in bounded `SCAN` batches (never `KEYS`) up to a capped total (`RateLimiterService.MAX_SCANNED_KEYS`) to compute `total` and slice out one page; `truncated: true` means that cap was hit, so `total` is a floor, not exact. `scope` (`ip`/`account`/`email`) and `endpoint` filter server-side. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting) |
+| DELETE | `/rate-limits/{key}` | `rate_limits:reset` | Manually clears one counter, e.g. to unblock a legitimate caller who tripped a limit. Idempotent: always returns `204`, even if the key was already absent/expired. Its own action, separate from `rate_limits:read`, so a policy scoped to "can view the dashboard" doesn't also imply "can clear anyone's counters" - the same read/write split every other resource in `Permission` gets |
+
+---
+
 ## Health: no prefix (`api/health_routes/health_routes.py`)
 
 | Method | Path | Auth | Notes |
@@ -103,4 +113,4 @@ Split across `policy_crud_routes.py`, `policy_history_routes.py`, `policy_assign
 
 ## Error responses
 
-Every route shares one global exception handler (`main.py`'s `@app.exception_handler(Exception)`): any unhandled exception is logged with a stack trace and returned as a generic `500 {"detail": "Internal Server Error"}`, so no internal exception detail (message, type, traceback) ever reaches the client. Expected failures use FastAPI's normal `HTTPException` mechanism (`400`/`401`/`403`/`404`/`409`/`422`) with a specific `detail` message per case, or `core/errors.py`'s `AppError`, caught by a second, more specific `@app.exception_handler(AppError)` and returned as `{"detail", "code", "params"}`. `code` is a stable, machine-readable identifier (e.g. `"INVALID_CREDENTIALS"`) the frontend translates client-side (`api/apiError.ts`, see [Translations Overview](../translations/overview.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts)); routes not yet migrated to `AppError` fall back to a plain `HTTPException` `detail` string with no `code`. See [Security Hardening: error handling](../security/hardening.md#error-handling).
+Every route shares one global exception handler (`main.py`'s `@app.exception_handler(Exception)`): any unhandled exception is logged with a stack trace and returned as a generic `500 {"detail": "Internal Server Error"}`, so no internal exception detail (message, type, traceback) ever reaches the client. Expected failures use FastAPI's normal `HTTPException` mechanism (`400`/`401`/`403`/`404`/`409`/`422`) with a specific `detail` message per case, or `core/errors.py`'s `AppError`, caught by a second, more specific `@app.exception_handler(AppError)` and returned as `{"detail", "code", "params"}`. `code` is a stable, machine-readable identifier (e.g. `"INVALID_CREDENTIALS"`) the frontend translates client-side (`api/apiError.ts`, see [Translations Overview](../translations/overview.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts)); routes not yet migrated to `AppError` fall back to a plain `HTTPException` `detail` string with no `code`. See [Security Hardening: HTTP Layer](../security/hardening-http.md#error-handling).

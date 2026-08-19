@@ -5,9 +5,9 @@
 ```mermaid
 flowchart TD
     A["1. Decide action(s)<br/>+ resource type"] --> B["2. Decide conditions,<br/>if any"]
-    B --> C["3. Create policy<br/><small>POST /authorization/policies<br/>requires policies:create</small>"]
-    C --> D["4. Assign to a user<br/><small>POST /authorization/users/{email}/policies<br/>requires policies:assign</small>"]
-    D --> E["5. Verify<br/><small>POST /authorization/users/{email}/authorization-check<br/>requires policies:read</small>"]
+    B --> C["3. Create policy<br/><small>POST<br/>/authorization/policies<br/>requires policies:create</small>"]
+    C --> D["4. Assign to a user<br/><small>POST /authorization/<br/>users/{email}/policies<br/>requires policies:assign</small>"]
+    D --> E["5. Verify<br/><small>POST /authorization/<br/>users/{email}/<br/>authorization-check<br/>requires policies:read</small>"]
 ```
 
 1. **Decide the action(s) and resource type.** Use an existing `Permission` value if this is about users/policies themselves ([Adding New Permissions](adding-permissions.md)); otherwise any action string works for a downstream application's own resources.

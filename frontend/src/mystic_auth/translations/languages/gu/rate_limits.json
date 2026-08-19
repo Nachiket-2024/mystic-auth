@@ -1,0 +1,28 @@
+{
+    "page": {
+        "title": "દર મર્યાદાઓ",
+        "description": "Redis-આધારિત લાઇવ દર-મર્યાદા કાઉન્ટર, દરેક IP અને દરેક ખાતા દીઠ.",
+        "filterByEndpoint": "એન્ડપોઇન્ટ દ્વારા ફિલ્ટર કરો",
+        "allEndpoints": "બધા એન્ડપોઇન્ટ",
+        "identifierPlaceholder": "ઇમેઇલ અથવા IP દ્વારા શોધો...",
+        "filterByIdentifier": "ઇમેઇલ અથવા IP દ્વારા શોધો",
+        "filterByScope": "સ્કોપ દ્વારા ફિલ્ટર કરો",
+        "allScopes": "બધા સ્કોપ",
+        "scopeIp": "IP",
+        "scopeAccount": "ખાતું",
+        "scopeEmail": "લૉગિન લૉકઆઉટ",
+        "endpointColumn": "એન્ડપોઇન્ટ",
+        "scopeColumn": "સ્કોપ",
+        "identifierColumn": "ઓળખકર્તા / ઇમેઇલ",
+        "requestsColumn": "વિનંતીઓ",
+        "resetsAtColumn": "રીસેટ સમય",
+        "noExpiry": "હજુ સેટ નથી",
+        "reset": "રીસેટ કરો",
+        "truncatedNote": "5,000 થી વધુ મેળ ખાતા લિમિટર્સ. કુલ અને પાનાની સંખ્યા અંદાજિત છે; ચોક્કસ ગણતરી માટે તમારા ફિલ્ટર સંકુચિત કરો.",
+        "failedToLoad": "દર મર્યાદાઓ લોડ કરવામાં નિષ્ફળ",
+        "noActiveLimits": "કોઈ સક્રિય દર મર્યાદા નથી",
+        "resetToast": "દર મર્યાદા રીસેટ થઈ",
+        "resetDialogTitle": "દર મર્યાદા રીસેટ કરો",
+        "resetDialogDescription": "\"{{identifier}}\" માટે \"{{endpoint}}\" મર્યાદા રીસેટ કરવી છે? તેઓ તરત જ ફરીથી વિનંતીઓ કરી શકશે, જાણે વિન્ડો હમણાં જ શરૂ થઈ હોય."
+    }
+}

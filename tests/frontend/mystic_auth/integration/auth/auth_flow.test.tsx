@@ -113,13 +113,25 @@ describe('auth flow: logout', () => {
     expect(useAuthStore.getState().permissions).toEqual([]);
   });
 
-  it('logout failure (no session) surfaces the error without crashing', async () => {
+  it('logout failure (no session) still clears the auth store and navigates away', async () => {
+    // Reproduces the real, reachable case where POST /auth/logout 400s
+    // (backend's logout_handler.py: NO_REFRESH_TOKEN_COOKIE, e.g. the
+    // refresh_token cookie already expired while this tab sat idle, or a
+    // sibling tab/device already ended the session). Regression test for a
+    // bug where this response left the user stuck on the current,
+    // now-stale page indefinitely (looking like a hung/slow logout) because
+    // the auth-store cleanup and navigate-to-login effect were both gated
+    // on the mutation succeeding, and a 400 makes it fail instead. See
+    // useLogoutMutation.ts's onSettled comment.
     mock.onPost('/auth/logout').reply(400, { error: 'No refresh token cookie found' });
+    useAuthStore.setState({ ...initialAuthState, isAuthenticated: true });
 
     renderWithProviders(<LogoutButton />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Logout' }));
 
-    expect(await screen.findByText('No refresh token cookie found')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    });
   });
 });

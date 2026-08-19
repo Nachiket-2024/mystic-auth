@@ -73,6 +73,24 @@ name. Nothing outside the Docker network can reach them directly.
 
 ---
 
+**Step 3b (Optional): Enable session geolocation.**
+
+Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
+`.env` alone does nothing: the `geoipupdate` service that downloads the
+`.mmdb` file is gated behind the `geoip` Compose profile, skipped by Step 3's
+command as written. Re-run Step 3 with the profile added instead:
+
+```bash
+docker compose -f docker-compose.prod.yml --profile geoip up -d --build
+```
+
+Without it, Manage Sessions' Location column silently shows "Unknown" with
+nothing in the logs to say why. See
+[Session Geolocation](../geolocation/overview.md)
+for the MaxMind account/license-key setup this depends on.
+
+---
+
 **Step 4: Open the app.**
 
 `https://PUBLIC_DOMAIN`. Caddy issues the TLS certificate on first

@@ -17,6 +17,7 @@ async def test_response_carries_security_hardening_headers(client):
     assert resp.headers["X-Frame-Options"] == "DENY"
     assert resp.headers["Content-Security-Policy"] == "default-src 'none'; frame-ancestors 'none'"
     assert resp.headers["Referrer-Policy"] == "no-referrer"
+    assert resp.headers["Permissions-Policy"] == "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
 
 @pytest.mark.asyncio

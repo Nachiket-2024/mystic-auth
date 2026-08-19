@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ClipboardList } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import DataTable from "../../ui/DataTable";
+import DataTable from "../../ui/DataTable/DataTable";
 import Pagination from "../../ui/Pagination";
 import { useSortState } from "../../ui/hooks/useSortState";
 import { usePageResetOn } from "../../ui/hooks/usePageResetOn";

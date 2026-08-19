@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -346,6 +346,34 @@ describe('UsersPage', () => {
 
     const lastRequest = mock.history.get[mock.history.get.length - 1];
     expect(lastRequest.params).toMatchObject({ role: 'admin' });
+  });
+
+  it('exports the current filters as CSV and triggers a browser download', async () => {
+    // jsdom has no real createObjectURL/revokeObjectURL implementation
+    // (see useExportUsersMutation) - stand in with a minimal fake, scoped
+    // to this test only.
+    const createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
+
+    seed(['users:list_all']);
+    mock.onGet('/users/').reply(200, SAMPLE_USERS);
+    const csvBody = 'id,name,email,role,is_verified,is_active,status,created_at\n';
+    mock.onGet('/users/export').reply(200, csvBody, {
+      'content-disposition': 'attachment; filename="users_export_20260101T000000Z.csv"',
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByText('Regular User');
+    await user.click(screen.getByRole('button', { name: 'Export CSV' }));
+
+    await waitFor(() => expect(mock.history.get.some((r) => r.url === '/users/export')).toBe(true));
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+
+    vi.unstubAllGlobals();
   });
 
   it('sorts by clicking the Name column header, toggling direction on a second click', async () => {

@@ -80,12 +80,8 @@ from sqlalchemy.pool import NullPool
 
 from backend.app.main import app
 from backend.mystic_auth.database.connection import database
+from backend.mystic_auth.procrastinate_tasks.procrastinate_app import app as procrastinate_app
 from backend.mystic_auth.redis.client import redis_client
-from backend.mystic_auth.taskiq_tasks.email_tasks import (
-    broker,
-    result_backend,
-    schedule_source,
-)
 
 # pytest-asyncio hands each test function its own event loop, but
 # `database.engine`'s connection pool is a module-level singleton shared
@@ -112,19 +108,33 @@ async def _flush_redis_test_db():
     # Redis: drop pooled connections so the next test (a different loop)
     # opens fresh ones instead of reusing ones bound to this loop.
     await redis_client.connection_pool.disconnect()
-    # taskiq_tasks/email_tasks.py's broker/result_backend/schedule_source
-    # are module-level singletons too, each holding its own Redis
-    # connection pool built at import time, before any test's event loop
-    # exists. A test that triggers a `.kiq()` call (e.g. via the
-    # verify-account/signup flow) binds that pool to its own loop; without
-    # disconnecting here, the next such test reuses a pool bound to an
-    # already-closed loop and fails with "Future attached to a different
-    # loop" / "Event loop is closed".
-    await broker.connection_pool.disconnect()
-    await result_backend.redis_pool.disconnect()
-    # ListRedisScheduleSource keeps its pool as a "private" attribute,
-    # unlike RedisStreamBroker/RedisAsyncResultBackend above.
-    await schedule_source._connection_pool.disconnect()
+
+
+# ---------------------------- Procrastinate connector lifecycle ----------------------------
+@pytest_asyncio.fixture(autouse=True)
+async def _procrastinate_app_lifecycle():
+    """procrastinate_tasks/procrastinate_app.py's `app` is a module-level singleton whose
+    PsycopgConnector opens an asyncio-bound psycopg connection pool, the same
+    per-event-loop hazard as the Postgres/Redis pools above: pytest-asyncio
+    hands each test its own event loop, so a pool opened by one test (e.g.
+    one that triggers a `.defer_async()` call via the verify-account/signup
+    flow) is not safe to reuse from a different test's loop. Opening and
+    closing the connector fresh around every test, rather than once for the
+    whole run, avoids that "Future attached to a different loop" failure.
+
+    Also deletes every row from `procrastinate_jobs` on teardown: a real
+    integration test (signup, verify, password-reset, account-deletion) hits
+    the real ASGI app with no mocking, so `.defer_async()` genuinely inserts
+    a job row every time. Without this, rows accumulate indefinitely across
+    test runs against the same real Postgres database this app's own
+    `procrastinate_worker` container also reads from, same rationale as
+    `_cleanup_users` below for the `users` table."""
+    await procrastinate_app.open_async()
+    yield
+    async with database.async_session() as session:
+        await session.execute(text("DELETE FROM procrastinate_jobs"))
+        await session.commit()
+    await procrastinate_app.close_async()
 
 
 # ---------------------------- HTTP client ----------------------------

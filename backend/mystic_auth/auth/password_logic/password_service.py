@@ -6,6 +6,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 
 from ...core.settings import settings
+from ..token_logic.jwt_service import jwt_service
 
 _hasher = PasswordHasher()
 
@@ -72,7 +73,9 @@ class PasswordService:
         payload: dict[str, str | float] = {
             "email": email,
             "type": "reset",
-            "exp": expire.timestamp()
+            "exp": expire.timestamp(),
+            "iss": settings.JWT_ISSUER,
+            "aud": settings.JWT_AUDIENCE,
         }
 
         # Off the event loop, same as jwt_service.py's own encode/decode calls,
@@ -83,8 +86,20 @@ class PasswordService:
     @staticmethod
     async def verify_reset_token(token: str) -> dict | None:
         try:
+            # verify_aud disabled: PyJWT auto-rejects on the mere presence
+            # of an "aud" claim unless an audience= kwarg is passed, which
+            # would hard-break every reset token minted before this claim
+            # existed. jwt_service.has_valid_issuer_and_audience below does
+            # the real check instead, with the graceful "absent is fine,
+            # present-and-wrong is not" semantics used across every claim
+            # this app rolls out onto existing tokens - see its own
+            # docstring, and jwt_service.verify_token's matching comment.
             payload = await asyncio.to_thread(
-                jwt.decode, token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+                jwt.decode,
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM],
+                options={"verify_aud": False},
             )
 
             if not payload.get("email"):
@@ -94,6 +109,9 @@ class PasswordService:
             # still-valid access/refresh token sharing the same SECRET_KEY) that
             # happens to also carry an "email" claim.
             if payload.get("type") != "reset":
+                return None
+
+            if not jwt_service.has_valid_issuer_and_audience(payload):
                 return None
 
             return payload

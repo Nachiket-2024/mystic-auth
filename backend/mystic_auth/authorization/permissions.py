@@ -68,3 +68,18 @@ class Permission(str, enum.Enum):
     # Its own action, separate from POLICIES_READ, since it covers a different
     # (non-PBAC) audit surface.
     SECURITY_AUDIT_READ = "security_audit:read"
+
+    # Reading live Redis-backed rate-limit counters (see
+    # auth/security/rate_limiter_service.py). Its own action, separate from
+    # SECURITY_AUDIT_READ, since this is live operational state, not a
+    # historical log.
+    RATE_LIMITS_READ = "rate_limits:read"
+
+    # Manually clearing a live rate-limit counter (DELETE /rate-limits/{key}).
+    # Split from RATE_LIMITS_READ so a policy scoped to "can view the
+    # dashboard" doesn't also imply "can clear anyone's counters" - the same
+    # read/write split every other resource in this enum already gets
+    # (policies:read vs policies:create/update/delete, users:list_all vs
+    # users:update_any/delete_any). See docs/mystic_auth/concerns/README.md's
+    # former "rate_limits:read also grants clearing counters" entry.
+    RATE_LIMITS_RESET = "rate_limits:reset"

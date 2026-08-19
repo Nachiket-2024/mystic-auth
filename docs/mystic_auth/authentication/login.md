@@ -24,8 +24,8 @@ flowchart TD
     RL -- "exceeded" --> R429["429"]
     RL -- "ok" --> LK{"Account locked\n(too many failed attempts)?"}
     LK -- "locked" --> L429["429"]
-    LK -- "ok" --> Hash["Argon2 compare\n(real hash, or DUMMY_HASH if no account/password)\nalways runs first"]
-    Hash --> Order{"Reject order:\nnot found -> not verified -> not active -> wrong password"}
+    LK -- "ok" --> Hash["Argon2 compare\n(real hash, or DUMMY_HASH\nif no account/password)\nalways runs first"]
+    Hash --> Order{"Reject order:\nnot found -> not verified\n-> not active -> wrong password"}
     Order -- "any reason" --> Fail["401, log LOGIN_FAILURE\nrecord failed attempt"]
     Order -- "all pass" --> Success["Issue access+refresh pair\nSet cookies\nlog LOGIN_SUCCESS\nreset failed-attempt counter"]
 ```
@@ -67,4 +67,4 @@ exercises the full path against real Postgres/Redis. See [Testing Overview](../t
 - [Authentication Flows](overview.md): tokens/cookies and how login fits alongside the other flows.
 - [Session Management](session-management.md): what happens to `chain_id`/`account_ver` right after
   a successful login.
-- [Security Hardening](../security/hardening.md): the concrete rate-limit/lockout thresholds.
+- [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md): the concrete rate-limit/lockout thresholds.

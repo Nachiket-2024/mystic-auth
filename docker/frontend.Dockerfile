@@ -42,13 +42,15 @@ COPY frontend/ .
 # args, wired from the production-style Compose files / repo root .env. Re-exporting
 # ARG as ENV is required for `vite build`'s child process to see them.
 # ARG alone is not inherited by RUN subprocesses. None of these are secrets
-# because all four end up readable in the shipped JS bundle.
+# because all five end up readable in the shipped JS bundle.
 ARG VITE_API_BASE_URL
 ARG VITE_APP_NAME
+ARG VITE_APP_LOGO_URL
 ARG VITE_SENTRY_DSN
 ARG VITE_SENTRY_ENVIRONMENT
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     VITE_APP_NAME=${VITE_APP_NAME} \
+    VITE_APP_LOGO_URL=${VITE_APP_LOGO_URL} \
     VITE_SENTRY_DSN=${VITE_SENTRY_DSN} \
     VITE_SENTRY_ENVIRONMENT=${VITE_SENTRY_ENVIRONMENT}
 

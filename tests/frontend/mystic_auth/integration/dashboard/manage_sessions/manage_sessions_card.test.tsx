@@ -14,6 +14,8 @@ const mock = new MockAdapter(api);
 const CURRENT_SESSION = {
   id: 1,
   ip_address: '10.0.0.1',
+  city: 'Mumbai',
+  country: 'India',
   user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0',
   created_at: '2026-01-01T00:00:00Z',
   last_used_at: '2026-01-15T00:00:00Z',
@@ -23,6 +25,8 @@ const CURRENT_SESSION = {
 const OTHER_SESSION = {
   id: 2,
   ip_address: '10.0.0.2',
+  city: null,
+  country: null,
   user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604.1',
   created_at: '2026-01-02T00:00:00Z',
   last_used_at: '2026-01-14T00:00:00Z',
@@ -67,6 +71,14 @@ describe('ManageSessionsCard', () => {
 
     expect(await screen.findByText('This device')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Log out' })).toHaveLength(2);
+  });
+
+  it('shows resolved city/country in the Location column, and "Unknown" when geolocation is unavailable', async () => {
+    mock.onGet('/auth/sessions').reply(200, [CURRENT_SESSION, OTHER_SESSION]);
+    renderCard();
+
+    expect(await screen.findByText('Mumbai, India')).toBeInTheDocument();
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
   });
 
   it('ends another device session via DELETE /auth/sessions/{id}, not /auth/logout', async () => {

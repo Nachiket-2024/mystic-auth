@@ -4,20 +4,19 @@
 
 | Service | Image / build | Purpose |
 |---|---|---|
-| `postgres` | `postgres:15` | Primary database |
-| `redis` | `redis:7` | Cache, rate limits, lockout counters, account/chain version counters, single-use refresh-token claims, Taskiq broker in Docker/self-hosted deployments |
+| `postgres` | `postgres:15` | Primary database, plus the Procrastinate job queue (`procrastinate_jobs`) |
+| `redis` | `redis:7` | Cache, rate limits, lockout counters, account/chain version counters, single-use refresh-token claims |
 | `backend` | `docker/backend.Dockerfile` | FastAPI app (uvicorn) |
 | `frontend` | `docker/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
-| `taskiq_worker` | `docker/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue: see [Background Workers](../background-workers/taskiq.md) |
-| `taskiq_scheduler` | `docker/backend.Dockerfile` (same image as `backend`, different `command:`) | Polls due retry schedules and re-enqueues them onto `taskiq_worker`'s broker: see [Background Workers](../background-workers/taskiq.md) |
-| `alembic` | `docker/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend`, `taskiq_worker`, and `taskiq_scheduler` wait on its success |
+| `procrastinate_worker` | `docker/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue and runs the daily scheduled account-purge job (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
+| `alembic` | `docker/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend` and `procrastinate_worker` wait on its success |
 | `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring that starts by default with the stack. See [Error Monitoring](../error-monitoring/overview.md) |
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy. It creates the "MysticAuth" team/project idempotently and writes seeded DSNs into the `bugsink_dsn` volume. Locally, both backend and frontend DSN forms are written and read at startup. In prod, only the backend form is written because `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time |
 
-`backend`, `taskiq_worker`, `taskiq_scheduler`, and `alembic` all build from
+`backend`, `procrastinate_worker`, and `alembic` all build from
 the same `docker/backend.Dockerfile` image with different `command:`
 overrides. This keeps dependency versions and application code identical
-across all four roles.
+across all three roles.
 
 The `postgres` service mounts `docker/postgres-init/` to
 `/docker-entrypoint-initdb.d/`. On a fresh volume, it creates the separate
@@ -26,36 +25,31 @@ The `postgres` service mounts `docker/postgres-init/` to
 ### Startup order
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Data["Data layer"]
         postgres(("postgres"))
         redis(("redis"))
     end
 
-    subgraph App["Application services"]
-        alembic["alembic<br/><small>runs once, exits</small>"]
+    subgraph App["Application<br/>services"]
+        alembic["alembic<br/><small>runs once,<br/>exits</small>"]
         backend["backend"]
-        taskiq["taskiq_worker"]
-        scheduler["taskiq_scheduler"]
+        worker["procrastinate<br/>_worker"]
         frontend["frontend"]
     end
 
     subgraph Monitoring["Error monitoring"]
         bugsink["bugsink"]
-        bugsinkseed["bugsink-seed<br/><small>runs once, exits</small>"]
+        bugsinkseed["bugsink-seed<br/><small>runs once,<br/>exits</small>"]
     end
 
     postgres --> alembic
     redis --> alembic
-    alembic -->|"prod: waits for<br/>success. dev: no gate"| backend
-    alembic --> taskiq
-    alembic --> scheduler
+    alembic -->|"prod: waits for<br/>success.<br/>dev: no gate"| backend
+    alembic --> worker
     postgres --> backend
     redis --> backend
-    postgres --> taskiq
-    redis --> taskiq
-    postgres --> scheduler
-    redis --> scheduler
+    postgres --> worker
     backend -->|healthy| frontend
     postgres --> bugsink
     bugsink -->|healthy| bugsinkseed
@@ -65,10 +59,10 @@ flowchart LR
 
 ## Dockerfiles
 
-- **`docker/backend.Dockerfile`**: two-stage build: a `builder` stage compiles native dependencies (`gcc`, `libpq-dev`) into an isolated venv; the runtime stage is `python:3.14.6-slim` with only `libpq5` (runtime client lib, not the dev headers), running as a non-root `app` user. Ships a `HEALTHCHECK` against `/health/ready` as a fallback for when the image runs outside Compose (Compose's own healthcheck, defined per-service, is what actually gates dependent-service startup).
+- **`docker/backend.Dockerfile`**: three named stages. `builder` compiles native dependencies (`gcc`, `libpq-dev`) into an isolated venv. `runtime` (`python:3.14.6-slim` with only `libpq5`, the runtime client lib, not the dev headers, running as a non-root `app` user) copies that venv plus the app source; this is the image `backend`, `procrastinate_worker`, and `alembic` all deploy from, and the default target when none is passed. `test` builds on top of `runtime` and adds `backend/requirements-dev.txt` (pytest and friends) as `root`, so `docker-full-suite` (CI) can run the full backend suite against the actual pinned dependency set inside the real image, without that tooling ever shipping in the `runtime` image everyone else deploys. Selected via the `backend` service's `target: ${BACKEND_BUILD_TARGET:-runtime}` in `docker-compose.yml`; CI builds `--target runtime` for the real image and sets `BACKEND_BUILD_TARGET=test` only for the `docker-full-suite` job. Ships a `HEALTHCHECK` against `/health/ready` as a fallback for when the image runs outside Compose (Compose's own healthcheck, defined per-service, is what actually gates dependent-service startup).
 - **`docker/frontend.Dockerfile`**: three stages: `dev` (default target: `node:22.22.0-bullseye`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user), `builder` (compiles the production bundle; takes `VITE_API_BASE_URL`/`VITE_APP_NAME`/`VITE_SENTRY_DSN`/`VITE_SENTRY_ENVIRONMENT` as build args, since this stage has no bind-mounted `frontend/.env` to read them from the way `dev` does: wired from the root `.env` via `docker-compose.local-prod.yml`'s `build.args`, see [Deployment Guide](../deployment/guide.md#required-production-environment-variables)), `production` (`nginx:1.27-alpine` serving the static build as a non-root `nginx` user, port 80, `HEALTHCHECK` via `wget`).
-- **`docker/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP). No HSTS at this layer: by design, since TLS terminates in front of this container in a real deployment, not here (see [Security Hardening](../security/hardening.md#security-response-headers)).
-- **`.dockerignore`** (repo root: the build context for both Dockerfiles above is `.`, not `backend/`/`frontend/` individually, so its patterns are written relative to the repo root): excludes `backend/logs/` (real local request logs, previously leaking into the backend image: a real bug, not a hypothetical one, see [Security Decisions](../security/decisions.md#dockerignore-previously-let-local-files-leak-into-built-images)) and `**/`-recursive patterns for `__pycache__/`/`*.pyc`/`.pytest_cache/` (bare patterns without the `**/` prefix looked like they should already match at any depth but empirically didn't).
+- **`docker/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP). No HSTS at this layer: by design, since TLS terminates in front of this container in a real deployment, not here (see [Security Hardening: HTTP Layer](../security/hardening-http.md#security-response-headers)).
+- **`.dockerignore`** (repo root: the build context for both Dockerfiles above is `.`, not `backend/`/`frontend/` individually, so its patterns are written relative to the repo root): excludes `backend/logs/` (real local request logs, previously leaking into the backend image: a real bug, not a hypothetical one, see [Security Decisions](../security/decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images)) and `**/`-recursive patterns for `__pycache__/`/`*.pyc`/`.pytest_cache/` (bare patterns without the `**/` prefix looked like they should already match at any depth but empirically didn't).
 
 ### Why `frontend` sets `pull_policy: build`
 
@@ -94,7 +88,8 @@ skips straight to building.
 | Restart policy | `restart: always` for Postgres/Redis only | `unless-stopped` on every long-running service | `unless-stopped` on every long-running service |
 | Ports exposed | 5433 (Postgres), 6380 (Redis), 8000 (backend), 5173 (frontend), all on localhost-friendly dev ports | 8000 (backend) and 80 (frontend) published for a local reverse proxy or tunnel | Only 80/443 on Caddy. Postgres, Redis, backend, and frontend are internal-only |
 | TLS | None | External terminator or tunnel | Caddy with automatic Let's Encrypt certificates |
-| `backend`/`taskiq_worker` startup gate | Postgres and Redis healthy | Postgres and Redis healthy, plus `alembic: service_completed_successfully` | Postgres and Redis healthy, plus `alembic: service_completed_successfully` |
+| `backend` startup gate | Postgres and Redis healthy | Postgres and Redis healthy, plus `alembic: service_completed_successfully` | Postgres and Redis healthy, plus `alembic: service_completed_successfully` |
+| `procrastinate_worker` startup gate | Postgres healthy | Postgres healthy, plus `alembic: service_completed_successfully` | Postgres healthy, plus `alembic: service_completed_successfully` |
 
 Use `docker-compose.local-prod.yml` when you want to self-host the production image/runtime shape from a machine that does not own a public IP, with Cloudflare Tunnel or another external tool owning the public URL and TLS. Use `docker-compose.prod.yml` when the host itself should expose only Caddy on 80/443. See [Deployment Guide](../deployment/guide.md).
 
@@ -135,7 +130,7 @@ Running as root here is scoped to this one throwaway test invocation: it has no 
 | `backend` | `GET /health/ready` via a Python one-liner (no curl in the slim image) | Confirms DB + Redis connectivity, not just process liveness. Budget is 10 retries / 30s start period (~130s total) rather than a tighter 5/10s (~60s): generous headroom for a genuinely cold first boot on modest or shared hardware. This is a secondary hardening, not the fix for the specific bug below: no healthcheck budget helps if the container is actually crash-looping. |
 | `frontend` (prod) | `wget` against `/` | |
 | `frontend` (dev) | none | Acceptable for local dev: Vite's own dev server failure is immediately visible in the terminal |
-| `taskiq_worker` | greps `/proc/*/cmdline` for `taskiq` | Overrides the inherited HTTP healthcheck from `backend.Dockerfile`, since the worker serves no HTTP and would otherwise always report unhealthy |
+| `procrastinate_worker` | `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app healthchecks` | Overrides the inherited HTTP healthcheck from `backend.Dockerfile`, since the worker serves no HTTP and would otherwise always report unhealthy. Confirms the DB connection works and the `procrastinate_jobs` table exists, not just process liveness |
 | `bugsink` | `GET /health/ready` via a Python one-liner | Same reasoning as `backend`'s own check |
 | `alembic` | none | One-shot; `service_completed_successfully` is the signal other services wait on, not a healthcheck |
 | `bugsink-seed` | none | One-shot, same shape as `alembic`: creates the Bugsink project/DSN once, then exits 0 |
@@ -167,9 +162,9 @@ scripts\docker\dev-up.cmd
 ```
 
 The helper script starts the stack detached, restarts `backend` and
-`taskiq_worker` so their startup banners are fresh, waits for health checks,
+`procrastinate_worker` so their startup banners are fresh, waits for health checks,
 prints one status line per service, and tails fresh logs from
-`backend`/`frontend`/`taskiq_worker`. The tail includes startup banners, API
+`backend`/`frontend`/`procrastinate_worker`. The tail includes startup banners, API
 traffic, Vite output, and async email task execution.
 
 The script records a timestamp before starting Compose and passes it to
@@ -177,7 +172,7 @@ The script records a timestamp before starting Compose and passes it to
 as if it belonged to the current startup. If a service fails to come up, the
 status table still prints and the script exits non-zero.
 
-Because `backend`/`taskiq_worker` restart on every invocation, running the
+Because `backend`/`procrastinate_worker` restart on every invocation, running the
 helper a second time while it (or another copy of it) is already tailing
 the same stack will restart both again because each invocation is independent.
 In-flight requests or tasks may retry, and you should expect an extra boot
@@ -198,7 +193,7 @@ debugging Postgres/Bugsink/Alembic startup itself rather than the app.
 
 ### Why `/app/logs` is a named volume, not part of the `./backend:/app` bind mount
 
-Dev's `backend` and `taskiq_worker` services bind-mount `./backend:/app` for
+Dev's `backend` and `procrastinate_worker` services bind-mount `./backend:/app` for
 hot reload. `mystic_auth/logging/logging_config.py` writes to `/app/logs`.
 Without a separate volume, that path would live inside the bind mount and be
 owned by the host checkout owner, not the container's non-root `app` user.
@@ -213,7 +208,7 @@ the first time a job booted the dev Compose stack on a Linux runner.
 The fix has two parts. `docker/backend.Dockerfile` creates `/app/logs` and
 `chown`s it to the `app` user at build time. `docker-compose.yml` mounts a
 Docker-managed volume, `backend_logs:/app/logs`, on top of that path for both
-`backend` and `taskiq_worker`. Docker initializes a fresh named volume from the
+`backend` and `procrastinate_worker`. Docker initializes a fresh named volume from the
 image path, including ownership, so the app always writes to a directory owned
 by the container user. The tradeoff is that `backend/logs/access.log` is no
 longer directly readable from the host in dev. Use

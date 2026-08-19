@@ -5,7 +5,7 @@ import { useLocation } from "react-router";
  * Scrolls the element whose `id` matches the current URL's `#hash` into
  * view once it exists in the DOM. Mounted once in AppLayout (see its own
  * comment) so every page gets this for free - CommandPalette's content
- * search (layout/searchItems.ts) relies on it to land on a specific
+ * search (layout/command_palette/searchItems.ts) relies on it to land on a specific
  * in-page section (e.g. `/dashboard#manage-sessions`), not just the page
  * top, the same way UsersPage reads `?search=` for its own deep link.
  *

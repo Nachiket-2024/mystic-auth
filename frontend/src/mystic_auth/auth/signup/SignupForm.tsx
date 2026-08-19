@@ -12,8 +12,7 @@ import { BRAND_SOLID_HOVER_PROPS } from "../../ui/styles/buttonStyles";
 // Shared password policy logic and checklist UI, kept identical to
 // PasswordResetConfirmForm so the two flows can't drift apart again.
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../password_rules/passwordRules";
-import PasswordRulesChecklist from "../password_rules/PasswordRulesChecklist";
-import PasswordStrengthMeter from "../password_rules/PasswordStrengthMeter";
+import PasswordStrengthPanel from "../password_rules/PasswordStrengthPanel";
 
 const SignupForm: React.FC = () => {
     const { t } = useTranslation("auth");
@@ -111,14 +110,14 @@ const SignupForm: React.FC = () => {
                     filling in never shifts the fields below it, unlike a
                     conditionally-mounted line that only appears once
                     passwordStrength has a value. */}
-                <PasswordStrengthMeter
+                <PasswordStrengthPanel
                     password={password}
                     label={t("signup.strengthLabel", { strength: passwordStrength || "-" })}
+                    rules={rules}
+                    pristine={!password}
                     mt={1}
                 />
             </ChakraField.Root>
-
-            <PasswordRulesChecklist rules={rules} fontSize="md" pristine={!password} />
 
             <ChakraField.Root required>
                 <ChakraField.Label>{t("signup.confirmPasswordLabel")}</ChakraField.Label>

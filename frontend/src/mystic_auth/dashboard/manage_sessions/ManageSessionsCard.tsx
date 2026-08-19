@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Badge, Heading, HStack, Text } from "@chakra-ui/react";
 import type { CardRootProps } from "@chakra-ui/react";
-import { MonitorOff } from "lucide-react";
+import { Eye, MonitorOff } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import Card from "../../ui/Card";
-import DataTable, { type DataTableColumn } from "../../ui/DataTable";
-import TableActionButton from "../../ui/TableActionButton";
+import DataTable, { type DataTableColumn } from "../../ui/DataTable/DataTable";
+import TableActionButton from "../../ui/table_actions/TableActionButton";
+import TableActionIconButton from "../../ui/table_actions/TableActionIconButton";
 import ConfirmDialog from "../../ui/ConfirmDialog";
 import { toaster } from "../../ui/toaster/toasterInstance";
 import { useLogoutMutation } from "../../auth/logout/useLogoutMutation";
@@ -16,16 +17,20 @@ import { useLanguageStore } from "../../store/languageStore";
 import { parseUserAgent } from "./parseUserAgent";
 import { useSessionsQuery } from "./useSessionsQuery";
 import { useRevokeSessionMutation } from "./useRevokeSessionMutation";
+import SessionDetailsDialog from "./SessionDetailsDialog";
 import type { SessionRead } from "../../api/auth_api";
 
 /**
  * ManageSessionsCard
  * ----------------------------
  * Lists the caller's own active login sessions (GET /auth/sessions) as a
- * table (device/browser, IP, first-signed-in, last-seen, an action column),
- * same shape as every other management list in the app, since this list can grow
- * just like those do. Every row gets its own working "Log out", including
- * the current device's row ("This device" badge): that one goes through the
+ * table (device/browser, location, first-signed-in, last-seen, an action
+ * column), same shape as every other management list in the app, since this
+ * list can grow just like those do. IP address isn't a column - it's fixed
+ * width real estate a table this narrow can't spare, so it only shows in the
+ * per-row "View" action's SessionDetailsDialog, alongside everything else.
+ * Every row gets its own working "Log out", including the current device's
+ * row ("This device" badge): that one goes through the
  * ordinary single-device logout (POST /auth/logout, same as the navbar's
  * Logout button) rather than DELETE /auth/sessions/{id} - the backend
  * rejects revoking your own current session that way (it would invalidate
@@ -45,13 +50,20 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
     const language = useLanguageStore((s) => s.chromeLanguage);
     const { data: sessions, isLoading, isError } = useSessionsQuery();
     const [endingSession, setEndingSession] = useState<SessionRead | null>(null);
+    const [viewingSession, setViewingSession] = useState<SessionRead | null>(null);
     const revokeMutation = useRevokeSessionMutation();
     const logoutMutation = useLogoutMutation();
     const navigate = useNavigate();
 
+    // isSuccess OR isError: useLogoutMutation clears local auth state in
+    // onSettled regardless of outcome (see its own comment - a
+    // NO_REFRESH_TOKEN_COOKIE 400 is a real, reachable response), so
+    // navigation must follow every settled mutation, not just a successful
+    // one, or ending "This device"'s row here leaves the user stuck on this
+    // now-stale page instead of redirecting to /login.
     useEffect(() => {
-        if (logoutMutation.isSuccess) navigate("/login");
-    }, [logoutMutation.isSuccess, navigate]);
+        if (logoutMutation.isSuccess || logoutMutation.isError) navigate("/login");
+    }, [logoutMutation.isSuccess, logoutMutation.isError, navigate]);
 
     const handleConfirm = () => {
         if (!endingSession) return;
@@ -95,7 +107,16 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
                 );
             },
         },
-        { key: "ip_address", header: t("manageSessions.ipColumn"), width: "8.75rem", truncate: true, render: (s) => s.ip_address ?? t("manageSessions.ipUnknown") },
+        {
+            key: "location",
+            header: t("manageSessions.locationColumn"),
+            width: "10rem",
+            truncate: true,
+            render: (s) => {
+                const label = [s.city, s.country].filter(Boolean).join(", ");
+                return label || t("manageSessions.locationUnknown");
+            },
+        },
         {
             key: "created_at",
             header: t("manageSessions.signedInColumn"),
@@ -117,18 +138,23 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
             key: "row_actions",
             header: "",
             align: "end",
-            width: "6.875rem",
+            width: "10.625rem",
             render: (s) => (
-                <TableActionButton
-                    colorPalette="red"
-                    onClick={() => setEndingSession(s)}
-                    loading={
-                        (s.is_current && logoutMutation.isPending) ||
-                        (!s.is_current && revokeMutation.isPending && revokeMutation.variables === s.id)
-                    }
-                >
-                    {t("manageSessions.logOut")}
-                </TableActionButton>
+                <HStack justify="flex-end" gap={1.5} wrap="nowrap">
+                    <TableActionIconButton colorPalette="blue" label={t("manageSessions.viewButton")} onClick={() => setViewingSession(s)}>
+                        <Eye size={16} aria-hidden="true" />
+                    </TableActionIconButton>
+                    <TableActionButton
+                        colorPalette="red"
+                        onClick={() => setEndingSession(s)}
+                        loading={
+                            (s.is_current && logoutMutation.isPending) ||
+                            (!s.is_current && revokeMutation.isPending && revokeMutation.variables === s.id)
+                        }
+                    >
+                        {t("manageSessions.logOut")}
+                    </TableActionButton>
+                </HStack>
             ),
         },
     ];
@@ -150,6 +176,8 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
                 emptyIcon={<MonitorOff size={32} aria-hidden="true" />}
                 startIndex={0}
             />
+
+            <SessionDetailsDialog isOpen={!!viewingSession} session={viewingSession} onClose={() => setViewingSession(null)} />
 
             <ConfirmDialog
                 isOpen={!!endingSession}

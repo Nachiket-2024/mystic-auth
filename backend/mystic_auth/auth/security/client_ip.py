@@ -24,15 +24,19 @@ def get_client_ip(request: Request) -> str | None:
     reverse proxies (TRUSTED_PROXY_IPS), otherwise any internet client could
     set X-Forwarded-For to whatever it likes and impersonate any IP.
 
-    When trusted, the RIGHT-most entry is used, not the left-most: nginx's
-    proxy_pass appends the real client to whatever X-Forwarded-For it
-    received rather than overwriting it, so a client that connects directly
-    to the trusted proxy can freely prepend fake entries of its own (e.g.
-    "X-Forwarded-For: 10.0.0.1") before ever reaching it. With only a single
-    trusted hop configured here, the entry the trusted proxy itself appended
-    - the last one - is the only one that cannot have been forged by the
-    caller; trusting the first entry instead would let any caller spoof
-    their apparent IP and bypass IP-restricted PBAC policies outright.
+    Both local-prod and prod chain TWO reverse proxies in front of backend
+    (cloudflared/Caddy, then frontend's nginx), each of which appends its own
+    hop to X-Forwarded-For rather than overwriting it (nginx's
+    proxy_add_x_forwarded_for; Caddy's reverse_proxy default). So this walks
+    the header from the right, discarding entries that are themselves one of
+    TRUSTED_PROXY_IPS's known proxy hops, and returns the first entry that
+    isn't - the closest entry no configured proxy could have appended on the
+    caller's behalf. A caller connecting directly (bypassing every trusted
+    hop, e.g. local-prod's frontend port published for debugging) can prepend
+    as many fake entries as it likes, but the right-most entry is always the
+    real address nginx (or Caddy) saw it connect from, and that address can
+    never itself land in TRUSTED_PROXY_IPS - so the walk always stops there,
+    never at a forged entry.
 
     Returns None if request.client is unavailable (e.g. a test client with no
     real transport).
@@ -47,4 +51,13 @@ def get_client_ip(request: Request) -> str | None:
         return peer_ip
 
     entries = [entry.strip() for entry in forwarded_for.split(",") if entry.strip()]
-    return entries[-1] if entries else peer_ip
+    if not entries:
+        return peer_ip
+
+    for entry in reversed(entries):
+        if entry not in _TRUSTED_PROXY_IPS:
+            return entry
+
+    # Every entry was itself a trusted proxy hop (e.g. proxies talking to
+    # each other with no real client attached) - nothing left to trust.
+    return peer_ip

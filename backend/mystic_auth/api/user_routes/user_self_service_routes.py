@@ -127,7 +127,7 @@ async def delete_my_account(
     mechanics as delete_any_user (user_lifecycle_routes.py), just acting on
     current_user's own row instead of a path-parameterized user_email.
     Deliberately does NOT purge: permanent removal only ever happens via the
-    scheduled grace-period job (taskiq_tasks/account_purge_tasks.py) or an
+    scheduled grace-period job (procrastinate_tasks/account_purge_tasks.py) or an
     admin's separate, more sensitive users:purge action, never synchronously
     on a self-service request.
 

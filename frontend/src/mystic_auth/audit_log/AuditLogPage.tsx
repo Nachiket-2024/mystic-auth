@@ -67,7 +67,7 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ extraResourceTypes, extraAc
 
     // Read-once initializers (see AccountSettingsPage's matching comment
     // for the `key` reasoning): CommandPalette's content-search results
-    // (layout/searchItems.ts) navigate to e.g.
+    // (layout/command_palette/searchItems.ts) navigate to e.g.
     // /audit-log?category=security&scope=all to land on a specific
     // category+scope pair. `scope` is shared meaning across both category
     // branches (each has its own independent inner Tabs.Root), so it's read

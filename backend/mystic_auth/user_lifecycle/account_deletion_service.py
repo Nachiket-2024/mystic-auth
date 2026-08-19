@@ -6,11 +6,12 @@ import jwt
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..auth.token_logic.jwt_service import jwt_service
 from ..core.settings import settings
 from ..emails.email_template_service import render_transactional_email
 from ..logging.logging_config import get_logger
+from ..procrastinate_tasks.email_tasks import send_email_task
 from ..redis.client import redis_client
-from ..taskiq_tasks.email_tasks import send_email_task
 from ..user_crud.user_crud_collector import user_crud
 from .user_self_deletion_service import finalize_self_deletion
 
@@ -45,6 +46,8 @@ class AccountDeletionService:
             "email": email,
             "type": "account_delete",
             "exp": expire.timestamp(),
+            "iss": settings.JWT_ISSUER,
+            "aud": settings.JWT_AUDIENCE,
         }
 
         # Off the event loop, same as password_service.create_reset_token:
@@ -54,14 +57,29 @@ class AccountDeletionService:
     @staticmethod
     async def verify_account_deletion_token(token: str) -> dict | None:
         try:
+            # verify_aud disabled: PyJWT auto-rejects on the mere presence
+            # of an "aud" claim unless an audience= kwarg is passed, which
+            # would hard-break every deletion token minted before this claim
+            # existed. jwt_service.has_valid_issuer_and_audience below does
+            # the real check instead, with the graceful "absent is fine,
+            # present-and-wrong is not" semantics used across every claim
+            # this app rolls out onto existing tokens - see its own
+            # docstring, and jwt_service.verify_token's matching comment.
             payload = await asyncio.to_thread(
-                jwt.decode, token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+                jwt.decode,
+                token,
+                settings.SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM],
+                options={"verify_aud": False},
             )
 
             if not payload.get("email"):
                 return None
 
             if payload.get("type") != "account_delete":
+                return None
+
+            if not jwt_service.has_valid_issuer_and_audience(payload):
                 return None
 
             return payload
@@ -112,7 +130,7 @@ class AccountDeletionService:
                 ignore_note="If you didn't request this, you can safely ignore this email; your account will remain unchanged.",
             )
 
-            await send_email_task.kiq(
+            await send_email_task.defer_async(
                 to_email=email,
                 subject=email_subject,
                 body=email_body,

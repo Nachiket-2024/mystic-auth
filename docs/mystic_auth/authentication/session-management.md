@@ -9,6 +9,7 @@ This doc covers the Manage Sessions feature across backend, frontend, database, 
 | Routes | `backend/mystic_auth/api/auth_routes/auth_routes.py` | Mounts `GET /auth/sessions` and `DELETE /auth/sessions/{session_id}` under the auth router |
 | Handlers | `backend/mystic_auth/auth/manage_sessions/` | Builds response rows, computes `is_current`, rejects self-revoke, maps missing/foreign/revoked sessions to `404` |
 | Persistence mirror | `backend/mystic_auth/user_session/` | Stores one row per visible login session, updates the row when refresh tokens rotate, marks rows revoked |
+| Geolocation | `backend/mystic_auth/user_session/session_geolocation.py` | Best-effort city/country lookup for a login IP, via a local MaxMind GeoLite2-City `.mmdb` file |
 | Token authority | `backend/mystic_auth/auth/token_logic/jwt_service.py` and `auth/refresh_token_logic/refresh_token_service.py` | Redis-backed version counters (`account_ver`, `chain_ver`), single-use rotation claim, reuse detection |
 | Frontend | `frontend/src/mystic_auth/dashboard/manage_sessions/` | Dashboard card that lists sessions, formats device metadata, and revokes another active session |
 | Real-time push | `backend/mystic_auth/user_session/session_events.py`, `GET /auth/session-events`, `frontend/src/mystic_auth/auth/session_lifecycle/useSessionEventsStream.ts` | Server-Sent Events + Redis Pub/Sub nudge every open tab/device the instant a session is revoked. See "Real-time push" below |
@@ -38,6 +39,7 @@ The `user_sessions` table is a best-effort mirror for user experience, independe
 - `expires_at` mirrors the current refresh token expiry, for display only.
 - `revoked_at` marks the row as ended. Rows are not deleted during normal revoke, so session history remains inspectable in the database.
 - `ip_address` and `user_agent` are display metadata only. They may be null because some tests and service calls do not have a live request object.
+- `city` and `country` are a best-effort geolocation of `ip_address` at the time the row was created (`session_geolocation.resolve_city_country`), resolved against a local MaxMind GeoLite2-City `.mmdb` file. Both are `None` whenever `GEOIP_DB_PATH` is unset, the database fails to open, the IP is missing/private/unresolvable, or the lookup itself fails; every one of those cases fails open silently (logged at most once, at `error` for a bad `GEOIP_DB_PATH` and `warning` per failed lookup), never blocking login or refresh. The MaxMind `.mmdb` file itself is never shipped in this repo (MaxMind's license forbids redistribution) — a deployment that wants geolocation needs its own free MaxMind account and license key to download one.
 
 If a `user_sessions` write fails, auth still succeeds or fails based on the real Redis version checks. The service intentionally logs the failure and keeps the auth flow moving, matching the same design used for audit logging.
 
@@ -116,7 +118,8 @@ The stream requires authentication the same way `GET /auth/me` does, sends a hea
 | Field | Meaning |
 |---|---|
 | `id` | Stable session id used by `DELETE /auth/sessions/{session_id}` |
-| `ip_address` | Best-effort request IP, resolved with the same trusted-proxy-aware helper used by audit logging |
+| `ip_address` | Best-effort request IP, resolved with the same trusted-proxy-aware helper used by audit logging (`auth/security/client_ip.py`) |
+| `city` / `country` | Best-effort geolocation of `ip_address`, `None`/`None` if `GEOIP_DB_PATH` is unset or the lookup failed |
 | `user_agent` | Raw user-agent string captured at login or refresh |
 | `created_at` | First login time for this visible session |
 | `last_used_at` | Last create/refresh time for this visible session |
@@ -160,6 +163,8 @@ flowchart TD
 ## Frontend behavior
 
 `ManageSessionsCard.tsx` lives in `frontend/src/mystic_auth/dashboard/manage_sessions/`, alongside the page that's its only consumer, rather than a separate top-level folder: it owns its own API query and mutation, but nothing else in the app renders it. Device labels come from `parseUserAgent.ts`; failure and empty states are rendered locally by the card.
+
+The table itself shows Device, Location, Signed In, and Last Seen columns, plus a row-actions column; `ip_address` is not one of the table's columns at all, and Location is truncated to fit its column width. A "View" action per row opens `SessionDetailsDialog.tsx`, a read-only panel showing the full device string, raw `ip_address` (or "Unknown"), the untruncated `city`/`country` location string, and both timestamps: everything the table's own columns cut off or truncate.
 
 The current session is displayed but not offered as a targeted revoke action. That keeps the user flow unambiguous: use Logout for this device, use Revoke for other devices.
 

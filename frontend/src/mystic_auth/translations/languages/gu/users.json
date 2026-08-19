@@ -87,6 +87,7 @@
         "changeRoleDialogTitle": "ભૂમિકા બદલો",
         "changeRoleDialogDescription": "{{email}} ની ભૂમિકા \"{{role}}\" માં બદલવી છે? ભૂમિકા ફક્ત ડિસ્પ્લે/ગ્રુપિંગ મેટાડેટા છે : આ પોતે તેઓ શું કરવાની પરવાનગી ધરાવે છે તે બદલતું નથી.",
         "changeRoleConfirmLabel": "ભૂમિકા બદલો",
-        "userReactivatedToast": "વપરાશકર્તા ફરી સક્રિય કરાયો"
+        "userReactivatedToast": "વપરાશકર્તા ફરી સક્રિય કરાયો",
+        "exportCsv": "CSV નિકાસ કરો"
     }
 }

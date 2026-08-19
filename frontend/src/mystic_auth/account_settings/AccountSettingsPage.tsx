@@ -71,7 +71,7 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
 
     // Read-once initializer, not a synced-both-ways URL param - same
     // reasoning as UsersPage's `?search=` deep link. CommandPalette's
-    // content-search results (layout/searchItems.ts) navigate to e.g.
+    // content-search results (layout/command_palette/searchItems.ts) navigate to e.g.
     // /account-settings?tab=password to land on a specific tab; `key` below
     // forces Tabs.Root to pick up a new `initialTab` on a fresh deep-link
     // navigation while leaving normal in-page tab clicks (which never touch
@@ -111,7 +111,7 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                 </Tabs.Content>
 
                 <Tabs.Content value="password">
-                    <Box maxW="lg">
+                    <Box maxW="3xl">
                         <ChangePasswordCard hasPassword={hasPassword} onDirtyChange={setPasswordDirty} />
                     </Box>
                 </Tabs.Content>

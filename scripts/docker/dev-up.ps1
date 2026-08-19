@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Continue"
 
 # Starts the full stack, waits for long-running services, and tails focused
-# backend, frontend, taskiq_worker, and taskiq_scheduler logs.
+# backend, frontend, and procrastinate_worker logs.
 #
 # Mirrors dev-up.sh for PowerShell users. Avoids `docker compose up --wait`
 # because alembic and bugsink-seed are successful one-shot containers.
@@ -19,8 +19,7 @@ $LongRunningServices = @(
     "redis",
     "bugsink",
     "backend",
-    "taskiq_worker",
-    "taskiq_scheduler",
+    "procrastinate_worker",
     "frontend"
 )
 $TimeoutSeconds = 180
@@ -66,7 +65,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Restart these services so the final tail always includes fresh startup
 # banners, even when Compose reused already-running containers.
-docker compose restart backend taskiq_worker taskiq_scheduler
+docker compose restart backend procrastinate_worker
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
@@ -117,8 +116,8 @@ if ($notReady -ne 0) {
     exit 1
 }
 
-Write-Host "--- Tailing backend + frontend + taskiq_worker + taskiq_scheduler (Ctrl+C stops watching, stack keeps running) ---"
+Write-Host "--- Tailing backend + frontend + procrastinate_worker (Ctrl+C stops watching, stack keeps running) ---"
 Write-Host "Backend errors/exceptions: http://localhost:8010 (Bugsink)"
 Write-Host ""
-docker compose logs --since $TailSince -f backend frontend taskiq_worker taskiq_scheduler
+docker compose logs --since $TailSince -f backend frontend procrastinate_worker
 exit $LASTEXITCODE

@@ -7,10 +7,10 @@ from ..core.settings import settings
 
 
 class EmailSender(Protocol):
-    """Minimal seam between `taskiq_tasks/email_tasks.py` and whatever
+    """Minimal seam between `procrastinate_tasks/email_tasks.py` and whatever
     actually transports the message: swapping providers (e.g. SES,
     SendGrid, Postmark) means writing one new class here, not touching the
-    Taskiq task or any of its callers."""
+    Procrastinate task or any of its callers."""
 
     async def send(self, to_email: str, subject: str, body: str, is_html: bool = True) -> None:
         ...

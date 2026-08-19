@@ -23,18 +23,18 @@ Check, in order:
 
 ```mermaid
 flowchart TD
-    Start(["Access denied :<br/>policy exists and is assigned"])
+    Start(["Access denied:<br/>policy exists<br/>and is assigned"])
     Active{"Is the policy<br/>is_active?"}
     ResType{"Does resource_type<br/>match (or '*')?"}
-    Action{"Is the exact action<br/>string in actions?"}
-    Cond{"Do the conditions<br/>pass for this request?"}
-    Cache{"Recently changed a policy :<br/>could Redis be stale?"}
-    Fix1["Reactivate the policy"]
-    Fix2["Fix the resource_type<br/>typo/mismatch"]
-    Fix3["Grant the correct<br/>action string"]
-    Fix4["Fix failed_conditions<br/>(see inspection endpoint)"]
+    Action{"Is the exact<br/>action string<br/>in actions?"}
+    Cond{"Do the conditions<br/>pass for this<br/>request?"}
+    Cache{"Recently changed<br/>a policy: could<br/>Redis be stale?"}
+    Fix1["Reactivate<br/>the policy"]
+    Fix2["Fix the<br/>resource_type<br/>typo/mismatch"]
+    Fix3["Grant the<br/>correct action<br/>string"]
+    Fix4["Fix failed_conditions<br/>(see inspection<br/>endpoint)"]
     Fix5["See Redis cache<br/>management below"]
-    Allowed(["Should be allowed :<br/>re-check with the<br/>inspection endpoint"])
+    Allowed(["Should be allowed:<br/>re-check with the<br/>inspection endpoint"])
 
     Start --> Active
     Active -- "no" --> Fix1

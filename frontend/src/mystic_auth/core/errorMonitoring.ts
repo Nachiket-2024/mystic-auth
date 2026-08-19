@@ -34,7 +34,7 @@ export function initErrorMonitoring(): void {
  * short-circuits before touching the SDK at all, matching the backend's
  * equivalent (error_monitoring/sentry_service.py::capture_exception).
  *
- * Called from ui/ErrorBoundary.tsx for a caught render error; also
+ * Called from ui/routing/ErrorBoundary.tsx for a caught render error; also
  * available for your own feature code to report a caught-but-still-
  * noteworthy error the same way.
  */

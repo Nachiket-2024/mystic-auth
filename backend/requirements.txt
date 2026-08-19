@@ -29,8 +29,12 @@ httpx2==2.9.1
 
 redis==8.1.0
 
-taskiq[reload]==0.12.4
-taskiq-redis==1.2.3
+# Local MaxMind GeoLite2-City .mmdb reader for Manage Sessions' Location
+# column (see user_session/session_geolocation.py). Offline/no-network lookup, so it adds
+# no latency or third-party dependency to the login/refresh path.
+geoip2==4.8.1
+
+procrastinate==3.9.0
 
 aiosmtplib==5.1.2
 
@@ -41,8 +45,3 @@ python-json-logger==4.1.0
 # The [fastapi] extra pulls in the FastAPI/Starlette integration; a no-op
 # import-time cost when SENTRY_DSN is unset (see error_monitoring/sentry_service.py).
 sentry-sdk[fastapi]==2.66.1
-
-pytest==9.1.1
-pytest-asyncio==1.4.0
-pytest-cov==7.1.0
-pytest-mock==3.15.1

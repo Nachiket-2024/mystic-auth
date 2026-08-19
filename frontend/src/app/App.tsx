@@ -8,7 +8,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router";
 // actually visited, and splitting them keeps the initial bundle (and every
 // unauthenticated visitor's download) limited to auth + the app shell.
 import LoginPage from "../mystic_auth/auth/login/LoginPage";
-import { trackedLazy } from "../mystic_auth/ui/trackedLazy";
+import { trackedLazy } from "../mystic_auth/ui/routing/trackedLazy";
 const LandingPage = trackedLazy(() => import("./landing_page/LandingPage"));
 const SignupPage = trackedLazy(() => import("../mystic_auth/auth/signup/SignupPage"));
 const VerifyAccountPage = trackedLazy(() => import("../mystic_auth/auth/verify_account/VerifyAccountPage"));
@@ -18,6 +18,7 @@ const ConfirmDeleteAccountPage = trackedLazy(() => import("../mystic_auth/accoun
 const DashboardPage = trackedLazy(() => import("../mystic_auth/dashboard/DashboardPage"));
 const UsersPage = trackedLazy(() => import("../mystic_auth/users/UsersPage"));
 const PoliciesPage = trackedLazy(() => import("../mystic_auth/policies/PoliciesPage"));
+const RateLimitsPage = trackedLazy(() => import("../mystic_auth/rate_limits/RateLimitsPage"));
 const AuditLogPage = trackedLazy(() => import("../mystic_auth/audit_log/AuditLogPage"));
 const AccountSettingsPage = trackedLazy(() => import("../mystic_auth/account_settings/AccountSettingsPage"));
 const NotFoundPage = trackedLazy(() => import("../mystic_auth/status_pages/NotFoundPage"));
@@ -33,9 +34,9 @@ import { useAuthSession } from "../mystic_auth/auth/current_user/useCurrentUserQ
 import { useSessionEventsStream } from "../mystic_auth/auth/session_lifecycle/useSessionEventsStream";
 
 import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, LoadingState, CommandPalette } from "./sdk";
-import RouteProgressBar from "../mystic_auth/ui/RouteProgressBar";
-import RouteSkeleton from "../mystic_auth/ui/RouteSkeleton";
-import RouteFadeIn from "../mystic_auth/ui/RouteFadeIn";
+import RouteProgressBar from "../mystic_auth/ui/routing/RouteProgressBar";
+import RouteSkeleton from "../mystic_auth/ui/routing/RouteSkeleton";
+import RouteFadeIn from "../mystic_auth/ui/routing/RouteFadeIn";
 
 const App: React.FC = () => {
     useAuthSession();
@@ -110,7 +111,7 @@ const App: React.FC = () => {
                     `extraNavItems` prop (same NavItem shape as sdk.ts's
                     NavItem, e.g. `[{ label: "Projects", to: "/projects",
                     permission: APP_PERMISSIONS.PROJECTS_READ }]`) instead of
-                    editing mystic_auth/layout/navItems.ts, since that file stays
+                    editing mystic_auth/layout/app_layout/navItems.ts, since that file stays
                     upstream-owned. Define the array once above this Routes
                     block and pass the same reference to every AppLayout
                     usage, so the sidebar doesn't reshape as the user
@@ -153,6 +154,16 @@ const App: React.FC = () => {
                         <ProtectedRoute permission={PERMISSIONS.POLICIES_READ}>
                             <AppLayout onOpenCommandPalette={openCommandPalette}>
                                 <PoliciesPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/rate-limits"
+                    element={
+                        <ProtectedRoute permission={PERMISSIONS.RATE_LIMITS_READ}>
+                            <AppLayout onOpenCommandPalette={openCommandPalette}>
+                                <RateLimitsPage />
                             </AppLayout>
                         </ProtectedRoute>
                     }

@@ -12,7 +12,7 @@ This template ships the authenticated app shell (sidebar, top bar, and the auth/
 - **Authorization**: Policy-Based Access Control (PBAC), not RBAC. Every protected route is gated by an assigned `Policy`, not by a user's `role`. Policies are data (rows in Postgres), so a new access rule is a new policy, not a new deploy. See [PBAC Architecture](../authorization/architecture.md).
 - **Audit logging**: two append-only tables: security/session events, and every PBAC allow/deny decision. See [Database Design](../database/design.md#why-two-audit-tables-not-one).
 - **Frontend**: React 19 + TypeScript, Vite, Chakra UI v3, Zustand, TanStack Query. See [Frontend Architecture](../architecture/frontend.md).
-- **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Redis, Taskiq async email, Alembic migrations, GitHub Actions CI.
+- **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Redis, Procrastinate async email (Postgres-native, no separate broker), Alembic migrations, GitHub Actions CI.
 - **Error monitoring**: self-hosted Bugsink, on by default with the stack. See [Error Monitoring](../error-monitoring/overview.md).
 
 ---
@@ -23,14 +23,14 @@ This template ships the authenticated app shell (sidebar, top bar, and the auth/
 2. `cp .env.example .env`: prefilled with working (fake) values, so this just works for local dev as-is. Only two things need real values before those specific features work: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ([OAuth setup](#oauth-setup-google)) and `FROM_EMAIL`/`GMAIL_APP_PASSWORD` ([Email setup](#email-setup)). Everything else runs fine without them.
 3. Run the dev helper for your shell: `./scripts/docker/dev-up.sh` (Git Bash, WSL, Linux, macOS), `.\scripts\docker\dev-up.ps1` (PowerShell), or `scripts\docker\dev-up.cmd` (Command Prompt).
 
-   The helper brings up backend, frontend, Postgres, Redis, Taskiq, and Bugsink, migrations included, then settles into showing just `backend`/`frontend`/`taskiq_worker`/`taskiq_scheduler` logs instead of every service's full startup output (see [Docker Overview](../docker/overview.md#day-to-day-dev-up-helpers)). Plain `docker compose up` still works if you want everything's logs interleaved instead.
+   The helper brings up backend, frontend, Postgres, Redis, Procrastinate, and Bugsink, migrations included, then settles into showing just `backend`/`frontend`/`procrastinate_worker` logs instead of every service's full startup output (see [Docker Overview](../docker/overview.md#day-to-day-dev-up-helpers)). Plain `docker compose up` still works if you want everything's logs interleaved instead.
 
 Once it's up:
 
 - **Backend docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Bugsink** (error monitoring): [http://localhost:8010](http://localhost:8010)
-- **Taskiq** (email worker + retry scheduler): no UI or port, it just runs. The dev helper includes both `taskiq_worker` and `taskiq_scheduler` in the live log tail. Use `docker compose logs -f taskiq_worker` or `taskiq_scheduler` when you want only one of their logs. See [Background Email Delivery](../background-workers/taskiq.md).
+- **Procrastinate** (email worker, retries, and scheduled account-purge, all in one process): no UI or port, it just runs. The dev helper includes `procrastinate_worker` in the live log tail. Use `docker compose logs -f procrastinate_worker` when you want only its logs. See [Background Email Delivery](../background-workers/procrastinate.md).
 - Postgres/Redis are reachable on `localhost:5433`/`localhost:6380` (non-default host ports, to avoid clashing with anything else you have running locally).
 
 Then create the reserved system superuser (one-time, CLI-only):
@@ -64,18 +64,18 @@ Both backend and frontend are split into two trees, and every file in the repo f
 ```mermaid
 flowchart TB
     subgraph upstream["Upstream-owned: never edit"]
-        MA["mystic_auth/\ntemplate internals: auth, PBAC, API, UI"]
-        SDK["sdk.py / sdk.ts\nextension surface: do not hand-edit"]
+        MA["mystic_auth/<br/>template internals:<br/>auth, PBAC, API, UI"]
+        SDK["sdk.py / sdk.ts<br/>extension surface:<br/>do not hand-edit"]
     end
 
     subgraph shared["Shared: extend in place, expect occasional conflicts"]
-        ENTRY["main.py / App.tsx\nentry point, ships working"]
+        ENTRY["main.py / App.tsx<br/>entry point, ships working"]
     end
 
     subgraph yours["Yours: upstream never touches again"]
-        APPSDK["app_sdk.py / app_sdk.ts\nyour re-exports: shipped empty"]
-        FEATURES["your feature folders\ne.g. app/projects/"]
-        DOCSAPP["docs/app/\nyour own docs"]
+        APPSDK["app_sdk.py / app_sdk.ts<br/>your re-exports:<br/>shipped empty"]
+        FEATURES["your feature folders<br/>e.g. app/projects/"]
+        DOCSAPP["docs/app/<br/>your own docs"]
     end
 
     MA -->|re-exported by| SDK
@@ -83,14 +83,7 @@ flowchart TB
     SDK -->|imported by| FEATURES
     APPSDK -->|imported by| ENTRY
     APPSDK -->|imported by| FEATURES
-    ENTRY -.->|your imports go here, not app_sdk| APPSDK
-
-    style MA fill:#4a5568,color:#fff
-    style SDK fill:#c05621,color:#fff
-    style ENTRY fill:#b7791f,color:#fff
-    style APPSDK fill:#2f855a,color:#fff
-    style FEATURES fill:#2f855a,color:#fff
-    style DOCSAPP fill:#2f855a,color:#fff
+    ENTRY -.->|your imports go<br/>here, not app_sdk| APPSDK
 ```
 
 `sdk.py`/`sdk.ts` re-export the pieces you're meant to build on (`require_authorization`, `Permission`, `useAuthorization`, `ProtectedRoute`, the shared `api` client, and more): import from there, not from internal `mystic_auth/` paths directly.
@@ -103,134 +96,11 @@ The diagram above only shows code files, since it's tracing import relationships
 
 ## Frontend customization
 
-- **Theme**: `frontend/src/app/theme.ts` (empty by default, like `app_sdk.ts`): set your own `brand` color scale here to re-skin the app. Merged on top of `mystic_auth/theme/system.ts`'s own config, so it never needs editing directly.
-- **Pages**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/`, `manage_sessions/`, `account_settings/`, `users/`, `policies/`, `audit_log/`). See [Frontend Architecture](../architecture/frontend.md#module-layout).
-- **Routing**: declared in `frontend/src/app/App.tsx`: add a `<Route>`, wrapped in `ProtectedRoute`.
-- **State**: Zustand (`frontend/src/mystic_auth/store/`) for client state, TanStack Query for server state: both re-exported from `sdk.ts`.
-- **Your own code** lives under `frontend/src/app/` (e.g. `frontend/src/app/projects/`), importing template pieces via `sdk.ts`/`app_sdk.ts`.
-
----
-
-## Shared-chrome extension points
-
-Some UI, like the sidebar, is rendered by mystic_auth/ but genuinely needs to reflect your own feature routes: "never edit mystic_auth/" can't mean "never add your own nav link." Rather than leaving that as a choice between hand-editing an upstream-owned file or having no nav link at all, the shared-chrome components that need this take an explicit prop for it:
-
-| Component | Extension prop | Shape |
-|---|---|---|
-| `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string; order?: number; icon?: LucideIcon }` |
-| `AppLayout` (re-exported from `sdk.ts`) | `extraNavbarContent?: React.ReactNode` | Any renderable node: the top bar's own built-ins (name, ThemeToggle, LogoutButton) are bespoke components rather than a uniform list, so this slot is free-form instead of a typed item array. |
-| `CommandPalette` (re-exported from `sdk.ts`, mounted once in `App.tsx`) | `extraNavItems?: NavItem[]` | Same `NavItem`s you give `AppLayout` - pass the same reference so the palette's "Pages" results match the sidebar. |
-| `CommandPalette` (re-exported from `sdk.ts`, mounted once in `App.tsx`) | `extraSearchItems?: SearchItem[]` | `SearchItem` (also re-exported from `sdk.ts`): a specific feature/section *within* one of your pages (not a whole page - that's what `extraNavItems` is for), surfaced by the palette's content search once the query is non-empty. |
-| `AppLayout` (re-exported from `sdk.ts`) | `onOpenCommandPalette?: () => void` | Renders the clickable "search" button in the navbar (hidden below the `md` breakpoint) that opens the same `CommandPalette` instance. Cmd+K/Ctrl+K works without it (that shortcut is wired globally in `App.tsx`); omitting this prop just means there's no visible button for it, mouse-only users would have no way to open the palette. |
-| `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraResourceTypes?: string[]` | Appended after this app's own `AUTHORIZATION_RESOURCE_TYPES` in the "Authorization decisions" filter's resource dropdown. |
-| `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraActions?: string[]` | Appended after `PERMISSIONS`' own action strings in the same filter's action dropdown. |
-
-Pass the same array to every `<AppLayout>` usage in your `App.tsx` (define it once, above your `<Routes>`, and reuse the reference) so the sidebar doesn't reshape as the user navigates between routes:
-
-```tsx
-import { AppLayout, type NavItem } from "./sdk";
-import { APP_PERMISSIONS } from "./access/permissions"; // your own action vocabulary
-
-const EXTRA_NAV_ITEMS: NavItem[] = [
-    { label: "Projects", to: "/projects", permission: APP_PERMISSIONS.PROJECTS_READ },
-];
-
-// ...
-<AppLayout extraNavItems={EXTRA_NAV_ITEMS}>
-    <ProjectsPage />
-</AppLayout>
-```
-
-Items with a `permission` are gated the same way the built-in nav items are (wrapped in `IfCan`), so a caller who lacks it simply doesn't see the link, the same as any built-in one. Omitting `extraNavItems` entirely renders the sidebar exactly as before this prop existed, so adopting it (or upgrading a project that predates it) is never a breaking change.
-
-**Ordering.** By default your items render *after* every built-in one (Dashboard, Users, Policies, Audit Log, Account Settings), in the order you list them. That's what happens if you don't set `order` at all, so leaving it out is never a breaking change either. To interleave with the built-ins instead, give an item an `order` number: the built-ins are `10`/`20`/`30`/`40`/`50` (see `frontend/src/mystic_auth/layout/navItems.ts`), spaced out so you can slot in between any two without needing to know anyone else's exact value.
-
-```tsx
-const EXTRA_NAV_ITEMS: NavItem[] = [
-    // Lands between Dashboard (10) and Users (20)
-    { label: "Projects", to: "/projects", order: 15, permission: APP_PERMISSIONS.PROJECTS_READ },
-];
-```
-
-Items sharing the same `order` (or all omitting it) keep their relative order from the array they were given in: ties never get shuffled.
-
-**Top bar.** `extraNavbarContent` renders wherever you pass it, to the left of ThemeToggle/LogoutButton, no permission gating or ordering of its own since it's a single free-form slot rather than a list:
-
-```tsx
-import { AppLayout } from "./sdk";
-import NotificationsBell from "./notifications/NotificationsBell";
-
-// ...
-<AppLayout extraNavItems={EXTRA_NAV_ITEMS} extraNavbarContent={<NotificationsBell />}>
-    <ProjectsPage />
-</AppLayout>
-```
-
-**Command palette (Cmd+K / Ctrl+K).** `CommandPalette` is mounted once at the app root in `App.tsx`, not inside `AppLayout`, so it takes its extension props there instead. Pass the same `onOpenCommandPalette` handler to every `<AppLayout>` so the navbar's search button opens this one instance:
-
-```tsx
-const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-const openCommandPalette = () => setIsPaletteOpen(true);
-
-// ...
-<AppLayout extraNavItems={EXTRA_NAV_ITEMS} onOpenCommandPalette={openCommandPalette}>
-    <ProjectsPage />
-</AppLayout>
-
-<CommandPalette
-    isOpen={isPaletteOpen}
-    onClose={() => setIsPaletteOpen(false)}
-    extraNavItems={EXTRA_NAV_ITEMS}
-    extraSearchItems={EXTRA_SEARCH_ITEMS}
-/>
-```
-
-`extraNavItems` is the exact same array you already pass to every `<AppLayout>` - reusing it keeps the palette's "Pages" results and the sidebar in sync automatically. `extraSearchItems` is for content search: a specific settings tab, a specific filtered view, anything a user might type a keyword for that isn't a whole page's own nav label. Each `SearchItem` is:
-
-```ts
-interface SearchItem {
-    label: string;              // primary display text
-    detail?: string;            // secondary text, e.g. distinguishes two items sharing a label
-    group: string;              // the page/section this belongs to - shown as detail's fallback,
-                                 // and folded into the search text (typing the page name matches too)
-    matchKeys?: string[];       // extra strings folded into search text without being displayed
-    to: string;                 // destination, e.g. "/projects?tab=billing" or "/projects#danger-zone"
-    permission?: string;
-    icon?: LucideIcon;
-}
-```
-
-`label`/`detail`/`group`/`matchKeys` each accept either a plain string or an i18next `"namespace:key"` (resolved in the chrome language, same convention `NavItem.label` uses) - use translation keys if your app is localized, plain strings otherwise. A result's search text is `label + detail + group + matchKeys` joined, so you don't need to hand-maintain a separate keyword list in sync with whatever visible copy you're already reusing:
-
-```tsx
-import { CommandPalette, type SearchItem } from "./sdk";
-import { CreditCard } from "lucide-react";
-
-const EXTRA_SEARCH_ITEMS: SearchItem[] = [
-    {
-        label: "Billing",
-        group: "Projects",
-        matchKeys: ["Invoices", "Payment method"],
-        to: "/projects?tab=billing",
-        icon: CreditCard,
-    },
-];
-```
-
-For a `to` that points at a specific tab (`?tab=billing`) or a specific in-page section (`#danger-zone`), your page needs to actually read that on mount - see `AccountSettingsPage`/`AuditLogPage` for the query-param-driven-tab pattern (read once via `useSearchParams`, force a remount with `key={initialTab}` so a later deep-link while the page is already open still switches tabs), or `AppLayout`'s `useScrollToHash` for the `#hash` case (mounted once in `AppLayout` already, so any element with a matching `id` on any of your pages gets scrolled to automatically - just give it an `id`, no extra wiring needed). Omitting `extraSearchItems` entirely renders the palette exactly as before this prop existed.
-
-**Audit log filters.** Unlike `AppLayout`, `AuditLogPage` isn't behind `sdk.ts`: it's a page component, imported directly in `App.tsx` the same way `DashboardPage`/`UsersPage`/`PoliciesPage` are, so you already edit that import site directly to add routes. If your app extends the PBAC resource-type or action vocabulary for its own domain (e.g. adding resource types beyond this app's own `users`/`policies`/`security_audit`), pass `extraResourceTypes`/`extraActions` so your own values show up in the "Authorization decisions" tab's filter dropdowns instead of only ever showing this app's built-in vocabulary:
-
-```tsx
-<AuditLogPage
-    extraResourceTypes={["projects", "invoices"]}
-    extraActions={["projects:read", "projects:write"]}
-/>
-```
-
-Omitting either prop renders both dropdowns exactly as before these props existed.
-
-If a future release adds an extension point to another shared component, it'll follow this same shape: a typed, optional, additive prop, listed in this table.
+Theme, pages, routing, state, and your own code under `frontend/src/app/`, plus the shared-chrome
+extension points (`extraNavItems`, `extraNavbarContent`, the command palette's `extraSearchItems`,
+and `AuditLogPage`'s `extraResourceTypes`/`extraActions`) that let your own routes plug into
+mystic_auth/-owned UI without editing it directly. See
+[Frontend Customization](frontend-customization.md) for the full details.
 
 ---
 
@@ -293,7 +163,7 @@ See [OAuth2 / PKCE](../authentication/oauth2-pkce.md) for the mechanics and trou
 | `GMAIL_APP_PASSWORD` | A Gmail [App Password](https://myaccount.google.com/apppasswords) (needs 2FA enabled) |
 | `SUPPORT_EMAIL` | Optional `Reply-To`, falls back to `FROM_EMAIL` |
 
-Without these, signup/verification/reset emails fail to send after retries, but the rest of the app keeps working. See [Background Email Delivery](../background-workers/taskiq.md).
+Without these, signup/verification/reset emails fail to send after retries, but the rest of the app keeps working. See [Background Email Delivery](../background-workers/procrastinate.md).
 
 ---
 
