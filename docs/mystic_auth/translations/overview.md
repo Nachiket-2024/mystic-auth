@@ -53,7 +53,8 @@ error-boundary text) rather than belonging to any single folder:
 ```ts
 export const NAMESPACES = [
     "ui_text", "layout", "auth", "users", "policies", "authorization",
-    "audit_log", "account_settings", "dashboard", "status_pages", "errors",
+    "audit_log", "account_settings", "dashboard", "rate_limits", "status_pages",
+    "errors", "legal",
 ] as const;
 
 export const SUPPORTED_LANGUAGES = ["en", "hi", "mr", "gu"] as const;
@@ -68,7 +69,7 @@ export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
 ```
 
 Each language's translations live in `frontend/src/mystic_auth/translations/languages/<lang>/<namespace>.json`
-- e.g. `languages/hi/layout.json`. All eleven namespace files are statically imported and registered
+- e.g. `languages/hi/layout.json`. All thirteen namespace files are statically imported and registered
 for all four languages in `translations.ts`'s `resources` object.
 
 Components read strings the normal `react-i18next` way:
@@ -159,17 +160,25 @@ possible backend errors it's handling.
 
 `backend/mystic_auth/core/errors.py`'s `AppError` (see [Backend Architecture](../architecture/backend.md))
 carries a stable, machine-readable `code` (e.g. `"INVALID_CREDENTIALS"`) and optional `params`
-alongside the English `detail` FastAPI/Sentry/logs see. `apiError.ts`'s `extractApiErrorMessage()`
-is the one place that `code` gets turned into user-facing text:
+alongside the English `detail` FastAPI/Sentry/logs see. The actual `code` -> `errors:<code>` lookup
+lives in `apiError.ts`'s `translateErrorCode(code, params)`, a standalone function (not axios-shaped)
+so any caller with a bare code, not just an API response, can reuse the exact same lookup and
+DEV-mode missing-translation warning. `extractApiErrorMessage()` is its main caller, for ordinary
+axios mutation errors:
 
-1. If the response has a `code`, look it up as `errors:<code>` in the `errors` namespace
-   (`translations/languages/*/errors.json`) and render it in the caller's current language,
-   interpolating `params` (e.g. a policy name into `"Policy \"{{name}}\" not found"`).
+1. If the response has a `code`, `translateErrorCode` looks it up as `errors:<code>` in the `errors`
+   namespace (`translations/languages/*/errors.json`) and renders it in the caller's current
+   language, interpolating `params` (e.g. a policy name into `"Policy \"{{name}}\" not found"`).
 2. If there's no `code` (a route not yet migrated to `AppError`) or the code has no matching
    `errors.json` entry, fall back to the raw English `error`/`detail` string from the response
    body, so a caller never sees a blank or broken message.
 3. If neither exists at all (a network failure, or a non-axios error), fall back to the
    caller-supplied `fallback` argument.
+
+The other caller is `OAuth2LoginButton.tsx`: the OAuth2 flow is a full-page redirect back to
+`/login?error=<CODE>` rather than an API response (see [Google OAuth2 / PKCE](../authentication/oauth2-pkce.md#edge-cases--error-handling)),
+so it calls `translateErrorCode` directly on that query param instead of going through
+`extractApiErrorMessage`.
 
 Case 2's "code exists but no translation" branch is the one to watch: it degrades gracefully for
 the *user* (still a real English sentence, not a blank toast), but that same graceful degradation
@@ -177,8 +186,8 @@ means a missing `errors.json` entry looks identical to "working as intended" at 
 crashes, nothing looks obviously wrong. So in addition to the fallback, that branch also logs a
 `console.error` naming the missing code, but only when `import.meta.env.DEV` is true: loud enough
 to catch the gap the first time you exercise that code path in development, without affecting real
-users or shipping a console.error into production. If you add a new `AppError(code="...")` call
-site anywhere in the backend, add the matching `errors:<code>` key to all four `errors.json` files
+users or shipping a console.error into production. If you add a new machine-readable code - a new
+`AppError(code="...")` call site, or a new OAuth2 redirect code - add the matching `errors:<code>` key to all four `errors.json` files
 in the same change, or expect to see that warning the first time your route returns it locally.
 
 ---

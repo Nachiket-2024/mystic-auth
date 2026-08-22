@@ -63,6 +63,22 @@ class AuditLogRepository:
         return entry
 
     @staticmethod
+    async def create_entries(entries: list[dict], db: AsyncSession) -> None:
+        """
+        Same as create_entry, but for many rows in one round trip: used by
+        AuthorizationService.authorize_batch, which otherwise issues one
+        commit per check (1-50 per request, see
+        BatchAuthorizationCheckRequest) purely to persist that check's own
+        audit row. Callers here don't need the inserted rows back
+        (authorize_batch only needs the decisions, already computed), so
+        this skips refresh() too.
+        """
+        if not entries:
+            return
+        db.add_all([AuthorizationAuditLog(**data) for data in entries])
+        await db.commit()
+
+    @staticmethod
     async def get_all(
         db: AsyncSession,
         limit: int = 100,

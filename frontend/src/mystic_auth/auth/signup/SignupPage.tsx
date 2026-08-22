@@ -24,12 +24,14 @@ const SignupPage: React.FC = () => {
             <Card w="full" maxW="3xl" p={{ base: 5, md: 7 }}>
                 <Stack textAlign="center" gap={3}>
                     <Logo />
-                    <Heading size="2xl" color="brand.fg">
-                        {t("signupPage.heading")}
-                    </Heading>
-                    <Text fontSize="md" color="fg.muted">
-                        {t("signupPage.subtitle")}
-                    </Text>
+                    <Stack gap={1}>
+                        <Heading size="2xl" color="brand.fg">
+                            {t("signupPage.heading")}
+                        </Heading>
+                        <Text fontSize="md" color="fg.muted">
+                            {t("signupPage.subtitle")}
+                        </Text>
+                    </Stack>
 
                     <SignupForm />
                 </Stack>

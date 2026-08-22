@@ -23,6 +23,8 @@ const AuditLogPage = trackedLazy(() => import("../mystic_auth/audit_log/AuditLog
 const AccountSettingsPage = trackedLazy(() => import("../mystic_auth/account_settings/AccountSettingsPage"));
 const NotFoundPage = trackedLazy(() => import("../mystic_auth/status_pages/NotFoundPage"));
 const NotAuthorizedPage = trackedLazy(() => import("../mystic_auth/status_pages/NotAuthorizedPage"));
+const PrivacyPolicyPage = trackedLazy(() => import("../mystic_auth/legal/PrivacyPolicyPage"));
+const TermsOfServicePage = trackedLazy(() => import("../mystic_auth/legal/TermsOfServicePage"));
 
 // Runs the current-user query once and mirrors it into the Zustand auth
 // store (see its own docstring for why this must be called exactly once,
@@ -37,6 +39,7 @@ import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, LoadingS
 import RouteProgressBar from "../mystic_auth/ui/routing/RouteProgressBar";
 import RouteSkeleton from "../mystic_auth/ui/routing/RouteSkeleton";
 import RouteFadeIn from "../mystic_auth/ui/routing/RouteFadeIn";
+import OfflineBanner from "../mystic_auth/ui/network/OfflineBanner";
 
 const App: React.FC = () => {
     useAuthSession();
@@ -84,6 +87,11 @@ const App: React.FC = () => {
                 route-level code-split navigation, instead of the Suspense
                 fallback below blanking it. */}
             <RouteProgressBar />
+
+            {/* Fixed bottom banner reflecting networkStatusStore's isOnline
+                flag, mounted once at the app root so it's visible regardless
+                of which page/dialog is currently on screen. */}
+            <OfflineBanner />
 
             <CommandPalette isOpen={isPaletteOpen} onClose={() => setIsPaletteOpen(false)} />
 
@@ -207,6 +215,9 @@ const App: React.FC = () => {
 
                 {/* Matches account_deletion_service.py's deletion_url */}
                 <Route path="/confirm-delete" element={<ConfirmDeleteAccountPage />} />
+
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsOfServicePage />} />
 
                 {/* Where ProtectedRoute sends an authenticated user who lacks
                     a route's required permission */}

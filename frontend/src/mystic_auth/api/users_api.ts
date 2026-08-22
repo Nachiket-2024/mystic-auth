@@ -11,6 +11,15 @@ export interface ManagedUserRead {
     updated_at: string;
     deleted_at: string | null;
     has_password: boolean;
+    /** Per-user brand color override (#rrggbb). null = using the app
+     * default scale (app/theme.ts). See appearanceStore.ts. */
+    brand_color: string | null;
+    /** PUT /users/me only (undefined from the management route): whether a
+     * password change's other-session revocation was confirmed. null/absent
+     * for any update that wasn't a password change. False means the
+     * password itself still changed, but the account's other sessions were
+     * NOT revoked (Redis was unreachable) - see ChangePasswordCard.tsx. */
+    sessions_revoked?: boolean | null;
 }
 
 export interface UserUpdatePayload {
@@ -21,6 +30,9 @@ export interface UserUpdatePayload {
     // ignores it). Not needed when setting a password for the first time on
     // an OAuth-only account.
     current_password?: string;
+    /** #rrggbb to set a custom brand color, or null to reset to the app
+     * default. Omitted (undefined) leaves the stored value unchanged. */
+    brand_color?: string | null;
 }
 
 export interface UserStatsRead {
@@ -39,6 +51,11 @@ export interface ListUsersParams {
     isVerified?: boolean;
     /** One of "active" | "inactive" | "deleted" (see UsersPage.tsx's Status badge). */
     status?: string;
+    /** Exact match on the name of an assigned policy (see PolicyRead['name']). */
+    policy?: string;
+    /** Users holding a policy whose actions include this permission, one of
+     * PERMISSIONS' own values (authorization/permissions.ts). */
+    permission?: string;
     /** Column to sort by; must be one of the backend's own allowlisted
      * sortable columns (see user_base_crud.py's _SORTABLE_COLUMN_NAMES) -
      * any other value is ignored server-side and falls back to id. */
@@ -47,10 +64,11 @@ export interface ListUsersParams {
 }
 
 function toApiParams({
-    limit = 1000, offset = 0, search, role, isVerified, status, sortBy, sortDir,
+    limit = 1000, offset = 0, search, role, isVerified, status, policy, permission, sortBy, sortDir,
 }: ListUsersParams) {
     return {
-        limit, offset, search, role, is_verified: isVerified, status, sort_by: sortBy, sort_dir: sortDir,
+        limit, offset, search, role, is_verified: isVerified, status, policy, permission,
+        sort_by: sortBy, sort_dir: sortDir,
     };
 }
 

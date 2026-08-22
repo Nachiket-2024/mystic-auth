@@ -31,6 +31,7 @@ describe('authStore: profile/permissions capture', () => {
       has_password: true,
       created_at: '2026-01-15T00:00:00Z',
       active_sessions: 1,
+      brand_color: null,
     });
 
     const state = useAuthStore.getState();
@@ -50,7 +51,7 @@ describe('authStore: profile/permissions capture', () => {
   it('setAuthenticated(false) clears a stale profile (e.g. from the 401 interceptor)', () => {
     useAuthStore.getState().setProfile({
       name: 'Test User', email: 'test@example.com', role: 'user', permissions: ['x:y'], has_password: true,
-      created_at: '2026-01-15T00:00:00Z', active_sessions: 1,
+      created_at: '2026-01-15T00:00:00Z', active_sessions: 1, brand_color: null,
     });
     useAuthStore.getState().setAuthenticated(true);
     expect(useAuthStore.getState().permissions).toEqual(['x:y']);
@@ -73,7 +74,7 @@ describe('authStore: profile/permissions capture', () => {
   it('reset() clears the profile along with the auth flags', () => {
     useAuthStore.getState().setProfile({
       name: 'Test User', email: 'test@example.com', role: 'user', permissions: ['x:y'], has_password: true,
-      created_at: '2026-01-15T00:00:00Z', active_sessions: 1,
+      created_at: '2026-01-15T00:00:00Z', active_sessions: 1, brand_color: null,
     });
     useAuthStore.getState().setAuthenticated(true);
 

@@ -51,6 +51,30 @@ export type { SearchItem } from "../mystic_auth/layout/command_palette/searchIte
 // so a logo change (favicon.svg or VITE_APP_LOGO_URL) updates everywhere.
 export { default as Logo } from "../mystic_auth/layout/app_layout/Logo";
 
+// Theme/language/font-size controls: the same pinned top-right toggles
+// AuthLayout gives login/signup, for pages outside the auth shell (e.g. a
+// landing page) that want the same "adjust before you sign in" affordance.
+export { default as ThemeToggle } from "../mystic_auth/layout/controls/ThemeToggle";
+export { default as LanguageToggle } from "../mystic_auth/layout/controls/LanguageToggle";
+export { default as FontSizeControl } from "../mystic_auth/layout/controls/FontSizeControl";
+// All three above, pre-grouped into one bordered/rounded segmented control -
+// the same trio AuthLayout/Navbar render together, in the same order.
+export { default as ControlCluster } from "../mystic_auth/layout/controls/ControlCluster";
+
+// Underline/darken hover link, the same treatment LoginPage/SignupForm give
+// their own Privacy Policy/Terms of Service footnote links.
+export { default as AuthInlineLink } from "../mystic_auth/ui/AuthInlineLink";
+
+// The shared i18next instance itself (not just useTranslation, which you can
+// already import straight from "react-i18next" - see LoginPage.tsx). Your
+// own feature folder's copy doesn't belong in mystic_auth/translations/'s
+// NAMESPACES list (that's upstream's own namespace-per-template-feature
+// contract), so register your own namespace at runtime instead:
+// translations.addResourceBundle("en", "yourNamespace", enJson), once per
+// language, then useTranslation("yourNamespace") as normal. See
+// landing_page/translations/ for a worked example.
+export { default as translations } from "../mystic_auth/translations/translations";
+
 // Route-splitting: use in place of React.lazy for your own routed pages so
 // they drive the same shared RouteProgressBar this template's own routes
 // do (see App.tsx). Plain React.lazy still works, it just won't show

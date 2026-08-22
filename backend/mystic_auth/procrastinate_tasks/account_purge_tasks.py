@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+from ..auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ..core.settings import settings
 from ..database.connection import database
 from ..logging.logging_config import get_worker_logger
@@ -33,14 +34,30 @@ async def purge_expired_soft_deleted_accounts(timestamp: int) -> int:
     cutoff = datetime.now(UTC) - timedelta(days=settings.ACCOUNT_PURGE_GRACE_DAYS)
 
     purged_count = 0
+    skipped_count = 0
     async with database.async_session() as session:
         expired_users = await user_crud.get_deleted_before(cutoff, session)
         for user in expired_users:
-            await purge_user_account(user, session, purged_by="system:grace_period_purge")
-            purged_count += 1
+            # purge_user_account fails closed on an unconfirmed session
+            # revoke (see its own docstring): caught here per-user, not left
+            # to propagate, so one account hitting a transient Redis outage
+            # doesn't abort this whole batch mid-loop and silently skip
+            # every remaining (unrelated) user for the day. The skipped
+            # account stays soft-deleted and gets picked up again by
+            # tomorrow's run, same as if this job hadn't reached it yet.
+            try:
+                await purge_user_account(user, session, purged_by="system:grace_period_purge")
+                purged_count += 1
+            except TokenVersionUnavailableError:
+                skipped_count += 1
+                logger.error(
+                    "Grace-period purge: skipped %s, session revocation could not be confirmed "
+                    "(Redis unavailable); will retry on a future run",
+                    user.email,
+                )
 
     logger.info(
-        "Grace-period purge: removed %s account(s) soft-deleted more than %s day(s) ago",
-        purged_count, settings.ACCOUNT_PURGE_GRACE_DAYS,
+        "Grace-period purge: removed %s account(s) soft-deleted more than %s day(s) ago, %s skipped",
+        purged_count, settings.ACCOUNT_PURGE_GRACE_DAYS, skipped_count,
     )
     return purged_count

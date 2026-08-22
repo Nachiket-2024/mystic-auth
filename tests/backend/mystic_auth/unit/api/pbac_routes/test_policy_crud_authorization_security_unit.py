@@ -1,21 +1,23 @@
-# tests/backend/mystic_auth/unit/api/pbac_routes/test_policy_authorization_security_unit.py
+# tests/backend/mystic_auth/unit/api/pbac_routes/test_policy_crud_authorization_security_unit.py
 #
 # Security-review coverage (authorization security review):
-# policy create/update/assign must never let a caller grant one of this
-# app's own sensitive actions (Permission's fixed vocabulary) that they do
-# not already hold themselves, baseline policies must be undeletable and
-# unrenameable, and the last system_superuser assignment must be
-# irrevocable, all traced to concrete privilege-escalation / lockout
-# scenarios below.
+# policy create/update/delete must never let a caller grant or keep in
+# force one of this app's own sensitive actions (Permission's fixed
+# vocabulary) that they do not already hold themselves, and baseline
+# policies must be undeletable and unrenameable, all traced to concrete
+# privilege-escalation / lockout scenarios below.
+#
+# Split from the former test_policy_authorization_security_unit.py: this
+# half covers policy_crud_routes.py (create/update/delete) plus the shared
+# AuthorizationService.assert_authorized_to_grant check they all rely on.
+# See test_policy_assignment_authorization_security_unit.py for the
+# assign/remove half, matching the same crud vs. assignment route split as
+# backend/mystic_auth/api/pbac_routes/.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
 
-from backend.mystic_auth.api.pbac_routes.policy_assignment_routes import (
-    assign_policy_to_user,
-    remove_policy_from_user,
-)
 from backend.mystic_auth.api.pbac_routes.policy_crud_routes import (
     create_policy,
     delete_policy,
@@ -25,7 +27,6 @@ from backend.mystic_auth.authorization.policies.default_policies import (
     SYSTEM_SUPERUSER_POLICY_NAME,
 )
 from backend.mystic_auth.authorization.schemas.policy_schema import (
-    PolicyAssignmentRequest,
     PolicyCreate,
     PolicyUpdate,
 )
@@ -34,12 +35,7 @@ from backend.mystic_auth.authorization.services.authorization_service import (
 )
 
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
-# create/update/delete_policy live in policy_crud_routes; assign/remove live
-# in policy_assignment_routes: each mocker.patch target below must match
-# whichever module actually imported the name being patched (see the PBAC
-# route split in backend/mystic_auth/api/pbac_routes/).
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_crud_routes"
-ASSIGNMENT_ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_assignment_routes"
 
 CALLER = {"email": "caller@example.com", "name": "Caller"}
 
@@ -170,11 +166,14 @@ async def test_update_policy_blocks_adding_action_caller_does_not_hold(mocker):
 
 
 @pytest.mark.asyncio
-async def test_update_policy_allows_non_action_changes_without_grant_check(mocker):
-    """Toggling is_active or editing description must not require the
-    escalation check at all: only an `actions` change does."""
+async def test_update_policy_allows_non_grant_changes_without_grant_check(mocker):
+    """Editing description/conditions, or reactivating (is_active=True),
+    must not require the escalation check at all: neither changes what the
+    policy grants or who it grants it to. Only actions/resource_type
+    changing, or deactivating (is_active=False), does - see the two tests
+    below."""
     policy = _make_policy(name="some_policy")
-    update_data = PolicyUpdate(is_active=False)
+    update_data = PolicyUpdate(description="a clearer description")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
     authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
@@ -183,6 +182,44 @@ async def test_update_policy_allows_non_action_changes_without_grant_check(mocke
 
     authorize_mock.assert_not_awaited()
     update_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_update_policy_blocks_deactivating_when_caller_lacks_current_actions(mocker):
+    """Symmetric guard: deactivating (is_active=False) strips this policy
+    from every holder at once, same effective impact as deleting it, so it
+    requires holding every action the policy *currently* grants - even
+    though no actions/resource_type field is even part of this update."""
+    policy = _make_policy(name="some_policy", actions=["users:purge"], resource_type="users")
+    update_data = PolicyUpdate(is_active=False)
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
+    update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+
+    assert exc_info.value.status_code == 403
+    update_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_policy_allows_deactivating_when_caller_holds_current_actions(mocker):
+    policy = _make_policy(name="some_policy", actions=["users:read_own"], resource_type="users")
+    update_data = PolicyUpdate(is_active=False)
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
+    update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    # is_active=False affects_grants, so update_policy fans out
+    # publish_permissions_changed to every current holder - see
+    # policy_repository.get_holder_emails's own docstring.
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=["holder@example.com"])
+    publish_mock = mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
+
+    await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+
+    update_mock.assert_awaited_once()
+    publish_mock.assert_awaited_once_with("holder@example.com")
 
 
 @pytest.mark.asyncio
@@ -217,118 +254,35 @@ async def test_delete_policy_blocks_deleting_baseline_policy(mocker):
 
 
 @pytest.mark.asyncio
-async def test_delete_policy_allows_deleting_non_baseline_policy(mocker):
-    policy = _make_policy(name="custom_policy")
+async def test_delete_policy_blocks_deleting_when_caller_lacks_current_actions(mocker):
+    """Symmetric guard: deleting cascades the policy off every holder at
+    once, so it requires holding every action the policy currently grants -
+    otherwise bare policies:delete could strip an equally- or
+    more-privileged peer's access."""
+    policy = _make_policy(name="custom_policy", actions=["users:purge"], resource_type="users")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     delete_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.delete", new_callable=AsyncMock)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await delete_policy("custom_policy", reason=None, current_user=CALLER, db="fake-db")
+
+    assert exc_info.value.status_code == 403
+    delete_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_delete_policy_allows_deleting_non_baseline_policy(mocker):
+    policy = _make_policy(name="custom_policy", actions=["users:read_own"], resource_type="users")
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
+    delete_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.delete", new_callable=AsyncMock)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    # A delete always fans out publish_permissions_changed to every current
+    # holder - see policy_repository.get_holder_emails's own docstring.
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=["holder@example.com"])
+    publish_mock = mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
     await delete_policy("custom_policy", reason=None, current_user=CALLER, db="fake-db")
 
     delete_mock.assert_awaited_once()
-
-
-# ==================================================================
-# assign_policy_to_user: cannot hand out a more powerful policy than held
-# ==================================================================
-
-@pytest.mark.asyncio
-async def test_assign_policy_blocks_self_escalation_to_superuser(mocker):
-    """The canonical escalation attempt: a caller holding only
-    policies:assign tries to assign themselves system_superuser, which
-    they do not otherwise hold."""
-    target_user = MagicMock(id=2, email="caller@example.com")
-    superuser_policy = _make_policy(
-        name=SYSTEM_SUPERUSER_POLICY_NAME,
-        actions=["users:assign_system_role", "users:purge", "policies:read"],
-        resource_type="*",
-    )
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=superuser_policy)
-    assign_mock = mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.assign_policy_to_user", new_callable=AsyncMock)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
-
-    with pytest.raises(HTTPException) as exc_info:
-        await assign_policy_to_user(
-            "caller@example.com",
-            PolicyAssignmentRequest(policy_name=SYSTEM_SUPERUSER_POLICY_NAME),
-            request=None,
-            current_user=CALLER, db="fake-db",
-        )
-
-    assert exc_info.value.status_code == 403
-    assign_mock.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_assign_policy_allows_when_caller_already_holds_every_action(mocker):
-    target_user = MagicMock(id=2, email="someone@example.com")
-    policy = _make_policy(name="self_service", actions=["users:read_own"])
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
-    assign_mock = mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.assign_policy_to_user", new_callable=AsyncMock)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
-
-    await assign_policy_to_user(
-        "someone@example.com", PolicyAssignmentRequest(policy_name="self_service"),
-        request=None,
-        current_user=CALLER, db="fake-db",
-    )
-
-    assign_mock.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_assign_policy_allows_business_domain_policy_regardless_of_caller_holdings(mocker):
-    target_user = MagicMock(id=2, email="someone@example.com")
-    app_policy = _make_policy(name="app_policy", actions=["projects:read"], resource_type="projects")
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=app_policy)
-    assign_mock = mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.assign_policy_to_user", new_callable=AsyncMock)
-    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
-
-    await assign_policy_to_user(
-        "someone@example.com", PolicyAssignmentRequest(policy_name="app_policy"),
-        request=None,
-        current_user=CALLER, db="fake-db",
-    )
-
-    authorize_mock.assert_not_awaited()
-    assign_mock.assert_awaited_once()
-
-
-# ==================================================================
-# remove_policy_from_user: cannot strand the system with zero superusers
-# ==================================================================
-
-@pytest.mark.asyncio
-async def test_remove_policy_blocks_removing_last_superuser_assignment(mocker):
-    target_user = MagicMock(id=2, email="lastadmin@example.com")
-    policy = _make_policy(name=SYSTEM_SUPERUSER_POLICY_NAME, id=7)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.count_assignments", new_callable=AsyncMock, return_value=1)
-    remove_mock = mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.remove_policy_from_user", new_callable=AsyncMock)
-
-    with pytest.raises(HTTPException) as exc_info:
-        await remove_policy_from_user(
-            "lastadmin@example.com", SYSTEM_SUPERUSER_POLICY_NAME, request=None, current_user=CALLER, db="fake-db"
-        )
-
-    assert exc_info.value.status_code == 409
-    remove_mock.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_remove_policy_allows_when_other_superusers_remain(mocker):
-    target_user = MagicMock(id=2, email="admin2@example.com")
-    policy = _make_policy(name=SYSTEM_SUPERUSER_POLICY_NAME, id=7)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
-    mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.count_assignments", new_callable=AsyncMock, return_value=2)
-    remove_mock = mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.remove_policy_from_user", new_callable=AsyncMock, return_value=True)
-
-    await remove_policy_from_user(
-        "admin2@example.com", SYSTEM_SUPERUSER_POLICY_NAME, request=None, current_user=CALLER, db="fake-db"
-    )
-
-    remove_mock.assert_awaited_once()
+    publish_mock.assert_awaited_once_with("holder@example.com")

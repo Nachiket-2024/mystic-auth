@@ -29,7 +29,7 @@ Deployment Guide.
 **Step 2: Copy the env file and fill in your domain.**
 
 ```bash
-cp .env.prod.example .env
+cp .env.prod.example .env.prod
 ```
 
 `.env.prod.example` is the prod template for `docker-compose.prod.yml`.
@@ -38,16 +38,23 @@ cp .env.prod.example .env
 Caddy to frontend nginx to backend route.
 
 Before starting, replace every `<your-domain>` placeholder in the copied
-`.env` with your real domain:
+`.env.prod` with your real domain:
 
 - `PUBLIC_DOMAIN`
 - `FRONTEND_BASE_URL`
 - `BACKEND_BASE_URL`
+- `JWT_ISSUER` and `JWT_AUDIENCE`, minted into every access/refresh/verify
+  JWT and checked back on `verify_token()`; leaving these at the
+  `<your-domain>` placeholder breaks every login
 - `GOOGLE_REDIRECT_URI`, if Google login is enabled
 - `BUGSINK_BASE_URL`, if Bugsink is publicly routed
 
 Also rotate `SECRET_KEY`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`,
-`BUGSINK_SECRET_KEY`, and `BUGSINK_SUPERUSER_PASSWORD`. Configure SMTP before
+`BUGSINK_SECRET_KEY`, and `BUGSINK_SUPERUSER_PASSWORD`. Rotate
+`APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s if you keep the
+least-privilege app role enabled (the default; see
+[Deployment Guide: Database migrations](guide.md#database-migrations)).
+Configure SMTP before
 opening password signup to users, because unverified password accounts cannot
 log in. Configure Google OAuth2 before showing Google login. The CLI-created
 system superuser can sign in without Google or SMTP because the script marks it
@@ -64,7 +71,7 @@ for the mode comparison.
 **Step 3: Start the stack.**
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 ```
 
 Only Caddy (ports 80/443) is published to the host. `postgres`, `redis`,
@@ -76,12 +83,12 @@ name. Nothing outside the Docker network can reach them directly.
 **Step 3b (Optional): Enable session geolocation.**
 
 Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
-`.env` alone does nothing: the `geoipupdate` service that downloads the
+`.env.prod` alone does nothing: the `geoipupdate` service that downloads the
 `.mmdb` file is gated behind the `geoip` Compose profile, skipped by Step 3's
 command as written. Re-run Step 3 with the profile added instead:
 
 ```bash
-docker compose -f docker-compose.prod.yml --profile geoip up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.prod --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with
@@ -101,9 +108,9 @@ request, so the very first load may take a few extra seconds.
 ## How routing works
 
 The frontend container's nginx (`docker/nginx.frontend.conf`) proxies API
-route prefixes (`/auth`, `/audit`, `/users`, `/authorization`, `/health`)
-to `backend`. It's pinned to `172.28.0.10` so the backend can trust its
-`X-Forwarded-For` header via `TRUSTED_PROXY_IPS=172.28.0.10`.
+route prefixes (`/auth`, `/audit`, `/users`, `/authorization`, `/health`,
+`/rate-limits`) to `backend`. It's pinned to `172.28.0.10` so the backend can
+trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS=172.28.0.10`.
 
 ---
 
@@ -113,7 +120,7 @@ to `backend`. It's pinned to `172.28.0.10` so the backend can trust its
 Caddy-managed TLS, same-origin API routing, production mode, and the fixed
 frontend nginx proxy IP.
 
-Rotate the secrets in the copied `.env` before real use. Review
+Rotate the secrets in the copied `.env.prod` before real use. Review
 `PUBLIC_DOMAIN`, `ACME_EMAIL`, `BUGSINK_PUBLIC_DOMAIN`, `FRONTEND_BASE_URL`,
 `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP, rate-limit, Redis, and
 error-monitoring values before opening the service.
@@ -135,7 +142,7 @@ Runtime values can be changed with a container restart:
 
 `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SENTRY_DSN`, and
 `VITE_SENTRY_ENVIRONMENT` are baked in at image build time, not read at
-container runtime. Set them in `.env` before `--build`, not after. See
+container runtime. Set them in `.env.prod` before `--build`, not after. See
 [Deployment Guide: required production environment variables](guide.md#required-production-environment-variables)
 for the full explanation of each.
 

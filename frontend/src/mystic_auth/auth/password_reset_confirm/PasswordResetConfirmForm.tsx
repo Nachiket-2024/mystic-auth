@@ -66,7 +66,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
         <Stack as="form" onSubmit={handleSubmit} w="full" gap={3}>
             {!hasTokenFromUrl && (
                 <ChakraField.Root required>
-                    <ChakraField.Label>{t("passwordResetConfirm.resetTokenLabel")}</ChakraField.Label>
+                    <ChakraField.Label fontSize="md">{t("passwordResetConfirm.resetTokenLabel")}</ChakraField.Label>
                     <Input
                         type="text"
                         value={token}
@@ -79,7 +79,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
             )}
 
             <ChakraField.Root required>
-                <ChakraField.Label>{t("passwordResetConfirm.newPasswordLabel")}</ChakraField.Label>
+                <ChakraField.Label fontSize="md">{t("passwordResetConfirm.newPasswordLabel")}</ChakraField.Label>
                 <PasswordInput
                     value={newPassword}
                     onChange={(e) => handlePasswordChange(e.target.value)}
@@ -103,7 +103,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
             />
 
             <ChakraField.Root required>
-                <ChakraField.Label>{t("passwordResetConfirm.confirmNewPasswordLabel")}</ChakraField.Label>
+                <ChakraField.Label fontSize="md">{t("passwordResetConfirm.confirmNewPasswordLabel")}</ChakraField.Label>
                 <PasswordInput
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -133,7 +133,18 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
             )}
 
             {resetConfirmMutation.isSuccess && (
-                <FormAlert status="success">{resetConfirmMutation.data.message}</FormAlert>
+                // sessions_revoked === false: the password itself changed
+                // (this succeeded), but Redis was unreachable so the
+                // account's other sessions were NOT revoked - a distinct
+                // warning rather than the plain success message, so this
+                // doesn't look like a completed "other devices signed out"
+                // the way it normally would (same pattern as
+                // ChangePasswordCard.tsx's own toast).
+                resetConfirmMutation.data.sessions_revoked === false ? (
+                    <FormAlert status="warning">{t("passwordResetConfirm.resetButSessionsNotRevoked")}</FormAlert>
+                ) : (
+                    <FormAlert status="success">{resetConfirmMutation.data.message}</FormAlert>
+                )
             )}
         </Stack>
     );

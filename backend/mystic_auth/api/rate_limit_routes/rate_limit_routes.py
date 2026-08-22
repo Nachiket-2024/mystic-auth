@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 
+from ...auth.security.rate_limit_dashboard_service import rate_limit_dashboard_service
 from ...auth.security.rate_limit_schema import RateLimitPageRead
-from ...auth.security.rate_limiter_service import rate_limiter_service
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
 
@@ -18,7 +18,7 @@ async def list_rate_limits(
         default=None,
         pattern="^(ip|account|email)$",
         # "email" is login_protection_service's login_lock:email:{email}
-        # scope (see rate_limiter_service.list_active_limits and
+        # scope (see rate_limit_dashboard_service.list_active_limits and
         # RateLimitEntry.scope on the frontend) - omitting it here meant the
         # dashboard's own "Login lockout" scope filter option 422'd.
         description="Filter to only ip, account, or email limiters.",
@@ -28,11 +28,11 @@ async def list_rate_limits(
     page_size: int = Query(default=25, ge=1, le=100),
     current_user: dict = _READ_DEPENDENCY,
 ):
-    # Bounded keyspace walk, capped at RateLimiterService.MAX_SCANNED_KEYS
+    # Bounded keyspace walk, capped at RateLimitDashboardService.MAX_SCANNED_KEYS
     # (see list_active_limits' own docstring) - an admin-only, low-QPS page,
     # so this trades a capped read-time walk for real numbered pages instead
     # of a cursor the UI can only step through one page at a time.
-    entries, total, truncated = await rate_limiter_service.list_active_limits(
+    entries, total, truncated = await rate_limit_dashboard_service.list_active_limits(
         page=page, page_size=page_size, scope=scope, endpoint=endpoint, identifier=identifier
     )
     return RateLimitPageRead(entries=entries, total=total, truncated=truncated)
@@ -46,5 +46,5 @@ async def reset_rate_limit(
     """Manually clears one counter, e.g. to unblock a legitimate caller
     who tripped a limit. Idempotent (DELETE on an already-absent/expired
     key is a no-op), so this always returns 204 rather than 404."""
-    await rate_limiter_service.reset_counter(key)
+    await rate_limit_dashboard_service.reset_counter(key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

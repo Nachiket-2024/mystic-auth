@@ -23,7 +23,23 @@ export const BRAND_SOLID_HOVER_PROPS = {
 // too-faint hovers, just with the brand palette instead of gray since this
 // keeps the button's own brand-colored border/text identity.
 export const BRAND_OUTLINE_HOVER_PROPS = {
-    _hover: { bg: "brand.500", color: "white" },
+    // Resting color/borderColor set explicitly, not left to the outline
+    // recipe's own default: Chakra's outline variant resolves a custom
+    // colorPalette's text/border straight off the raw brand.500 scale step,
+    // not through this app's brand.fg/brand.border semantic tokens (see
+    // themeSemanticTokens.ts) - so without this override, "Send New
+    // Verification Link"/LandingPage's "Log in" rendered a noticeably
+    // paler, lower-contrast orange (brand.500, #f59e0b, 2.15:1 on white)
+    // than every other brand-colored button/heading on the page (brand.600,
+    // #d97706, 3.19:1 - the same value themeTokens.ts's own docstring
+    // already calibrates this app's AA-adjacent brand pairings against).
+    color: "brand.fg",
+    borderColor: "brand.border",
+    // borderColor here too, not just bg/color: the outline variant's own
+    // border is a pale brand.200, and without overriding it on hover it
+    // stays that pale shade around the now-solid brand.500 fill - a light
+    // ring around a saturated button instead of one clean color.
+    _hover: { bg: "brand.500", borderColor: "brand.500", color: "white" },
     transition: FAST_HOVER_TRANSITION,
 };
 
@@ -83,6 +99,44 @@ export const ICON_BUTTON_PROPS = {
         bg: "gray.700",
         _hover: { bg: "gray.300", borderColor: "gray.300", color: "gray.900" },
     },
+    transition: FAST_HOVER_TRANSITION,
+};
+
+// Font size / language / theme toggles in ControlCluster.tsx - each its own
+// separately-boxed, brand-tinted button (not grouped into one shared-border
+// segmented control; that was tried and reverted back to standalone
+// buttons). Brand-tinted (light orange fill/border rather than neutral gray)
+// so the cluster picks up the same accent color already used decoratively
+// elsewhere on these pages (logo mark, feature-card icons, footer links) -
+// not just on the primary CTA buttons, so it doesn't read as competing with
+// them. borderWidth is explicit even though it matches Select.Trigger's own
+// recipe default (variant="outline"'s 1px all sides) - unlike a grouped
+// divider, a standalone button wants a full border, so there's no fight with
+// the recipe to resolve here, just color/bg overrides on top of it. color
+// has its own _dark override (not just _hover's) - brand.700 as the resting
+// color in dark mode was dark-orange text on the brand.900 dark fill, too
+// low contrast to read at rest.
+export const BRAND_ICON_BUTTON_PROPS = {
+    variant: "plain" as const,
+    borderWidth: "1px",
+    // One step darker than brand.400: against the brand.200 fill below (also
+    // darkened a step from the original brand.100, see that comment), 400
+    // read as barely more than a soft edge - 500 gives the chip an actual
+    // outline instead of just a color shift at its own boundary.
+    borderColor: "brand.500",
+    borderRadius: "density.control",
+    // One step darker than the originally-shipped brand.100: on AuthLayout/
+    // LandingPage (this cluster's other host, alongside Navbar), the page's
+    // own top-of-viewport gradient (bgGradient in AuthLayout.tsx, sourced
+    // from bg.canvasFrom) starts at that exact same brand.100 in light mode
+    // - so a brand.100 button rendered with almost no bg contrast against
+    // the page behind it, just a pale border floating in a same-colored
+    // patch. brand.200 clears that collision while staying the same
+    // "brand-tinted, not neutral gray" treatment.
+    bg: "brand.200",
+    color: "brand.700",
+    _hover: { bg: "brand.300", borderColor: "brand.600", color: "brand.800" },
+    _dark: { borderColor: "brand.700", bg: "brand.900", color: "brand.200", _hover: { bg: "brand.800", borderColor: "brand.600", color: "brand.100" } },
     transition: FAST_HOVER_TRANSITION,
 };
 

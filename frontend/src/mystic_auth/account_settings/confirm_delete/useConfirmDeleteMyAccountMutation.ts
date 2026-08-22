@@ -6,13 +6,7 @@ import {
     type ConfirmDeleteMyAccountResponse,
 } from "../../api/account_settings_api";
 import { extractApiErrorMessage } from "../../api/apiError";
-import { useAuthStore } from "../../store/authStore";
-import { queryClient } from "../../core/queryClient";
-import { CURRENT_USER_QUERY_KEY } from "../../auth/current_user/useCurrentUserQuery";
-import { SESSIONS_QUERY_KEY } from "../../dashboard/manage_sessions/useSessionsQuery";
-import { MY_POLICIES_QUERY_KEY } from "../../policies/policyQueries";
-import { MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY } from "../../audit_log/authorization_log/authorizationLogQueries";
-import { MY_SECURITY_AUDIT_LOG_QUERY_KEY } from "../../audit_log/security_log/securityLogQueries";
+import { clearMyAccountSessionCaches } from "../../auth/session_lifecycle/clearMyAccountSessionCaches";
 
 /**
  * useConfirmDeleteMyAccountMutation
@@ -37,13 +31,6 @@ export function useConfirmDeleteMyAccountMutation() {
                 throw new Error(extractApiErrorMessage(error, "Account deletion confirmation failed"), { cause: error });
             }
         },
-        onSuccess: () => {
-            useAuthStore.getState().setAuthenticated(false);
-            queryClient.setQueryData(CURRENT_USER_QUERY_KEY, null);
-            queryClient.removeQueries({ queryKey: SESSIONS_QUERY_KEY });
-            queryClient.removeQueries({ queryKey: MY_POLICIES_QUERY_KEY });
-            queryClient.removeQueries({ queryKey: MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY });
-            queryClient.removeQueries({ queryKey: MY_SECURITY_AUDIT_LOG_QUERY_KEY });
-        },
+        onSuccess: clearMyAccountSessionCaches,
     });
 }

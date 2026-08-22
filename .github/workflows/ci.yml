@@ -57,6 +57,13 @@ jobs:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: mystic_auth_ci
 
+      # Least-privilege role created by alembic migration
+      # b1e6a9f3c7d2_add_least_privilege_app_role.py. Runs the app/tests
+      # under that role instead of the postgres superuser above, so CI
+      # actually exercises it.
+      APP_DB_PASSWORD: ci-test-app-db-password
+      APP_DATABASE_URL: postgresql+asyncpg://mystic_auth_app:ci-test-app-db-password@localhost:5432/mystic_auth_ci
+
       SECRET_KEY: ci-test-secret-key-not-for-production-use-only
 
       ACCESS_TOKEN_EXPIRE_MINUTES: "15"
@@ -234,14 +241,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Uses .env.example only to satisfy env_file references.
+      # Uses the *.example files only to satisfy each compose file's own
+      # env_file reference (.env, .env.local-prod, .env.prod respectively)
+      # and --env-file for build-arg interpolation.
       - name: Validate docker-compose configs
         run: |
           cp .env.example .env
+          cp .env.local-prod.example .env.local-prod
+          cp .env.prod.example .env.prod
           docker compose -f docker-compose.yml config > /dev/null
-          docker compose -f docker-compose.local-prod.yml config > /dev/null
-          docker compose -f docker-compose.prod.yml config > /dev/null
-          rm .env
+          docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod config > /dev/null
+          docker compose -f docker-compose.prod.yml --env-file .env.prod config > /dev/null
+          rm .env .env.local-prod .env.prod
 
       - name: Build backend image
         run: docker build --target runtime -f docker/backend.Dockerfile -t backend:ci .
@@ -312,10 +323,17 @@ jobs:
         run: |
           cp .env.example .env
           sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' .env
-          docker compose up -d --build postgres redis alembic backend
+          docker compose up -d --build postgres redis alembic backend procrastinate_worker
 
       - name: Wait for backend to report healthy
         run: timeout 180 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'
+
+      # Audit log rows (and every other Procrastinate task) are written by
+      # this worker asynchronously, not inline on the request: the audit-log
+      # integration suite polls for them (see its own _poll_for_entries), but
+      # only succeeds if a worker is actually running to process the queue.
+      - name: Wait for procrastinate_worker to report healthy
+        run: timeout 60 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" $(docker compose ps -q procrastinate_worker))" = "healthy" ]; do sleep 3; done'
 
       # Same tiers and flags as the native backend job, but inside the backend
       # container. --user root lets pytest-cov write coverage output to /repo,

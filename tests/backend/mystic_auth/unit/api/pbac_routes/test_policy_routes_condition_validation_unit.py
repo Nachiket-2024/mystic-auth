@@ -111,6 +111,16 @@ async def test_update_policy_does_not_validate_when_conditions_untouched(mocker)
     update_data = PolicyUpdate(is_active=False)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
+    # Deactivating requires the symmetric grant-guard (see
+    # policy_crud_routes.py::update_policy): unrelated to what this test
+    # actually verifies (conditions validation being skipped), but still on
+    # the code path since is_active=False is part of this update.
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    # is_active=False affects_grants too, so this fans out
+    # publish_permissions_changed - also unrelated to what this test
+    # verifies, but still on the code path.
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
+    mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
     await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
 
@@ -147,6 +157,11 @@ async def test_update_policy_allows_reactivating_a_baseline_policy(mocker):
     update_data = PolicyUpdate(is_active=True)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
+    # is_active in the patch affects_grants regardless of direction, so this
+    # fans out publish_permissions_changed too - unrelated to what this
+    # test verifies, but still on the code path.
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
+    mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
     await update_policy(SYSTEM_SUPERUSER_POLICY_NAME, update_data, current_user=CALLER, db="fake-db")
 

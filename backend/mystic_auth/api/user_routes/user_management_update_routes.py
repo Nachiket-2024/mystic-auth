@@ -10,6 +10,7 @@ from ...auth.password_logic.password_service import password_service
 # refresh_token_service.refresh_tokens() itself doesn't check the database
 # (it's Redis/JWT-only by design, see its own docstring).
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
+from ...auth.token_logic.token_version_store import TokenVersionUnavailableError
 
 # Every real authorization check must build context from the actual request
 # the same way, see authorization_dependency.py.
@@ -23,6 +24,7 @@ from ...authorization.services.authorization_service import authorization_servic
 from ...core.errors import AppError
 from ...database.connection import database
 from ...emails.email_normalization import normalize_email
+from ...logging.logging_config import get_logger
 from ...user_crud.user_crud_collector import user_crud
 from ...user_crud.user_crud_modules.user_update_payload_preparation import prepare_update_data
 
@@ -30,7 +32,7 @@ from ...user_crud.user_crud_modules.user_update_payload_preparation import prepa
 # reserved system account from generic endpoints. It is resource metadata, not
 # caller authorization; PBAC policies still decide access.
 from ...user_table.user_model import UserRole
-from ...user_table.user_schema import UserRead, UserRoleUpdate, UserUpdate
+from ...user_table.user_schema import UserAdminUpdateResponse, UserRoleUpdate, UserUpdate
 from ..get_or_404.get_or_404 import get_or_404
 
 # Management field updates on another user's account. Split out of the
@@ -41,10 +43,12 @@ from ..get_or_404.get_or_404 import get_or_404
 # cannot shadow /users/me or /users/stats.
 router = APIRouter(prefix="/users", tags=["Users"])
 
+logger = get_logger(__name__)
+
 _RESOURCE_TYPE = "users"
 
 
-@router.put("/{user_email}", response_model=UserRead)
+@router.put("/{user_email}", response_model=UserAdminUpdateResponse)
 async def update_any_user(
     user_email: str,
     update_data: UserUpdate,
@@ -80,10 +84,24 @@ async def update_any_user(
 
     # See update_my_profile's identical comment: an admin-driven password
     # change must revoke the target account's existing sessions too.
+    #
+    # sessions_revoked stays None unless this update actually attempted a
+    # revoke below: the password write itself (a Postgres write, unrelated
+    # to Redis) always succeeds regardless of whether that revoke could be
+    # confirmed - same contract as update_my_profile's own sessions_revoked
+    # field (see UserSelfUpdateResponse).
+    sessions_revoked = None
     if "hashed_password" in prepared_data:
-        await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
+        sessions_revoked = True
+        try:
+            await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
+        except TokenVersionUnavailableError:
+            sessions_revoked = False
+            logger.error("Could not confirm session revocation on admin password change for %s", user_email)
 
-    return updated_user
+    response_payload = UserAdminUpdateResponse.model_validate(updated_user)
+    response_payload.sessions_revoked = sessions_revoked
+    return response_payload
 
 
 @router.patch("/{user_email}/role")

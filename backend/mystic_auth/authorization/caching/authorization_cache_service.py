@@ -172,10 +172,19 @@ class AuthorizationCacheService:
         namespace flush on (infrequent) writes is a deliberate, safe
         trade-off: never serve a stale grant after a policy edit. Uses
         SCAN (not KEYS), so it never blocks Redis even on a large keyspace.
+        Deletes are batched per SCAN batch (one DELETE per batch of keys,
+        not one round trip per key) since a real deployment's keyspace can
+        run into the thousands of cached users.
         """
         try:
+            batch: list[str] = []
             async for key in redis_client.scan_iter(match=_USER_POLICIES_KEY_PATTERN):
-                await redis_client.delete(key)
+                batch.append(key)
+                if len(batch) >= 500:
+                    await redis_client.delete(*batch)
+                    batch = []
+            if batch:
+                await redis_client.delete(*batch)
         except Exception:
             logger.warning(
                 "Authorization cache namespace flush failed (user_policies):\n%s", traceback.format_exc()

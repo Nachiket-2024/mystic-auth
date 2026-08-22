@@ -91,8 +91,13 @@ async def test_invalidate_user_policies_deletes_that_users_key(mocker):
 
 @pytest.mark.asyncio
 async def test_invalidate_all_user_policies_deletes_every_matching_key(mocker):
+    """Deletes are batched into one DELETE call per SCAN batch (not one
+    round trip per key), so this asserts every matched key is covered by
+    the delete call(s), not a delete-per-key count."""
+    keys = ["authz:user_policies:a@example.com", "authz:user_policies:b@example.com"]
+
     async def _fake_scan_iter(match):
-        for key in ["authz:user_policies:a@example.com", "authz:user_policies:b@example.com"]:
+        for key in keys:
             yield key
 
     mocker.patch(f"{MODULE}.redis_client.scan_iter", side_effect=_fake_scan_iter)
@@ -100,7 +105,8 @@ async def test_invalidate_all_user_policies_deletes_every_matching_key(mocker):
 
     await authorization_cache_service.invalidate_all_user_policies()
 
-    assert delete_mock.await_count == 2
+    assert delete_mock.await_count == 1
+    assert set(delete_mock.await_args.args) == set(keys)
 
 
 # ---------------------------- Redis-unavailable fallback ----------------------------

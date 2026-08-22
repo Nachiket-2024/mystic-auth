@@ -21,7 +21,7 @@ MODULE = "backend.mystic_auth.auth.current_user.current_user_handler"
 class _FakeUser:
     def __init__(
         self, name="Test User", email="user@example.com", role="user", is_active=True, hashed_password="hash",
-        created_at=None,
+        created_at=None, brand_color=None,
     ):
         self.name = name
         self.email = email
@@ -29,11 +29,18 @@ class _FakeUser:
         self.is_active = is_active
         self.hashed_password = hashed_password
         self.created_at = created_at or datetime(2026, 1, 1, tzinfo=UTC)
+        self.brand_color = brand_color
 
 
 class _FakePolicy:
-    def __init__(self, actions):
+    def __init__(self, actions, resource_type="users"):
         self.actions = actions
+        # Every action below is "users:...", so "users" is a correct
+        # default resource_type for every existing call site here (see
+        # current_user_handler.py's resource_type filter); a test that
+        # actually wants to pin down cross-resource-type filtering passes
+        # resource_type explicitly.
+        self.resource_type = resource_type
 
 
 @pytest.mark.asyncio

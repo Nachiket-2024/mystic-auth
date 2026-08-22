@@ -7,6 +7,10 @@ from backend.mystic_auth.auth.refresh_token_logic.refresh_token_service import (
     refresh_token_service,
 )
 
+# Redis-unavailable/fail-closed coverage (bump_account_version/
+# bump_chain_version returning False) lives in
+# test_refresh_token_redis_unavailable_unit.py, split out once this file
+# passed the repo's own file-length guideline.
 MODULE = "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.jwt_service"
 
 

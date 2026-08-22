@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum
+from sqlalchemy import DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -50,6 +50,12 @@ class User(Base):
     # None" the same as "omitted", which would make it impossible for any
     # caller (including tests) to persist a roleless account via role=None.
     role: Mapped[UserRole | None] = mapped_column(Enum(UserRole))
+
+    # Per-user re-skin of the app's brand accent/logo/favicon (#rrggbb).
+    # NULL means "use the app default" (app/theme.ts's brand scale), never a
+    # stored literal default : see AppearanceCard.tsx/applyAppearanceOverride.ts
+    # on the frontend for how this is generated into a full color scale.
+    brand_color: Mapped[str | None] = mapped_column(String(7))
 
     is_verified: Mapped[bool] = mapped_column(default=False)
 

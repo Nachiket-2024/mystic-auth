@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -78,9 +79,27 @@ class PolicyAssignmentRepository:
         (no one left able to manage policies at all).
         """
         result = await db.execute(
-            select(UserPolicy).where(UserPolicy.policy_id == policy_id)
+            select(func.count()).select_from(UserPolicy).where(UserPolicy.policy_id == policy_id)
         )
-        return len(result.scalars().all())
+        return result.scalar_one()
+
+    @staticmethod
+    async def get_holder_emails(policy_id: int, db: AsyncSession) -> list[str]:
+        """
+        Every email currently assigned this policy (regardless of the
+        policy's own is_active flag - a holder of a just-deactivated policy
+        still needs to be told its access dropped). Used by
+        policy_crud_routes.py's update_policy/delete_policy to know who to
+        push a permissions_changed event to when a policy's *definition*
+        changes rather than one user's assignment of it (see
+        session_events.publish_permissions_changed): unlike
+        assign/remove_policy_from_user, those two affect every holder at
+        once, not a single already-known user_email.
+        """
+        result = await db.execute(
+            select(User.email).join(UserPolicy, UserPolicy.user_id == User.id).where(UserPolicy.policy_id == policy_id)
+        )
+        return list(result.scalars().all())
 
     @staticmethod
     async def assign_policy_to_user(

@@ -9,6 +9,13 @@
     "accountSettingsButton": "ખાતાની સેટિંગ્સ",
     "logoutAllButton": "બધેથી લોગઆઉટ",
     "noUserData": "કોઈ વપરાશકર્તા ડેટા ઉપલબ્ધ નથી",
+    "identityDetailsDialog": {
+        "title": "પ્રોફાઇલ વિગતો",
+        "viewButton": "પ્રોફાઇલ જુઓ",
+        "name": "નામ",
+        "email": "ઈમેલ",
+        "role": "ભૂમિકા"
+    },
     "logoutAllDialog": {
         "title": "બધા ડિવાઇસમાંથી લોગઆઉટ",
         "description": "આ તમારા ખાતાના દરેક ડિવાઇસ પરના દરેક સક્રિય સેશનને, આ સહિત, સમાપ્ત કરશે. ચાલુ રાખવું છે?",

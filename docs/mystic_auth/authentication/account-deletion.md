@@ -37,8 +37,12 @@ flowchart TD
     Start(["DELETE /users/me"]) --> HasPw{"hashed_password set?"}
     HasPw -- "yes (password account)" --> Verify["Verify current_password"]
     Verify -- "wrong" --> Fail401["401"]
-    Verify -- "correct" --> Finalize["finalize_self_deletion()\nsoft-delete -> revoke\nsessions -> audit"]
-    Finalize --> ClearCookies["Clear access/refresh cookies"]
+    Verify -- "correct" --> Finalize["finalize_self_deletion()\nsoft-delete (always succeeds)"]
+    Finalize --> Revoke["revoke sessions"]
+    Revoke -- "confirmed" --> Audit["audit: sessions_revoked_confirmed true"]
+    Revoke -- "Redis unreachable" --> Audit2["audit: sessions_revoked_confirmed false\n(logged critical)"]
+    Audit --> ClearCookies["Clear access/refresh cookies"]
+    Audit2 --> ClearCookies
     ClearCookies --> Done200["200, account soft-deleted now"]
 
     HasPw -- "no (OAuth-only account)" --> SendEmail["Mint account_delete JWT\nStore in Redis, single-use\nEmail /confirm-delete link"]
@@ -52,10 +56,16 @@ flowchart TD
 `user_self_deletion_service.finalize_self_deletion(user, db, request)`, which:
 
 1. Soft-deletes the row (`user_lifecycle_crud.soft_delete`: `is_active=False`, `deleted_at=now()`).
+   This Postgres write always succeeds, independent of Redis.
 2. Revokes every session on the account (`refresh_token_service.revoke_all_tokens_for_user`, one
-   `account_ver` bump, see [Session Management](session-management.md#source-of-truth)).
-3. Writes a `account_deleted_self` security audit event, distinct from admin-initiated
-   `account_deleted`, so the audit log can tell the two apart at a glance.
+   `account_ver` bump, see [Session Management](session-management.md#source-of-truth)). If the
+   bump can't be confirmed (Redis unreachable), that's logged at `critical` rather than raised: the
+   soft-delete already happened, so there's no recoverable failure to report back to the caller,
+   see [Bump failure handling](session-management.md#bump-failure-handling).
+3. Writes an `account_deleted_self` security audit event, distinct from admin-initiated
+   `account_deleted`, so the audit log can tell the two apart at a glance - its metadata carries
+   `sessions_revoked_confirmed` so an unconfirmed revoke stays visible in the audit trail even
+   though the deletion itself succeeded.
 
 The route then clears the `access_token`/`refresh_token` cookies on its response, the same shape
 `logout_handler.py` uses, before returning. All of this happens within the one request; the
@@ -114,7 +124,7 @@ All under `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py`, mounte
 
 | Route | Permission | Effect |
 |---|---|---|
-| `DELETE /users/{email}` | `users:delete_any` | Soft-delete: same routine as self-service, admin-initiated audit event (`account_deleted`) |
+| `DELETE /users/{email}` | `users:delete_any` | Soft-delete: same routine as self-service, admin-initiated audit event (`account_deleted`). Same bump-failure handling as self-delete: the soft-delete always succeeds, an unconfirmed revoke is logged critical and recorded as `sessions_revoked_confirmed: false` in the audit metadata rather than erroring the request |
 | `PATCH /users/{email}/reactivate` | `users:reactivate` | Clears `is_active`/`deleted_at`; the only way to recover a soft-deleted account, self- or admin-deleted |
 | `DELETE /users/{email}/purge` | `users:purge` | Irreversible hard delete via the shared `purge_user_account()` |
 
@@ -131,7 +141,12 @@ self-service delete has no such guard, since acting on your own account is the e
 `user_lifecycle/user_purge_service.py::purge_user_account(user, db, *, purged_by, request=None)` is
 the one routine both purge paths call, so they can never drift apart:
 
-1. Revoke every session on the account.
+1. Revoke every session on the account. Unlike every other revoke-adjacent path in the app, this
+   one **fails closed**: revocation happens before the irreversible hard delete below, so if the
+   bump can't be confirmed (Redis unreachable), `purge_user_account` raises
+   `TokenVersionUnavailableError` and nothing past this step runs - no audit write, no delete. See
+   [Bump failure handling](session-management.md#bump-failure-handling) for why this one path is
+   the exception to "the primary action still succeeds."
 2. Write the `account_purged` security audit event, **before** the row is deleted, since that event
    is what makes the irreversible action reviewable afterward.
 3. Hard-delete the row. `user_policies` rows cascade-delete (`ON DELETE CASCADE`);
@@ -151,7 +166,9 @@ flowchart TD
     end
     Admin --> Purge["purge_user_account()"]
     Query --> Purge
-    Purge --> Revoke["Revoke sessions"] --> Audit["Audit: account_purged"] --> HardDelete["Hard delete row"]
+    Purge --> Revoke["Revoke sessions"]
+    Revoke -- "confirmed" --> Audit["Audit: account_purged"] --> HardDelete["Hard delete row"]
+    Revoke -- "Redis unreachable" --> Blocked["Raises, nothing deleted.\nManual: 503 SESSION_REVOCATION_UNAVAILABLE.\nScheduled: that account skipped,\nretried on tomorrow's run."]
 ```
 
 The scheduled job (`account_purge_tasks.py::purge_expired_soft_deleted_accounts`) is registered via

@@ -78,21 +78,29 @@ const DeleteAccountCard: React.FC<DeleteAccountCardProps> = ({ hasPassword }) =>
     };
 
     return (
-        <Card p={5} flex="1" flexBasis="80" maxW="lg" borderColor="red.300" _dark={{ borderColor: "red.700" }}>
-            <Heading as="h2" size="md" mb={2} textStyle="sectionHeader" color="fg.error">
+        <Card
+            p={5}
+            flex="1"
+            flexBasis="80"
+            maxW="lg"
+            bg="red.50"
+            borderColor="red.300"
+            _dark={{ bg: "red.950", borderColor: "red.700" }}
+        >
+            <Heading as="h2" size="lg" mb={2} textStyle="sectionHeader" color="fg.error">
                 {t("deleteAccount.title")}
             </Heading>
-            <Text color="fg.muted" fontSize="sm" mb={4}>
+            <Text color="fg.muted" fontSize="md" mb={4}>
                 {hasPassword ? t("deleteAccount.description") : t("deleteAccount.oauthOnlyDescription")}
             </Text>
 
             {confirmationSent ? (
-                <FormAlert status="success">{t("deleteAccount.confirmationEmailSent")}</FormAlert>
+                <FormAlert size="lg" status="success">{t("deleteAccount.confirmationEmailSent")}</FormAlert>
             ) : (
                 <Stack as="form" onSubmit={handleRequestDelete} gap={4}>
                     {hasPassword && (
                         <Field.Root>
-                            <Field.Label>{t("deleteAccount.currentPasswordLabel")}</Field.Label>
+                            <Field.Label fontSize="md">{t("deleteAccount.currentPasswordLabel")}</Field.Label>
                             <PasswordInput
                                 value={currentPassword}
                                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -101,14 +109,15 @@ const DeleteAccountCard: React.FC<DeleteAccountCardProps> = ({ hasPassword }) =>
                                 aria-describedby={
                                     formError ? "delete-account-local-error" : deleteMutation.isError ? "delete-account-mutation-error" : undefined
                                 }
+                                size="lg"
                                 {...SEARCH_INPUT_PROPS}
                             />
                         </Field.Root>
                     )}
 
-                    {formError && <FormAlert status="error" id="delete-account-local-error">{formError}</FormAlert>}
+                    {formError && <FormAlert size="lg" status="error" id="delete-account-local-error">{formError}</FormAlert>}
                     {deleteMutation.isError && (
-                        <FormAlert status="error" id="delete-account-mutation-error">{deleteMutation.error.message}</FormAlert>
+                        <FormAlert size="lg" status="error" id="delete-account-mutation-error">{deleteMutation.error.message}</FormAlert>
                     )}
 
                     <Button

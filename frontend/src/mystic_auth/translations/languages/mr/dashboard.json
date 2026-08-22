@@ -9,6 +9,13 @@
     "accountSettingsButton": "खाते सेटिंग्ज",
     "logoutAllButton": "सर्वांमधून लॉगआउट",
     "noUserData": "वापरकर्ता डेटा उपलब्ध नाही",
+    "identityDetailsDialog": {
+        "title": "प्रोफाइल तपशील",
+        "viewButton": "प्रोफाइल पहा",
+        "name": "नाव",
+        "email": "ईमेल",
+        "role": "भूमिका"
+    },
     "logoutAllDialog": {
         "title": "सर्व उपकरणांवरून लॉगआउट",
         "description": "यामुळे तुमच्या खात्याचे या उपकरणासह प्रत्येक उपकरणावरील सर्व सक्रिय सत्र संपुष्टात येतील. सुरू ठेवायचे?",

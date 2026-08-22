@@ -55,9 +55,9 @@ This step is fully automatic: you don't type or decide anything here. For almost
 1. **Something silently failed to apply** (rare): go to [If it reports a silent partial apply](#if-it-reports-a-silent-partial-apply).
 2. **It hit what's called a "conflict"**: go to **Step 6**.
 3. **It produced two alembic migration heads** (rare, only if this app and upstream both added a migration since your last sync): go to [If it reports multiple alembic heads](#if-it-reports-multiple-alembic-heads).
-4. **None of the above -- everything applied cleanly**: go to **Step 5**.
+4. **None of the above (everything applied cleanly)**: go to **Step 5**.
 
-Most syncs hit none of 1-3 and go straight to Step 5. The two "rare" cases are safety nets, not expected steps -- they exist so a bad sync fails loudly instead of quietly.
+Most syncs hit none of 1-3 and go straight to Step 5. The two "rare" cases are safety nets, not expected steps, they exist so a bad sync fails loudly instead of quietly.
 
 ---
 
@@ -81,7 +81,7 @@ Work around it by re-diffing with the listed path(s) excluded (':!path' per file
 Then handle the excluded file(s) by hand (e.g. copy the file straight from upstream's working tree).
 ```
 
-Nothing is committed when this fires -- run the suggested command to apply everything except the problem file(s), then copy the excluded file(s) over by hand (e.g. `git show upstream/main:screenshots/mystic_auth/dashboard.png > screenshots/mystic_auth/dashboard.png`) before committing. Once resolved, run the sync script again to pick up where you left off.
+Nothing is committed when this fires, run the suggested command to apply everything except the problem file(s), then copy the excluded file(s) over by hand (e.g. `git show upstream/main:screenshots/mystic_auth/dashboard.png > screenshots/mystic_auth/dashboard.png`) before committing. Once resolved, run the sync script again to pick up where you left off.
 
 Note: this template's own screenshots live under `screenshots/mystic_auth/`, following the same `app/`/`mystic_auth/` ownership split used everywhere else in the repo (see [overview.md](overview.md#the-app--mystic_auth-split)). Put your own project's screenshots in `screenshots/app/` instead: since upstream never touches that folder, a sync can never collide with anything you put there, which is what causes this failure mode in the first place.
 
@@ -170,7 +170,7 @@ Behind the scenes, the script keeps a small tracked file, `.mystic-auth-sync-sta
 
 That test suite also asserts every `scripts/**/*.sh` is tracked as mode `755` in this repo's own git index. This repo runs with `core.filemode=false` (common on Windows), so a plain local `chmod +x` never shows up as a diff. If you add a script and forget to make it executable, fix it with `git update-index --chmod=+x path/to/script.sh` instead.
 
-**As a downstream user, you don't need to do anything about this.** A script under `scripts/**/*.sh` can occasionally land non-executable after a sync, for the same `core.filemode=false` reason. `sync-upstream.sh` checks for this and restores it automatically before deciding whether to commit -- you'd only notice from a line in the sync output (`Restoring the executable bit on scripts that lost it during this sync:`), never from a script failing to run.
+**As a downstream user, you don't need to do anything about this.** A script under `scripts/**/*.sh` can occasionally land non-executable after a sync, for the same `core.filemode=false` reason. `sync-upstream.sh` checks for this and restores it automatically before deciding whether to commit; you'd only notice from a line in the sync output (`Restoring the executable bit on scripts that lost it during this sync:`), never from a script failing to run.
 
 ---
 

@@ -227,6 +227,41 @@ async def test_reusing_a_revoked_sessions_refresh_token_stays_scoped_to_that_ses
 
 
 @pytest.mark.asyncio
+async def test_revoking_a_session_returns_503_when_chain_version_bump_is_unconfirmed(client, created_emails, mocker):
+    # Regression guard for the "Redis outage failure modes are inconsistent"
+    # gap: ending one specific session is this endpoint's entire purpose, so
+    # unlike logout it must not report a false "Session revoked" when the
+    # underlying chain-version bump couldn't be confirmed.
+    email = _unique_email()
+    await _signup_and_verify(client, created_emails, email)
+    await client.post("/auth/login", json={"email": email, "password": PASSWORD})
+
+    other_device = await _new_client()
+    try:
+        await other_device.post("/auth/login", json={"email": email, "password": PASSWORD})
+
+        sessions = (await client.get("/auth/sessions")).json()
+        other_session = next(s for s in sessions if not s["is_current"])
+
+        mocker.patch(
+            "backend.mystic_auth.auth.token_logic.jwt_service.jwt_service.bump_chain_version",
+            new_callable=mocker.AsyncMock,
+            return_value=False,
+        )
+
+        revoke_resp = await client.delete(f"/auth/sessions/{other_session['id']}")
+        assert revoke_resp.status_code == 503
+        assert revoke_resp.json()["code"] == "SESSION_REVOCATION_UNAVAILABLE"
+
+        # Left untouched: the row must not be marked revoked while the
+        # token backing it is still live.
+        remaining = (await client.get("/auth/sessions")).json()
+        assert len(remaining) == 2
+    finally:
+        await other_device.aclose()
+
+
+@pytest.mark.asyncio
 async def test_revoking_the_callers_own_current_session_is_rejected(client, created_emails):
     email = _unique_email()
     await _signup_and_verify(client, created_emails, email)

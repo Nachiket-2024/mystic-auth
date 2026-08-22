@@ -20,7 +20,7 @@ this working.
 **Step 1: Copy the env file.**
 
 ```bash
-cp .env.local-prod.example .env
+cp .env.local-prod.example .env.local-prod
 ```
 
 Same file as [Quick Tunnel](quick-tunnel.md): see Step 1 there for what it
@@ -33,7 +33,7 @@ the dev stack.
 
 Zero Trust dashboard → Networks → Tunnels → Create a tunnel → Cloudflared
 → name it. Copy the token shown in the install step into `TUNNEL_TOKEN`
-in `.env`.
+in `.env.local-prod`.
 
 ---
 
@@ -46,7 +46,7 @@ your domain or subdomain → Service: HTTP → `http://frontend:80`.
 
 **Step 4: Point the app at that hostname.**
 
-In `.env`, set `FRONTEND_BASE_URL` and `BACKEND_BASE_URL` to
+In `.env.local-prod`, set `FRONTEND_BASE_URL` and `BACKEND_BASE_URL` to
 `https://your-hostname` once it's live. Leave `VITE_API_BASE_URL` empty:
 frontend and backend share one public origin behind the tunnel, and nginx
 (`docker/nginx.frontend.conf`) proxies API prefixes to `backend`
@@ -60,7 +60,7 @@ In the [Google Cloud Console](https://console.cloud.google.com/), under
 **APIs & Services**, **Credentials**, your OAuth 2.0 Client ID, add
 `https://your-hostname/auth/oauth2/callback/google` under **Authorized
 redirect URIs** and `https://your-hostname` under **Authorized
-JavaScript origins**. Then set `GOOGLE_REDIRECT_URI` in `.env` to that
+JavaScript origins**. Then set `GOOGLE_REDIRECT_URI` in `.env.local-prod` to that
 same redirect URI. It must match byte-for-byte, or login fails with
 `redirect_uri_mismatch`.
 
@@ -80,7 +80,7 @@ command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
 **Step 7: Start (or restart) the stack.**
 
 ```bash
-docker compose -f docker-compose.local-prod.yml up -d --build
+docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build
 ```
 
 Open `https://your-hostname` in a browser: that's your app, live at a
@@ -94,12 +94,12 @@ still fails after this.
 **Step 7b (Optional): Enable session geolocation.**
 
 Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
-`.env` alone does nothing: the `geoipupdate` service that downloads the
+`.env.local-prod` alone does nothing: the `geoipupdate` service that downloads the
 `.mmdb` file is gated behind the `geoip` Compose profile, skipped by Step 7's
 command as written. Re-run Step 7 with the profile added instead:
 
 ```bash
-docker compose -f docker-compose.local-prod.yml --profile geoip up -d --build
+docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with

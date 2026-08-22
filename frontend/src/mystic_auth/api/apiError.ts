@@ -36,22 +36,42 @@ import translations from "../translations/translations";
  * caught the first time someone exercises that code path in development,
  * not discovered later from a bug report.
  */
+
+/**
+ * Shared `code` -> `errors:<code>` translation lookup, factored out of
+ * extractApiErrorMessage so callers with a `code` but no axios error object
+ * to unpack (e.g. a `?error=<code>` query param on a redirect-based flow
+ * like OAuth2, see OAuth2LoginButton.tsx) can reuse the exact same
+ * lookup/interpolation/DEV-warning behavior instead of duplicating it.
+ * Returns null (not a fallback string) when there's nothing to translate,
+ * so callers can chain their own fallback.
+ */
+export function translateErrorCode(code: unknown, params?: Record<string, unknown>): string | null {
+    if (typeof code !== "string") {
+        return null;
+    }
+
+    const translationKey = `errors:${code}`;
+    if (translations.exists(translationKey)) {
+        return translations.t(translationKey, params ?? {}) as string;
+    }
+
+    if (import.meta.env.DEV) {
+        console.error(
+            `[translations] No entry for error code "${code}" in translations/languages/*/errors.json - ` +
+                "add one so this doesn't silently fall back to the raw English message."
+        );
+    }
+    return null;
+}
+
 export function extractApiErrorMessage(error: unknown, fallback: string): string {
     if (axios.isAxiosError(error)) {
         const data = error.response?.data;
 
-        const code = data?.code;
-        if (typeof code === "string") {
-            const translationKey = `errors:${code}`;
-            if (translations.exists(translationKey)) {
-                return translations.t(translationKey, data?.params ?? {}) as string;
-            }
-            if (import.meta.env.DEV) {
-                console.error(
-                    `[translations] No entry for error code "${code}" in translations/languages/*/errors.json - ` +
-                        "add one so this doesn't silently fall back to the raw English message."
-                );
-            }
+        const translated = translateErrorCode(data?.code, data?.params);
+        if (translated) {
+            return translated;
         }
 
         const serverMessage = data?.error ?? data?.detail;

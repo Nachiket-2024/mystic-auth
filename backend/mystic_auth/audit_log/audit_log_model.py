@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
@@ -25,12 +25,30 @@ class AuditLog(Base):
     """
 
     __tablename__ = "security_audit_log"
+    __table_args__ = (
+        # Declared here (rather than left implicit) so alembic's autogenerate
+        # sees the same composite index migration e7a2c4d8f1b3 created via
+        # raw SQL for exact column-direction control, mirroring
+        # AuthorizationAuditLog's identical index and c7f1a3e9d2b6's
+        # evidence for why: AuditLogRepository.get_for_user's `WHERE
+        # user_email = ... ORDER BY created_at DESC, id DESC` needs this
+        # exact composite to avoid a sort step.
+        Index(
+            "ix_security_audit_log_user_email_created_at",
+            "user_email",
+            text("created_at DESC"),
+            text("id DESC"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
     # Nullable for events with no resolvable account, e.g. a login attempt
-    # against a nonexistent email.
-    user_email = Column(String, nullable=True, index=True)
+    # against a nonexistent email. No `index=True` here: covered by the
+    # composite `ix_security_audit_log_user_email_created_at` index instead
+    # (its leftmost prefix already serves plain user_email lookups), same
+    # reasoning as AuthorizationAuditLog's user_email column.
+    user_email = Column(String, nullable=True)
 
     # e.g. "login_success", "login_failure", "logout", "signup",
     # "account_locked", see security_audit_service.py for the full vocabulary.

@@ -99,6 +99,18 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                         boxShadow="density.card"
                         rounded="density.control"
                         fontSize="md"
+                        // Cap by row count, not by a flat rem/vh guess: prod
+                        // dropdowns (GitHub, Linear, MUI) size the popover to
+                        // ~7-8 visible rows and let the rest scroll, so the
+                        // list reads the same "about this many rows" no
+                        // matter how many options a given caller has (e.g.
+                        // the audit log action filter's ~19 permissions).
+                        // Chakra's md Select.Item is py="1.5" (12px) plus the
+                        // md textStyle's 24px line-height = 36px/row, so 7.5
+                        // rows (7 full + a half-row "there's more" hint)
+                        // lands at 7.5 * 36px.
+                        maxH="calc(7.5 * 36px)"
+                        overflowY="auto"
                     >
                         {options.map((option) => (
                             <Select.Item
@@ -121,7 +133,21 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                                 // already exists to fix for the sidebar's
                                 // own active-link background.
                                 _highlighted={{ bg: "brand.solid", color: "white" }}
-                                _selected={{ bg: "brand.selected", color: "brand.fg", fontWeight: "semibold" }}
+                                // See FontSizeControl.tsx's matching comment: bg brand.200 by
+                                // default (light), overridden to brand.selected's brand.800
+                                // in dark. `_light` is NOT a real Chakra condition, so it
+                                // can't be nested inside the bg value the way `_dark` can -
+                                // it has to be the unconditioned base value instead. Nested
+                                // _highlighted below: without it, hovering the selected row
+                                // renders invisible same-color text (brand.fg and
+                                // brand.solid are both brand.600 light).
+                                _selected={{
+                                    bg: "brand.200",
+                                    color: "brand.fg",
+                                    fontWeight: "semibold",
+                                    _dark: { bg: "brand.selected" },
+                                    _highlighted: { bg: "brand.solid", color: "white" },
+                                }}
                             >
                                 <Select.ItemText>{option.label}</Select.ItemText>
                                 <Select.ItemIndicator />

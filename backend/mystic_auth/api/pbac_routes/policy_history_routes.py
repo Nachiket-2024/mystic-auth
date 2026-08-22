@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +20,7 @@ from ...authorization.schemas.policy_schema import PolicyRead
 from ...authorization.services.authorization_service import authorization_service
 from ...core.errors import AppError
 from ...database.connection import database
+from ...user_session.session_events import publish_permissions_changed
 from ..get_or_404.get_or_404 import get_or_404
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
@@ -123,7 +126,12 @@ async def rollback_policy(
     The restored snapshot is applied via PolicyRepository.update, tagged as
     a "rolled_back" change so it's distinguishable from an ordinary edit:
     this creates a new history entry and never overwrites or removes the
-    entry being rolled back to.
+    entry being rolled back to. Like update_policy, this can silently
+    re-grant or strip access for every current holder at once (restoring
+    an old actions/resource_type/is_active), so it fans out the same
+    publish_permissions_changed nudge update_policy does - see
+    policy_crud_routes.py's own comment on that call and
+    docs/mystic_auth/authorization/architecture.md#real-time-push.
 
     Restoring a historical definition is otherwise indistinguishable from an
     ordinary edit in terms of what it can grant, so it goes through the same
@@ -176,10 +184,22 @@ async def rollback_policy(
         db,
     )
 
+    # Fetched before update() mutates the policy: rollback always restores
+    # actions/resource_type/is_active (target_definition is the full
+    # snapshot, see _definition_for_entry), so unlike update_policy's
+    # partial PATCH this is never a no-op-for-grants case - every current
+    # holder needs the nudge.
+    holder_emails = await policy_repository.get_holder_emails(policy.id, db)
+
     reason = rollback_request.reason if rollback_request else None
-    return await policy_repository.update(
+    updated = await policy_repository.update(
         policy, target_definition or {}, db,
         changed_by=current_user["email"],
         change_reason=reason or f"Rolled back to history entry {history_id}",
         change_type="rolled_back",
     )
+
+    if holder_emails:
+        await asyncio.gather(*(publish_permissions_changed(email) for email in holder_emails))
+
+    return updated

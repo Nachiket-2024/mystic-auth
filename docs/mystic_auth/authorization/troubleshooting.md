@@ -57,6 +57,59 @@ The response body lists every problem found, not just the first; see the [Condit
 
 This is the privilege-escalation guard working as intended (see [Architecture](architecture.md#authorization-service)): holding the ability to *manage* policies doesn't let you hand out actions you don't already have. The caller needs to already hold every sensitive action (from `Permission`'s vocabulary) that the policy grants, which typically means they need `system_superuser` too, not just a `policies:*` action.
 
+### The UI shows a capability (button, page, sidebar link) that then 403s when used
+
+`GET /auth/me`'s `permissions` field (`current_user_handler.py`) only
+includes an action if it's actually usable under the policy granting it:
+`policy.resource_type in (action's own resource-type prefix, "*")`, mirroring
+the real check in `policy_evaluator.py`. If you edit a policy and add an
+action from a *different* resource type than that policy's own
+`resource_type` (e.g. adding `"policies:read"` to a policy whose
+`resource_type` is `"users"`), the action is filtered out of `/auth/me`
+entirely, so `IfCan`/`ProtectedRoute` correctly hide the UI for it, and no
+403-after-the-fact confusion happens.
+
+This guard exists precisely because a real incident hit it before the guard
+was added: `policies:read`, `rate_limits:read`, `security_audit:read`,
+`users:purge`, `users:reactivate`, etc. were pasted onto the built-in
+`user_administration` policy (`resource_type: "users"`), instead of onto a
+policy scoped to each action's own resource type. At the time,
+`/auth/me` flattened every policy's `actions` into one set with no
+`resource_type` filtering, so those actions showed up as "granted" and lit
+up the Policies/Rate Limits/Security Audit UI, but every real request
+still 403'd, because `policy_evaluator.py` correctly enforces
+`resource_type` matching. If you see this symptom again after further code
+changes (UI renders a control, but the request behind it 403s), the
+filtering logic in `current_user_handler.py` is the first place to check.
+It may have regressed, or a new call site may be constructing its own
+permission set without going through it.
+
+**The actual fix for the account, not the display bug**: don't add actions
+from other resource types to an existing single-resource-type policy at all
+(the display bug above just made this survivable to test before it was
+fixed). Give the extra actions their own policy scoped to their own
+`resource_type` (e.g. a `resource_type: "policies"` policy for
+`policies:read/create/update/delete/assign/revoke`), and assign that
+alongside the original. `system_superuser`'s `resource_type: "*"` is the one
+built-in exception, deliberately spanning multiple resource types; see
+[Writing and Testing Policies](writing-testing-policies.md) before reaching
+for `"*"` on a new policy instead of scoping it properly.
+
+### A caller with `policies:delete`/`update`/`revoke` gets 403 "Cannot grant action ... you do not hold it yourself"
+
+Same guard as above (`assert_authorized_to_grant`), applied symmetrically:
+`update_policy`, `delete_policy`, and `remove_policy_from_user` (revoke) all
+require the caller to already hold **every action the target policy
+currently grants**, not just for the grant-side operations
+(create/assign). Without this, holding bare `policies:delete`/`update`/
+`revoke` (without holding what the policy actually grants) would let a
+caller strip, narrow, or repurpose an equally- or more-privileged peer's
+access (including revoking `system_superuser` off someone else) with no
+escalation check at all. If you hold `policies:delete` but not, say,
+`rate_limits:read`/`rate_limits:reset`, you cannot delete a policy that
+grants those, even though you can delete other policies scoped to actions
+you do hold.
+
 ### 403 on baseline policy delete/rename, or 409 on revoking the last `system_superuser`
 
 Also intentional (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)): these guard against permanently locking the system out of its own authorization management.
@@ -90,6 +143,8 @@ docker compose exec redis redis-cli KEYS "authz:user_policies:*"
 docker compose exec redis redis-cli DEL "authz:user_policies:someone@example.com"
 docker compose exec redis redis-cli FLUSHDB   # nuclear option: clears everything in this logical DB
 ```
+
+**This is server-side correctness only.** A browser tab that already has a permission-gated page open doesn't re-request anything just because the cache above got invalidated. It needs its own signal to go check. See [Architecture: Real-time push](architecture.md#real-time-push) for the SSE nudge that closes that gap; if a tab still shows stale permissions for more than a few seconds after a grant/revoke/update/delete, check that flow (and the browser's Network tab for a live `GET /auth/session-events` connection) before assuming it's this Redis cache.
 
 **Fail-closed behavior:** every cache method catches all Redis errors and returns a cache-miss sentinel rather than raising. "Fail closed" here means *the cache is never trusted over the database*: any Redis error transparently falls through to the authoritative DB query, not "deny every authorization request when Redis is down." A fully unreachable Redis degrades performance (every check re-fetches from Postgres), never correctness or availability.
 

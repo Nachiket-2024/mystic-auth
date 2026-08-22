@@ -6,6 +6,15 @@ from ...redis.client import redis_client
 
 logger = get_logger(__name__)
 
+
+class TokenVersionUnavailableError(Exception):
+    """Raised by bump_account_version/bump_chain_version's callers when a
+    version bump could not be confirmed (Redis unreachable). A revoke that
+    cannot bump the version has not actually revoked anything - every
+    existing token still matches - so this must never be swallowed into a
+    silent "it worked" the way a stale-version read safely can be."""
+
+
 # Redis key for a user's account-wide token version (see jwt_service.py's
 # create_access_token/create_refresh_token). Bumping it is "logout
 # everywhere" in one atomic INCR, no per-token bookkeeping. Never expires:
@@ -51,31 +60,42 @@ class TokenVersionStore:
             )
             return 0
 
-    async def bump_account_version(self, email: str) -> None:
+    async def bump_account_version(self, email: str) -> bool:
         """The whole-account revoke: logout-all, password change, account
         deactivation/purge, and reuse-detection on a token with no chain
         claim of its own (unknown lineage, so the maximally-safe response).
         Every token on the account, minted before this call, stops
-        matching on its very next use."""
+        matching on its very next use.
+
+        Returns True once the bump is confirmed, False if Redis could not
+        be reached. Callers must treat False as "nothing was revoked", not
+        as success - see TokenVersionUnavailableError."""
         try:
             await redis_client.incr(ACCOUNT_VERSION_KEY.format(email=email))
+            return True
         except Exception:
             logger.warning("Failed to bump account version for %s:\n%s", email, traceback.format_exc())
+            return False
 
-    async def bump_chain_version(self, email: str, chain_id: str) -> None:
+    async def bump_chain_version(self, email: str, chain_id: str) -> bool:
         """The single-session revoke: logout (this device only), a
         targeted Manage Sessions "End session", and reuse-detection scoped
         to the compromised chain specifically. Every token sharing this
         chain_id, minted before this call, stops matching on its next use;
-        every other chain on the account is completely unaffected."""
+        every other chain on the account is completely unaffected.
+
+        Returns True once the bump is confirmed, False if Redis could not
+        be reached - same contract as bump_account_version above."""
         try:
             key = CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id)
             await redis_client.incr(key)
             await redis_client.expire(key, settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60)
+            return True
         except Exception:
             logger.warning(
                 "Failed to bump chain version for %s/%s:\n%s", email, chain_id, traceback.format_exc()
             )
+            return False
 
 
 token_version_store = TokenVersionStore()

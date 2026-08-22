@@ -9,10 +9,12 @@ class Settings(BaseSettings):
     FRONTEND_BASE_URL: str                          # Primary frontend origin, used to build redirect/email links (OAuth callback, verification, password reset), and always CORS-allowed
     FRONTEND_ADDITIONAL_BASE_URLS: str              # Optional, comma-separated extra CORS-allowed origins (e.g. a second domain, staging alongside prod). Empty string = none. Never used for redirect/email links: those always point at FRONTEND_BASE_URL alone, so there's one canonical link target regardless of how many origins are CORS-allowed.
 
-    DATABASE_URL: str                               # Async PostgreSQL connection URL
+    DATABASE_URL: str                               # Async PostgreSQL connection URL. Used as-is by Alembic migrations (needs DDL/role-management rights) and by Procrastinate's own internal queue connector (procrastinate_database_url below). The request-serving app itself prefers APP_DATABASE_URL when set - see that field.
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
+
+    APP_DATABASE_URL: str = ""                      # Optional. Async PostgreSQL connection URL for the request-serving app and background task bodies (database/connection.py), using a least-privilege role (CRUD only, no DDL/role management - see alembic migration b1e6a9f3c7d2) instead of DATABASE_URL's migration-capable role. Empty string (the default) falls back to DATABASE_URL, so existing deployments that don't set this are unaffected.
 
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
@@ -36,6 +38,8 @@ class Settings(BaseSettings):
 
     SMTP_HOST: str                                  # SMTP server host (e.g. smtp.gmail.com)
     SMTP_PORT: int                                  # SMTP server port (587 = STARTTLS, Gmail's default)
+
+    EMAIL_ENABLED: bool = True                      # False routes every email through NullEmailSender (logs subject/recipient, never opens an SMTP connection) instead of emails/email_sender.py's real SMTPEmailSender. Defaults to True so an existing deployment's behavior is unaffected; set False for local dev/test runs against a real provider (e.g. a personal Gmail account with a real daily send quota) where signup/password-reset/account-deletion flows would otherwise burn through it on every run. tests/backend/conftest.py forces this False unconditionally for every test run regardless of .env, the same safety-net reasoning as its DATABASE_URL/APP_DATABASE_URL localhost rewrite.
 
     APP_NAME: str                                    # Product name shown in email branding and API responses
 

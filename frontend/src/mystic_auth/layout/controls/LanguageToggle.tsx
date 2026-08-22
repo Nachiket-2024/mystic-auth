@@ -8,7 +8,7 @@ import {
     type LanguageMode,
 } from "../../store/languageStore";
 import translations from "../../translations/translations";
-import { ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
+import { BRAND_ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 
 /**
  * Language switch, backed by store/languageStore.ts (persists to
@@ -58,11 +58,11 @@ const LanguageToggle: React.FC = () => {
             <Select.Label css={visuallyHiddenStyle}>{t("language")}</Select.Label>
             <Select.Control>
                 {/* Same border/bg/hover treatment as ThemeToggle's IconButton -
-                    shares ICON_BUTTON_PROPS directly so the two can't drift
-                    apart the way the old hand-duplicated values could. */}
+                    shares BRAND_ICON_BUTTON_PROPS directly so the two can't
+                    drift apart the way the old hand-duplicated values could. */}
                 <Select.Trigger
                     fontSize="md"
-                    {...ICON_BUTTON_PROPS}
+                    {...BRAND_ICON_BUTTON_PROPS}
                     display="grid"
                 >
                     {/* Same technique as FontSizeControl.tsx's matching
@@ -124,7 +124,28 @@ const LanguageToggle: React.FC = () => {
                                 key={option.value}
                                 item={option}
                                 _highlighted={{ bg: "brand.solid", color: "white" }}
-                                _selected={{ bg: "brand.selected", color: "brand.fg", fontWeight: "semibold" }}
+                                // bg: brand.200 by default (light), overridden to
+                                // brand.selected's own brand.800 in dark (already fine) -
+                                // see FontSizeControl.tsx's matching comment for why light
+                                // needed its own step darker than brand.selected. `_light`
+                                // is NOT a real Chakra condition (only `_dark` is, mapped to
+                                // the `.dark &` selector) - an earlier version of this used
+                                // `bg: { _light: ..., _dark: ... }` which silently dropped
+                                // the light value entirely, leaving the selected row with no
+                                // visible fill at rest in light mode. Nested _highlighted
+                                // below: because brand.fg and brand.solid are both
+                                // brand.600 in light mode, hovering the already-selected
+                                // item let _selected's text color win over _highlighted's
+                                // white, rendering orange text on the same orange hover
+                                // fill. This more specific selected+highlighted selector
+                                // forces white text back whenever both states are true.
+                                _selected={{
+                                    bg: "brand.200",
+                                    color: "brand.fg",
+                                    fontWeight: "semibold",
+                                    _dark: { bg: "brand.selected" },
+                                    _highlighted: { bg: "brand.solid", color: "white" },
+                                }}
                             >
                                 <Select.ItemText>{option.label}</Select.ItemText>
                                 <Select.ItemIndicator />

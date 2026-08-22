@@ -18,4 +18,7 @@ export interface CurrentUserProfile {
     /** Count of this user's currently-live refresh tokens (i.e. devices/
      *  browsers with an active session), from the Redis-backed registry. */
     active_sessions: number;
+    /** Per-user brand color override (#rrggbb). null = using the app
+     *  default scale (app/theme.ts). See appearanceStore.ts. */
+    brand_color: string | null;
 }

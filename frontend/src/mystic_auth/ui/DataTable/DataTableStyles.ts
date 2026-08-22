@@ -30,6 +30,39 @@ export const SCROLL_SHADOW_CSS = {
     backgroundAttachment: "local, local, scroll, scroll" as const,
 };
 
+// Table.ScrollArea is its own independent overflow:auto box (both axes -
+// horizontally for a table wider than its column, and vertically once
+// maxH="70dvh" caps a long table's height), separate from the page's own
+// html-level scrollbar (see themeStyles.ts's globalCss.html for that one's
+// matching fix/comment). Left unstyled, its scrollbar renders in the
+// browser's bare user-agent color for the current color-scheme - the same
+// "black strip" problem, just on this component's own edge instead of the
+// page's. bg.surface (not bg.canvas) as the track color: this scrollbar
+// sits inside the table's own surface, not the page canvas behind it, so
+// matching bg.canvas here would itself look like a seam.
+// `\.` in the var() names: bg.surface/border.default are flat dotted
+// semantic-token keys, and Panda's generated CSS custom property names
+// keep the literal dot (see themeSemanticTokens.ts) - unlike the plain
+// style props elsewhere in this object (backgroundColor: "bg.surface"),
+// this property is `scrollbarColor`, which the token pipeline doesn't
+// resolve automatically, so it needs the actual generated var name.
+export const SCROLL_AREA_SCROLLBAR_CSS = {
+    scrollbarColor: "var(--chakra-colors-border\\.default) var(--chakra-colors-bg\\.surface)",
+    "&::-webkit-scrollbar": {
+        width: "14px",
+        height: "14px",
+    },
+    "&::-webkit-scrollbar-track": {
+        bg: "bg.surface",
+    },
+    "&::-webkit-scrollbar-thumb": {
+        bg: "border.default",
+        borderRadius: "full",
+        border: "3px solid",
+        borderColor: "bg.surface",
+    },
+};
+
 // Applied to every header cell (not the <tr>: sticky positioning on a table
 // row itself is unreliable across browsers, the cells are what actually need
 // it) so column headers stay put while a long table's body scrolls past

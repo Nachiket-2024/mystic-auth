@@ -3,7 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..audit_log.audit_log_service import ACCOUNT_DELETED_SELF, log_security_event
 from ..auth.refresh_token_logic.refresh_token_service import refresh_token_service
+from ..auth.token_logic.token_version_store import TokenVersionUnavailableError
+from ..logging.logging_config import get_logger
 from ..user_crud.user_crud_collector import user_crud
+
+logger = get_logger(__name__)
 
 
 async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | None = None) -> int:
@@ -16,6 +20,19 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
     /users/me/confirm-delete). Keeping one call site means the two can never
     drift apart, same reasoning as purge_user_account being shared between
     the admin purge route and the scheduled grace-period job.
+
+    The soft-delete itself (a Postgres write) always succeeds regardless of
+    whether the account-version bump below can be confirmed - the account
+    is gone from every route's perspective (is_active gates every login/
+    query path) either way, so there is no recoverable failure to report
+    back to the caller here, unlike password reset/change where the
+    caller's next attempt is still meaningful. If the bump can't be
+    confirmed (Redis unreachable), that's logged at critical (the account's
+    existing sessions may keep minting fresh tokens until they naturally
+    expire, since refresh_tokens() is Redis/JWT-only and never re-checks
+    is_active) and recorded honestly in the audit trail instead of letting
+    TokenVersionUnavailableError propagate and turn an already-successful
+    deletion into a reported error.
     """
     email = user.email
     await user_crud.soft_delete(db_obj=user, db=db)
@@ -24,7 +41,17 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
     # alone doesn't stop an already-issued refresh token from minting fresh
     # access tokens until it expires on its own, since refresh_tokens() is
     # Redis/JWT-only and never re-checks the database.
-    revoked_count = await refresh_token_service.revoke_all_tokens_for_user(email, db)
+    try:
+        revoked_count = await refresh_token_service.revoke_all_tokens_for_user(email, db)
+        sessions_revoked_confirmed = True
+    except TokenVersionUnavailableError:
+        revoked_count = 0
+        sessions_revoked_confirmed = False
+        logger.critical(
+            "Account %s was deleted, but session revocation could not be confirmed "
+            "(Redis unavailable) - existing sessions may remain valid until Redis recovers",
+            email,
+        )
 
     await log_security_event(
         ACCOUNT_DELETED_SELF,
@@ -32,7 +59,12 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
         user_email=email,
         success=True,
         request=request,
-        metadata={"deleted_by": email, "self_initiated": True, "sessions_revoked": revoked_count},
+        metadata={
+            "deleted_by": email,
+            "self_initiated": True,
+            "sessions_revoked": revoked_count,
+            "sessions_revoked_confirmed": sessions_revoked_confirmed,
+        },
     )
 
     return revoked_count

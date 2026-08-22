@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.security.login_protection_service import login_protection_service
+from ..auth.token_logic.token_cookie_handler import token_cookie_handler
 from ..logging.logging_config import get_logger
 from .account_deletion_service import account_deletion_service
 
@@ -70,10 +71,8 @@ class AccountDeletionConfirmHandler:
             # opened in the same session that requested the deletion (it
             # doesn't have to be - the token itself is the proof of intent,
             # same trust model as password-reset-confirm). Harmless no-op
-            # otherwise. Same cookie shape as logout_handler.py: refresh_token
-            # needs path="/auth" to match how token_cookie_handler.py set it.
-            resp.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
-            resp.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none", path="/auth")
+            # otherwise. Same as logout_handler.py's own cookie clearing.
+            token_cookie_handler.clear_tokens_from_cookies(resp)
 
             return resp
 

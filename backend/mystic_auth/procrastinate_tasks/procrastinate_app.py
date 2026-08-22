@@ -52,5 +52,6 @@ app = App(
     import_paths=[
         "mystic_auth.procrastinate_tasks.email_tasks",
         "mystic_auth.procrastinate_tasks.account_purge_tasks",
+        "mystic_auth.procrastinate_tasks.audit_log_tasks",
     ],
 )

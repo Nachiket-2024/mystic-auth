@@ -45,8 +45,8 @@ function toBoolFilter(value: string): boolean | undefined {
  * revoking individual policy grants. Route is gated by
  * ProtectedRoute permission="users:list_all"; each destructive/privileged
  * action is additionally gated per-action via IfCan. Name/Email/Role sort
- * server-side (click the header), and Role/Verified/Status filter
- * server-side too - both narrow the whole result set, not just the
+ * server-side (click the header), and Role/Verified/Status/Policy/Permission
+ * filter server-side too - both narrow the whole result set, not just the
  * currently-loaded page, same as the audit_log/ section components (both
  * share ui/hooks/usePageResetOn.ts for the page-reset-on-filter-change logic).
  * The filter controls live in UsersFilterBar.tsx and every dialog this page
@@ -74,19 +74,25 @@ const UsersPage: React.FC = () => {
     const [role, setRole] = useState(ALL_VALUE);
     const [verified, setVerified] = useState(ALL_VALUE);
     const [status, setStatus] = useState(ALL_VALUE);
+    const [policy, setPolicy] = useState(ALL_VALUE);
+    const [permission, setPermission] = useState(ALL_VALUE);
 
     // A search/filter/sort change that changes the result set makes whatever
     // page you were on potentially meaningless (e.g. page 3 of an unfiltered
     // list may not exist at all once filtered) - always back to page 1 for a
     // fresh query. See usePageResetOn's own docstring for why this is state
     // derived during render, not an effect.
-    const [page, setPage] = usePageResetOn(`${debouncedSearch}|${sort.key}|${sort.direction}|${role}|${verified}|${status}`);
+    const [page, setPage] = usePageResetOn(
+        `${debouncedSearch}|${sort.key}|${sort.direction}|${role}|${verified}|${status}|${policy}|${permission}`
+    );
 
     const { data, isLoading, isError } = useUsersQuery(page, PAGE_SIZE, {
         search: debouncedSearch,
         role: role || undefined,
         isVerified: toBoolFilter(verified),
         status: status || undefined,
+        policy: policy || undefined,
+        permission: permission || undefined,
         sortBy: sort.key || undefined,
         sortDir: sort.direction,
     });
@@ -113,6 +119,8 @@ const UsersPage: React.FC = () => {
                 role: role || undefined,
                 isVerified: toBoolFilter(verified),
                 status: status || undefined,
+                policy: policy || undefined,
+                permission: permission || undefined,
             },
             { onError: (error) => toaster.create({ title: error.message, type: "error" }) }
         );
@@ -195,24 +203,32 @@ const UsersPage: React.FC = () => {
                         setRole(ALL_VALUE);
                         setVerified(ALL_VALUE);
                         setStatus(ALL_VALUE);
+                        setPolicy(ALL_VALUE);
+                        setPermission(ALL_VALUE);
                     }}
                     onFilterVerified={() => {
                         setSearch("");
                         setVerified("true");
                         setRole(ALL_VALUE);
                         setStatus(ALL_VALUE);
+                        setPolicy(ALL_VALUE);
+                        setPermission(ALL_VALUE);
                     }}
                     onFilterUnverified={() => {
                         setSearch("");
                         setVerified("false");
                         setRole(ALL_VALUE);
                         setStatus(ALL_VALUE);
+                        setPolicy(ALL_VALUE);
+                        setPermission(ALL_VALUE);
                     }}
                     onFilterInactive={() => {
                         setSearch("");
                         setStatus("inactive");
                         setRole(ALL_VALUE);
                         setVerified(ALL_VALUE);
+                        setPolicy(ALL_VALUE);
+                        setPermission(ALL_VALUE);
                     }}
                 />
             }
@@ -226,6 +242,10 @@ const UsersPage: React.FC = () => {
                     setVerified={setVerified}
                     status={status}
                     setStatus={setStatus}
+                    policy={policy}
+                    setPolicy={setPolicy}
+                    permission={permission}
+                    setPermission={setPermission}
                     searchRowExtra={
                         <IfCan action={PERMISSIONS.USERS_LIST_ALL}>
                             <Button

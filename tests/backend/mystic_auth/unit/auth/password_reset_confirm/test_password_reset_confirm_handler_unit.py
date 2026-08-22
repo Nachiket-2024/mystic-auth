@@ -5,6 +5,8 @@
 # "login_lock:email:" key, or failures unrelated to a real login attempt
 # (weak new password, reused old password, stale token) would count towards
 # and could trip the unrelated login lockout for the same email.
+import json
+
 import pytest
 
 from backend.mystic_auth.auth.password_reset_confirm.password_reset_confirm_handler import (
@@ -49,7 +51,7 @@ async def test_non_reset_token_is_rejected_without_touching_lockout(mocker):
 @pytest.mark.asyncio
 async def test_successful_reset_is_recorded_under_its_own_lock_namespace(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
-    mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=True)
+    mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(True, True))
     record_mock = mocker.patch(
         f"{MODULE}.login_protection_service.check_and_record_action", return_value=True
     )
@@ -65,9 +67,28 @@ async def test_successful_reset_is_recorded_under_its_own_lock_namespace(mocker)
 
 
 @pytest.mark.asyncio
+async def test_successful_reset_reports_sessions_revoked_in_the_response_body(mocker):
+    # Regression guard for the "Redis outage failure modes are inconsistent"
+    # gap: reset_password's own sessions_revoked flag (False when the
+    # account-version bump couldn't be confirmed) must reach the caller,
+    # since the point of this field is that a genuinely successful reset
+    # can still leave the attacker's other sessions unrevoked.
+    mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
+    mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(True, False))
+    mocker.patch(f"{MODULE}.login_protection_service.check_and_record_action", return_value=True)
+
+    response = await password_reset_confirm_handler.handle_password_reset_confirm(
+        token="valid-token", new_password="NewStrongPass123!", db=None
+    )
+
+    assert response.status_code == 200
+    assert json.loads(response.body)["sessions_revoked"] is False
+
+
+@pytest.mark.asyncio
 async def test_failed_reset_is_recorded_under_its_own_lock_namespace_not_logins(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
-    mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=False)
+    mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(False, None))
     record_mock = mocker.patch(
         f"{MODULE}.login_protection_service.check_and_record_action", return_value=True
     )
@@ -85,7 +106,7 @@ async def test_failed_reset_is_recorded_under_its_own_lock_namespace_not_logins(
 @pytest.mark.asyncio
 async def test_lockout_from_repeated_failures_returns_429(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
-    mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=False)
+    mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(False, None))
     mocker.patch(f"{MODULE}.login_protection_service.check_and_record_action", return_value=False)
 
     response = await password_reset_confirm_handler.handle_password_reset_confirm(

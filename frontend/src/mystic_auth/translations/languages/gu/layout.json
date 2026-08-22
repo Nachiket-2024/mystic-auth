@@ -29,5 +29,9 @@
         "rateLimits": "દર મર્યાદાઓ",
         "auditLog": "ઓડિટ લોગ",
         "accountSettings": "ખાતાની સેટિંગ્સ"
+    },
+    "footer": {
+        "privacyPolicy": "ગોપનીયતા નીતિ",
+        "termsOfService": "સેવાની શરતો"
     }
 }

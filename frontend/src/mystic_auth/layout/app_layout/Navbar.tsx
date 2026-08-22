@@ -1,14 +1,12 @@
 import React from "react";
-import { Box, Flex, HStack, IconButton, Kbd, Text } from "@chakra-ui/react";
+import { Flex, HStack, IconButton, Kbd, Text } from "@chakra-ui/react";
 import { Menu, Search } from "lucide-react";
 
 import { useAuthStore } from "../../store/authStore";
 import { useLanguageStore } from "../../store/languageStore";
 import translations from "../../translations/translations";
 import LogoutButton from "../../auth/logout/LogoutButton";
-import ThemeToggle from "../controls/ThemeToggle";
-import LanguageToggle from "../controls/LanguageToggle";
-import FontSizeControl from "../controls/FontSizeControl";
+import ControlCluster from "../controls/ControlCluster";
 import { ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 import { FAST_HOVER_TRANSITION } from "../../theme/system";
 
@@ -93,7 +91,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
             top={0}
             zIndex="sticky"
         >
-            <Flex align="center" gap={3}>
+            <Flex align="center" gap={3} minW={0}>
                 <IconButton
                     aria-label={t("toggleNavigationMenu")}
                     onClick={onToggleSidebar}
@@ -104,11 +102,13 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                     <Menu size={16} aria-hidden="true" />
                 </IconButton>
                 {name && (
-                    <Flex align="center" gap={2.5}>
+                    <Flex align="center" gap={2.5} minW={0}>
                         <Flex
                             boxSize="8"
                             flexShrink={0}
                             borderRadius="full"
+                            borderWidth="1px"
+                            borderColor="border.default"
                             bg="brand.solid"
                             color="brand.contrast"
                             align="center"
@@ -119,16 +119,27 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                         >
                             {initials}
                         </Flex>
-                        <Box>
-                            <Text fontSize="md" color="fg.muted">
-                                {t("signedInAs")} <Text as="span" fontWeight="semibold" color="fg.default">{name}</Text>
+                        {/* A flex row (not inline text) so the name is the one flex
+                            item that shrinks/truncates - a plain inline maxW inside
+                            block text doesn't adapt to however much space the flex
+                            ancestors actually squeezed this into, and just overflows
+                            past its own paragraph instead. "Signed in as" itself
+                            never shrinks or wraps (flexShrink=0/whiteSpace=nowrap);
+                            at a fixed-height (md+) navbar, a wrapped second line was
+                            pushed past the row's own height. */}
+                        <HStack gap={1} minW={0}>
+                            <Text fontSize="md" color="fg.muted" flexShrink={0} whiteSpace="nowrap">
+                                {t("signedInAs")}
                             </Text>
-                        </Box>
+                            <Text fontSize="md" fontWeight="semibold" color="fg.default" flex="1 1 auto" minW={0} maxW="100%" truncate title={name}>
+                                {name}
+                            </Text>
+                        </HStack>
                     </Flex>
                 )}
             </Flex>
 
-            <Flex align="center" gap={3} wrap="wrap" justify="flex-end" rowGap={2}>
+            <Flex align="center" gap={3} wrap="wrap" justify="flex-end" rowGap={2} flexShrink={0}>
                 {extraContent}
                 {onOpenCommandPalette && (
                     // A real Input here would need onChange/value wiring for a
@@ -169,9 +180,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                         <Kbd flexShrink={0} size="sm">⌘K</Kbd>
                     </HStack>
                 )}
-                <FontSizeControl />
-                <LanguageToggle />
-                <ThemeToggle />
+                <ControlCluster />
                 <LogoutButton />
             </Flex>
         </Flex>

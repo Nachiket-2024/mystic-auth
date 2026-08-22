@@ -29,13 +29,13 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 | GET | `/auth/oauth2/login/google` | public | yes | Redirects to Google consent screen, see [OAuth2 / PKCE](../authentication/oauth2-pkce.md) |
 | GET | `/auth/oauth2/callback/google` | public | yes | Google redirects here with `code`/`state` |
 | GET | `/auth/me` | session | yes | Re-verifies JWT + re-queries user row every call |
-| POST | `/auth/logout` | session (needs `refresh_token` cookie) | yes | Bumps that one session's `chain_ver`, ending just this device |
-| POST | `/auth/logout/all` | session | yes | Bumps `account_ver`, ending every session on the account |
+| POST | `/auth/logout` | session (needs `refresh_token` cookie) | yes | Bumps that one session's `chain_ver`, ending just this device. Always `200`; response carries `session_revoked: false` if the bump couldn't be confirmed (Redis unreachable) |
+| POST | `/auth/logout/all` | session | yes | Bumps `account_ver`, ending every session on the account. Returns `503` (`SESSION_REVOCATION_UNAVAILABLE`) instead of a false success if the bump couldn't be confirmed, see [Session Management: bump failure handling](../authentication/session-management.md#bump-failure-handling) |
 | GET | `/auth/sessions` | session | yes | Lists the caller's active sessions ("Manage Sessions" dashboard card), see [Database Design: user_sessions](../database/design.md) |
-| DELETE | `/auth/sessions/{session_id}` | session (ownership-checked) | yes | Ends one session by id; rejects the caller's own current session with `400` (use Logout instead) |
-| GET | `/auth/session-events` | session | no (long-lived connection) | Server-Sent Events stream; pushes a "something changed" nudge whenever any session on the account is revoked, see [Session Management: Real-time push](../authentication/session-management.md#real-time-push) |
+| DELETE | `/auth/sessions/{session_id}` | session (ownership-checked) | yes | Ends one session by id; rejects the caller's own current session with `400` (use Logout instead). Returns `503` (`SESSION_REVOCATION_UNAVAILABLE`) instead of a false success if the underlying chain-version bump couldn't be confirmed |
+| GET | `/auth/session-events` | session | no (long-lived connection) | Server-Sent Events stream; pushes a "something changed" nudge on session revoke/create and on a policy grant/revoke/edit/delete/rollback affecting this account, see [Session Management: Real-time push](../authentication/session-management.md#real-time-push) and [PBAC Architecture: Real-time push](../authorization/architecture.md#real-time-push) |
 | POST | `/auth/password-reset/request` | public | per-email | Always returns the same generic response |
-| POST | `/auth/password-reset/confirm` | public | yes | Revokes all refresh tokens on success |
+| POST | `/auth/password-reset/confirm` | public | yes | The new password always succeeds independent of Redis; response carries `sessions_revoked: false` if the other-session revoke couldn't be confirmed, see [Session Management: bump failure handling](../authentication/session-management.md#bump-failure-handling) |
 | POST | `/auth/verify-account` | public | yes | Single-use Redis-backed token |
 | POST | `/auth/verify-account/request` | public | per-email | Always returns the same generic response |
 
@@ -54,15 +54,15 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/users/me` | `users:read_own` | Caller's own account details, backing the Account Settings page |
-| PUT | `/users/me` | `users:update_own` | Accepts an optional `password` field, hashed and renamed before reaching the CRUD layer, see [Database Design](../database/design.md#users). If `password` is set and the account already has one, a matching `current_password` is also required, see [Security Decisions](../security/decisions-auth.md#self-service-password-change-requires-the-current-password) |
+| PUT | `/users/me` | `users:update_own` | Accepts an optional `password` field, hashed and renamed before reaching the CRUD layer, see [Database Design](../database/design.md#users). If `password` is set and the account already has one, a matching `current_password` is also required, see [Security Decisions](../security/decisions-auth.md#self-service-password-change-requires-the-current-password). A password change always succeeds (independent of Redis), but the response's `sessions_revoked` field is `false` if the other-session revoke couldn't be confirmed, see [Session Management: bump failure handling](../authentication/session-management.md#bump-failure-handling) |
 | DELETE | `/users/me` | `users:update_own` | Self-service delete. Password accounts: soft-deletes synchronously (requires `current_password`). OAuth-only accounts: sends a confirmation email instead, `{"confirmation_required": true}`, nothing deleted yet. See [Account Deletion and Purge](../authentication/account-deletion.md) |
 | POST | `/users/me/confirm-delete` | public | Rate-limited. Redeems the OAuth-only-account deletion confirmation link (`token`), single-use; own `account_delete_confirm_lock:` lockout namespace |
 | GET | `/users/stats` | `users:list_all` | Aggregate whole-table counts for the Users page summary card: total, verified, unverified, inactive. Uses the same permission as `/users/` because it is another view of the same user-management data |
 | GET | `/users/` | `users:list_all` | All users; supports `search`/`role`/`is_verified`/`status`/`sort_by`/`sort_dir`, see [List endpoint conventions](#list-endpoint-conventions) |
 | GET | `/users/export` | `users:list_all` | CSV export of every user matching `search`/`role`/`is_verified`/`status` (no `limit`/`offset`: always the whole filtered set). Rejected with `400 EXPORT_TOO_LARGE` if the filtered set exceeds `USER_EXPORT_MAX_ROWS` (`.env.example`, default `50000`); narrow the filters instead |
-| PUT | `/users/{user_email}` | `users:update_any` | System account is excluded via a target-account guard |
-| DELETE | `/users/{user_email}` | `users:delete_any` | Soft delete, see [Account Lifecycle](../database/design.md#account-lifecycle) |
-| DELETE | `/users/{user_email}/purge` | `users:purge` | Hard delete, irreversible |
+| PUT | `/users/{user_email}` | `users:update_any` | System account is excluded via a target-account guard. Same `sessions_revoked` contract as `PUT /users/me` on a password change, see [Session Management: bump failure handling](../authentication/session-management.md#bump-failure-handling) |
+| DELETE | `/users/{user_email}` | `users:delete_any` | Soft delete, see [Account Lifecycle](../database/design.md#account-lifecycle). The delete always succeeds; an unconfirmed session revoke is recorded in the audit log rather than erroring the request, see [Session Management: bump failure handling](../authentication/session-management.md#bump-failure-handling) |
+| DELETE | `/users/{user_email}/purge` | `users:purge` | Hard delete, irreversible. Fails closed: returns `503` (`SESSION_REVOCATION_UNAVAILABLE`) and deletes nothing if the pre-delete session revoke can't be confirmed, see [Session Management: bump failure handling](../authentication/session-management.md#bump-failure-handling) |
 | PATCH | `/users/{user_email}/reactivate` | `users:reactivate` | Reverses a soft delete |
 | PATCH | `/users/{user_email}/role` | `users:assign_role` or `users:assign_system_role` (depends on target role) | The single, bidirectional role-modification endpoint; there is no separate "promote" path. Assigning `system` role requires the more sensitive action |
 
@@ -89,7 +89,7 @@ Split across `policy_crud_routes.py`, `policy_history_routes.py`, `policy_assign
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/rate-limits/` | `rate_limits:read` | Lists live Redis-backed rate-limit counters (Rate Limit Dashboard). Numbered pagination via `page`/`page_size`: the server walks the matching keyspace in bounded `SCAN` batches (never `KEYS`) up to a capped total (`RateLimiterService.MAX_SCANNED_KEYS`) to compute `total` and slice out one page; `truncated: true` means that cap was hit, so `total` is a floor, not exact. `scope` (`ip`/`account`/`email`) and `endpoint` filter server-side. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting) |
+| GET | `/rate-limits/` | `rate_limits:read` | Lists live Redis-backed rate-limit counters (Rate Limit Dashboard). Numbered pagination via `page`/`page_size`: the server walks the matching keyspace in bounded `SCAN` batches (never `KEYS`) up to a capped total (`RateLimitDashboardService.MAX_SCANNED_KEYS`) to compute `total` and slice out one page; `truncated: true` means that cap was hit, so `total` is a floor, not exact. `scope` (`ip`/`account`/`email`) and `endpoint` filter server-side. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting) |
 | DELETE | `/rate-limits/{key}` | `rate_limits:reset` | Manually clears one counter, e.g. to unblock a legitimate caller who tripped a limit. Idempotent: always returns `204`, even if the key was already absent/expired. Its own action, separate from `rate_limits:read`, so a policy scoped to "can view the dashboard" doesn't also imply "can clear anyone's counters" - the same read/write split every other resource in `Permission` gets |
 
 ---

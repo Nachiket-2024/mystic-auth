@@ -61,6 +61,25 @@ if "DATABASE_URL" not in os.environ:
             r"@postgres:\d+", f"@localhost:{_LOCAL_POSTGRES_PORT}", _docker_db_url
         )
 
+# database/connection.py's `database` singleton (the request-serving engine
+# every integration test actually hits, via the ASGI `client` fixture) uses
+# APP_DATABASE_URL when it's set, not DATABASE_URL - see database.py's own
+# `settings.APP_DATABASE_URL or settings.DATABASE_URL` and settings.py's
+# docstring on APP_DATABASE_URL (the least-privilege app DB role migration).
+# .env sets APP_DATABASE_URL too, still pointed at the docker-internal
+# "postgres" hostname, so it needs the identical localhost rewrite as
+# DATABASE_URL above - without this, every DB-touching integration test run
+# from the host (as opposed to inside the docker network) fails at the
+# first real query with "Temporary failure in name resolution", while a
+# request that never touches the DB (e.g. a bare 401 on a missing cookie)
+# still appears to pass, since it never opens a connection at all.
+if "APP_DATABASE_URL" not in os.environ:
+    _docker_app_db_url = _read_env_value("APP_DATABASE_URL")
+    if _docker_app_db_url:
+        os.environ["APP_DATABASE_URL"] = re.sub(
+            r"@postgres:\d+", f"@localhost:{_LOCAL_POSTGRES_PORT}", _docker_app_db_url
+        )
+
 if "REDIS_URL" not in os.environ:
     _docker_redis_url = _read_env_value("REDIS_URL")
     if _docker_redis_url:
@@ -69,6 +88,23 @@ if "REDIS_URL" not in os.environ:
         os.environ["REDIS_URL"] = re.sub(
             r"redis://redis:\d+/\d+", f"redis://localhost:{_LOCAL_REDIS_PORT}/15", _docker_redis_url
         )
+
+# Safety net, independent of whatever EMAIL_ENABLED happens to be set to in
+# .env: every real-DB integration test hits the actual ASGI app with no
+# mocking, so signup/password-reset/account-deletion flows genuinely queue
+# a Procrastinate send_email_task - and if a worker happens to be running
+# against the same database (e.g. a developer's `docker compose up`, or
+# manually starting procrastinate_worker to debug something else), those
+# jobs get picked up and actually sent via emails/email_sender.py's real
+# SMTPEmailSender, against whatever real provider FROM_EMAIL/
+# GMAIL_APP_PASSWORD point at - burning a real send quota on every test run
+# for recipients that don't exist. Forced here, unconditionally overriding
+# .env (unlike DATABASE_URL/REDIS_URL above, which only fill in a value
+# when host env doesn't already have one - an explicit `EMAIL_ENABLED=true`
+# already present in the environment when pytest is invoked, e.g. a
+# deliberate one-off deliverability check, still wins over this).
+if "EMAIL_ENABLED" not in os.environ:
+    os.environ["EMAIL_ENABLED"] = "false"
 
 # ---------------------------- Imports (after env overrides above) ----------------------------
 import pytest_asyncio

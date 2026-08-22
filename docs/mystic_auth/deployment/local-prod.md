@@ -33,18 +33,22 @@ Deployment Guide.
 
 ## Environment variables
 
-`.env.local-prod.example` is the source of truth for local-prod values. It is
-set up for Cloudflare Quick Tunnel, same-origin API routing, production mode,
-and the fixed frontend nginx proxy IP.
+`.env.local-prod.example` is the source of truth for local-prod values. Copy
+it to `.env.local-prod` (not `.env` - that's dev's file). It is set up for
+Cloudflare Quick Tunnel, same-origin API routing, production mode, and the
+fixed frontend nginx proxy IP.
 
-Rotate the secrets in the copied `.env` before real use. Review
+Rotate the secrets in the copied `.env.local-prod` before real use. Review
 `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP,
 rate-limit, Redis, and error-monitoring values before sharing the service.
 
 Build-time values must be final before you run `--build`:
 
 - `VITE_API_BASE_URL`: keep empty for the bundled nginx same-origin proxy.
-- `VITE_APP_NAME`: public app name shown in the browser.
+- `VITE_APP_NAME`: public app name shown in the browser (aliased from
+  `APP_NAME` by the compose file - set `APP_NAME`, not this).
+- `VITE_SUPPORT_EMAIL`: contact address on the Terms of Service / Privacy
+  Policy pages (aliased from `SUPPORT_EMAIL` - set `SUPPORT_EMAIL`, not this).
 - `VITE_SENTRY_DSN`: public browser DSN if frontend error reporting is enabled.
 - `VITE_SENTRY_ENVIRONMENT`: frontend environment tag.
 
@@ -55,9 +59,14 @@ Runtime values can be changed with a container restart:
 - `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`
 - SMTP settings, rate-limit settings, and backend `SENTRY_DSN`
 
-`VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SENTRY_DSN`, and
-`VITE_SENTRY_ENVIRONMENT` are baked in at image build time, not read at
-container runtime. Set them in `.env` before `--build`, not after. See
+`VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SUPPORT_EMAIL`, `VITE_SENTRY_DSN`,
+and `VITE_SENTRY_ENVIRONMENT` are baked in at image build time, not read at
+container runtime. Set them (or their aliased `APP_NAME`/`SUPPORT_EMAIL`
+source vars) in `.env.local-prod` before `--build`, not after. Always run
+Compose with `--env-file .env.local-prod` (or `scripts/docker/local-prod-up.sh`
+/ `.ps1` / `.cmd`, which does this for you) - without it, `${VAR}` build-arg
+substitution silently falls back to whatever's in a plain `.env` instead.
+See
 [Deployment Guide: required production environment variables](guide.md#required-production-environment-variables)
 for the full explanation of each.
 

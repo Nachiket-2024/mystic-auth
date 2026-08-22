@@ -67,8 +67,22 @@ class CurrentUserHandler:
                 )
 
             # The real PBAC-derived permission set, not anything computed from role.
+            # An action only counts if it's actually usable under the policy that
+            # grants it: every action in this codebase is named "<resource_type>:
+            # <verb>" (see authorization/permissions.py), and the real
+            # authorization check (policy_evaluator.py) requires
+            # policy.resource_type in (that resource_type, "*") before the action
+            # even matters. Without this filter, an action pasted onto a
+            # differently-scoped policy (e.g. "policies:read" added to
+            # user_administration, whose resource_type is "users") would show up
+            # here and light up UI the backend then 403s on for real requests.
             policies = await policy_repository.get_active_policies_for_user(user.email, db)
-            permissions = {action for policy in policies for action in (policy.actions or [])}
+            permissions = {
+                action
+                for policy in policies
+                for action in (policy.actions or [])
+                if policy.resource_type in (action.split(":", 1)[0], "*")
+            }
 
             # From the best-effort Postgres mirror (user_sessions), not Redis:
             # version counters (jwt_service.py) govern real token validity but
@@ -93,6 +107,9 @@ class CurrentUserHandler:
                 "has_password": user.hashed_password is not None,
                 "created_at": user.created_at.isoformat(),
                 "active_sessions": active_sessions,
+                # None = using the app default brand scale (app/theme.ts);
+                # see user_model.py's brand_color column docstring.
+                "brand_color": user.brand_color,
             }
 
         except SQLAlchemyError as exc:

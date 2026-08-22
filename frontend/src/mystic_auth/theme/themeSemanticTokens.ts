@@ -74,14 +74,20 @@ export const semanticTokens = {
         "bg.surface": { value: { _light: "white", _dark: "{colors.gray.800}" } },
         // One step darker/lighter than Chakra's stock gray.200/gray.700: those blended
         // into bg.surface/bg.canvas closely enough that table borders, card outlines,
-        // and dividers were barely visible in either color mode.
-        "border.default": { value: { _light: "{colors.gray.300}", _dark: "{colors.gray.600}" } },
+        // and dividers were barely visible in either color mode. Light mode's step
+        // (gray.400, not gray.300) is one step further out than dark mode's: gray.300
+        // (#d4d4d8) against bg.surface's white measures ~1.4:1, so a 1px card/table
+        // border rendered as essentially invisible - gray.400 (#a1a1aa) clears that
+        // by a wide enough margin to actually read as a boundary. Dark mode's gray.600
+        // on gray.800 already had much more inherent separation, so it didn't need
+        // the same extra step.
+        "border.default": { value: { _light: "{colors.gray.400}", _dark: "{colors.gray.600}" } },
         // Overrides Chakra's own global `border` token (used by Input/Textarea/Select's
         // outline variant, not just our own `border.default` above). Its stock dark value
         // is gray.800, identical to bg.surface's dark value, so every form field's border
         // was invisible against the card behind it. Same value as border.default above,
         // just under the key Chakra's built-in recipes actually consume.
-        border: { value: { _light: "{colors.gray.300}", _dark: "{colors.gray.600}" } },
+        border: { value: { _light: "{colors.gray.400}", _dark: "{colors.gray.600}" } },
         // Text
         "fg.default": { value: { _light: "{colors.gray.700}", _dark: "{colors.gray.100}" } },
         // gray.500 on bg.canvas (gray.100) measured 4.4:1 - just under
@@ -101,7 +107,15 @@ export const semanticTokens = {
         // isn't dark-mode-safe on its own. Promoted here so any
         // future warning/info-colored text gets the same dark-mode
         // handling for free instead of re-deriving it per component.
-        "fg.warning": { value: { _light: "{colors.orange.700}", _dark: "{colors.orange.200}" } },
+        // Light value is a literal hex, not {colors.orange.700}: that
+        // scale step (#92310a) sits at ~17deg hue, close enough to
+        // fg.error's red.700 (#991919, 0deg hue) that a "Medium" password
+        // strength read as red, not orange, right next to "Weak" - even a
+        // less-dark orange (e.g. #c2410c, ~18deg) was still too close a
+        // hue to read as a stark difference. #ae5609 (~28deg hue) pushes
+        // further into unambiguous orange/amber territory while keeping
+        // ~5:1 contrast on white.
+        "fg.warning": { value: { _light: "#ae5609", _dark: "{colors.orange.200}" } },
         "fg.info": { value: { _light: "{colors.blue.700}", _dark: "{colors.blue.200}" } },
     },
 };

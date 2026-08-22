@@ -126,7 +126,7 @@ async def test_require_raises_a_generic_error_never_leaking_policy_details(mocke
         new_callable=AsyncMock,
         return_value=[_policy(["users:read_own"], name="self_service")],
     )
-    mocker.patch(f"{MODULE}.audit_log_repository.create_entry", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
         await authorization_service.require("user@example.com", "users:list_all", "users", db=None)

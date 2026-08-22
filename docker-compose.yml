@@ -1,3 +1,17 @@
+# Explicit project name (rather than the default, which is just the
+# directory name, "mystic-auth" - shared by every compose file here since
+# they all live in this same directory): without this, this file and
+# docker-compose.local-prod.yml/docker-compose.prod.yml resolve to the SAME
+# Compose project, and therefore the SAME container names, network, and
+# named volumes (postgres_data, backend_logs, ...). Running two of these
+# "isolated" stacks side by side then silently shares one database - one
+# `docker compose down`/`volume rm` against what looks like a throwaway dev
+# stack can wipe what's actually a different stack's real data. Each of the
+# three compose files in this repo now has its own distinct name so they
+# can run simultaneously without colliding, and no command against one can
+# accidentally touch another's containers/volumes.
+name: mystic-auth-dev
+
 services:
 
   postgres:
@@ -148,6 +162,10 @@ services:
       BACKEND_BASE_URL: http://localhost:8000
       FRONTEND_BASE_URL: http://localhost:5173
       VITE_API_BASE_URL: http://localhost:8000
+      # Reuse the backend APP_NAME/SUPPORT_EMAIL from ./.env instead of
+      # requiring separate VITE_-prefixed duplicates there.
+      VITE_APP_NAME: ${APP_NAME}
+      VITE_SUPPORT_EMAIL: ${SUPPORT_EMAIL}
     ports:
       - "5173:5173"
     volumes:

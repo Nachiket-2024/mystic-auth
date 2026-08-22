@@ -65,8 +65,18 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
         if (hasPassword) payload.current_password = currentPassword;
 
         passwordMutation.mutate(payload, {
-            onSuccess: () => {
-                toaster.create({ title: t("changePassword.updatedToast"), type: "success" });
+            onSuccess: (data) => {
+                // sessions_revoked === false: the password itself changed
+                // (this succeeded), but Redis was unreachable so the
+                // account's other sessions were NOT revoked - a distinct,
+                // narrower warning rather than the plain success toast, so
+                // this doesn't look like a completed "other devices signed
+                // out" the way it normally would.
+                if (data.sessions_revoked === false) {
+                    toaster.create({ title: t("changePassword.updatedButSessionsNotRevokedToast"), type: "warning" });
+                } else {
+                    toaster.create({ title: t("changePassword.updatedToast"), type: "success" });
+                }
                 setNewPassword("");
                 setCurrentPassword("");
             },
@@ -75,12 +85,12 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
 
     return (
         <Card p={5} flex="1" flexBasis="80" maxW="3xl">
-            <Heading as="h2" size="md" mb={3} textStyle="sectionHeader">
+            <Heading as="h2" size="lg" mb={3} textStyle="sectionHeader">
                 {hasPassword ? t("changePassword.changeTitle") : t("changePassword.setTitle")}
             </Heading>
             <Stack as="form" onSubmit={handlePasswordSubmit} gap={4}>
                 <Field.Root>
-                    <Field.Label>{hasPassword ? t("changePassword.newPasswordLabel") : t("changePassword.setPasswordFieldLabel")}</Field.Label>
+                    <Field.Label fontSize="md">{hasPassword ? t("changePassword.newPasswordLabel") : t("changePassword.setPasswordFieldLabel")}</Field.Label>
                     <PasswordInput
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
@@ -91,6 +101,7 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                         }
                         aria-invalid={!!passwordError || passwordMutation.isError}
                         aria-describedby={passwordError ? "password-local-error" : passwordMutation.isError ? "password-mutation-error" : undefined}
+                        size="lg"
                         {...SEARCH_INPUT_PROPS}
                     />
                 </Field.Root>
@@ -119,20 +130,21 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                     a field the instant you start typing. */}
                 {hasPassword && (
                     <Field.Root>
-                        <Field.Label>{t("changePassword.currentPasswordLabel")}</Field.Label>
+                        <Field.Label fontSize="md">{t("changePassword.currentPasswordLabel")}</Field.Label>
                         <PasswordInput
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
                             placeholder={t("changePassword.currentPasswordPlaceholder")}
                             aria-invalid={!!passwordError}
                             aria-describedby={passwordError ? "password-local-error" : undefined}
+                            size="lg"
                             {...SEARCH_INPUT_PROPS}
                         />
                     </Field.Root>
                 )}
 
-                {passwordError && <FormAlert status="error" id="password-local-error">{passwordError}</FormAlert>}
-                {passwordMutation.isError && <FormAlert status="error" id="password-mutation-error">{passwordMutation.error.message}</FormAlert>}
+                {passwordError && <FormAlert size="lg" status="error" id="password-local-error">{passwordError}</FormAlert>}
+                {passwordMutation.isError && <FormAlert size="lg" status="error" id="password-mutation-error">{passwordMutation.error.message}</FormAlert>}
 
                 <Button
                     type="submit"

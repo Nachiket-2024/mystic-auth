@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Heading, HStack, Text } from "@chakra-ui/react";
+import { Heading, HStack, Text } from "@chakra-ui/react";
 import type { CardRootProps } from "@chakra-ui/react";
 import { Eye, MonitorOff } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 
+import Badge from "../../ui/Badge";
 import Card from "../../ui/Card";
 import DataTable, { type DataTableColumn } from "../../ui/DataTable/DataTable";
 import TableActionButton from "../../ui/table_actions/TableActionButton";
@@ -54,6 +55,18 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
     const revokeMutation = useRevokeSessionMutation();
     const logoutMutation = useLogoutMutation();
     const navigate = useNavigate();
+
+    // ConfirmDialog keeps rendering (mid closing-animation) for a beat after
+    // endingSession is cleared to null, so its title/description must keep
+    // reading off the last real session rather than endingSession directly -
+    // otherwise the is_current ternary flips to the other copy for that
+    // last frame, flashing the wrong text just before the dialog is gone.
+    // Derived-during-render state (not a ref: react-hooks/refs forbids
+    // reading/writing ref.current during render), matching React's own
+    // "store info from previous renders" pattern.
+    const [lastEndingSession, setLastEndingSession] = useState<SessionRead | null>(null);
+    if (endingSession && endingSession !== lastEndingSession) setLastEndingSession(endingSession);
+    const dialogSession = endingSession ?? lastEndingSession;
 
     // isSuccess OR isError: useLogoutMutation clears local auth state in
     // onSettled regardless of outcome (see its own comment - a
@@ -181,13 +194,13 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
 
             <ConfirmDialog
                 isOpen={!!endingSession}
-                title={endingSession?.is_current ? t("manageSessions.endDialog.logoutThisDeviceTitle") : t("manageSessions.endDialog.endSessionTitle")}
+                title={dialogSession?.is_current ? t("manageSessions.endDialog.logoutThisDeviceTitle") : t("manageSessions.endDialog.endSessionTitle")}
                 description={
-                    endingSession?.is_current
+                    dialogSession?.is_current
                         ? t("manageSessions.endDialog.logoutThisDeviceDescription")
                         : t("manageSessions.endDialog.endSessionDescription", {
-                              device: parseUserAgent(endingSession?.user_agent ?? null),
-                              ipSuffix: endingSession?.ip_address ? ` (${endingSession.ip_address})` : "",
+                              device: parseUserAgent(dialogSession?.user_agent ?? null),
+                              ipSuffix: dialogSession?.ip_address ? ` (${dialogSession.ip_address})` : "",
                           })
                 }
                 confirmLabel={t("manageSessions.endDialog.confirmLabel")}

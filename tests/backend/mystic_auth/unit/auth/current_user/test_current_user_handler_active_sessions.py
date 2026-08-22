@@ -28,6 +28,7 @@ class _FakeUser:
         self.is_active = True
         self.hashed_password = "hash"
         self.created_at = created_at or datetime(2026, 1, 1, tzinfo=UTC)
+        self.brand_color = None
 
 
 @pytest.fixture(autouse=True)

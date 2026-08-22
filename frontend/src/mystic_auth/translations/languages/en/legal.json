@@ -1,0 +1,136 @@
+{
+    "back": "Back",
+    "lastUpdatedLabel": "Last updated",
+    "lastUpdatedDate": "August 20, 2026",
+    "operatorContactPlaceholder": "[operator: replace with your support contact email]",
+    "operatorEntityPlaceholder": "[operator: replace with your legal entity name and jurisdiction]",
+    "operatorReviewNote": "This describes the software's actual behavior as built, not generic boilerplate. If you are the operator deploying this template, review it against your own use case before publishing it as a live policy.",
+    "privacy": {
+        "title": "Privacy Policy",
+        "intro": [
+            "This policy explains what personal data {{appName}} collects, why, and what your rights are over it."
+        ],
+        "sections": [
+            {
+                "heading": "1. Account data we collect",
+                "paragraphs": [
+                    "When you create an account, we store your name, email address, and a bcrypt hash of your password (never the password itself). If you sign in with Google instead, we store your email and name as returned by Google's OAuth2 sign-in. We never see or store your Google password.",
+                    "We also store account status flags (whether your email is verified, whether the account is active, and whether it has been deleted) and timestamps for when the account was created and last updated."
+                ]
+            },
+            {
+                "heading": "2. Session and device data",
+                "paragraphs": [
+                    "Each time you sign in, we record the session's IP address and user agent (browser/device string), and resolve an approximate city/country from the IP using a local, offline geolocation database. We never send your IP address to a third party to do this. This data is shown back to you on the Manage Sessions screen so you can recognize and revoke sessions you don't trust.",
+                    "We use two cookies: access_token and refresh_token, both flagged httpOnly, Secure, and SameSite=Strict, so they can't be read by page scripts or sent cross-site. We don't set any analytics, advertising, or tracking cookies."
+                ]
+            },
+            {
+                "heading": "3. Security and authorization logs",
+                "paragraphs": [
+                    "We keep an append-only log of security events (sign-ins, sign-outs, sign-ups, password resets, lockouts) and authorization decisions (which actions were allowed or denied and why), each including your email, IP address, and user agent at the time.",
+                    "These logs are kept independently of your account record for integrity reasons: deleting or purging your account does not delete your prior log entries. This is a deliberate design choice, not an oversight. It lets us, and you if you ask, reconstruct what happened to an account even after it's gone."
+                ]
+            },
+            {
+                "heading": "4. Who we share data with",
+                "paragraphs": [
+                    "Google: If you choose to sign in with Google, Google processes your authentication on their end per their own privacy policy. We only receive your email, name, and confirmation that Google verified your email.",
+                    "Our email provider: Account verification, password-reset, and account-deletion-confirmation emails are sent through an SMTP relay. Only your email address and the message content are shared with it, for delivery purposes only.",
+                    "Our error-monitoring service: If enabled by the operator, unexpected errors are reported to a self-hosted error-tracking instance we control. It does not automatically capture request bodies, cookies, or IP addresses. The only personal data attached is your email address, so we can investigate an error you ran into.",
+                    "We do not sell your data, and we do not share it with advertisers or data brokers."
+                ]
+            },
+            {
+                "heading": "5. How long we keep your data",
+                "paragraphs": [
+                    "Deleting your account marks it for deletion immediately (you're signed out everywhere and it stops being usable) but keeps it recoverable for a grace period before it's permanently and irreversibly removed. An administrator can also purge an account immediately.",
+                    "As noted above, security and authorization log entries referencing your account are not deleted when your account is purged. They remain part of the permanent audit trail."
+                ]
+            },
+            {
+                "heading": "6. Your rights",
+                "paragraphs": [
+                    "You can review and update your account details, view your active sessions and revoke any of them, and self-service delete your account at any time from Account Settings.",
+                    "For anything else, such as requesting a copy of your data or asking what log entries reference your account, contact us at {{contactPlaceholder}}."
+                ]
+            },
+            {
+                "heading": "7. Children's privacy",
+                "paragraphs": [
+                    "{{appName}} is not directed at children, and we don't knowingly collect data from anyone under the age of 13."
+                ]
+            },
+            {
+                "heading": "8. Changes to this policy",
+                "paragraphs": [
+                    "If this policy changes in a way that materially affects how your data is handled, we'll update the \"Last updated\" date above and, where required by law, notify you directly."
+                ]
+            }
+        ]
+    },
+    "terms": {
+        "title": "Terms of Service",
+        "intro": [
+            "These terms govern your use of {{appName}}."
+        ],
+        "sections": [
+            {
+                "heading": "1. Accepting these terms",
+                "paragraphs": [
+                    "By creating an account or otherwise using {{appName}}, you agree to these terms and to our Privacy Policy. If you don't agree, don't use the service."
+                ]
+            },
+            {
+                "heading": "2. Your account",
+                "paragraphs": [
+                    "You're responsible for keeping your password confidential and for all activity under your account. Tell us immediately if you suspect unauthorized access.",
+                    "You must provide accurate information when signing up, and you must be legally able to enter into these terms in your jurisdiction."
+                ]
+            },
+            {
+                "heading": "3. Acceptable use",
+                "paragraphs": [
+                    "Don't use the service to violate the law, attempt to gain unauthorized access to accounts or systems, interfere with the service's normal operation, or abuse rate limits/automation to overload it.",
+                    "We may suspend or terminate accounts that violate this section."
+                ]
+            },
+            {
+                "heading": "4. Account suspension and termination",
+                "paragraphs": [
+                    "You can delete your own account at any time from Account Settings. We may suspend or delete an account that violates these terms or poses a security risk to the service or other users."
+                ]
+            },
+            {
+                "heading": "5. Service availability",
+                "paragraphs": [
+                    "We aim to keep the service available and reliable but don't guarantee uninterrupted access. The service is provided \"as is,\" without warranties of any kind, to the fullest extent permitted by law."
+                ]
+            },
+            {
+                "heading": "6. Limitation of liability",
+                "paragraphs": [
+                    "To the fullest extent permitted by law, {{appName}} and its operator are not liable for indirect, incidental, or consequential damages arising from your use of the service."
+                ]
+            },
+            {
+                "heading": "7. Changes to these terms",
+                "paragraphs": [
+                    "If we make a material change to these terms, we'll update the \"Last updated\" date above and, where required by law, notify you directly. Continuing to use the service after a change means you accept the updated terms."
+                ]
+            },
+            {
+                "heading": "8. Governing law",
+                "paragraphs": [
+                    "These terms are governed by the laws applicable to {{entityPlaceholder}}."
+                ]
+            },
+            {
+                "heading": "9. Contact",
+                "paragraphs": [
+                    "Questions about these terms? Contact us at {{contactPlaceholder}}."
+                ]
+            }
+        ]
+    }
+}

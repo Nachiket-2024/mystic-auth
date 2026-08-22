@@ -9,7 +9,7 @@ from ...core.settings import settings
 from ...logging.logging_config import get_logger
 from ..token_logic.token_cookie_handler import token_cookie_handler
 from ..token_logic.token_schema import TokenPairResponseSchema
-from .oauth2_service import OAUTH2_STATE_TTL_SECONDS, oauth2_service
+from .oauth2_service import OAUTH2_STATE_TTL_SECONDS, OAuth2LoginRejected, oauth2_service
 
 logger = get_logger(__name__)
 
@@ -21,12 +21,17 @@ class OAuth2LoginHandler:
         self.oauth2_service = oauth2_service
 
     @staticmethod
-    def _redirect_to_login_clearing_state() -> RedirectResponse:
+    def _redirect_to_login_clearing_state(error_code: str | None = None) -> RedirectResponse:
         # Every rejection branch below issues this same redirect; clearing the
         # short-lived oauth_state cookie here (not just on the success path)
         # keeps a cancelled/failed login from leaving it in the browser until
-        # its own max_age expiry.
-        response = RedirectResponse(url=f"{settings.FRONTEND_BASE_URL}/login")
+        # its own max_age expiry. error_code, when given, is surfaced as
+        # ?error=<code> so the frontend can translate and display a real
+        # reason (see OAuth2LoginButton.tsx) instead of a silent redirect.
+        url = f"{settings.FRONTEND_BASE_URL}/login"
+        if error_code:
+            url += f"?error={error_code}"
+        response = RedirectResponse(url=url)
         response.delete_cookie("oauth_state")
         return response
 
@@ -94,16 +99,16 @@ class OAuth2LoginHandler:
             # state/Redis at all, since neither exists meaningfully in this case.
             if error or not code:
                 logger.info("OAuth2 callback did not complete: error=%s, code_present=%s", error, bool(code))
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_CANCELLED")
 
             if not state or not oauth_state_cookie or state != oauth_state_cookie:
                 logger.warning("OAuth2 callback rejected: state/cookie mismatch")
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_STATE_INVALID")
 
             code_verifier = await self.oauth2_service.consume_state(state)
             if not code_verifier:
                 logger.warning("OAuth2 callback rejected: invalid or expired state")
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_STATE_INVALID")
 
             redirect_uri = settings.GOOGLE_REDIRECT_URI
 
@@ -116,14 +121,14 @@ class OAuth2LoginHandler:
             )
 
             if not token_data or "access_token" not in token_data:
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_LOGIN_FAILED")
 
             access_token_google = token_data["access_token"]
 
             user_info = await self.oauth2_service.get_user_info(access_token_google)
 
             if not user_info or "email" not in user_info:
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_LOGIN_FAILED")
 
             # Account creation/linking is keyed entirely on email, so an
             # unverified address would let an attacker who merely controls an
@@ -138,16 +143,27 @@ class OAuth2LoginHandler:
                     "OAuth2 callback rejected: unverified Google email for %s",
                     user_info.get("email"),
                 )
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_EMAIL_NOT_VERIFIED")
 
-            jwt_tokens_dict = await self.oauth2_service.login_or_create_user(db, user_info, request=request)
+            # login_or_create_user raises OAuth2LoginRejected for rejections the
+            # user should see a specific reason for (a deactivated/deleted
+            # account, the reserved system account) and returns None for any
+            # other, unexpected failure. Either way the audit entry must
+            # reflect that outcome instead of unconditionally claiming
+            # success, or a blocked takeover attempt against the system
+            # account would read as a normal login in the security audit trail.
+            try:
+                jwt_tokens_dict = await self.oauth2_service.login_or_create_user(db, user_info, request=request)
+            except OAuth2LoginRejected as rejection:
+                await log_security_event(
+                    OAUTH2_LOGIN_SUCCESS,
+                    db,
+                    user_email=user_info.get("email"),
+                    success=False,
+                    request=request,
+                )
+                return self._redirect_to_login_clearing_state(rejection.code)
 
-            # login_or_create_user returns None for every rejection case (the
-            # reserved system account, a deactivated account, an unexpected
-            # error): the audit entry must reflect that outcome instead of
-            # unconditionally claiming success, or a blocked takeover attempt
-            # against the system account would read as a normal login in the
-            # security audit trail.
             if not jwt_tokens_dict:
                 await log_security_event(
                     OAUTH2_LOGIN_SUCCESS,
@@ -156,7 +172,7 @@ class OAuth2LoginHandler:
                     success=False,
                     request=request,
                 )
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_LOGIN_FAILED")
 
             await log_security_event(
                 OAUTH2_LOGIN_SUCCESS,
@@ -168,7 +184,7 @@ class OAuth2LoginHandler:
 
             jwt_tokens = TokenPairResponseSchema(**jwt_tokens_dict)
             if not jwt_tokens or not jwt_tokens.access_token:
-                return self._redirect_to_login_clearing_state()
+                return self._redirect_to_login_clearing_state("OAUTH_LOGIN_FAILED")
 
             response = RedirectResponse(url=f"{settings.FRONTEND_BASE_URL}/dashboard")
 
@@ -179,7 +195,7 @@ class OAuth2LoginHandler:
 
         except Exception:
             logger.error("Error handling OAuth2 callback:\n%s", traceback.format_exc())
-            return RedirectResponse(url=f"{settings.FRONTEND_BASE_URL}/login")
+            return self._redirect_to_login_clearing_state("OAUTH_LOGIN_FAILED")
 
 
 oauth2_login_handler = OAuth2LoginHandler()

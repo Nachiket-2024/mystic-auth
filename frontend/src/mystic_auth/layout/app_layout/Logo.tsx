@@ -2,6 +2,8 @@ import React from "react";
 import { HStack, Heading, Image } from "@chakra-ui/react";
 
 import { APP_LOGO_URL, APP_NAME } from "../../core/settings";
+import { useAppearanceStore } from "../../store/appearanceStore";
+import { getBrandIconDataUri } from "../../theme/brandIcon";
 
 interface LogoProps {
     /** "sm": Sidebar's own compact header row. "md" (default): the brand
@@ -17,17 +19,21 @@ const SIZES = {
 
 /**
  * Brand mark: the icon badge plus the wordmark. The badge image is
- * `/favicon.svg` (public/favicon.svg) - the same file the browser tab icon
- * comes from (see index.html's `<link rel="icon">`), so there is exactly
- * one file to replace to rebrand both the tab icon and the in-app mark at
- * once, with no code change. Falls back to this built-in mark when
- * VITE_APP_LOGO_URL is unset, so a fresh fork gets a real logo instead of
- * plain text on day one; set that env var to swap in a full custom logo
- * image instead (that override only affects this in-app mark, not the
- * browser tab icon - replace public/favicon.svg for that).
+ * `/favicon.svg` (public/favicon.svg) by default - the same file the
+ * browser tab icon comes from (see index.html's `<link rel="icon">`) - but
+ * once a user has picked their own brand color (appearanceStore.ts), both
+ * this badge and the tab icon instead render from `getBrandIconDataUri`
+ * (theme/brandIcon.ts), the single place that SVG shape is generated from a
+ * hex, so the two stay provably in sync rather than two files that happen
+ * to match. Falls back to this built-in mark when VITE_APP_LOGO_URL is
+ * unset, so a fresh fork gets a real logo instead of plain text on day one;
+ * set that env var to swap in a full custom logo image instead (that
+ * override only affects this in-app mark, not the browser tab icon -
+ * replace public/favicon.svg for that).
  */
 const Logo: React.FC<LogoProps> = ({ size = "md" }) => {
     const s = SIZES[size];
+    const brandColor = useAppearanceStore((state) => state.brandColor);
 
     if (APP_LOGO_URL) {
         return <Image src={APP_LOGO_URL} alt={APP_NAME} h={s.badge} />;
@@ -39,7 +45,12 @@ const Logo: React.FC<LogoProps> = ({ size = "md" }) => {
         // rather than centering it, so this centers itself either way
         // instead of depending on every caller getting align="center" right.
         <HStack gap={size === "sm" ? 2 : 3} justify="center">
-            <Image src="/favicon.svg" alt="" boxSize={s.badge} flexShrink={0} />
+            <Image
+                src={brandColor ? getBrandIconDataUri(brandColor) : "/favicon.svg"}
+                alt=""
+                boxSize={s.badge}
+                flexShrink={0}
+            />
             <Heading as="span" fontSize={s.text} fontWeight="bold" color="brand.fg" letterSpacing="tight">
                 {APP_NAME}
             </Heading>

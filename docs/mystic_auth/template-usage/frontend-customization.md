@@ -9,8 +9,8 @@ you can't.
 
 ## Frontend customization
 
-- **Theme**: `frontend/src/app/theme.ts` (empty by default, like `app_sdk.ts`): set your own `brand` color scale here to re-skin the app. Merged on top of `mystic_auth/theme/system.ts`'s own config, so it never needs editing directly.
-- **Pages**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/`, `manage_sessions/`, `account_settings/`, `users/`, `policies/`, `audit_log/`). See [Frontend Architecture](../architecture/frontend.md#module-layout).
+- **Theme**: `frontend/src/app/theme.ts` (empty by default, like `app_sdk.ts`): set your own `brand` color scale here to re-skin the app. Merged on top of `mystic_auth/theme/system.ts`'s own config, so it never needs editing directly. This is the app-owner-level default; end users can additionally pick their own per-account brand color from Account Settings (`account_settings/AppearanceCard.tsx`, backed by `store/appearanceStore.ts` and `theme/generateBrandScale.ts`), which overrides this default client-side for that signed-in user only.
+- **Pages**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/` (which includes session management), `account_settings/`, `users/`, `policies/`, `audit_log/`, `authorization/`, `rate_limits/`, `legal/`). See [Frontend Architecture](../architecture/frontend.md#module-layout).
 - **Routing**: declared in `frontend/src/app/App.tsx`: add a `<Route>`, wrapped in `ProtectedRoute`.
 - **State**: Zustand (`frontend/src/mystic_auth/store/`) for client state, TanStack Query for server state: both re-exported from `sdk.ts`.
 - **Your own code** lives under `frontend/src/app/` (e.g. `frontend/src/app/projects/`), importing template pieces via `sdk.ts`/`app_sdk.ts`.

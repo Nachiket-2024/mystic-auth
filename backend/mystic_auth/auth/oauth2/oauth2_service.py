@@ -39,6 +39,20 @@ logger = get_logger(__name__)
 OAUTH2_STATE_TTL_SECONDS = 300
 
 
+class OAuth2LoginRejected(Exception):
+    """
+    Raised by login_or_create_user for a rejection the caller should surface
+    to the user with a specific reason, as opposed to every other failure in
+    this method (unexpected exceptions), which stays a bare `None` return -
+    see oauth2_login_handler.handle_oauth2_callback, the sole caller, which
+    maps `code` to a `?error=` query param on the redirect back to /login.
+    """
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
+
+
 class OAuth2Service:
     @staticmethod
     async def generate_and_store_state() -> tuple[str, str]:
@@ -178,7 +192,7 @@ class OAuth2Service:
             # system superuser entirely bypassing its password.
             if user and user.role == UserRole.system:
                 logger.warning("OAuth2 login rejected for reserved system account: %s", email)
-                return None
+                raise OAuth2LoginRejected("OAUTH_LOGIN_FAILED")
 
             if not user:
                 user_data = {
@@ -232,10 +246,14 @@ class OAuth2Service:
             # Mirrors login_service.py's same check for password-based login: a
             # deactivated account's tokens would ultimately be rejected by
             # current_user_handler.py anyway, but this login boundary is the right
-            # place to give a clear "account deactivated" outcome instead.
+            # place to give a clear outcome instead. deleted_at (not just
+            # is_active) distinguishes a soft-deleted account from a merely
+            # deactivated one, same distinction user_base_crud.py's status
+            # filter already keys off, so the two get a different message.
             if not user.is_active:
-                logger.info("OAuth2 login blocked for deactivated account: %s", email)
-                return None
+                code = "ACCOUNT_DELETED" if user.deleted_at is not None else "ACCOUNT_DEACTIVATED"
+                logger.info("OAuth2 login blocked (%s): %s", code, email)
+                raise OAuth2LoginRejected(code)
 
             # A fresh chain_id: see login_service.py's identical comment.
             chain_id = uuid.uuid4().hex
@@ -257,6 +275,8 @@ class OAuth2Service:
 
             return {"access_token": access_token, "refresh_token": refresh_token}
 
+        except OAuth2LoginRejected:
+            raise
         except Exception:
             logger.error("Error in login or create user:\n%s", traceback.format_exc())
             return None

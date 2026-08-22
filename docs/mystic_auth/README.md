@@ -62,6 +62,7 @@ This is the template's own reference documentation, belonging to upstream and no
 
 - [Security Decisions](security/decisions.md): index of the *why* behind non-obvious security choices, plus known accepted gaps, split into [Auth & Session](security/decisions-auth.md), [Infrastructure](security/decisions-infra.md), and [Product](security/decisions-product.md)
 - [Security Hardening](security/hardening.md): rate limiting, lockout, security headers, CORS, cookie flags, consolidated
+- [Rate Limits](security/hardening-abuse-prevention.md#rate-limiting): the generic per-IP/per-account limiter, brute-force lockout, and the Rate Limit Dashboard (`GET /rate-limits/`, `frontend/src/mystic_auth/rate_limits/`) an admin uses to view and reset active limits
 - [SECURITY.md](../../SECURITY.md): how to report a vulnerability privately (not via a public GitHub Issue)
 
 ---
@@ -75,6 +76,18 @@ This is the template's own reference documentation, belonging to upstream and no
 ## Geolocation
 
 - [Session Geolocation](geolocation/overview.md): off-by-default IP-to-city/country resolution for Manage Sessions' Location column; MaxMind GeoLite2 account/license-key setup, Docker vs. non-Docker
+
+---
+
+## Appearance
+
+- [Appearance: Per-User Brand Color](appearance/overview.md): per-account brand-color override on top of the app-wide default theme, live Chakra system rebuild, generated 50-900 color scale, favicon/meta sync, server reconciliation across devices
+
+---
+
+## Legal
+
+- [Legal Documents and Signup Consent](legal/overview.md): the in-app Privacy Policy and Terms of Service pages, the signup consent notice (not a gating checkbox), and what an operator needs to edit before shipping to real users
 
 ---
 

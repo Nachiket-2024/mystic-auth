@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Badge, Box, Button, Dialog, HStack, Portal, Stack, Text, Wrap } from "@chakra-ui/react";
+import { Box, Button, Dialog, HStack, Portal, Stack, Text, Wrap } from "@chakra-ui/react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import Badge from "../ui/Badge";
 import { useUserPoliciesQuery, usePoliciesQuery } from "../policies/policyQueries";
 import { useAssignPolicyMutation, useRevokePolicyMutation } from "../policies/policyMutations";
 import { toaster } from "../ui/toaster/toasterInstance";
@@ -138,13 +139,19 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
                                 ) : (
                                     <Wrap gap={2}>
                                         {(userPoliciesQuery.data?.policies ?? []).map((p) => (
-                                            <Badge key={p.name} colorPalette="brand" variant="subtle" size="md" px={2} py={1}>
-                                                <HStack gap={2}>
-                                                    <Text>{p.name}</Text>
+                                            <Badge key={p.name} colorPalette="brand" variant="subtle" size="md" px={2} py={1} maxW="14rem">
+                                                {/* maxW + truncate on the name (not the whole Badge)
+                                                    so a long policy name ellipsizes instead of
+                                                    growing this one chip - and its embedded revoke
+                                                    button with it - wide enough to spill past the
+                                                    dialog's own edge. */}
+                                                <HStack gap={2} minW={0}>
+                                                    <Text flex="1 1 auto" minW={0} maxW="100%" truncate title={p.name}>{p.name}</Text>
                                                     <IfCan action={PERMISSIONS.POLICIES_REVOKE}>
                                                         <Button
                                                             size="2xs"
                                                             variant="ghost"
+                                                            flexShrink={0}
                                                             aria-label={t("users:policiesDialog.revokeAriaLabel", { policyName: p.name })}
                                                             onClick={() => setRevokingPolicy(p.name)}
                                                             disabled={isSelf}

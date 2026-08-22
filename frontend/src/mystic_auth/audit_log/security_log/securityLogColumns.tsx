@@ -1,6 +1,7 @@
-import { Badge, Text } from "@chakra-ui/react";
+import { Text } from "@chakra-ui/react";
 import type { TFunction } from "i18next";
 
+import Badge from "../../ui/Badge";
 import type { DataTableColumn } from "../../ui/DataTable/DataTable";
 import type { SecurityAuditLogEntryRead } from "../../api/audit_api";
 import type { SupportedLanguage } from "../../translations/translations";

@@ -21,7 +21,7 @@ const SEGMENT_COUNT = 4;
 /** Fixed narrow width for the strength column, so its bar doesn't stretch
  * to fill the panel - it sits as a compact block beside the checklist
  * rather than spanning the full row. */
-const STRENGTH_COLUMN_WIDTH = "112px";
+const STRENGTH_COLUMN_WIDTH = "140px";
 
 /**
  * Strength (icon + bar + label) on the left, the 4 rules as a compact
@@ -56,7 +56,7 @@ const PasswordStrengthPanel: React.FC<PasswordStrengthPanelProps> = ({ password,
                     ))}
                 </HStack>
 
-                <Text fontSize="xs" fontWeight="bold" color={strength ? color : "fg.muted"} textAlign="center">
+                <Text fontSize="md" fontWeight="bold" color={strength ? color : "fg.muted"} textAlign="center" whiteSpace="nowrap">
                     {label}
                 </Text>
             </VStack>

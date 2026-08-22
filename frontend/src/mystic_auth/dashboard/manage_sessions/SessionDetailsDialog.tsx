@@ -1,8 +1,9 @@
 import React from "react";
-import { Badge, Button, Dialog, Portal, Stack, Text } from "@chakra-ui/react";
+import { Button, Dialog, Portal, Stack, Text } from "@chakra-ui/react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import Badge from "../../ui/Badge";
 import { DIALOG_BACKDROP_PROPS, DIALOG_CONTENT_PROPS } from "../../ui/styles/dialogStyles";
 import { CLOSE_TRIGGER_PROPS, SECONDARY_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 import { formatDateTime } from "../../ui/dateFormat";

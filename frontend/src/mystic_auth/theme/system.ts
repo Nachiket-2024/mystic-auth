@@ -46,8 +46,30 @@ const config: SystemConfig = {
  * passing a bare custom config to createSystem would do) so the app keeps every default
  * token/recipe and only overrides what's listed above, then merges `appThemeOverrides` on top of
  * that so a fork's own re-skin (app/theme.ts) wins last without editing this file.
+ *
+ * Exposed as a factory (rather than only the `system` singleton below) so
+ * AppearanceThemeProvider.tsx can rebuild the whole system with a signed-in
+ * user's own brand/background overrides merged in last, winning over even
+ * appThemeOverrides. This is the ONLY reliable way to override a
+ * conditional (_light/_dark) semantic token from outside this file: Chakra
+ * compiles the dark condition as a per-usage `.dark &` selector (see
+ * @chakra-ui/react's preset-base.js), not a single global `:root.dark {
+ * --var: x }` declaration, so setting `--chakra-colors-*` custom properties
+ * from plain DOM/CSS after the fact (an earlier version of this feature
+ * did exactly that) works for light mode - whose value happens to resolve
+ * through an unconditional token reference - but silently fails to
+ * override dark mode's value, which Chakra scopes per-instance. Rebuilding
+ * the system itself sidesteps that entirely: Chakra's own compiler
+ * resolves both conditions from the same config object everyone else uses,
+ * so there's no indirection left to fight.
  */
-export const system = createSystem(defaultConfig, config, appThemeOverrides);
+export function buildSystem(userOverrides?: SystemConfig) {
+    return userOverrides
+        ? createSystem(defaultConfig, config, appThemeOverrides, userOverrides)
+        : createSystem(defaultConfig, config, appThemeOverrides);
+}
+
+export const system = buildSystem();
 
 // Composed from the `durations.hover`/`easings.hover` tokens (themeTokens.ts)
 // via `system.token()` (which resolves to a `var(--chakra-...)` reference,

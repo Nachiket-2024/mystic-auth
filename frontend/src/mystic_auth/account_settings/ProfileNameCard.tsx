@@ -59,20 +59,24 @@ const ProfileNameCard: React.FC<ProfileNameCardProps> = ({ name, onDirtyChange }
 
     return (
         <Card p={5}>
+            {/* No sectionHeader Heading here (unlike the other tabs' cards):
+                the "Profile" tab trigger right above already names this
+                content, so repeating it inside would be redundant. */}
             <Stack as="form" onSubmit={handleNameSubmit} gap={4}>
                 <Field.Root>
-                    <Field.Label>{t("profileName.nameLabel")}</Field.Label>
+                    <Field.Label fontSize="md">{t("profileName.nameLabel")}</Field.Label>
                     <Input
                         value={editedName}
                         onChange={(e) => setEditedName(e.target.value)}
                         aria-invalid={!!nameError || nameMutation.isError}
                         aria-describedby={nameError ? "name-local-error" : nameMutation.isError ? "name-mutation-error" : undefined}
+                        size="lg"
                         {...SEARCH_INPUT_PROPS}
                     />
                 </Field.Root>
 
-                {nameError && <FormAlert status="error" id="name-local-error">{nameError}</FormAlert>}
-                {nameMutation.isError && <FormAlert status="error" id="name-mutation-error">{nameMutation.error.message}</FormAlert>}
+                {nameError && <FormAlert size="lg" status="error" id="name-local-error">{nameError}</FormAlert>}
+                {nameMutation.isError && <FormAlert size="lg" status="error" id="name-mutation-error">{nameMutation.error.message}</FormAlert>}
 
                 <Button
                     type="submit"

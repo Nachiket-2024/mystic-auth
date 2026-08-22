@@ -1,0 +1,31 @@
+{
+    "logIn": "Log in",
+    "signUp": "Sign up",
+    "hero": {
+        "title": "Auth & Authorization for your app",
+        "subtitle": "{{appName}} gives your app policy-based access control, audit trails, and session security, so you can spend less time rebuilding auth from scratch.",
+        "getStarted": "Get started"
+    },
+    "highlights": {
+        "authentication": {
+            "title": "Authentication",
+            "description": "Password + Google OAuth2, refresh-token rotation, brute-force lockout."
+        },
+        "authorization": {
+            "title": "PBAC authorization",
+            "description": "Access decided by assigned policies, not a hardcoded role check."
+        },
+        "auditLog": {
+            "title": "Audit logging",
+            "description": "Every session event and access decision recorded, queryable per user."
+        },
+        "multilingual": {
+            "title": "Multilingual",
+            "description": "Ships with English, Hindi, Marathi, and Gujarati out of the box."
+        }
+    },
+    "footer": {
+        "privacyPolicy": "Privacy Policy",
+        "termsOfService": "Terms of Service"
+    }
+}

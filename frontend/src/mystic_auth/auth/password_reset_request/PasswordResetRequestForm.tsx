@@ -35,7 +35,7 @@ const PasswordResetRequestForm: React.FC = () => {
     return (
         <Stack as="form" onSubmit={handleSubmit} w="full">
             <ChakraField.Root required>
-                <ChakraField.Label>{t("passwordResetRequest.emailLabel")}</ChakraField.Label>
+                <ChakraField.Label fontSize="md">{t("passwordResetRequest.emailLabel")}</ChakraField.Label>
                 <Input
                     type="email"
                     value={email}

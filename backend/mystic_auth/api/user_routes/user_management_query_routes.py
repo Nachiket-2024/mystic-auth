@@ -62,6 +62,10 @@ async def list_all_users(
     status: UserStatus | None = Query(
         default=None, description="One of: active, inactive, deleted (see UsersPage.tsx's Status badge)"
     ),
+    policy: str | None = Query(default=None, description="Exact match on the name of an assigned policy"),
+    permission: Permission | None = Query(
+        default=None, description="Users holding a policy whose actions include this permission"
+    ),
     sort_by: str | None = Query(
         default=None,
         description="Column to sort by: name, email, role, is_verified, or created_at. "
@@ -75,7 +79,9 @@ async def list_all_users(
     # list[UserRead]) lets the frontend render numbered pages without a
     # separate round trip: computed from the same filters so the page count
     # always matches what's actually being paged through.
-    total = await user_crud.count(db, search=search, role=role, is_verified=is_verified, status=status)
+    total = await user_crud.count(
+        db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission
+    )
     response.headers["X-Total-Count"] = str(total)
     return await user_crud.get_all(
         db,
@@ -87,6 +93,8 @@ async def list_all_users(
         status=status,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        policy=policy,
+        permission=permission,
     )
 
 
@@ -120,6 +128,10 @@ async def export_users(
     role: UserRole | None = Query(default=None, description="Exact match on role"),
     is_verified: bool | None = Query(default=None, description="Exact match on is_verified"),
     status: UserStatus | None = Query(default=None, description="One of: active, inactive, deleted"),
+    policy: str | None = Query(default=None, description="Exact match on the name of an assigned policy"),
+    permission: Permission | None = Query(
+        default=None, description="Users holding a policy whose actions include this permission"
+    ),
     current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session),
 ):
@@ -127,7 +139,9 @@ async def export_users(
     limit/offset - always the whole filtered set, unlike the paginated
     list above). Same permission as the list itself, same reasoning as
     /stats: this is just another view of that same data."""
-    total = await user_crud.count(db, search=search, role=role, is_verified=is_verified, status=status)
+    total = await user_crud.count(
+        db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission
+    )
     if total > settings.USER_EXPORT_MAX_ROWS:
         raise AppError(
             status_code=status_module.HTTP_400_BAD_REQUEST,
@@ -143,6 +157,8 @@ async def export_users(
         role=role,
         is_verified=is_verified,
         status=status,
+        policy=policy,
+        permission=permission,
     )
 
     buffer = io.StringIO()

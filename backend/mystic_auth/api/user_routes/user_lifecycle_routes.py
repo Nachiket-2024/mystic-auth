@@ -13,6 +13,7 @@ from ...audit_log.audit_log_service import (
 # refresh_token_service.refresh_tokens() itself doesn't check the database
 # (it's Redis/JWT-only by design, see its own docstring).
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
+from ...auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ...authorization.dependencies.authorization_dependency import require_authorization
 
 # PBAC action vocabulary and policy-based authorization. Replaces the removed
@@ -21,6 +22,7 @@ from ...authorization.permissions import Permission
 from ...core.errors import AppError
 from ...database.connection import database
 from ...emails.email_normalization import normalize_email
+from ...logging.logging_config import get_logger
 from ...user_crud.user_crud_collector import user_crud
 
 # UserRole is only used for target-account guards such as protecting the
@@ -39,6 +41,8 @@ from ..get_or_404.get_or_404 import get_or_404
 # main.py registers this router after self-service routes so /{user_email}
 # cannot shadow /users/me or /users/stats.
 router = APIRouter(prefix="/users", tags=["Users"])
+
+logger = get_logger(__name__)
 
 _RESOURCE_TYPE = "users"
 
@@ -87,7 +91,23 @@ async def delete_any_user(
     # could keep minting fresh (if useless) access tokens until it expires on
     # its own. Also marks every Manage Sessions row revoked (see
     # revoke_all_tokens_for_user's own implementation).
-    revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
+    #
+    # The soft-delete above already succeeded (a Postgres write, unrelated
+    # to Redis), so a failed revoke here must not turn an already-successful
+    # deletion into an error response - logged at critical and recorded
+    # honestly in the audit trail instead, same reasoning as
+    # finalize_self_deletion's identical comment.
+    try:
+        revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
+        sessions_revoked_confirmed = True
+    except TokenVersionUnavailableError:
+        revoked_count = 0
+        sessions_revoked_confirmed = False
+        logger.critical(
+            "User %s was deleted by %s, but session revocation could not be confirmed "
+            "(Redis unavailable) - existing sessions may remain valid until Redis recovers",
+            user_email, current_user["email"],
+        )
 
     await log_security_event(
         ACCOUNT_DELETED,
@@ -95,7 +115,11 @@ async def delete_any_user(
         user_email=user_email,
         success=True,
         request=request,
-        metadata={"deleted_by": current_user["email"], "sessions_revoked": revoked_count},
+        metadata={
+            "deleted_by": current_user["email"],
+            "sessions_revoked": revoked_count,
+            "sessions_revoked_confirmed": sessions_revoked_confirmed,
+        },
     )
 
     return {"detail": f"User {user_email} deleted successfully"}
@@ -142,7 +166,23 @@ async def purge_user(
     # moment later anyway, unlike delete_any_user's soft-delete case, where
     # the rows survive) but harmless, and keeping one call site rather than
     # a purge-specific variant is worth that one extra write.
-    await purge_user_account(user, db, purged_by=current_user["email"], request=request)
+    #
+    # Unlike delete_any_user/finalize_self_deletion (a reversible soft
+    # delete, where the primary write already happened before the revoke),
+    # purge_user_account revokes BEFORE the irreversible hard delete - so a
+    # TokenVersionUnavailableError here (see the function's own docstring)
+    # propagates and the row is never deleted, same fail-closed default as
+    # every other gatekeeping check in the app: better to block an
+    # irreversible action on an unconfirmed revoke than purge an account
+    # while its sessions might still be alive.
+    try:
+        await purge_user_account(user, db, purged_by=current_user["email"], request=request)
+    except TokenVersionUnavailableError as exc:
+        raise AppError(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code="SESSION_REVOCATION_UNAVAILABLE",
+            detail="Could not confirm existing sessions were revoked; purge was not performed. Please try again shortly",
+        ) from exc
     return {"detail": f"User {user_email} permanently removed"}
 
 

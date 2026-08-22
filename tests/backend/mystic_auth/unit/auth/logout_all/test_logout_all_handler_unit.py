@@ -1,9 +1,11 @@
 # tests/backend/mystic_auth/unit/test_logout_all_handler_unit.py
+import json
 from unittest.mock import AsyncMock
 
 import pytest
 
 from backend.mystic_auth.auth.logout_all.logout_all_handler import logout_all_handler
+from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
 
 MODULE = "backend.mystic_auth.auth.logout_all.logout_all_handler"
 
@@ -91,6 +93,38 @@ async def test_logout_all_with_already_revoked_token_still_resolves_email_and_re
     headers = _set_cookie_headers(response)
     assert any(h.startswith("access_token=") for h in headers)
     assert any(h.startswith("refresh_token=") for h in headers)
+
+
+@pytest.mark.asyncio
+async def test_logout_all_returns_503_and_still_clears_cookies_when_bump_is_unconfirmed(mocker):
+    """Unlike an already-dead presented token (nothing left to revoke, goal
+    already met), an unconfirmed account-version bump means the revoke
+    genuinely didn't happen - revoking every session IS this request's
+    whole purpose, so it must not report a false "logged out from N
+    devices" success. Cookies are still cleared, since this browser's own
+    copy of the goal is unaffected by whether other devices got revoked."""
+    mocker.patch(
+        f"{MODULE}.jwt_service.decode_payload",
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "type": "refresh"},
+    )
+    mocker.patch(
+        f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user",
+        new_callable=AsyncMock, side_effect=TokenVersionUnavailableError("redis down"),
+    )
+    audit_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
+
+    response = await logout_all_handler.handle_logout_all("valid-token")
+
+    assert response.status_code == 503
+    assert json.loads(response.body)["code"] == "SESSION_REVOCATION_UNAVAILABLE"
+    headers = _set_cookie_headers(response)
+    assert any(h.startswith("access_token=") for h in headers)
+    assert any(h.startswith("refresh_token=") for h in headers)
+
+    audit_mock.assert_awaited_once()
+    _, kwargs = audit_mock.call_args
+    assert kwargs["success"] is False
 
 
 @pytest.mark.asyncio

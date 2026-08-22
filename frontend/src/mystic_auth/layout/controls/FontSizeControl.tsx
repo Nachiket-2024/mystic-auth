@@ -4,7 +4,7 @@ import { Flex, Portal, Select, createListCollection, visuallyHiddenStyle } from 
 import { FONT_SIZES, useFontSizeStore, type FontSize } from "../../store/fontSizeStore";
 import translations from "../../translations/translations";
 import { useLanguageStore } from "../../store/languageStore";
-import { ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
+import { BRAND_ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 
 /**
  * Global text-size control, backed by store/fontSizeStore.ts (persists to
@@ -49,11 +49,11 @@ const FontSizeControl: React.FC = () => {
             <Select.Label css={visuallyHiddenStyle}>{t("fontSize.label")}</Select.Label>
             <Select.Control>
                 {/* Same border/bg/hover treatment as ThemeToggle/LanguageToggle -
-                    shares ICON_BUTTON_PROPS directly so the three can't drift
-                    apart the way hand-duplicated values could. */}
+                    shares BRAND_ICON_BUTTON_PROPS directly so the three can't
+                    drift apart the way hand-duplicated values could. */}
                 <Select.Trigger
                     fontSize="md"
-                    {...ICON_BUTTON_PROPS}
+                    {...BRAND_ICON_BUTTON_PROPS}
                     display="grid"
                 >
                     {/* Trigger always shows the fixed "Size" label, not the
@@ -110,7 +110,26 @@ const FontSizeControl: React.FC = () => {
                                 key={option.value}
                                 item={option}
                                 _highlighted={{ bg: "brand.solid", color: "white" }}
-                                _selected={{ bg: "brand.selected", color: "brand.fg", fontWeight: "semibold" }}
+                                // bg: brand.200 by default (light), one step darker than
+                                // brand.selected's own brand.100 there - that read as barely
+                                // more emphasized than the plain unselected rows' own
+                                // gray.700 text, so the "selected" state didn't stand out at
+                                // a glance the way the solid-fill hover does. Overridden to
+                                // brand.selected's brand.800 in dark (already fine). `_light`
+                                // is NOT a real Chakra condition (only `_dark` is) - an
+                                // earlier version nested `bg: { _light, _dark }` here, which
+                                // silently dropped the light value, leaving no visible fill
+                                // at rest. Nested _highlighted below: see LanguageToggle.tsx's
+                                // matching comment - without it, hovering the selected row
+                                // renders invisible same-color text (brand.fg and
+                                // brand.solid are both brand.600 light).
+                                _selected={{
+                                    bg: "brand.200",
+                                    color: "brand.fg",
+                                    fontWeight: "semibold",
+                                    _dark: { bg: "brand.selected" },
+                                    _highlighted: { bg: "brand.solid", color: "white" },
+                                }}
                             >
                                 <Select.ItemText>{option.label}</Select.ItemText>
                                 <Select.ItemIndicator />

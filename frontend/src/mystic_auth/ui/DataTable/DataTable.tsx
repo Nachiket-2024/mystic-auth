@@ -1,16 +1,15 @@
 import React from "react";
-import { Box, Checkbox, HStack, Table, Text, EmptyState } from "@chakra-ui/react";
+import { HStack, Table, Text, EmptyState } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import FormAlert from "../FormAlert";
-import { ariaSortFor, renderHeaderCell } from "./DataTableSortableHeader";
+import { DataTableHeaderRow } from "./DataTableSortableHeader";
+import { DataTableRow } from "./DataTableRow";
 import DataTableSkeleton from "./DataTableSkeleton";
 import { useDataTableSelection } from "./DataTableSelection";
-import { plainTextOf, SCROLL_SHADOW_CSS, STICKY_HEADER_CELL_PROPS } from "./DataTableStyles";
+import { SCROLL_AREA_SCROLLBAR_CSS, SCROLL_SHADOW_CSS } from "./DataTableStyles";
 import type { SortState } from "../hooks/useSortState";
 import { useLanguageStore } from "../../store/languageStore";
-import { formatNumber } from "../../translations/numerals";
-import { FAST_HOVER_TRANSITION } from "../../theme/system";
 
 export interface DataTableColumn<T> {
     key: string;
@@ -186,6 +185,8 @@ function DataTable<T>({
                         <EmptyState.Indicator
                             bg="accent.subtle"
                             color="accent.fg"
+                            borderWidth="1px"
+                            borderColor="accent.border"
                             rounded="full"
                             boxSize="16"
                             display="flex"
@@ -222,112 +223,58 @@ function DataTable<T>({
                 whole page scrolling past a header that "sticks" to nothing. A
                 table with fewer rows than fit in 70dvh never hits this cap, so
                 it renders exactly as before (no inner scrollbar, no clipping). */}
-            <Table.ScrollArea borderWidth="1px" borderColor="border.default" rounded="lg" maxH="70dvh" css={SCROLL_SHADOW_CSS}>
-            <Table.Root size="sm" striped css={{ tableLayout: "fixed", width: "100%", fontSize: "md" }}>
+            <Table.ScrollArea
+                borderWidth="1px"
+                borderColor="border.default"
+                rounded="lg"
+                maxH="70dvh"
+                css={{ ...SCROLL_SHADOW_CSS, ...SCROLL_AREA_SCROLLBAR_CSS }}
+            >
+            <Table.Root
+                size="sm"
+                striped
+                css={{
+                    tableLayout: "fixed",
+                    width: "100%",
+                    fontSize: "md",
+                    // The last row's own borderBottomWidth (from the "line" variant's
+                    // default cell styling) stacked directly on top of
+                    // Table.ScrollArea's outer borderColor="border.default" above,
+                    // reading as a doubled line at the bottom edge once that border
+                    // token got darker/more visible - drop just that one row's
+                    // bottom border since the ScrollArea's own border already closes
+                    // the box off there.
+                    "& tbody tr:last-of-type td": { borderBottomWidth: 0 },
+                }}
+            >
                 {colgroup}
                 <Table.Header>
-                    <Table.Row>
-                        {selectable && (
-                            <Table.ColumnHeader w="1%" {...STICKY_HEADER_CELL_PROPS}>
-                                <Checkbox.Root
-                                    checked={isAllSelected ? true : isSomeSelected ? "indeterminate" : false}
-                                    onCheckedChange={toggleAll}
-                                    aria-label={t("selectAllRows")}
-                                >
-                                    <Checkbox.HiddenInput />
-                                    <Checkbox.Control />
-                                </Checkbox.Root>
-                            </Table.ColumnHeader>
-                        )}
-                        {showRowNumbers && (
-                            <Table.ColumnHeader w="1%" fontSize="md" {...STICKY_HEADER_CELL_PROPS}>#</Table.ColumnHeader>
-                        )}
-                        {columns.map((col) => (
-                            <Table.ColumnHeader
-                                key={col.key}
-                                textAlign={col.align}
-                                overflow="hidden"
-                                fontSize="md"
-                                aria-sort={ariaSortFor(col, sort)}
-                                {...STICKY_HEADER_CELL_PROPS}
-                                onClick={col.sortable ? () => onSortChange?.(col.key) : undefined}
-                                onKeyDown={
-                                    col.sortable
-                                        ? (e) => {
-                                              // SortableHeaderLabel renders role="button", but the
-                                              // click handler lives here on the parent cell - a
-                                              // span[role=button] (unlike a real <button>) doesn't
-                                              // fire on Enter/Space by itself, so without this the
-                                              // header is focusable but not actually operable via
-                                              // keyboard.
-                                              if (e.key === "Enter" || e.key === " ") {
-                                                  e.preventDefault();
-                                                  onSortChange?.(col.key);
-                                              }
-                                          }
-                                        : undefined
-                                }
-                            >
-                                {col.truncate ? (
-                                    <Box
-                                        overflow="hidden"
-                                        textOverflow="ellipsis"
-                                        whiteSpace="nowrap"
-                                        title={col.header}
-                                    >
-                                        {renderHeaderCell(col, sort)}
-                                    </Box>
-                                ) : (
-                                    renderHeaderCell(col, sort)
-                                )}
-                            </Table.ColumnHeader>
-                        ))}
-                    </Table.Row>
+                    <DataTableHeaderRow
+                        columns={columns}
+                        sort={sort}
+                        onSortChange={onSortChange}
+                        selectable={selectable}
+                        showRowNumbers={showRowNumbers}
+                        isAllSelected={isAllSelected}
+                        isSomeSelected={isSomeSelected}
+                        onToggleAll={toggleAll}
+                        selectAllLabel={t("selectAllRows")}
+                    />
                 </Table.Header>
                 <Table.Body>
                     {rows.map((row, rowIndex) => (
-                        // bg.emphasized (Chakra's own default for that token) is
-                        // exactly one step past bg.muted, which is what the
-                        // `striped` variant above already uses for its own
-                        // alternating row background - so hover reads as a
-                        // deliberate further step, not a color unrelated to the
-                        // stripe underneath it.
-                        <Table.Row key={rowKey(row)} _hover={{ bg: "bg.emphasized" }} transition={FAST_HOVER_TRANSITION}>
-                            {selectable && (
-                                <Table.Cell>
-                                    <Checkbox.Root
-                                        checked={selectedKeys?.has(rowKey(row)) ?? false}
-                                        onCheckedChange={() => toggleRow(rowKey(row))}
-                                        aria-label={t("selectRow")}
-                                    >
-                                        <Checkbox.HiddenInput />
-                                        <Checkbox.Control />
-                                    </Checkbox.Root>
-                                </Table.Cell>
-                            )}
-                            {showRowNumbers && (
-                                <Table.Cell color="fg.muted">{formatNumber((startIndex as number) + rowIndex + 1, language)}</Table.Cell>
-                            )}
-                            {columns.map((col) => {
-                                const content = col.render(row);
-                                return (
-                                    <Table.Cell key={col.key} textAlign={col.align} overflow="hidden">
-                                        {col.truncate ? (
-                                            <Box
-                                                overflow="hidden"
-                                                textOverflow="ellipsis"
-                                                whiteSpace="nowrap"
-                                                title={plainTextOf(content)}
-                                            >
-                                                {content}
-                                            </Box>
-                                        ) : (
-                                            content
-                                        )}
-                                    </Table.Cell>
-                                );
-                            })}
-                        </Table.Row>
+                        <DataTableRow
+                            key={rowKey(row)}
+                            row={row}
+                            columns={columns}
+                            selectable={selectable}
+                            isSelected={selectedKeys?.has(rowKey(row)) ?? false}
+                            onToggle={() => toggleRow(rowKey(row))}
+                            selectRowLabel={t("selectRow")}
+                            showRowNumbers={showRowNumbers}
+                            rowNumber={showRowNumbers ? (startIndex as number) + rowIndex + 1 : undefined}
+                            language={language}
+                        />
                     ))}
                 </Table.Body>
             </Table.Root>

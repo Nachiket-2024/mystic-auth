@@ -24,10 +24,17 @@ from ...auth.signup.signup_schema import SignupSchema
 from ...auth.token_logic.jwt_service import jwt_service
 from ...auth.verify_account.account_verification_handler import account_verification_handler
 from ...auth.verify_account.verify_account_schema import VerifyAccountRequestSchema, VerifyAccountSchema
+from ...core.settings import settings
 from ...database.connection import database
 from ...user_session.session_events import session_event_stream
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# The OAuth2 routes are always a top-level browser navigation (they return a
+# RedirectResponse, never JSON), so rate-limiting them must redirect back to
+# the login page too, not render a raw JSON 429 body - see
+# rate_limiter_service.rate_limited's redirect_url param.
+_OAUTH2_RATE_LIMIT_REDIRECT_URL = f"{settings.FRONTEND_BASE_URL}/login?error=TOO_MANY_ATTEMPTS"
 
 
 async def _access_token_account_key(kwargs: dict) -> str | None:
@@ -80,13 +87,13 @@ async def login(payload: LoginSchema, request: Request, db: AsyncSession = Depen
 
 
 @router.get("/oauth2/login/google")
-@rate_limiter_service.rate_limited("oauth2_login")
+@rate_limiter_service.rate_limited("oauth2_login", redirect_url=_OAUTH2_RATE_LIMIT_REDIRECT_URL)
 async def oauth2_login_google():
     return await oauth2_login_handler.handle_oauth2_login_initiate()
 
 
 @router.get("/oauth2/callback/google")
-@rate_limiter_service.rate_limited("oauth2_callback")
+@rate_limiter_service.rate_limited("oauth2_callback", redirect_url=_OAUTH2_RATE_LIMIT_REDIRECT_URL)
 async def oauth2_callback_google(
     request: Request,
     code: str | None = None,
@@ -113,9 +120,7 @@ async def get_current_user(
 
 
 @router.get("/session-events")
-async def session_events(
-    request: Request, access_token: str = Cookie(None), db: AsyncSession = Depends(database.get_session)
-):
+async def session_events(access_token: str = Cookie(None), db: AsyncSession = Depends(database.get_session)):
     """
     Server-Sent Events stream: nudges this caller's other open tabs/devices
     the instant their session is revoked (logout-all, password change, a
@@ -131,7 +136,7 @@ async def session_events(
     """
     current_user = await current_user_handler.get_current_user(access_token, db=db)
     return StreamingResponse(
-        session_event_stream(current_user["email"], request),
+        session_event_stream(current_user["email"]),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

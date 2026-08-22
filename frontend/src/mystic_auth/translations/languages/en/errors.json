@@ -43,5 +43,11 @@
     "USER_NOT_FOUND_OR_ALREADY_VERIFIED": "User not found, or the account is already verified",
     "INVALID_OR_EXPIRED_RESET_TOKEN": "This password reset link is invalid or has expired",
     "INVALID_RESET_TOKEN_OR_PASSWORD": "This reset link or password is invalid",
-    "TOO_MANY_ATTEMPTS": "Too many {{endpoint}} attempts. Please try again later"
+    "TOO_MANY_ATTEMPTS": "Too many {{endpoint}} attempts. Please try again later",
+    "SESSION_REVOCATION_UNAVAILABLE": "Could not confirm this was revoked right now. Please try again shortly",
+    "ACCOUNT_DELETED": "This account has been deleted",
+    "OAUTH_LOGIN_FAILED": "We couldn't sign you in with Google. Please try again",
+    "OAUTH_STATE_INVALID": "Your sign-in attempt expired or could not be verified. Please try again",
+    "OAUTH_EMAIL_NOT_VERIFIED": "Your Google account's email address is not verified. Please verify it with Google and try again",
+    "OAUTH_CANCELLED": "Sign-in with Google was cancelled"
 }

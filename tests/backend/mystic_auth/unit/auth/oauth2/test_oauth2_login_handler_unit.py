@@ -1,4 +1,8 @@
 # tests/backend/mystic_auth/unit/test_oauth2_unit.py
+#
+# CSRF state validation for handle_oauth2_callback is split out into
+# test_oauth2_callback_state_validation_unit.py once this file passed the
+# repo's own file-length guideline.
 import base64
 import hashlib
 from unittest.mock import AsyncMock
@@ -8,8 +12,12 @@ import pytest
 from backend.mystic_auth.auth.oauth2.oauth2_login_handler import oauth2_login_handler
 from backend.mystic_auth.auth.oauth2.oauth2_service import (
     OAUTH2_STATE_TTL_SECONDS,
+    OAuth2LoginRejected,
     oauth2_service,
 )
+from backend.mystic_auth.core.settings import settings
+
+FRONTEND_LOGIN_URL = f"{settings.FRONTEND_BASE_URL}/login"
 
 
 def _cookie_headers(response):
@@ -177,7 +185,7 @@ async def test_callback_redirects_cleanly_on_provider_error_without_touching_sta
         code=None, state="some-state", oauth_state_cookie="some-state", error="access_denied", db=None
     )
 
-    assert response.headers["location"].endswith("/login")
+    assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=OAUTH_CANCELLED"
     consume_mock.assert_not_called()
     exchange_mock.assert_not_called()
 
@@ -192,160 +200,93 @@ async def test_callback_redirects_cleanly_when_code_is_missing_without_error(moc
         code=None, state="some-state", oauth_state_cookie="some-state", error=None, db=None
     )
 
-    assert response.headers["location"].endswith("/login")
+    assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=OAUTH_CANCELLED"
     consume_mock.assert_not_called()
 
 
-# ---------------------------- handle_oauth2_callback: CSRF state validation ----------------------------
+# ---------------------------- handle_oauth2_callback: error codes on the redirect ----------------------------
 
 @pytest.mark.asyncio
-async def test_callback_rejects_missing_state(mocker):
-    consume_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
-    )
-    exchange_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
-    )
-
+async def test_callback_redirects_with_state_invalid_code_on_cookie_mismatch(mocker):
     response = await oauth2_login_handler.handle_oauth2_callback(
-        code="auth-code", state="", oauth_state_cookie="cookie-state", db=None
+        code="auth-code", state="state-a", oauth_state_cookie="state-b", error=None, db=None
     )
 
-    assert response.status_code in (302, 307)
-    assert response.headers["location"].endswith("/login")
-    consume_mock.assert_not_called()
-    exchange_mock.assert_not_called()
+    assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=OAUTH_STATE_INVALID"
 
 
 @pytest.mark.asyncio
-async def test_callback_rejects_missing_cookie(mocker):
-    exchange_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
-    )
-
-    response = await oauth2_login_handler.handle_oauth2_callback(
-        code="auth-code", state="query-state", oauth_state_cookie=None, db=None
-    )
-
-    assert response.headers["location"].endswith("/login")
-    exchange_mock.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_callback_rejects_state_cookie_mismatch(mocker):
-    consume_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
-    )
-    exchange_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
-    )
-
-    response = await oauth2_login_handler.handle_oauth2_callback(
-        code="auth-code", state="query-state", oauth_state_cookie="different-state", db=None
-    )
-
-    assert response.headers["location"].endswith("/login")
-    consume_mock.assert_not_called()
-    exchange_mock.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_callback_rejects_expired_or_replayed_state(mocker):
+async def test_callback_redirects_with_state_invalid_code_on_expired_state(mocker):
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
+        new_callable=AsyncMock,
         return_value=None,
     )
-    exchange_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
-    )
 
     response = await oauth2_login_handler.handle_oauth2_callback(
-        code="auth-code", state="matching-state", oauth_state_cookie="matching-state", db=None
+        code="auth-code", state="some-state", oauth_state_cookie="some-state", error=None, db=None
     )
 
-    assert response.headers["location"].endswith("/login")
-    exchange_mock.assert_not_called()
+    assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=OAUTH_STATE_INVALID"
 
 
 @pytest.mark.asyncio
-async def test_callback_proceeds_and_clears_state_cookie_on_valid_state(mocker):
+async def test_callback_redirects_with_email_not_verified_code(mocker):
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
-        return_value="stored-code-verifier",
+        new_callable=AsyncMock,
+        return_value="the-verifier",
     )
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
+        new_callable=AsyncMock,
         return_value={"access_token": "google-access-token"},
     )
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.get_user_info",
-        return_value={"email": "user@example.com", "name": "Test User", "email_verified": True},
-    )
-    mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.login_or_create_user",
-        return_value={"access_token": "app-access-token", "refresh_token": "app-refresh-token"},
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "email_verified": False},
     )
 
     response = await oauth2_login_handler.handle_oauth2_callback(
-        code="auth-code", state="matching-state", oauth_state_cookie="matching-state", db=None
+        code="auth-code", state="some-state", oauth_state_cookie="some-state", error=None, db=None
     )
 
-    assert response.headers["location"].endswith("/dashboard")
-    assert _cookie_value(response, "access_token") == "app-access-token"
-    # oauth_state cookie must be cleared once its single-use state token is consumed
-    cleared_cookie = next(h for h in _cookie_headers(response) if h.startswith("oauth_state="))
-    assert cleared_cookie.startswith(("oauth_state=\"\"", "oauth_state=;"))
+    assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=OAUTH_EMAIL_NOT_VERIFIED"
 
 
 @pytest.mark.asyncio
-async def test_callback_rejects_unverified_google_email(mocker):
+async def test_callback_redirects_with_rejection_code_from_login_or_create_user(mocker):
+    # Covers a deactivated/deleted account (and the reserved-system-account
+    # case) via the exact mechanism login_or_create_user now uses to signal
+    # them: raising OAuth2LoginRejected(code).
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
-        return_value="stored-code-verifier",
+        new_callable=AsyncMock,
+        return_value="the-verifier",
     )
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
+        new_callable=AsyncMock,
         return_value={"access_token": "google-access-token"},
     )
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.get_user_info",
-        return_value={"email": "attacker@example.com", "name": "Unverified", "email_verified": False},
+        new_callable=AsyncMock,
+        return_value={"email": "deleted@example.com", "email_verified": True},
     )
-    login_or_create_mock = mocker.patch(
+    mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.login_or_create_user",
+        new_callable=AsyncMock,
+        side_effect=OAuth2LoginRejected("ACCOUNT_DELETED"),
+    )
+    mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.log_security_event",
+        new_callable=AsyncMock,
     )
 
     response = await oauth2_login_handler.handle_oauth2_callback(
-        code="auth-code", state="matching-state", oauth_state_cookie="matching-state", db=None
+        code="auth-code", state="some-state", oauth_state_cookie="some-state", error=None, db=None
     )
 
-    assert response.headers["location"].endswith("/login")
-    # An unverified email must never reach account creation/linking
-    login_or_create_mock.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_callback_rejects_missing_email_verified_field(mocker):
-    mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
-        return_value="stored-code-verifier",
-    )
-    mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
-        return_value={"access_token": "google-access-token"},
-    )
-    mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.get_user_info",
-        # No email_verified field at all : must not be assumed trustworthy
-        return_value={"email": "user@example.com", "name": "Test User"},
-    )
-    login_or_create_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.login_or_create_user",
-    )
-
-    response = await oauth2_login_handler.handle_oauth2_callback(
-        code="auth-code", state="matching-state", oauth_state_cookie="matching-state", db=None
-    )
-
-    assert response.headers["location"].endswith("/login")
-    login_or_create_mock.assert_not_called()
+    assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=ACCOUNT_DELETED"

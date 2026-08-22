@@ -130,4 +130,4 @@ const LandingPage = trackedLazy(() => import("./landing_page/LandingPage"));
 <Route path="/" element={<LandingPage />} />
 ```
 
-Any other pre-auth or chrome-free page (a public status page, a docs page embedded in the app, an unsubscribe-confirmation page) follows this same shape: its own directory under `app/`, mounted as a bare `<Route>`, reading only what it needs from `../sdk`.
+Any other pre-auth or chrome-free page (a public status page, a docs page embedded in the app, an unsubscribe-confirmation page) follows this same shape: its own directory under `app/`, mounted as a bare `<Route>`, reading only what it needs from `../sdk`. `frontend/src/mystic_auth/legal/PrivacyPolicyPage.tsx` and `TermsOfServicePage.tsx` (routes `/privacy`, `/terms`) are a real instance of this pattern already in the template, built on `AuthLayout` instead of a fully bare page since they need the theme/language toggle header but not the sidebar.

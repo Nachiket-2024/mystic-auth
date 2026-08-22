@@ -3,7 +3,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.mystic_auth.auth.oauth2.oauth2_service import oauth2_service
+from backend.mystic_auth.auth.oauth2.oauth2_service import (
+    OAuth2LoginRejected,
+    oauth2_service,
+)
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
 )
@@ -13,7 +16,9 @@ MODULE = "backend.mystic_auth.auth.oauth2.oauth2_service"
 
 
 class _FakeUser:
-    def __init__(self, role_value="user", is_verified=True, is_active=True, hashed_password=None):
+    def __init__(
+        self, role_value="user", is_verified=True, is_active=True, hashed_password=None, deleted_at=None
+    ):
         class _Role:
             value = role_value
         self.id = 1
@@ -21,6 +26,7 @@ class _FakeUser:
         self.is_verified = is_verified
         self.is_active = is_active
         self.hashed_password = hashed_password
+        self.deleted_at = deleted_at
 
 
 class _FakePolicy:
@@ -111,9 +117,13 @@ async def test_login_or_create_user_rejects_reserved_system_account(mocker):
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=system_user)
     create_access_mock = mocker.patch(f"{MODULE}.jwt_service.create_access_token", new_callable=AsyncMock)
 
-    result = await oauth2_service.login_or_create_user(db=None, user_info={"email": "system@example.com"})
+    with pytest.raises(OAuth2LoginRejected) as exc_info:
+        await oauth2_service.login_or_create_user(db=None, user_info={"email": "system@example.com"})
 
-    assert result is None
+    # Generic code, not a distinct one : the frontend/user must not be able
+    # to tell "this is the reserved system account" apart from any other
+    # OAuth2 login failure.
+    assert exc_info.value.code == "OAUTH_LOGIN_FAILED"
     create_access_mock.assert_not_called()
 
 
@@ -124,9 +134,30 @@ async def test_login_or_create_user_rejects_deactivated_existing_user(mocker):
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser(is_active=False))
     create_access_mock = mocker.patch(f"{MODULE}.jwt_service.create_access_token", new_callable=AsyncMock)
 
-    result = await oauth2_service.login_or_create_user(db=None, user_info={"email": "deactivated@example.com"})
+    with pytest.raises(OAuth2LoginRejected) as exc_info:
+        await oauth2_service.login_or_create_user(db=None, user_info={"email": "deactivated@example.com"})
 
-    assert result is None
+    assert exc_info.value.code == "ACCOUNT_DEACTIVATED"
+    create_access_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_login_or_create_user_rejects_soft_deleted_user_with_distinct_code(mocker):
+    # A soft-deleted account also has is_active=False, but should surface a
+    # more accurate "deleted" message rather than "deactivated", since the
+    # two are distinct admin actions (see user_lifecycle_crud.py).
+    from datetime import UTC, datetime
+
+    mocker.patch(
+        f"{MODULE}.user_crud.get_by_email",
+        return_value=_FakeUser(is_active=False, deleted_at=datetime.now(UTC)),
+    )
+    create_access_mock = mocker.patch(f"{MODULE}.jwt_service.create_access_token", new_callable=AsyncMock)
+
+    with pytest.raises(OAuth2LoginRejected) as exc_info:
+        await oauth2_service.login_or_create_user(db=None, user_info={"email": "deleted@example.com"})
+
+    assert exc_info.value.code == "ACCOUNT_DELETED"
     create_access_mock.assert_not_called()
 
 

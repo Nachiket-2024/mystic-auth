@@ -63,3 +63,27 @@ def test_cookie_max_ages_are_derived_from_settings_not_hardcoded():
 
     assert f"Max-Age={settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60}" in access_header
     assert f"Max-Age={settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60}" in refresh_header
+
+
+@pytest.mark.parametrize("cookie_name", ["access_token", "refresh_token"])
+def test_clear_tokens_from_cookies_matches_samesite_of_set_tokens_in_cookies(cookie_name):
+    # Regression guard: clear_tokens_from_cookies used to hardcode
+    # samesite="none" while set_tokens_in_cookies sets samesite="strict",
+    # a mismatch between how each cookie is set and how it's later cleared.
+    set_response = token_cookie_handler.set_tokens_in_cookies(JSONResponse(content={}), TOKENS)
+    set_header = next(h for h in _set_cookie_headers(set_response) if h.startswith(f"{cookie_name}="))
+
+    clear_response = token_cookie_handler.clear_tokens_from_cookies(JSONResponse(content={}))
+    clear_header = next(h for h in _set_cookie_headers(clear_response) if h.startswith(f"{cookie_name}="))
+
+    set_samesite = next(p for p in set_header.split("; ") if p.lower().startswith("samesite="))
+    clear_samesite = next(p for p in clear_header.split("; ") if p.lower().startswith("samesite="))
+    assert clear_samesite.lower() == set_samesite.lower()
+
+
+def test_clear_tokens_from_cookies_scopes_refresh_token_to_auth_path():
+    response = token_cookie_handler.clear_tokens_from_cookies(JSONResponse(content={}))
+
+    headers = _set_cookie_headers(response)
+    refresh_header = next(h for h in headers if h.startswith("refresh_token="))
+    assert "Path=/auth" in refresh_header

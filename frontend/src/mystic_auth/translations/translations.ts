@@ -13,6 +13,7 @@ import enDashboard from "./languages/en/dashboard.json";
 import enRateLimits from "./languages/en/rate_limits.json";
 import enStatusPages from "./languages/en/status_pages.json";
 import enErrors from "./languages/en/errors.json";
+import enLegal from "./languages/en/legal.json";
 
 import hiUiText from "./languages/hi/ui_text.json";
 import hiLayout from "./languages/hi/layout.json";
@@ -26,6 +27,7 @@ import hiDashboard from "./languages/hi/dashboard.json";
 import hiRateLimits from "./languages/hi/rate_limits.json";
 import hiStatusPages from "./languages/hi/status_pages.json";
 import hiErrors from "./languages/hi/errors.json";
+import hiLegal from "./languages/hi/legal.json";
 
 import mrUiText from "./languages/mr/ui_text.json";
 import mrLayout from "./languages/mr/layout.json";
@@ -39,6 +41,7 @@ import mrDashboard from "./languages/mr/dashboard.json";
 import mrRateLimits from "./languages/mr/rate_limits.json";
 import mrStatusPages from "./languages/mr/status_pages.json";
 import mrErrors from "./languages/mr/errors.json";
+import mrLegal from "./languages/mr/legal.json";
 
 import guUiText from "./languages/gu/ui_text.json";
 import guLayout from "./languages/gu/layout.json";
@@ -52,6 +55,7 @@ import guDashboard from "./languages/gu/dashboard.json";
 import guRateLimits from "./languages/gu/rate_limits.json";
 import guStatusPages from "./languages/gu/status_pages.json";
 import guErrors from "./languages/gu/errors.json";
+import guLegal from "./languages/gu/legal.json";
 
 // One namespace per feature folder under src/mystic_auth/, so translation
 // files stay small and map 1:1 to code ownership rather than one giant JSON.
@@ -68,6 +72,7 @@ export const NAMESPACES = [
     "rate_limits",
     "status_pages",
     "errors",
+    "legal",
 ] as const;
 
 export type Namespace = (typeof NAMESPACES)[number];
@@ -97,6 +102,7 @@ translations.use(initReactI18next).init({
             rate_limits: enRateLimits,
             status_pages: enStatusPages,
             errors: enErrors,
+            legal: enLegal,
         },
         hi: {
             ui_text: hiUiText,
@@ -111,6 +117,7 @@ translations.use(initReactI18next).init({
             rate_limits: hiRateLimits,
             status_pages: hiStatusPages,
             errors: hiErrors,
+            legal: hiLegal,
         },
         mr: {
             ui_text: mrUiText,
@@ -125,6 +132,7 @@ translations.use(initReactI18next).init({
             rate_limits: mrRateLimits,
             status_pages: mrStatusPages,
             errors: mrErrors,
+            legal: mrLegal,
         },
         gu: {
             ui_text: guUiText,
@@ -139,6 +147,7 @@ translations.use(initReactI18next).init({
             rate_limits: guRateLimits,
             status_pages: guStatusPages,
             errors: guErrors,
+            legal: guLegal,
         },
     },
     lng: "en",

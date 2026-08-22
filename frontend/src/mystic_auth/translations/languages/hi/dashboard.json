@@ -9,6 +9,13 @@
     "accountSettingsButton": "खाता सेटिंग्स",
     "logoutAllButton": "सभी से लॉगआउट",
     "noUserData": "कोई उपयोगकर्ता डेटा उपलब्ध नहीं",
+    "identityDetailsDialog": {
+        "title": "प्रोफ़ाइल विवरण",
+        "viewButton": "प्रोफ़ाइल देखें",
+        "name": "नाम",
+        "email": "ईमेल",
+        "role": "भूमिका"
+    },
     "logoutAllDialog": {
         "title": "सभी उपकरणों से लॉगआउट",
         "description": "इससे आपके खाते के हर उपकरण पर, इस उपकरण सहित, हर सक्रिय सत्र समाप्त हो जाएगा। जारी रखें?",

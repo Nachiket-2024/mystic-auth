@@ -75,13 +75,15 @@ A random `state = secrets.token_urlsafe(32)` is generated alongside the PKCE pai
 - **Pre-registration hijack guard**: if an email was already registered via password signup but never verified, and the real owner later authenticates via Google with that address, the existing account's `hashed_password` is cleared at that moment. This closes the window where an attacker's pre-chosen password would otherwise remain valid on an account Google has now confirmed belongs to someone else. An already-verified account's password is left untouched. See `oauth2_service.py::login_or_create_user`'s docstring for the full walkthrough.
 - **System account is blocked from OAuth2 login entirely**: `role == UserRole.system` short-circuits before any user creation/update logic, forcing the reserved system account through password login only (`scripts/create_system_user.py`). See [System Superuser: Bootstrapping and Promotion](system-superuser.md) for why this script won't promote a Google-only account (no password at all) in place; it offers to delete and recreate it instead, and it promotes any other existing account by setting its `role` to `system` as part of the promotion, deliberately cutting off its own Google login going forward.
 - **`access_type`/`prompt` are intentionally omitted** from the Google authorization URL, since this app never stores or uses Google's own refresh token, so there's no reason to force an offline-access grant or a full re-consent prompt on every login.
-- Every step (missing code, provider error, state/cookie mismatch, expired state, failed token exchange, missing/unverified email, rejected `login_or_create_user`) redirects back to `{FRONTEND_BASE_URL}/login` rather than surfacing an API error. The frontend has no OAuth-specific error UI, so a failed OAuth2 attempt looks identical to landing on the login page fresh.
+- Every rejection redirects back to `{FRONTEND_BASE_URL}/login?error=<CODE>` (`oauth2_login_handler.py`'s `_redirect_to_login_clearing_state`) rather than surfacing an API error, with a distinct `<CODE>` per failure reason - see "Edge cases / error handling" below. The frontend's `OAuth2LoginButton` reads that param, translates it via the same `errors:<code>` lookup every other backend error uses (see [Translations](../translations/overview.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts)), and strips it from the URL afterward so a refresh doesn't re-show it.
 
 ---
 
 ## Frontend integration
 
 `OAuth2LoginButtonComponent` is a plain anchor/redirect to `GET {BACKEND_BASE_URL}/auth/oauth2/login/google`. No `@react-oauth/google` or similar client SDK is used; the entire flow is server-driven redirects. On success, the backend redirects to `{FRONTEND_BASE_URL}/dashboard` with the session cookies already set, so the frontend's normal `GET /auth/me` bootstrap (via `useAuthSession`) picks up the new session exactly as it would after a password login.
+
+On failure, `OAuth2LoginButton.tsx` reads the `?error=<CODE>` param off `/login` (via `useSearchParams`) once on mount, translates it through `apiError.ts`'s `translateErrorCode` (the same `errors:<code>` i18n lookup `extractApiErrorMessage` uses for ordinary API responses, factored out so this redirect-based flow can reuse it without an axios error object to unpack), and passes the result to `OAuth2LoginButtonComponent`'s `error` prop, which renders it via `FormAlert`. The param is then stripped from the URL (`setSearchParams(..., { replace: true })`) so a refresh or back-navigation doesn't re-show a stale error.
 
 ---
 
@@ -104,24 +106,29 @@ See [Security Decisions: OAuth2 CSRF and account-hijacking protections](../secur
 
 ## Edge cases / error handling
 
-- User cancels the Google consent screen (`error=access_denied`): redirect to
-  login, no state or Redis entry touched.
-- `state` is present but not in Redis because it expired or was consumed:
-  redirect to login and log at `warning`.
-- Token exchange succeeds but userinfo fetch fails, or vice versa: redirect to
-  login. Each external call is independently wrapped in `try/except` and logs
-  its own failure.
-- `login_or_create_user` returns `None` because of a system-account block,
-  deactivated account, or unexpected error: a `OAUTH2_LOGIN_SUCCESS`
-  security-audit event is still written with `success=False`, so a blocked
-  takeover attempt is reviewable.
+Each rejection redirects to `{FRONTEND_BASE_URL}/login?error=<CODE>` with a code the frontend translates via `errors.json` (see [Translations](../translations/overview.md)):
+
+| Situation | Code | Notes |
+|---|---|---|
+| User cancels the Google consent screen (`error=access_denied`), or `code` is missing | `OAUTH_CANCELLED` | No state or Redis entry touched. |
+| `state` missing, doesn't match the `oauth_state` cookie, or was already consumed/expired | `OAUTH_STATE_INVALID` | Logged at `warning`. |
+| Token exchange fails, userinfo fetch fails, or the final token pair is malformed | `OAUTH_LOGIN_FAILED` | Each external call is independently wrapped in `try/except` and logs its own failure; also the generic fallback for any other unexpected error, including the outer catch-all. |
+| Google's `email_verified` is falsy or missing | `OAUTH_EMAIL_NOT_VERIFIED` | An unverified email never reaches `login_or_create_user`. |
+| `login_or_create_user` raises `OAuth2LoginRejected` for a soft-deleted account (`deleted_at` set) | `ACCOUNT_DELETED` | Distinct from plain deactivation - see `deleted_at` vs. `is_active` in [Account Deletion and Purge](account-deletion.md). |
+| ...for a deactivated-but-not-deleted account, or the reserved system account | `ACCOUNT_DEACTIVATED` / `OAUTH_LOGIN_FAILED` | The system-account case deliberately reuses the generic code rather than a distinct one, so it can't be told apart from any other failure. |
+
+In every `OAuth2LoginRejected` case (and the plain `None`-returning failure paths), a `OAUTH2_LOGIN_SUCCESS` security-audit event is still written with `success=False`, so a blocked takeover attempt is reviewable.
+
+Rate-limiting either OAuth2 route (`oauth2_login`/`oauth2_callback` in `rate_limiter_service.py`) also redirects, with `?error=TOO_MANY_ATTEMPTS`, rather than the JSON `429` body every other rate-limited route returns - these are top-level browser navigations, not API calls with anywhere sensible to render JSON. See [Security Hardening: Rate limiting](../security/hardening-abuse-prevention.md#rate-limiting).
 
 ---
 
 ## Testing coverage
 
-`tests/backend/mystic_auth/unit/` covers `oauth2_login_handler` and
-`oauth2_service` with Google HTTP calls mocked.
+`tests/backend/mystic_auth/unit/auth/oauth2/` covers `oauth2_login_handler` (including CSRF
+state validation, split into its own `test_oauth2_callback_state_validation_unit.py`) and
+`oauth2_service` with Google HTTP calls mocked, including which `?error=<CODE>` each rejection
+redirects with.
 `tests/backend/mystic_auth/integration/auth/test_oauth_integration.py` exercises the
 initiate-to-callback flow against a real Redis instance. See
 [Testing Overview](../testing/overview.md).
@@ -131,5 +138,5 @@ initiate-to-callback flow against a real Redis instance. See
 ## Troubleshooting
 
 - **"redirect_uri_mismatch" from Google**: `GOOGLE_REDIRECT_URI` must be byte-for-byte identical to a URI registered in the Google Cloud Console (including scheme and trailing slash).
-- **Callback always redirects to `/login` with no visible error**: check `docker compose logs backend`. Every rejection path logs a `warning`/`error` with the specific reason (state mismatch, unverified email, exchange failure, etc.), since none of it is surfaced to the browser by design.
+- **Callback redirects to `/login` with an unexpected or missing error message**: the redirect's `?error=<CODE>` query param is what the frontend translates (see "Edge cases / error handling" above); if it's missing entirely, or the browser shows the raw code instead of a translated message, check `docker compose logs backend` for the specific reason logged at `warning`/`error`, and confirm the code has a matching `errors:<code>` entry in all four `frontend/src/mystic_auth/translations/languages/*/errors.json` files (a missing one logs a `console.error` in the browser dev console, DEV builds only).
 - **A returning Google user is asked to "set a password"**: expected if their account has never had one, since `hashed_password` is `None` for OAuth2-only accounts. Use `PUT /users/me` with a `password` field to set one.

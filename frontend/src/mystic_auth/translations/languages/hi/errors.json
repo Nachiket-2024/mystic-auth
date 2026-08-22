@@ -43,5 +43,11 @@
     "USER_NOT_FOUND_OR_ALREADY_VERIFIED": "उपयोगकर्ता नहीं मिला, या खाता पहले से सत्यापित है",
     "INVALID_OR_EXPIRED_RESET_TOKEN": "यह पासवर्ड रीसेट लिंक अमान्य है या समाप्त हो गया है",
     "INVALID_RESET_TOKEN_OR_PASSWORD": "यह रीसेट लिंक या पासवर्ड अमान्य है",
-    "TOO_MANY_ATTEMPTS": "बहुत अधिक {{endpoint}} प्रयास। कृपया बाद में पुनः प्रयास करें"
+    "TOO_MANY_ATTEMPTS": "बहुत अधिक {{endpoint}} प्रयास। कृपया बाद में पुनः प्रयास करें",
+    "SESSION_REVOCATION_UNAVAILABLE": "अभी इसे रद्द किए जाने की पुष्टि नहीं हो सकी। कृपया थोड़ी देर बाद पुनः प्रयास करें",
+    "ACCOUNT_DELETED": "यह खाता हटा दिया गया है",
+    "OAUTH_LOGIN_FAILED": "हम आपको Google से लॉग इन नहीं कर सके। कृपया पुनः प्रयास करें",
+    "OAUTH_STATE_INVALID": "आपका साइन-इन प्रयास समाप्त हो गया या सत्यापित नहीं किया जा सका। कृपया पुनः प्रयास करें",
+    "OAUTH_EMAIL_NOT_VERIFIED": "आपके Google खाते का ईमेल पता सत्यापित नहीं है। कृपया इसे Google के साथ सत्यापित करें और पुनः प्रयास करें",
+    "OAUTH_CANCELLED": "Google के साथ साइन-इन रद्द कर दिया गया"
 }

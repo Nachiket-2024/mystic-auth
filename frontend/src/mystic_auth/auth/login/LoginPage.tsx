@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate, Navigate } from "react-router";
+import { Link, useNavigate, Navigate } from "react-router";
 import { Stack, Text, StackSeparator } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
@@ -50,9 +50,16 @@ const LoginPage: React.FC = () => {
                     align="center"
                     textAlign="center"
                     gap={3}
-                    separator={<StackSeparator />}
+                    separator={<StackSeparator borderColor="border.default" />}
                 >
-                    <Logo />
+                    {/* Logo doubles as "back to home": same pattern as Stripe/Linear/
+                        Notion and the Clerk-hosted pages AuthLayout is modeled on -
+                        the brand mark on a login screen is a link, not just a badge,
+                        so a visitor who lands on /login directly isn't stuck with
+                        only the browser back button to leave. */}
+                    <Link to="/">
+                        <Logo />
+                    </Link>
                     {/* fg.default (not fg.muted) for stronger contrast: near-black in
                         light mode, near-white in dark mode, since this is the page's
                         primary supporting copy rather than deliberately de-emphasized
@@ -69,6 +76,18 @@ const LoginPage: React.FC = () => {
                         <AuthInlineLink to="/signup">
                             {t("loginPage.signUp")}
                         </AuthInlineLink>
+                    </Text>
+
+                    {/* Same "By continuing you agree to X and Y" footnote as
+                        SignupForm's - login is just as much an acceptance of
+                        the current terms as signing up is, and this is also
+                        the only place an unauthenticated visitor who isn't
+                        signing up can reach either document. */}
+                    <Text fontSize="sm" color="fg.muted">
+                        {t("loginPage.agreeToTermsPrefix")}{" "}
+                        <AuthInlineLink to="/terms">{t("loginPage.termsOfService")}</AuthInlineLink>{" "}
+                        {t("loginPage.and")}{" "}
+                        <AuthInlineLink to="/privacy">{t("loginPage.privacyPolicy")}</AuthInlineLink>
                     </Text>
                 </Stack>
             </Card>

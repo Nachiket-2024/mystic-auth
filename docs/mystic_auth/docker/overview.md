@@ -86,12 +86,41 @@ skips straight to building.
 | Frontend | Vite dev server, HMR, bind-mounted source | nginx serving the baked-in static build | nginx serving the baked-in static build, reached through Caddy |
 | Backend/worker | `--reload`, bind-mounted `./backend:/app` | No reload, code baked into the image | No reload, code baked into the image |
 | Restart policy | `restart: always` for Postgres/Redis only | `unless-stopped` on every long-running service | `unless-stopped` on every long-running service |
-| Ports exposed | 5433 (Postgres), 6380 (Redis), 8000 (backend), 5173 (frontend), all on localhost-friendly dev ports | 8000 (backend) and 80 (frontend) published for a local reverse proxy or tunnel | Only 80/443 on Caddy. Postgres, Redis, backend, and frontend are internal-only |
+| Ports exposed | 5433 (Postgres), 6380 (Redis), 8000 (backend), 5173 (frontend), 8010 (Bugsink), all on localhost-friendly dev ports | 8001 (backend) and 8080 (frontend) published for a local reverse proxy or tunnel, 8011 (Bugsink) on localhost only. Deliberately offset from dev's ports so both stacks can run side by side | Only 80/443 on Caddy. Postgres, Redis, backend, and frontend are internal-only |
 | TLS | None | External terminator or tunnel | Caddy with automatic Let's Encrypt certificates |
 | `backend` startup gate | Postgres and Redis healthy | Postgres and Redis healthy, plus `alembic: service_completed_successfully` | Postgres and Redis healthy, plus `alembic: service_completed_successfully` |
 | `procrastinate_worker` startup gate | Postgres healthy | Postgres healthy, plus `alembic: service_completed_successfully` | Postgres healthy, plus `alembic: service_completed_successfully` |
 
 Use `docker-compose.local-prod.yml` when you want to self-host the production image/runtime shape from a machine that does not own a public IP, with Cloudflare Tunnel or another external tool owning the public URL and TLS. Use `docker-compose.prod.yml` when the host itself should expose only Caddy on 80/443. See [Deployment Guide](../deployment/guide.md).
+
+### Each compose file is its own Compose project
+
+All three files declare a top-level `name:` (`mystic-auth-dev`,
+`mystic-auth-local-prod`, `mystic-auth-prod`). Without it, Compose derives
+the project name from the directory (`mystic-auth` for every file here,
+since they all live in the same directory), which means every container,
+network, and **named volume** (`postgres_data`, `backend_logs`, ...) from
+any of the three files collides on the exact same name. Two of these
+stacks running "side by side" then aren't actually isolated: they silently
+share one Postgres volume, so a command that looks scoped to one stack
+(`docker compose -f docker-compose.yml down -v`, or even just recreating a
+volume to fix a stale password) can wipe what's actually a different
+stack's real data. That's a real incident, not a hypothetical: an early
+local-prod test environment's database (test users, custom PBAC policies)
+was lost exactly this way, mid-session, before this fix.
+
+With each file's `name:` set, `docker compose -f docker-compose.yml up -d`
+and `docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build` can run
+at the same time on one machine with zero collision - separate containers
+(`mystic-auth-dev-postgres-1` vs. `mystic-auth-local-prod-postgres-1`),
+separate networks, separate volumes. If you have a pre-existing stack from
+before this change (containers plainly named `mystic-auth-postgres-1`
+etc., no `-dev`/`-local-prod`/`-prod` in the name), it's running under the
+old directory-derived project name and is now orphaned from every compose
+file's default target - `docker compose -p mystic-auth -f <file>.yml down`
+(explicitly naming the old project) stops it; its data volumes
+(`mystic-auth_postgres_data`, ...) survive that and can be inspected or
+removed manually once you've confirmed you don't need them.
 
 ### Running a one-off command inside a container
 

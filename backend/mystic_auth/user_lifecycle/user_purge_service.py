@@ -25,6 +25,14 @@ async def purge_user_account(
     write is what makes the action reviewable afterward, and `user_id`'s
     ON DELETE CASCADE would otherwise remove Manage Sessions rows out from
     under a post-delete revoke call.
+
+    Raises TokenVersionUnavailableError, uncaught, if the account-version
+    bump can't be confirmed (Redis unreachable): unlike a reversible soft
+    delete, this fails closed on purpose, since the row deletion below
+    hasn't happened yet at that point - better to block an irreversible
+    purge on an unconfirmed revoke than delete an account while its
+    sessions might still be alive. Both callers (the admin purge route and
+    the scheduled grace-period job) must handle this themselves.
     """
     user_email = user.email
     revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email, db)

@@ -14,6 +14,13 @@ export const APP_NAME = import.meta.env.VITE_APP_NAME;
  */
 export const APP_LOGO_URL = import.meta.env.VITE_APP_LOGO_URL || undefined;
 
+/**
+ * Contact address shown on the Terms of Service / Privacy Policy pages.
+ * Unset by default, in which case those pages fall back to a "replace this"
+ * placeholder rather than showing a blank or fabricated address.
+ */
+export const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || undefined;
+
 const settings = {
     apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
 };

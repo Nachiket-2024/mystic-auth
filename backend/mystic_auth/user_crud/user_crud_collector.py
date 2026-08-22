@@ -33,6 +33,8 @@ class UserCRUDCollector:
         status: UserStatus | None = None,
         sort_by: str | None = None,
         sort_dir: str = "asc",
+        policy: str | None = None,
+        permission: str | None = None,
     ):
         return await self.base.get_all(
             db,
@@ -44,6 +46,8 @@ class UserCRUDCollector:
             status=status,
             sort_by=sort_by,
             sort_dir=sort_dir,
+            policy=policy,
+            permission=permission,
         )
 
     async def count(
@@ -53,8 +57,12 @@ class UserCRUDCollector:
         role: UserRole | None = None,
         is_verified: bool | None = None,
         status: UserStatus | None = None,
+        policy: str | None = None,
+        permission: str | None = None,
     ) -> int:
-        return await self.base.count(db, search=search, role=role, is_verified=is_verified, status=status)
+        return await self.base.count(
+            db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission
+        )
 
     async def create(self, obj_data: dict, db: AsyncSession):
         return await self.base.create(obj_data, db)

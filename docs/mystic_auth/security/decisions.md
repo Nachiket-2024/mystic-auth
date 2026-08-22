@@ -29,6 +29,7 @@ See [Security Decisions: Infrastructure](decisions-infra.md) for the full entrie
 - [A malformed `SENTRY_DSN` must never crash the app](decisions-infra.md#a-malformed-sentry_dsn-must-never-crash-the-app): `init_sentry()` fails soft, monitoring-only.
 - [Background task queue: Taskiq vs Celery](decisions-infra.md#background-task-queue-taskiq-vs-celery): the original reasoning, kept as historical record.
 - [Taskiq replaced with Procrastinate](decisions-infra.md#taskiq-replaced-with-procrastinate): a full swap to a Postgres-native queue, and why.
+- [Least-privilege app DB role instead of running as Postgres superuser](decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser): what it protects against, what it doesn't, and why not Row-Level Security.
 
 ## Product decisions
 

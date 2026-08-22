@@ -35,4 +35,4 @@ class Database:
             yield session
 
 
-database = Database(settings.DATABASE_URL)
+database = Database(settings.APP_DATABASE_URL or settings.DATABASE_URL)

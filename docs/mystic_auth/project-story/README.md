@@ -32,7 +32,7 @@ What started as a shortcut for future projects became a project of its own.
 
 ## How it evolved
 
-The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 20 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
+The commit history shows the real evolution, not a fully planned architecture from day one. The first on 18 August, 2025 to the most recent on 22 August, 2026. There's a 4-month gap between October 2025 and February 2026. Below, days committed back-to-back are grouped into one range while an isolated day stands on its own.
 
 ```mermaid
 timeline
@@ -57,11 +57,11 @@ timeline
             : app / mystic_auth template split
             : Template docs, sync workflow, Docker/dev-up, logging
     August 2026: UI, backend changes, session/logout-all fixes
-            : Sync-script safety nets, scripts/ reorganized
             : Codebase restructure, PBAC/reset-token security fixes
             : Language toggle and i18n addition
             : Account deletion/purge, PBAC grant guard, command palette
             : Replaced Taskiq with Procrastinate, added rate-limit dashboard, geolocation
+            : Brand color, legal consent pages, least-privilege DB role
 ```
 
 ### 18 August, 2025 - 23 August, 2025
@@ -266,6 +266,9 @@ Self-service account deletion plus admin purge, a PBAC grant guard stopping a us
 
 ### 20 August, 2026
 Taskiq was replaced with Procrastinate for background jobs, and Manage Sessions gained offline GeoIP-based location, JWT issuer/audience claims, an admin rate-limits dashboard, and a user-export row cap. The full docs set was overhauled to match: stale references removed, diagrams redrawn vertically and fixed for legibility, and every page restructured tutorial-style.
+
+### 22 August, 2026
+Added brand colors, legal consent pages, and a least-privilege Postgres role. Fixed Redis session revocation to properly confirm password resets, deletions, and admin actions. Fixed PBAC permission filtering with 5 seeded policies and pagination. Patched cookie, React, and local DB issues with more tests. Fixed OAuth2 failure handling with specific error codes for deleted, deactivated, cancelled, and expired states, with rate-limited routes redirecting instead of returning raw JSON. Moved audit logging to Procrastinate background worker. Fixed nginx route leak and split three Docker Compose databases. Added documentation updates.
 
 ---
 

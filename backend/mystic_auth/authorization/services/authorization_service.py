@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.errors import AppError
 from ...logging.logging_config import get_logger
+from ...procrastinate_tasks.audit_log_tasks import log_authorization_decision_task
 from ..evaluators.authorization_decision import AuthorizationDecision
 from ..evaluators.policy_evaluator import policy_evaluation_engine
 from ..repositories.audit_log_repository import audit_log_repository
@@ -94,7 +95,7 @@ class AuthorizationService:
         )
 
         await AuthorizationService._log_decision(
-            user_email, action, resource_type, resource, context, decision, db
+            user_email, action, resource_type, resource, context, decision
         )
 
         return decision
@@ -162,10 +163,20 @@ class AuthorizationService:
         api/pbac_routes/authorization_check_routes.py, which deliberately surfaces only
         allowed/denial_reason, never matched/rejected/failed_conditions,
         for a batch response).
+
+        Every check's audit entry is written in one bulk insert after the
+        whole batch has been evaluated, rather than one commit per check:
+        a batch is 1-50 checks (BatchAuthorizationCheckRequest), and
+        committing after each one turned this endpoint into up to 50
+        sequential DB round trips for what the caller sees as a single
+        request. Evaluation itself is unaffected: each decision is still
+        computed independently and in order, only the persistence step is
+        batched.
         """
         policies = await policy_repository.get_active_policies_for_user(user_email, db)
 
         decisions: list[AuthorizationDecision] = []
+        audit_entries: list[dict] = []
         for check in checks:
             action = check["action"]
             resource_type = check["resource_type"]
@@ -194,12 +205,63 @@ class AuthorizationService:
                     evaluation_timestamp=datetime.now(UTC).isoformat(),
                 )
 
-            await AuthorizationService._log_decision(
-                user_email, action, resource_type, resource, context, decision, db
+            audit_entries.append(
+                AuthorizationService._build_audit_entry(
+                    user_email, action, resource_type, resource, context, decision
+                )
             )
             decisions.append(decision)
 
+        try:
+            await audit_log_repository.create_entries(audit_entries, db)
+        except Exception:
+            # Same "never break the real decision" guarantee as
+            # _log_decision: the caller has already gotten every decision
+            # above regardless of whether the audit write succeeded.
+            logger.warning("Failed to write batch authorization audit log entries:\n%s", traceback.format_exc())
+
         return decisions
+
+    @staticmethod
+    def _build_audit_entry(
+        user_email: str,
+        action: str,
+        resource_type: str,
+        resource: dict | object | None,
+        context: dict | None,
+        decision: AuthorizationDecision,
+    ) -> dict:
+        """
+        The audit log row (as a plain dict, not yet persisted) for one
+        decision: `decision` is the full explanation to record, capturing
+        not just the bare allow/deny but which policies matched vs. were
+        rejected and exactly which condition(s) failed on the rejected
+        ones, so "why was this denied" is answerable from the audit trail
+        alone, without re-running the evaluation. Shared by _log_decision
+        (single, immediate commit) and authorize_batch (many, one commit
+        for the whole batch).
+        """
+        # resource is often an arbitrary dict/object with no guaranteed
+        # key, so this is a best-effort identifier for the log entry.
+        resource_identifier = None
+        if isinstance(resource, dict):
+            resource_identifier = resource.get("email") or resource.get("id")
+        elif resource is not None:
+            resource_identifier = getattr(resource, "email", None) or getattr(resource, "id", None)
+        if resource_identifier is not None:
+            resource_identifier = str(resource_identifier)
+
+        return {
+            "user_email": user_email,
+            "action": action,
+            "resource_type": resource_type,
+            "resource_identifier": resource_identifier,
+            "allowed": decision.allowed,
+            "candidate_policy_names": decision.matched_policies + decision.rejected_policies,
+            "granting_policy_names": decision.matched_policies,
+            "failed_conditions": decision.failed_conditions or None,
+            "context": context,
+        }
 
     @staticmethod
     async def _log_decision(
@@ -209,49 +271,34 @@ class AuthorizationService:
         resource: dict | object | None,
         context: dict | None,
         decision: AuthorizationDecision,
-        db: AsyncSession,
     ) -> None:
         """
-        Persists an audit log row for a real decision: `decision` is the
-        full explanation to record, capturing not just the bare allow/deny
-        but which policies matched vs. were rejected and exactly which
-        condition(s) failed on the rejected ones, so "why was this denied"
-        is answerable from the audit trail alone, without re-running the
-        evaluation.
+        Queues an audit log row for a single real decision (see
+        _build_audit_entry for the row shape) via Procrastinate
+        (log_authorization_decision_task), rather than writing it inline:
+        this is the choke point every authorize()/require() call goes
+        through, so a synchronous DB commit here means every protected
+        request pays that write's latency before it can respond. The actual
+        INSERT happens in a background worker instead, on its own retry
+        schedule; the audit trail becomes eventually consistent (typically
+        sub-second) rather than visible the instant this call returns.
 
-        A logging failure must never break the actual authorization
+        A failure to even *queue* the job (e.g. Procrastinate's own DB
+        connection is down) must never break the actual authorization
         decision it's describing, caught and logged as a warning here,
-        never re-raised. The route/caller that asked for this decision has
-        already gotten (or will get) its answer regardless of whether the
-        audit write succeeded.
+        never re-raised, same guarantee as before this moved to a queue.
+        The route/caller that asked for this decision has already gotten
+        (or will get) its answer regardless of whether the audit write
+        succeeded.
         """
         try:
-            # resource is often an arbitrary dict/object with no guaranteed
-            # key, so this is a best-effort identifier for the log entry.
-            resource_identifier = None
-            if isinstance(resource, dict):
-                resource_identifier = resource.get("email") or resource.get("id")
-            elif resource is not None:
-                resource_identifier = getattr(resource, "email", None) or getattr(resource, "id", None)
-            if resource_identifier is not None:
-                resource_identifier = str(resource_identifier)
-
-            await audit_log_repository.create_entry(
-                {
-                    "user_email": user_email,
-                    "action": action,
-                    "resource_type": resource_type,
-                    "resource_identifier": resource_identifier,
-                    "allowed": decision.allowed,
-                    "candidate_policy_names": decision.matched_policies + decision.rejected_policies,
-                    "granting_policy_names": decision.matched_policies,
-                    "failed_conditions": decision.failed_conditions or None,
-                    "context": context,
-                },
-                db,
+            await log_authorization_decision_task.defer_async(
+                entry=AuthorizationService._build_audit_entry(
+                    user_email, action, resource_type, resource, context, decision
+                )
             )
         except Exception:
-            logger.warning("Failed to write authorization audit log entry:\n%s", traceback.format_exc())
+            logger.warning("Failed to queue authorization audit log entry:\n%s", traceback.format_exc())
 
     @staticmethod
     async def require(

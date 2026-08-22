@@ -6,6 +6,7 @@ import pytest
 from backend.mystic_auth.auth.password_logic.password_reset_service import (
     password_reset_service,
 )
+from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
 
 MODULE = "backend.mystic_auth.auth.password_logic.password_reset_service"
 
@@ -74,15 +75,48 @@ async def test_reset_password_succeeds_and_consumes_token(mocker):
         f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user", new_callable=AsyncMock
     )
 
-    result = await password_reset_service.reset_password("valid-token", "NewPass123!", db=None)
+    success, sessions_revoked = await password_reset_service.reset_password("valid-token", "NewPass123!", db=None)
 
-    assert result is True
+    assert success is True
+    assert sessions_revoked is True
     getdel_mock.assert_awaited_once_with("password_reset:valid-token")
     # A successful reset must never restore the token.
     set_mock.assert_not_called()
     # A successful reset must invalidate any session an attacker who stole
     # the account may already hold.
     revoke_all_mock.assert_awaited_once_with("user@example.com", None)
+
+
+@pytest.mark.asyncio
+async def test_reset_password_succeeds_but_flags_unrevoked_sessions_when_redis_is_unreachable(mocker):
+    # Regression guard for the "Redis outage failure modes are inconsistent"
+    # gap: the password write itself (Postgres, independent of Redis) must
+    # still succeed even if the account-version bump can't be confirmed, not
+    # get reported back as "invalid token or password" the way a swallowed
+    # TokenVersionUnavailableError used to make it look.
+    mocker.patch(
+        f"{MODULE}.password_service.verify_reset_token",
+        return_value={"email": "user@example.com", "exp": FUTURE_EXP},
+    )
+    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
+    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=True)
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
+    mocker.patch(f"{MODULE}.password_service.verify_password", return_value=False)
+    mocker.patch(f"{MODULE}.password_service.hash_password", return_value="new-hash")
+    mocker.patch(f"{MODULE}.user_crud.update_by_email", return_value=True)
+    mocker.patch(
+        f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user",
+        new_callable=AsyncMock,
+        side_effect=TokenVersionUnavailableError("Redis unreachable"),
+    )
+
+    success, sessions_revoked = await password_reset_service.reset_password("valid-token", "NewPass123!", db=None)
+
+    assert success is True
+    assert sessions_revoked is False
+    # Still a genuine success: the token must not be restored for retry.
+    set_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -94,9 +128,10 @@ async def test_reset_password_rejects_unknown_or_already_used_token(mocker):
     mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value=None)
     update_mock = mocker.patch(f"{MODULE}.user_crud.update_by_email")
 
-    result = await password_reset_service.reset_password("replayed-token", "NewPass123!", db=None)
+    success, sessions_revoked = await password_reset_service.reset_password("replayed-token", "NewPass123!", db=None)
 
-    assert result is False
+    assert success is False
+    assert sessions_revoked is None
     # A token that GETDEL didn't find (never issued, expired, or already
     # redeemed) must never reach the actual password update.
     update_mock.assert_not_called()
@@ -107,9 +142,10 @@ async def test_reset_password_rejects_invalid_jwt_before_touching_redis(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value=None)
     redis_getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock)
 
-    result = await password_reset_service.reset_password("garbage-token", "NewPass123!", db=None)
+    success, sessions_revoked = await password_reset_service.reset_password("garbage-token", "NewPass123!", db=None)
 
-    assert result is False
+    assert success is False
+    assert sessions_revoked is None
     redis_getdel_mock.assert_not_called()
 
 
@@ -131,11 +167,12 @@ async def test_reset_password_concurrent_replay_only_lets_one_request_through(mo
     mocker.patch(f"{MODULE}.user_crud.update_by_email", return_value=True)
     mocker.patch(f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user", new_callable=AsyncMock)
 
-    first_result = await password_reset_service.reset_password("valid-token", "FirstPass123!", db=None)
-    second_result = await password_reset_service.reset_password("valid-token", "SecondPass456!", db=None)
+    first_success, _ = await password_reset_service.reset_password("valid-token", "FirstPass123!", db=None)
+    second_success, second_sessions_revoked = await password_reset_service.reset_password("valid-token", "SecondPass456!", db=None)
 
-    assert first_result is True
-    assert second_result is False
+    assert first_success is True
+    assert second_success is False
+    assert second_sessions_revoked is None
 
 
 @pytest.mark.asyncio
@@ -148,9 +185,10 @@ async def test_reset_password_weak_password_restores_token_for_retry(mocker):
     set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=False)
 
-    result = await password_reset_service.reset_password("valid-token", "weak", db=None)
+    success, sessions_revoked = await password_reset_service.reset_password("valid-token", "weak", db=None)
 
-    assert result is False
+    assert success is False
+    assert sessions_revoked is None
     # A validation failure (as opposed to an actual successful reset) must
     # restore the token so the user can retry with a better password.
     set_mock.assert_awaited_once()
@@ -171,9 +209,10 @@ async def test_reset_password_same_as_old_password_restores_token_for_retry(mock
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.verify_password", return_value=True)
 
-    result = await password_reset_service.reset_password("valid-token", "SamePass123!", db=None)
+    success, sessions_revoked = await password_reset_service.reset_password("valid-token", "SamePass123!", db=None)
 
-    assert result is False
+    assert success is False
+    assert sessions_revoked is None
     set_mock.assert_awaited_once()
 
 
@@ -191,9 +230,10 @@ async def test_reset_password_db_failure_restores_token_for_retry(mocker):
     mocker.patch(f"{MODULE}.password_service.hash_password", return_value="new-hash")
     mocker.patch(f"{MODULE}.user_crud.update_by_email", return_value=False)
 
-    result = await password_reset_service.reset_password("valid-token", "NewPass123!", db=None)
+    success, sessions_revoked = await password_reset_service.reset_password("valid-token", "NewPass123!", db=None)
 
-    assert result is False
+    assert success is False
+    assert sessions_revoked is None
     set_mock.assert_awaited_once()
 
 

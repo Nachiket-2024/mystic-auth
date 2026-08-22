@@ -81,4 +81,36 @@ describe('useSessionEventsStream', () => {
 
     invalidateSpy.mockRestore();
   });
+
+  it('resets the entire query cache (not just invalidate) on a permissions_changed event', () => {
+    useAuthStore.getState().setAuthenticated(true);
+    renderHook(() => useSessionEventsStream());
+    const resetSpy = vi.spyOn(queryClient, 'resetQueries');
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
+
+    // resetQueries (not invalidateQueries) is required here: it drops any
+    // cached data for a permission-gated page - e.g. RateLimitsPage, which
+    // uses placeholderData: keepPreviousData - so a revoked page has
+    // nothing stale left to show as a placeholder while it refetches.
+    expect(resetSpy).toHaveBeenCalledWith();
+    expect(invalidateSpy.mock.calls.length).toBe(0);
+
+    resetSpy.mockRestore();
+    invalidateSpy.mockRestore();
+  });
+
+  it('drops every held permission synchronously, before any refetch resolves, on a permissions_changed event', () => {
+    useAuthStore.setState({ isAuthenticated: true, permissions: ['rate_limits:read', 'users:list_all'] });
+    renderHook(() => useSessionEventsStream());
+    // Deliberately never resolves - this assertion must hold true purely
+    // from the synchronous part of the handler, before any network
+    // round-trip (queryClient.resetQueries's own refetch) could complete.
+    vi.spyOn(queryClient, 'resetQueries').mockReturnValue(new Promise(() => {}));
+
+    lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
+
+    expect(useAuthStore.getState().permissions).toEqual([]);
+  });
 });

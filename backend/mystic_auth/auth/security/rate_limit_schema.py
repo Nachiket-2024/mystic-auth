@@ -19,7 +19,7 @@ class RateLimitEntryRead(BaseModel):
 class RateLimitPageRead(BaseModel):
     """One numbered page of RateLimitEntryRead. `total` (and any page count
     derived from it) is a floor, not an exact count, when `truncated` is
-    true: the keyspace walk stopped at RateLimiterService.MAX_SCANNED_KEYS
+    true: the keyspace walk stopped at RateLimitDashboardService.MAX_SCANNED_KEYS
     before reaching the end (see list_active_limits' docstring)."""
 
     entries: list[RateLimitEntryRead]

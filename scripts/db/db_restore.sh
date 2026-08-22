@@ -39,18 +39,24 @@ if [ ! -f "$BACKUP_FILE" ]; then
   exit 1
 fi
 
+case "$COMPOSE_FILE" in
+  docker-compose.local-prod.yml) ENV_FILE=".env.local-prod" ;;
+  docker-compose.prod.yml) ENV_FILE=".env.prod" ;;
+  *) ENV_FILE=".env" ;;
+esac
+
 # Only pull the two vars we need, by name, rather than sourcing the whole
-# .env file. Some values, such as GMAIL_APP_PASSWORD, contain unquoted spaces
+# env file. Some values, such as GMAIL_APP_PASSWORD, contain unquoted spaces
 # that are valid to python-dotenv/pydantic but break a shell `source`.
-if [ -z "${POSTGRES_USER:-}" ] && [ -f .env ]; then
-  POSTGRES_USER="$(grep -m1 '^POSTGRES_USER=' .env | cut -d= -f2-)"
+if [ -z "${POSTGRES_USER:-}" ] && [ -f "$ENV_FILE" ]; then
+  POSTGRES_USER="$(grep -m1 '^POSTGRES_USER=' "$ENV_FILE" | cut -d= -f2-)"
 fi
-if [ -z "${POSTGRES_DB:-}" ] && [ -f .env ]; then
-  POSTGRES_DB="$(grep -m1 '^POSTGRES_DB=' .env | cut -d= -f2-)"
+if [ -z "${POSTGRES_DB:-}" ] && [ -f "$ENV_FILE" ]; then
+  POSTGRES_DB="$(grep -m1 '^POSTGRES_DB=' "$ENV_FILE" | cut -d= -f2-)"
 fi
 
-: "${POSTGRES_USER:?POSTGRES_USER must be set (check .env)}"
-: "${POSTGRES_DB:?POSTGRES_DB must be set (check .env)}"
+: "${POSTGRES_USER:?POSTGRES_USER must be set (check $ENV_FILE)}"
+: "${POSTGRES_DB:?POSTGRES_DB must be set (check $ENV_FILE)}"
 
 if [ "$ASSUME_YES" != true ]; then
   read -r -p "This will overwrite data in database '${POSTGRES_DB}' with the contents of ${BACKUP_FILE}. Continue? [y/N] " reply
@@ -61,7 +67,7 @@ if [ "$ASSUME_YES" != true ]; then
 fi
 
 echo "Restoring '${POSTGRES_DB}' from ${BACKUP_FILE} via ${COMPOSE_FILE}..."
-docker compose -f "$COMPOSE_FILE" exec -T postgres \
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
   psql -U "$POSTGRES_USER" "$POSTGRES_DB" < "$BACKUP_FILE"
 
 echo "Restore complete."

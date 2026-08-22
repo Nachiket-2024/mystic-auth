@@ -43,18 +43,17 @@ class PasswordResetConfirmHandler:
             # reasoning as refresh_token_handler's separate "refresh:lockout:ip:" key.
             email_lock_key = f"password_reset_confirm_lock:email:{email}"
 
-            success = await self.password_reset_service.reset_password(token, new_password, db)
+            success, sessions_revoked = await self.password_reset_service.reset_password(token, new_password, db)
 
             await log_security_event(
                 PASSWORD_RESET_CONFIRMED, db, user_email=email, success=success, request=request
             )
 
             status = 200 if success else 400
-            content = (
-                {"message": "Password has been reset successfully"}
-                if success
-                else {"error": "Invalid token or password", "code": "INVALID_RESET_TOKEN_OR_PASSWORD"}
-            )
+            if success:
+                content = {"message": "Password has been reset successfully", "sessions_revoked": sessions_revoked}
+            else:
+                content = {"error": "Invalid token or password", "code": "INVALID_RESET_TOKEN_OR_PASSWORD"}
 
             allowed = await self.login_protection_service.check_and_record_action(
                 email_lock_key, success=(status == 200)

@@ -8,6 +8,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from sqlalchemy import select
 
 from backend.mystic_auth.user_crud.user_crud_modules.user_base_crud import UserBaseCRUD
 from backend.mystic_auth.user_table.user_model import User as _FakeModel
@@ -132,6 +133,70 @@ async def test_count_returns_the_scalar_total():
     result = await crud.count(db)
 
     assert result == 42
+
+
+# ---------------------------- policy / permission filter ----------------------------
+# Unlike search/role/is_verified/status, "policy" and "permission" aren't
+# columns on the users table at all: matching them requires joining through
+# user_policies -> policies, which is easy to get subtly wrong (missing
+# distinct() double-counting a user who holds several matching policies, or
+# leaking the join into every other, unrelated query). Covered directly
+# against the compiled SQL, same approach as _search_filter/_status_filter
+# above, rather than only indirectly via the route-level integration tests.
+
+def test_apply_filters_without_policy_or_permission_does_not_join():
+    crud = UserBaseCRUD(_FakeModel)
+
+    stmt = crud._apply_filters(select(_FakeModel), None, None, None, None)
+
+    compiled = str(stmt)
+    assert "JOIN" not in compiled.upper()
+
+
+def test_apply_filters_by_policy_name_joins_and_matches_on_policy_name():
+    crud = UserBaseCRUD(_FakeModel)
+
+    stmt = crud._apply_filters(select(_FakeModel), None, None, None, None, policy="user_administration")
+
+    compiled = str(stmt)
+    assert "JOIN user_policies" in compiled
+    assert "JOIN policies" in compiled
+    assert "policies.name" in compiled
+    # distinct() guards against a user matching via more than one policy row.
+    assert "DISTINCT" in compiled.upper()
+
+
+def test_apply_filters_by_permission_joins_and_matches_on_policy_actions():
+    crud = UserBaseCRUD(_FakeModel)
+
+    stmt = crud._apply_filters(select(_FakeModel), None, None, None, None, permission="users:list_all")
+
+    compiled = str(stmt)
+    assert "JOIN user_policies" in compiled
+    assert "JOIN policies" in compiled
+    assert "policies.actions" in compiled
+    assert "DISTINCT" in compiled.upper()
+
+
+@pytest.mark.asyncio
+async def test_get_all_threads_policy_and_permission_through_to_apply_filters():
+    db = _make_db(scalars_all_return=["row1"])
+    crud = UserBaseCRUD(_FakeModel)
+
+    result = await crud.get_all(db, policy="user_administration", permission="users:list_all")
+
+    assert result == ["row1"]
+    db.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_count_threads_policy_and_permission_through_to_apply_filters():
+    db = _make_db(scalar_return=3)
+    crud = UserBaseCRUD(_FakeModel)
+
+    result = await crud.count(db, policy="user_administration", permission="users:list_all")
+
+    assert result == 3
 
 
 @pytest.mark.asyncio

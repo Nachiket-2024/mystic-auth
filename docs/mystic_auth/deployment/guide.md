@@ -24,7 +24,7 @@ use day to day, and needs no domain, tunnel, or server.
 | TLS | None | Terminates at Cloudflare's edge | Caddy, on the host |
 | Hosting model | Developer machine only | Your machine through Cloudflare Tunnel | Your own server with Caddy |
 | Needs a public server? | No | No. Quick Tunnel needs no domain, Named Tunnel needs your own Cloudflare-managed domain | Yes, a server with public IP + DNS |
-| Ports on host | frontend/backend/postgres/redis, all `localhost` | frontend (80) + backend (8000), for local debugging | only Caddy (80/443) |
+| Ports on host | frontend/backend/postgres/redis, all `localhost` | frontend (8080) + backend (8001), for local debugging, offset from dev's ports so both can run at once | only Caddy (80/443) |
 
 See [Docker Overview: dev vs. production compose](../docker/overview.md#dev-vs-production-compose)
 for the fuller service-by-service breakdown across all three Compose files.
@@ -33,43 +33,57 @@ for the fuller service-by-service breakdown across all three Compose files.
 
 ## Choosing the right env template
 
-The root `.env` file is the only file Docker Compose reads by default. Pick
-one template for the mode you are running, copy it to `.env`, then edit that
-copy. Do not combine values from multiple templates unless the deployment doc
-for that mode explicitly says to.
+Each mode has its own dedicated env file, so all three can have real values
+filled in at once without one overwriting another. Pick the template for the
+mode you are running and copy it to its matching real file (not to a shared
+`.env` used by every mode).
 
-| Mode | Copy this file | Use with | Best for |
-|---|---|---|---|
-| Dev | `.env.example` | `docker-compose.yml` | Local development with hot reload |
-| Local-prod | `.env.local-prod.example` | `docker-compose.local-prod.yml` | Your machine through Cloudflare Tunnel |
-| Prod | `.env.prod.example` | `docker-compose.prod.yml` | Your own server with Caddy TLS |
+| Mode | Copy this file | To this file | Use with | Best for |
+|---|---|---|---|---|
+| Dev | `.env.example` | `.env` | `docker-compose.yml` | Local development with hot reload |
+| Local-prod | `.env.local-prod.example` | `.env.local-prod` | `docker-compose.local-prod.yml` | Your machine through Cloudflare Tunnel |
+| Prod | `.env.prod.example` | `.env.prod` | `docker-compose.prod.yml` | Your own server with Caddy TLS |
 
 ```bash
 # Dev
 cp .env.example .env
 docker compose up
+# or: ./scripts/docker/dev-up.sh
 
 # Local-prod
-cp .env.local-prod.example .env
-docker compose -f docker-compose.local-prod.yml up -d --build
+cp .env.local-prod.example .env.local-prod
+docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build
+# or: ./scripts/docker/local-prod-up.sh
 
 # Prod
-cp .env.prod.example .env
-docker compose -f docker-compose.prod.yml up -d --build
+cp .env.prod.example .env.prod
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# or: ./scripts/docker/prod-up.sh
 ```
+
+The `--env-file` flag (or the equivalent `scripts/docker/*-up.{sh,ps1,cmd}`
+helper) matters for local-prod and prod: Compose only auto-loads a file
+literally named `.env` for `${VAR}`-style substitution (e.g. frontend build
+args) in the compose YAML itself. Each service's `env_file:` entry already
+points at the right dedicated file, but without `--env-file` those build-arg
+substitutions would silently fall back to whatever (if anything) is in `.env`
+instead of `.env.local-prod`/`.env.prod`.
 
 Important rules:
 
-- `.env` is user-managed local configuration. Keep it out of git.
+- `.env`, `.env.local-prod`, and `.env.prod` are all user-managed local
+  configuration. Keep them out of git.
 - The example files are checked in documentation and defaults. Update them
   when the required settings change.
 - `frontend/.env.example` is only for running the frontend directly with
-  `npm run dev --prefix frontend`. Docker reads `VITE_*` values from the root
-  `.env`.
+  `npm run dev --prefix frontend`. Docker reads `VITE_*` values from the
+  mode's dedicated env file above.
 - Production-style frontend values are baked into the image at build time:
-  `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SENTRY_DSN`, and
-  `VITE_SENTRY_ENVIRONMENT`. After changing any of them, rebuild the frontend
-  image with `--build`.
+  `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SUPPORT_EMAIL`, `VITE_SENTRY_DSN`,
+  and `VITE_SENTRY_ENVIRONMENT`. `VITE_APP_NAME`/`VITE_SUPPORT_EMAIL` are
+  aliased from the backend `APP_NAME`/`SUPPORT_EMAIL` vars in the compose
+  files rather than needing their own separate entries. After changing any of
+  these, rebuild the frontend image with `--build`.
 - Runtime backend values, such as `DATABASE_URL`, `SECRET_KEY`,
   `GOOGLE_REDIRECT_URI`, SMTP settings, and rate-limit settings, are read when
   containers start. After changing them, recreate or restart the affected
@@ -81,7 +95,7 @@ Important rules:
 
 The frontend container's nginx (`docker/nginx.frontend.conf`) also proxies API
 route prefixes to the backend. It forwards `/auth`, `/audit`, `/users`,
-`/authorization`, and `/health` to the `backend` service. In both
+`/authorization`, `/health`, and `/rate-limits` to the `backend` service. In both
 production-style Compose files, the frontend container is pinned to
 `172.28.0.10` so the backend can list that address in `TRUSTED_PROXY_IPS` and
 trust its `X-Forwarded-For` header.
@@ -96,6 +110,49 @@ than overwrites, so the client IP chain is preserved.
 If you deploy the frontend elsewhere, point `VITE_API_BASE_URL` at the backend's
 real public origin. Set `TRUSTED_PROXY_IPS` to the proxy that actually sits in
 front of the backend for that topology.
+
+### Route collisions between the SPA and the proxied API prefixes
+
+Because the SPA's client-side routes (`frontend/src/app/App.tsx`) and the
+backend's route prefixes share one origin, a frontend route whose path starts
+with one of the proxied prefixes above (`auth`, `audit`, `users`,
+`authorization`, `health`, `rate-limits`) collides with it. `/users` and
+`/rate-limits` are exactly this: real SPA pages, but also exact backend
+prefixes. Client-side navigation (clicking a sidebar link) never hits nginx
+at all, so it's unaffected, but a **hard refresh or direct/bookmarked
+navigation** to one of those URLs is a real browser request nginx has to
+route, and the regex proxy rule matched it before the SPA ever got a chance:
+the browser rendered the backend's raw JSON response (e.g. the full admin
+user list from `GET /users`) instead of the app.
+
+Fixed in `docker/nginx.frontend.conf` with exact-match (`location =`)
+locations for `/users` and `/rate-limits` that force those two bare paths to
+`index.html`, placed before the regex proxy block:
+
+```nginx
+location = /users {
+    try_files /index.html /index.html;
+}
+location = /rate-limits {
+    try_files /index.html /index.html;
+}
+```
+
+This is safe specifically because the frontend never calls those bare paths
+itself: every real API call uses a trailing slash or sub-path
+(`/users/`, `/users/{email}`, `/rate-limits/`, `/rate-limits/{key}`,
+never a bare `/users` or `/rate-limits` GET). `location =` exact matches
+always win over a regex `location ~` match in nginx regardless of which one
+is declared first, so this reliably wins the collision without touching the
+proxy rule other routes depend on.
+
+**If you add a new top-level SPA route** whose path starts with `auth`,
+`audit`, `users`, `authorization`, `health`, or `rate-limits` (e.g. a future
+`/health-status` page), check whether it collides the same way, and add a
+matching `location =` exact-match block for it before the regex proxy block.
+This is an allowlist of specific collisions, not a general rule: a new
+colliding route needs its own carve-out, the same as `/users` and
+`/rate-limits` got here.
 
 ---
 
@@ -131,13 +188,13 @@ real production use:
   Sessions" dashboard's Location column. Leave it empty to disable
   geolocation (Location shows "Unknown"); nothing else depends on it. The
   `.mmdb` file itself can't ship in this repo (MaxMind's license forbids
-  redistribution) — download it yourself with a free MaxMind account and
+  redistribution). Download it yourself with a free MaxMind account and
   license key, then mount or bake it into the image at that path. Under
   Docker, `docker-compose.local-prod.yml`/`docker-compose.prod.yml` ship an
   optional `geoipupdate` service that fetches and refreshes it for you, but
-  it's gated behind the `geoip` Compose profile — setting `GEOIP_DB_PATH`
-  and the `GEOIPUPDATE_*` values in `.env` alone does nothing until you also
-  pass `--profile geoip` on `docker compose up`. See
+  it's gated behind the `geoip` Compose profile: setting `GEOIP_DB_PATH`
+  and the `GEOIPUPDATE_*` values in `.env.local-prod`/`.env.prod` alone does
+  nothing until you also pass `--profile geoip` on `docker compose up`. See
   [Session Geolocation](../geolocation/overview.md)
   for the full walkthrough, Docker and non-Docker.
 - `USER_EXPORT_MAX_ROWS` caps how many rows `GET /users/export` will return
@@ -164,12 +221,15 @@ real production use:
   auto-wires it through the shared volume. `VITE_SENTRY_DSN` is baked into the
   browser bundle at build time and must use the public route to Bugsink. See
   [Error Monitoring](../error-monitoring/overview.md).
-- `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SENTRY_DSN`, and
-  `VITE_SENTRY_ENVIRONMENT` are consumed at **image build time**, not container
-  runtime. `docker-compose.local-prod.yml` and `docker-compose.prod.yml` pass them to
-  `docker/frontend.Dockerfile` as build args. Set them in the root `.env` before
-  `docker compose -f docker-compose.local-prod.yml up -d --build` or
-  `docker compose -f docker-compose.prod.yml up -d --build`. Values only in
+- `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SUPPORT_EMAIL`, `VITE_SENTRY_DSN`,
+  and `VITE_SENTRY_ENVIRONMENT` are consumed at **image build time**, not
+  container runtime. `docker-compose.local-prod.yml` and
+  `docker-compose.prod.yml` pass them to `docker/frontend.Dockerfile` as
+  build args - `VITE_APP_NAME`/`VITE_SUPPORT_EMAIL` are aliased there from
+  `APP_NAME`/`SUPPORT_EMAIL`, so set those two instead of the `VITE_` ones.
+  Set them in `.env.local-prod`/`.env.prod` before
+  `docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build` or
+  `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`. Values only in
   `frontend/.env` are invisible to Compose interpolation.
 
 ---
@@ -184,13 +244,23 @@ Before applying a migration in production, review the generated script under
 `backend/alembic/versions/`, especially anything that drops or alters a column
 or table. Alembic autogenerate is a starting point, not a safety guarantee.
 
+Migrations always run as the `DATABASE_URL` role (superuser), since DDL and
+role management require it. The request-serving app and the Procrastinate
+worker's task bodies instead prefer `APP_DATABASE_URL`, a separate
+least-privilege Postgres role with only CRUD rights on application tables, if
+it's set (`.env.prod.example`/`.env.local-prod.example` ship it enabled by
+default). See [Security Decisions: Least-privilege app DB role](../security/decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser)
+for the full reasoning and what it does and does not protect against.
+
 ---
 
 ## Backups
 
 `scripts/db/db_backup.sh` and `scripts/db/db_restore.sh` wrap the `pg_dump` and `psql`
-commands below. They read `POSTGRES_USER` and `POSTGRES_DB` from `.env`, run
-through Docker Compose, and make no cloud or provider assumptions.
+commands below. They read `POSTGRES_USER` and `POSTGRES_DB` from the env file
+matching whichever compose file you pass (`.env`, `.env.local-prod`, or
+`.env.prod`), run through Docker Compose, and make no cloud or provider
+assumptions.
 
 ```bash
 # Dump the running postgres service to backups/<db>-<timestamp>.sql

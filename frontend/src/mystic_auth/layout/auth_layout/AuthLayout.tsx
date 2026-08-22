@@ -1,9 +1,7 @@
 import React from "react";
-import { Box, Flex, HStack } from "@chakra-ui/react";
+import { Box, Flex } from "@chakra-ui/react";
 
-import ThemeToggle from "../controls/ThemeToggle";
-import LanguageToggle from "../controls/LanguageToggle";
-import FontSizeControl from "../controls/FontSizeControl";
+import ControlCluster from "../controls/ControlCluster";
 
 interface AuthLayoutProps {
     children: React.ReactNode;
@@ -46,11 +44,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, variant = "form" }) =
                 could rise up underneath these controls and visually collide
                 with them. */}
             <Box px={4} pt={4}>
-                <HStack gap={3} justify="flex-end">
-                    <FontSizeControl />
-                    <LanguageToggle />
-                    <ThemeToggle />
-                </HStack>
+                <Flex justify="flex-end">
+                    <ControlCluster />
+                </Flex>
             </Box>
 
             <Flex

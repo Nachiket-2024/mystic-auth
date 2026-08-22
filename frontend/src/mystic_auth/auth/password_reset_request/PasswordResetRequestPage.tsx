@@ -19,7 +19,7 @@ const PasswordResetRequestPage: React.FC = () => {
     return (
         <AuthLayout>
             <Card w="full" maxW="md" p={{ base: 5, md: 7 }}>
-                <Stack align="center" textAlign="center" separator={<StackSeparator />}>
+                <Stack align="center" textAlign="center" separator={<StackSeparator borderColor="border.default" />}>
                     <Logo />
                     <Heading size="xl" color="brand.fg">
                         {t("passwordResetRequestPage.heading")}

@@ -1,5 +1,7 @@
+from sqlalchemy import asc, desc, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.sql.elements import UnaryExpression
 
 # The one centralized Redis abstraction for authorization data, see its own
 # docstring for exactly what is (and deliberately isn't) cached, and why.
@@ -12,6 +14,45 @@ from ..models.policy_model import Policy
 # every policy mutation must be traceable and reversible.
 from .policy_assignment_repository import policy_assignment_repository
 from .policy_history_repository import policy_history_repository
+
+# Allowlisted sort keys, same rationale as user_base_crud.py's and the audit
+# log repositories' identical _SORTABLE_COLUMN(S) constants: never let a
+# caller-supplied column name reach the query directly.
+_SORTABLE_COLUMN_NAMES = {"name", "resource_type", "is_active", "created_at", "updated_at"}
+
+
+def _search_filter(search: str | None):
+    """Case-insensitive substring match against name or description, same
+    shape as UserBaseCRUD's own _search_filter."""
+    if not search:
+        return None
+    pattern = f"%{search}%"
+    return or_(Policy.name.ilike(pattern), Policy.description.ilike(pattern))
+
+
+def _apply_filters(stmt, search: str | None, resource_type: str | None, is_active: bool | None):
+    """Shared by get_all (row fetch) and count (X-Total-Count), so a
+    filtered page's total always matches what's actually being paged
+    through."""
+    search_condition = _search_filter(search)
+    if search_condition is not None:
+        stmt = stmt.where(search_condition)
+    if resource_type:
+        stmt = stmt.where(Policy.resource_type == resource_type)
+    if is_active is not None:
+        stmt = stmt.where(Policy.is_active == is_active)
+    return stmt
+
+
+def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression]:
+    column = getattr(Policy, sort_by, None) if sort_by in _SORTABLE_COLUMN_NAMES else None
+    if column is None:
+        column = Policy.id
+    direction = asc if sort_dir == "asc" else desc
+    # id as a secondary key for stable ordering (e.g. many rows sharing the
+    # same resource_type), same reasoning as user_base_crud.py's identical
+    # tie-breaker.
+    return [direction(column), direction(Policy.id)]
 
 
 def _definition_snapshot(policy: Policy) -> dict:
@@ -81,13 +122,39 @@ class PolicyRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_all(db: AsyncSession, limit: int = 1000, offset: int = 0) -> list[Policy]:
+    async def get_all(
+        db: AsyncSession,
+        limit: int = 1000,
+        offset: int = 0,
+        search: str | None = None,
+        resource_type: str | None = None,
+        is_active: bool | None = None,
+        sort_by: str | None = None,
+        sort_dir: str = "asc",
+    ) -> list[Policy]:
         # Capped: every other list endpoint in the app (audit log, policy
         # history) bounds its query the same way; this one previously read
-        # the whole table unconditionally.
-        stmt = select(Policy).order_by(Policy.id).limit(limit).offset(offset)
+        # the whole table unconditionally. `search` is a case-insensitive
+        # substring match on name/description; `resource_type`/`is_active`
+        # are exact matches.
+        stmt = _apply_filters(select(Policy), search, resource_type, is_active)
+        stmt = stmt.order_by(*_order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def count(
+        db: AsyncSession,
+        search: str | None = None,
+        resource_type: str | None = None,
+        is_active: bool | None = None,
+    ) -> int:
+        """Total matching rows, ignoring limit/offset - lets a caller
+        compute how many pages exist (see list_policies' X-Total-Count
+        header)."""
+        stmt = _apply_filters(select(func.count()).select_from(Policy), search, resource_type, is_active)
+        result = await db.execute(stmt)
+        return result.scalar_one()
 
     @staticmethod
     async def update(
@@ -191,6 +258,7 @@ class PolicyRepository:
     # injecting the PolicyRepository instance as an extra first argument.
     get_active_policies_for_user = staticmethod(policy_assignment_repository.get_active_policies_for_user)
     get_policies_for_user = staticmethod(policy_assignment_repository.get_policies_for_user)
+    get_holder_emails = staticmethod(policy_assignment_repository.get_holder_emails)
     count_assignments = staticmethod(policy_assignment_repository.count_assignments)
     assign_policy_to_user = staticmethod(policy_assignment_repository.assign_policy_to_user)
     remove_policy_from_user = staticmethod(policy_assignment_repository.remove_policy_from_user)

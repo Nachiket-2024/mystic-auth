@@ -2,28 +2,30 @@
 
 PostgreSQL, accessed via async SQLAlchemy (`backend/mystic_auth/database/`). Schema managed entirely through Alembic migrations (`backend/alembic/versions/`); there is no `create_all()` in application startup.
 
+Relationships and key columns only - see each table's own section below for the full column list; keeping this diagram to PK/FK/UK markers (no descriptive comments) is deliberate, so wide entity boxes don't force the whole diagram to render tiny in a fixed-width doc viewer.
+
 ```mermaid
+%%{init: {"er": {"fontSize": 18}} }%%
 erDiagram
-    users ||--o{ user_policies: "assigned via"
-    policies ||--o{ user_policies: "assigned via"
-    policies ||--o{ policy_history: "change log for"
-    users ||--o{ user_sessions: "tracked by"
+    users ||--o{ user_policies : "assigned via"
+    policies ||--o{ user_policies : "assigned via"
+    policies ||--o{ policy_history : "change log for"
+    users ||--o{ user_sessions : "tracked by"
 
     users {
         int id PK
         string email UK
-        string hashed_password "nullable: OAuth2-only"
-        enum role "display only, nullable"
+        string hashed_password
+        enum role
         bool is_active
-        timestamp deleted_at "nullable"
+        timestamp deleted_at
     }
     policies {
         int id PK
         string name UK
         text_array actions
         string resource_type
-        jsonb conditions "nullable"
-        bool is_active
+        jsonb conditions
     }
     user_policies {
         int user_id FK
@@ -34,31 +36,16 @@ erDiagram
         int policy_id FK
         jsonb before_after
     }
-    authorization_audit_log {
-        int id PK
-        string user_email "snapshot, not FK: survives purge"
-        bool allowed
-    }
-    security_audit_log {
-        int id PK
-        string user_email "snapshot, not FK: survives purge"
-        string event_type
-    }
     user_sessions {
         int id PK
         int user_id FK
         string current_jti UK
-        string chain_id "nullable, indexed"
-        string user_agent "nullable"
-        string ip_address "nullable"
-        string city "nullable, geolocation"
-        string country "nullable, geolocation"
-        timestamp expires_at
-        timestamp revoked_at "nullable"
+        string chain_id
+        string ip_address
     }
 ```
 
-`authorization_audit_log` and `security_audit_log` are drawn with no relationship lines above; this is deliberate, since `user_email` is a snapshot string, not a foreign key to `users.id`, so the audit trail survives even after the user row is purged. See [Why two audit tables, not one](#why-two-audit-tables-not-one) and each table's own section below.
+`authorization_audit_log` and `security_audit_log` are deliberately left off this diagram entirely, not just undrawn relationship lines: both key off `user_email` as a snapshot string, not a foreign key to `users.id`, so the audit trail survives even after the user row is purged. See [Why two audit tables, not one](#why-two-audit-tables-not-one) and each table's own section below for their full column lists.
 
 ---
 
@@ -142,3 +129,26 @@ The system account (`role=UserRole.system`) is excluded from all lifecycle opera
 ## Migrations
 
 Every schema change is an Alembic migration under `backend/alembic/versions/`, applied via the dedicated one-shot `alembic` service (`alembic upgrade head`). In the production-style Compose files, `backend` and `procrastinate_worker` wait for it to complete before starting (`depends_on: ... condition: service_completed_successfully`); the dev `docker-compose.yml` runs the `alembic` service alongside the others without gating startup on it. Data-only migrations (e.g. granting a new permission to a seeded policy, backfilling a default role) follow the same process as schema migrations; see [../authorization/adding-permissions.md](../authorization/adding-permissions.md) for the exact pattern.
+
+---
+
+## Database roles
+
+Two Postgres roles, not one, since migration `b1e6a9f3c7d2_add_least_privilege_app_role.py`:
+
+```mermaid
+%%{init: {"flowchart": {"fontSize": 18}} }%%
+flowchart LR
+    subgraph Roles["Postgres roles"]
+        superuser["postgres<br/>(superuser)"]
+        approle["mystic_auth_app<br/>(CRUD only, no DDL)"]
+    end
+
+    alembic["alembic service<br/>(DATABASE_URL)"] -->|schema changes,<br/>role/grant management| superuser
+    backend["backend + procrastinate_worker<br/>(APP_DATABASE_URL)"] -->|CRUD on<br/>application tables| approle
+```
+
+- **`DATABASE_URL`** (the `postgres` superuser) is what `alembic upgrade head` runs as. Migrations need to create/alter tables and, for this one migration, create and grant the other role - that requires superuser or equivalent, so this role stays superuser rather than being narrowed.
+- **`APP_DATABASE_URL`** (`mystic_auth_app`) is what the request-serving backend and the Procrastinate worker's task bodies connect as (`database/connection.py`: `settings.APP_DATABASE_URL or settings.DATABASE_URL`). It can read/write every application table but cannot run DDL, create roles, or touch other databases on the same Postgres server. Optional and backward-compatible: an unset `APP_DATABASE_URL` falls back to `DATABASE_URL` everywhere, so existing deployments are unaffected until they opt in.
+
+This is deliberately *not* Row-Level Security. The app is single-tenant (no `tenant_id`/`org_id` anywhere) and every authorization decision - including admin overrides - is already fully enforced in Python by the PBAC engine (see [../authorization/architecture.md](../authorization/architecture.md)) against already-fetched rows, not via SQL predicates. Re-deriving that logic as per-row Postgres policies would duplicate business logic in two places and risk drift, and without a real per-row ownership column to filter on, a row policy would just degenerate into `USING (true)` - no different from a plain table grant, but with the added footgun that a *future* table added without remembering to enable RLS on it is silently wide open rather than protected. What the role split buys instead: a compromised dependency, a bad ad hoc script, or a leaked runtime credential reusing the app's live DB connection can still read/write application data (that's unavoidable - the app needs that access to function), but can no longer drop/alter the schema, create a new role, or read another role's credentials. See [Security Decisions: Infrastructure](../security/decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser) for the full writeup, including what this does and does not protect against.

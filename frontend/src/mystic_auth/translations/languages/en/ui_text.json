@@ -36,5 +36,9 @@
         "nextPage": "Next page",
         "next": "Next",
         "page": "Page {{page}}"
+    },
+    "offlineBanner": {
+        "offline": "You're offline. Some features may not work until your connection is restored.",
+        "backOnline": "You're back online."
     }
 }

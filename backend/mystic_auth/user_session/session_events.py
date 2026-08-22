@@ -3,8 +3,6 @@ import json
 import traceback
 from collections.abc import AsyncIterator
 
-from fastapi import Request
-
 from ..logging.logging_config import get_logger
 from ..redis.client import redis_client
 
@@ -59,7 +57,29 @@ async def publish_session_created(email: str) -> None:
         logger.warning("Failed to publish session-created event for %s:\n%s", email, traceback.format_exc())
 
 
-async def session_event_stream(email: str, request: Request) -> AsyncIterator[str]:
+async def publish_permissions_changed(email: str) -> None:
+    """
+    Same real-time nudge as publish_session_revoked, fired the moment an
+    admin grants or revokes one of this account's policies (see
+    policy_assignment_routes.py). Without this, a tab this account already
+    has open - e.g. sat on the Rate Limit Dashboard, which is gated on
+    rate_limits:read - would keep rendering with its now-stale cached
+    permissions (useCurrentUserQuery's own 2-minute refetchInterval) until
+    that poll, a window-focus refetch, or a manual reload: exactly the
+    "revoked access still visibly usable for a while" gap this exists to
+    close. Deliberately reuses the same session_events channel/frontend
+    handler as revoke/created (useSessionEventsStream already invalidates
+    CURRENT_USER_QUERY_KEY on any message) rather than adding a second
+    stream - the receiving tab still re-derives everything from a normal
+    GET /auth/me, this is only the "something changed, go check" signal.
+    """
+    try:
+        await redis_client.publish(_CHANNEL_TEMPLATE.format(email=email), json.dumps({"type": "permissions_changed"}))
+    except Exception:
+        logger.warning("Failed to publish permissions-changed event for %s:\n%s", email, traceback.format_exc())
+
+
+async def session_event_stream(email: str) -> AsyncIterator[str]:
     """
     Yields Server-Sent-Events-formatted lines on `email`'s own channel
     until the client disconnects. One Redis Pub/Sub subscription per open
@@ -67,6 +87,22 @@ async def session_event_stream(email: str, request: Request) -> AsyncIterator[st
     of concurrent connections); a larger deployment would front this with
     a proper pub/sub fan-out layer instead of one subscription per
     connection.
+
+    Deliberately does NOT poll request.is_disconnected() to end the loop
+    early: this app's LoggingMiddleware (see logging/logging_middleware.py)
+    is a BaseHTTPMiddleware, and Starlette's BaseHTTPMiddleware is documented
+    to make is_disconnected() unreliable for a downstream streaming endpoint
+    - it was observed returning True on the very first check even with a
+    live client, closing this stream within milliseconds of opening it. The
+    browser's EventSource then auto-reconnected in a tight loop, and any
+    publish_permissions_changed()/publish_session_revoked() fired during one
+    of the resulting gaps was silently lost (Redis pub/sub doesn't replay to
+    a subscriber that wasn't connected at publish time) - exactly the "stays
+    on a just-revoked page until a manual refresh" bug this stream exists to
+    prevent. A real disconnect is still caught without this check: the next
+    `yield` after the socket closes fails to send, which surfaces here as
+    asyncio.CancelledError (handled below) or propagates out to the finally
+    block either way.
     """
     channel = _CHANNEL_TEMPLATE.format(email=email)
     pubsub = redis_client.pubsub()
@@ -74,9 +110,6 @@ async def session_event_stream(email: str, request: Request) -> AsyncIterator[st
         await pubsub.subscribe(channel)
 
         while True:
-            if await request.is_disconnected():
-                break
-
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=_HEARTBEAT_SECONDS)
 
             if message is None:

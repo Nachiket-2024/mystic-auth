@@ -1,5 +1,7 @@
 # ---------------------------- Production Compose ----------------------------
-# Run with: docker compose -f docker-compose.local-prod.yml up -d --build
+# Run with: docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build
+# (or use scripts/docker/local-prod-up.sh / .ps1 / .cmd, which pass that flag
+# for you)
 #
 # Differences from docker-compose.yml (dev):
 #   - No bind mounts. Images are self-contained, code is not shared from host
@@ -24,10 +26,21 @@
 # For a stable URL that survives restarts, switch to a named tunnel using a
 # token from Cloudflare Zero Trust: swap the command below for
 # `tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}`. Requires TUNNEL_TOKEN
-# in .env; see the "Cloudflare Tunnel Config" block in .env.local-prod.example
+# in .env.local-prod; see the "Cloudflare Tunnel Config" block in .env.local-prod.example
 # for how to create one and point its public hostname at http://frontend:80.
 #
 # frontend and backend still publish host ports below for local debugging only.
+#
+# Explicit project name, distinct from docker-compose.yml's "mystic-auth-dev"
+# and docker-compose.prod.yml's "mystic-auth-prod": without this, every
+# compose file in this directory defaults to the same project name
+# ("mystic-auth", the directory name) and therefore the same containers,
+# network, and named volumes - so this stack and the dev one would silently
+# share one database, and a command meant for one could wipe the other's
+# data. See docker-compose.yml's matching comment for the incident this
+# guards against.
+name: mystic-auth-local-prod
+
 services:
 
   cloudflared:
@@ -60,7 +73,7 @@ services:
     image: postgres:15
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.local-prod
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -106,7 +119,7 @@ services:
       target: runtime
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.local-prod
     # Wait up to ~10s for bugsink-seed to write backend SENTRY_DSN, only
     # when Bugsink is configured. This DSN is container-to-container
     # (bugsink:8000), so it is not tied to the public Bugsink URL.
@@ -137,7 +150,9 @@ services:
       # back to "Unknown" (see docs/mystic_auth/security/hardening.md#session-geolocation).
       - geoip_data:/usr/share/GeoIP:ro
     ports:
-      - "8000:8000"
+      # Non-default host port so this can run alongside dev's backend
+      # (which uses 8000:8000) without a port collision.
+      - "8001:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 10s
@@ -166,13 +181,17 @@ services:
       dockerfile: docker/frontend.Dockerfile
       target: production                            # nginx + static build, not the Vite dev server
       # VITE_* vars are baked into the static bundle at build time, so they
-      # must come from the root .env as build args. VITE_SENTRY_DSN must be
-      # the public Bugsink URL, which bugsink-seed cannot infer. Set it
-      # manually once that public route exists.
+      # must come from .env.local-prod as build args (via --env-file; see
+      # this file's header) - VITE_SENTRY_DSN must be the public Bugsink
+      # URL, which bugsink-seed cannot infer. Set it manually once that
+      # public route exists.
+      # VITE_APP_NAME/VITE_SUPPORT_EMAIL are aliased from the backend
+      # APP_NAME/SUPPORT_EMAIL vars rather than duplicated in .env.local-prod.
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-        VITE_APP_NAME: ${VITE_APP_NAME}
+        VITE_APP_NAME: ${APP_NAME}
         VITE_APP_LOGO_URL: ${VITE_APP_LOGO_URL}
+        VITE_SUPPORT_EMAIL: ${SUPPORT_EMAIL}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
         VITE_SENTRY_ENVIRONMENT: ${VITE_SENTRY_ENVIRONMENT}
     # Stable address used by TRUSTED_PROXY_IPS. nginx.frontend.conf proxies
@@ -183,7 +202,9 @@ services:
         ipv4_address: 172.28.0.10
     restart: unless-stopped
     ports:
-      - "80:80"
+      # Non-default host port so this can run alongside prod's Caddy
+      # (which uses 80:80/443:443) without a port collision.
+      - "8080:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -211,7 +232,7 @@ services:
       target: runtime
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.local-prod
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
       # The `procrastinate` console-script entrypoint (unlike `python -c` or
@@ -250,7 +271,7 @@ services:
       dockerfile: docker/backend.Dockerfile
       target: runtime
     env_file:
-      - ./.env
+      - ./.env.local-prod
     command: alembic upgrade head
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -264,9 +285,10 @@ services:
   # on its own schedule (GEOIPUPDATE_FREQUENCY, hours) for as long as this
   # container runs. Off by default, matching geolocation itself being off by
   # default: start it with `docker compose -f docker-compose.local-prod.yml
-  # --profile geoip up -d --build` after setting GEOIPUPDATE_ACCOUNT_ID /
-  # GEOIPUPDATE_LICENSE_KEY (free MaxMind account) and GEOIP_DB_PATH in
-  # .env. See docs/mystic_auth/security/hardening.md#session-geolocation.
+  # --env-file .env.local-prod --profile geoip up -d --build` after setting
+  # GEOIPUPDATE_ACCOUNT_ID / GEOIPUPDATE_LICENSE_KEY (free MaxMind account)
+  # and GEOIP_DB_PATH in .env.local-prod. See
+  # docs/mystic_auth/security/hardening.md#session-geolocation.
   geoipupdate:
     image: ghcr.io/maxmind/geoipupdate:latest
     restart: unless-stopped
@@ -286,12 +308,12 @@ services:
 
   # Self-hosted error monitoring. See docker-compose.yml's identical
   # service for the full explanation. Starts by default in production too:
-  #   docker compose -f docker-compose.local-prod.yml up -d --build
+  #   docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build
   bugsink:
     image: bugsink/bugsink:2
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.local-prod
     environment:
       SECRET_KEY: ${BUGSINK_SECRET_KEY}
       CREATE_SUPERUSER: ${BUGSINK_SUPERUSER_EMAIL}:${BUGSINK_SUPERUSER_PASSWORD}
@@ -303,9 +325,11 @@ services:
       BASE_URL: ${BUGSINK_BASE_URL}
     # Bound to localhost only. cloudflared tunnels the frontend, not Bugsink,
     # and the error-monitoring dashboard should not be internet-facing.
-    # Access it via http://localhost:8010, or an SSH tunnel on a real host.
+    # Access it via http://localhost:8011, or an SSH tunnel on a real host.
+    # Non-default host port so this can run alongside dev's Bugsink
+    # (which uses 8010:8000) without a port collision.
     ports:
-      - "127.0.0.1:8010:8000"
+      - "127.0.0.1:8011:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -364,7 +388,7 @@ services:
     # root-owned by default), needed to write the DSN files below.
     user: root
     env_file:
-      - ./.env
+      - ./.env.local-prod
     environment:
       SECRET_KEY: ${BUGSINK_SECRET_KEY}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bugsink

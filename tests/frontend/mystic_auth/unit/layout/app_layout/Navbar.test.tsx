@@ -43,6 +43,7 @@ describe('Navbar', () => {
       has_password: true,
       created_at: '2026-01-15T00:00:00Z',
       active_sessions: 1,
+      brand_color: null,
     });
 
     renderNavbar();
@@ -88,6 +89,7 @@ describe('Navbar', () => {
       has_password: true,
       created_at: '2026-01-15T00:00:00Z',
       active_sessions: 1,
+      brand_color: null,
     });
 
     renderNavbar();

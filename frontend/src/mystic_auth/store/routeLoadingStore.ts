@@ -11,8 +11,9 @@ interface RouteLoadingState {
 /**
  * Tracks in-flight lazy route chunk loads so RouteProgressBar can show a
  * top-of-viewport progress bar during a route transition, independent of
- * Suspense's own fallback (see trackedLazy.ts for why this is tracked
- * separately instead of relying on the Suspense boundary itself).
+ * Suspense's own fallback (RouteSkeleton, which rarely mounts - see
+ * trackedLazy.ts for why this is tracked separately instead of relying on
+ * the Suspense boundary itself).
  */
 export const useRouteLoadingStore = create<RouteLoadingState>(() => ({
     pendingCount: 0,

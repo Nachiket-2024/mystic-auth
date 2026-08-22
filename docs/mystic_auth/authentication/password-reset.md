@@ -67,11 +67,14 @@ flowchart TD
     WhoAmI -- "self" --> ReConfirm{"hashed_password set\non this account?"}
     ReConfirm -- "yes" --> CheckCurrent{"current_password\nmatches?"}
     CheckCurrent -- "no" --> Fail401["401"]
-    CheckCurrent -- "yes" --> Change
-    ReConfirm -- "no (OAuth-only,\nfirst password)" --> Change["Hash + store new password"]
-    WhoAmI -- "admin" --> Change
-    Change --> Revoke["revoke_all_tokens_for_user()\nbumps account_ver"]
-    Revoke --> Done200["200"]
+    CheckCurrent -- "yes" --> ChangeSelf
+    ReConfirm -- "no (OAuth-only,\nfirst password)" --> ChangeSelf["Hash + store new password"]
+    ChangeSelf --> RevokeSelf["revoke_all_tokens_for_user_except_chain()\nbumps account_ver, exempts caller's own chain"]
+    RevokeSelf --> ReissueSelf["Reissue fresh cookies for\nthe caller's current session"]
+    ReissueSelf --> Done200Self["200, caller stays logged in"]
+    WhoAmI -- "admin" --> ChangeAdmin["Hash + store new password"]
+    ChangeAdmin --> RevokeAdmin["revoke_all_tokens_for_user()\nbumps account_ver, no exemption"]
+    RevokeAdmin --> Done200Admin["200"]
 ```
 
 1. `PUT /users/me` (self) and `PUT /users/{email}` (admin) both back onto the same `UserUpdate`
@@ -83,11 +86,21 @@ flowchart TD
    setting a password for the first time, since there is no existing password to confirm.
 3. **The admin route skips that check entirely.** `PUT /users/{email}` authenticates via the
    admin's own `users:update_any` permission, not the target account's old password.
-4. **Any successful password change revokes every session on the account**
-   (`refresh_token_service.revoke_all_tokens_for_user`, bumps `account_ver`), matching
-   password-reset-confirm's behavior exactly: a password change may be happening precisely because
-   the account is compromised, so an attacker's existing session shouldn't outlive it. An ordinary
-   profile update with no password field never triggers this.
+4. **A successful self-service password change revokes every *other* session on the account, but
+   not the caller's own.** `PUT /users/me` calls
+   `refresh_token_service.revoke_all_tokens_for_user_except_chain`, which still bumps
+   `account_ver` but exempts the caller's current `chain_id` and reissues fresh cookies for it, so
+   the device making the change stays logged in
+   (`backend/mystic_auth/api/user_routes/user_self_service_routes.py`). This differs from
+   password-reset-confirm, which has no session to keep: it always fully revokes with
+   `revoke_all_tokens_for_user`. The self-service route falls back to the same full,
+   no-exemption `revoke_all_tokens_for_user` only if the caller's chain can't be resolved from
+   the request's own cookie.
+5. **The admin route always fully revokes**, with no exemption:
+   `PUT /users/{email}` (`user_management_update_routes.py`) calls
+   `refresh_token_service.revoke_all_tokens_for_user` unconditionally, since the admin performing
+   the change is not the account owner and has no session on that account to preserve. An ordinary
+   profile update with no password field never triggers either revoke path.
 
 See [Security Decisions: self-service password change requires the current password](../security/decisions-auth.md#self-service-password-change-requires-the-current-password).
 

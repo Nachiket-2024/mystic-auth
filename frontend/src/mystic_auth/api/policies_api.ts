@@ -49,7 +49,37 @@ export interface UserPoliciesRead {
     policies: PolicyRead[];
 }
 
-export const listPoliciesApi = () => api.get<PolicyRead[]>("/authorization/policies");
+export interface ListPoliciesParams {
+    limit?: number;
+    offset?: number;
+    search?: string;
+    /** Exact match, e.g. one of AUTHORIZATION_RESOURCE_TYPES. */
+    resourceType?: string;
+    isActive?: boolean;
+    /** Column to sort by; must be one of the backend's own allowlisted
+     * sortable columns (see policy_repository.py's _SORTABLE_COLUMN_NAMES) -
+     * any other value is ignored server-side and falls back to id. */
+    sortBy?: string;
+    sortDir?: "asc" | "desc";
+}
+
+function toListPoliciesApiParams({
+    limit = 1000, offset = 0, search, resourceType, isActive, sortBy, sortDir,
+}: ListPoliciesParams) {
+    return {
+        limit, offset, search, resource_type: resourceType, is_active: isActive, sort_by: sortBy, sort_dir: sortDir,
+    };
+}
+
+// X-Total-Count (total matching rows, ignoring limit/offset) rides the
+// response headers rather than the body: response_model on the backend
+// stays a plain list, and the header is what policyQueries.ts's paginated
+// hook derives its page count from, same pattern as listUsersApi. Called
+// with no params (UserPoliciesDialog's "assign a policy" dropdown wants
+// every policy, not one page of them), this returns the same unfiltered,
+// full list it always did.
+export const listPoliciesApi = (params: ListPoliciesParams = {}) =>
+    api.get<PolicyRead[]>("/authorization/policies", { params: toListPoliciesApiParams(params) });
 
 export const getPolicyApi = (policyName: string) =>
     api.get<PolicyRead>(`/authorization/policies/${encodeURIComponent(policyName)}`);

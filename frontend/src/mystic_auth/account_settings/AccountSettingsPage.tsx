@@ -1,14 +1,17 @@
 import React, { useState } from "react";
-import { Box, Tabs } from "@chakra-ui/react";
+import { Box, Heading, HStack, Tabs, Text } from "@chakra-ui/react";
 import { Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 
 import PageContainer from "../ui/PageContainer";
+import Card from "../ui/Card";
+import AuthInlineLink from "../ui/AuthInlineLink";
 import { useAuthStore } from "../store/authStore";
 import ProfileNameCard from "./ProfileNameCard";
 import ChangePasswordCard from "./ChangePasswordCard";
 import AccountStatusCard from "./AccountStatusCard";
+import AppearanceCard from "./AppearanceCard";
 import DeleteAccountCard from "./DeleteAccountCard";
 import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 
@@ -45,11 +48,14 @@ interface AccountSettingsPageProps {
  * permission required beyond authentication: this is exactly the
  * self-service surface users:read_own/users:update_own exist for.
  *
- * Composes four independent widgets, each its own tab: ProfileNameCard
+ * Composes five independent widgets, each its own tab: ProfileNameCard
  * (name), ChangePasswordCard (password), AccountStatusCard (read-only
- * password status + policy list), and DeleteAccountCard (self-service
- * account deletion, DELETE /users/me). This page only owns what has to live
- * above all four: the combined unsaved-changes warning, since from the
+ * password status + policy list), a Legal tab (Privacy Policy/Terms of
+ * Service links - the only way to reach either document once signed in;
+ * LoginPage/SignupForm cover a visitor who isn't), and DeleteAccountCard
+ * (self-service account deletion, DELETE /users/me) - kept last in the tab
+ * strip since it's the destructive one. This page only owns what has to
+ * live above all of them: the combined unsaved-changes warning, since from the
  * user's perspective "I have unsaved changes" doesn't care which tab they're
  * in - switching tabs (not just leaving the page) doesn't discard either
  * card's own in-progress edit either, since `lazyMount` (without
@@ -61,7 +67,7 @@ interface AccountSettingsPageProps {
  * anything destructive actually happens.
  */
 const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) => {
-    const { t } = useTranslation("account_settings");
+    const { t } = useTranslation(["account_settings", "layout"]);
     const name = useAuthStore((s) => s.name);
     const hasPassword = useAuthStore((s) => s.hasPassword);
 
@@ -87,6 +93,8 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                     <Tabs.Trigger value="profile" fontSize="md">{t("tabs.profile")}</Tabs.Trigger>
                     <Tabs.Trigger value="password" fontSize="md">{t("tabs.password")}</Tabs.Trigger>
                     <Tabs.Trigger value="status" fontSize="md">{t("tabs.status")}</Tabs.Trigger>
+                    <Tabs.Trigger value="appearance" fontSize="md">{t("tabs.appearance")}</Tabs.Trigger>
+                    <Tabs.Trigger value="legal" fontSize="md">{t("tabs.legal")}</Tabs.Trigger>
                     <Tabs.Trigger
                         value="danger"
                         fontSize="md"
@@ -119,6 +127,39 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                 <Tabs.Content value="status">
                     <Box maxW="lg">
                         <AccountStatusCard hasPassword={hasPassword} />
+                    </Box>
+                </Tabs.Content>
+
+                <Tabs.Content value="appearance">
+                    <Box maxW="3xl">
+                        <AppearanceCard />
+                    </Box>
+                </Tabs.Content>
+
+                {/* Its own tab (not a page-level footer) so it reads as one
+                    more self-contained settings section like the other four,
+                    reachable post-login without hunting outside the tab
+                    strip. Signed-out visitors still get both links from
+                    LoginPage/SignupForm. Ordered before Danger Zone so the
+                    destructive action stays last in the tab strip. */}
+                <Tabs.Content value="legal">
+                    <Box maxW="lg">
+                        <Card p={5}>
+                            <Heading as="h2" size="lg" mb={3} textStyle="sectionHeader">
+                                {t("tabs.legal")}
+                            </Heading>
+                            <HStack gap={2}>
+                                <AuthInlineLink to="/privacy" fontSize="md">
+                                    {t("footer.privacyPolicy", { ns: "layout" })}
+                                </AuthInlineLink>
+                                <Text fontSize="md" color="fg.muted">
+                                    &middot;
+                                </Text>
+                                <AuthInlineLink to="/terms" fontSize="md">
+                                    {t("footer.termsOfService", { ns: "layout" })}
+                                </AuthInlineLink>
+                            </HStack>
+                        </Card>
                     </Box>
                 </Tabs.Content>
 

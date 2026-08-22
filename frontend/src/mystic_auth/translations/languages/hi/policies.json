@@ -2,10 +2,15 @@
     "page": {
         "title": "नीतियां",
         "description": "उपयोगकर्ताओं को अनुमतियां प्रदान करने वाली एक्सेस-नियंत्रण नीतियां परिभाषित करें और प्रबंधित करें।",
-        "searchPlaceholder": "नाम या संसाधन प्रकार से खोजें...",
+        "searchPlaceholder": "नाम या विवरण से खोजें...",
+        "filterByResourceType": "संसाधन प्रकार के अनुसार फ़िल्टर करें",
+        "allResourceTypes": "सभी संसाधन प्रकार",
+        "filterByStatus": "स्थिति के अनुसार फ़िल्टर करें",
+        "allStatuses": "सभी स्थितियां",
         "createPolicy": "नीति बनाएं",
         "failedToLoadPolicies": "नीतियां लोड करने में विफल",
         "noPoliciesMatchSearch": "आपकी खोज से कोई नीति मेल नहीं खाती",
+        "noPoliciesMatchFilters": "इन फ़िल्टर से कोई नीति मेल नहीं खाती",
         "noPoliciesYet": "अभी तक कोई नीति नहीं : अनुमतियां देना शुरू करने के लिए एक बनाएं।",
         "policyUpdatedToast": "नीति अपडेट की गई",
         "policyCreatedToast": "नीति बनाई गई",
@@ -17,7 +22,23 @@
         "name": "नाम",
         "resourceType": "संसाधन प्रकार",
         "actions": "क्रियाएं",
-        "edit": "संपादन"
+        "edit": "संपादन",
+        "view": "देखें"
+    },
+    "detailsDialog": {
+        "title": "नीति विवरण",
+        "name": "नाम",
+        "description": "विवरण",
+        "noDescription": "कोई विवरण नहीं",
+        "resourceType": "संसाधन प्रकार",
+        "actions": "क्रियाएं",
+        "conditions": "शर्तें",
+        "noConditions": "कोई नहीं",
+        "status": "स्थिति",
+        "active": "सक्रिय",
+        "created": "बनाया गया",
+        "lastUpdated": "अंतिम अपडेट",
+        "createdBy": "द्वारा बनाया गया"
     },
     "formDialog": {
         "editTitle": "नीति संपादन",

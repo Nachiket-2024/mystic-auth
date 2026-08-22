@@ -24,29 +24,29 @@ export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
 };
 ```
 
-## 2. Add a locale folder with all eleven namespace files
+## 2. Add a locale folder with all thirteen namespace files
 
-Copy `frontend/src/mystic_auth/translations/languages/en/` to a new `languages/ta/` folder (same 11
-filenames: `ui_text.json`, `layout.json`, `auth.json`, ...), then translate every value - keep every
+Copy `frontend/src/mystic_auth/translations/languages/en/` to a new `languages/ta/` folder (same 13
+filenames: `ui_text.json`, `layout.json`, `auth.json`, ..., `rate_limits.json`, `legal.json`), then translate every value - keep every
 key identical to the English source, only the values change. Missing keys silently fall back to
 `fallbackLng: "en"` (see `translations.ts`'s `i18next.init()` call), so a partial translation
 degrades gracefully rather than crashing, but treat that as a to-do, not a shipped state. (The
 `i18next.init()` call referenced above is `react-i18next`'s own API name; this repo's wrapper
 around it is `translations.ts`.)
 
-Then import and register all eleven files in `translations.ts`, following the existing `hi`/`mr`/`gu`
+Then import and register all thirteen files in `translations.ts`, following the existing `hi`/`mr`/`gu`
 blocks:
 
 ```ts
 import taUiText from "./languages/ta/ui_text.json";
 import taLayout from "./languages/ta/layout.json";
-// ...all eleven
+// ...all thirteen
 
 // inside translations.use(initReactI18next).init({ resources: { ... } }):
 ta: {
     ui_text: taUiText,
     layout: taLayout,
-    // ...all eleven
+    // ...all thirteen
 },
 ```
 

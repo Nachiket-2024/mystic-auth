@@ -1,7 +1,7 @@
 import React from "react";
 import { Skeleton, Table } from "@chakra-ui/react";
 
-import { ariaSortFor, renderHeaderCell } from "./DataTableSortableHeader";
+import { ariaSortFor, renderHeaderCell } from "./DataTableSortIndicator";
 import { SCROLL_SHADOW_CSS } from "./DataTableStyles";
 import type { DataTableColumn } from "./DataTable";
 import type { SortState } from "../hooks/useSortState";

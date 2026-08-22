@@ -20,6 +20,8 @@ export interface UsersFilters {
     role?: string;
     isVerified?: boolean;
     status?: string;
+    policy?: string;
+    permission?: string;
     sortBy?: string;
     sortDir?: SortDirection;
 }

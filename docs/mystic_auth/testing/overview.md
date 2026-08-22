@@ -16,7 +16,7 @@ integration, and security tests append to the same coverage data.
 | App wrapper | `tests/backend/app/` (1 file) | The thin `backend/app/` wrapper itself: the global exception handler wired up in `app/main.py` |
 | Unit | `tests/backend/mystic_auth/unit/` (68 files, feature subfolders mirror `backend/mystic_auth/`) | Auth flows, authorization service/evaluator/cache, condition validation, policy routes/history/repository caching, rate limiting, lockout, middleware, security headers, route helpers, logging config, email tasks, user CRUD, ORM/schema coverage, database and Redis singletons, error monitoring, session events, account deletion/purge, and `Settings` behavior |
 | Integration | `tests/backend/mystic_auth/integration/` (20 files plus shared account helpers) | Audit log, policy CRUD, policy assignment, authorization checks, auth flows, health, manage sessions, OAuth, security headers, rate limit dashboard, session geolocation, user export, user self-service, user list/update, and account lifecycle against real DB/Redis and a real HTTP client |
-| Security | `tests/backend/mystic_auth/security/` (5 files) | Batch authorization abuse, context spoofing, invalid condition payload, policy tampering, privilege escalation |
+| Security | `tests/backend/mystic_auth/security/` (6 files) | Batch authorization abuse, context spoofing, invalid condition payload, policy tampering, privilege escalation, least-privilege DB role (opt-in, skipped unless `APP_DATABASE_URL` is set) |
 | Performance | `tests/backend/mystic_auth/performance/` (1 file) | Authorization performance |
 
 **Running:**
@@ -78,6 +78,52 @@ type-checks reliably. That augmentation does not currently extend to chained
 `.not.toBe()` or `.not.toBeNull()`. No test in this repo uses `.not.` chaining.
 Prefer a positive assertion such as `toBeTruthy()` or an equality check phrased
 the other way round.
+
+---
+
+## File length
+
+Source and test files in this repo (backend `.py`, frontend `.ts`/`.tsx`,
+everything under `tests/`) are kept to roughly 300-350 lines. This isn't
+enforced by a linter/CI gate; it's a convention followed by hand, the same
+way `docs/mystic_auth/architecture/frontend.md`'s feature-first folder
+layout is a convention rather than a generated structure.
+
+When a file grows past that, split along the same lines the rest of the
+codebase already uses, rather than introducing a new pattern:
+
+- **A React page component with a large loaded-state render** (a `*Page.tsx`
+  with a big JSX tree beyond data-fetching/orchestration): pull the
+  presentational part into its own `*Card.tsx`/component file, the same way
+  `dashboard/DashboardIdentityCard.tsx` was split out of `DashboardPage.tsx`
+  - see [Frontend Architecture](../architecture/frontend.md). The page keeps
+  data-fetching, mutations, and dialog state; the extracted component takes
+  plain props and owns only presentation.
+- **A backend unit/integration test file covering more than one route or
+  concern**: split along the same seam the source side already has - e.g.
+  `test_policy_authorization_security_unit.py` (covering both
+  `policy_crud_routes.py` and `policy_assignment_routes.py`) became
+  `test_policy_crud_authorization_security_unit.py` and
+  `test_policy_assignment_authorization_security_unit.py`, matching
+  `backend/mystic_auth/api/pbac_routes/`'s own crud-vs-assignment file
+  split. Where a test file's own internal `# ---- section ----` comments
+  already delimit a natural split (e.g. "Redis fail-open regression
+  coverage" in `test_refresh_token_unit.py`), split along those instead of
+  inventing a new grouping.
+- **Test helpers/fixtures shared across a split** (account creation, polling
+  helpers, a `_cleanup_*` autouse fixture): factor them into a sibling
+  `*_test_accounts.py` module in the same test directory, matching
+  `tests/backend/mystic_auth/integration/user_crud/user_test_accounts.py`
+  and `.../audit_log/audit_log_test_accounts.py`. An autouse fixture defined
+  there only activates for a test module that imports it by name - keep that
+  import (even if otherwise unused, guard it with `__all__` for lint) rather
+  than moving the fixture into a directory-wide `conftest.py`, which would
+  silently widen its scope to every other test file in that directory.
+
+Leave a one-line pointer at the top of a file that got split (see any of the
+files named above) explaining what moved where and why, so a reader who
+opens the smaller file isn't left wondering where the rest of the coverage
+went.
 
 ---
 

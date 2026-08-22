@@ -8,6 +8,7 @@ from ...procrastinate_tasks.email_tasks import send_email_task
 from ...redis.client import redis_client
 from ...user_crud.user_crud_collector import user_crud
 from ..refresh_token_logic.refresh_token_service import refresh_token_service
+from ..token_logic.token_version_store import TokenVersionUnavailableError
 from .password_service import password_service
 
 logger = get_logger(__name__)
@@ -70,7 +71,7 @@ class PasswordResetService:
             return False
 
     @staticmethod
-    async def reset_password(token: str, new_password: str, db) -> bool:
+    async def reset_password(token: str, new_password: str, db) -> tuple[bool, bool | None]:
         """
         The single-use check used to be a plain GET, with the matching DELETE
         only issued after a successful password update, leaving a window where
@@ -85,6 +86,19 @@ class PasswordResetService:
         transient DB failure) restores the entry, with a TTL capped by the
         token's own remaining JWT lifetime, so a legitimate retry with the
         same link still works, without reopening the concurrency window this fixes.
+
+        Returns (success, sessions_revoked). success is False only for an
+        actual reset failure (bad/expired/reused token, weak password, no
+        such user, same password); once the new password is actually
+        written, success is always True, even if the other-session revoke
+        below couldn't be confirmed - blocking the reset on an unrelated
+        Redis outage would be worse than the gap it protects against.
+        sessions_revoked is None when no revoke was attempted (the reset
+        itself failed first), True once confirmed, False if Redis was
+        unreachable for the bump - same contract as the self-service
+        password-change path's own sessions_revoked field
+        (user_self_service_routes.py), so a Redis outage never turns a real
+        password reset into a reported "invalid token" failure.
         """
         redis_key = f"password_reset:{token}"
 
@@ -103,30 +117,30 @@ class PasswordResetService:
             payload = await password_service.verify_reset_token(token)
             if not payload:
                 logger.warning("Invalid or expired password reset token")
-                return False
+                return False, None
 
             # Atomically fetch-and-delete so reuse/replay is impossible.
             if not await redis_client.getdel(redis_key):
                 logger.warning("Password reset token not found or already used")
-                return False
+                return False, None
 
             # Role is no longer stored in reset tokens: single table makes it unnecessary.
             email = payload.get("email")
             if not email:
                 logger.warning("Email missing from reset token payload")
                 await _restore_token(payload)
-                return False
+                return False, None
 
             if not await password_service.validate_password_strength(new_password):
                 logger.warning("Weak password provided during reset for email: %s", email)
                 await _restore_token(payload)
-                return False
+                return False, None
 
             user = await user_crud.get_by_email(email, db)
             if not user:
                 logger.warning("User not found during password reset for email: %s", email)
                 await _restore_token(payload)
-                return False
+                return False, None
 
             if user.hashed_password:
                 is_same_password = await password_service.verify_password(
@@ -135,7 +149,7 @@ class PasswordResetService:
                 if is_same_password:
                     logger.warning("Password reset attempted with same password for email: %s", email)
                     await _restore_token(payload)
-                    return False
+                    return False, None
 
             hashed_password = await password_service.hash_password(new_password)
 
@@ -145,19 +159,24 @@ class PasswordResetService:
 
             if not updated:
                 await _restore_token(payload)
-                return False
+                return False, None
 
             # A password reset is frequently done specifically because the
             # account may be compromised, so any session an attacker already
             # holds must not survive it.
-            await refresh_token_service.revoke_all_tokens_for_user(email, db)
+            sessions_revoked = True
+            try:
+                await refresh_token_service.revoke_all_tokens_for_user(email, db)
+            except TokenVersionUnavailableError:
+                sessions_revoked = False
+                logger.error("Could not confirm session revocation on password reset for %s", email)
 
             logger.info("Password reset successful for email: %s", email)
-            return True
+            return True, sessions_revoked
 
         except Exception:
             logger.error("Error during password reset:\n%s", traceback.format_exc())
-            return False
+            return False, None
 
 
 password_reset_service = PasswordResetService()

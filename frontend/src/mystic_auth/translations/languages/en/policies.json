@@ -2,10 +2,15 @@
     "page": {
         "title": "Policies",
         "description": "Define and manage the access-control policies that grant permissions to users.",
-        "searchPlaceholder": "Search by name or resource type...",
+        "searchPlaceholder": "Search by name or description...",
+        "filterByResourceType": "Filter by resource type",
+        "allResourceTypes": "All resource types",
+        "filterByStatus": "Filter by status",
+        "allStatuses": "All statuses",
         "createPolicy": "Create Policy",
         "failedToLoadPolicies": "Failed to load policies",
         "noPoliciesMatchSearch": "No policies match your search",
+        "noPoliciesMatchFilters": "No policies match these filters",
         "noPoliciesYet": "No policies yet : create one to start granting permissions.",
         "policyUpdatedToast": "Policy updated",
         "policyCreatedToast": "Policy created",
@@ -17,7 +22,23 @@
         "name": "Name",
         "resourceType": "Resource type",
         "actions": "Actions",
-        "edit": "Edit"
+        "edit": "Edit",
+        "view": "View"
+    },
+    "detailsDialog": {
+        "title": "Policy details",
+        "name": "Name",
+        "description": "Description",
+        "noDescription": "No description",
+        "resourceType": "Resource type",
+        "actions": "Actions",
+        "conditions": "Conditions",
+        "noConditions": "None",
+        "status": "Status",
+        "active": "Active",
+        "created": "Created",
+        "lastUpdated": "Last updated",
+        "createdBy": "Created by"
     },
     "formDialog": {
         "editTitle": "Edit Policy",

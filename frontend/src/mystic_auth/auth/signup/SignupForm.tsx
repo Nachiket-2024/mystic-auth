@@ -153,6 +153,13 @@ const SignupForm: React.FC = () => {
                 {t("signup.submitButton")}
             </Button>
 
+            <Text fontSize="sm" color="fg.muted" textAlign="center">
+                {t("signup.agreeToTermsPrefix")}{" "}
+                <AuthInlineLink to="/terms">{t("signup.termsOfService")}</AuthInlineLink>{" "}
+                {t("signup.and")}{" "}
+                <AuthInlineLink to="/privacy">{t("signup.privacyPolicy")}</AuthInlineLink>
+            </Text>
+
             {/* Matches LoginPage's reciprocal "Don't have an account? Sign
                 Up" treatment - a plain inline link, not a second competing
                 button, so the two auth pages read as one consistent

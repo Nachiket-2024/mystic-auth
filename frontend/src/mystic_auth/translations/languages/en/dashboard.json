@@ -9,6 +9,13 @@
     "accountSettingsButton": "Account Settings",
     "logoutAllButton": "Logout All",
     "noUserData": "No user data available",
+    "identityDetailsDialog": {
+        "title": "Profile details",
+        "viewButton": "View profile",
+        "name": "Name",
+        "email": "Email",
+        "role": "Role"
+    },
     "logoutAllDialog": {
         "title": "Logout all devices",
         "description": "This will end every active session for your account on every device, including this one. Continue?",

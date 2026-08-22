@@ -18,6 +18,16 @@ local-scripts/dev/create-system-user.sh        # or .ps1 / .bat
 
 Same shape for `local-scripts/local-prod/` (against `docker-compose.local-prod.yml`) and `local-scripts/prod/` (against `docker-compose.prod.yml`, real production credentials). Each `system-user.env` is ignored by both `.gitignore` and `.dockerignore`, only the `.example` templates are tracked, so filling one in never risks committing real credentials.
 
+### "Permission denied" running one of these
+
+Git tracks each file's executable bit as part of its mode (`100755` vs `100644`), separate from `chmod` on your local checkout. If the `.sh` was ever added to the repo without `+x` set at the time (e.g. authored with a plain editor rather than `chmod +x` beforehand), git stores it non-executable, and every clone/pull/checkout resets it back to `-rw-r--r--` even after you locally `chmod +x` it and it works once. Fix it in the index, not just on disk, so it stays fixed for everyone:
+
+```bash
+git update-index --chmod=+x local-scripts/dev/create-system-user.sh
+```
+
+Repeat per affected file, then commit the mode change. If you're adding a new `.sh` script to this repo, `chmod +x` it before your first `git add` so this never happens in the first place.
+
 ## Commands by run mode (interactive)
 
 ### Dev Docker
@@ -33,7 +43,7 @@ docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
 Use this with `.env.local-prod.example` and `docker-compose.local-prod.yml`, the self-hosted Cloudflare Tunnel mode:
 
 ```bash
-docker compose -f docker-compose.local-prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
+docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod exec -it backend python -m mystic_auth.scripts.create_system_user
 ```
 
 ### Prod Docker
@@ -41,7 +51,7 @@ docker compose -f docker-compose.local-prod.yml exec -it backend python -m mysti
 Use this on the server that runs `.env.prod.example` and `docker-compose.prod.yml`:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec -it backend python -m mystic_auth.scripts.create_system_user
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec -it backend python -m mystic_auth.scripts.create_system_user
 ```
 
 ### Local Backend Without Docker

@@ -19,6 +19,7 @@ from ...authorization.services.authorization_service import authorization_servic
 from ...core.errors import AppError
 from ...database.connection import database
 from ...user_crud.user_crud_collector import user_crud
+from ...user_session.session_events import publish_permissions_changed
 from ..get_or_404.get_or_404 import get_or_404
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
@@ -73,6 +74,7 @@ async def assign_policy_to_user(
         request=request,
         metadata={"assigned_by": current_user["email"], "policy_name": policy.name},
     )
+    await publish_permissions_changed(user.email)
     return {"detail": f"Policy '{assignment.policy_name}' assigned to {user_email}"}
 
 
@@ -85,9 +87,20 @@ async def remove_policy_from_user(
     db: AsyncSession = Depends(database.get_session),
 ):
     """404 if the user didn't hold this policy (or either identifier
-    doesn't resolve)."""
+    doesn't resolve).
+
+    The caller must already hold every action this policy grants: without
+    this, policies:revoke alone could strip an equally- or more-privileged
+    peer's access (even system_superuser itself) with no escalation check
+    at all, the one gap assign_policy_to_user's symmetric guard didn't
+    cover. Mirrors the same guard on update_policy/delete_policy
+    (policy_crud_routes.py)."""
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
     policy = await get_or_404(policy_repository.get_by_name(policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
+
+    await authorization_service.assert_authorized_to_grant(
+        current_user["email"], policy.actions, policy.resource_type, db
+    )
 
     # Lockout protection: removing the last remaining assignment of
     # system_superuser would leave no one able to manage the authorization
@@ -120,6 +133,7 @@ async def remove_policy_from_user(
         request=request,
         metadata={"revoked_by": current_user["email"], "policy_name": policy_name},
     )
+    await publish_permissions_changed(user.email)
     return {"detail": f"Policy '{policy_name}' removed from {user_email}"}
 
 

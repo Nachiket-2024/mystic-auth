@@ -7,10 +7,12 @@ from ...auth.security.rate_limiter_service import rate_limiter_service
 from ...auth.token_logic.jwt_service import jwt_service
 from ...auth.token_logic.token_cookie_handler import token_cookie_handler
 from ...auth.token_logic.token_schema import TokenPairResponseSchema
+from ...auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
 from ...core.errors import AppError
 from ...database.connection import database
+from ...logging.logging_config import get_logger
 from ...user_crud.user_crud_collector import user_crud
 from ...user_crud.user_crud_modules.user_update_payload_preparation import prepare_update_data
 from ...user_lifecycle.account_deletion_confirm_handler import account_deletion_confirm_handler
@@ -23,8 +25,10 @@ from ...user_session.session_service import session_service
 # resource-protection reasoning as user_lifecycle_routes.py's identical
 # import comment: it's metadata, not a caller-authorization decision.
 from ...user_table.user_model import UserRole
-from ...user_table.user_schema import UserRead, UserSelfDeleteRequest, UserUpdate
+from ...user_table.user_schema import UserRead, UserSelfDeleteRequest, UserSelfUpdateResponse, UserUpdate
 from ..get_or_404.get_or_404 import get_or_404
+
+logger = get_logger(__name__)
 
 # Self-service endpoints only (acting on current_user, never a
 # path-parameterized user_email), so this router is never gated by anything
@@ -46,7 +50,7 @@ async def get_my_profile(
     return user
 
 
-@router.put("/me", response_model=UserRead)
+@router.put("/me", response_model=UserSelfUpdateResponse)
 async def update_my_profile(
     update_data: UserUpdate,
     response: Response,
@@ -86,13 +90,32 @@ async def update_my_profile(
     # Password changes revoke other sessions because old credentials may be
     # compromised. Keep the current chain because it supplied the current
     # password, then reissue tokens so it survives the account-version bump.
+    #
+    # sessions_revoked stays None unless this update actually attempted a
+    # revoke below: the password write itself (a Postgres write, unrelated
+    # to Redis) always succeeds regardless of whether that revoke could be
+    # confirmed - blocking a password change on an unrelated Redis outage
+    # would be worse than the gap it's protecting against. False instead of
+    # raising means the caller finds out (see UserSelfUpdateResponse) rather
+    # than the account's other sessions silently staying valid.
+    sessions_revoked = None
     if "hashed_password" in prepared_data:
+        sessions_revoked = True
         current_payload = await jwt_service.decode_payload(access_token) if access_token else None
         chain_id = current_payload.get("chain") if current_payload else None
 
-        if chain_id:
-            await refresh_token_service.revoke_all_tokens_for_user_except_chain(email, chain_id, db)
+        try:
+            if chain_id:
+                await refresh_token_service.revoke_all_tokens_for_user_except_chain(email, chain_id, db)
+            else:
+                # Authorization should already have read this cookie. If the
+                # chain is still unavailable, revoke the whole account instead.
+                await refresh_token_service.revoke_all_tokens_for_user(email, db)
+        except TokenVersionUnavailableError:
+            sessions_revoked = False
+            logger.error("Could not confirm other-session revocation on password change for %s", email)
 
+        if chain_id:
             new_access_token = await jwt_service.create_access_token(email, chain_id)
             new_refresh_token = await jwt_service.create_refresh_token(email, chain_id)
             token_cookie_handler.set_tokens_in_cookies(
@@ -106,12 +129,10 @@ async def update_my_profile(
                 await session_service.rotate_session_by_chain(
                     db, chain_id, new_refresh_payload["jti"], new_refresh_payload["exp"], email=email
                 )
-        else:
-            # Authorization should already have read this cookie. If the chain
-            # is still unavailable, revoke the whole account instead.
-            await refresh_token_service.revoke_all_tokens_for_user(email, db)
 
-    return updated_user
+    response_payload = UserSelfUpdateResponse.model_validate(updated_user)
+    response_payload.sessions_revoked = sessions_revoked
+    return response_payload
 
 
 @router.delete("/me")
@@ -167,10 +188,8 @@ async def delete_my_account(
 
         # The session was just revoked server-side above; without also
         # clearing these cookies the browser keeps holding now-dead ones,
-        # same fix as logout_handler.py's delete_cookie calls (refresh_token
-        # needs path="/auth" to match how token_cookie_handler.py set it).
-        response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
-        response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none", path="/auth")
+        # same as logout_handler.py's own cookie clearing.
+        token_cookie_handler.clear_tokens_from_cookies(response)
 
         return {"detail": "Your account has been deleted"}
 

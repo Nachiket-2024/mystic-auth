@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter, Routes, Route } from 'react-router';
 
@@ -21,6 +21,7 @@ function seed(options?: { isAuthenticated?: boolean | null; permissions?: string
         has_password: true,
         created_at: '2026-01-15T00:00:00Z',
         active_sessions: 1,
+        brand_color: null,
       });
     }
   }
@@ -44,6 +45,7 @@ function renderProtectedRoute(
           />
           <Route path="/login" element={<div>Login Page</div>} />
           <Route path="/not-authorized" element={<div>Not Authorized Page</div>} />
+          <Route path="/dashboard" element={<div>Dashboard Page</div>} />
         </Routes>
       </MemoryRouter>
     </ChakraProvider>
@@ -94,5 +96,23 @@ describe('ProtectedRoute', () => {
     renderProtectedRoute();
 
     expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('redirects straight to /dashboard (not /not-authorized) when a permission is revoked while already on the page', () => {
+    // A route that WAS allowed, unlike the "/not-authorized" case above
+    // where it never was: this is useSessionEventsStream's live
+    // dropPermissions() pulling access out from under an already-open tab,
+    // not a direct navigation to a route the caller never had.
+    seed({ isAuthenticated: true, permissions: ['policies:read'] });
+    renderProtectedRoute({ permission: 'policies:read' });
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+
+    act(() => {
+      useAuthStore.getState().dropPermissions();
+    });
+
+    expect(screen.getByText('Dashboard Page')).toBeInTheDocument();
+    expect(screen.queryByText('Not Authorized Page')).toBeNull();
+    expect(screen.queryByText('Protected Content')).toBeNull();
   });
 });

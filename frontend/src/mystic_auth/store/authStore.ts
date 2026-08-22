@@ -30,6 +30,16 @@ interface AuthState {
     /** Clear the caller's own profile/permissions without touching
      *  isAuthenticated. */
     clearProfile: () => void;
+    /** Synchronously fail-closed on every permission check (ProtectedRoute,
+     *  IfCan, the sidebar's nav-item filter, ...) without waiting on a
+     *  network round-trip. Used the instant a permissions_changed
+     *  server-push event arrives (see useSessionEventsStream.ts) - we don't
+     *  yet know the caller's new permission list at that point, only that
+     *  it changed, so the safe assumption until the follow-up GET /auth/me
+     *  lands is "holds nothing" rather than continuing to trust whatever
+     *  was cached before the change. isAuthenticated/profile fields are
+     *  left untouched: this is not a logout. */
+    dropPermissions: () => void;
     /** Full reset to the initial (unchecked) state. */
     reset: () => void;
 }
@@ -59,6 +69,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         }),
 
     clearProfile: () => set({ ...initialProfile }),
+
+    dropPermissions: () => set({ permissions: [] }),
 
     reset: () => set({ isAuthenticated: null, ...initialProfile }),
 }));

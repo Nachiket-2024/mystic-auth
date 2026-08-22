@@ -9,6 +9,11 @@
 # conditional policies, and (together with test_current_user_handler and
 # test_authorization_service) that identical roles/no-role users can have
 # different authorization outcomes.
+#
+# evaluate_detailed's own explainability coverage (matched/rejected
+# policies, denial reasons) is split out into
+# test_policy_evaluator_detailed_unit.py once this file passed the repo's
+# own file-length guideline.
 
 from backend.mystic_auth.authorization.evaluators.policy_evaluator import (
     PolicyEvaluationEngine,
@@ -260,107 +265,3 @@ def test_evaluation_never_references_role_two_role_free_policy_sets_differ_corre
     assert PolicyEvaluationEngine.evaluate(
         plain_policies, "users:list_all", "users", "whoever@example.com"
     ) is False
-
-
-# ---------------------------- evaluate_detailed (explainability) ----------------------------
-# evaluate_detailed now returns an AuthorizationDecision (see
-# evaluators/authorization_decision.py) rather than a bare dict : per
-# authorization decision explainability, "detailed APIs should
-# use new structure". matched_policies/rejected_policies replace the old
-# granting_policy_names/"candidate minus granting" split.
-
-def test_evaluate_detailed_reports_empty_lists_and_no_assigned_policies_reason_when_no_policies_held():
-    decision = PolicyEvaluationEngine.evaluate_detailed([], "users:list_all", "users", "user@example.com")
-
-    assert decision.allowed is False
-    assert decision.evaluated_policies == []
-    assert decision.matched_policies == []
-    assert decision.rejected_policies == []
-    assert decision.failed_conditions == {}
-    assert decision.denial_reason == "no_assigned_policies"
-    assert decision.evaluation_timestamp  # a non-empty ISO timestamp was set
-
-
-def test_evaluate_detailed_agrees_with_evaluate_on_unconditional_allow():
-    policies = [_policy(["users:list_all"], name="admin_policy")]
-
-    decision = PolicyEvaluationEngine.evaluate_detailed(
-        policies, "users:list_all", "users", "admin@example.com"
-    )
-
-    assert decision.allowed is True
-    assert decision.matched_policies == ["admin_policy"]
-    assert decision.rejected_policies == []
-    assert decision.denial_reason is None
-
-
-def test_evaluate_detailed_lists_a_policy_as_rejected_with_its_failed_condition_when_conditions_fail():
-    # This is the whole point of evaluate_detailed over evaluate: telling
-    # apart "no policy even applies" from "a policy applies but its
-    # conditions rejected this specific resource" : and now, which
-    # condition key specifically failed.
-    policy = _policy(
-        ["documents:publish"],
-        resource_type="documents",
-        conditions={"resource_attributes": {"status": "draft"}},
-        name="publish_drafts",
-    )
-
-    decision = PolicyEvaluationEngine.evaluate_detailed(
-        [policy], "documents:publish", "documents", "editor@example.com",
-        resource={"status": "published"},
-    )
-
-    assert decision.allowed is False
-    assert decision.matched_policies == []
-    assert decision.rejected_policies == ["publish_drafts"]
-    assert decision.failed_conditions == {"publish_drafts": ["resource_attributes"]}
-    assert decision.denial_reason == "condition_failed"
-
-
-def test_evaluate_detailed_reports_only_matching_action_resource_type_policies_as_evaluated_candidates():
-    policies = [
-        _policy(["users:read_own"], name="self_service"),
-        _policy(["users:list_all"], name="user_administration"),
-    ]
-
-    decision = PolicyEvaluationEngine.evaluate_detailed(
-        policies, "users:list_all", "users", "admin@example.com"
-    )
-
-    assert decision.matched_policies == ["user_administration"]
-    assert "self_service" not in decision.matched_policies
-    assert "self_service" not in decision.rejected_policies
-    # evaluated_policies is the superset: every policy the user held,
-    # including ones that never even matched action/resource_type
-    assert decision.evaluated_policies == ["self_service", "user_administration"]
-
-
-def test_evaluate_detailed_denial_reason_is_no_matching_policy_when_nothing_matches_action():
-    policies = [_policy(["users:read_own"], name="self_service")]
-
-    decision = PolicyEvaluationEngine.evaluate_detailed(
-        policies, "users:list_all", "users", "user@example.com"
-    )
-
-    assert decision.allowed is False
-    assert decision.rejected_policies == []
-    assert decision.denial_reason == "no_matching_policy"
-
-
-def test_evaluate_reuses_evaluate_detailed_and_agrees_with_it():
-    # evaluate() is now a thin wrapper : confirm it stays in lockstep with
-    # evaluate_detailed's own "allowed" field rather than drifting.
-    policy = _policy(
-        ["documents:publish"],
-        resource_type="documents",
-        conditions={"resource_attributes": {"status": "draft"}},
-        name="publish_drafts",
-    )
-
-    for resource in ({"status": "draft"}, {"status": "published"}, None):
-        assert PolicyEvaluationEngine.evaluate(
-            [policy], "documents:publish", "documents", "editor@example.com", resource=resource
-        ) == PolicyEvaluationEngine.evaluate_detailed(
-            [policy], "documents:publish", "documents", "editor@example.com", resource=resource
-        ).allowed

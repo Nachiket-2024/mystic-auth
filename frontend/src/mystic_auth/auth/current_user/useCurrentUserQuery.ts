@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getCurrentUserApi } from "../../api/auth_api";
 import { useAuthStore } from "../../store/authStore";
+import { useAppearanceStore } from "../../store/appearanceStore";
 import type { CurrentUserProfile } from "./current_user_types";
 
 // Shared across this hook, every mutation hook that needs to invalidate/
@@ -57,9 +58,17 @@ export function useAuthSession(): void {
         if (isSuccess && data) {
             setProfile(data);
             setAuthenticated(true);
+            // The server's values win once known, overriding whatever
+            // appearanceStore's own localStorage-cached guesses applied
+            // eagerly at module load (e.g. after picking colors on
+            // another device, or on a browser that never set any locally).
+            const appearance = useAppearanceStore.getState();
+            appearance.setBrandColor(data.brand_color ?? null);
         } else if (isError) {
             clearProfile();
             setAuthenticated(false);
+            const appearance = useAppearanceStore.getState();
+            appearance.setBrandColor(null);
         }
     }, [isSuccess, isError, data, setProfile, setAuthenticated, clearProfile]);
 }

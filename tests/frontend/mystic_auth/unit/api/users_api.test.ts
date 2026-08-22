@@ -100,6 +100,19 @@ describe('exportUsersApi', () => {
   });
 });
 
+describe('listUsersApi with policy/permission filters', () => {
+  it('passes policy and permission through as query params', async () => {
+    mock.onGet('/users/').reply((config) => {
+      expect(config.params).toMatchObject({ policy: 'user_administration', permission: 'users:list_all' });
+      return [200, []];
+    });
+
+    const response = await listUsersApi({ policy: 'user_administration', permission: 'users:list_all' });
+
+    expect(response.status).toBe(200);
+  });
+});
+
 describe('updateUserRoleApi', () => {
   it('sends a PATCH request to the /role subpath with the new role', async () => {
     const email = 'user@example.com';

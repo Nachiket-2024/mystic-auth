@@ -12,17 +12,6 @@ from backend.mystic_auth.user_session.session_events import (
 MODULE = "backend.mystic_auth.user_session.session_events"
 
 
-class _FakeRequest:
-    """Minimal stand-in for FastAPI's Request: session_event_stream only
-    ever calls is_disconnected() on it."""
-
-    def __init__(self):
-        self.disconnected = False
-
-    async def is_disconnected(self) -> bool:
-        return self.disconnected
-
-
 @pytest.mark.asyncio
 async def test_publish_session_revoked_publishes_to_the_users_own_channel(mocker):
     publish_mock = mocker.patch(f"{MODULE}.redis_client.publish", new_callable=AsyncMock)
@@ -65,8 +54,7 @@ async def test_publish_session_revoked_swallows_redis_errors(mocker):
 
 @pytest.mark.asyncio
 async def test_session_event_stream_yields_a_published_event():
-    request = _FakeRequest()
-    stream = session_event_stream("stream-test@example.com", request)
+    stream = session_event_stream("stream-test@example.com")
 
     async def publish_soon():
         await asyncio.sleep(0.2)
@@ -91,18 +79,26 @@ async def test_session_event_stream_ignores_a_different_users_channel(mocker):
     """Two users' streams must never cross: a publish on someone else's
     channel must never surface on this one."""
     mocker.patch(f"{MODULE}._HEARTBEAT_SECONDS", 0.05)
-    request = _FakeRequest()
-    stream = session_event_stream("stream-test-2@example.com", request)
+    stream = session_event_stream("stream-test-2@example.com")
 
     async def publish_to_someone_else():
         await asyncio.sleep(0.1)
         await publish_session_revoked("someone-else@example.com")
-        await asyncio.sleep(0.2)
-        request.disconnected = True
 
     publish_task = asyncio.create_task(publish_to_someone_else())
     try:
-        lines = [line async for line in stream]
+        # Bounded by a timeout, not a disconnect flag: session_event_stream
+        # deliberately never polls for disconnection itself (see its own
+        # docstring), it only ever stops when its caller closes the
+        # generator - a real client disconnect ends the loop via the ASGI
+        # server calling aclose() on it, exactly like the explicit aclose()
+        # below.
+        lines = []
+        async with asyncio.timeout(0.3):
+            async for line in stream:
+                lines.append(line)
+    except TimeoutError:
+        pass
     finally:
         await stream.aclose()
         await publish_task
@@ -116,8 +112,7 @@ async def test_session_event_stream_sends_heartbeats_when_idle(mocker):
     nothing has actually happened - see the module's own _HEARTBEAT_SECONDS
     comment."""
     mocker.patch(f"{MODULE}._HEARTBEAT_SECONDS", 0.05)
-    request = _FakeRequest()
-    stream = session_event_stream("idle-user@example.com", request)
+    stream = session_event_stream("idle-user@example.com")
 
     try:
         first_line = await anext(stream)
@@ -128,11 +123,19 @@ async def test_session_event_stream_sends_heartbeats_when_idle(mocker):
 
 
 @pytest.mark.asyncio
-async def test_session_event_stream_exits_cleanly_when_client_disconnects():
-    request = _FakeRequest()
-    request.disconnected = True
-    stream = session_event_stream("user@example.com", request)
+async def test_session_event_stream_unsubscribes_cleanly_on_aclose(mocker):
+    """A real client disconnect reaches this generator as the ASGI server
+    closing it (StreamingResponse calls aclose() on the iterator it's
+    holding), not as an is_disconnected() poll inside the loop - see
+    session_event_stream's own docstring for why that check was removed.
+    This pins that an explicit aclose() during the heartbeat wait tears
+    down the Redis subscription cleanly (no hang, no error) and the
+    generator is done afterwards."""
+    mocker.patch(f"{MODULE}._HEARTBEAT_SECONDS", 0.05)
+    stream = session_event_stream("disconnect-test@example.com")
 
-    lines = [line async for line in stream]
+    await anext(stream)  # first heartbeat: proves the subscription is live
+    await stream.aclose()
 
-    assert lines == []
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)

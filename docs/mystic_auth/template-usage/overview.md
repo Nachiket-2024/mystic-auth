@@ -39,7 +39,7 @@ Then create the reserved system superuser (one-time, CLI-only):
 docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
 ```
 
-See root [`README.md`](../../../README.md#-first-time-setup--creating-the-system-superuser) for the prompts.
+See root [`README.md`](../../../README.md#first-time-setup-creating-the-system-superuser) for the prompts.
 
 ---
 
@@ -47,7 +47,7 @@ See root [`README.md`](../../../README.md#-first-time-setup--creating-the-system
 
 Every setting is documented inline in [`.env.example`](../../../.env.example): treat that file as the source of truth, not this doc. `frontend/.env.example` only matters if you run the frontend locally with `npm run dev` instead of Docker.
 
-To rename the app: set `APP_NAME` and `VITE_APP_NAME` in the root `.env`, then `docker compose up --build` (the frontend value is baked in at build time). Nothing else hardcodes a product name. CI keeps using its own placeholder `APP_NAME` regardless; that's expected, not something to sync.
+To rename the app: set `APP_NAME` in the root `.env`, then `docker compose up --build`. `docker-compose.yml` aliases `VITE_APP_NAME` from that same `APP_NAME` (the frontend value is baked in at build time), so there's only one setting to change, not two. Nothing else hardcodes a product name. CI keeps using its own placeholder `APP_NAME` regardless; that's expected, not something to sync.
 
 ---
 

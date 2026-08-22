@@ -1,4 +1,5 @@
 # tests/backend/mystic_auth/unit/test_logout_handler_unit.py
+import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -19,7 +20,7 @@ def _mock_decode(mocker, email="user@example.com", jti="jti-1"):
 
 @pytest.mark.asyncio
 async def test_logout_without_refresh_token_returns_400(mocker):
-    revoke_mock = mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    revoke_mock = mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     response = await logout_handler.handle_logout(None)
 
@@ -38,7 +39,7 @@ async def test_logout_with_already_revoked_token_still_succeeds_and_clears_cooki
     # and clear both cookies, not leave the frontend stuck showing "logged
     # in" with a dead cookie it can never successfully log out of.
     _mock_decode(mocker)
-    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     response = await logout_handler.handle_logout("already-revoked-token")
 
@@ -49,9 +50,38 @@ async def test_logout_with_already_revoked_token_still_succeeds_and_clears_cooki
 
 
 @pytest.mark.asyncio
+async def test_logout_response_carries_session_revoked_true_on_success(mocker):
+    _mock_decode(mocker)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
+
+    response = await logout_handler.handle_logout("valid-token")
+
+    assert json.loads(response.body)["session_revoked"] is True
+
+
+@pytest.mark.asyncio
+async def test_logout_still_reports_200_and_clears_cookies_when_revocation_is_unconfirmed(mocker):
+    """Unlike logout-all/Manage Sessions, plain logout keeps its "always
+    succeed, clear cookies regardless" contract even when Redis couldn't
+    confirm the chain-version bump - see logout_handler.py's own reasoning.
+    The gap must still be visible in the response body, though, not
+    silently indistinguishable from a real revoke."""
+    _mock_decode(mocker)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=False)
+
+    response = await logout_handler.handle_logout("valid-token")
+
+    assert response.status_code == 200
+    assert json.loads(response.body)["session_revoked"] is False
+    headers = _set_cookie_headers(response)
+    assert any(h.startswith("access_token=") for h in headers)
+    assert any(h.startswith("refresh_token=") for h in headers)
+
+
+@pytest.mark.asyncio
 async def test_logout_success_clears_both_cookies(mocker):
     _mock_decode(mocker)
-    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     response = await logout_handler.handle_logout("valid-token")
 
@@ -68,7 +98,7 @@ async def test_logout_clears_refresh_token_cookie_with_matching_auth_path(mocker
     # creates a *different* cookie the browser expires immediately, leaving
     # the real, still-valid "/auth"-scoped refresh_token cookie behind.
     _mock_decode(mocker)
-    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     response = await logout_handler.handle_logout("valid-token")
 
@@ -84,7 +114,7 @@ async def test_logout_undecodable_token_still_clears_refresh_cookie_with_matchin
     # matching path=/auth would silently reintroduce the original bug for
     # this exact scenario.
     _mock_decode(mocker, email=None)
-    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     response = await logout_handler.handle_logout("garbage-token")
 
@@ -102,7 +132,7 @@ async def test_logout_with_undecodable_token_still_records_an_accurate_audit_ent
     # though the caller-facing outcome looks identical.
     _mock_decode(mocker, email=None)
     audit_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
-    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     await logout_handler.handle_logout("garbage-token")
 
@@ -116,7 +146,7 @@ async def test_logout_with_undecodable_token_still_records_an_accurate_audit_ent
 async def test_logout_success_records_an_accurate_audit_entry(mocker):
     _mock_decode(mocker)
     audit_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
-    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     await logout_handler.handle_logout("valid-token")
 
@@ -133,7 +163,7 @@ async def test_logout_records_the_resolved_email_in_the_audit_entry(mocker):
     # logout-all, which do resolve and record it).
     _mock_decode(mocker, email="user@example.com", jti="jti-1")
     audit_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
-    revoke_mock = mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    revoke_mock = mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
 
     await logout_handler.handle_logout("valid-token")
 
@@ -149,7 +179,7 @@ async def test_logout_records_the_resolved_email_in_the_audit_entry(mocker):
 @pytest.mark.asyncio
 async def test_logout_with_undecodable_token_records_audit_entry_with_no_email(mocker):
     _mock_decode(mocker, email=None)
-    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.session_service.revoke_session_on_logout", new_callable=AsyncMock, return_value=True)
     audit_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
 
     await logout_handler.handle_logout("garbage-token")

@@ -4,6 +4,7 @@ from sqlalchemy import asc, desc, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from ...authorization.models.policy_model import Policy, UserPolicy
 from ...emails.email_normalization import normalize_email
 from ...user_table.user_model import UserRole
 
@@ -57,6 +58,8 @@ class UserBaseCRUD:
         role: UserRole | None,
         is_verified: bool | None,
         status: UserStatus | None,
+        policy: str | None = None,
+        permission: str | None = None,
     ):
         search_condition = self._search_filter(search)
         if search_condition is not None:
@@ -68,6 +71,20 @@ class UserBaseCRUD:
         status_condition = self._status_filter(status)
         if status_condition is not None:
             stmt = stmt.where(status_condition)
+        if policy is not None or permission is not None:
+            # A user can hold the matching permission via more than one
+            # policy, so the join can multiply rows: distinct() (applied to
+            # the full row/aggregate, same as get_all/count already select)
+            # keeps a many-policy match from showing the same user twice.
+            stmt = (
+                stmt.join(UserPolicy, UserPolicy.user_id == self.model.id)
+                .join(Policy, Policy.id == UserPolicy.policy_id)
+                .distinct()
+            )
+            if policy is not None:
+                stmt = stmt.where(Policy.name == policy)
+            if permission is not None:
+                stmt = stmt.where(Policy.actions.contains([permission]))
         return stmt
 
     def _order_by(self, sort_by: str | None, sort_dir: str):
@@ -90,11 +107,13 @@ class UserBaseCRUD:
         status: UserStatus | None = None,
         sort_by: str | None = None,
         sort_dir: str = "asc",
+        policy: str | None = None,
+        permission: str | None = None,
     ):
         # Capped : every other list endpoint in the app (audit log, policy
         # history) bounds its query the same way; this one previously read
         # the whole table unconditionally.
-        stmt = self._apply_filters(select(self.model), search, role, is_verified, status)
+        stmt = self._apply_filters(select(self.model), search, role, is_verified, status, policy, permission)
         stmt = stmt.order_by(*self._order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
         return result.scalars().all()
@@ -106,11 +125,17 @@ class UserBaseCRUD:
         role: UserRole | None = None,
         is_verified: bool | None = None,
         status: UserStatus | None = None,
+        policy: str | None = None,
+        permission: str | None = None,
     ) -> int:
         """Total matching rows, ignoring limit/offset - lets a caller compute
-        how many pages exist (see list_all_users' X-Total-Count header)."""
+        how many pages exist (see list_all_users' X-Total-Count header).
+        Counts distinct ids rather than plain rows since the policy/
+        permission filter can join in more than one matching policy row per
+        user (see _apply_filters)."""
         stmt = self._apply_filters(
-            select(func.count()).select_from(self.model), search, role, is_verified, status
+            select(func.count(func.distinct(self.model.id))).select_from(self.model),
+            search, role, is_verified, status, policy, permission,
         )
         result = await db.execute(stmt)
         return result.scalar_one()

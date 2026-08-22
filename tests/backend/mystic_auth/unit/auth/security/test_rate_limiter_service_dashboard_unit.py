@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/unit/auth/security/test_rate_limiter_service_dashboard_unit.py
 #
-# Unit coverage for RateLimiterService.list_active_limits/reset_counter -
+# Unit coverage for RateLimitDashboardService.list_active_limits/reset_counter -
 # the admin Rate Limit Dashboard's read/reset primitives. Mirrors
 # test_rate_limiter_unit.py's pattern of patching redis_client's individual
 # methods directly rather than standing up a real Redis, since these are
@@ -10,9 +10,28 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.mystic_auth.auth.security.rate_limiter_service import rate_limiter_service
+from backend.mystic_auth.auth.security.rate_limit_dashboard_service import (
+    RateLimitDashboardService,
+    rate_limit_dashboard_service,
+)
+from backend.mystic_auth.auth.security.rate_limiter_service import RateLimiterService
 
-MODULE = "backend.mystic_auth.auth.security.rate_limiter_service"
+MODULE = "backend.mystic_auth.auth.security.rate_limit_dashboard_service"
+
+
+@pytest.fixture(autouse=True)
+def _reset_scan_snapshot_cache():
+    """list_active_limits caches its matched-key walk per filter pattern for
+    _SCAN_SNAPSHOT_TTL_SECONDS (see that method's own docstring) so
+    consecutive dashboard page requests get a consistent view to slice.
+    Most tests here use the same default (unfiltered) pattern, so without
+    clearing this class-level cache between tests, a later test picks up an
+    earlier test's mocked SCAN/pipeline results instead of its own -
+    tests running within the TTL of each other otherwise leak state.
+    """
+    RateLimitDashboardService._scan_snapshot_cache = {}
+    yield
+    RateLimitDashboardService._scan_snapshot_cache = {}
 
 
 class _FakePipeline:
@@ -59,7 +78,7 @@ async def test_list_active_limits_parses_ip_and_account_keys(mocker):
     # though it appears second in the raw SCAN batch above.
     _patch_pipeline(mocker, ["1", -1, "3", 42])
 
-    entries, total, truncated = await rate_limiter_service.list_active_limits()
+    entries, total, truncated = await rate_limit_dashboard_service.list_active_limits()
 
     assert total == 2
     assert truncated is False
@@ -70,7 +89,7 @@ async def test_list_active_limits_parses_ip_and_account_keys(mocker):
             "scope": "account",
             "identifier": "victim@example.com",
             "count": 1,
-            "limit": rate_limiter_service.MAX_REQUESTS_PER_WINDOW,
+            "limit": RateLimiterService.MAX_REQUESTS_PER_WINDOW,
             "resets_in_seconds": None,
         },
         {
@@ -79,7 +98,7 @@ async def test_list_active_limits_parses_ip_and_account_keys(mocker):
             "scope": "ip",
             "identifier": "1.2.3.4",
             "count": 3,
-            "limit": rate_limiter_service.MAX_REQUESTS_PER_WINDOW,
+            "limit": RateLimiterService.MAX_REQUESTS_PER_WINDOW,
             "resets_in_seconds": 42,
         },
     ]
@@ -96,7 +115,7 @@ async def test_list_active_limits_walks_multiple_scan_batches_until_cursor_zero(
     )
     _patch_pipeline(mocker, ["1", 10])
 
-    entries, total, truncated = await rate_limiter_service.list_active_limits(page=1, page_size=1)
+    entries, total, truncated = await rate_limit_dashboard_service.list_active_limits(page=1, page_size=1)
 
     assert scan_mock.await_count == 2
     assert total == 2
@@ -106,11 +125,11 @@ async def test_list_active_limits_walks_multiple_scan_batches_until_cursor_zero(
 
 @pytest.mark.asyncio
 async def test_list_active_limits_truncates_at_max_scanned_keys(mocker):
-    mocker.patch(f"{MODULE}.RateLimiterService.MAX_SCANNED_KEYS", 2)
+    mocker.patch(f"{MODULE}.RateLimitDashboardService.MAX_SCANNED_KEYS", 2)
     scan_mock = _patch_scan(mocker, 99, ["login:ip:1.1.1.1", "login:ip:2.2.2.2", "login:ip:3.3.3.3"])
     _patch_pipeline(mocker, ["1", 10, "1", 10])
 
-    entries, total, truncated = await rate_limiter_service.list_active_limits(page_size=10)
+    entries, total, truncated = await rate_limit_dashboard_service.list_active_limits(page_size=10)
 
     scan_mock.assert_awaited_once()
     assert total == 2
@@ -125,7 +144,7 @@ async def test_list_active_limits_slices_the_requested_page(mocker):
     _patch_scan(mocker, 0, ["login:ip:2.2.2.2", "login:account:a@example.com", "login:ip:1.1.1.1"])
     _patch_pipeline(mocker, ["1", 10])
 
-    entries, total, _ = await rate_limiter_service.list_active_limits(page=2, page_size=1)
+    entries, total, _ = await rate_limit_dashboard_service.list_active_limits(page=2, page_size=1)
 
     assert total == 3
     assert len(entries) == 1
@@ -140,9 +159,9 @@ async def test_list_active_limits_filters_by_scope_and_endpoint_via_match_patter
     scan_mock = _patch_scan(mocker, 0, [])
     _patch_pipeline(mocker, [])
 
-    await rate_limiter_service.list_active_limits(scope="ip", endpoint="login")
+    await rate_limit_dashboard_service.list_active_limits(scope="ip", endpoint="login")
 
-    scan_mock.assert_awaited_once_with(cursor=0, match="login:ip:*", count=rate_limiter_service._SCAN_BATCH)
+    scan_mock.assert_awaited_once_with(cursor=0, match="login:ip:*", count=rate_limit_dashboard_service._SCAN_BATCH)
 
 
 @pytest.mark.asyncio
@@ -155,9 +174,9 @@ async def test_list_active_limits_filters_by_email_scope_via_match_pattern(mocke
     scan_mock = _patch_scan(mocker, 0, [])
     _patch_pipeline(mocker, [])
 
-    await rate_limiter_service.list_active_limits(scope="email", endpoint="login_lock")
+    await rate_limit_dashboard_service.list_active_limits(scope="email", endpoint="login_lock")
 
-    scan_mock.assert_awaited_once_with(cursor=0, match="login_lock:email:*", count=rate_limiter_service._SCAN_BATCH)
+    scan_mock.assert_awaited_once_with(cursor=0, match="login_lock:email:*", count=rate_limit_dashboard_service._SCAN_BATCH)
 
 
 @pytest.mark.asyncio
@@ -165,7 +184,7 @@ async def test_list_active_limits_skips_unparseable_keys(mocker):
     _patch_scan(mocker, 0, ["not-a-rate-limit-key"])
     _patch_pipeline(mocker, ["1", 10])
 
-    entries, _, _ = await rate_limiter_service.list_active_limits()
+    entries, _, _ = await rate_limit_dashboard_service.list_active_limits()
 
     assert entries == []
 
@@ -175,7 +194,7 @@ async def test_list_active_limits_returns_empty_on_redis_error(mocker):
     mocker.patch(f"{MODULE}.redis_client.scan", side_effect=ConnectionError("redis unreachable"))
     error_mock = mocker.patch(f"{MODULE}.logger.error")
 
-    entries, total, truncated = await rate_limiter_service.list_active_limits()
+    entries, total, truncated = await rate_limit_dashboard_service.list_active_limits()
 
     assert entries == []
     assert total == 0
@@ -187,7 +206,7 @@ async def test_list_active_limits_returns_empty_on_redis_error(mocker):
 async def test_reset_counter_deletes_the_key(mocker):
     delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
 
-    await rate_limiter_service.reset_counter("login:ip:1.2.3.4")
+    await rate_limit_dashboard_service.reset_counter("login:ip:1.2.3.4")
 
     delete_mock.assert_awaited_once_with("login:ip:1.2.3.4")
 
@@ -196,7 +215,7 @@ async def test_reset_counter_deletes_the_key(mocker):
 async def test_reset_counter_deletes_an_account_scoped_key(mocker):
     delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
 
-    await rate_limiter_service.reset_counter("password_reset_request:account:user@example.com")
+    await rate_limit_dashboard_service.reset_counter("password_reset_request:account:user@example.com")
 
     delete_mock.assert_awaited_once_with("password_reset_request:account:user@example.com")
 
@@ -222,6 +241,6 @@ async def test_reset_counter_deletes_an_account_scoped_key(mocker):
 async def test_reset_counter_ignores_a_key_outside_the_rate_limiter_keyspace(mocker, key):
     delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
 
-    await rate_limiter_service.reset_counter(key)
+    await rate_limit_dashboard_service.reset_counter(key)
 
     delete_mock.assert_not_awaited()

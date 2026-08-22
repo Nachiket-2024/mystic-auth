@@ -1,9 +1,12 @@
+import re
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator
 
 from ..emails.email_normalization import normalize_email
 from .user_model import UserRole
+
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
 class UserBase(BaseModel):
@@ -68,6 +71,18 @@ class UserUpdate(BaseModel):
     # setting a password for the first time (nothing to confirm against).
     current_password: str | None = Field(default=None, max_length=128)
 
+    # Per-user re-skin override (#rrggbb); see user_model.py's brand_color
+    # column docstring. Explicit null resets to the app default, same
+    # exclude_unset semantics as every other field here.
+    brand_color: str | None = Field(default=None, max_length=7)
+
+    @field_validator("brand_color")
+    @classmethod
+    def _validate_hex_color(cls, value: str | None) -> str | None:
+        if value is not None and not _HEX_COLOR_RE.match(value):
+            raise ValueError("must be a hex color like #d97706")
+        return value
+
 
 class UserSelfDeleteRequest(BaseModel):
     """Body for DELETE /users/me. Required (re-authentication) for an
@@ -112,6 +127,10 @@ class UserRead(UserBase):
     created_at: datetime
     updated_at: datetime
 
+    # None = using the app default scale (app/theme.ts), never a stored
+    # literal default; see user_model.py's brand_color column docstring.
+    brand_color: str | None = None
+
     # When this account was soft-deleted, if ever : None means never deleted
     # (or fully restored via reactivation, which clears it).
     deleted_at: datetime | None = None
@@ -132,3 +151,24 @@ class UserRead(UserBase):
         hashed_password column and oauth2_service.py's login_or_create_user,
         which is the only thing that ever clears it back to None)."""
         return self.hashed_password is not None
+
+
+class UserSelfUpdateResponse(UserRead):
+    """PUT /users/me's own response shape : UserRead plus whether a
+    password change's other-session revocation was actually confirmed.
+
+    None for any update that wasn't a password change (nothing to report).
+    False means the password itself was still changed, but Redis was
+    unreachable, so the account's other sessions were NOT revoked and
+    remain valid : see user_self_service_routes.py's update_my_profile."""
+
+    sessions_revoked: bool | None = None
+
+
+class UserAdminUpdateResponse(UserRead):
+    """PUT /users/{email}'s own response shape (an admin editing another
+    user's account) : same sessions_revoked contract as
+    UserSelfUpdateResponse above, see user_management_update_routes.py's
+    update_any_user."""
+
+    sessions_revoked: bool | None = None

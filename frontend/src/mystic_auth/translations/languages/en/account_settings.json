@@ -5,7 +5,9 @@
         "profile": "Profile",
         "password": "Password",
         "status": "Account Status",
-        "danger": "Danger Zone"
+        "appearance": "Appearance",
+        "danger": "Danger Zone",
+        "legal": "Legal"
     },
     "profileName": {
         "nameLabel": "Name",
@@ -25,6 +27,7 @@
         "currentPasswordPlaceholder": "Required to confirm this change",
         "confirmCurrentRequired": "Enter your current password to set a new one",
         "updatedToast": "Password updated",
+        "updatedButSessionsNotRevokedToast": "Password updated, but we couldn't sign out your other sessions. Try Manage Sessions.",
         "updateButton": "Update password",
         "setButton": "Set password"
     },
@@ -38,6 +41,19 @@
         "loadingPolicies": "Loading your policies...",
         "failedLoadPolicies": "Failed to load your policies",
         "noPolicies": "No policies assigned."
+    },
+    "appearance": {
+        "title": "Appearance",
+        "description": "Pick a custom brand color for your account. It's saved to your account and applies to buttons, links, and your logo everywhere you sign in.",
+        "brandColorLabel": "Brand color",
+        "previewLight": "Light mode preview",
+        "previewDark": "Dark mode preview",
+        "previewButton": "Sample button",
+        "contrastWarning": "This color may be hard to read on buttons and links. Consider a darker shade for better contrast.",
+        "saveButton": "Save changes",
+        "resetButton": "Reset to default",
+        "updatedToast": "Brand color updated",
+        "resetToast": "Brand color reset to default"
     },
     "deleteAccount": {
         "title": "Delete account",

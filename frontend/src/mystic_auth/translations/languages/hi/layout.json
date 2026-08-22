@@ -29,5 +29,9 @@
         "rateLimits": "दर सीमाएँ",
         "auditLog": "ऑडिट लॉग",
         "accountSettings": "खाता सेटिंग्स"
+    },
+    "footer": {
+        "privacyPolicy": "गोपनीयता नीति",
+        "termsOfService": "सेवा की शर्तें"
     }
 }

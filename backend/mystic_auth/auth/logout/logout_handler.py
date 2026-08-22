@@ -8,6 +8,7 @@ from ...audit_log.audit_log_service import LOGOUT, log_security_event
 from ...logging.logging_config import get_logger
 from ...user_session.session_service import session_service
 from ..token_logic.jwt_service import jwt_service
+from ..token_logic.token_cookie_handler import token_cookie_handler
 
 logger = get_logger(__name__)
 
@@ -36,26 +37,31 @@ class LogoutHandler:
             email = payload.get("email") if payload and payload.get("type") == "refresh" else None
             jti = payload.get("jti") if payload and payload.get("type") == "refresh" else None
 
-            await session_service.revoke_session_on_logout(db, jti, email)
+            session_revoked = await session_service.revoke_session_on_logout(db, jti, email)
 
-            await log_security_event(LOGOUT, db, user_email=email, success=bool(email), request=request)
+            await log_security_event(
+                LOGOUT,
+                db,
+                user_email=email,
+                success=bool(email),
+                request=request,
+                metadata=None if session_revoked else {"session_revoked": False},
+            )
 
             # Succeeds regardless of whether the token was still live to revoke
             # (it may already be invalid, e.g. killed by a recent password
             # change): the caller's actual goal, no valid session left in this
             # browser, is met either way. Erroring here instead would leave the
             # frontend stuck "logged in" with a dead cookie it could never clear.
+            # session_revoked=False (Redis was unreachable) still returns 200
+            # for the same reason, but is carried in the body rather than
+            # silently dropped, so the leaked-token risk isn't invisible.
             resp = JSONResponse(
-                content={"message": "Logged out successfully"},
+                content={"message": "Logged out successfully", "session_revoked": session_revoked},
                 status_code=200
             )
 
-            resp.delete_cookie(key="access_token", httponly=True, secure=True, samesite="none")
-
-            # path must match the path="/auth" it was set with
-            # (token_cookie_handler.py), or the browser treats this as a different
-            # cookie and never clears it.
-            resp.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="none", path="/auth")
+            token_cookie_handler.clear_tokens_from_cookies(resp)
 
             return resp
 

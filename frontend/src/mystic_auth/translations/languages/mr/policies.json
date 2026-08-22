@@ -2,10 +2,15 @@
     "page": {
         "title": "धोरणे",
         "description": "वापरकर्त्यांना परवानग्या देणारी प्रवेश-नियंत्रण धोरणे परिभाषित करा आणि व्यवस्थापित करा.",
-        "searchPlaceholder": "नाव किंवा संसाधन प्रकाराने शोधा...",
+        "searchPlaceholder": "नाव किंवा वर्णनाने शोधा...",
+        "filterByResourceType": "संसाधन प्रकारानुसार फिल्टर करा",
+        "allResourceTypes": "सर्व संसाधन प्रकार",
+        "filterByStatus": "स्थितीनुसार फिल्टर करा",
+        "allStatuses": "सर्व स्थिती",
         "createPolicy": "धोरण तयार करा",
         "failedToLoadPolicies": "धोरणे लोड करण्यात अयशस्वी",
         "noPoliciesMatchSearch": "तुमच्या शोधाशी कोणतेही धोरण जुळत नाही",
+        "noPoliciesMatchFilters": "या फिल्टरशी कोणतेही धोरण जुळत नाही",
         "noPoliciesYet": "अद्याप कोणतेही धोरण नाही : परवानग्या देणे सुरू करण्यासाठी एक तयार करा.",
         "policyUpdatedToast": "धोरण अद्यतनित केले",
         "policyCreatedToast": "धोरण तयार केले",
@@ -17,7 +22,23 @@
         "name": "नाव",
         "resourceType": "संसाधन प्रकार",
         "actions": "क्रिया",
-        "edit": "संपादन"
+        "edit": "संपादन",
+        "view": "पहा"
+    },
+    "detailsDialog": {
+        "title": "धोरण तपशील",
+        "name": "नाव",
+        "description": "वर्णन",
+        "noDescription": "वर्णन नाही",
+        "resourceType": "संसाधन प्रकार",
+        "actions": "क्रिया",
+        "conditions": "अटी",
+        "noConditions": "काहीही नाही",
+        "status": "स्थिती",
+        "active": "सक्रिय",
+        "created": "तयार केले",
+        "lastUpdated": "शेवटचे अद्यतन",
+        "createdBy": "यांनी तयार केले"
     },
     "formDialog": {
         "editTitle": "धोरण संपादन",

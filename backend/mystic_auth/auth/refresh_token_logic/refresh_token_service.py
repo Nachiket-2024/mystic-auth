@@ -10,6 +10,7 @@ from ...logging.logging_config import get_logger
 from ...user_session.session_events import publish_session_revoked
 from ...user_session.session_service import session_service
 from ..token_logic.jwt_service import jwt_service
+from ..token_logic.token_version_store import TokenVersionUnavailableError
 
 logger = get_logger(__name__)
 
@@ -106,15 +107,28 @@ class RefreshTokenService:
         One account-version bump invalidates all tokens without iterating over
         token ids. The return value is the pre-revoke active session count from
         the best-effort Postgres mirror.
+
+        Raises TokenVersionUnavailableError if the account-version bump
+        itself could not be confirmed (Redis unreachable): the Postgres
+        mirror is deliberately left untouched in that case, since marking
+        sessions revoked there while the real Redis-backed version stayed
+        unbumped would make Manage Sessions/audit logs lie about whether
+        those tokens are actually dead. Callers must not report success
+        when this is raised.
         """
         try:
             active_count = await session_service.count_active_sessions(db, email)
 
-            await jwt_service.bump_account_version(email)
+            if not await jwt_service.bump_account_version(email):
+                raise TokenVersionUnavailableError(f"Failed to bump account version for {email}")
+
             await session_service.revoke_all_sessions(db, email)
             await publish_session_revoked(email)
 
             return active_count
+
+        except TokenVersionUnavailableError:
+            raise
 
         except Exception:
             logger.error("Error revoking all tokens for user %s:\n%s", email, traceback.format_exc())
@@ -132,15 +146,26 @@ class RefreshTokenService:
         tokens.
 
         Returns the number of revoked sessions, excluding the exempted chain.
+
+        Raises TokenVersionUnavailableError on the same terms as
+        revoke_all_tokens_for_user above. The password change itself is a
+        separate, unrelated DB write - callers should let that succeed and
+        only use this exception to flag that other sessions were not
+        actually revoked, rather than blocking the password change on it.
         """
         try:
             active_count = await session_service.count_active_sessions(db, email)
 
-            await jwt_service.bump_account_version(email)
+            if not await jwt_service.bump_account_version(email):
+                raise TokenVersionUnavailableError(f"Failed to bump account version for {email}")
+
             await session_service.revoke_all_sessions(db, email, exempt_chain_id=exempt_chain_id)
             await publish_session_revoked(email)
 
             return max(active_count - 1, 0)
+
+        except TokenVersionUnavailableError:
+            raise
 
         except Exception:
             logger.error(
@@ -156,11 +181,22 @@ class RefreshTokenService:
         Manage Sessions uses session_id and goes through session_service.
         Reuse detection only has chain_id, so it comes through here. Other
         chains on the account stay valid.
+
+        Raises TokenVersionUnavailableError if the chain-version bump could
+        not be confirmed - see _handle_reuse_detected, this method's only
+        caller, for how a security-critical caller must react to that
+        rather than treating it as a routine, swallowable failure.
         """
         try:
-            await jwt_service.bump_chain_version(email, chain_id)
+            if not await jwt_service.bump_chain_version(email, chain_id):
+                raise TokenVersionUnavailableError(f"Failed to bump chain version for {email}/{chain_id}")
+
             await session_service.revoke_chain(db, chain_id)
             await publish_session_revoked(email)
+
+        except TokenVersionUnavailableError:
+            raise
+
         except Exception:
             logger.error(
                 "Error revoking chain %s for user %s:\n%s", chain_id, email, traceback.format_exc()
@@ -175,6 +211,16 @@ class RefreshTokenService:
         was already claimed (see claim_jti_for_rotation). Accepting it
         directly avoids decoding the token a second time, since the caller
         already did that once to reach this point.
+
+        The reused token itself is always rejected regardless of what
+        happens here: refresh_tokens() returns None unconditionally right
+        after calling this method (see the "not claimed" branch above), so
+        this stays fail-closed for the actual request in flight even if the
+        version bump below can't be confirmed. What TokenVersionUnavailableError
+        changes is only whether *other* tokens on the account/chain actually
+        got invalidated too - caught here (rather than left to propagate)
+        so the critical log and audit event, the evidence that theft was
+        detected at all, still get written even when Redis is down.
         """
         email = payload.get("email")
 
@@ -183,21 +229,36 @@ class RefreshTokenService:
             return
 
         chain_id = payload.get("chain")
-        if chain_id:
-            # Scoped: only the compromised chain (this reused token's own
-            # lineage) is revoked. See revoke_chain_for_user.
-            await RefreshTokenService.revoke_chain_for_user(email, chain_id, db)
-            revoked_description = f"chain {chain_id}"
-        else:
-            # A pre-upgrade token minted with no "chain" claim: lineage is
-            # unknown, so fall back to the account-wide, maximally-safe response.
-            await RefreshTokenService.revoke_all_tokens_for_user(email, db)
-            revoked_description = "the whole account (no chain claim)"
+        revocation_confirmed = True
+        try:
+            if chain_id:
+                # Scoped: only the compromised chain (this reused token's
+                # own lineage) is revoked. See revoke_chain_for_user.
+                await RefreshTokenService.revoke_chain_for_user(email, chain_id, db)
+            else:
+                # A pre-upgrade token minted with no "chain" claim: lineage
+                # is unknown, so fall back to the account-wide,
+                # maximally-safe response.
+                await RefreshTokenService.revoke_all_tokens_for_user(email, db)
+        except TokenVersionUnavailableError:
+            revocation_confirmed = False
+
+        revoked_description = f"chain {chain_id}" if chain_id else "the whole account (no chain claim)"
 
         # Logged at a severity that stands out from routine single-token
         # revocations, since this indicates likely token theft rather than an
         # expected rotation.
-        logger.critical("Refresh token reuse detected for %s, revoked %s", email, revoked_description)
+        if revocation_confirmed:
+            logger.critical("Refresh token reuse detected for %s, revoked %s", email, revoked_description)
+        else:
+            logger.critical(
+                "Refresh token reuse detected for %s, but revocation of %s could not be confirmed "
+                "(Redis unavailable) - those tokens may remain valid until Redis recovers",
+                email, revoked_description,
+            )
+
+        metadata: dict[str, str | bool] = {"chain_id": chain_id} if chain_id else {"scope": "account"}
+        metadata["revocation_confirmed"] = revocation_confirmed
 
         await log_security_event(
             REFRESH_TOKEN_REUSE_DETECTED,
@@ -205,7 +266,7 @@ class RefreshTokenService:
             user_email=email,
             success=False,
             request=request,
-            metadata={"chain_id": chain_id} if chain_id else {"scope": "account"},
+            metadata=metadata,
         )
 
 

@@ -5,4 +5,4 @@
  * types for its own business domain would extend this list alongside its
  * own new Permission-like values.
  */
-export const AUTHORIZATION_RESOURCE_TYPES = ["users", "policies", "security_audit", "*"] as const;
+export const AUTHORIZATION_RESOURCE_TYPES = ["users", "policies", "security_audit", "rate_limits", "*"] as const;

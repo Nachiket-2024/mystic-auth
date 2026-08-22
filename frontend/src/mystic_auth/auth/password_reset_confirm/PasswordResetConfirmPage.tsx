@@ -24,7 +24,7 @@ const PasswordResetConfirmPage: React.FC = () => {
     return (
         <AuthLayout>
             <Card w="full" maxW="3xl" p={{ base: 5, md: 7 }}>
-                <Stack align="center" textAlign="center" gap={2} separator={<StackSeparator />}>
+                <Stack align="center" textAlign="center" gap={2} separator={<StackSeparator borderColor="border.default" />}>
                     <Logo />
                     <Heading size="xl" color="brand.fg">
                         {t("passwordResetConfirmPage.heading")}

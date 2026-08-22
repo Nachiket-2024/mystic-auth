@@ -1,5 +1,6 @@
 # ---------------------------- Real Deployment Compose ----------------------------
-# Run with: docker compose -f docker-compose.prod.yml up -d --build
+# Run with: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# (or use scripts/docker/prod-up.sh / .ps1 / .cmd, which pass that flag for you)
 #
 # This is the file an actual internet-facing deployment (e.g. a VPS) runs.
 # For testing the production-style build locally without deploying anywhere,
@@ -18,17 +19,30 @@
 #     `docker compose exec` for that instead.
 #   - REDIS_PASSWORD and a real (non-placeholder) SECRET_KEY /
 #     POSTGRES_PASSWORD are effectively required here, not just recommended:
-#     this file assumes .env holds real production secrets.
+#     this file assumes .env.prod holds real production secrets.
 #
 # Everything else (restart policies, resource limits, healthchecks,
 # migration gating) is unchanged from docker-compose.local-prod.yml.
+#
+# Explicit project name, distinct from docker-compose.yml's "mystic-auth-dev"
+# and docker-compose.local-prod.yml's "mystic-auth-local-prod": without
+# this, every compose file in this directory defaults to the same project
+# name (the directory name) and therefore the same containers, network, and
+# named volumes - so this stack and the others would silently share one
+# database, and a command meant for one could wipe another's data. See
+# docker-compose.yml's matching comment for the incident this guards
+# against. A real deployment normally only ever runs one of these three
+# files anyway, but naming it explicitly costs nothing and removes the risk
+# entirely if that ever changes.
+name: mystic-auth-prod
+
 services:
 
   postgres:
     image: postgres:15
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.prod
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -69,7 +83,7 @@ services:
       target: runtime
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.prod
     command: |
       sh -c "if [ -n \"$$BUGSINK_SUPERUSER_EMAIL\" ]; then
         for i in $$(seq 1 20); do
@@ -116,10 +130,16 @@ services:
       context: .
       dockerfile: docker/frontend.Dockerfile
       target: production
+      # VITE_* vars are baked into the static bundle at build time, so they
+      # must come from .env.prod as build args (via --env-file; see this
+      # file's header). VITE_APP_NAME/VITE_SUPPORT_EMAIL are aliased from
+      # the backend APP_NAME/SUPPORT_EMAIL vars rather than duplicated in
+      # .env.prod.
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-        VITE_APP_NAME: ${VITE_APP_NAME}
+        VITE_APP_NAME: ${APP_NAME}
         VITE_APP_LOGO_URL: ${VITE_APP_LOGO_URL}
+        VITE_SUPPORT_EMAIL: ${SUPPORT_EMAIL}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
         VITE_SENTRY_ENVIRONMENT: ${VITE_SENTRY_ENVIRONMENT}
     # Stable address used by TRUSTED_PROXY_IPS: FastAPI sees this container
@@ -158,7 +178,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.prod
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
       # Caddy's tls directive (see docker/Caddyfile) requires a real-looking
@@ -201,7 +221,7 @@ services:
       target: runtime
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.prod
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
       # The `procrastinate` console-script entrypoint (unlike `python -c` or
@@ -238,7 +258,7 @@ services:
       dockerfile: docker/backend.Dockerfile
       target: runtime
     env_file:
-      - ./.env
+      - ./.env.prod
     command: alembic upgrade head
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -252,9 +272,10 @@ services:
   # on its own schedule (GEOIPUPDATE_FREQUENCY, hours) for as long as this
   # container runs. Off by default, matching geolocation itself being off by
   # default: start it with `docker compose -f docker-compose.prod.yml
-  # --profile geoip up -d --build` after setting GEOIPUPDATE_ACCOUNT_ID /
-  # GEOIPUPDATE_LICENSE_KEY (free MaxMind account) and GEOIP_DB_PATH in
-  # .env. See docs/mystic_auth/security/hardening.md#session-geolocation.
+  # --env-file .env.prod --profile geoip up -d --build` after setting
+  # GEOIPUPDATE_ACCOUNT_ID / GEOIPUPDATE_LICENSE_KEY (free MaxMind account)
+  # and GEOIP_DB_PATH in .env.prod. See
+  # docs/mystic_auth/security/hardening.md#session-geolocation.
   geoipupdate:
     image: ghcr.io/maxmind/geoipupdate:latest
     restart: unless-stopped
@@ -276,7 +297,7 @@ services:
     image: bugsink/bugsink:2
     restart: unless-stopped
     env_file:
-      - ./.env
+      - ./.env.prod
     environment:
       SECRET_KEY: ${BUGSINK_SECRET_KEY}
       CREATE_SUPERUSER: ${BUGSINK_SUPERUSER_EMAIL}:${BUGSINK_SUPERUSER_PASSWORD}
@@ -335,7 +356,7 @@ services:
     image: bugsink/bugsink:2
     user: root
     env_file:
-      - ./.env
+      - ./.env.prod
     environment:
       SECRET_KEY: ${BUGSINK_SECRET_KEY}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bugsink

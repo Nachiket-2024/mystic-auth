@@ -60,6 +60,7 @@ const CommandPaletteResultsList: React.FC<CommandPaletteResultsListProps> = ({
                         <HStack
                             as="button"
                             w="100%"
+                            minW={0}
                             textAlign="left"
                             px={4}
                             py={2.5}
@@ -70,11 +71,15 @@ const CommandPaletteResultsList: React.FC<CommandPaletteResultsListProps> = ({
                             cursor="pointer"
                             color="fg.default"
                         >
-                            {Icon && <Icon size={16} aria-hidden="true" />}
-                            <Stack gap={0}>
-                                <Text fontWeight="medium">{item.label}</Text>
+                            {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
+                            {/* A real user's name/email result (unlike every other
+                                palette row, all short translated labels) can be
+                                arbitrarily long - truncate with an ellipsis instead
+                                of wrapping unevenly against the fixed-size icon. */}
+                            <Stack gap={0} minW={0} flex="1 1 auto">
+                                <Text fontWeight="medium" truncate title={item.label}>{item.label}</Text>
                                 {item.sublabel && (
-                                    <Text fontSize="xs" color="fg.muted">
+                                    <Text fontSize="xs" color="fg.muted" truncate title={item.sublabel}>
                                         {item.sublabel}
                                     </Text>
                                 )}

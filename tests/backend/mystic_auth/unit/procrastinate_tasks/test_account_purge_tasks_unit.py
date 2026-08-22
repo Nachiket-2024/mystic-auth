@@ -11,12 +11,18 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
 from backend.mystic_auth.procrastinate_tasks.account_purge_tasks import (
     purge_expired_soft_deleted_accounts,
 )
 from backend.mystic_auth.procrastinate_tasks.procrastinate_app import app
 
 MODULE = "backend.mystic_auth.procrastinate_tasks.account_purge_tasks"
+
+
+class _FakeUser:
+    def __init__(self, email: str):
+        self.email = email
 
 
 def test_purge_task_is_registered_with_a_daily_cron_schedule():
@@ -62,3 +68,37 @@ async def test_purge_task_returns_zero_when_nothing_is_past_the_grace_period(moc
 
     assert result == 0
     purge_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_purge_task_skips_an_account_whose_revocation_cant_be_confirmed_but_continues_the_batch(mocker):
+    # Regression guard for the "Redis outage failure modes are inconsistent"
+    # gap: purge_user_account fails closed (raises TokenVersionUnavailableError)
+    # rather than purging while a revoke is unconfirmed, but that must only
+    # skip the one affected account, not abort the whole day's batch and
+    # silently leave every other expired account un-purged too.
+    fake_session = MagicMock()
+    fake_session_cm = MagicMock()
+    fake_session_cm.__aenter__ = AsyncMock(return_value=fake_session)
+    fake_session_cm.__aexit__ = AsyncMock(return_value=False)
+    mocker.patch(f"{MODULE}.database.async_session", return_value=fake_session_cm)
+
+    redis_down_user = _FakeUser("redis-down@example.com")
+    healthy_user = _FakeUser("healthy@example.com")
+    mocker.patch(
+        f"{MODULE}.user_crud.get_deleted_before",
+        new_callable=AsyncMock,
+        return_value=[redis_down_user, healthy_user],
+    )
+    purge_mock = mocker.patch(
+        f"{MODULE}.purge_user_account",
+        new_callable=AsyncMock,
+        side_effect=[TokenVersionUnavailableError("Redis unreachable"), None],
+    )
+
+    result = await purge_expired_soft_deleted_accounts(timestamp=0)
+
+    # Only the healthy user counts as actually purged; the batch didn't
+    # abort after the first user's failure.
+    assert result == 1
+    assert purge_mock.await_count == 2

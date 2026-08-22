@@ -1,36 +1,89 @@
-import React from "react";
-import { HStack } from "@chakra-ui/react";
-import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Checkbox, Box, Table } from "@chakra-ui/react";
 
 import type { DataTableColumn } from "./DataTable";
 import type { SortState } from "../hooks/useSortState";
+import { STICKY_HEADER_CELL_PROPS } from "./DataTableStyles";
+import { ariaSortFor, renderHeaderCell } from "./DataTableSortIndicator";
 
-function sortableHeaderLabel(label: string, active: boolean, direction: "asc" | "desc") {
+interface DataTableHeaderRowProps<T> {
+    columns: DataTableColumn<T>[];
+    sort?: SortState;
+    onSortChange?: (key: string) => void;
+    selectable?: boolean;
+    showRowNumbers: boolean;
+    isAllSelected: boolean;
+    isSomeSelected: boolean;
+    onToggleAll: () => void;
+    selectAllLabel: string;
+}
+
+/** The full header <Table.Row>, split out of DataTable.tsx so that file's
+ * own render stays under the repo's file-length guideline - this owns only
+ * the header cells, DataTableRow owns a body row, DataTable.tsx wires both
+ * up to the shared column/selection state. */
+export function DataTableHeaderRow<T>({
+    columns,
+    sort,
+    onSortChange,
+    selectable,
+    showRowNumbers,
+    isAllSelected,
+    isSomeSelected,
+    onToggleAll,
+    selectAllLabel,
+}: DataTableHeaderRowProps<T>) {
     return (
-        <HStack gap={1} cursor="pointer" userSelect="none" _hover={{ color: "brand.fg" }} role="button" tabIndex={0}>
-            <span>{label}</span>
-            {active ? (
-                direction === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />
-            ) : (
-                <ArrowUpDown size={14} opacity={0.4} />
+        <Table.Row>
+            {selectable && (
+                <Table.ColumnHeader w="1%" {...STICKY_HEADER_CELL_PROPS}>
+                    <Checkbox.Root
+                        checked={isAllSelected ? true : isSomeSelected ? "indeterminate" : false}
+                        onCheckedChange={onToggleAll}
+                        aria-label={selectAllLabel}
+                    >
+                        <Checkbox.HiddenInput />
+                        <Checkbox.Control />
+                    </Checkbox.Root>
+                </Table.ColumnHeader>
             )}
-        </HStack>
+            {showRowNumbers && (
+                <Table.ColumnHeader w="1%" fontSize="md" {...STICKY_HEADER_CELL_PROPS}>#</Table.ColumnHeader>
+            )}
+            {columns.map((col) => (
+                <Table.ColumnHeader
+                    key={col.key}
+                    textAlign={col.align}
+                    overflow="hidden"
+                    fontSize="md"
+                    aria-sort={ariaSortFor(col, sort)}
+                    {...STICKY_HEADER_CELL_PROPS}
+                    onClick={col.sortable ? () => onSortChange?.(col.key) : undefined}
+                    onKeyDown={
+                        col.sortable
+                            ? (e) => {
+                                  // SortableHeaderLabel renders role="button", but the
+                                  // click handler lives here on the parent cell - a
+                                  // span[role=button] (unlike a real <button>) doesn't
+                                  // fire on Enter/Space by itself, so without this the
+                                  // header is focusable but not actually operable via
+                                  // keyboard.
+                                  if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      onSortChange?.(col.key);
+                                  }
+                              }
+                            : undefined
+                    }
+                >
+                    {col.truncate ? (
+                        <Box overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" title={col.header}>
+                            {renderHeaderCell(col, sort)}
+                        </Box>
+                    ) : (
+                        renderHeaderCell(col, sort)
+                    )}
+                </Table.ColumnHeader>
+            ))}
+        </Table.Row>
     );
-}
-
-export function renderHeaderCell<T>(col: DataTableColumn<T>, sort: SortState | undefined) {
-    if (!col.sortable) return col.header;
-    const active = sort?.key === col.key;
-    return sortableHeaderLabel(col.header, active, active ? sort.direction : "asc");
-}
-
-/** aria-sort belongs on the <th> itself (not the inner label span), so
- * screen readers announce a sortable table's current sort state the same
- * way sighted users see it from the arrow icon - "none" for every
- * unsorted sortable column, never omitted, so its presence alone also
- * tells assistive tech the column is sortable at all. */
-export function ariaSortFor<T>(col: DataTableColumn<T>, sort: SortState | undefined): React.AriaAttributes["aria-sort"] {
-    if (!col.sortable) return undefined;
-    if (sort?.key !== col.key) return "none";
-    return sort.direction === "asc" ? "ascending" : "descending";
 }

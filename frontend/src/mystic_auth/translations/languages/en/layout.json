@@ -29,5 +29,9 @@
         "rateLimits": "Rate Limits",
         "auditLog": "Audit Log",
         "accountSettings": "Account Settings"
+    },
+    "footer": {
+        "privacyPolicy": "Privacy Policy",
+        "termsOfService": "Terms of Service"
     }
 }

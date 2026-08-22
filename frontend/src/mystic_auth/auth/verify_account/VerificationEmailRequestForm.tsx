@@ -38,7 +38,7 @@ const VerificationEmailRequestForm: React.FC<VerificationEmailRequestFormProps> 
     return (
         <Stack as="form" onSubmit={handleSubmit} w="full" gap={3}>
             <ChakraField.Root required>
-                <ChakraField.Label>{t("verifyEmailRequest.emailLabel")}</ChakraField.Label>
+                <ChakraField.Label fontSize="md">{t("verifyEmailRequest.emailLabel")}</ChakraField.Label>
                 <Input
                     type="email"
                     value={email}
@@ -52,8 +52,6 @@ const VerificationEmailRequestForm: React.FC<VerificationEmailRequestFormProps> 
             <Button
                 type="submit"
                 variant="outline"
-                borderColor="brand.500"
-                color="brand.500"
                 size="lg"
                 w="full"
                 loading={requestMutation.isPending}

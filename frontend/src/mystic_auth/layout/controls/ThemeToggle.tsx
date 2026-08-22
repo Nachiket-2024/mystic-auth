@@ -4,7 +4,7 @@ import { Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useThemeStore } from "../../store/themeStore";
-import { ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
+import { BRAND_ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 
 // Rotate+cross-fade timing for the Sun/Moon swap below, composed from the
 // same durations.hover/easings.hover tokens FAST_HOVER_TRANSITION uses
@@ -28,7 +28,7 @@ const ThemeToggle: React.FC = () => {
             aria-label={isDark ? t("switchToLightMode") : t("switchToDarkMode")}
             onClick={toggleColorMode}
             size="sm"
-            {...ICON_BUTTON_PROPS}
+            {...BRAND_ICON_BUTTON_PROPS}
         >
             {/* Both icons always render, stacked in the same spot - only
                 opacity/rotation swap on colorMode change, so the toggle

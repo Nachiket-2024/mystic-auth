@@ -1,14 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider } from '@chakra-ui/react';
 
 import App from './App.tsx';
 import ErrorBoundary from '../mystic_auth/ui/routing/ErrorBoundary.tsx';
 
-// The app's custom Chakra system (theme tokens/semantic tokens), built on
-// top of Chakra's defaultConfig rather than replacing it.
-import { system } from '../mystic_auth/theme/system.ts';
+// Wraps <App> in Chakra's ChakraProvider, rebuilding the system with the
+// signed-in user's own brand/background colors (appearanceStore.ts) merged
+// in - see AppearanceThemeProvider.tsx's own docstring for why this lives
+// here instead of a static `<ChakraProvider value={system}>`.
+import AppearanceThemeProvider from '../mystic_auth/theme/AppearanceThemeProvider.tsx';
 
 // Self-hosted (not a Google Fonts CDN request, consistent with this
 // template's other self-hosted defaults - Bugsink, no external trackers) -
@@ -30,6 +31,16 @@ import { queryClient } from "../mystic_auth/core/queryClient.ts";
 // causing a visible flash of the wrong theme for a user who previously
 // chose dark mode.
 import '../mystic_auth/store/themeStore.ts';
+
+// Same reasoning as themeStore.ts above, for the persisted/custom brand and
+// background colors: this only applies the favicon/meta tag before first
+// paint (the Chakra tokens themselves are applied by
+// AppearanceThemeProvider.tsx's very first render, using this same
+// module's cached initial state - see appearanceStore.ts). This is only
+// the locally cached guess either way; useAuthSession reconciles it
+// against the account's real, server-stored value once GET /auth/me
+// resolves.
+import '../mystic_auth/store/appearanceStore.ts';
 
 // Same reasoning as themeStore.ts above, for the persisted font-size
 // preference: applies before first paint, avoiding a flash of the default
@@ -60,9 +71,9 @@ ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
         <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
-                <ChakraProvider value={system}>
+                <AppearanceThemeProvider>
                     <App />
-                </ChakraProvider>
+                </AppearanceThemeProvider>
             </QueryClientProvider>
         </ErrorBoundary>
     </React.StrictMode>
