@@ -13,7 +13,15 @@ interface AuthorizationState {
     email: string | null;
     role: string | null;
     permissions: string[];
-    can: (action: string, resourceType?: string) => boolean;
+    /**
+     * A single action string is a plain membership check. An array is
+     * "any of": true as soon as one listed action is held, used for a
+     * page/route that's a legitimate destination for more than one
+     * independent action (e.g. viewing OR creating policies), see
+     * navItems.ts's Policies entry and ProtectedRoute's own docs for why
+     * that's not just "requires read".
+     */
+    can: (action: string | string[], resourceType?: string) => boolean;
 }
 
 /**
@@ -41,8 +49,9 @@ export function useAuthorization(): AuthorizationState {
     const role = useAuthStore((s) => s.role);
     const permissions = useAuthStore((s) => s.permissions);
 
-    const can = (action: string, _resourceType?: string): boolean => {
-        return !!isAuthenticated && permissions.includes(action);
+    const can = (action: string | string[], _resourceType?: string): boolean => {
+        if (!isAuthenticated) return false;
+        return Array.isArray(action) ? action.some((a) => permissions.includes(a)) : permissions.includes(action);
     };
 
     return { isAuthenticated, name, email, role, permissions, can };

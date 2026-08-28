@@ -12,7 +12,7 @@ from ..emails.email_template_service import render_transactional_email
 from ..logging.logging_config import get_logger
 from ..procrastinate_tasks.email_tasks import send_email_task
 from ..redis.client import redis_client
-from ..user_crud.user_crud_collector import user_crud
+from ..user.user_crud_collector import user_crud
 from .user_self_deletion_service import finalize_self_deletion
 
 logger = get_logger(__name__)
@@ -36,12 +36,9 @@ class AccountDeletionService:
     ) -> str:
         expire = datetime.now(UTC) + timedelta(minutes=expires_minutes)
 
-        # The "account_delete" type claim, same purpose as
-        # password_service.create_reset_token's "reset" claim: rejects any
-        # other validly-signed JWT (an access, refresh, or password-reset
-        # token, all sharing the same SECRET_KEY signature) that happens to
-        # also carry an "email" claim, so one can never be swapped for
-        # another across these otherwise-similar flows.
+        # The "account_delete" type claim rejects any other validly-signed
+        # JWT (access, refresh, reset) carrying an "email" claim, so tokens
+        # can't be swapped across these otherwise-similar flows.
         payload: dict[str, str | float] = {
             "email": email,
             "type": "account_delete",
@@ -57,14 +54,10 @@ class AccountDeletionService:
     @staticmethod
     async def verify_account_deletion_token(token: str) -> dict | None:
         try:
-            # verify_aud disabled: PyJWT auto-rejects on the mere presence
-            # of an "aud" claim unless an audience= kwarg is passed, which
-            # would hard-break every deletion token minted before this claim
-            # existed. jwt_service.has_valid_issuer_and_audience below does
-            # the real check instead, with the graceful "absent is fine,
-            # present-and-wrong is not" semantics used across every claim
-            # this app rolls out onto existing tokens - see its own
-            # docstring, and jwt_service.verify_token's matching comment.
+            # verify_aud disabled: PyJWT auto-rejects any "aud" claim
+            # present at all, which would break tokens minted before that
+            # claim existed. has_valid_issuer_and_audience below does the
+            # real check with "absent is fine, present-and-wrong is not."
             payload = await asyncio.to_thread(
                 jwt.decode,
                 token,
@@ -99,10 +92,8 @@ class AccountDeletionService:
             expires_minutes = settings.ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES
 
             # Persisted in Redis so confirm_deletion() can enforce
-            # single-use, same rationale as password_reset_service's
-            # "password_reset:{token}" key: without this, the JWT's
-            # signature alone stays valid (and replayable) for the whole
-            # expiry window even after being redeemed once.
+            # single-use; without this the JWT stays valid and replayable
+            # for the whole expiry window even after being redeemed once.
             await redis_client.set(f"account_delete:{token}", "1", ex=expires_minutes * 60)
 
             deletion_url = f"{settings.FRONTEND_BASE_URL}/confirm-delete?token={token}"
@@ -112,11 +103,8 @@ class AccountDeletionService:
                 preheader="Confirm you want to permanently delete your account.",
                 heading="Confirm Account Deletion",
                 # Red, unlike the reset/verification emails' brand color:
-                # this is the one transactional email in the app where the
-                # action really is irreversible-adjacent (deactivates
-                # immediately; the grace-period purge follows the normal
-                # soft-delete schedule either way), so it's fine, even
-                # useful, for this CTA to visually read as more consequential.
+                # this action deactivates the account immediately, so a
+                # more consequential-looking CTA is appropriate here.
                 accent_color="#c53030",
                 intro=(
                     "A deletion request was made for your account. Click the button below to "

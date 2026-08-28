@@ -69,6 +69,17 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Policies' })).toBeInTheDocument();
   });
 
+  it('shows the Policies link for a caller holding only policies:create (no policies:read)', () => {
+    // Creating a policy needs no visibility into existing ones, unlike
+    // policies:read's other siblings (update/delete/assign/revoke), which
+    // all require first finding the target via the read-gated list - see
+    // navItems.ts's Policies entry and PoliciesPage's own docstring.
+    seed(['policies:create']);
+    renderSidebar();
+
+    expect(screen.getByRole('link', { name: 'Policies' })).toBeInTheDocument();
+  });
+
   it('highlights Dashboard as active when the current route is /dashboard', () => {
     renderSidebar(['/dashboard']);
 

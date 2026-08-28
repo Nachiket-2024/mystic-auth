@@ -32,6 +32,9 @@ ACCOUNT_PURGED = "account_purged"             # Hard delete (irreversible)
 ACCOUNT_REACTIVATED = "account_reactivated"   # Restored from soft delete
 POLICY_ASSIGNED = "policy_assigned"
 POLICY_REVOKED = "policy_revoked"
+POLICY_ACTION_REVOKED = "policy_action_revoked"  # One action carved out of a policy assignment; remaining actions kept as direct grants
+PERMISSION_GRANTED = "permission_granted"
+PERMISSION_REVOKED = "permission_revoked"
 USER_ROLE_CHANGED = "user_role_changed"
 
 # Case-insensitive substring denylist for metadata keys that must never be
@@ -70,7 +73,7 @@ async def log_security_event(
     """
     Writes one security audit log row. A logging failure must never break the
     actual auth action it's describing: caught and logged as a warning here,
-    never re-raised. Mirrors AuthorizationService._log_decision's reasoning.
+    never re-raised. Mirrors authorization_audit_logger.log_decision's reasoning.
 
     `db=None` is accepted (rather than requiring a real session) purely so
     unit tests can call handlers/services directly without wiring a session

@@ -86,14 +86,16 @@ async def test_get_active_policies_for_user_queries_db_and_populates_cache_on_mi
 
 @pytest.mark.asyncio
 async def test_update_policy_invalidates_all_user_policy_caches(mocker):
+    policy = _make_policy()
     db = MagicMock()
+    db.get = AsyncMock(return_value=policy)
     db.flush = AsyncMock()
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
     mocker.patch(f"{REPO_MODULE}.policy_history_repository")
     cache = _mock_cache(mocker)
 
-    await PolicyRepository.update(_make_policy(), {"description": "new"}, db)
+    await PolicyRepository.update(policy, {"description": "new"}, db)
 
     cache.invalidate_all_user_policies.assert_awaited_once()
 

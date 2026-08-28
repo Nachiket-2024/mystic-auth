@@ -1,4 +1,5 @@
 # Tutorial: Adding a New Language
+---
 
 See [Translations Overview](overview.md) for the architecture (translation setup, date/numeral
 formatting, the language store, the toggle, and backend error codes) this tutorial builds on.
@@ -7,6 +8,8 @@ formatting, the language store, the toggle, and backend error codes) this tutori
 
 Say you want to add Tamil (`ta`). Every step below is additive - nothing here requires touching
 component logic, only data files (plus the four language-scoped modules).
+
+---
 
 ## 1. Add the language code
 
@@ -23,6 +26,8 @@ export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
     ta: "தமிழ்",
 };
 ```
+
+---
 
 ## 2. Add a locale folder with all thirteen namespace files
 
@@ -50,6 +55,8 @@ ta: {
 },
 ```
 
+---
+
 ## 3. Add month names
 
 `frontend/src/mystic_auth/translations/monthNames.ts`:
@@ -60,6 +67,8 @@ const MONTH_NAMES_SHORT: Record<SupportedLanguage, readonly string[]> = {
     ta: ["ஜன", "பிப்", "மார்", "ஏப்", "மே", "ஜூன்", "ஜூலை", "ஆக", "செப்", "அக்", "நவ", "டிச"],
 };
 ```
+
+---
 
 ## 4. Add digit glyphs (if the language uses non-ASCII numerals)
 
@@ -73,6 +82,8 @@ const DIGIT_MAPS: Record<SupportedLanguage, Record<string, string> | null> = {
     ta: null, // or a TAMIL_DIGITS map, following the DEVANAGARI_DIGITS/GUJARATI_DIGITS shape
 };
 ```
+
+---
 
 ## 5. Add time-of-day formatting
 
@@ -89,6 +100,8 @@ const LOCALE_TAGS: Record<SupportedLanguage, string> = {
 If the new language should show a literal AM/PM (like English) rather than native day-period words,
 add its code to that function's `language === "en"` branch condition instead of falling through to
 the `Intl.DateTimeFormat(..., { dayPeriod: "short" })` branch.
+
+---
 
 ## 6. (Optional) Add mixed "English + `<language>`" modes
 
@@ -120,6 +133,8 @@ function resolveLanguages(mode: LanguageMode): ResolvedLanguages {
 `LanguageToggle.tsx` needs no changes - it renders `LANGUAGE_MODES` generically, so the new options
 just appear.
 
+---
+
 ## 7. Verify
 
 - `npm run typecheck --prefix frontend` - every `Record<SupportedLanguage, ...>` above is a
@@ -142,3 +157,5 @@ just appear.
   fit into the rest of the frontend module layout.
 - [Testing Overview](../testing/overview.md): how to run the frontend Vitest suite this doc's
   verification step above uses.
+
+---

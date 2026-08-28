@@ -6,7 +6,9 @@ import pytest
 from backend.mystic_auth.auth.password_logic.password_reset_service import (
     password_reset_service,
 )
-from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
+from backend.mystic_auth.auth.token_logic.token_version_store import (
+    TokenVersionUnavailableError,
+)
 
 MODULE = "backend.mystic_auth.auth.password_logic.password_reset_service"
 

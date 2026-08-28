@@ -1,4 +1,5 @@
 # Policy JSON Examples
+---
 
 A policy's fields (see `authorization/models/policy_model.py` / `authorization/schemas/policy_schema.py`):
 
@@ -12,6 +13,8 @@ A policy's fields (see `authorization/models/policy_model.py` / `authorization/s
 | `is_active` | bool | Inactive policies are never evaluated as granting access. |
 
 All examples below are the request body for `POST /authorization/policies` (requires `policies:create`, and the caller must already hold every action being granted; see [Architecture: Authorization Service](architecture.md#authorization-service)).
+
+---
 
 ## Basic allow policy (unconditional)
 
@@ -168,3 +171,5 @@ The baseline every new account receives automatically at signup/OAuth2 (see [Add
   "is_active": true
 }
 ```
+
+---

@@ -11,7 +11,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
+from backend.mystic_auth.auth.token_logic.token_version_store import (
+    TokenVersionUnavailableError,
+)
 from backend.mystic_auth.user_lifecycle.user_self_deletion_service import (
     finalize_self_deletion,
 )

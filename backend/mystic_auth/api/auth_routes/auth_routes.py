@@ -18,7 +18,7 @@ from ...auth.password_reset_request.password_reset_request_schema import Passwor
 
 # Honors X-Forwarded-For only from a configured trusted reverse proxy (see auth/security/client_ip.py)
 from ...auth.security.client_ip import get_client_ip
-from ...auth.security.rate_limiter_service import rate_limiter_service
+from ...auth.security.rate_limiting.rate_limiter_service import rate_limiter_service
 from ...auth.signup.signup_handler import signup_handler
 from ...auth.signup.signup_schema import SignupSchema
 from ...auth.token_logic.jwt_service import jwt_service

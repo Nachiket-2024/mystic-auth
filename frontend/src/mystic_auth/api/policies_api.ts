@@ -106,6 +106,17 @@ export const revokePolicyApi = (userEmail: string, policyName: string) =>
         `/authorization/users/${encodeURIComponent(userEmail)}/policies/${encodeURIComponent(policyName)}`
     );
 
+// Carves ONE action out of a user's policy assignment: that action is
+// revoked, but every OTHER action the policy grants this user is preserved
+// (converted to a direct grant server-side - see backend's
+// policy_action_revocation_service.py). Unlike revokePolicyApi, this never
+// touches the Policy row itself, so every other holder is unaffected.
+export const revokePolicyActionApi = (userEmail: string, policyName: string, action: string) =>
+    api.post(
+        `/authorization/users/${encodeURIComponent(userEmail)}/policies/${encodeURIComponent(policyName)}/revoke-action`,
+        { action }
+    );
+
 export const getMyPoliciesApi = () => api.get<UserPoliciesRead>("/authorization/users/me/policies");
 
 export const getUserPoliciesApi = (userEmail: string) =>

@@ -133,24 +133,15 @@ class JWTService:
         password reset tokens).
         """
         try:
-            # The algorithm allowlist is passed as a single-element list, not a
-            # bare string: PyJWT's `algorithms` parameter accepts a bare string
-            # as a technically-valid Sequence[str] (Python strings are
-            # sequences of characters), which would make its internal
-            # membership check an accidental substring match instead of an
-            # exact one. A list is the only form PyJWT's own docs endorse for
-            # this parameter.
+            # `algorithms` must be a list, not a bare string: PyJWT treats a
+            # string as a Sequence[str] too, turning its membership check
+            # into an accidental substring match.
             #
-            # options={"verify_aud": False}: PyJWT auto-rejects (regardless
-            # of whether an `audience=` kwarg is even passed) the instant an
-            # "aud" claim is merely *present* in the payload, which would
-            # hard-break every token minted before this claim existed. iss
-            # doesn't need the same override - PyJWT only checks it when an
-            # `issuer=` kwarg is explicitly passed, which this never does.
-            # has_valid_issuer_and_audience() below does the real
-            # iss/aud comparison instead, with the graceful "absent is fine,
-            # present-and-wrong is not" semantics this class uses everywhere
-            # else (see its own docstring).
+            # verify_aud=False: PyJWT auto-rejects any payload with an "aud"
+            # claim present at all, which would break tokens minted before
+            # that claim existed. has_valid_issuer_and_audience() below does
+            # the real iss/aud check instead, with "absent is fine,
+            # present-and-wrong is not" semantics.
             payload = await asyncio.to_thread(
                 jwt.decode,
                 token,

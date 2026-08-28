@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from backend.mystic_auth.api.pbac_routes.policy_crud_routes import (
+from backend.mystic_auth.api.pbac_routes.policies.policy_crud_routes import (
     create_policy,
     delete_policy,
     update_policy,
@@ -35,7 +35,7 @@ from backend.mystic_auth.authorization.services.authorization_service import (
 )
 
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
-ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_crud_routes"
+ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_crud_routes"
 
 CALLER = {"email": "caller@example.com", "name": "Caller"}
 
@@ -109,7 +109,7 @@ async def test_create_policy_blocks_minting_action_caller_does_not_hold(mocker):
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
 
     with pytest.raises(HTTPException) as exc_info:
-        await create_policy(policy_data, current_user=CALLER, db="fake-db")
+        await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 403
     create_mock.assert_not_called()
@@ -123,7 +123,7 @@ async def test_create_policy_allows_when_caller_holds_every_action(mocker):
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock, return_value=created)
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
 
-    result = await create_policy(policy_data, current_user=CALLER, db="fake-db")
+    result = await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert result is created
 
@@ -140,7 +140,7 @@ async def test_create_policy_allows_business_domain_actions_regardless_of_caller
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock, return_value=created)
     authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
 
-    result = await create_policy(policy_data, current_user=CALLER, db="fake-db")
+    result = await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert result is created
     authorize_mock.assert_not_awaited()
@@ -159,7 +159,7 @@ async def test_update_policy_blocks_adding_action_caller_does_not_hold(mocker):
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
 
     with pytest.raises(HTTPException) as exc_info:
-        await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+        await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 403
     update_mock.assert_not_called()
@@ -178,7 +178,7 @@ async def test_update_policy_allows_non_grant_changes_without_grant_check(mocker
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
     authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
 
-    await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+    await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     authorize_mock.assert_not_awaited()
     update_mock.assert_awaited_once()
@@ -197,7 +197,7 @@ async def test_update_policy_blocks_deactivating_when_caller_lacks_current_actio
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
 
     with pytest.raises(HTTPException) as exc_info:
-        await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+        await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 403
     update_mock.assert_not_called()
@@ -216,7 +216,7 @@ async def test_update_policy_allows_deactivating_when_caller_holds_current_actio
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=["holder@example.com"])
     publish_mock = mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
-    await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+    await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     update_mock.assert_awaited_once()
     publish_mock.assert_awaited_once_with("holder@example.com")
@@ -230,7 +230,7 @@ async def test_update_policy_blocks_renaming_baseline_policy(mocker):
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
-        await update_policy(SYSTEM_SUPERUSER_POLICY_NAME, update_data, current_user=CALLER, db="fake-db")
+        await update_policy(SYSTEM_SUPERUSER_POLICY_NAME, update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 403
     update_mock.assert_not_called()
@@ -247,7 +247,7 @@ async def test_delete_policy_blocks_deleting_baseline_policy(mocker):
     delete_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.delete", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
-        await delete_policy(SYSTEM_SUPERUSER_POLICY_NAME, reason=None, current_user=CALLER, db="fake-db")
+        await delete_policy(SYSTEM_SUPERUSER_POLICY_NAME, request=MagicMock(), reason=None, current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 403
     delete_mock.assert_not_called()
@@ -265,7 +265,7 @@ async def test_delete_policy_blocks_deleting_when_caller_lacks_current_actions(m
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
 
     with pytest.raises(HTTPException) as exc_info:
-        await delete_policy("custom_policy", reason=None, current_user=CALLER, db="fake-db")
+        await delete_policy("custom_policy", request=MagicMock(), reason=None, current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 403
     delete_mock.assert_not_called()
@@ -282,7 +282,7 @@ async def test_delete_policy_allows_deleting_non_baseline_policy(mocker):
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=["holder@example.com"])
     publish_mock = mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
-    await delete_policy("custom_policy", reason=None, current_user=CALLER, db="fake-db")
+    await delete_policy("custom_policy", request=MagicMock(), reason=None, current_user=CALLER, db="fake-db")
 
     delete_mock.assert_awaited_once()
     publish_mock.assert_awaited_once_with("holder@example.com")

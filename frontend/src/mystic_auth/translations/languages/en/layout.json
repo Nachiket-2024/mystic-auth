@@ -26,12 +26,14 @@
         "dashboard": "Dashboard",
         "users": "Users",
         "policies": "Policies",
+        "permissions": "Permissions",
         "rateLimits": "Rate Limits",
         "auditLog": "Audit Log",
         "accountSettings": "Account Settings"
     },
     "footer": {
         "privacyPolicy": "Privacy Policy",
-        "termsOfService": "Terms of Service"
+        "termsOfService": "Terms of Service",
+        "help": "Help & Support"
     }
 }

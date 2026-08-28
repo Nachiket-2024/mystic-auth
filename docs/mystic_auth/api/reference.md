@@ -1,14 +1,19 @@
 # API Reference
+---
 
 Full route inventory, grouped by `APIRouter` module under `backend/mystic_auth/api/`. All routers are mounted in `backend/app/main.py`. Interactive docs (`/docs`, `/redoc`, `/openapi.json`) are available whenever `ENVIRONMENT != "production"`; see [Backend Architecture](../architecture/backend.md#request-pipeline).
 
 Every request/response body is a Pydantic schema (`*_schema.py` beside each feature); FastAPI validates the body and returns `422` with a field-by-field error list on a bad payload, so no route does its own manual validation.
+
+---
 
 ## Conventions
 
 - **Auth requirement** `session` means "a valid `access_token` cookie, no specific permission" (`Depends(get_current_user)`); a `permission:action` value means `Depends(require_authorization(action, resource_type))`, see [PBAC Architecture](../authorization/architecture.md). `public` means no cookie required at all.
 - All cookies are httpOnly; the API is never called with a bearer token/header. See [Authentication Overview](../authentication/overview.md#tokens-and-cookies).
 - Rate-limited routes (marked below) are gated by `rate_limiter_service.rate_limited(...)`. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting).
+
+---
 
 ### List endpoint conventions
 
@@ -70,7 +75,7 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 
 ## Authorization / PBAC: `/authorization` (`api/pbac_routes/*.py`)
 
-Split across `policy_crud_routes.py`, `policy_history_routes.py`, `policy_assignment_routes.py`, `authorization_check_routes.py`, `pbac_audit_log_routes.py`. See [PBAC Architecture: full route list](../authorization/architecture.md#full-route-list) for the complete, permission-annotated table (policies CRUD, history/rollback, assignment, the inspection/batch-check endpoints, and the PBAC audit log). The three PBAC audit log endpoints (`/authorization/audit-log`, `/audit-log/me`, `/audit-log/users/{email}`) support `search`/`action`/`resource_type`/`allowed`/`sort_by`/`sort_dir` the same way the security audit log does, see [List endpoint conventions](#list-endpoint-conventions).
+Split across `policies/policy_crud_routes.py`, `policies/policy_history_routes.py`, `policies/policy_assignment_routes.py`, `permissions/permission_assignment_routes.py`, `permissions/permission_catalog_routes.py`, `bulk/bulk_policy_routes.py`, `bulk/bulk_permission_routes.py`, `bulk/bulk_role_routes.py`, `authorization_check_routes.py`, `pbac_audit_log_routes.py`. See [PBAC Architecture: full route list](../authorization/architecture.md#full-route-list) for the complete, permission-annotated table (policies CRUD, history/rollback, assignment, direct permission grants, the permission catalog, bulk operations, the inspection/batch-check endpoints, and the PBAC audit log). The three PBAC audit log endpoints (`/authorization/audit-log`, `/audit-log/me`, `/audit-log/users/{email}`) support `search`/`action`/`resource_type`/`allowed`/`sort_by`/`sort_dir` the same way the security audit log does, see [List endpoint conventions](#list-endpoint-conventions).
 
 ---
 
@@ -114,3 +119,5 @@ Split across `policy_crud_routes.py`, `policy_history_routes.py`, `policy_assign
 ## Error responses
 
 Every route shares one global exception handler (`main.py`'s `@app.exception_handler(Exception)`): any unhandled exception is logged with a stack trace and returned as a generic `500 {"detail": "Internal Server Error"}`, so no internal exception detail (message, type, traceback) ever reaches the client. Expected failures use FastAPI's normal `HTTPException` mechanism (`400`/`401`/`403`/`404`/`409`/`422`) with a specific `detail` message per case, or `core/errors.py`'s `AppError`, caught by a second, more specific `@app.exception_handler(AppError)` and returned as `{"detail", "code", "params"}`. `code` is a stable, machine-readable identifier (e.g. `"INVALID_CREDENTIALS"`) the frontend translates client-side (`api/apiError.ts`, see [Translations Overview](../translations/overview.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts)); routes not yet migrated to `AppError` fall back to a plain `HTTPException` `detail` string with no `code`. See [Security Hardening: HTTP Layer](../security/hardening-http.md#error-handling).
+
+---

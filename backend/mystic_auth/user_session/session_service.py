@@ -8,7 +8,7 @@ from ..auth.security.client_ip import get_client_ip
 from ..auth.token_logic.jwt_service import jwt_service
 from ..auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ..logging.logging_config import get_logger
-from ..user_crud.user_crud_collector import user_crud
+from ..user.user_crud_collector import user_crud
 from .session_events import publish_session_created, publish_session_revoked
 from .session_geolocation import resolve_city_country
 from .session_model import UserSession

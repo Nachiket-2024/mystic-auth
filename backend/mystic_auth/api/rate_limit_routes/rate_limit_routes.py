@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from ...auth.security.rate_limit_dashboard_service import rate_limit_dashboard_service
-from ...auth.security.rate_limit_schema import RateLimitPageRead
+from ...auth.security.rate_limiting.rate_limit_dashboard_service import rate_limit_dashboard_service
+from ...auth.security.rate_limiting.rate_limit_schema import RateLimitPageRead
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
+from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
 
 router = APIRouter(prefix="/rate-limits", tags=["Rate Limits"])
 
@@ -24,7 +25,11 @@ async def list_rate_limits(
         description="Filter to only ip, account, or email limiters.",
     ),
     endpoint: str | None = Query(default=None, description="Exact match on the rate-limited endpoint name."),
-    identifier: str | None = Query(default=None, description="Substring match on the IP address or account/email identifier."),
+    identifier: str | None = Query(
+        default=None,
+        max_length=SEARCH_QUERY_MAX_LENGTH,
+        description="Substring match on the IP address or account/email identifier.",
+    ),
     page_size: int = Query(default=25, ge=1, le=100),
     current_user: dict = _READ_DEPENDENCY,
 ):

@@ -1,14 +1,16 @@
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...user_table.user_model import User
+from ...user.user_model import User
 
 # The one centralized Redis abstraction for authorization data, see its own
 # docstring for exactly what is (and deliberately isn't) cached, and why.
 # Every mutation below invalidates whatever it could have made stale.
 from ..caching.authorization_cache_service import authorization_cache_service
 from ..models.policy_model import Policy, UserPolicy
+from ..schemas.bulk_schema import BulkItemResult
 
 
 class PolicyAssignmentRepository:
@@ -71,7 +73,7 @@ class PolicyAssignmentRepository:
         """
         How many users currently hold this policy (assigned, regardless of
         the policy's own is_active flag). Used by
-        api/pbac_routes/policy_assignment_routes.py's revoke endpoint to refuse removing the
+        api/pbac_routes/policies/policy_assignment_routes.py's revoke endpoint to refuse removing the
         last remaining holder of system_superuser, see the
         "System policies are protected": deleting a policy row is already
         blocked for baseline policies, but *revoking every assignment* of
@@ -102,6 +104,33 @@ class PolicyAssignmentRepository:
         return list(result.scalars().all())
 
     @staticmethod
+    async def get_holder_emails_for_update(policy_id: int, db: AsyncSession) -> list[str]:
+        """
+        Locking counterpart to get_holder_emails: takes a row lock on every
+        current UserPolicy assignment of this policy before returning
+        their holders' emails.
+
+        Used by bulk_remove_policies' route-level "can't remove the last
+        system_superuser assignment" lockout guard: without a lock, two
+        concurrent bulk-remove requests each targeting a different subset
+        of superuser holders could both read the same pre-either-removal
+        holder count, each independently conclude its own subset leaves
+        someone behind, and both commit - together stripping every
+        system_superuser assignment (a full admin lockout) despite the
+        guard each individually passed. Locking these rows up front
+        serializes any two such requests touching the same policy: the
+        second blocks until the first commits its removals, then this
+        call re-reads the real post-removal holder set.
+        """
+        result = await db.execute(
+            select(User.email)
+            .join(UserPolicy, UserPolicy.user_id == User.id)
+            .where(UserPolicy.policy_id == policy_id)
+            .with_for_update(of=UserPolicy)
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
     async def assign_policy_to_user(
         user_id: int,
         policy_id: int,
@@ -120,7 +149,7 @@ class PolicyAssignmentRepository:
         compatible: system-side self-assignment at signup/OAuth2/system-
         user-bootstrap doesn't pass it, since a brand-new user has nothing
         cached yet to invalidate anyway; the management-facing assign route
-        (api/pbac_routes/policy_assignment_routes.py) does pass it, since that target user may
+        (api/pbac_routes/policies/policy_assignment_routes.py) does pass it, since that target user may
         already have a populated cache entry.
 
         Idempotent: assigning an already-held policy is a no-op, returning
@@ -144,6 +173,24 @@ class PolicyAssignmentRepository:
             await authorization_cache_service.invalidate_user_policies(user_email)
 
         return assignment
+
+    @staticmethod
+    async def user_holds_policy(user_id: int, policy_id: int, db: AsyncSession) -> bool:
+        """
+        Whether this user currently holds this policy assignment, regardless
+        of the policy's own is_active flag. Used by the revoke routes
+        (api/pbac_routes/policies/policy_assignment_routes.py) to check holdership
+        BEFORE the system_superuser last-holder lockout check runs, so a
+        caller revoking from a user who never held the policy gets the
+        correct 404 POLICY_NOT_HELD_BY_USER instead of being incorrectly
+        blocked by the lockout guard.
+        """
+        result = await db.execute(
+            select(UserPolicy).where(
+                UserPolicy.user_id == user_id, UserPolicy.policy_id == policy_id
+            )
+        )
+        return result.scalar_one_or_none() is not None
 
     @staticmethod
     async def remove_policy_from_user(
@@ -171,6 +218,127 @@ class PolicyAssignmentRepository:
             await authorization_cache_service.invalidate_user_policies(user_email)
 
         return True
+
+
+    @staticmethod
+    async def bulk_assign_policies(
+        valid_items: list[tuple[User, Policy]], db: AsyncSession, assigned_by: str | None
+    ) -> list[BulkItemResult]:
+        """
+        `valid_items` is every (User, Policy) pair that already passed
+        resolution and the per-item privilege-escalation guard in the route
+        layer (bulk_policy_routes.py) - this method only stages writes and
+        commits once for the whole batch (see this module's own bulk
+        semantics: best-effort per item, all-or-nothing only for a genuine
+        DB-level commit failure, mirrored below).
+
+        Idempotent per item, same as assign_policy_to_user: an already-held
+        pair adds no duplicate row and is reported "already_held" rather
+        than "success".
+
+        The existing_pairs snapshot below only rules out pairs already held
+        *before* this call started - it can't see another request's insert
+        of the same (user, policy) pair racing this one, so a plain insert
+        can still hit the uq_user_policy unique constraint. Each insert is
+        therefore staged inside its own SAVEPOINT (db.begin_nested) and
+        flushed individually: a unique-violation there is caught and
+        resolved to "already_held" (the pair is genuinely held either way,
+        by whichever request won) without discarding the rest of the
+        batch's SAVEPOINTs, unlike letting it surface at the final
+        db.commit() - which would fail the whole transaction and previously
+        got reported as "commit_failed" across every item, including
+        unrelated ones that never conflicted with anything.
+        """
+        if not valid_items:
+            return []
+
+        user_ids = {user.id for user, _ in valid_items}
+        policy_ids = {policy.id for _, policy in valid_items}
+        existing = await db.execute(
+            select(UserPolicy.user_id, UserPolicy.policy_id).where(
+                UserPolicy.user_id.in_(user_ids), UserPolicy.policy_id.in_(policy_ids)
+            )
+        )
+        existing_pairs = {(uid, pid) for uid, pid in existing.all()}
+
+        results: list[BulkItemResult] = []
+        affected_emails: set[str] = set()
+        for user, policy in valid_items:
+            affected_emails.add(user.email)
+            already_held = (user.id, policy.id) in existing_pairs
+            if already_held:
+                results.append(BulkItemResult(user_email=user.email, identifier=policy.name, status="already_held"))
+                continue
+
+            try:
+                async with db.begin_nested():
+                    db.add(UserPolicy(user_id=user.id, policy_id=policy.id, assigned_by=assigned_by))
+                    await db.flush()
+            except IntegrityError:
+                results.append(BulkItemResult(user_email=user.email, identifier=policy.name, status="already_held"))
+                continue
+
+            results.append(BulkItemResult(user_email=user.email, identifier=policy.name, status="success"))
+
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            return [
+                BulkItemResult(user_email=r.user_email, identifier=r.identifier, status="error", error="commit_failed")
+                for r in results
+            ]
+
+        await authorization_cache_service.invalidate_user_policies_bulk(affected_emails)
+
+        return results
+
+    @staticmethod
+    async def bulk_remove_policies(
+        valid_items: list[tuple[User, Policy]], db: AsyncSession
+    ) -> list[BulkItemResult]:
+        """Removal counterpart to bulk_assign_policies. An item whose pair
+        isn't actually held is reported as an error (`not_held`), same as
+        the single-item route's 404, rather than silently skipped."""
+        if not valid_items:
+            return []
+
+        user_ids = {user.id for user, _ in valid_items}
+        policy_ids = {policy.id for _, policy in valid_items}
+        existing = await db.execute(
+            select(UserPolicy).where(UserPolicy.user_id.in_(user_ids), UserPolicy.policy_id.in_(policy_ids))
+        )
+        existing_rows = {(row.user_id, row.policy_id): row for row in existing.scalars().all()}
+
+        results: list[BulkItemResult] = []
+        affected_emails: set[str] = set()
+        for user, policy in valid_items:
+            row = existing_rows.get((user.id, policy.id))
+            if row is None:
+                results.append(
+                    BulkItemResult(user_email=user.email, identifier=policy.name, status="error", error="not_held")
+                )
+                continue
+            await db.delete(row)
+            affected_emails.add(user.email)
+            results.append(BulkItemResult(user_email=user.email, identifier=policy.name, status="success"))
+
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            return [
+                BulkItemResult(
+                    user_email=r.user_email, identifier=r.identifier, status="error", error="commit_failed"
+                )
+                if r.status == "success"
+                else r
+                for r in results
+            ]
+
+        await authorization_cache_service.invalidate_user_policies_bulk(affected_emails)
+
+        return results
 
 
 policy_assignment_repository = PolicyAssignmentRepository()

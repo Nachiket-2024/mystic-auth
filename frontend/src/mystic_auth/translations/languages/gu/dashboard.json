@@ -4,8 +4,8 @@
     "noRole": "કોઈ ભૂમિકા સોંપેલ નથી",
     "memberSince": "સભ્ય બન્યાની તારીખ",
     "lastLogin": "છેલ્લું લોગિન",
-    "activeSession": "સક્રિય સેશન",
-    "activeSessions": "સક્રિય સેશન્સ",
+    "activeSession": "સક્રિય સત્ર",
+    "activeSessions": "સક્રિય સત્રો",
     "accountSettingsButton": "ખાતાની સેટિંગ્સ",
     "logoutAllButton": "બધેથી લોગઆઉટ",
     "noUserData": "કોઈ વપરાશકર્તા ડેટા ઉપલબ્ધ નથી",
@@ -17,14 +17,14 @@
         "role": "ભૂમિકા"
     },
     "logoutAllDialog": {
-        "title": "બધા ડિવાઇસમાંથી લોગઆઉટ",
-        "description": "આ તમારા ખાતાના દરેક ડિવાઇસ પરના દરેક સક્રિય સેશનને, આ સહિત, સમાપ્ત કરશે. ચાલુ રાખવું છે?",
+        "title": "બધા ઉપકરણોમાંથી લોગઆઉટ",
+        "description": "આ તમારા ખાતાના દરેક ઉપકરણ પરના દરેક સક્રિય સત્રને, આ સહિત, સમાપ્ત કરશે. ચાલુ રાખવું છે?",
         "confirmLabel": "બધેથી લોગઆઉટ"
     },
     "manageSessions": {
-        "heading": "સેશન્સ સંચાલિત કરો",
-        "deviceColumn": "ડિવાઇસ",
-        "thisDeviceBadge": "આ ડિવાઇસ",
+        "heading": "સત્રો સંચાલિત કરો",
+        "deviceColumn": "ઉપકરણ",
+        "thisDeviceBadge": "આ ઉપકરણ",
         "ipColumn": "IP",
         "ipUnknown": "અજ્ઞાત",
         "locationColumn": "સ્થાન",
@@ -34,28 +34,28 @@
         "logOut": "લોગ આઉટ",
         "viewButton": "જુઓ",
         "detailsDialog": {
-            "title": "સેશન વિગતો",
-            "device": "ડિવાઇસ",
+            "title": "સત્ર વિગતો",
+            "device": "ઉપકરણ",
             "ipAddress": "IP સરનામું",
             "location": "સ્થાન",
             "signedIn": "સાઇન ઇન થયું",
             "lastSeen": "છેલ્લે જોયું",
             "status": "સ્થિતિ"
         },
-        "sessionEndedToast": "સેશન સમાપ્ત થયું",
-        "errorLoadSessions": "તમારા સેશન્સ લોડ કરવામાં નિષ્ફળ",
-        "noActiveSessions": "કોઈ સક્રિય સેશન નથી.",
-        "failedEndSession": "સેશન સમાપ્ત કરવામાં નિષ્ફળ",
+        "sessionEndedToast": "સત્ર સમાપ્ત થયું",
+        "errorLoadSessions": "તમારા સત્રો લોડ કરવામાં નિષ્ફળ",
+        "noActiveSessions": "કોઈ સક્રિય સત્ર નથી.",
+        "failedEndSession": "સત્ર સમાપ્ત કરવામાં નિષ્ફળ",
         "endDialog": {
-            "logoutThisDeviceTitle": "આ ડિવાઇસમાંથી લોગઆઉટ",
-            "endSessionTitle": "સેશન સમાપ્ત કરો",
-            "logoutThisDeviceDescription": "આ તમને હમણાં આ ડિવાઇસમાંથી લોગઆઉટ કરશે. ચાલુ રાખવું છે?",
-            "endSessionDescription": "\"{{device}}\"{{ipSuffix}} પરનું સેશન સમાપ્ત કરવું છે? તે ડિવાઇસ તરત જ સાઇન આઉટ થઈ જશે.",
+            "logoutThisDeviceTitle": "આ ઉપકરણમાંથી લોગઆઉટ",
+            "endSessionTitle": "સત્ર સમાપ્ત કરો",
+            "logoutThisDeviceDescription": "આ તમને હમણાં આ ઉપકરણમાંથી લોગઆઉટ કરશે. ચાલુ રાખવું છે?",
+            "endSessionDescription": "\"{{device}}\"{{ipSuffix}} પરનું સત્ર સમાપ્ત કરવું છે? તે ઉપકરણ તરત જ સાઇન આઉટ થઈ જશે.",
             "confirmLabel": "લોગઆઉટ"
         }
     },
     "parseUserAgent": {
-        "unknownDevice": "અજ્ઞાત ડિવાઇસ",
+        "unknownDevice": "અજ્ઞાત ઉપકરણ",
         "unknownBrowser": "અજ્ઞાત બ્રાઉઝર",
         "unknownOS": "અજ્ઞાત OS",
         "deviceLabel": "{{os}} પર {{browser}}"

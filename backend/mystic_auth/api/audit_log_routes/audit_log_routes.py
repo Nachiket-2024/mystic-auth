@@ -10,6 +10,7 @@ from ...audit_log.audit_log_schema import AuditLogEntryRead, LoginTrendPoint
 from ...auth.current_user.current_user_dependency import get_current_user
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
+from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
 from ...database.connection import database
 
 router = APIRouter(prefix="/audit", tags=["Audit Logs"])
@@ -33,9 +34,11 @@ async def list_security_audit_log(
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
-    search: str | None = Query(default=None, description="Case-insensitive substring match on user_email"),
+    search: str | None = Query(
+        default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description="Case-insensitive substring match on user_email"
+    ),
     event_type: str | None = Query(default=None, description=_EVENT_TYPE_DESCRIPTION),
-    ip_address: str | None = Query(default=None, description=_IP_ADDRESS_DESCRIPTION),
+    ip_address: str | None = Query(default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description=_IP_ADDRESS_DESCRIPTION),
     success: bool | None = Query(default=None, description=_SUCCESS_DESCRIPTION),
     sort_by: str | None = Query(default=None, description=_SORT_BY_DESCRIPTION),
     sort_dir: str = Query(default="desc", pattern="^(asc|desc)$"),
@@ -92,7 +95,7 @@ async def list_my_security_audit_log(
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     event_type: str | None = Query(default=None, description=_EVENT_TYPE_DESCRIPTION),
-    ip_address: str | None = Query(default=None, description=_IP_ADDRESS_DESCRIPTION),
+    ip_address: str | None = Query(default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description=_IP_ADDRESS_DESCRIPTION),
     success: bool | None = Query(default=None, description=_SUCCESS_DESCRIPTION),
     sort_by: str | None = Query(default=None, description=_SORT_BY_DESCRIPTION),
     sort_dir: str = Query(default="desc", pattern="^(asc|desc)$"),

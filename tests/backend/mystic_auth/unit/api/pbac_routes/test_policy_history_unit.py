@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from backend.mystic_auth.api.pbac_routes.policy_history_routes import (
+from backend.mystic_auth.api.pbac_routes.policies.policy_history_routes import (
     _definition_for_entry,
     compare_policy_history,
     rollback_policy,
@@ -25,7 +25,7 @@ from backend.mystic_auth.authorization.schemas.policy_history_schema import (
 )
 
 REPO_MODULE = "backend.mystic_auth.authorization.repositories.policy_repository"
-ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_history_routes"
+ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_history_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 
 
@@ -84,11 +84,12 @@ async def test_create_policy_writes_created_history_entry(mocker):
 # ---------------------------- Repository: Update Writes History with Diff ----------------------------
 @pytest.mark.asyncio
 async def test_update_policy_writes_updated_history_with_changed_fields(mocker):
+    policy = _make_policy()
     db = MagicMock()
+    db.get = AsyncMock(return_value=policy)
     db.flush = AsyncMock()
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
-    policy = _make_policy()
     mock_history_repo = mocker.patch(f"{REPO_MODULE}.policy_history_repository")
     mocker.patch(f"{REPO_MODULE}.authorization_cache_service", new=MagicMock(
         invalidate_all_user_policies=AsyncMock()
@@ -112,11 +113,12 @@ async def test_update_policy_writes_updated_history_with_changed_fields(mocker):
 
 @pytest.mark.asyncio
 async def test_update_policy_can_be_labeled_as_rolled_back(mocker):
+    policy = _make_policy()
     db = MagicMock()
+    db.get = AsyncMock(return_value=policy)
     db.flush = AsyncMock()
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
-    policy = _make_policy()
     mock_history_repo = mocker.patch(f"{REPO_MODULE}.policy_history_repository")
     mocker.patch(f"{REPO_MODULE}.authorization_cache_service", new=MagicMock(
         invalidate_all_user_policies=AsyncMock()
@@ -222,6 +224,7 @@ async def test_rollback_policy_applies_target_definition_and_labels_history(mock
 
     await rollback_policy(
         policy_name="self_service", history_id=5,
+        request=MagicMock(),
         rollback_request=PolicyRollbackRequest(reason="revert bad change"),
         current_user={"email": "admin@example.com"}, db="fake-db",
     )
@@ -253,7 +256,7 @@ async def test_rollback_policy_to_deleted_entry_restores_previous_definition(moc
     mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
     await rollback_policy(
-        policy_name="self_service", history_id=9, rollback_request=None,
+        policy_name="self_service", history_id=9, request=MagicMock(), rollback_request=None,
         current_user={"email": "admin@example.com"}, db="fake-db",
     )
 
@@ -274,7 +277,7 @@ async def test_rollback_policy_rejects_entry_belonging_to_another_policy(mocker)
 
     with pytest.raises(HTTPException) as exc_info:
         await rollback_policy(
-            policy_name="self_service", history_id=9, rollback_request=None,
+            policy_name="self_service", history_id=9, request=MagicMock(), rollback_request=None,
             current_user={"email": "admin@example.com"}, db="fake-db",
         )
 

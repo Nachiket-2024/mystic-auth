@@ -1,4 +1,5 @@
 # Dev Deployment
+---
 
 Local development: hot reload on both backend and frontend, source
 bind-mounted from the host, no TLS. This is the mode you use day to day
@@ -144,3 +145,5 @@ docker compose down
 ```
 
 Add `-v` to also drop the Postgres/Redis volumes (wipes local data).
+
+---

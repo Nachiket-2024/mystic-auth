@@ -11,19 +11,13 @@ import translations from "../../translations/translations";
 import { BRAND_ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 
 /**
- * Language switch, backed by store/languageStore.ts (persists to
- * localStorage, drives the translations module). A plain click-to-open
- * dropdown (Chakra's Select, not a typeable Combobox) - with only five
- * options (see LANGUAGE_MODES: three plain languages plus two mixed
- * "English chrome + translated page" modes), a search box isn't earning its
- * keep the way it would past a few dozen languages; this matches how most
- * real-world language switchers (GitHub, Wikipedia, Google) work at this
- * scale. Click to open, click an option, closes - the current selection
- * stays visible at rest either way.
+ * Language switch, backed by store/languageStore.ts. A plain click-to-open
+ * dropdown (Chakra's Select, not a typeable Combobox): with only five
+ * options a search box isn't worth it, matching how GitHub/Wikipedia/Google
+ * handle a switcher at this scale.
  *
- * Uses chromeLanguage (always English unless a plain hi/mr mode is active),
- * not the global page language, for its own label/aria-label - it lives in
- * Navbar, which is chrome, same reasoning as Navbar.tsx/Sidebar.tsx.
+ * Uses chromeLanguage, not the global page language, since this lives in
+ * Navbar chrome (same reasoning as Navbar.tsx/Sidebar.tsx).
  */
 const LanguageToggle: React.FC = () => {
     const mode = useLanguageStore((s) => s.mode);
@@ -49,36 +43,26 @@ const LanguageToggle: React.FC = () => {
             width="fit-content"
         >
             <Select.HiddenSelect aria-label={t("language")} />
-            {/* See StyledSelect.tsx's matching comment: without this,
-                Select.Trigger's auto-wired aria-labelledby (pointing at
-                Select.Label's id) wins over Select.HiddenSelect's aria-label
-                above, leaving the trigger unlabeled for assistive tech.
-                Visually hidden since this lives in the navbar next to
-                ThemeToggle, with no separate on-screen label. */}
+            {/* See StyledSelect.tsx's matching comment: without this, the
+                trigger's auto-wired aria-labelledby wins over
+                Select.HiddenSelect's aria-label, leaving it unlabeled.
+                Visually hidden since it lives next to ThemeToggle with no
+                separate on-screen label. */}
             <Select.Label css={visuallyHiddenStyle}>{t("language")}</Select.Label>
             <Select.Control>
-                {/* Same border/bg/hover treatment as ThemeToggle's IconButton -
-                    shares BRAND_ICON_BUTTON_PROPS directly so the two can't
-                    drift apart the way the old hand-duplicated values could. */}
+                {/* Shares BRAND_ICON_BUTTON_PROPS with ThemeToggle's IconButton
+                    so the two styles can't drift apart. */}
                 <Select.Trigger
                     fontSize="md"
                     {...BRAND_ICON_BUTTON_PROPS}
                     display="grid"
                 >
-                    {/* Same technique as FontSizeControl.tsx's matching
-                        comment: an invisible stack built from the *same*
-                        Select.Item/Select.ItemIndicator parts Select.Content
-                        below renders, wrapped in the same p="1"/borderWidth
-                        Content itself has, so this reproduces the panel's
-                        real padding/icon chrome exactly instead of just
-                        approximating it - a mismatch there previously left
-                        the open panel's item row a few px too narrow and
-                        forced a horizontal scrollbar inside it. Sharing the
-                        grid cell (both "1 / 1") with the visible row below
-                        means the trigger's width grows to fit the longest
-                        language label - not just whichever one is currently
-                        selected - and the panel (via Select.Root's default
-                        sameWidth positioning) matches it exactly. */}
+                    {/* Invisible stack built from the same Select.Item parts
+                        Select.Content renders, so the trigger grows to fit
+                        the longest label (not just the current one) and the
+                        panel matches its width exactly via sameWidth
+                        positioning. See FontSizeControl.tsx for the same
+                        technique. */}
                     <Flex
                         gridArea="1 / 1"
                         direction="column"
@@ -124,21 +108,13 @@ const LanguageToggle: React.FC = () => {
                                 key={option.value}
                                 item={option}
                                 _highlighted={{ bg: "brand.solid", color: "white" }}
-                                // bg: brand.200 by default (light), overridden to
-                                // brand.selected's own brand.800 in dark (already fine) -
-                                // see FontSizeControl.tsx's matching comment for why light
-                                // needed its own step darker than brand.selected. `_light`
-                                // is NOT a real Chakra condition (only `_dark` is, mapped to
-                                // the `.dark &` selector) - an earlier version of this used
-                                // `bg: { _light: ..., _dark: ... }` which silently dropped
-                                // the light value entirely, leaving the selected row with no
-                                // visible fill at rest in light mode. Nested _highlighted
-                                // below: because brand.fg and brand.solid are both
-                                // brand.600 in light mode, hovering the already-selected
-                                // item let _selected's text color win over _highlighted's
-                                // white, rendering orange text on the same orange hover
-                                // fill. This more specific selected+highlighted selector
-                                // forces white text back whenever both states are true.
+                                // `_light` isn't a real Chakra condition (only `_dark`
+                                // is), so bg's light value is the unconditioned base;
+                                // an earlier `bg: { _light, _dark }` silently dropped it.
+                                // Nested _highlighted: brand.fg and brand.solid are both
+                                // brand.600 in light mode, so hovering the selected item
+                                // let _selected's text win over _highlighted's white,
+                                // rendering orange text on an orange hover fill.
                                 _selected={{
                                     bg: "brand.200",
                                     color: "brand.fg",

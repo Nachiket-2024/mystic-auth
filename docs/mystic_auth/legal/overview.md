@@ -1,14 +1,17 @@
 # Legal Documents and Signup Consent
+---
 
 Ships a Privacy Policy and Terms of Service as real in-app pages, written against this template's actual data flows rather than generic boilerplate, plus the consent notice that links to them from Signup. Both documents are content you're expected to review and edit before shipping to real users; see "Operator responsibility" below.
+
+---
 
 ## Feature map
 
 | Layer | Files | Responsibility |
 |---|---|---|
-| Shared layout | `frontend/src/mystic_auth/legal/LegalDocumentLayout.tsx` | Presentational shell (`AuthLayout` chrome, `Logo`, title, "Last updated" date, intro paragraphs, numbered sections, a context-aware Back button). Renders whatever `title`/`intro`/`sections` it's given; doesn't know which document it's showing. |
-| Pages | `frontend/src/mystic_auth/legal/PrivacyPolicyPage.tsx`, `TermsOfServicePage.tsx` | Resolve the `legal` translation namespace and pass the result into `LegalDocumentLayout`. |
-| Content | `frontend/src/mystic_auth/translations/languages/<lang>/legal.json` | All document text, per language. |
+| Shared layout | `frontend/src/app/legal/LegalDocumentLayout.tsx` | Presentational shell (`AuthLayout` chrome, `Logo`, title, "Last updated" date, intro paragraphs, numbered sections, a context-aware Back button). Renders whatever `title`/`intro`/`sections` it's given; doesn't know which document it's showing. |
+| Pages | `frontend/src/app/legal/PrivacyPolicyPage.tsx`, `TermsOfServicePage.tsx` | Resolve the `legal` translation namespace and pass the result into `LegalDocumentLayout`. |
+| Content | `frontend/src/app/legal/translations/<lang>.json` | All document text, per language. Registered as its own `legal` i18next namespace at runtime (`registerLegalTranslations.ts`), same as `landing_page/translations/` - app-owned content doesn't belong in `mystic_auth/translations/translations.ts`'s upstream `NAMESPACES` list. |
 | Routes | `frontend/src/app/App.tsx` | `/privacy` and `/terms`, both lazy-loaded (`trackedLazy`), both public (no `ProtectedRoute` wrapper: reachable signed in or signed out). |
 | Signup consent | `frontend/src/mystic_auth/auth/signup/SignupForm.tsx` | The consent line under the submit button, linking to both documents. |
 | Entry points | `SignupForm.tsx`, `LoginPage.tsx`, `frontend/src/app/landing_page/LandingPage.tsx` (footer), `frontend/src/mystic_auth/account_settings/AccountSettingsPage.tsx` | Every place a link to either document is reachable from. |
@@ -56,7 +59,11 @@ Both default to bracketed placeholder text (e.g. `[operator: replace with your s
 
 `legal.json` is one of the thirteen translation namespaces (see [Translations Overview](../translations/overview.md)); adding a new language means adding a `legal.json` for it, following the same `title`/`intro`/`sections` shape as the English version, alongside every other namespace file the [language tutorial](../translations/adding-a-language.md) walks through.
 
+---
+
 ## Where to go next
 
 - [Translations Overview](../translations/overview.md): how the `legal` namespace fits into the rest of the translation system.
 - [Signup and Email Verification](../authentication/signup-and-verification.md): the rest of the signup flow this consent notice is part of.
+
+---

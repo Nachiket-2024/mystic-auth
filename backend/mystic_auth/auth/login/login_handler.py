@@ -1,4 +1,5 @@
 import asyncio
+import math
 import traceback
 
 from fastapi import Request
@@ -19,16 +20,23 @@ class LoginHandler:
     """Validates input, authenticates the user, applies login protection, and sets JWT cookies."""
 
     @staticmethod
-    def _lockout_response() -> JSONResponse:
-        # Both the pre-auth pre-check and the post-auth recheck can deny a login for
-        # the same reason; defined once so the two call sites can't drift.
-        return JSONResponse(
+    def _lockout_response(retry_after_seconds: int) -> JSONResponse:
+        # Shared by the pre-auth and post-auth lockout checks so they can't
+        # drift. Surfaces retry_after_seconds two ways: the standard
+        # `Retry-After` header (RFC 9110) for tooling, and `params.minutes`
+        # in the body for the login form's translated message. Rounded up,
+        # never to 0, so "3 seconds left" still reads as "wait a minute."
+        retry_after_minutes = max(1, math.ceil(retry_after_seconds / 60))
+        response = JSONResponse(
             content={
                 "error": "Too many failed login attempts, account temporarily locked",
                 "code": "ACCOUNT_LOCKED",
+                "params": {"minutes": retry_after_minutes},
             },
             status_code=429,
         )
+        response.headers["Retry-After"] = str(retry_after_seconds)
+        return response
 
     async def handle_login(
         self,
@@ -64,7 +72,9 @@ class LoginHandler:
                 await log_security_event(
                     ACCOUNT_LOCKED, db, user_email=email, success=False, request=request
                 )
-                return self._lockout_response()
+                return self._lockout_response(
+                    await login_protection_service.get_remaining_seconds(email_lock_key)
+                )
 
             if await login_protection_service.is_locked(
                 ip_lock_key, max_attempts=login_protection_service.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
@@ -72,7 +82,9 @@ class LoginHandler:
                 await log_security_event(
                     ACCOUNT_LOCKED, db, user_email=email, success=False, request=request
                 )
-                return self._lockout_response()
+                return self._lockout_response(
+                    await login_protection_service.get_remaining_seconds(ip_lock_key)
+                )
 
             tokens: TokenPairResponseSchema | None = await login_service.login(
                 email=email, password=password, db=db, request=request
@@ -109,7 +121,15 @@ class LoginHandler:
                 await log_security_event(
                     ACCOUNT_LOCKED, db, user_email=email, success=False, request=request
                 )
-                return self._lockout_response()
+                # Whichever counter just tripped the lockout (email checked
+                # first, arbitrarily - both are independently enforced, so
+                # there's no meaningful priority between them if both trip
+                # on the same request) is the one whose remaining time is
+                # actually relevant here.
+                lock_key = email_lock_key if not email_allowed else ip_lock_key
+                return self._lockout_response(
+                    await login_protection_service.get_remaining_seconds(lock_key)
+                )
 
             if not tokens:
                 return JSONResponse(

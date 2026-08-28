@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Dumps the Postgres database running in the `postgres` Docker Compose
-# service to a timestamped .sql file under backups/. Environment-driven
-# (reads POSTGRES_USER/POSTGRES_DB from the env file matching compose-file:
-# .env for docker-compose.yml, .env.local-prod for docker-compose.local-prod.yml,
-# .env.prod for docker-compose.prod.yml). No cloud or provider assumptions.
+# Dumps the `postgres` Compose service's database to a timestamped .sql
+# file under backups/. Reads POSTGRES_USER/POSTGRES_DB from the env file
+# matching the given compose file.
 #
 # Usage: scripts/db/db_backup.sh [compose-file]
-#   compose-file defaults to docker-compose.yml; pass docker-compose.local-prod.yml
-#   or docker-compose.prod.yml to back up a production-style stack instead.
+#   compose-file defaults to docker-compose.yml.
 
 set -euo pipefail
 
@@ -22,9 +19,9 @@ case "$COMPOSE_FILE" in
   *) ENV_FILE=".env" ;;
 esac
 
-# Only pull the two vars we need, by name, rather than sourcing the whole
-# env file. Some values, such as GMAIL_APP_PASSWORD, contain unquoted spaces
-# that are valid to python-dotenv/pydantic but break a shell `source`.
+# Pull just these two vars by name rather than sourcing the whole file:
+# some values (e.g. GMAIL_APP_PASSWORD) have unquoted spaces that break
+# `source` but are fine for python-dotenv/pydantic.
 if [ -z "${POSTGRES_USER:-}" ] && [ -f "$ENV_FILE" ]; then
   POSTGRES_USER="$(grep -m1 '^POSTGRES_USER=' "$ENV_FILE" | cut -d= -f2-)"
 fi

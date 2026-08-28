@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.errors import AppError
 from ...logging.logging_config import get_logger
-from ...procrastinate_tasks.audit_log_tasks import log_authorization_decision_task
 from ..evaluators.authorization_decision import AuthorizationDecision
 from ..evaluators.policy_evaluator import policy_evaluation_engine
+from ..models.policy_model import Policy
 from ..repositories.audit_log_repository import audit_log_repository
 from ..repositories.policy_repository import policy_repository
+from ..repositories.user_permission_repository import user_permission_repository
+from .authorization_audit_logger import build_audit_entry, log_decision
 from .authorization_grant_guard import assert_authorized_to_grant
 
 logger = get_logger(__name__)
@@ -94,9 +96,7 @@ class AuthorizationService:
             user_email, action, resource_type, db, resource=resource, context=context
         )
 
-        await AuthorizationService._log_decision(
-            user_email, action, resource_type, resource, context, decision
-        )
+        await log_decision(user_email, action, resource_type, resource, context, decision)
 
         return decision
 
@@ -114,10 +114,11 @@ class AuthorizationService:
         AuthorizationDecision from PolicyEvaluationEngine.evaluate_detailed
         rather than just a bool, used by the authorization-check
         inspection endpoint (api/pbac_routes/authorization_check_routes.py)
-        and by _log_decision's audit trail. See evaluators/authorization_decision.py
+        and by authorization_audit_logger.log_decision's audit trail. See
+        evaluators/authorization_decision.py
         for the decision shape.
         """
-        policies = await policy_repository.get_active_policies_for_user(user_email, db)
+        policies = await AuthorizationService._get_effective_policies(user_email, db)
 
         return policy_evaluation_engine.evaluate_detailed(
             policies=policies,
@@ -173,7 +174,7 @@ class AuthorizationService:
         computed independently and in order, only the persistence step is
         batched.
         """
-        policies = await policy_repository.get_active_policies_for_user(user_email, db)
+        policies = await AuthorizationService._get_effective_policies(user_email, db)
 
         decisions: list[AuthorizationDecision] = []
         audit_entries: list[dict] = []
@@ -206,9 +207,7 @@ class AuthorizationService:
                 )
 
             audit_entries.append(
-                AuthorizationService._build_audit_entry(
-                    user_email, action, resource_type, resource, context, decision
-                )
+                build_audit_entry(user_email, action, resource_type, resource, context, decision)
             )
             decisions.append(decision)
 
@@ -216,89 +215,47 @@ class AuthorizationService:
             await audit_log_repository.create_entries(audit_entries, db)
         except Exception:
             # Same "never break the real decision" guarantee as
-            # _log_decision: the caller has already gotten every decision
+            # authorization_audit_logger.log_decision: the caller has
+            # already gotten every decision
             # above regardless of whether the audit write succeeded.
             logger.warning("Failed to write batch authorization audit log entries:\n%s", traceback.format_exc())
 
         return decisions
 
     @staticmethod
-    def _build_audit_entry(
-        user_email: str,
-        action: str,
-        resource_type: str,
-        resource: dict | object | None,
-        context: dict | None,
-        decision: AuthorizationDecision,
-    ) -> dict:
+    async def _get_effective_policies(user_email: str, db: AsyncSession) -> list[Policy]:
         """
-        The audit log row (as a plain dict, not yet persisted) for one
-        decision: `decision` is the full explanation to record, capturing
-        not just the bare allow/deny but which policies matched vs. were
-        rejected and exactly which condition(s) failed on the rejected
-        ones, so "why was this denied" is answerable from the audit trail
-        alone, without re-running the evaluation. Shared by _log_decision
-        (single, immediate commit) and authorize_batch (many, one commit
-        for the whole batch).
-        """
-        # resource is often an arbitrary dict/object with no guaranteed
-        # key, so this is a best-effort identifier for the log entry.
-        resource_identifier = None
-        if isinstance(resource, dict):
-            resource_identifier = resource.get("email") or resource.get("id")
-        elif resource is not None:
-            resource_identifier = getattr(resource, "email", None) or getattr(resource, "id", None)
-        if resource_identifier is not None:
-            resource_identifier = str(resource_identifier)
+        Everything the evaluation engine should treat as a grant for this
+        user: their assigned, active Policy rows PLUS their direct
+        UserPermission grants (authorization/models/user_permission_model.py),
+        normalized into transient, unpersisted Policy objects (never
+        db.add()-ed) so PolicyEvaluationEngine.evaluate_detailed needs zero
+        changes - it already only reads .name/.actions/.resource_type/
+        .conditions off each item (see policy_evaluator.py), which a
+        single-action synthetic Policy satisfies exactly. Named
+        "direct:{action}" so matched/rejected policy names in the resulting
+        AuthorizationDecision stay self-explanatory (distinguishable from a
+        real, named policy) with no schema change.
 
-        return {
-            "user_email": user_email,
-            "action": action,
-            "resource_type": resource_type,
-            "resource_identifier": resource_identifier,
-            "allowed": decision.allowed,
-            "candidate_policy_names": decision.matched_policies + decision.rejected_policies,
-            "granting_policy_names": decision.matched_policies,
-            "failed_conditions": decision.failed_conditions or None,
-            "context": context,
-        }
-
-    @staticmethod
-    async def _log_decision(
-        user_email: str,
-        action: str,
-        resource_type: str,
-        resource: dict | object | None,
-        context: dict | None,
-        decision: AuthorizationDecision,
-    ) -> None:
+        Shared by authorize_detailed and authorize_batch: both need the
+        combined list before evaluating, and authorize_batch specifically
+        wants to fetch it once and reuse it across every check in the batch.
         """
-        Queues an audit log row for a single real decision (see
-        _build_audit_entry for the row shape) via Procrastinate
-        (log_authorization_decision_task), rather than writing it inline:
-        this is the choke point every authorize()/require() call goes
-        through, so a synchronous DB commit here means every protected
-        request pays that write's latency before it can respond. The actual
-        INSERT happens in a background worker instead, on its own retry
-        schedule; the audit trail becomes eventually consistent (typically
-        sub-second) rather than visible the instant this call returns.
+        policies = await policy_repository.get_active_policies_for_user(user_email, db)
+        direct_grants = await user_permission_repository.get_active_permissions_for_user(user_email, db)
 
-        A failure to even *queue* the job (e.g. Procrastinate's own DB
-        connection is down) must never break the actual authorization
-        decision it's describing, caught and logged as a warning here,
-        never re-raised, same guarantee as before this moved to a queue.
-        The route/caller that asked for this decision has already gotten
-        (or will get) its answer regardless of whether the audit write
-        succeeded.
-        """
-        try:
-            await log_authorization_decision_task.defer_async(
-                entry=AuthorizationService._build_audit_entry(
-                    user_email, action, resource_type, resource, context, decision
-                )
+        synthetic_policies = [
+            Policy(
+                name=f"direct:{grant.action}",
+                actions=[grant.action],
+                resource_type=grant.resource_type,
+                conditions=grant.conditions,
+                is_active=True,
             )
-        except Exception:
-            logger.warning("Failed to queue authorization audit log entry:\n%s", traceback.format_exc())
+            for grant in direct_grants
+        ]
+
+        return policies + synthetic_policies
 
     @staticmethod
     async def require(

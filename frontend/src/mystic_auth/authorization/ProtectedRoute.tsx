@@ -3,14 +3,19 @@ import { Navigate } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import { useAuthorization } from "./useAuthorization";
+import { useAuthStore } from "../store/authStore";
 import LoadingState from "../ui/LoadingState";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
     // If provided, the caller must also hold this action (via useAuthorization().can) in
     // addition to being authenticated, e.g. permission="policies:read" for a permission-gated route.
+    // An array means "any of" - the caller needs at least one, not all of them - for a route
+    // that's a legitimate destination for more than one independent action (e.g.
+    // permission={[PERMISSIONS.POLICIES_READ, PERMISSIONS.POLICIES_CREATE]}, since a caller who
+    // can only create policies still needs to reach this route to do so).
     // Omit for a route that only needs authentication.
-    permission?: string;
+    permission?: string | string[];
     // Passed through to can() alongside `permission`: see useAuthorization.ts's `can` for why
     // this doesn't currently narrow the check (the cached permissions list has no resource-type
     // dimension of its own).
@@ -24,25 +29,16 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, permission, resourceType }) => {
     const { t } = useTranslation("authorization");
     const { isAuthenticated, can } = useAuthorization();
+    const permissionsPending = useAuthStore((s) => s.permissionsPending);
     const isAllowed = isAuthenticated === true && (!permission || can(permission, resourceType));
 
-    // wasEverAllowed distinguishes two different reasons a render might be
-    // denied: navigating straight to a route you never had permission for
-    // (wasEverAllowed stays false) versus a live SSE permissions_changed
-    // push (see useSessionEventsStream.ts's dropPermissions()) pulling
-    // access out from under a route that was already open (wasEverAllowed
-    // is true by the time that happens). State, not a ref: this project's
-    // lint config (react-hooks/refs) disallows reading ref.current during
-    // render at all. Adjusted directly in the render body (the React-
-    // documented "adjust state when a prop changes" pattern - see
-    // https://react.dev/learn/you-might-not-need-an-effect), not in a
-    // useEffect: react-hooks/set-state-in-effect flags a setState call
-    // inside an effect body as an avoidable cascading render, and this
-    // needs no effect at all since it's purely derived from `isAllowed`,
-    // already available during this same render. Both hooks are called
-    // unconditionally, before any early return below, so hook order stays
-    // identical across every render regardless of which branch this
-    // component takes (rules-of-hooks).
+    // wasEverAllowed distinguishes navigating straight to a route you never
+    // had permission for (stays false) from a live SSE permissions_changed
+    // push (see useSessionEventsStream.ts's dropPermissions()) revoking
+    // access from a route that was already open (true by then). Adjusted
+    // directly in the render body, not a useEffect, since it's purely
+    // derived from `isAllowed` and needs no effect. Both hooks run
+    // unconditionally before any early return, so hook order stays stable.
     const [prevIsAllowed, setPrevIsAllowed] = useState(isAllowed);
     const [wasEverAllowed, setWasEverAllowed] = useState(isAllowed);
     if (isAllowed !== prevIsAllowed) {
@@ -69,14 +65,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, permission, r
     }
 
     if (!isAllowed) {
-        // Live revoke: send straight home with no detour through the 403
-        // page. That page's copy ("you don't have permission") reads as if
-        // this were a bad direct link, which isn't what happened here, and
-        // its own "go home" button would just be one extra click to reach
-        // the same place. `replace` means the just-revoked route's history
-        // entry is gone entirely, so browser Back from here lands on
-        // whatever came before it, not back into another bounce off this
-        // same check.
+        // A permissions_changed push zeroes the whole permission list on
+        // principle, even for an unrelated change, so isAllowed can briefly
+        // read false here without a genuine revoke. Render a loader instead
+        // of navigating until the follow-up GET /auth/me confirms the route
+        // is actually still forbidden.
+        if (wasEverAllowed && permissionsPending) {
+            return <LoadingState message={t("authorization:verifyingSession")} fullScreen />;
+        }
+
+        // Confirmed live revoke: go straight home, skip the 403 page (its
+        // "you don't have permission" copy would misleadingly suggest a bad
+        // direct link). `replace` drops the revoked route from history so
+        // Back doesn't bounce off this same check again.
         if (wasEverAllowed) {
             return <Navigate to="/dashboard" replace />;
         }

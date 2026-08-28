@@ -26,7 +26,7 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
 )
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.redis.client import redis_client
-from backend.mystic_auth.user_crud.user_crud_collector import user_crud
+from backend.mystic_auth.user.user_crud_collector import user_crud
 
 PASSWORD = "StrongPass123!"
 

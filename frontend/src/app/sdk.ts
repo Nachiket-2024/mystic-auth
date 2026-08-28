@@ -51,6 +51,14 @@ export type { SearchItem } from "../mystic_auth/layout/command_palette/searchIte
 // so a logo change (favicon.svg or VITE_APP_LOGO_URL) updates everywhere.
 export { default as Logo } from "../mystic_auth/layout/app_layout/Logo";
 
+// The chrome LoginPage/SignupPage/the legal document pages render inside
+// when there's no signed-in session yet (or the page, like Privacy/Terms,
+// deliberately stays outside AppLayout even for a signed-in visitor) -
+// centered card, Logo, and the ThemeToggle/LanguageToggle/FontSizeControl
+// cluster, pinned top-right. `variant="status"` widens the card for prose
+// content (see LegalDocumentLayout) instead of the narrower default form width.
+export { default as AuthLayout } from "../mystic_auth/layout/auth_layout/AuthLayout";
+
 // Theme/language/font-size controls: the same pinned top-right toggles
 // AuthLayout gives login/signup, for pages outside the auth shell (e.g. a
 // landing page) that want the same "adjust before you sign in" affordance.
@@ -119,7 +127,7 @@ export { queryClient } from "../mystic_auth/core/queryClient";
 // Settings: add your own VITE_* fields to frontend/.env.example and
 // core/settings.ts, read them from here rather than import.meta.env
 // directly at every call site
-export { default as settings, APP_NAME } from "../mystic_auth/core/settings";
+export { default as settings, APP_NAME, SUPPORT_EMAIL } from "../mystic_auth/core/settings";
 
 // Error monitoring: reports a caught-but-still-noteworthy error the same
 // way an uncaught render error gets reported automatically (see

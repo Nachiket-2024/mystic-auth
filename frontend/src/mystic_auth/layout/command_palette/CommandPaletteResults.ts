@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { LayoutDashboard, ScrollText, Settings, ShieldCheck, Users } from "lucide-react";
+import { KeyRound, LayoutDashboard, ScrollText, Settings, ShieldCheck, Users } from "lucide-react";
 
 import { useAuthorization } from "../../authorization/useAuthorization";
 import { PERMISSIONS } from "../../authorization/permissions";
@@ -8,7 +8,8 @@ import { SEARCH_ITEMS, PAGE_CONTENT_NAMESPACES, type SearchItem } from "./search
 import { useLanguageStore } from "../../store/languageStore";
 import translations from "../../translations/translations";
 import { namespaceMatches, namespaceSearchText, scopedMatches, scopedSearchText } from "../../translations/searchText";
-import { useUsersQuery } from "../../users/userQueries";
+import { useUsersQuery } from "../../users/queries/userQueries";
+import { usePermissionCatalogQuery } from "../../policies/queries/permissionQueries";
 
 const USER_RESULTS_LIMIT = 5;
 const TEXT_MATCH_RESULTS_LIMIT = 20;
@@ -179,6 +180,36 @@ export function useCommandPaletteResults(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [q, chromeLanguage, can, extraNavItems, extraSearchItems]);
 
+    // Permission catalog entries are backend data rendered straight from the
+    // API response, not i18next copy, so no namespace sweep sees them. Small
+    // and fixed (~20 entries), so it's swept client-side rather than
+    // round-tripped per keystroke like filteredUsers below. Query only runs
+    // for viewers who can reach the Permissions page.
+    const canViewPermissions = can(PERMISSIONS.PERMISSIONS_READ);
+    const { data: permissionCatalog } = usePermissionCatalogQuery(canViewPermissions);
+    const permissionsPageLabel = resolveLabel("layout:nav.permissions");
+
+    const permissionMatches = useMemo(() => {
+        if (!q || !canViewPermissions || !permissionCatalog) return [];
+        const seen = new Set<string>();
+        const results: Result[] = [];
+        for (const entry of permissionCatalog) {
+            const haystack = `${entry.action} ${entry.resource_type} ${entry.description}`.toLowerCase();
+            if (!haystack.includes(q)) continue;
+            const key = `${entry.action}:${entry.resource_type}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            results.push({
+                kind: "match",
+                to: `/permissions?search=${encodeURIComponent(entry.action)}`,
+                label: `${entry.action} · ${entry.resource_type}`,
+                sublabel: permissionsPageLabel,
+                icon: KeyRound,
+            });
+        }
+        return results.slice(0, TEXT_MATCH_RESULTS_LIMIT);
+    }, [q, canViewPermissions, permissionCatalog, permissionsPageLabel]);
+
     // Users are real account data, not app chrome like NAV_ITEMS/SEARCH_ITEMS
     // - matched server-side (same `search` param/endpoint UsersPage.tsx
     // uses) rather than against any locally-held list, and only for callers
@@ -207,8 +238,8 @@ export function useCommandPaletteResults(
     );
 
     const filtered = useMemo(
-        () => [...filteredPages, ...filteredContent, ...textMatches, ...filteredUsers],
-        [filteredPages, filteredContent, textMatches, filteredUsers]
+        () => [...filteredPages, ...filteredContent, ...textMatches, ...permissionMatches, ...filteredUsers],
+        [filteredPages, filteredContent, textMatches, permissionMatches, filteredUsers]
     );
     // Only worth a group header once there are two-plus kinds of result to
     // tell apart - a lone "Pages" header over an all-pages list (the

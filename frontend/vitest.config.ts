@@ -97,6 +97,16 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
 
+    // Default is 5000ms. A handful of integration tests combine debounced
+    // search input with several userEvent.type()/click() interactions,
+    // which can approach that limit under CPU contention (e.g. many test
+    // files running in parallel worker threads) even though each one runs
+    // well under a second in isolation. 15000ms gives headroom for the
+    // heaviest multi-mutation tests (e.g. the Policies dialog assign+revoke
+    // round trip) under a loaded full-suite run without masking an actually
+    // hung test.
+    testTimeout: 15000,
+
     include: [
       '../tests/frontend/**/*.test.{ts,tsx}',
     ],

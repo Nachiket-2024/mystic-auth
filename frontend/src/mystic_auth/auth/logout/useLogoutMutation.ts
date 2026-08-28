@@ -5,24 +5,15 @@ import { extractApiErrorMessage } from "../../api/apiError";
 import { clearMyAccountSessionCaches } from "../session_lifecycle/clearMyAccountSessionCaches";
 import type { LogoutResponse } from "./logout_types";
 
-// Marks the auth store unauthenticated immediately rather than waiting on a
-// currentUser refetch that would 401 by design. Deliberately
-// `setAuthenticated(false)`, not `reset()`: `reset()` puts isAuthenticated
-// back to null, which ProtectedRoute reads as "still checking the session"
-// (spinner) rather than "log out now" (immediate redirect).
+// clearMyAccountSessionCaches uses setAuthenticated(false), not reset():
+// reset() sets isAuthenticated back to null, which ProtectedRoute reads as
+// "still checking" (spinner) rather than "log out now" (redirect).
 //
-// This local cleanup runs in onSettled, not onSuccess: POST /auth/logout
-// itself 400s (NO_REFRESH_TOKEN_COOKIE) whenever the refresh_token cookie is
-// already gone - e.g. it expired while this tab sat idle, or a sibling
-// tab/device already logged this session out. Gating the cleanup on success
-// meant that response threw, onSuccess never ran, and LogoutButton's
-// navigate-on-isSuccess effect never fired: the user stayed stuck looking at
-// the (now-401ing) page they were on, with no visible feedback, until they
-// manually reloaded. The user's actual goal on clicking Logout - no valid
-// session left in this browser - is achieved by clearing local state
-// regardless of how the backend call landed, mirroring the backend
-// handler's own "always clear cookies, even for an already-dead session"
-// stance (see logout_handler.py).
+// Runs in onSettled, not onSuccess: POST /auth/logout 400s whenever the
+// refresh_token cookie is already gone (expired, or logged out elsewhere),
+// which would skip onSuccess and leave the user stuck on a now-401ing page.
+// Clearing local state regardless of how the backend call landed matches
+// the backend's own "always clear cookies" stance (logout_handler.py).
 export function useLogoutMutation() {
     return useMutation<LogoutResponse, Error, void>({
         mutationFn: async () => {

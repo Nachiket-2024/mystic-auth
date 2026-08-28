@@ -45,6 +45,18 @@ describe('useCan', () => {
     expect(result.current).toBe(false);
   });
 
+  it('accepts an array action meaning "any of": true once one listed action is held', () => {
+    seed(['policies:create']);
+    const { result } = renderHook(() => useCan(['policies:read', 'policies:create']));
+    expect(result.current).toBe(true);
+  });
+
+  it('accepts an array action that returns false when none of the listed actions are held', () => {
+    seed(['users:read_own']);
+    const { result } = renderHook(() => useCan(['policies:read', 'policies:create']));
+    expect(result.current).toBe(false);
+  });
+
   it('accepts an optional resourceType argument without changing the result', () => {
     seed(['documents:view']);
     const { result: withResourceType } = renderHook(() => useCan('documents:view', 'documents'));

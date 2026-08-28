@@ -1,26 +1,33 @@
 # System Architecture
+---
 
 High-level overview of the whole stack. For the PBAC authorization pipeline specifically, see [../authorization/architecture.md](../authorization/architecture.md); for deployment/runtime topology, see [../deployment/guide.md](../deployment/guide.md).
+
+---
 
 ## Components
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Browser["Browser (SPA)"]
 
-    Browser -- "HTTPS (TLS terminated<br/>in front: see<br/>deployment/guide.md)" --> Nginx
+    Browser -- "HTTPS (TLS terminated<br/> in front: see<br/> deployment/guide.md)" --> Nginx
     Browser -- HTTPS --> Backend
 
-    Nginx["nginx<br/>(static frontend build)"]
-    Backend["FastAPI backend<br/>(uvicorn)"]
+    Nginx["nginx<br/> (static frontend build)"]
+    Backend["FastAPI backend<br/> (uvicorn)"]
 
-    Backend --> Postgres[("PostgreSQL<br/>users, policies,<br/>audit logs")]
-    Backend --> Redis[("Redis<br/>rate limits, account/chain<br/>version counters, reset/verify<br/>tokens")]
-    Backend --> Bugsink["Bugsink<br/>(self-hosted error monitoring,<br/>own DB on same Postgres server)"]
+    Backend --> Postgres[("PostgreSQL<br/> users, policies,<br/> audit logs")]
+    Backend --> Redis[("Redis<br/> rate limits, account/chain<br/> version counters, reset/verify<br/> tokens")]
+    Backend --> Bugsink["Bugsink<br/> (self-hosted error monitoring,<br/> own DB on same Postgres server)"]
     Browser -. "unhandled errors" .-> Bugsink
 
-    Backend --> Procrastinate["Procrastinate worker<br/>(async email sending,<br/>same Postgres as job queue)"]
+    Backend --> Procrastinate["Procrastinate worker<br/> (async email sending,<br/> same Postgres as job queue)"]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+
+---
 
 - **Frontend**: React + TypeScript + Chakra UI + Zustand (client state) + TanStack Query (server state). Built as a static SPA, served by nginx in production-style Compose files or Vite's dev server locally (`docker-compose.yml`).
 - **Backend**: FastAPI, async throughout (SQLAlchemy async engine, async Redis client). One process type (`backend/app/main.py`), shared by the `backend`, `procrastinate_worker`, and `alembic` containers via the same Docker image (`docker/backend.Dockerfile`) with different `command:` overrides.
@@ -42,10 +49,11 @@ flowchart TD
 ## Request lifecycle (authenticated request)
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155", "signalColor": "#334155", "actorLineColor": "#334155", "activationBorderColor": "#334155", "labelBoxBorderColor": "#334155", "labelBoxBkgColor": "#e2e8f0", "noteBorderColor": "#334155"}, "themeCSS": ".messageLine0, .messageLine1 { stroke-width: 2px !important; }"} }%%
 sequenceDiagram
     participant B as Browser
     participant M as Middleware
-    participant D as get_current_user /<br/>require_authorization
+    participant D as get_current_user /<br/> require_authorization
     participant R as Route handler
     participant DB as PostgreSQL
 
@@ -64,6 +72,7 @@ sequenceDiagram
         R-->>B: Response
     end
 ```
+---
 
 1. Browser sends a request with `access_token`/`refresh_token` httpOnly cookies (never accessible to frontend JS: see [Authentication Flows](../authentication/overview.md)).
 2. `SecurityHeadersMiddleware` and `CorrelationIdMiddleware`/`LoggingMiddleware` wrap every request (see `backend/app/main.py`, `backend/mystic_auth/auth/security/`, `backend/mystic_auth/logging/`).
@@ -76,3 +85,5 @@ sequenceDiagram
 ## Database design
 
 See [../database/design.md](../database/design.md) for the schema itself (tables, columns, foreign keys, and why several audit tables deliberately store `user_email` as a snapshot string rather than a foreign key).
+
+---

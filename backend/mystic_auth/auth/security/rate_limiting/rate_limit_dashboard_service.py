@@ -1,0 +1,196 @@
+import time
+import traceback
+from typing import Any
+
+from ....core.settings import settings
+from ....logging.logging_config import get_logger
+from ....redis.client import redis_client
+from .rate_limiter_service import RateLimiterService
+
+logger = get_logger(__name__)
+
+
+class RateLimitDashboardService:
+    """Read/admin side of the rate limiter's Redis keyspace, split out of
+    RateLimiterService so that class stays focused on the hot path
+    (record_request/rate_limited, called on every rate-limited request).
+    Backs the admin Rate Limit Dashboard only."""
+
+    @staticmethod
+    def _effective_limit(endpoint_name: str, key_scope: str) -> int:
+        """The real threshold behind one listed counter. Every counter
+        RateLimiterService itself writes (record_request) shares one limit,
+        MAX_REQUESTS_PER_WINDOW - but list_active_limits also surfaces
+        login_protection_service's login_lock:{email|ip}:* counters (see its
+        own docstring), which enforce two different, unrelated thresholds."""
+        if endpoint_name == "login_lock":
+            return (
+                settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
+                if key_scope == "ip"
+                else settings.MAX_FAILED_LOGIN_ATTEMPTS
+            )
+        return RateLimiterService.MAX_REQUESTS_PER_WINDOW
+
+    @staticmethod
+    async def reset_counter(key: str) -> None:
+        # The same Redis instance holds unrelated security-critical keys too
+        # (token revocations, reset/verify tokens, oauth_state, ...).
+        # Without this shape check, DELETE /rate-limits/{key} could delete
+        # any key, e.g. un-revoking a token, just by passing it as the path
+        # param. Only delete keys matching list_active_limits' own
+        # <endpoint>:<ip|account|email>:<identifier> shape.
+        parts = key.rsplit(":", 2)
+        if len(parts) != 3 or parts[1] not in ("ip", "account", "email"):
+            return
+
+        try:
+            await redis_client.delete(key)
+
+        except Exception:
+            logger.error("Error resetting rate limiter counter:\n%s", traceback.format_exc())
+            return
+
+        # Without clearing the scan snapshot cache, the dashboard's
+        # post-reset refetch could re-serve a stale snapshot still listing
+        # this just-deleted key. Clears every cached pattern rather than
+        # figuring out which ones this key could match; an admin-only,
+        # low-QPS page can afford to lose the rest of the cache.
+        RateLimitDashboardService._scan_snapshot_cache = {}
+
+    # Upper bound on keys one list_active_limits call will walk for a
+    # total/page. Keeps the dashboard on real numbered pages while capping
+    # SCAN cost: production keyspace can run into the tens of thousands of
+    # keys, and a capped walk on read beats a secondary index on every
+    # write for an admin-only, low-QPS page.
+    MAX_SCANNED_KEYS: int = 5000
+    _SCAN_BATCH: int = 500
+
+    # TTL-bound counters keep expiring/appearing, so two page requests
+    # walking the keyspace moments apart can disagree on what exists (page
+    # 2 could return rows beyond what page 1's total implied). Caching the
+    # matched-key snapshot per filter pattern gives consecutive page
+    # requests a consistent view to slice.
+    _SCAN_SNAPSHOT_TTL_SECONDS: float = 5.0
+    _scan_snapshot_cache: dict[str, tuple[float, list[str], bool]] = {}
+
+    @staticmethod
+    async def list_active_limits(
+        page: int = 1,
+        page_size: int = 25,
+        scope: str | None = None,
+        endpoint: str | None = None,
+        identifier: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int, bool]:
+        """
+        Powers the admin Rate Limit Dashboard. `scope`/`endpoint`/
+        `identifier` filter via Redis-side `MATCH`, not a Python filter
+        after fetching everything. `identifier` matches as a substring.
+
+        Walks the keyspace with bounded `SCAN` batches (never `KEYS`, which
+        blocks Redis) up to MAX_SCANNED_KEYS, sorts the keys for a stable
+        order, and slices out the requested page. Only that page's keys are
+        read (GET + TTL), so Redis round-trip cost stays proportional to
+        page_size. Doesn't touch record_request's hot path: adding a
+        secondary index there would cost every login/signup/refresh call
+        just to speed up a rarely-viewed admin page.
+
+        Returns (entries, total, truncated). `truncated` means the walk hit
+        MAX_SCANNED_KEYS before exhausting the keyspace, so `total` is a
+        floor, not exact; the caller should prompt narrowing the filters.
+        """
+        scope_segment = scope if scope in ("ip", "account", "email") else "*"
+        identifier_segment = f"*{identifier}*" if identifier else "*"
+        pattern = f"{endpoint or '*'}:{scope_segment}:{identifier_segment}"
+
+        now = time.monotonic()
+        cached = RateLimitDashboardService._scan_snapshot_cache.get(pattern)
+        if cached is not None and now - cached[0] < RateLimitDashboardService._SCAN_SNAPSHOT_TTL_SECONDS:
+            _, matched_keys, truncated = cached
+        else:
+            matched_keys = []
+            truncated = False
+            cursor = 0
+            try:
+                while True:
+                    cursor, batch = await redis_client.scan(
+                        cursor=cursor, match=pattern, count=RateLimitDashboardService._SCAN_BATCH
+                    )
+                    # str() only satisfies redis-py's bytes-by-default stubs;
+                    # decode_responses=True makes this always a str already.
+                    matched_keys.extend(str(key) for key in batch)
+                    if len(matched_keys) >= RateLimitDashboardService.MAX_SCANNED_KEYS:
+                        matched_keys = matched_keys[:RateLimitDashboardService.MAX_SCANNED_KEYS]
+                        truncated = True
+                        break
+                    if cursor == 0:
+                        break
+            except Exception:
+                logger.error("Error scanning rate limiter keys:\n%s", traceback.format_exc())
+                return [], 0, False
+
+            # When `scope` isn't given, the pattern's scope segment stays
+            # "*" (Redis globs can't express "one of ip|account|email"), so
+            # the walk also matches unrelated two-colon keys elsewhere in
+            # Redis (e.g. the authz cache). Filter those out before
+            # computing total/slicing, or a page could render empty on
+            # non-rate-limit keys while a later page had real rows.
+            matched_keys = [
+                key for key in matched_keys
+                if len(key.rsplit(":", 2)) == 3 and key.rsplit(":", 2)[1] in ("ip", "account", "email")
+            ]
+
+            matched_keys.sort()
+            # Opportunistically drop expired snapshots so the cache doesn't
+            # grow unbounded across distinct filter combinations over time.
+            RateLimitDashboardService._scan_snapshot_cache = {
+                key: value
+                for key, value in RateLimitDashboardService._scan_snapshot_cache.items()
+                if now - value[0] < RateLimitDashboardService._SCAN_SNAPSHOT_TTL_SECONDS
+            }
+            RateLimitDashboardService._scan_snapshot_cache[pattern] = (now, matched_keys, truncated)
+
+        total = len(matched_keys)
+
+        offset = max(0, page - 1) * page_size
+        page_keys = matched_keys[offset:offset + page_size]
+
+        if not page_keys:
+            return [], total, truncated
+
+        async with redis_client.pipeline(transaction=False) as pipe:
+            for key in page_keys:
+                pipe.get(key)
+                pipe.ttl(key)
+            results = await pipe.execute()
+
+        entries: list[dict[str, Any]] = []
+        for i, key in enumerate(page_keys):
+            count_raw, ttl = results[2 * i], results[2 * i + 1]
+            # redis_client is constructed with decode_responses=True (see
+            # redis/client.py), so this is always str at runtime; the cast
+            # is only to satisfy the client library's bytes-by-default stubs.
+            parts = str(key).rsplit(":", 2)
+            if len(parts) != 3 or parts[1] not in ("ip", "account", "email"):
+                # Shouldn't happen given the MATCH pattern above, but a key
+                # that doesn't parse cleanly is skipped rather than shown
+                # with garbage endpoint/identifier fields.
+                continue
+            endpoint_name, key_scope, identifier = parts
+            entries.append({
+                "key": key,
+                "endpoint": endpoint_name,
+                "scope": key_scope,
+                "identifier": identifier,
+                "count": int(count_raw) if count_raw is not None else 0,
+                # login_protection_service.py's login_lock:{email|ip}:*
+                # counters aren't rate_limiter_service's own - they're a
+                # failed-attempt lockout with their own, different
+                # thresholds, not RateLimiterService.MAX_REQUESTS_PER_WINDOW.
+                "limit": RateLimitDashboardService._effective_limit(endpoint_name, key_scope),
+                "resets_in_seconds": ttl if ttl is not None and ttl >= 0 else None,
+            })
+
+        return entries, total, truncated
+
+
+rate_limit_dashboard_service = RateLimitDashboardService()

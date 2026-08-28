@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from backend.mystic_auth.api.pbac_routes.policy_crud_routes import (
+from backend.mystic_auth.api.pbac_routes.policies.policy_crud_routes import (
     create_policy,
     update_policy,
 )
@@ -21,7 +21,7 @@ from backend.mystic_auth.authorization.schemas.policy_schema import (
     PolicyUpdate,
 )
 
-ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policy_crud_routes"
+ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_crud_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 
 CALLER = {"email": "caller@example.com", "name": "Caller"}
@@ -50,7 +50,7 @@ async def test_create_policy_rejects_invalid_conditions_before_touching_reposito
     create_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
-        await create_policy(policy_data, current_user=CALLER, db="fake-db")
+        await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 422
     get_by_name_mock.assert_not_called()
@@ -67,7 +67,7 @@ async def test_create_policy_rejects_unknown_condition_key(mocker):
     create_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
-        await create_policy(policy_data, current_user=CALLER, db="fake-db")
+        await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 422
     create_mock.assert_not_called()
@@ -84,7 +84,7 @@ async def test_create_policy_allows_valid_conditions(mocker):
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock, return_value=created)
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
 
-    result = await create_policy(policy_data, current_user=CALLER, db="fake-db")
+    result = await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert result is created
 
@@ -97,7 +97,7 @@ async def test_update_policy_rejects_invalid_conditions_before_touching_reposito
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
-        await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+        await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 422
     update_mock.assert_not_called()
@@ -122,7 +122,7 @@ async def test_update_policy_does_not_validate_when_conditions_untouched(mocker)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
     mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
-    await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+    await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     update_mock.assert_awaited_once()
 
@@ -143,7 +143,7 @@ async def test_update_policy_rejects_deactivating_a_baseline_policy(mocker):
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
-        await update_policy(SYSTEM_SUPERUSER_POLICY_NAME, update_data, current_user=CALLER, db="fake-db")
+        await update_policy(SYSTEM_SUPERUSER_POLICY_NAME, update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     assert exc_info.value.status_code == 403
     update_mock.assert_not_called()
@@ -163,7 +163,7 @@ async def test_update_policy_allows_reactivating_a_baseline_policy(mocker):
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
     mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
-    await update_policy(SYSTEM_SUPERUSER_POLICY_NAME, update_data, current_user=CALLER, db="fake-db")
+    await update_policy(SYSTEM_SUPERUSER_POLICY_NAME, update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     update_mock.assert_awaited_once()
 
@@ -175,6 +175,6 @@ async def test_update_policy_allows_explicitly_clearing_conditions_to_null(mocke
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
 
-    await update_policy("some_policy", update_data, current_user=CALLER, db="fake-db")
+    await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
     update_mock.assert_awaited_once()

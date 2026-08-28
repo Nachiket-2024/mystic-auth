@@ -6,7 +6,7 @@ from ...emails.email_template_service import render_transactional_email
 from ...logging.logging_config import get_logger
 from ...procrastinate_tasks.email_tasks import send_email_task
 from ...redis.client import redis_client
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
 from ..refresh_token_logic.refresh_token_service import refresh_token_service
 from ..token_logic.token_version_store import TokenVersionUnavailableError
 from .password_service import password_service

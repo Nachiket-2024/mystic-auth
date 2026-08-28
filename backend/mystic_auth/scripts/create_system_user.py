@@ -2,6 +2,8 @@ import asyncio
 import getpass
 
 from ..auth.password_logic.password_service import password_service
+from ..auth.refresh_token_logic.refresh_token_service import refresh_token_service
+from ..authorization.caching.authorization_cache_service import authorization_cache_service
 from ..authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
@@ -13,11 +15,11 @@ from ..authorization.policies.default_policies import (
 from ..authorization.repositories.policy_repository import policy_repository
 from ..database.connection import database
 from ..logging.logging_config import get_logger
-from ..user_crud.user_crud_collector import user_crud
+from ..user.user_crud_collector import user_crud
 
 # UserRole is kept as display/grouping metadata for the system account; it no
 # longer grants any access itself (see PBAC policy assignment below).
-from ..user_table.user_model import UserRole
+from ..user.user_model import UserRole
 
 logger = get_logger(__name__)
 
@@ -119,7 +121,13 @@ async def create_system_user():
                     "System superuser promotion declined (Google-only account, no password): %s", email
                 )
                 return
+            # Revoke old tokens and cache before delete, same as purge_user_account,
+            # so a stale cookie/cache for this email can't carry over to the new account.
+            await refresh_token_service.revoke_all_tokens_for_user(email, db)
             await user_crud.delete(existing, db)
+            await authorization_cache_service.invalidate_user_policies(email)
+            await authorization_cache_service.invalidate_user_permissions(email)
+
             logger.info("Deleted Google-only account to recreate as system user: %s", email)
             existing = None
 

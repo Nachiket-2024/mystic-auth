@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Button, Field, Heading, Stack } from "@chakra-ui/react";
+import { Button, Field, Heading, Stack, Text, Wrap } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
+import Badge from "../ui/Badge";
 import Card from "../ui/Card";
 import FormAlert from "../ui/FormAlert";
 import PasswordInput from "../ui/PasswordInput";
@@ -27,6 +28,12 @@ interface ChangePasswordCardProps {
  * mutation instance (not shared with ProfileNameCard) so saving a password
  * change never shows a loading spinner or a stale error on the unrelated
  * name card, and vice versa.
+ *
+ * Also owns the read-only Set/Not set status badge - it used to live on
+ * the Account Status tab, but that's authorization info (policies/
+ * permissions), and whether a password is set is squarely a password
+ * concern, not an authorization one. Living here also means the status
+ * badge sits right next to the actual form that would change it.
  */
 const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, onDirtyChange }) => {
     const { t } = useTranslation("account_settings");
@@ -85,9 +92,19 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
 
     return (
         <Card p={5} flex="1" flexBasis="80" maxW="3xl">
-            <Heading as="h2" size="lg" mb={3} textStyle="sectionHeader">
-                {hasPassword ? t("changePassword.changeTitle") : t("changePassword.setTitle")}
-            </Heading>
+            <Wrap gap={2} align="center" mb={1}>
+                <Heading as="h2" size="lg" textStyle="sectionHeader">
+                    {hasPassword ? t("changePassword.changeTitle") : t("changePassword.setTitle")}
+                </Heading>
+                <Badge colorPalette={hasPassword ? "brand" : "gray"} variant="subtle" size="md" fontSize="md">
+                    {hasPassword ? t("accountStatus.set") : t("accountStatus.notSet")}
+                </Badge>
+            </Wrap>
+            <Text color="fg.muted" fontSize="md" mb={4}>
+                {hasPassword
+                    ? t("accountStatus.hasPasswordDescription")
+                    : t("accountStatus.noPasswordDescription")}
+            </Text>
             <Stack as="form" onSubmit={handlePasswordSubmit} gap={4}>
                 <Field.Root>
                     <Field.Label fontSize="md">{hasPassword ? t("changePassword.newPasswordLabel") : t("changePassword.setPasswordFieldLabel")}</Field.Label>
@@ -102,6 +119,7 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                         aria-invalid={!!passwordError || passwordMutation.isError}
                         aria-describedby={passwordError ? "password-local-error" : passwordMutation.isError ? "password-mutation-error" : undefined}
                         size="lg"
+                        maxLength={128}
                         {...SEARCH_INPUT_PROPS}
                     />
                 </Field.Root>
@@ -138,6 +156,7 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                             aria-invalid={!!passwordError}
                             aria-describedby={passwordError ? "password-local-error" : undefined}
                             size="lg"
+                            maxLength={128}
                             {...SEARCH_INPUT_PROPS}
                         />
                     </Field.Root>

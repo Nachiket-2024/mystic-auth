@@ -1,8 +1,11 @@
 # Signup and Email Verification
+---
 
 Split out of [Authentication Flows](overview.md) so the account-creation path (signup, first
 verification email, resend, redemption) has room for its own diagram instead of being a stepwise
 list next to every other flow.
+
+---
 
 ## Components
 
@@ -19,6 +22,7 @@ list next to every other flow.
 ## Signup flow
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155", "signalColor": "#334155", "actorLineColor": "#334155", "activationBorderColor": "#334155", "labelBoxBorderColor": "#334155", "labelBoxBkgColor": "#e2e8f0", "noteBorderColor": "#334155"}, "themeCSS": ".messageLine0, .messageLine1 { stroke-width: 2px !important; }"} }%%
 sequenceDiagram
     participant U as User (browser)
     participant API as Backend
@@ -39,6 +43,7 @@ sequenceDiagram
         API-->>U: 200 generic response
     end
 ```
+---
 
 1. **Hash unconditionally.** `password_service.hash_password` runs before the existing-account
    check, on both the free and taken paths. Argon2 hashing is the expensive step; skipping it only
@@ -57,6 +62,7 @@ sequenceDiagram
 ## Email verification flow
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155", "signalColor": "#334155", "actorLineColor": "#334155", "activationBorderColor": "#334155", "labelBoxBorderColor": "#334155", "labelBoxBkgColor": "#e2e8f0", "noteBorderColor": "#334155"}, "themeCSS": ".messageLine0, .messageLine1 { stroke-width: 2px !important; }"} }%%
 sequenceDiagram
     participant U as User (browser)
     participant API as Backend
@@ -79,6 +85,7 @@ sequenceDiagram
     API-->>U: 200 generic response (always, either way)
     Note over API: only sends a new email if the account exists and is unverified
 ```
+---
 
 1. The verification token is a scoped JWT (`role="verify"` internally, distinct from a login
    token), paired with a Redis key `verify:{token}` that makes it single-use even within the JWT's
@@ -116,3 +123,5 @@ Postgres/Redis. See [Testing Overview](../testing/overview.md).
 
 - [Authentication Flows](overview.md): tokens/cookies, and how this fits alongside login/OAuth2.
 - [Security Decisions: Auth & Session](../security/decisions-auth.md): the enumeration-resistance and timing rationale.
+
+---

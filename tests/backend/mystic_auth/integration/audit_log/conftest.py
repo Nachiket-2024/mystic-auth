@@ -4,7 +4,7 @@
 # whole test session, pointed at the same database this suite runs
 # against. Unlike the docker-full-suite CI job, the native backend job
 # (and a plain local `pytest` run) has no separate `procrastinate_worker`
-# container, and audit log rows (see AuthorizationService._log_decision)
+# container, and audit log rows (see authorization_audit_logger.log_decision)
 # only ever appear once *some* worker consumes the queue.
 # poll_for_entries (audit_log_test_accounts.py) polls for exactly that, so
 # without a worker actually draining the queue it always times out and
@@ -56,23 +56,54 @@ def _run_procrastinate_worker():
     env["PYTHONPATH"] = str(_BACKEND_DIR)
     log_path = Path(tempfile.gettempdir()) / "mystic_auth_test_procrastinate_worker.log"
     log_file = log_path.open("w")
-    proc = subprocess.Popen(  # noqa: S603
-        ["procrastinate", "--app=mystic_auth.procrastinate_tasks.procrastinate_app.app", "worker"],  # noqa: S607
+    proc = subprocess.Popen(
+        ["procrastinate", "--app=mystic_auth.procrastinate_tasks.procrastinate_app.app", "worker"],
         cwd=_BACKEND_DIR,
         env=env,
         stdout=log_file,
         stderr=subprocess.STDOUT,
     )
     # No readiness signal on stdout to wait on (the CLI logs to stderr with
-    # no fixed "ready" line): a short fixed wait before the first test
-    # starts deferring jobs is simpler than parsing worker log output, and
-    # this only costs time once per session, not once per test.
-    time.sleep(1)
+    # no fixed "ready" line), so instead of guessing a fixed sleep, poll the
+    # same `procrastinate ... healthchecks` command docker-compose.yml's own
+    # procrastinate_worker healthcheck uses (confirms the DB connection and
+    # procrastinate_jobs table are actually reachable) in a short subprocess
+    # of its own, up to READINESS_TIMEOUT_SECONDS. A fixed sleep here (1s,
+    # previously) raced the very first tests in a full suite run: cold
+    # module imports/connection setup for this subprocess sometimes took
+    # longer than that under load, so the first test(s) deferred a job the
+    # worker wasn't listening for yet, which then sat unprocessed until
+    # poll_for_entries (audit_log_test_accounts.py) gave up - a real,
+    # observed flake, not a bug in the code under test.
+    READINESS_TIMEOUT_SECONDS = 15.0
+    deadline = time.monotonic() + READINESS_TIMEOUT_SECONDS
+    ready = False
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            break
+        check = subprocess.run(
+            ["procrastinate", "--app=mystic_auth.procrastinate_tasks.procrastinate_app.app", "healthchecks"],
+            cwd=_BACKEND_DIR,
+            env=env,
+            capture_output=True,
+        )
+        if check.returncode == 0:
+            ready = True
+            break
+        time.sleep(0.2)
     if proc.poll() is not None:
         log_file.close()
         raise RuntimeError(
             f"procrastinate worker subprocess exited immediately (code {proc.returncode}); "
             f"see {log_path}"
+        )
+    if not ready:
+        proc.terminate()
+        proc.wait(timeout=10)
+        log_file.close()
+        raise RuntimeError(
+            f"procrastinate worker subprocess did not become ready within "
+            f"{READINESS_TIMEOUT_SECONDS}s; see {log_path}"
         )
     yield
     proc.terminate()

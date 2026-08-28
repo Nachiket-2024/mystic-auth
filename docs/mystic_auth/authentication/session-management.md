@@ -1,6 +1,9 @@
 # Session Management
+---
 
 This doc covers the Manage Sessions feature across backend, frontend, database, and tests. It is split out of the main authentication overview so that login, refresh, and logout remain readable while the session-display edge cases stay documented in one place.
+
+---
 
 ## Feature map
 
@@ -93,6 +96,7 @@ A Redis outage means `bump_account_version`/`bump_chain_version` cannot be confi
 Server-side revocation always takes effect immediately (the next request from an affected session gets `401`, see [Authentication overview](overview.md#current-session-lookups-get-authme)), but a browser tab that isn't actively making requests has no way to notice that on its own.
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155", "signalColor": "#334155", "actorLineColor": "#334155", "activationBorderColor": "#334155", "labelBoxBorderColor": "#334155", "labelBoxBkgColor": "#e2e8f0", "noteBorderColor": "#334155"}, "themeCSS": ".messageLine0, .messageLine1 { stroke-width: 2px !important; }"} }%%
 sequenceDiagram
     participant TabA as Tab A (revokes)
     participant API as Backend
@@ -107,6 +111,7 @@ sequenceDiagram
     TabB->>API: GET /auth/me / GET /auth/sessions (real check)
     API-->>TabB: 401, or a shorter session list
 ```
+---
 
 1. **Push (primary).** `GET /auth/session-events` is a Server-Sent Events stream, one per open tab,
    subscribed to a per-account Redis Pub/Sub channel (`session_events:{email}`).
@@ -159,6 +164,7 @@ The response never exposes `current_jti`, `chain_id`, raw JWTs, token expiry int
 `DELETE /auth/sessions/{session_id}` ends another active session owned by the current user:
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Start(["DELETE /auth/sessions/{session_id}"]) --> Own{"Row exists, active,\nand owned by caller?"}
     Own -- "no (missing/revoked/foreign)" --> R404["404"]
@@ -168,7 +174,9 @@ flowchart TD
     Bump -- "confirmed" --> Mark["mark row revoked_at\nlog security audit event"]
     Mark --> R200["200"]
     Bump -- "Redis unreachable" --> R503["503\nSESSION_REVOCATION_UNAVAILABLE\n(row left untouched)"]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 1. **Ownership check runs first.** A missing, already-revoked, or foreign (belongs to another
    user) session id returns `404`, before any version is touched, so a caller cannot use guessed
@@ -210,3 +218,5 @@ The session feature is covered by:
 - Backend integration tests using real Postgres and Redis for multi-device login, refresh rotation, targeted revoke, self-revoke rejection, foreign-session rejection, logout, logout-all, and session cleanup after password/account lifecycle changes.
 - Backend unit tests cover the SSE stream generator (`user_session/session_events.py`) against real Redis Pub/Sub, including publish/subscribe, heartbeats, and disconnect handling. An integration test confirms that a targeted session revoke publishes. The `GET /auth/session-events` route itself is only integration-tested for its auth contract because httpx's ASGITransport test harness does not reliably support a held-open streaming response.
 - Frontend integration tests for the Manage Sessions card list, loading, error, empty, current-session, and revoke flows, plus a unit test for `useSessionEventsStream` (connects only while authenticated, closes on unmount, invalidates the relevant queries on a push event).
+
+---

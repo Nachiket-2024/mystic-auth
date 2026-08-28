@@ -19,6 +19,7 @@
     "enabled": "सक्षम",
     "disabled": "अक्षम",
     "failedToLoadData": "डेटा लोड करण्यात अयशस्वी",
+    "notAuthorizedToView": "हे पाहण्याची परवानगी तुमच्याकडे नाही.",
     "noDataAvailable": "कोणताही डेटा उपलब्ध नाही",
     "errorBoundary": {
         "title": "काहीतरी चूक झाली",

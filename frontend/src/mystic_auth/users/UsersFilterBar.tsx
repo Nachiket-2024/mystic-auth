@@ -3,9 +3,9 @@ import { HStack, Input, Stack } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import StyledSelect from "../ui/StyledSelect";
-import { SEARCH_INPUT_PROPS } from "../ui/styles/inputStyles";
+import { SEARCH_INPUT_PROPS, SEARCH_QUERY_MAX_LENGTH } from "../ui/styles/inputStyles";
 import { PERMISSIONS } from "../authorization/permissions";
-import { usePoliciesQuery } from "../policies/policyQueries";
+import { usePoliciesQuery } from "../policies/queries/policyQueries";
 import { ROLE_OPTIONS, capitalize } from "./usersColumns";
 
 export const ALL_VALUE = "";
@@ -55,6 +55,7 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     maxW="sm"
+                    maxLength={SEARCH_QUERY_MAX_LENGTH}
                     {...SEARCH_INPUT_PROPS}
                 />
                 {searchRowExtra}

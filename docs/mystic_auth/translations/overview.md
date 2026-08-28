@@ -1,4 +1,5 @@
 # Translations
+---
 
 The frontend renders in multiple languages via [`react-i18next`](https://react.i18next.com/). This
 doc covers what's supported today, how the moving pieces fit together, and a step-by-step
@@ -15,6 +16,8 @@ how this fits into the rest of `frontend/src/mystic_auth/`.
 | Hindi | `hi` | हिंदी |
 | Marathi | `mr` | मराठी |
 | Gujarati | `gu` | ગુજરાતી |
+
+---
 
 The language toggle (`LanguageToggle`, in the navbar next to the dark/light mode toggle) doesn't
 just switch between these four - it offers **seven modes**:
@@ -78,6 +81,7 @@ Components read strings the normal `react-i18next` way:
 const { t } = useTranslation("layout");
 return <Text>{t("signedInAs")}</Text>;
 ```
+---
 
 ### 2. Date/month/numeral formatting: not the translation library's job
 
@@ -94,6 +98,8 @@ language touches all of them the same shape:
 
 `frontend/src/mystic_auth/ui/dateFormat.ts` composes these into the actual formatters
 (`formatMemberSince`, `formatDateTime`, `formatTimeOnly`) used by pages that show timestamps.
+
+---
 
 ### 3. The language store: `frontend/src/mystic_auth/store/languageStore.ts`
 
@@ -121,6 +127,8 @@ interface ResolvedLanguages {
 | `en+mr` | `en` | `mr` |
 | `en+gu` | `en` | `gu` |
 
+---
+
 `pageLanguage` drives the translation library's global active language (`translations.changeLanguage(pageLanguage)`),
 so every ordinary `useTranslation()` call across the app follows it automatically - no per-component
 change needed. `chromeLanguage` is consumed explicitly by three call sites:
@@ -141,6 +149,8 @@ change needed. `chromeLanguage` is consumed explicitly by three call sites:
 `chromeLanguage` - there's no single correct value for a mixed-language document, and most
 assistive tech cares most about the page's actual content.
 
+---
+
 ### 4. The toggle itself: `frontend/src/mystic_auth/layout/controls/LanguageToggle.tsx`
 
 A plain click-to-open dropdown (Chakra's `Select`, the same component `StyledSelect.tsx` wraps
@@ -150,6 +160,8 @@ overrides rather than a typeable search box. With only seven options, a search b
 its keep the way it would past a few dozen languages - this matches how most real-world language
 switchers (GitHub, Wikipedia, Google) work at this scale. Click to open, click an option, closes;
 the current selection stays visible on the trigger at rest either way.
+
+---
 
 ### 5. Backend error codes: `frontend/src/mystic_auth/api/apiError.ts`
 
@@ -207,3 +219,5 @@ data file this touches, see [Tutorial: Adding a New Language](adding-a-language.
   fit into the rest of the frontend module layout.
 - [Testing Overview](../testing/overview.md): how to run the frontend Vitest suite the tutorial's
   verification step uses.
+
+---

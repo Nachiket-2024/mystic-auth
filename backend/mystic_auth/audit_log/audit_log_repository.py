@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql.elements import UnaryExpression
 
+from ..core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
 from .audit_log_model import AuditLog
 
 # Duplicated from audit_log_service.py's LOGIN_SUCCESS/LOGIN_FAILURE/
@@ -51,7 +52,7 @@ def _apply_filters(
     matches against fixed vocabularies (this module's own event_type
     constants, and a bool)."""
     if search:
-        stmt = stmt.where(AuditLog.user_email.ilike(f"%{search}%"))
+        stmt = stmt.where(AuditLog.user_email.ilike(ilike_pattern(search), escape=ILIKE_ESCAPE_CHAR))
     if event_type == "login":
         # UI-only alias (see frontend securityEventTypes.ts): the filter
         # dropdown offers one "login" option instead of separately listing
@@ -62,7 +63,7 @@ def _apply_filters(
     elif event_type:
         stmt = stmt.where(AuditLog.event_type == event_type)
     if ip_address:
-        stmt = stmt.where(AuditLog.ip_address.ilike(f"%{ip_address}%"))
+        stmt = stmt.where(AuditLog.ip_address.ilike(ilike_pattern(ip_address), escape=ILIKE_ESCAPE_CHAR))
     if success is not None:
         stmt = stmt.where(AuditLog.success == success)
     return stmt

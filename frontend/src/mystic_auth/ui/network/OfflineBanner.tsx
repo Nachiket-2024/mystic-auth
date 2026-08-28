@@ -11,15 +11,11 @@ const RECONNECTED_BANNER_MS = 4000;
 
 /**
  * Fixed banner reflecting networkStatusStore's isOnline flag, mounted once
- * at the app root (App.tsx) alongside Toaster/RouteProgressBar. Without
- * this, losing the connection shows up only as scattered failed-request
- * toasts per action - this gives it one unmissable, unambiguous source
- * instead.
+ * at the app root. Without it, losing the connection only shows up as
+ * scattered failed-request toasts; this gives it one unmissable source.
  *
- * Briefly confirms reconnection too (status="success" for
- * RECONNECTED_BANNER_MS), then hides itself, rather than just disappearing
- * the instant the offline banner would - same "temporary reassurance, not
- * permanent chrome" reasoning as RouteProgressBar's own bar.
+ * Briefly confirms reconnection too (RECONNECTED_BANNER_MS), then hides
+ * itself, same "temporary reassurance" reasoning as RouteProgressBar.
  */
 const OfflineBanner: React.FC = () => {
     const { t } = useTranslation("ui_text");
@@ -28,17 +24,10 @@ const OfflineBanner: React.FC = () => {
     const [lastSeenOnline, setLastSeenOnline] = useState(isOnline);
     const [showReconnected, setShowReconnected] = useState(false);
 
-    // "Adjust state during render" (React's own sanctioned replacement for
-    // setState-in-an-effect, see react-hooks/set-state-in-effect - same
-    // pattern and reasoning as ConfirmDialog.tsx's frozen title/description
-    // snapshot): reacting to the isOnline transition has to happen on the
-    // very render it flips, not a tick later via an effect, so a
-    // false -> true reconnect right before a component unmount still
-    // registers. Only an actual false -> true transition earns the
-    // confirmation - a page that loads already online, or one that's still
-    // offline, never sets it; flipping back offline while the confirmation
-    // is still showing clears it immediately in favor of the offline
-    // warning below.
+    // Adjust state during render (same pattern as ConfirmDialog.tsx), not an
+    // effect, so a false->true reconnect right before unmount still
+    // registers. Only that actual transition sets showReconnected; flipping
+    // back offline clears it immediately in favor of the warning below.
     if (isOnline !== lastSeenOnline) {
         setLastSeenOnline(isOnline);
         setShowReconnected(isOnline);

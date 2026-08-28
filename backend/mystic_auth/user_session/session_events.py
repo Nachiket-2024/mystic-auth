@@ -16,6 +16,30 @@ _CHANNEL_TEMPLATE = "session_events:{email}"
 # dead and close it.
 _HEARTBEAT_SECONDS = 20
 
+# Upper bound on how long one SSE connection stays open. Past this, the
+# generator returns and the response ends normally; EventSource treats that
+# like a dropped connection and reconnects on its own. Bounds how long a
+# stuck client can hold a Redis pubsub connection open, and gives a
+# connection that misses the shutdown signal a ceiling too. Long enough
+# that reconnects are rare, short enough to never block a deploy's
+# shutdown timeout.
+_MAX_CONNECTION_SECONDS = 15 * 60
+
+# Set from main.py's lifespan shutdown, right before it disposes the DB pool
+# and closes redis_client. Lets every open session_event_stream() loop
+# notice immediately and return, instead of the ASGI server waiting on the
+# next heartbeat or _MAX_CONNECTION_SECONDS. See session_event_stream's
+# docstring for why polling request.is_disconnected() doesn't work here.
+_shutdown_event = asyncio.Event()
+
+
+def signal_shutdown() -> None:
+    """Called once from main.py's lifespan teardown. Wakes every currently
+    open session_event_stream() loop so it exits immediately instead of the
+    process hanging past its graceful-shutdown timeout waiting for
+    long-lived SSE connections to drain on their own."""
+    _shutdown_event.set()
+
 
 async def publish_session_revoked(email: str) -> None:
     """
@@ -103,14 +127,59 @@ async def session_event_stream(email: str) -> AsyncIterator[str]:
     `yield` after the socket closes fails to send, which surfaces here as
     asyncio.CancelledError (handled below) or propagates out to the finally
     block either way.
+
+    Bounded instead by _MAX_CONNECTION_SECONDS (a periodic clean cutoff the
+    client's EventSource just reconnects from) and _shutdown_event (an
+    immediate clean stop on SIGTERM/reload) - see both module-level comments
+    above. Neither closes the stream the way the old is_disconnected() bug
+    did: that was closing within milliseconds of opening, over and over,
+    with the client racing to reconnect the whole time. These fire at most
+    once per _MAX_CONNECTION_SECONDS, or once, ever, per process shutdown -
+    ordinary long-lived connections are unaffected in between.
     """
     channel = _CHANNEL_TEMPLATE.format(email=email)
     pubsub = redis_client.pubsub()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _MAX_CONNECTION_SECONDS
     try:
         await pubsub.subscribe(channel)
 
         while True:
-            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=_HEARTBEAT_SECONDS)
+            # Non-blocking drain first, before honoring shutdown/cutoff:
+            # Redis can push a message into the local buffer before a
+            # shutdown is noticed, and ending the stream without draining it
+            # would silently lose an event that already arrived.
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0)
+            if message is not None:
+                yield f"data: {message['data']}\n\n"
+                continue
+
+            if _shutdown_event.is_set():
+                return
+
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return
+
+            get_message_task = asyncio.ensure_future(
+                pubsub.get_message(ignore_subscribe_messages=True, timeout=min(_HEARTBEAT_SECONDS, remaining))
+            )
+            shutdown_task = asyncio.ensure_future(_shutdown_event.wait())
+            try:
+                done, pending = await asyncio.wait(
+                    {get_message_task, shutdown_task}, return_when=asyncio.FIRST_COMPLETED
+                )
+            except asyncio.CancelledError:
+                get_message_task.cancel()
+                shutdown_task.cancel()
+                raise
+            for task in pending:
+                task.cancel()
+
+            if shutdown_task in done:
+                return
+
+            message = get_message_task.result()
 
             if message is None:
                 # Nothing arrived within the heartbeat window: a comment

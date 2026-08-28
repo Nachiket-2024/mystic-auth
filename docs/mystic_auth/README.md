@@ -1,4 +1,5 @@
 # Documentation
+---
 
 Documentation for this full-stack template, organized by feature/domain to mirror the actual code layout (`backend/mystic_auth/<domain>/`, `frontend/src/mystic_auth/<domain>/`). If something here disagrees with the code, the code wins, so file an issue or update the doc.
 
@@ -134,7 +135,8 @@ This is the template's own reference documentation, belonging to upstream and no
 
 ## Project Story
 
-- [Project Story](project-story/README.md): where this template came from and how it evolved, straight from the commit history
+- [Project Story](project-story/README.md): where this template came from and how its architecture settled into its current shape
+- [How It Evolved](project-story/timeline.md): the commit-by-commit log, straight from the commit history
 - [The Tools That Built It](project-story/tools.md): the workflows that actually did the work, from manual ChatGPT + VSCode through Claude Code and the first Codex pass
 
 ---
@@ -157,3 +159,5 @@ Anyone adding a new protected endpoint, a new permission, a new condition type, 
 ## Source of truth
 
 This documentation describes the code as it exists in `backend/mystic_auth/` and `frontend/src/mystic_auth/` at the time of writing. If something here disagrees with the code, the code wins.
+
+---

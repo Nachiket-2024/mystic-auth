@@ -17,6 +17,17 @@ interface AuthState {
     role: string | null;
     /** Flat list of every action string the caller currently holds via their active policies. */
     permissions: string[];
+    /** True from the instant dropPermissions() zeroes the list until the
+     *  follow-up GET /auth/me resolves (setProfile) or fails
+     *  (clearProfile/setAuthenticated(false)/reset) - i.e. "permissions is
+     *  known-stale right now, don't treat an empty list as authoritative
+     *  yet". See ProtectedRoute.tsx for why this matters: without it, a
+     *  permissions_changed push for an action unrelated to the currently
+     *  open route would still transiently zero `permissions`, `can()` would
+     *  briefly report false for the actual required action, and
+     *  ProtectedRoute would bounce the tab to /dashboard before the
+     *  refetch even had a chance to prove the route was never affected. */
+    permissionsPending: boolean;
     /** Whether the account currently has a usable password credential:
      *  false for an OAuth-only account. See CurrentUserProfile. */
     hasPassword: boolean;
@@ -38,7 +49,8 @@ interface AuthState {
      *  it changed, so the safe assumption until the follow-up GET /auth/me
      *  lands is "holds nothing" rather than continuing to trust whatever
      *  was cached before the change. isAuthenticated/profile fields are
-     *  left untouched: this is not a logout. */
+     *  left untouched: this is not a logout. Also flips permissionsPending
+     *  on, see its own docstring. */
     dropPermissions: () => void;
     /** Full reset to the initial (unchecked) state. */
     reset: () => void;
@@ -50,6 +62,7 @@ const initialProfile = {
     role: null,
     permissions: [] as string[],
     hasPassword: false,
+    permissionsPending: false,
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -66,11 +79,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             role: profile.role,
             permissions: profile.permissions ?? [],
             hasPassword: profile.has_password,
+            permissionsPending: false,
         }),
 
     clearProfile: () => set({ ...initialProfile }),
 
-    dropPermissions: () => set({ permissions: [] }),
+    dropPermissions: () => set({ permissions: [], permissionsPending: true }),
 
     reset: () => set({ isAuthenticated: null, ...initialProfile }),
 }));

@@ -1,4 +1,5 @@
 # Your Project's Docs
+---
 
 This folder is empty by default. Put product-specific documentation here, the
 same way product-specific code belongs in `backend/app/` and
@@ -13,3 +14,5 @@ See [Using This Repository as a Template](../mystic_auth/template-usage/overview
 for the `app/` versus `mystic_auth/` split. See
 [Worked Example: Adding a New Domain, End to End](../mystic_auth/template-usage/worked-example.md)
 for a copy-and-rename starting point for your first feature.
+
+---

@@ -1,4 +1,5 @@
 # Quick Tunnel (zero setup)
+---
 
 See [Local-Prod Deployment](local-prod.md) for the mode chooser, environment
 variables, and how local-prod differs from dev/prod. This page is the
@@ -124,11 +125,24 @@ nothing reads it at runtime, so it never needs to track the tunnel URL.)
 **Step 7: Apply it.**
 
 `.env.local-prod` values here are read at container runtime, not baked into the
-image, so a plain restart is enough (**no `--build`**):
+image, so a plain restart is enough (**no `--build`**). Restart `backend` and
+`frontend` together, not just `backend` alone, and use `--force-recreate` on
+both: `frontend`'s nginx resolves the `backend` hostname to a Docker-internal
+IP once, when nginx starts, and keeps using it, so a `backend`-only restart
+leaves nginx proxying to the old, now-dead IP once `backend` comes back on a
+new one - a Cloudflare 502 on every API call, including plain password
+login, not just Google's, with `docker logs <frontend container>` showing
+`connect() failed (111: Connection refused) while connecting to upstream`.
+Plain `up -d backend frontend` isn't enough on its own either: Compose only
+recreates a container whose *own* config changed, and frontend's config
+didn't - only backend's env did - so frontend would silently keep running
+unchanged, DNS cache and all. `--force-recreate` makes both actually
+restart regardless, sidestepping the whole problem in one command:
 
 ```bash
-docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d
+docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --force-recreate backend frontend
 ```
+---
 
 **The Quick Tunnel URL changes on every restart**, so if you stop and start
 the stack again, repeat Steps 4–7 to keep Google login working. If that's
@@ -138,26 +152,3 @@ stack instead (`http://localhost:5173`,
 switch to [Named Tunnel](named-tunnel.md), where this is one-time setup.
 
 ---
-
-**Step 7b: If you get a Cloudflare 502 instead of a 401.**
-
-This is a different failure from Step 4's stale-`FRONTEND_BASE_URL` 401,
-and it isn't specific to Google login: every API call fails the same way,
-including plain password login. Cause: `frontend`'s nginx resolves the
-`backend` hostname to a Docker-internal IP once, when nginx starts, and
-keeps using it. If you (or a crash) restart just the `backend` container,
-using `docker restart backend` or `docker compose ... up -d --build backend`,
-without also restarting `frontend`, backend comes back on a new internal
-IP and nginx keeps proxying to the old, now-dead one. `docker logs
-<frontend container>` shows `connect() failed (111: Connection refused)
-while connecting to upstream`.
-
-Fix: restart `frontend` too, so nginx re-resolves the address:
-
-```bash
-docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod restart frontend
-```
-
-Safest habit: restart/rebuild `backend` and `frontend` together (or just
-re-run Step 2's full `up -d --build`) rather than targeting `backend`
-alone.

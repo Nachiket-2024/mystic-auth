@@ -2,9 +2,14 @@
 #
 # current_user_handler.py backs GET /auth/me. These tests pin down its PBAC
 # behavior: the 'permissions' it returns must come from the caller's actual
-# *assigned policies* (via policy_repository), never from their role. Two
-# users with the identical role can hold different policies and therefore
-# see different permissions here.
+# *assigned policies* (via policy_repository) AND their direct UserPermission
+# grants (via user_permission_repository) - never from their role. Two users
+# with the identical role can hold different policies/grants and therefore
+# see different permissions here. The direct-grant half mirrors
+# AuthorizationService._get_effective_policies, which real backend
+# enforcement already merges the same way: this response has to agree with
+# that, or a directly-granted action would pass every real authorization
+# check yet never light up in the frontend, which reads only this list.
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -13,7 +18,7 @@ import pytest
 from backend.mystic_auth.auth.current_user.current_user_handler import (
     current_user_handler,
 )
-from backend.mystic_auth.user_table.user_model import UserRole
+from backend.mystic_auth.user.user_model import UserRole
 
 MODULE = "backend.mystic_auth.auth.current_user.current_user_handler"
 
@@ -43,6 +48,26 @@ class _FakePolicy:
         self.resource_type = resource_type
 
 
+class _FakeGrant:
+    """Stands in for a UserPermission row: a direct (bypasses-Policy) grant
+    of exactly one action. Same resource_type default/override convention
+    as _FakePolicy above."""
+
+    def __init__(self, action, resource_type="users"):
+        self.action = action
+        self.resource_type = resource_type
+
+
+def _mock_no_direct_grants(mocker):
+    """Most tests here aren't exercising direct grants at all - this keeps
+    them from needing to know that call exists."""
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+
+
 @pytest.mark.asyncio
 async def test_permissions_are_the_union_of_the_users_assigned_policies(mocker):
     mocker.patch(
@@ -59,6 +84,8 @@ async def test_permissions_are_the_union_of_the_users_assigned_policies(mocker):
             _FakePolicy(["users:list_all"]),
         ],
     )
+
+    _mock_no_direct_grants(mocker)
 
     result = await current_user_handler.get_current_user("some-token", db=None)
 
@@ -78,6 +105,8 @@ async def test_no_assigned_policies_means_no_permissions(mocker):
         new_callable=AsyncMock,
         return_value=[],
     )
+
+    _mock_no_direct_grants(mocker)
 
     result = await current_user_handler.get_current_user("some-token", db=None)
 
@@ -112,6 +141,8 @@ async def test_two_users_with_the_same_role_can_have_different_permissions(mocke
         ],
     )
 
+    _mock_no_direct_grants(mocker)
+
     result_a = await current_user_handler.get_current_user("token-a", db=None)
     result_b = await current_user_handler.get_current_user("token-b", db=None)
 
@@ -144,6 +175,8 @@ async def test_a_user_with_no_role_at_all_is_still_authenticated(mocker):
         return_value=[_FakePolicy(["users:read_own", "users:update_own"])],
     )
 
+    _mock_no_direct_grants(mocker)
+
     result = await current_user_handler.get_current_user("some-token", db=None)
 
     assert result["email"] == "roleless@example.com"
@@ -171,7 +204,130 @@ async def test_a_user_with_no_role_gets_admin_level_permissions_if_assigned_admi
         return_value=[_FakePolicy(["users:list_all", "users:update_any", "users:delete_any"])],
     )
 
+    _mock_no_direct_grants(mocker)
+
     result = await current_user_handler.get_current_user("some-token", db=None)
 
     assert result["role"] is None
     assert result["permissions"] == ["users:delete_any", "users:list_all", "users:update_any"]
+
+
+# -------------------- Direct (bypasses-Policy) UserPermission grants --------------------
+# A UserPermission grant (UserPermissionsDialog / BulkPermissionGrantDialog,
+# never through a Policy) must show up here exactly like a policy-derived
+# action does: AuthorizationService._get_effective_policies already merges
+# both for real enforcement, so a caller granted only a direct permission -
+# no matching Policy at all - passes every real backend authorization check
+# yet would see none of the corresponding UI if this response omitted it,
+# since every IfCan/ProtectedRoute check reads only this permissions list.
+
+@pytest.mark.asyncio
+async def test_a_direct_grant_with_no_assigned_policies_at_all_still_appears(mocker):
+    mocker.patch(
+        f"{MODULE}.jwt_service.verify_token",
+        new_callable=AsyncMock,
+        return_value={"email": "creator@example.com", "role": "user"},
+    )
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser(email="creator@example.com"))
+    mocker.patch(f"{MODULE}.policy_repository.get_active_policies_for_user", new_callable=AsyncMock, return_value=[])
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakeGrant("policies:create", resource_type="policies")],
+    )
+
+    result = await current_user_handler.get_current_user("some-token", db=None)
+
+    assert result["permissions"] == ["policies:create"]
+
+
+@pytest.mark.asyncio
+async def test_direct_grants_and_policy_derived_actions_are_unioned(mocker):
+    mocker.patch(
+        f"{MODULE}.jwt_service.verify_token",
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "role": "user"},
+    )
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
+    mocker.patch(
+        f"{MODULE}.policy_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakePolicy(["users:read_own", "users:update_own"])],
+    )
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakeGrant("policies:create", resource_type="policies")],
+    )
+
+    result = await current_user_handler.get_current_user("some-token", db=None)
+
+    assert result["permissions"] == ["policies:create", "users:read_own", "users:update_own"]
+
+
+@pytest.mark.asyncio
+async def test_a_direct_grant_already_covered_by_a_policy_is_not_duplicated(mocker):
+    mocker.patch(
+        f"{MODULE}.jwt_service.verify_token",
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "role": "user"},
+    )
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
+    mocker.patch(
+        f"{MODULE}.policy_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakePolicy(["users:read_own"])],
+    )
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakeGrant("users:read_own")],
+    )
+
+    result = await current_user_handler.get_current_user("some-token", db=None)
+
+    assert result["permissions"] == ["users:read_own"]
+
+
+@pytest.mark.asyncio
+async def test_a_direct_grant_scoped_to_the_wrong_resource_type_is_excluded(mocker):
+    # Same reasoning as the identical filter on policy actions above: a
+    # UserPermission's resource_type is independently editable from its
+    # action (see UserPermission's own docstring), so a mis-scoped grant
+    # must not light up UI the backend would 403 on for real.
+    mocker.patch(
+        f"{MODULE}.jwt_service.verify_token",
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "role": "user"},
+    )
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
+    mocker.patch(f"{MODULE}.policy_repository.get_active_policies_for_user", new_callable=AsyncMock, return_value=[])
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakeGrant("policies:read", resource_type="users")],
+    )
+
+    result = await current_user_handler.get_current_user("some-token", db=None)
+
+    assert result["permissions"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_wildcard_scoped_direct_grant_is_included(mocker):
+    mocker.patch(
+        f"{MODULE}.jwt_service.verify_token",
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "role": "user"},
+    )
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
+    mocker.patch(f"{MODULE}.policy_repository.get_active_policies_for_user", new_callable=AsyncMock, return_value=[])
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakeGrant("policies:read", resource_type="*")],
+    )
+
+    result = await current_user_handler.get_current_user("some-token", db=None)
+
+    assert result["permissions"] == ["policies:read"]

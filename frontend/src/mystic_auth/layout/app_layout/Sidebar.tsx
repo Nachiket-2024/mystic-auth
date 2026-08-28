@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Box, HStack, Stack } from "@chakra-ui/react";
+import { Box, HStack, Link as ChakraLink, Stack } from "@chakra-ui/react";
 import { Link, NavLink } from "react-router";
-import type { LucideIcon } from "lucide-react";
+import { Mail, type LucideIcon } from "lucide-react";
 
 import { IfCan } from "../../authorization/IfCan";
 import { NAV_ITEMS, type NavItem } from "./navItems";
@@ -11,6 +11,7 @@ import { useLanguageStore } from "../../store/languageStore";
 import translations from "../../translations/translations";
 import { prefetchRoute } from "./routePrefetch";
 import { FAST_HOVER_TRANSITION } from "../../theme/system";
+import { SUPPORT_EMAIL } from "../../core/settings";
 
 interface SidebarProps {
     isOpen: boolean;
@@ -225,6 +226,39 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
                     );
                 })}
             </Stack>
+
+            {/* Pinned to the bottom (mt="auto" - this Box is display:flex/
+                column) rather than mixed into the nav list above: a support
+                contact isn't a page to navigate to, and this is the one
+                spot every screen shares regardless of permissions, so it's
+                the obvious place to look, not buried in a settings tab. Only
+                renders once a real SUPPORT_EMAIL is configured (undefined by
+                default, see core/settings.ts) - a link to nothing would read
+                as broken in a fresh fork. Also duplicated as a full card on
+                Account Settings' Legal tab for anyone who goes looking there
+                instead. */}
+            {SUPPORT_EMAIL && (
+                <Box p={3} mt="auto" borderTop="1px solid" borderColor="border.default" flexShrink={0}>
+                    <ChakraLink
+                        href={`mailto:${SUPPORT_EMAIL}`}
+                        display="flex"
+                        alignItems="center"
+                        gap={2.5}
+                        px={3}
+                        py={2}
+                        rounded="density.control"
+                        fontSize="sm"
+                        fontWeight="600"
+                        color="brand.fg"
+                        textDecoration="none"
+                        transition={FAST_HOVER_TRANSITION}
+                        _hover={{ bg: "brand.subtle", textDecoration: "underline" }}
+                    >
+                        <Mail size={17} aria-hidden="true" style={{ flexShrink: 0 }} />
+                        {t("footer.help")}
+                    </ChakraLink>
+                </Box>
+            )}
         </Box>
         </>
     );

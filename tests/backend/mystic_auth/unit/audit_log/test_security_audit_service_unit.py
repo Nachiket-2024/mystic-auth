@@ -1,8 +1,8 @@
-# tests/backend/mystic_auth/unit/test_security_audit_service_unit.py
+# tests/backend/mystic_auth/unit/audit_log/test_security_audit_service_unit.py
 #
 # Unit coverage for audit.services.security_audit_service.log_security_event
 # : the single choke point every auth handler calls to persist a security
-# audit row. Mirrors AuthorizationService._log_decision's own contract: a
+# audit row. Mirrors authorization_audit_logger.log_decision's own contract: a
 # logging failure must never raise, since the real action it describes has
 # already happened (or failed) regardless of whether the audit write
 # succeeds.

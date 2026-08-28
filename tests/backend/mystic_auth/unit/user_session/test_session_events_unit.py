@@ -7,9 +7,30 @@ import pytest
 from backend.mystic_auth.user_session.session_events import (
     publish_session_revoked,
     session_event_stream,
+    signal_shutdown,
 )
 
 MODULE = "backend.mystic_auth.user_session.session_events"
+
+
+@pytest.fixture(autouse=True)
+def _reset_shutdown_event():
+    """_shutdown_event is a module-level singleton (see main.py's lifespan
+    for why it has to be), so a test that calls signal_shutdown() would
+    otherwise leave every later test's stream seeing an already-shut-down
+    process. Replaced (not just .clear()'d) before and after every test in
+    this file: pytest-asyncio gives each test its own event loop, and
+    asyncio.Event binds to whichever loop first calls .wait() on it - a
+    single Event instance reused across tests raises "bound to a different
+    event loop" the moment a second test's loop touches it. A fresh
+    instance lets session_event_stream() (which looks the module-level name
+    up fresh on every access) bind cleanly to whichever loop the current
+    test is running on."""
+    import backend.mystic_auth.user_session.session_events as module
+
+    module._shutdown_event = asyncio.Event()
+    yield
+    module._shutdown_event = asyncio.Event()
 
 
 @pytest.mark.asyncio
@@ -139,3 +160,103 @@ async def test_session_event_stream_unsubscribes_cleanly_on_aclose(mocker):
 
     with pytest.raises(StopAsyncIteration):
         await anext(stream)
+
+
+# ------------------------ graceful shutdown / connection cutoff ------------------------
+# Regression coverage for the SSE drain hang: a live session_event_stream()
+# used to never end on its own, so a SIGTERM/reload had nothing to wait for
+# except the client disconnecting - which, for a still-open tab, is forever.
+# See session_events.py's own module comments and main.py's lifespan/signal
+# relay for the full mechanism these pin.
+
+@pytest.mark.asyncio
+async def test_session_event_stream_ends_promptly_when_shutdown_is_signaled():
+    """The whole point of _shutdown_event: a live stream must notice a
+    shutdown almost immediately, not after its next multi-second heartbeat
+    timeout - that wait is what turned a graceful shutdown into a hang."""
+    stream = session_event_stream("shutdown-test@example.com")
+    await anext(stream)  # first heartbeat: subscription is live
+
+    signal_shutdown()
+
+    start = asyncio.get_event_loop().time()
+    with pytest.raises(StopAsyncIteration):
+        async with asyncio.timeout(1):
+            await anext(stream)
+    elapsed = asyncio.get_event_loop().time() - start
+
+    assert elapsed < 1, "stream did not end promptly after signal_shutdown()"
+
+
+@pytest.mark.asyncio
+async def test_session_event_stream_shutdown_does_not_swallow_a_pending_event(mocker):
+    """The shutdown path races get_message() against the shutdown signal
+    (see the module's asyncio.wait call). This pins that when a real event
+    is already available, it's still delivered rather than being silently
+    dropped in favor of an unrelated shutdown that happens to land in the
+    same instant - the fix must not trade the old bug (losing events during
+    reconnect) for a new way to lose them."""
+    mocker.patch(f"{MODULE}._HEARTBEAT_SECONDS", 5)
+    stream = session_event_stream("shutdown-race-test@example.com")
+    await anext(stream)  # first heartbeat: subscription is live
+
+    await publish_session_revoked("shutdown-race-test@example.com")
+    await asyncio.sleep(0.1)  # let the publish actually land in Redis
+    signal_shutdown()
+
+    try:
+        line = await anext(stream)
+    finally:
+        await stream.aclose()
+
+    assert line.startswith("data:")
+    assert json.loads(line[len("data:"):].strip()) == {"type": "revoked"}
+
+
+@pytest.mark.asyncio
+async def test_session_event_stream_ends_cleanly_at_the_max_connection_deadline(mocker):
+    """Bounds how long any one connection is held open, independent of
+    shutdown: past _MAX_CONNECTION_SECONDS the generator just returns, which
+    StreamingResponse turns into a normal end-of-response - the client's
+    EventSource reconnects on its own (see useSessionEventsStream.ts)."""
+    mocker.patch(f"{MODULE}._MAX_CONNECTION_SECONDS", 0.05)
+    mocker.patch(f"{MODULE}._HEARTBEAT_SECONDS", 20)  # would hang for 20s if the deadline check didn't fire first
+    stream = session_event_stream("max-age-test@example.com")
+
+    # `async for` swallows StopAsyncIteration by design (that's how a
+    # generator signals its own natural end) - so the assertion here is
+    # simply that the loop below returns well inside the 1s bound rather
+    # than the timeout firing, not that anything gets raised.
+    async with asyncio.timeout(1):
+        async for _ in stream:
+            pass
+
+
+@pytest.mark.asyncio
+async def test_session_event_stream_unsubscribes_cleanly_on_shutdown():
+    """Same guarantee as the aclose() case above: a shutdown-triggered end
+    must still tear down the Redis subscription (no leaked pubsub
+    connections across a rolling restart's worth of shutdowns)."""
+    stream = session_event_stream("shutdown-cleanup-test@example.com")
+    await anext(stream)  # first heartbeat: subscription is live
+
+    signal_shutdown()
+    with pytest.raises(StopAsyncIteration):
+        await anext(stream)
+
+    # A fresh shutdown state, exactly like the fixture gives every new test:
+    # signal_shutdown() above is process-wide, so leaving it set would make
+    # any new stream end immediately regardless of whether the first one's
+    # cleanup actually ran - not what this is pinning.
+    import backend.mystic_auth.user_session.session_events as module
+
+    module._shutdown_event = asyncio.Event()
+
+    # A second stream on the same channel must be able to subscribe cleanly -
+    # proves the first one's pubsub.unsubscribe()/aclose() actually ran.
+    other_stream = session_event_stream("shutdown-cleanup-test@example.com")
+    try:
+        first_line = await anext(other_stream)
+        assert first_line  # got a heartbeat/message, subscription is live
+    finally:
+        await other_stream.aclose()

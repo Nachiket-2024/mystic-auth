@@ -63,6 +63,43 @@ async def test_is_locked_false_under_threshold(mocker):
     assert await login_protection_service.is_locked("key") is False
 
 
+# ---------------------------- get_remaining_seconds ----------------------------
+
+@pytest.mark.asyncio
+async def test_get_remaining_seconds_returns_the_real_ttl(mocker):
+    mocker.patch(f"{MODULE}.redis_client.ttl", new_callable=AsyncMock, return_value=90)
+
+    assert await login_protection_service.get_remaining_seconds("key") == 90
+
+
+@pytest.mark.asyncio
+async def test_get_remaining_seconds_floors_a_missing_key_at_zero(mocker):
+    # redis TTL returns -2 for a key that doesn't exist at all (already
+    # expired, or never existed) - a real possibility if this races the key
+    # expiring naturally between the caller's own is_locked check and this
+    # call. There's nothing meaningful left to wait out either way.
+    mocker.patch(f"{MODULE}.redis_client.ttl", new_callable=AsyncMock, return_value=-2)
+
+    assert await login_protection_service.get_remaining_seconds("key") == 0
+
+
+@pytest.mark.asyncio
+async def test_get_remaining_seconds_floors_a_key_with_no_expiry_at_zero(mocker):
+    # redis TTL returns -1 for a key that exists but was never given a TTL -
+    # shouldn't happen for a lockout key (record_failed_attempt always sets
+    # one), but this must not surface as a negative wait time if it ever did.
+    mocker.patch(f"{MODULE}.redis_client.ttl", new_callable=AsyncMock, return_value=-1)
+
+    assert await login_protection_service.get_remaining_seconds("key") == 0
+
+
+@pytest.mark.asyncio
+async def test_get_remaining_seconds_returns_zero_on_redis_error(mocker):
+    mocker.patch(f"{MODULE}.redis_client.ttl", side_effect=Exception("boom"))
+
+    assert await login_protection_service.get_remaining_seconds("key") == 0
+
+
 # ---------------------------- check_and_record_action ----------------------------
 
 @pytest.mark.asyncio

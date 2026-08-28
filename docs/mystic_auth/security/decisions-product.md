@@ -1,4 +1,5 @@
 # Security Decisions: Product
+---
 
 See [Security Decisions](decisions.md) for the full index, including auth/session and infrastructure
 decisions. This page covers the *why* behind product-level scope decisions: account lifecycle, MFA,
@@ -21,12 +22,12 @@ Both the soft-delete step and the actual re-authentication proving intent differ
 
 ## Why MFA is not enabled
 
-No multi-factor authentication (TOTP, SMS, WebAuthn, or otherwise) is implemented: this is an intentionally deferred scope boundary for a template repository, not an oversight discovered late:
+No multi-factor authentication (TOTP, SMS, WebAuthn, or otherwise) is implemented: this is an intentionally deferred scope boundary, not an oversight discovered late. I intentionally did not implement this because MFA is something I personally hate given that its mostly just a user friction (atleast for me) that is not needed in most applications. I hate applications with MFA since it involves jumping from one app to another just to get some code to check my own login after typing password, which seems pretty useless given the fact that password IS meant for login.
 
 - `authorization/conditions/condition_types/security_context_condition.py` and `authorization/context/request_context_builder.py` both carry explicit comments that `security_context` starts empty because this app does not implement MFA/device-trust infrastructure; any policy condition keyed on it (e.g. a hypothetical `mfa_verified` check) would currently always evaluate to false/deny.
 - The PBAC condition framework (`context_attributes`, `security_context` condition types: see [../authorization/condition-schema-reference.md](../authorization/condition-schema-reference.md)) was deliberately built generic enough that a real MFA layer could plug in later by populating `security_context` at authentication time and writing policies that key off it: without any redesign of the authorization engine itself. The `mfa_verified` key appears in tests and docs today purely as an illustrative example of the generic mechanism, not a real, enforced check.
-- **Why not build it now**: MFA enrollment/verification is a substantial feature on its own (secret storage, recovery codes, rate-limiting the verification step itself, UI for enrollment/challenge) that would roughly double the scope of the authentication surface for a template whose goal is a solid PBAC/session foundation, not a complete IdP feature set. Adding a half-built MFA flow (e.g. TOTP storage with no recovery-code UX) would be worse than not having it: a template should not ship a security feature that looks complete but isn't.
-- Any real deployment that needs MFA should treat it as a deliberate follow-up: add a TOTP/WebAuthn enrollment+verification flow, populate `security_context.mfa_verified` on successful step-up auth, and gate sensitive policies on that context key: the hooks already exist to receive it.
+
+Any real deployment that needs MFA should treat it as a deliberate follow-up: add a TOTP/WebAuthn enrollment+verification flow, populate `security_context.mfa_verified` on successful step-up auth, and gate sensitive policies on that context key: the hooks already exist to receive it.
 
 ---
 
@@ -46,3 +47,5 @@ Recorded in one place rather than scattered across code comments: each of these 
 Recorded here rather than silently left unaddressed, so it's a deliberate backlog, not an oversight. (Forwarded-header trust, Redis authentication, and `SECRET_KEY` strength enforcement were also tracked here previously: all three are resolved and documented in [Security Hardening: Infrastructure](hardening-infra.md) now, rather than lingering here as crossed-out history.)
 
 - **No automated database backups**: `scripts/db/db_backup.sh`/`scripts/db/db_restore.sh` now script the `pg_dump`/`psql` runbook (see [Deployment Guide](../deployment/guide.md#backups)), but there's still no *scheduler* wired up anywhere in this repo, since no specific production host/cloud target is assumed to hang a cron job on.
+
+---

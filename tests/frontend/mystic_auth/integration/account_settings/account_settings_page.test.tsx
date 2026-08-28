@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
@@ -46,8 +46,9 @@ describe('AccountSettingsPage', () => {
     mock.reset();
     seedProfile();
     mock.onGet('/authorization/users/me/policies').reply(200, {
-      policies: [{ name: 'self_service' }],
+      policies: [{ name: 'self_service', actions: ['users:read_own'], resource_type: 'users' }],
     });
+    mock.onGet('/authorization/users/me/permissions').reply(200, { permissions: [] });
   });
 
   it("renders the caller's own editable name on the Profile tab", async () => {
@@ -59,25 +60,106 @@ describe('AccountSettingsPage', () => {
     expect(screen.getByDisplayValue('Test User')).toBeInTheDocument();
   });
 
-  it('renders effective policies on the Account Status tab', async () => {
+  it('renders effective policies on the Permissions tab', async () => {
     renderAccountSettings();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('tab', { name: 'Account Status' }));
+    await user.click(screen.getByRole('tab', { name: 'Permissions' }));
     await screen.findByText('self_service');
   });
 
-  it('shows "Set" for an account with a password and "Not set" for an OAuth2-only account', async () => {
+  it('renders the effective permissions (fanned-out policy actions and direct grants) and the raw direct grants, via the self-service /me endpoints', async () => {
+    // Overrides the shared beforeEach mocks with a direct grant added, so
+    // this test can prove the union AND the raw-direct-only section both
+    // reflect it - the same self-service data every authenticated caller
+    // can see about themselves regardless of policies:read/permissions:read
+    // (see AccountStatusCard's own docstring).
+    mock.onGet('/authorization/users/me/permissions').reply(200, {
+      permissions: [{ action: 'policies:create', resource_type: 'policies' }],
+    });
+
+    renderAccountSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('tab', { name: 'Permissions' }));
+
+    await screen.findByText('self_service');
+    // Effective permissions: the fanned-out policy action AND the direct
+    // grant both appear here.
+    expect(screen.getByText('users:read_own')).toBeInTheDocument();
+    expect(screen.getAllByText('policies:create').length).toBeGreaterThanOrEqual(1);
+
+    // Direct permissions: the raw grant only, not the policy-derived one.
+    const directHeading = screen.getByText('Direct permissions');
+    const directSection = directHeading.parentElement;
+    expect(directSection).toBeTruthy();
+    if (directSection) {
+      expect(within(directSection).getByText('policies:create')).toBeInTheDocument();
+      expect(within(directSection).queryByText('users:read_own')).toBeNull();
+    }
+  });
+
+  it('shows "Set" for an account with a password and "Not set" for an OAuth2-only account, on the Password tab', async () => {
     seedProfile({ hasPassword: false });
     renderAccountSettings();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('tab', { name: 'Account Status' }));
+    await user.click(screen.getByRole('tab', { name: 'Password' }));
 
     expect(await screen.findByText('Not set')).toBeInTheDocument();
     expect(
       screen.getByText(/This account currently signs in with Google only/)
     ).toBeInTheDocument();
+  });
+
+  it('collapses a specific permission into its wildcard counterpart on the Permissions tab', async () => {
+    // A direct grant of an action on a specific resource_type is redundant
+    // to show next to that same action already granted on "*" - only the
+    // wildcard badge should render, in both the Direct permissions and
+    // Effective permissions sections.
+    mock.onGet('/authorization/users/me/permissions').reply(200, {
+      permissions: [
+        { action: 'policies:read', resource_type: '*' },
+        { action: 'policies:read', resource_type: 'policies' },
+      ],
+    });
+
+    renderAccountSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('tab', { name: 'Permissions' }));
+    await screen.findByText('self_service');
+
+    expect(screen.getAllByText('(*)').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('(policies)')).toBeNull();
+  });
+
+  it('collapses a direct grant into a POLICY-sourced wildcard, not just another direct wildcard grant', async () => {
+    // The covering wildcard here comes from an assigned policy
+    // (resource_type "*"), not from another direct grant - the Direct
+    // permissions section still has to drop the redundant specific grant.
+    mock.onGet('/authorization/users/me/policies').reply(200, {
+      policies: [
+        { name: 'system_superuser', actions: ['permissions:grant'], resource_type: '*' },
+      ],
+    });
+    mock.onGet('/authorization/users/me/permissions').reply(200, {
+      permissions: [{ action: 'permissions:grant', resource_type: 'permissions' }],
+    });
+
+    renderAccountSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('tab', { name: 'Permissions' }));
+    await screen.findByText('system_superuser');
+
+    const directHeading = screen.getByText('Direct permissions');
+    const directSection = directHeading.parentElement;
+    expect(directSection).toBeTruthy();
+    if (directSection) {
+      expect(within(directSection).queryByText('(permissions)')).toBeNull();
+      expect(within(directSection).getByText(/no direct permissions/i)).toBeInTheDocument();
+    }
   });
 
   it('submits a name change via PUT /users/me and reflects the update', async () => {

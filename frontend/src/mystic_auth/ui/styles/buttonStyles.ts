@@ -2,64 +2,39 @@
 // overridable from app/theme.ts the same way brand colors are.
 import { FAST_HOVER_TRANSITION } from "../../theme/system";
 
-// Solid variant's default hover is only colorPalette.solid at 90% opacity -
-// too subtle a shift to read as a hover state (originally fixed one-off on
-// LoginForm's/PasswordResetRequestForm's own Login/submit buttons; extracted
-// here so every other colorPalette="brand" solid button - Create Policy,
-// Save changes, Assign, Verify Account, Signup, etc. - gets the identical
-// fix instead of each needing its own copy of this override).
+// Solid variant's default hover (90% opacity) is too subtle to read as a
+// hover state. Shared by every colorPalette="brand" solid button.
 export const BRAND_SOLID_HOVER_PROPS = {
     _hover: { bg: "brand.700" },
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Same underlying problem as BRAND_SOLID_HOVER_PROPS, for an
-// outline/colorPalette="brand" secondary action (e.g. "Send New
-// Verification Link" below the primary "Verify Account" button): an
-// outline button's stock hover only lightens its already-transparent
-// background a shade, which reads as no change at all against the page's
-// own bg.canvas. Fills solid brand on hover instead, the same "fills up"
-// treatment SECONDARY_BUTTON_PROPS/ICON_BUTTON_PROPS use for their own
-// too-faint hovers, just with the brand palette instead of gray since this
-// keeps the button's own brand-colored border/text identity.
+// Same issue as BRAND_SOLID_HOVER_PROPS, for outline/colorPalette="brand"
+// secondary actions: the stock hover only lightens an already-transparent
+// background, so it fills solid instead.
 export const BRAND_OUTLINE_HOVER_PROPS = {
-    // Resting color/borderColor set explicitly, not left to the outline
-    // recipe's own default: Chakra's outline variant resolves a custom
-    // colorPalette's text/border straight off the raw brand.500 scale step,
-    // not through this app's brand.fg/brand.border semantic tokens (see
-    // themeSemanticTokens.ts) - so without this override, "Send New
-    // Verification Link"/LandingPage's "Log in" rendered a noticeably
-    // paler, lower-contrast orange (brand.500, #f59e0b, 2.15:1 on white)
-    // than every other brand-colored button/heading on the page (brand.600,
-    // #d97706, 3.19:1 - the same value themeTokens.ts's own docstring
-    // already calibrates this app's AA-adjacent brand pairings against).
+    // Set explicitly, not left to the outline recipe: Chakra resolves a
+    // custom colorPalette's text/border off raw brand.500, not this app's
+    // brand.fg/brand.border tokens, giving a noticeably paler, lower-contrast
+    // orange (brand.500, 2.15:1) than the rest of the page (brand.600, 3.19:1).
     color: "brand.fg",
     borderColor: "brand.border",
-    // borderColor here too, not just bg/color: the outline variant's own
-    // border is a pale brand.200, and without overriding it on hover it
-    // stays that pale shade around the now-solid brand.500 fill - a light
-    // ring around a saturated button instead of one clean color.
+    // borderColor overridden on hover too, or the outline's pale brand.200
+    // border stays visible as a light ring around the now-solid fill.
     _hover: { bg: "brand.500", borderColor: "brand.500", color: "white" },
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Same fix as BRAND_SOLID_HOVER_PROPS above, for solid colorPalette="red"
-// destructive actions (e.g. ConfirmDialog's confirm button) - the stock
-// hover was too subtle a shift off red.600 to read as a real hover state.
+// Same fix as BRAND_SOLID_HOVER_PROPS, for solid colorPalette="red"
+// destructive actions (e.g. ConfirmDialog's confirm button).
 export const DESTRUCTIVE_SOLID_HOVER_PROPS = {
     _hover: { bg: "red.700" },
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Dialog secondary actions (Cancel/Close). variant="ghost" (no border, no
-// background) reads as plain text next to a solid primary action, and its
-// hover is too faint to register as a real button - same class of issue
-// TableActionButton.tsx and Pagination.tsx's identical fixes address for
-// their own controls. Hover now fills solid (not just a lighter/darker
-// shade) with a contrasting text color, the same "fills up" treatment
-// TableActionButton.tsx's red palette (Delete/Purge) already had - light
-// and dark solid fills sit at opposite ends of the gray scale, so each
-// needs its own contrasting hover text (white vs. gray.900).
+// Dialog secondary actions (Cancel/Close). variant="ghost" reads as plain
+// text with a too-faint hover, so this fills solid on hover instead, with a
+// contrasting text color for each mode (white vs. gray.900).
 export const SECONDARY_BUTTON_PROPS = {
     variant: "plain" as const,
     borderWidth: "1px",
@@ -75,19 +50,11 @@ export const SECONDARY_BUTTON_PROPS = {
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Navbar's icon-only controls (theme toggle, mobile menu toggle), also
-// reused by AuthLayout's font/language/theme cluster. variant="ghost" is
-// invisible until hovered - no border, no background - so against either
-// host background these read as bare icons, not controls, same issue
-// SECONDARY_BUTTON_PROPS fixes for text buttons. Light-mode bg is gray.200,
-// not gray.100: Navbar/Sidebar sit on bg.surface (white) where gray.100
-// stands out fine, but AuthLayout sits directly on bg.canvas, which *is*
-// gray.100 - the old value made the button fill and page background
-// identical, leaving only a 1px border to signal "control" on every auth
-// page. gray.200 reads as a distinct step against both white and gray.100.
-// Same solid-fill hover as SECONDARY_BUTTON_PROPS above (still includes a
-// hover text color: ThemeToggle's/Navbar's glyphs are plain characters, not
-// colored emoji images, so they do pick up `color`).
+// Navbar's icon-only controls, also reused by AuthLayout's font/language/
+// theme cluster. variant="ghost" is invisible until hovered, so this adds a
+// visible resting state. gray.200 (not gray.100): AuthLayout sits on
+// bg.canvas, which is gray.100 itself, so gray.100 fill would blend into the
+// page there; gray.200 stays distinct against both bg.canvas and bg.surface.
 export const ICON_BUTTON_PROPS = {
     variant: "plain" as const,
     borderWidth: "1px",
@@ -102,37 +69,20 @@ export const ICON_BUTTON_PROPS = {
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Font size / language / theme toggles in ControlCluster.tsx - each its own
-// separately-boxed, brand-tinted button (not grouped into one shared-border
-// segmented control; that was tried and reverted back to standalone
-// buttons). Brand-tinted (light orange fill/border rather than neutral gray)
-// so the cluster picks up the same accent color already used decoratively
-// elsewhere on these pages (logo mark, feature-card icons, footer links) -
-// not just on the primary CTA buttons, so it doesn't read as competing with
-// them. borderWidth is explicit even though it matches Select.Trigger's own
-// recipe default (variant="outline"'s 1px all sides) - unlike a grouped
-// divider, a standalone button wants a full border, so there's no fight with
-// the recipe to resolve here, just color/bg overrides on top of it. color
-// has its own _dark override (not just _hover's) - brand.700 as the resting
-// color in dark mode was dark-orange text on the brand.900 dark fill, too
-// low contrast to read at rest.
+// Font size / language / theme toggles in ControlCluster.tsx, each its own
+// standalone brand-tinted button (a shared-border segmented control was
+// tried and reverted). Brand-tinted so the cluster picks up the same accent
+// color used elsewhere on these pages, not just the primary CTA.
 export const BRAND_ICON_BUTTON_PROPS = {
     variant: "plain" as const,
     borderWidth: "1px",
-    // One step darker than brand.400: against the brand.200 fill below (also
-    // darkened a step from the original brand.100, see that comment), 400
-    // read as barely more than a soft edge - 500 gives the chip an actual
-    // outline instead of just a color shift at its own boundary.
+    // brand.500, not brand.400: 400 read as barely more than a soft edge
+    // against the brand.200 fill below.
     borderColor: "brand.500",
     borderRadius: "density.control",
-    // One step darker than the originally-shipped brand.100: on AuthLayout/
-    // LandingPage (this cluster's other host, alongside Navbar), the page's
-    // own top-of-viewport gradient (bgGradient in AuthLayout.tsx, sourced
-    // from bg.canvasFrom) starts at that exact same brand.100 in light mode
-    // - so a brand.100 button rendered with almost no bg contrast against
-    // the page behind it, just a pale border floating in a same-colored
-    // patch. brand.200 clears that collision while staying the same
-    // "brand-tinted, not neutral gray" treatment.
+    // brand.200, not brand.100: AuthLayout/LandingPage's top-of-viewport
+    // gradient starts at brand.100 in light mode, so a brand.100 button
+    // there had almost no contrast against the page behind it.
     bg: "brand.200",
     color: "brand.700",
     _hover: { bg: "brand.300", borderColor: "brand.600", color: "brand.800" },
@@ -140,13 +90,25 @@ export const BRAND_ICON_BUTTON_PROPS = {
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Dialog.CloseTrigger (the X in the corner of every dialog) ships with no
-// visual state of its own - no border, no background, and its hover is
-// just a barely-there opacity shift, same class of "doesn't read as a
-// control" issue ICON_BUTTON_PROPS/SECONDARY_BUTTON_PROPS fix for their own
-// controls. Same solid-fill treatment, sized down (padding/borderRadius)
-// since this button is icon-only and sits inline with the dialog title
-// rather than in a footer.
+// Small brand-tinted inline actions (e.g. UserPoliciesDialog's "Expand
+// all"/"Collapse all"). variant="plain" (not "subtle"): "subtle"'s recipe
+// hover competes with a custom _hover at the same specificity, silently
+// no-opping a dark-mode override, so every visual state is explicit here.
+export const BRAND_SUBTLE_BUTTON_PROPS = {
+    variant: "plain" as const,
+    borderWidth: "1px",
+    borderColor: "brand.400",
+    borderRadius: "density.control",
+    bg: "brand.100",
+    color: "brand.700",
+    _hover: { bg: "brand.200", borderColor: "brand.500" },
+    _dark: { borderColor: "brand.600", bg: "brand.800", color: "brand.100", _hover: { bg: "brand.900", borderColor: "brand.700" } },
+    transition: FAST_HOVER_TRANSITION,
+};
+
+// Dialog.CloseTrigger (the X in a dialog corner) ships with no visual state
+// of its own, same issue ICON_BUTTON_PROPS fixes, just sized down for an
+// icon-only control inline with the dialog title.
 export const CLOSE_TRIGGER_PROPS = {
     borderWidth: "1px",
     borderColor: "gray.500",

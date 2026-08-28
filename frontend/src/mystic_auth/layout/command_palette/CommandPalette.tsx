@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { DIALOG_BACKDROP_PROPS, DIALOG_CONTENT_PROPS } from "../../ui/styles/dialogStyles";
+import { SEARCH_QUERY_MAX_LENGTH } from "../../ui/styles/inputStyles";
 import { type NavItem } from "../app_layout/navItems";
 import { type SearchItem } from "./searchItems";
 import { useDebouncedValue } from "../../ui/hooks/useDebouncedValue";
@@ -133,6 +134,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraN
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     onKeyDown={handleKeyDown}
+                                    maxLength={SEARCH_QUERY_MAX_LENGTH}
                                     placeholder={t("commandPalette.placeholder")}
                                     variant="flushed"
                                     border="none"

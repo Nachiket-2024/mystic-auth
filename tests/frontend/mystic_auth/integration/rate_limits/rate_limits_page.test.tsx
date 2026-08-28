@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
@@ -9,6 +9,8 @@ import MockAdapter from 'axios-mock-adapter';
 import api from '@/api/axiosInstance';
 import { useAuthStore } from '@/store/authStore';
 import RateLimitsPage from '@/rate_limits/RateLimitsPage';
+import { Toaster } from '@/ui/toaster/toaster';
+import { toaster } from '@/ui/toaster/toasterInstance';
 
 const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();
@@ -28,13 +30,14 @@ function seed(permissions: string[], email = 'admin@example.com') {
   });
 }
 
-function renderPage() {
+function renderPage({ withToaster = false } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <RateLimitsPage />
+          {withToaster && <Toaster />}
         </MemoryRouter>
       </ChakraProvider>
     </QueryClientProvider>
@@ -65,6 +68,14 @@ describe('RateLimitsPage', () => {
   beforeEach(() => {
     mock.reset();
     seed(['rate_limits:read', 'rate_limits:reset']);
+  });
+
+  afterEach(async () => {
+    // toaster is a module-level singleton that outlives each test's render
+    // tree; clear it so a leftover toast from one test can't leak into the next.
+    await act(async () => {
+      toaster.dismiss();
+    });
   });
 
   it('shows an empty state when there are no active limiters', async () => {
@@ -180,5 +191,28 @@ describe('RateLimitsPage', () => {
       expect(lastRequest.params).toMatchObject({ scope: 'email' });
     });
     expect(await screen.findByText('No active rate limits')).toBeInTheDocument();
+  });
+
+  it('shows the error message when the list request fails', async () => {
+    mock.onGet('/rate-limits/').reply(500);
+    renderPage();
+
+    expect(await screen.findByText('Failed to load rate limits')).toBeInTheDocument();
+  });
+
+  it('surfaces a toast and leaves the row in place when the reset request fails', async () => {
+    mock.onGet('/rate-limits/').reply(200, { entries: [IP_ENTRY], total: 1, truncated: false });
+    mock.onDelete(`/rate-limits/${encodeURIComponent(IP_ENTRY.key)}`).reply(500, { detail: 'reset failed' });
+
+    renderPage({ withToaster: true });
+    const user = userEvent.setup();
+
+    await screen.findByText('203.0.113.5');
+    await user.click(screen.getByRole('button', { name: 'Reset' }));
+    const confirmButtons = screen.getAllByRole('button', { name: 'Reset' });
+    await user.click(confirmButtons[confirmButtons.length - 1]);
+
+    expect(await screen.findByText('reset failed')).toBeInTheDocument();
+    expect(screen.getByText('203.0.113.5')).toBeInTheDocument();
   });
 });

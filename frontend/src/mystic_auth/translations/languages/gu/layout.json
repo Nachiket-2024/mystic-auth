@@ -26,12 +26,14 @@
         "dashboard": "ડેશબોર્ડ",
         "users": "વપરાશકર્તાઓ",
         "policies": "નીતિઓ",
+        "permissions": "પરવાનગીઓ",
         "rateLimits": "દર મર્યાદાઓ",
         "auditLog": "ઓડિટ લોગ",
         "accountSettings": "ખાતાની સેટિંગ્સ"
     },
     "footer": {
         "privacyPolicy": "ગોપનીયતા નીતિ",
-        "termsOfService": "સેવાની શરતો"
+        "termsOfService": "સેવાની શરતો",
+        "help": "સહાય અને સપોર્ટ"
     }
 }

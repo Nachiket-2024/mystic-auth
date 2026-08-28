@@ -3,7 +3,7 @@ import { HStack, Input, Stack } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import StyledSelect from "../ui/StyledSelect";
-import { SEARCH_INPUT_PROPS } from "../ui/styles/inputStyles";
+import { SEARCH_INPUT_PROPS, SEARCH_QUERY_MAX_LENGTH } from "../ui/styles/inputStyles";
 import { AUTHORIZATION_RESOURCE_TYPES } from "../audit_log/authorization_log/authorizationLogResourceTypes";
 
 export const ALL_VALUE = "";
@@ -39,6 +39,7 @@ const PoliciesFilterBar: React.FC<PoliciesFilterBarProps> = ({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     maxW="sm"
+                    maxLength={SEARCH_QUERY_MAX_LENGTH}
                     {...SEARCH_INPUT_PROPS}
                 />
                 {searchRowExtra}

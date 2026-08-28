@@ -45,9 +45,9 @@ case "$COMPOSE_FILE" in
   *) ENV_FILE=".env" ;;
 esac
 
-# Only pull the two vars we need, by name, rather than sourcing the whole
-# env file. Some values, such as GMAIL_APP_PASSWORD, contain unquoted spaces
-# that are valid to python-dotenv/pydantic but break a shell `source`.
+# Pull just these two vars by name rather than sourcing the whole file:
+# some values (e.g. GMAIL_APP_PASSWORD) have unquoted spaces that break
+# `source` but are fine for python-dotenv/pydantic.
 if [ -z "${POSTGRES_USER:-}" ] && [ -f "$ENV_FILE" ]; then
   POSTGRES_USER="$(grep -m1 '^POSTGRES_USER=' "$ENV_FILE" | cut -d= -f2-)"
 fi

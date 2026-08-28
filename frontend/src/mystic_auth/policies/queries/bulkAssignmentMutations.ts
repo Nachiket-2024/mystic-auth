@@ -1,0 +1,136 @@
+import { useMutation } from "@tanstack/react-query";
+
+import {
+    bulkAssignPoliciesApi,
+    bulkRemovePoliciesApi,
+    bulkAssignPermissionsApi,
+    bulkRemovePermissionsApi,
+    bulkUpdateRoleApi,
+    type BulkResponse,
+} from "../../api/bulkAssignment_api";
+import { extractApiErrorMessage } from "../../api/apiError";
+import { queryClient } from "../../core/queryClient";
+import { useAuthStore } from "../../store/authStore";
+import { CURRENT_USER_QUERY_KEY } from "../../auth/current_user/useCurrentUserQuery";
+import { MY_POLICIES_QUERY_KEY, userPoliciesQueryKey } from "./policyQueries";
+import { MY_PERMISSIONS_QUERY_KEY, userPermissionsQueryKey } from "./permissionQueries";
+import { USERS_QUERY_KEY } from "../../users/queries/userQueries";
+
+/** A bulk response fans out across many users, not one - there is no
+ * single query key to invalidate the way the single-item mutations do, so
+ * every mutation below invalidates once per DISTINCT user_email actually
+ * present in the response (not the request: an item that errored before
+ * ever reaching the database shouldn't trigger a refetch for a user whose
+ * data didn't change). */
+function distinctEmails(data: BulkResponse): string[] {
+    return [...new Set(data.results.map((r) => r.user_email))];
+}
+
+function invalidateSelfIfIncluded(emails: string[]) {
+    if (emails.includes(useAuthStore.getState().email ?? "")) {
+        queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+    }
+}
+
+function wrapError(action: string) {
+    return (error: unknown) => {
+        throw new Error(extractApiErrorMessage(error, action), { cause: error });
+    };
+}
+
+export function useBulkAssignPoliciesMutation() {
+    return useMutation<BulkResponse, Error, { userEmails: string[]; policyName: string }>({
+        mutationFn: async ({ userEmails, policyName }) => {
+            try {
+                return (await bulkAssignPoliciesApi(userEmails, policyName)).data;
+            } catch (error) {
+                return wrapError("Failed to bulk-assign policy")(error);
+            }
+        },
+        onSuccess: (data) => {
+            const emails = distinctEmails(data);
+            emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(email) }));
+            queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
+            invalidateSelfIfIncluded(emails);
+        },
+    });
+}
+
+export function useBulkRemovePoliciesMutation() {
+    return useMutation<BulkResponse, Error, { userEmails: string[]; policyName: string }>({
+        mutationFn: async ({ userEmails, policyName }) => {
+            try {
+                return (await bulkRemovePoliciesApi(userEmails, policyName)).data;
+            } catch (error) {
+                return wrapError("Failed to bulk-remove policy")(error);
+            }
+        },
+        onSuccess: (data) => {
+            const emails = distinctEmails(data);
+            emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(email) }));
+            queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
+            invalidateSelfIfIncluded(emails);
+        },
+    });
+}
+
+export function useBulkAssignPermissionsMutation() {
+    return useMutation<
+        BulkResponse,
+        Error,
+        { userEmails: string[]; action: string; resourceType: string; conditions?: Record<string, unknown> }
+    >({
+        mutationFn: async ({ userEmails, action, resourceType, conditions }) => {
+            try {
+                return (await bulkAssignPermissionsApi(userEmails, action, resourceType, conditions)).data;
+            } catch (error) {
+                return wrapError("Failed to bulk-grant permission")(error);
+            }
+        },
+        onSuccess: (data) => {
+            const emails = distinctEmails(data);
+            emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPermissionsQueryKey(email) }));
+            queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
+            invalidateSelfIfIncluded(emails);
+        },
+    });
+}
+
+export function useBulkRemovePermissionsMutation() {
+    return useMutation<BulkResponse, Error, { userEmails: string[]; action: string; resourceType: string }>({
+        mutationFn: async ({ userEmails, action, resourceType }) => {
+            try {
+                return (await bulkRemovePermissionsApi(userEmails, action, resourceType)).data;
+            } catch (error) {
+                return wrapError("Failed to bulk-revoke permission")(error);
+            }
+        },
+        onSuccess: (data) => {
+            const emails = distinctEmails(data);
+            emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPermissionsQueryKey(email) }));
+            queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
+            invalidateSelfIfIncluded(emails);
+        },
+    });
+}
+
+export function useBulkUpdateRoleMutation() {
+    return useMutation<BulkResponse, Error, { userEmails: string[]; role: string }>({
+        mutationFn: async ({ userEmails, role }) => {
+            try {
+                return (await bulkUpdateRoleApi(userEmails, role)).data;
+            } catch (error) {
+                return wrapError("Failed to bulk-update role")(error);
+            }
+        },
+        onSuccess: (data) => {
+            const emails = distinctEmails(data);
+            // Unlike the policy/permission mutations above, the users
+            // table itself renders the changed value (the role column),
+            // not a separate per-user dialog, so the list query needs
+            // invalidating too, not just CURRENT_USER_QUERY_KEY.
+            queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+            invalidateSelfIfIncluded(emails);
+        },
+    });
+}

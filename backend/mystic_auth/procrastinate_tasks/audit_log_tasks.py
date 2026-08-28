@@ -13,18 +13,10 @@ logger = get_worker_logger(__name__)
 AUDIT_LOG_RETRY = ExponentialBackoffWithJitter(max_attempts=3, base_delay=2, max_delay=20, jitter=2)
 
 
-# `name=` pinned explicitly rather than left to default to the deferring
-# caller's own import path: this app's runtime (uvicorn app.main:app) and
-# its procrastinate_worker container both import this module as
-# `mystic_auth.procrastinate_tasks.audit_log_tasks`, matching this app's
-# import_paths above, so production is unaffected either way. But
-# `AuthorizationService` (authorization_service.py) is also imported by
-# `backend.mystic_auth.*`-rooted test code, and Procrastinate names an
-# unpinned task after however the deferring process imported it - a test
-# deferring under `backend.mystic_auth....` would register a job the real
-# worker's `mystic_auth....`-rooted `import_paths` can't resolve
-# ("TaskNotFound"). Pinning the name makes every deferral resolve to the
-# one name the worker actually knows, regardless of caller.
+# `name=` is pinned explicitly, same reasoning as email_tasks.py: test code
+# imports this task under a different root than the real worker, and an
+# unpinned name would register a job the worker can't resolve
+# ("TaskNotFound").
 @app.task(  # type: ignore[call-overload]
     name="mystic_auth.procrastinate_tasks.audit_log_tasks.log_authorization_decision_task",
     retry=AUDIT_LOG_RETRY,
@@ -32,8 +24,8 @@ AUDIT_LOG_RETRY = ExponentialBackoffWithJitter(max_attempts=3, base_delay=2, max
 async def log_authorization_decision_task(entry: dict) -> None:
     """
     Persists one authorization-decision audit row (see
-    AuthorizationService._build_audit_entry for the row shape), off the
-    request path: AuthorizationService._log_decision defers this instead of
+    authorization_audit_logger.build_audit_entry for the row shape), off the
+    request path: authorization_audit_logger.log_decision defers this instead of
     writing the row itself, so a protected route's response no longer waits
     on the audit-log commit (see concerns.md's now-resolved "audit logging
     blocks every protected request" entry).

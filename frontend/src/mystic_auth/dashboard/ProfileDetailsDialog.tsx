@@ -39,7 +39,7 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
  * Read-only "View" panel for the current user's full name/email/role -
  * DashboardPage.tsx's own identity card truncates all three to a fixed width
  * so a long value can't push its action buttons onto their own line. Same
- * shape as users/UserDetailsDialog.tsx and manage_sessions/SessionDetailsDialog.tsx:
+ * shape as users/dialogs/UserDetailsDialog.tsx and manage_sessions/SessionDetailsDialog.tsx:
  * takes the already-fetched user object directly, no separate query.
  */
 const ProfileDetailsDialog: React.FC<ProfileDetailsDialogProps> = ({ isOpen, user, onClose }) => {

@@ -4,7 +4,7 @@ from ..auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ..core.settings import settings
 from ..database.connection import database
 from ..logging.logging_config import get_worker_logger
-from ..user_crud.user_crud_collector import user_crud
+from ..user.user_crud_collector import user_crud
 from ..user_lifecycle.user_purge_service import purge_user_account
 from .procrastinate_app import app
 

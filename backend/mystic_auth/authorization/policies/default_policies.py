@@ -1,11 +1,9 @@
-# Names of the three policies this template seeds out of the box. The actual
-# policy definitions (actions, resource_type, conditions) live only in the
-# Alembic migration: migrations are a historical record and must keep
-# producing the same rows regardless of later edits to app-code constants, so
-# the migration keeps its own inline copy rather than importing from here.
-# These name constants are the reusable part, used to look up and assign the
-# already-seeded policies by name (signup_service assigns SELF_SERVICE_POLICY_NAME
-# to every new user; scripts/create_system_user.py assigns all three).
+# Names of the three policies this template seeds out of the box. The
+# actual definitions live only in the Alembic migration (a historical
+# record that must keep producing the same rows regardless of later
+# constant edits); these names are the reusable part, used to look up and
+# assign the already-seeded policies (signup_service assigns
+# SELF_SERVICE_POLICY_NAME; create_system_user.py assigns all three).
 
 from ...core.settings import settings
 from ...logging.logging_config import get_logger

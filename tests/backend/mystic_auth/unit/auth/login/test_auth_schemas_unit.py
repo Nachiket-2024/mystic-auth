@@ -21,7 +21,7 @@ from backend.mystic_auth.auth.signup.signup_schema import SignupSchema
 from backend.mystic_auth.auth.verify_account.verify_account_schema import (
     VerifyAccountSchema,
 )
-from backend.mystic_auth.user_table.user_schema import UserCreate, UserUpdate
+from backend.mystic_auth.user.user_schema import UserCreate, UserUpdate
 
 
 def test_signup_rejects_name_over_max_length():

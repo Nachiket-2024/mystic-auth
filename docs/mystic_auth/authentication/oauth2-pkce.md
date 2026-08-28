@@ -1,4 +1,5 @@
 # OAuth2 / PKCE (Google Login)
+---
 
 ## Purpose
 
@@ -20,6 +21,7 @@ Lets a user authenticate with their Google account instead of (or in addition to
 ## Data / request flow
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155", "signalColor": "#334155", "actorLineColor": "#334155", "activationBorderColor": "#334155", "labelBoxBorderColor": "#334155", "labelBoxBkgColor": "#e2e8f0", "noteBorderColor": "#334155"}, "themeCSS": ".messageLine0, .messageLine1 { stroke-width: 2px !important; }"} }%%
 sequenceDiagram
     participant B as Browser
     participant S as Backend
@@ -35,18 +37,18 @@ sequenceDiagram
 
     B->>G: (redirect) consent screen
     Note over B,G: user approves
-    G-->>B: 302 to /auth/oauth2/callback/google<br/>+ code, state
+    G-->>B: 302 to /auth/oauth2/callback/google<br/> + code, state
 
     B->>S: GET callback + code, state
     activate S
     S->>S: Validate state == oauth_state cookie
-    S->>S: consume_state(state) returns code_verifier<br/>(GETDEL, single-use)
+    S->>S: consume_state(state) returns code_verifier<br/> (GETDEL, single-use)
     S->>G: POST token exchange (code + code_verifier)
     G-->>S: access_token (Google's own)
     S->>G: GET userinfo (with that access_token)
     G-->>S: {email, name, email_verified}
     S->>S: login_or_create_user(...)
-    S-->>B: Set access_token/refresh_token cookies,<br/>302 to /dashboard
+    S-->>B: Set access_token/refresh_token cookies,<br/> 302 to /dashboard
     deactivate S
 ```
 
@@ -140,3 +142,5 @@ initiate-to-callback flow against a real Redis instance. See
 - **"redirect_uri_mismatch" from Google**: `GOOGLE_REDIRECT_URI` must be byte-for-byte identical to a URI registered in the Google Cloud Console (including scheme and trailing slash).
 - **Callback redirects to `/login` with an unexpected or missing error message**: the redirect's `?error=<CODE>` query param is what the frontend translates (see "Edge cases / error handling" above); if it's missing entirely, or the browser shows the raw code instead of a translated message, check `docker compose logs backend` for the specific reason logged at `warning`/`error`, and confirm the code has a matching `errors:<code>` entry in all four `frontend/src/mystic_auth/translations/languages/*/errors.json` files (a missing one logs a `console.error` in the browser dev console, DEV builds only).
 - **A returning Google user is asked to "set a password"**: expected if their account has never had one, since `hashed_password` is `None` for OAuth2-only accounts. Use `PUT /users/me` with a `password` field to set one.
+
+---

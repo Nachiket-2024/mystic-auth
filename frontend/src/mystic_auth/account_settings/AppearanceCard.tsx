@@ -10,42 +10,29 @@ import { BRAND_SOLID_HOVER_PROPS, SECONDARY_BUTTON_PROPS } from "../ui/styles/bu
 import { useAppearanceStore } from "../store/appearanceStore";
 import { generateBrandScale, contrastRatio } from "../theme/generateBrandScale";
 import { deriveCanvasFrom } from "../theme/appearanceThemeOverrides";
+import { BRAND_COLOR as DEFAULT_BRAND_COLOR } from "../core/settings";
 
-const DEFAULT_BRAND_COLOR = "#d97706";
-// fg.default's fixed values (themeSemanticTokens.ts) - text color doesn't
-// move with the derived background, so the preview boxes below are checked
-// against these, same as the real page.
+// fg.default's fixed values (themeSemanticTokens.ts): text color doesn't
+// move with the derived background, so preview boxes check against these.
 const FG_LIGHT = "#3f3f46";
 const FG_DARK = "#f4f4f5";
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-// How long to let a drag settle before committing to appearanceStore, whose
-// setter triggers AppearanceThemeProvider.tsx to rebuild Chakra's entire
-// system (createSystem(...) - not cheap). Committing that on every single
-// 'input' tick while dragging the native color picker's saturation/hue
-// square was blocking the main thread continuously, which is what made the
-// picker's own pointer feel laggy: Chromium's built-in color picker popup
-// shares the page's renderer process, so a busy main thread stalls its
-// drag tracking too, not just React's re-render. The swatch/hex text field
-// and this card's own preview still update every tick (both cheap, local
-// state only) - only the expensive global theme commit is debounced.
+// Committing to appearanceStore rebuilds Chakra's entire system, which isn't
+// cheap. Doing that on every 'input' tick while dragging the native color
+// picker blocked the main thread continuously, making the drag itself feel
+// laggy (Chromium's picker popup shares the renderer process). The
+// swatch/hex field and preview still update every tick; only the expensive
+// theme commit is debounced.
 const COMMIT_DEBOUNCE_MS = 100;
 
 /**
- * AppearanceCard
- * ----------------------------
- * Lets the signed-in user pick a custom brand color for their own account.
- * Every pick applies immediately, client-side, via appearanceStore -
- * AppearanceThemeProvider.tsx rebuilds Chakra's actual system in response,
- * so this *is* the live app, not a separate preview mechanism. The page
- * background (the gradient every AppLayout/AuthLayout/LandingPage uses) is
- * derived automatically from this same brand pick - see
- * appearanceThemeOverrides.ts's deriveCanvasFrom - so there's no separate
- * light/dark background color to pick or keep in sync. Save persists the
- * brand color (PUT /users/me), so it follows the user to any other device/
- * browser they sign into - see useUpdateMyAccountMutation.ts's invalidation
- * of the current-user query, which is what re-applies the confirmed,
- * server-stored value via useAuthSession.
+ * Lets the signed-in user pick a custom brand color. Every pick applies
+ * immediately via appearanceStore, which AppearanceThemeProvider.tsx uses to
+ * rebuild Chakra's system, so this is the live app, not a separate preview.
+ * The page background gradient derives automatically from the same pick
+ * (see appearanceThemeOverrides.ts's deriveCanvasFrom). Save persists the
+ * color (PUT /users/me) so it follows the user across devices.
  */
 const AppearanceCard: React.FC = () => {
     const { t } = useTranslation("account_settings");

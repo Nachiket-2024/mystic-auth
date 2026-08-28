@@ -13,9 +13,15 @@ import uuid
 
 import pytest
 
-from backend.mystic_auth.auth.security.rate_limiter_service import rate_limiter_service
-from backend.mystic_auth.authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME
-from backend.mystic_auth.authorization.repositories.policy_repository import policy_repository
+from backend.mystic_auth.auth.security.rate_limiting.rate_limiter_service import (
+    rate_limiter_service,
+)
+from backend.mystic_auth.authorization.policies.default_policies import (
+    SELF_SERVICE_POLICY_NAME,
+)
+from backend.mystic_auth.authorization.repositories.policy_repository import (
+    policy_repository,
+)
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.redis.client import redis_client
 

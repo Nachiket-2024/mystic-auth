@@ -1,4 +1,5 @@
 # Operational Troubleshooting Guide
+---
 
 ## Common issues and solutions
 
@@ -11,6 +12,8 @@ Every real `authorize()` call writes a row to `authorization_audit_log` with `al
 
 For a hypothetical "would this be allowed" question rather than a historical one, use `POST /authorization/users/{email}/authorization-check`. It runs the identical decision logic and returns `denial_reason` (`no_assigned_policies` / `no_matching_policy` / `condition_failed`) plus which policies were candidates vs. which actually granted it.
 
+---
+
 ### A policy exists and is assigned, but access is still denied
 
 Check, in order:
@@ -21,20 +24,22 @@ Check, in order:
 4. **Do the conditions actually pass for this specific request?** Use the inspection endpoint with the real `resource`/`context` you expect: `candidate_policies` non-empty but `authorized: false` means a policy matched but a condition rejected it; check `failed_conditions` (batch-check) or compare `candidate_policies` vs `granting_policies` (single-check inspection).
 5. **Redis cache serving a stale policy list?** See [Redis cache management](#redis-cache-management) below.
 
+---
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Start(["Access denied:<br/>policy exists<br/>and is assigned"])
-    Active{"Is the policy<br/>is_active?"}
-    ResType{"Does resource_type<br/>match (or '*')?"}
-    Action{"Is the exact<br/>action string<br/>in actions?"}
-    Cond{"Do the conditions<br/>pass for this<br/>request?"}
-    Cache{"Recently changed<br/>a policy: could<br/>Redis be stale?"}
-    Fix1["Reactivate<br/>the policy"]
-    Fix2["Fix the<br/>resource_type<br/>typo/mismatch"]
-    Fix3["Grant the<br/>correct action<br/>string"]
-    Fix4["Fix failed_conditions<br/>(see inspection<br/>endpoint)"]
-    Fix5["See Redis cache<br/>management below"]
-    Allowed(["Should be allowed:<br/>re-check with the<br/>inspection endpoint"])
+    Start(["Access denied:<br/> policy exists<br/> and is assigned"])
+    Active{"Is the policy<br/> is_active?"}
+    ResType{"Does resource_type<br/> match (or '*')?"}
+    Action{"Is the exact<br/> action string<br/> in actions?"}
+    Cond{"Do the conditions<br/> pass for this<br/> request?"}
+    Cache{"Recently changed<br/> a policy: could<br/> Redis be stale?"}
+    Fix1["Reactivate<br/> the policy"]
+    Fix2["Fix the<br/> resource_type<br/> typo/mismatch"]
+    Fix3["Grant the<br/> correct action<br/> string"]
+    Fix4["Fix failed_conditions<br/> (see inspection<br/> endpoint)"]
+    Fix5["See Redis cache<br/> management below"]
+    Allowed(["Should be allowed:<br/> re-check with the<br/> inspection endpoint"])
 
     Start --> Active
     Active -- "no" --> Fix1
@@ -47,15 +52,21 @@ flowchart TD
     Cond -- "yes" --> Cache
     Cache -- "yes" --> Fix5
     Cache -- "no" --> Allowed
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 ### Invalid policy `conditions` rejected with 422
 
 The response body lists every problem found, not just the first; see the [Condition Schema Reference](condition-schema-reference.md) for each type's exact required shape. Common mistakes: `date_range` using `start_date`/`end_date` instead of `start`/`end`; `time.timezone` not being a real IANA name (`"EST"` isn't one, use `"America/New_York"`); `network.allowed_ips` containing a bare hostname instead of an IP/CIDR.
 
+---
+
 ### A caller with `policies:create`/`update`/`assign` gets 403 "Cannot grant action ... you do not hold it yourself"
 
 This is the privilege-escalation guard working as intended (see [Architecture](architecture.md#authorization-service)): holding the ability to *manage* policies doesn't let you hand out actions you don't already have. The caller needs to already hold every sensitive action (from `Permission`'s vocabulary) that the policy grants, which typically means they need `system_superuser` too, not just a `policies:*` action.
+
+---
 
 ### The UI shows a capability (button, page, sidebar link) that then 403s when used
 
@@ -95,6 +106,8 @@ built-in exception, deliberately spanning multiple resource types; see
 [Writing and Testing Policies](writing-testing-policies.md) before reaching
 for `"*"` on a new policy instead of scoping it properly.
 
+---
+
 ### A caller with `policies:delete`/`update`/`revoke` gets 403 "Cannot grant action ... you do not hold it yourself"
 
 Same guard as above (`assert_authorized_to_grant`), applied symmetrically:
@@ -109,6 +122,8 @@ escalation check at all. If you hold `policies:delete` but not, say,
 `rate_limits:read`/`rate_limits:reset`, you cannot delete a policy that
 grants those, even though you can delete other policies scoped to actions
 you do hold.
+
+---
 
 ### 403 on baseline policy delete/rename, or 409 on revoking the last `system_superuser`
 
@@ -191,6 +206,8 @@ scripts/docker/backend-exec.sh python -m pytest tests/
 
 (The `-w /repo` working directory requires the `backend` service's `docker-compose.yml` entry to mount the repo root, not just `./backend`, as an additional volume: see that file's `backend.volumes` for the `.:/repo` line and its comment.)
 
+---
+
 ### Migrations won't apply / "relation already exists"
 
 Verify you're pointed at the container you think you are, and that `DATABASE_URL` resolves to the right host (`postgres` inside the Docker network, `localhost` from the host: see any `tests/backend/conftest.py`'s environment-derivation logic for the exact substitution rule). To start completely fresh:
@@ -202,9 +219,13 @@ docker compose run --rm alembic
 
 This reproduces the full migration chain from empty state and re-seeds the three baseline policies: verified as part of this project's own Docker/Test Environment Verification pass.
 
+---
+
 ### `docker compose exec -it <service>` fails with "Cwd must be an absolute path" or "cannot attach stdin to a TTY"
 
 Two unrelated shell gotchas, both encountered running this project's own test suite from Git Bash on Windows:
 
 - **Path mangling**: Git Bash rewrites absolute-looking paths (`/repo`) to a Windows path (`C:/Program Files/Git/repo`) before they ever reach `docker compose exec`. Fix: prefix the command with `MSYS_NO_PATHCONV=1`.
 - **No TTY available**: drop the `-it` flags for any `docker compose exec`/`docker compose run` invoked from a non-interactive shell: `-i`/`-t` require a real terminal, and any script/CI running these commands should omit them entirely (the command runs identically without them; only interactive convenience is lost).
+
+---

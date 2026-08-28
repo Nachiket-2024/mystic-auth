@@ -1,10 +1,13 @@
 # Logout and Logout-All
+---
 
 Split out of [Authentication Flows](overview.md). Both endpoints end sessions by bumping a Redis
 version counter, not by deleting or blacklisting tokens; see
 [Session Management: source of truth](session-management.md#source-of-truth) for why that scheme
 exists. This doc covers the two endpoints themselves and the idempotency behavior that makes them
 safe to call against an already-dead token.
+
+---
 
 ## Components
 
@@ -20,6 +23,7 @@ safe to call against an already-dead token.
 ## Flow
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     subgraph Logout["POST /auth/logout"]
         L1["Decode refresh token claims\n(decode_payload, not verify_token)"] --> L2["Bump chain_ver\nfor this chain_id"]
@@ -29,9 +33,12 @@ flowchart TD
         L3b --> L4
         L4 --> L5["200\n(always, either way)"]
     end
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     subgraph LogoutAll["POST /auth/logout/all"]
         A1["Decode refresh token claims\n(decode_payload, not verify_token)"] --> A2["Bump account_ver\n(one INCR, ends every session)"]
@@ -40,7 +47,9 @@ flowchart TD
         A2 -->|Redis unreachable| A5["Clear cookies"]
         A5 --> A6["503\nSESSION_REVOCATION_UNAVAILABLE"]
     end
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 1. **Decode without verifying revocation.** Both endpoints read the presented refresh token's
    claims via `jwt_service.decode_payload`, not `verify_token`, so they can still resolve the
@@ -63,6 +72,8 @@ flowchart TD
    still cleared (this browser's own session is done regardless), but the response is
    `503 SESSION_REVOCATION_UNAVAILABLE` rather than `200`, so the caller knows the other devices
    were not actually logged out. See [Bump failure handling](session-management.md#bump-failure-handling).
+
+---
 
 ### Idempotency against an already-dead token
 
@@ -105,3 +116,5 @@ session-management integration suite exercise both against real Postgres/Redis. 
 - [Session Management](session-management.md): the version-counter mechanism both endpoints use,
   and how a revoked session is pushed to every open tab in real time.
 - [Authentication Flows](overview.md): tokens/cookies and how logout fits alongside the other flows.
+
+---

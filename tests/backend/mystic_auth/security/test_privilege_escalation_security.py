@@ -122,6 +122,63 @@ async def test_policies_update_only_cannot_rollback_to_a_revision_holding_an_unh
 
 
 @pytest.mark.asyncio
+async def test_policies_update_only_cannot_rollback_a_policy_it_does_not_currently_hold(
+    client, created_emails
+):
+    """The symmetric half of the rollback guard: unlike update_policy, which
+    checks BOTH the policy's current actions and the target actions,
+    rollback previously only checked the target (post-rollback) actions.
+    A caller who holds the target actions but NOT the policy's CURRENT
+    actions must still be blocked, otherwise policies:update alone could
+    roll a widely-assigned policy back to a weaker/different historical
+    definition, silently stripping every other holder's CURRENT access,
+    without the caller ever holding what's presently granted."""
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+
+    policy_name = unique_policy_name()
+    # The rollback target: a revision granting only a benign action the
+    # attacker will hold.
+    create_resp = await client.post(
+        "/authorization/policies",
+        json={"name": policy_name, "actions": ["policies:update"], "resource_type": "policies"},
+    )
+    assert create_resp.status_code == 201
+
+    history_resp = await client.get(f"/authorization/policies/{policy_name}/history")
+    assert history_resp.status_code == 200
+    target_entry = next(
+        entry for entry in history_resp.json()
+        if entry["new_definition"] and entry["new_definition"]["actions"] == ["policies:update"]
+    )
+
+    # Upgrade to the policy's CURRENT definition: a sensitive action the
+    # attacker will never hold.
+    upgrade_resp = await client.put(
+        f"/authorization/policies/{policy_name}", json={"actions": ["users:purge"]}
+    )
+    assert upgrade_resp.status_code == 200
+
+    attacker_email = unique_email("rollback-strip")
+    await create_user_with_custom_policy(
+        client, created_emails, attacker_email, ["policies:update", "policies:read"]
+    )
+
+    # The attacker holds the target actions (policies:update) but not the
+    # policy's current actions (users:purge) - must still be blocked.
+    rollback_resp = await client.post(
+        f"/authorization/policies/{policy_name}/history/{target_entry['id']}/rollback"
+    )
+    assert rollback_resp.status_code == 403
+
+    # Confirm it actually didn't take: the policy is still on its current
+    # (sensitive) definition, not rolled back to the attacker-held one.
+    get_resp = await client.get(f"/authorization/policies/{policy_name}")
+    assert get_resp.status_code == 200
+    assert get_resp.json()["actions"] == ["users:purge"]
+
+
+@pytest.mark.asyncio
 async def test_policies_update_only_cannot_repoint_resource_type_to_activate_a_dormant_sensitive_action(
     client, created_emails
 ):

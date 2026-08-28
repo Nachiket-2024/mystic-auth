@@ -55,9 +55,19 @@ class ConditionEvaluationService:
         ignored.
 
         Returns {"satisfied": bool, "failed_keys": list[str]}.
+
+        Fails safe (denies, reporting a single "__invalid_conditions__"
+        failed key) if `conditions` is present but isn't a mapping: the
+        write-time validator (condition_validator.py) already rejects this
+        via the management API, but the JSONB column it's stored in
+        doesn't enforce that shape itself, so this is this method's own
+        defense-in-depth guard against conditions reaching evaluation some
+        other way (e.g. a direct DB write or migration).
         """
         if not conditions:
             return {"satisfied": True, "failed_keys": []}
+        if not isinstance(conditions, dict):
+            return {"satisfied": False, "failed_keys": ["__invalid_conditions__"]}
 
         failed_keys: list[str] = []
         for key, value in conditions.items():

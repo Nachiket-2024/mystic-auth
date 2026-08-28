@@ -25,21 +25,13 @@ upstream for exactly this purpose, so it never conflicts on a sync.
 
 import importlib
 
-# `mystic_auth` is a sibling package of `app`, not a child of it, so a plain
-# relative import can't reach it, and a plain absolute one only resolves
-# inside the Docker image, where the working directory is backend/ and
-# `app`/`mystic_auth` are both top-level packages. The test suite instead
-# runs from the repo root and imports this module as `backend.app.sdk`,
-# where the only importable name is `backend.mystic_auth...`. Deriving the
-# right prefix from __package__ (rather than hardcoding either spelling)
-# keeps this file working unchanged in both contexts, and, importantly,
-# resolves to the exact same module objects (the same `database`/`settings`/
-# etc. singletons) the rest of whichever context is already running, rather
-# than a second, separately-imported copy. That matters concretely:
-# tests/backend/conftest.py imports `database` directly via
-# `backend.mystic_auth.database.connection` and mutates `database.engine` on
-# that object, expecting the app under test (imported here through
-# `backend.app.main` -> `backend.app.sdk`) to see the same mutated instance.
+# `mystic_auth` is a sibling of `app`, not a child, so neither a relative
+# nor a hardcoded absolute import works in both the Docker image (top-level
+# `mystic_auth`) and the test suite (`backend.mystic_auth...`). Deriving the
+# prefix from __package__ keeps this working in both, and resolves to the
+# same module objects the rest of that context already imported, which
+# matters since conftest.py mutates `database.engine` and expects the app
+# under test to see the same instance.
 _pkg_parent = __package__.rsplit(".", 1)[0] if __package__ and "." in __package__ else ""
 _mystic_auth_root = f"{_pkg_parent}.mystic_auth" if _pkg_parent else "mystic_auth"
 
@@ -78,9 +70,14 @@ user_self_service_router = _m("api.user_routes.user_self_service_routes").router
 user_management_query_router = _m("api.user_routes.user_management_query_routes").router
 user_management_update_router = _m("api.user_routes.user_management_update_routes").router
 user_lifecycle_router = _m("api.user_routes.user_lifecycle_routes").router
-policy_crud_router = _m("api.pbac_routes.policy_crud_routes").router
-policy_history_router = _m("api.pbac_routes.policy_history_routes").router
-policy_assignment_router = _m("api.pbac_routes.policy_assignment_routes").router
+policy_crud_router = _m("api.pbac_routes.policies.policy_crud_routes").router
+policy_history_router = _m("api.pbac_routes.policies.policy_history_routes").router
+policy_assignment_router = _m("api.pbac_routes.policies.policy_assignment_routes").router
+permission_assignment_router = _m("api.pbac_routes.permissions.permission_assignment_routes").router
+permission_catalog_router = _m("api.pbac_routes.permissions.permission_catalog_routes").router
+bulk_policy_router = _m("api.pbac_routes.bulk.bulk_policy_routes").router
+bulk_permission_router = _m("api.pbac_routes.bulk.bulk_permission_routes").router
+bulk_role_router = _m("api.pbac_routes.bulk.bulk_role_routes").router
 authorization_check_router = _m("api.pbac_routes.authorization_check_routes").router
 pbac_audit_log_router = _m("api.pbac_routes.pbac_audit_log_routes").router
 security_audit_router = _m("api.audit_log_routes.audit_log_routes").router
@@ -89,7 +86,7 @@ health_router = _m("api.health_routes.health_routes").router
 
 # Display/grouping metadata only, never a gating decision, see
 # docs/mystic_auth/security/decisions.md#role-is-never-used-to-decide-access
-UserRole = _m("user_table.user_model").UserRole
+UserRole = _m("user.user_model").UserRole
 
 # Redis client singleton, closed on shutdown in main.py's lifespan
 redis_client = _m("redis.client").redis_client
@@ -106,19 +103,23 @@ LoggingMiddleware = _m("logging.logging_middleware").LoggingMiddleware
 CorrelationIdMiddleware = _m("logging.correlation_id_middleware").CorrelationIdMiddleware
 get_logger = _m("logging.logging_config").get_logger
 
-# Error monitoring: init_sentry() is called once at import time in
-# main.py; capture_exception() reports a caught-but-still-noteworthy
-# exception the same way an unhandled one gets reported automatically. Both
-# are safe no-ops when SENTRY_DSN is unset, see
+# Error monitoring: init_sentry() runs once at import time; capture_exception()
+# reports a caught exception the same way an unhandled one auto-reports.
+# Both are safe no-ops when SENTRY_DSN is unset. watch_for_late_dsn() runs as
+# a background task to catch Bugsink's DSN on a slow/fresh boot, after
+# init_sentry() already found nothing set. See
 # docs/mystic_auth/error-monitoring/overview.md.
-# watch_for_late_dsn() is started as a background task from main.py's
-# lifespan. It catches Bugsink's DSN on a slow/fresh boot, running after
-# init_sentry() already ran and found nothing set. See its own docstring
-# for why that's not a redundant second attempt at the same check.
 _sentry_service = _m("error_monitoring.sentry_service")
 init_sentry = _sentry_service.init_sentry
 capture_exception = _sentry_service.capture_exception
 watch_for_late_dsn = _sentry_service.watch_for_late_dsn
+
+# Called once from main.py's lifespan teardown, before redis_client is
+# closed, so any open GET /auth/session-events SSE connection notices the
+# shutdown immediately and ends its stream instead of holding the process
+# open past its graceful-shutdown timeout. See
+# user_session/session_events.py for the full reasoning.
+signal_session_events_shutdown = _m("user_session.session_events").signal_shutdown
 
 __all__ = [
     "Permission",
@@ -140,6 +141,11 @@ __all__ = [
     "policy_crud_router",
     "policy_history_router",
     "policy_assignment_router",
+    "permission_assignment_router",
+    "permission_catalog_router",
+    "bulk_policy_router",
+    "bulk_permission_router",
+    "bulk_role_router",
     "authorization_check_router",
     "pbac_audit_log_router",
     "security_audit_router",
@@ -154,4 +160,5 @@ __all__ = [
     "init_sentry",
     "capture_exception",
     "watch_for_late_dsn",
+    "signal_session_events_shutdown",
 ]

@@ -1,6 +1,9 @@
 # Security Hardening: HTTP Layer
+---
 
 Response headers, CORS, cookie flags, middleware ordering, and error handling: the mechanisms that shape what the HTTP layer itself exposes to a client. See [Security Hardening](hardening.md) for the full index.
+
+---
 
 ## Security response headers
 
@@ -52,3 +55,5 @@ Note: no `Strict-Transport-Security` is set by the nginx layer serving the front
 Two handlers registered in `main.py`. A global `@app.exception_handler(Exception)` catches every otherwise-unhandled exception, logs it with a full traceback, and returns a generic `500 {"detail": "Internal Server Error"}`: internal exception details never reach the client, regardless of `ENVIRONMENT`; `debug=` is never passed to the FastAPI app either (defaults `False`), so there's no path where Starlette's own debug error page could leak a traceback. This same handler also reports the exception for error monitoring (`error_monitoring.sentry_service.capture_exception`): a no-op unless `SENTRY_DSN` is set, see [Error Monitoring](../error-monitoring/overview.md).
 
 A second, more specific `@app.exception_handler(AppError)` catches `core/errors.py`'s `AppError`, the structured exception routes raise on purpose (`AppError(status_code, code, detail, params=None)`), and returns `{"detail", "code", "params"}` instead of the generic body above. `code` is a stable, machine-readable identifier (e.g. `"INVALID_CREDENTIALS"`); the frontend's `api/apiError.ts` looks it up in `errors.json` to render a translated message, falling back to the English `detail` for any route not yet migrated to `AppError`. See [API Reference: error responses](../api/reference.md#error-responses) and [Translations Overview](../translations/overview.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts).
+
+---

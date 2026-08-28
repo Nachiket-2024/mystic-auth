@@ -56,16 +56,24 @@ const LandingPage: React.FC = () => {
     return (
         <Flex
             direction="column"
-            h="100vh"
-            overflow="hidden"
+            minH="100vh"
+            overflowY="auto"
             bg="bg.canvas"
             bgGradient="to-b"
             gradientFrom="bg.canvasFrom"
             gradientTo="bg.canvasTo"
         >
-            <Flex as="header" align="center" justify="space-between" px={{ base: 4, md: 8 }} py={{ base: 3, md: 4 }}>
+            <Flex
+                as="header"
+                align="center"
+                justify="space-between"
+                wrap="wrap"
+                rowGap={2}
+                px={{ base: 4, md: 8 }}
+                py={{ base: 3, md: 4 }}
+            >
                 <Logo size="sm" />
-                <HStack gap={3}>
+                <HStack gap={3} wrap="wrap" justify="flex-end">
                     <ControlCluster />
                     <Button
                         asChild
@@ -74,7 +82,11 @@ const LandingPage: React.FC = () => {
                         size="sm"
                         borderWidth="2px"
                         {...BRAND_OUTLINE_HOVER_PROPS}
-                        borderColor={{ _light: "brand.500", _dark: "brand.400" }}
+                        // Same color as the button's own text (BRAND_OUTLINE_HOVER_PROPS's
+                        // "brand.fg"), not an independently-picked shade - an outline whose
+                        // border reads a different color than its own label looks like a
+                        // mismatch, not a deliberate two-tone treatment.
+                        borderColor="brand.fg"
                     >
                         <RouterLink to="/login">{t("logIn")}</RouterLink>
                     </Button>
@@ -111,7 +123,10 @@ const LandingPage: React.FC = () => {
                             size="lg"
                             borderWidth="2px"
                             {...BRAND_OUTLINE_HOVER_PROPS}
-                            borderColor={{ _light: "brand.800", _dark: "brand.400" }}
+                            // Same color as the button's own text (BRAND_OUTLINE_HOVER_PROPS's
+                            // "brand.fg"), not an independently-picked shade - see the header
+                            // Login button's identical comment above.
+                            borderColor="brand.fg"
                         >
                             <RouterLink to="/login">{t("logIn")}</RouterLink>
                         </Button>

@@ -88,6 +88,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                     autoFocus={hasTokenFromUrl}
                     aria-invalid={!!localError || resetConfirmMutation.isError}
                     aria-describedby={passwordErrorId}
+                    maxLength={128}
                 />
             </ChakraField.Root>
 
@@ -111,6 +112,7 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                     size="lg"
                     aria-invalid={!!localError}
                     aria-describedby={localError ? "password-reset-confirm-local-error" : undefined}
+                    maxLength={128}
                 />
             </ChakraField.Root>
 

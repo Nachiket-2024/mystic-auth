@@ -1,4 +1,5 @@
 # CI/CD Overview
+---
 
 ## Workflow
 
@@ -10,17 +11,21 @@ dependency in this workflow can only read the checkout.
 There are five independent jobs. The first four run on every push and PR. The
 fifth runs only on a push to `main`.
 
+---
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Trigger(["Push / PR<br/>to main"])
-    TriggerMain(["Push to<br/>main only"])
+    Trigger(["Push / PR<br/> to main"])
+    TriggerMain(["Push to<br/> main only"])
 
-    Trigger --> Backend["backend<br/><small>lint, type-check, bandit,<br/>pip-audit, pytest<br/>(85% cov gate)</small>"]
-    Trigger --> Frontend["frontend<br/><small>typecheck, lint,<br/>test:coverage, build</small>"]
-    Trigger --> Secrets["secrets-scan<br/><small>gitleaks,<br/>full git history</small>"]
-    Trigger --> DockerBuild["docker-build<br/><small>build both images,<br/>assert no leaked logs,<br/>boot the dev stack,<br/>smoke-test it</small>"]
-    TriggerMain --> DockerFullSuite["docker-full-suite<br/><small>full backend + frontend suites,<br/>run inside the actual containers</small>"]
+    Trigger --> Backend["backend<br/> lint, type-check, bandit,<br/> pip-audit, pytest<br/> (85% cov gate)"]
+    Trigger --> Frontend["frontend<br/> typecheck, lint,<br/> test:coverage, build"]
+    Trigger --> Secrets["secrets-scan<br/> gitleaks,<br/> full git history"]
+    Trigger --> DockerBuild["docker-build,<br/> build both images,<br/> assert no leaked logs,<br/> boot the dev stack,<br/> smoke-test it"]
+    TriggerMain --> DockerFullSuite["docker-full-suite<br/> full backend + frontend suites,<br/> run inside the actual containers"]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 ### `backend`: Backend (unit + integration)
 
@@ -45,6 +50,8 @@ flowchart TD
 - Runs `pytest tests/backend/mystic_auth/performance` as a non-blocking step
   because timing thresholds can be noisy on shared GitHub-hosted runners.
 
+---
+
 ### `frontend`: Frontend (typecheck + lint + test + build)
 
 - Node is pinned to `22.22.0` because React Router 8 requires Node
@@ -54,11 +61,15 @@ flowchart TD
   `npm run build` as separate steps. `test:coverage` is used instead of plain
   `test` so `vitest.config.ts` coverage thresholds are enforced.
 
+---
+
 ### `secrets-scan`: Secrets scan (gitleaks)
 
 - Checks out full git history with `fetch-depth: 0` and runs
   [gitleaks](https://github.com/gitleaks/gitleaks). This catches secrets that
   were committed and later removed from the working tree.
+
+---
 
 ### `docker-build`: Docker image build verification
 
@@ -77,6 +88,8 @@ flowchart TD
   failures have useful context in the Actions UI.
 - Does not push images or deploy. That is an explicit template scope boundary,
   not an oversight.
+
+---
 
 ### `docker-full-suite`: Full test suite via Docker (main only)
 
@@ -179,3 +192,5 @@ docker compose up -d --build frontend
 docker compose exec -T frontend sh -c "npm run test -- --run"
 docker compose down -v && rm .env
 ```
+
+---

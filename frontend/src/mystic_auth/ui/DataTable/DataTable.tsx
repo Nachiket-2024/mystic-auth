@@ -1,12 +1,12 @@
 import React from "react";
-import { HStack, Table, Text, EmptyState } from "@chakra-ui/react";
+import { Table, EmptyState } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import FormAlert from "../FormAlert";
 import { DataTableHeaderRow } from "./DataTableSortableHeader";
 import { DataTableRow } from "./DataTableRow";
 import DataTableSkeleton from "./DataTableSkeleton";
-import { useDataTableSelection } from "./DataTableSelection";
+import { useDataTableSelection, type SelectionChangeHandler } from "./DataTableSelection";
 import { SCROLL_AREA_SCROLLBAR_CSS, SCROLL_SHADOW_CSS } from "./DataTableStyles";
 import type { SortState } from "../hooks/useSortState";
 import { useLanguageStore } from "../../store/languageStore";
@@ -103,10 +103,26 @@ interface DataTableProps<T> {
      * the caller so selection can survive a page/filter change if the
      * caller wants that, or be cleared on one if it doesn't. */
     selectedKeys?: ReadonlySet<string | number>;
-    /** Called with the full next selection set on every checkbox toggle
-     * (row or select-all) - never just the changed key - so the caller can
-     * treat it as the new source of truth without diffing it themselves. */
-    onSelectionChange?: (keys: Set<string | number>) => void;
+    /** Called on every checkbox toggle (row or select-all), always with the
+     * FUNCTIONAL form (same shape as React's own `Dispatch<SetStateAction>`)
+     * - `(prev) => next`, computed off whatever the true latest selection is
+     * when the update actually applies, never off a snapshot taken at
+     * render/click time. Passing a plain `useState` setter directly (e.g.
+     * `onSelectionChange={setSelectedIds}`) satisfies this automatically,
+     * since React's own setters already accept an updater function - that's
+     * also what makes this safe under several rapid selection changes fired
+     * in quick succession (see DataTableSelection.ts's own comment on why a
+     * value-only version could silently resurrect a just-cleared row). */
+    onSelectionChange?: SelectionChangeHandler;
+    /** Opt-in: while true (and `selectable`), clicking anywhere in a row
+     * (except an interactive control inside it - a button, a select)
+     * toggles that row's selection, not just its checkbox. Defaults to
+     * false/unset so a table stays normal-click-to-select-text everywhere
+     * else - always-on would fight a user trying to double-click/drag-select
+     * an email or other cell text to copy it. The caller is expected to
+     * expose this as its own explicit toggle (e.g. a toolbar button) rather
+     * than leaving it permanently on. */
+    rowClickSelects?: boolean;
 }
 
 /**
@@ -134,6 +150,7 @@ function DataTable<T>({
     selectable,
     selectedKeys,
     onSelectionChange,
+    rowClickSelects,
 }: DataTableProps<T>) {
     const { t } = useTranslation("ui_text");
     // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
@@ -142,7 +159,7 @@ function DataTable<T>({
     const language = useLanguageStore((s) => s.chromeLanguage);
     const showRowNumbers = startIndex !== undefined;
 
-    const { selectedOnScreenCount, isAllSelected, isSomeSelected, toggleRow, toggleAll, clearSelection } =
+    const { isAllSelected, isSomeSelected, toggleRow, toggleAll } =
         useDataTableSelection({ rows, rowKey, selectedKeys, onSelectionChange });
 
     const colgroup = (
@@ -205,16 +222,6 @@ function DataTable<T>({
 
     return (
         <>
-            {selectable && selectedOnScreenCount > 0 && (
-                <HStack justify="space-between" mb={2} px={1}>
-                    <Text fontSize="sm" color="fg.muted">
-                        {t("selectedCount", { count: selectedOnScreenCount })}
-                    </Text>
-                    <Text as="button" fontSize="sm" color="brand.fg" fontWeight="medium" onClick={clearSelection}>
-                        {t("clearSelection")}
-                    </Text>
-                </HStack>
-            )}
             {/* maxH caps this table's own height once it has enough rows to
                 exceed it, turning Table.ScrollArea (already overflow:auto on
                 both axes, for the horizontal scroll-shadow above) into a real
@@ -268,6 +275,7 @@ function DataTable<T>({
                             row={row}
                             columns={columns}
                             selectable={selectable}
+                            rowClickSelects={rowClickSelects}
                             isSelected={selectedKeys?.has(rowKey(row)) ?? false}
                             onToggle={() => toggleRow(rowKey(row))}
                             selectRowLabel={t("selectRow")}

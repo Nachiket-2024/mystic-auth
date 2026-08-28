@@ -3,7 +3,7 @@ import { HStack, Input } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import StyledSelect from "../../ui/StyledSelect";
-import { SEARCH_INPUT_PROPS } from "../../ui/styles/inputStyles";
+import { SEARCH_INPUT_PROPS, SEARCH_QUERY_MAX_LENGTH } from "../../ui/styles/inputStyles";
 import { SECURITY_EVENT_TYPES } from "./securityLogEventTypes";
 import { ALL_VALUE } from "../auditLogListConfig";
 
@@ -40,6 +40,7 @@ const SecurityFilterBar: React.FC<SecurityFilterBarProps> = ({
                 value={ipAddress}
                 onChange={(e) => setIpAddress(e.target.value)}
                 w="40"
+                maxLength={SEARCH_QUERY_MAX_LENGTH}
                 {...SEARCH_INPUT_PROPS}
             />
 

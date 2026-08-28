@@ -15,7 +15,7 @@ import pytest
 from backend.mystic_auth.auth.current_user.current_user_handler import (
     current_user_handler,
 )
-from backend.mystic_auth.user_table.user_model import UserRole
+from backend.mystic_auth.user.user_model import UserRole
 
 MODULE = "backend.mystic_auth.auth.current_user.current_user_handler"
 
@@ -41,6 +41,11 @@ def _mock_authenticated_user_dependencies(mocker):
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
         new_callable=AsyncMock,
         return_value=[],
     )

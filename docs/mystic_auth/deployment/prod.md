@@ -1,4 +1,5 @@
 # Prod Deployment
+---
 
 Self-hosted deployment for your own server. This can be a virtual private
 server, cloud instance, bare-metal server, or any host with a public IP. The
@@ -34,7 +35,7 @@ cp .env.prod.example .env.prod
 
 `.env.prod.example` is the prod template for `docker-compose.prod.yml`.
 `ENVIRONMENT=production`, empty `VITE_API_BASE_URL`, and
-`TRUSTED_PROXY_IPS=172.28.0.10` are already set correctly for the bundled
+`TRUSTED_PROXY_IPS=172.29.0.10,172.29.0.11` are already set correctly for the bundled
 Caddy to frontend nginx to backend route.
 
 Before starting, replace every `<your-domain>` placeholder in the copied
@@ -109,8 +110,8 @@ request, so the very first load may take a few extra seconds.
 
 The frontend container's nginx (`docker/nginx.frontend.conf`) proxies API
 route prefixes (`/auth`, `/audit`, `/users`, `/authorization`, `/health`,
-`/rate-limits`) to `backend`. It's pinned to `172.28.0.10` so the backend can
-trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS=172.28.0.10`.
+`/rate-limits`) to `backend`. It's pinned to `172.29.0.10` so the backend can
+trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS=172.29.0.10`.
 
 ---
 
@@ -163,3 +164,5 @@ These are the same across all three Compose files. See
 [Deployment Guide](guide.md#database-migrations) for migrations, backups
 (`scripts/db/db_backup.sh docker-compose.prod.yml`), graceful shutdown, and
 known limitations of this deployment approach.
+
+---

@@ -1,7 +1,4 @@
 # Using This Repository as a Template
-
-You've created your own repository from this template (via GitHub's **Use this template** button) to build your own product's authentication and authorization layer on top of it. This doc is a fast overview: what you get, how to run it, and where to make it yours. For how any specific piece actually works, see the rest of [`docs/`](../README.md).
-
 ---
 
 ## What this template provides
@@ -24,6 +21,8 @@ This template ships the authenticated app shell (sidebar, top bar, and the auth/
 3. Run the dev helper for your shell: `./scripts/docker/dev-up.sh` (Git Bash, WSL, Linux, macOS), `.\scripts\docker\dev-up.ps1` (PowerShell), or `scripts\docker\dev-up.cmd` (Command Prompt).
 
    The helper brings up backend, frontend, Postgres, Redis, Procrastinate, and Bugsink, migrations included, then settles into showing just `backend`/`frontend`/`procrastinate_worker` logs instead of every service's full startup output (see [Docker Overview](../docker/overview.md#day-to-day-dev-up-helpers)). Plain `docker compose up` still works if you want everything's logs interleaved instead.
+
+---
 
 Once it's up:
 
@@ -49,11 +48,15 @@ Every setting is documented inline in [`.env.example`](../../../.env.example): t
 
 To rename the app: set `APP_NAME` in the root `.env`, then `docker compose up --build`. `docker-compose.yml` aliases `VITE_APP_NAME` from that same `APP_NAME` (the frontend value is baked in at build time), so there's only one setting to change, not two. Nothing else hardcodes a product name. CI keeps using its own placeholder `APP_NAME` regardless; that's expected, not something to sync.
 
+To change the default brand color: set `BRAND_COLOR` in the root `.env` the same way, aliased to `VITE_BRAND_COLOR`. See [Appearance: Per-User Brand Color](../appearance/overview.md#default-brand-color).
+
 ---
 
 ## The `app/` + `mystic_auth/` split
 
 Both backend and frontend are split into two trees, and every file in the repo falls into exactly one of three ownership tiers. This is purely a **file-path convention**: there's no tooling enforcing it (no `CODEOWNERS`, no merge driver), just a rule both this template and your own code agree to follow. Knowing which tier a file is in tells you whether you can edit it freely, should never edit it, or should expect the occasional merge conflict there.
+
+---
 
 | Tier | Files | Who edits it | Why |
 |---|---|---|---|
@@ -61,21 +64,24 @@ Both backend and frontend are split into two trees, and every file in the repo f
 | **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `frontend/src/app/theme.ts`, `docs/app/`, `screenshots/app/`, root `README.md`, `SECURITY.md` | Only you | Upstream ships these once (`app_sdk.*`/`theme.ts` empty, the READMEs as generic starting points) and never edits them again in any future release. Since only you write to them, they never conflict either. |
 | **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `docker-compose.yml`, `docker-compose.local-prod.yml`, `docker-compose.prod.yml`, `.env.example` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a compose file), so they can't start empty the way `app_sdk.*` does. You're expected to extend them (register your own router, add your own `<Route>`, add your own dependency), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
 
+---
+
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TB
     subgraph upstream["Upstream-owned: never edit"]
-        MA["mystic_auth/<br/>template internals:<br/>auth, PBAC, API, UI"]
-        SDK["sdk.py / sdk.ts<br/>extension surface:<br/>do not hand-edit"]
+        MA["mystic_auth/<br/> template internals:<br/> auth, PBAC, API, UI"]
+        SDK["sdk.py / sdk.ts<br/> extension surface:<br/> do not hand-edit"]
     end
 
     subgraph shared["Shared: extend in place, expect occasional conflicts"]
-        ENTRY["main.py / App.tsx<br/>entry point, ships working"]
+        ENTRY["main.py / App.tsx<br/> entry point, ships working"]
     end
 
     subgraph yours["Yours: upstream never touches again"]
-        APPSDK["app_sdk.py / app_sdk.ts<br/>your re-exports:<br/>shipped empty"]
-        FEATURES["your feature folders<br/>e.g. app/projects/"]
-        DOCSAPP["docs/app/<br/>your own docs"]
+        APPSDK["app_sdk.py / app_sdk.ts<br/> your re-exports:<br/> shipped empty"]
+        FEATURES["your feature folders<br/> e.g. app/projects/"]
+        DOCSAPP["docs/app/<br/> your own docs"]
     end
 
     MA -->|re-exported by| SDK
@@ -83,8 +89,10 @@ flowchart TB
     SDK -->|imported by| FEATURES
     APPSDK -->|imported by| ENTRY
     APPSDK -->|imported by| FEATURES
-    ENTRY -.->|your imports go<br/>here, not app_sdk| APPSDK
+    ENTRY -.->|your imports go<br/> here, not app_sdk| APPSDK
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 `sdk.py`/`sdk.ts` re-export the pieces you're meant to build on (`require_authorization`, `Permission`, `useAuthorization`, `ProtectedRoute`, the shared `api` client, and more): import from there, not from internal `mystic_auth/` paths directly.
 
@@ -190,3 +198,5 @@ Pulling in fixes/features from the original template once your own project has d
 ## Getting help
 
 Search [existing Issues](https://github.com/Nachiket-2024/mystic-auth/issues) first, then open a new one with clear repro steps. PRs welcome. **Found a security vulnerability?** Don't open a public Issue: see [SECURITY.md](../../../SECURITY.md).
+
+---

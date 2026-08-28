@@ -71,6 +71,7 @@ const ProfileNameCard: React.FC<ProfileNameCardProps> = ({ name, onDirtyChange }
                         aria-invalid={!!nameError || nameMutation.isError}
                         aria-describedby={nameError ? "name-local-error" : nameMutation.isError ? "name-mutation-error" : undefined}
                         size="lg"
+                        maxLength={100}
                         {...SEARCH_INPUT_PROPS}
                     />
                 </Field.Root>

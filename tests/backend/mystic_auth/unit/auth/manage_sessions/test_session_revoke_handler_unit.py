@@ -12,8 +12,12 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
 
-from backend.mystic_auth.auth.manage_sessions.session_revoke_handler import session_revoke_handler
-from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
+from backend.mystic_auth.auth.manage_sessions.session_revoke_handler import (
+    session_revoke_handler,
+)
+from backend.mystic_auth.auth.token_logic.token_version_store import (
+    TokenVersionUnavailableError,
+)
 
 MODULE = "backend.mystic_auth.auth.manage_sessions.session_revoke_handler"
 

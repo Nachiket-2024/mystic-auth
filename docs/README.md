@@ -1,4 +1,5 @@
 # Documentation
+---
 
 - **[`mystic_auth/`](mystic_auth/README.md):** template reference docs for
   architecture, authentication, authorization (PBAC), database, API reference,
@@ -10,3 +11,5 @@
 
 This mirrors the code split: `backend/mystic_auth/` plus `backend/app/`, and
 `frontend/src/mystic_auth/` plus `frontend/src/app/`.
+
+---

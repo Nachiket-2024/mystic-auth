@@ -4,7 +4,7 @@
     "tabs": {
         "profile": "Profile",
         "password": "Password",
-        "status": "Account Status",
+        "status": "Permissions",
         "appearance": "Appearance",
         "danger": "Danger Zone",
         "legal": "Legal"
@@ -32,15 +32,22 @@
         "setButton": "Set password"
     },
     "accountStatus": {
-        "passwordLabel": "Password",
         "set": "Set",
         "notSet": "Not set",
         "hasPasswordDescription": "You can sign in with your email and password. If this email is also linked to a Google account, Google sign-in works too.",
-        "noPasswordDescription": "This account currently signs in with Google only. Use the Change Password card to also enable email/password sign-in.",
-        "myPermissions": "My permissions",
+        "noPasswordDescription": "This account currently signs in with Google only. Set a password below to also enable email/password sign-in.",
+        "myPolicies": "My policies",
         "loadingPolicies": "Loading your policies...",
         "failedLoadPolicies": "Failed to load your policies",
-        "noPolicies": "No policies assigned."
+        "noPolicies": "No policies assigned.",
+        "effectivePermissions": "Effective permissions",
+        "loadingEffectivePermissions": "Loading your effective permissions...",
+        "failedLoadEffectivePermissions": "Failed to load your effective permissions",
+        "noPermissions": "No permissions granted.",
+        "directPermissions": "Direct permissions",
+        "loadingDirectPermissions": "Loading your direct permissions...",
+        "failedLoadDirectPermissions": "Failed to load your direct permissions",
+        "noDirectPermissions": "No direct permissions granted."
     },
     "appearance": {
         "title": "Appearance",

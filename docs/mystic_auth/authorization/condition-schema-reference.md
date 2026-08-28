@@ -1,4 +1,5 @@
 # Condition Schema Reference
+---
 
 A policy's `conditions` field is a JSON object where each key is a condition type. All present keys are AND'ed: every one must pass for the policy to grant access on a given check. `conditions: null` (or omitted) means an unconditional grant.
 
@@ -175,3 +176,5 @@ All present keys are AND'ed:
 ```
 
 This grants access only during business hours **and** from the corporate network; both must pass.
+
+---

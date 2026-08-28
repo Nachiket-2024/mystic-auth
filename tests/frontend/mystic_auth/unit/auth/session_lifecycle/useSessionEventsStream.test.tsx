@@ -6,6 +6,10 @@ import { useSessionEventsStream } from '@/auth/session_lifecycle/useSessionEvent
 import { queryClient } from '@/core/queryClient';
 import { CURRENT_USER_QUERY_KEY } from '@/auth/current_user/useCurrentUserQuery';
 import { SESSIONS_QUERY_KEY } from '@/dashboard/manage_sessions/useSessionsQuery';
+import {
+  markSelfPermissionMutation,
+  resetSelfPermissionMutationGuardForTests,
+} from '@/auth/session_lifecycle/selfPermissionMutationGuard';
 
 class MockEventSource {
   url: string;
@@ -34,6 +38,7 @@ describe('useSessionEventsStream', () => {
   beforeEach(() => {
     useAuthStore.setState(initialAuthState, true);
     lastInstance = null;
+    resetSelfPermissionMutationGuardForTests();
     // @ts-expect-error - a minimal stand-in for this suite, not a full EventSource implementation
     globalThis.EventSource = MockEventSource;
   });
@@ -111,6 +116,38 @@ describe('useSessionEventsStream', () => {
 
     lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
 
+    expect(useAuthStore.getState().permissions).toEqual([]);
+  });
+
+  it('skips the synchronous drop for the echo of this tab\'s own self-targeted mutation', () => {
+    useAuthStore.setState({ isAuthenticated: true, permissions: ['rate_limits:read', 'users:list_all'] });
+    renderHook(() => useSessionEventsStream());
+    vi.spyOn(queryClient, 'resetQueries').mockReturnValue(new Promise(() => {}));
+    markSelfPermissionMutation();
+
+    lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
+
+    expect(useAuthStore.getState().permissions).toEqual(['rate_limits:read', 'users:list_all']);
+  });
+
+  it('does not skip a SECOND permissions_changed event within the same window - only one echo is ever swallowed per self-mutation', () => {
+    // Guards against a regression back to a plain time-windowed skip: if a
+    // genuinely unrelated, more sensitive revoke from another admin/session
+    // lands within the guard's window right after this tab's own
+    // self-targeted mutation, it must still fail closed instantly rather
+    // than being mistaken for the same echo twice.
+    useAuthStore.setState({ isAuthenticated: true, permissions: ['rate_limits:read', 'users:list_all'] });
+    renderHook(() => useSessionEventsStream());
+    vi.spyOn(queryClient, 'resetQueries').mockReturnValue(new Promise(() => {}));
+    markSelfPermissionMutation();
+
+    // First event: treated as this tab's own echo, drop skipped.
+    lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
+    expect(useAuthStore.getState().permissions).toEqual(['rate_limits:read', 'users:list_all']);
+
+    // Second event, same window: must be treated as a genuine unrelated
+    // change and fail closed.
+    lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
     expect(useAuthStore.getState().permissions).toEqual([]);
   });
 });

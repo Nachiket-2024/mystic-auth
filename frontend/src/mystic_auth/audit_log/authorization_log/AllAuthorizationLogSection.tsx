@@ -8,7 +8,7 @@ import Pagination from "../../ui/Pagination";
 import { useDebouncedValue } from "../../ui/hooks/useDebouncedValue";
 import { useSortState } from "../../ui/hooks/useSortState";
 import { usePageResetOn } from "../../ui/hooks/usePageResetOn";
-import { SEARCH_INPUT_PROPS } from "../../ui/styles/inputStyles";
+import { SEARCH_INPUT_PROPS, SEARCH_QUERY_MAX_LENGTH } from "../../ui/styles/inputStyles";
 import { useAuthorizationAuditLogQuery } from "./authorizationLogQueries";
 import { getAuthorizationColumns } from "./authorizationLogColumns";
 import AuthorizationFilterBar from "./AuthorizationFilterBar";
@@ -62,6 +62,7 @@ const AllAuthorizationLogSection: React.FC<AllAuthorizationLogSectionProps> = ({
                 mb={4}
                 maxW="sm"
                 size="sm"
+                maxLength={SEARCH_QUERY_MAX_LENGTH}
                 {...SEARCH_INPUT_PROPS}
             />
             <AuthorizationFilterBar

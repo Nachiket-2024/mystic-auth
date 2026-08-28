@@ -1,4 +1,5 @@
 # Background Email Delivery
+---
 
 ## Purpose
 
@@ -40,14 +41,19 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
     ...
 ```
 
+---
+
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Req["Request handler<br/><small>signup / password-reset</small>"] -- "send_email_task.defer_async(...)" --> Jobs[("procrastinate_jobs<br/>(Postgres)")]
+    Req["Request handler<br/> signup / password-reset"] -- "send_email_task.defer_async(...)" --> Jobs[("procrastinate_jobs<br/> (Postgres)")]
     Jobs --> Worker["procrastinate_worker"]
     Worker -->|SMTP| Gmail[("Gmail SMTP")]
-    Worker -.->|"raises on failure,<br/>writes retry_at back onto the same row"| Jobs
-    Worker -- "internal PeriodicDeferrer,<br/>same process" --> Jobs
+    Worker -.->|"raises on failure,<br/> writes retry_at back onto the same row"| Jobs
+    Worker -- "internal PeriodicDeferrer,<br/> same process" --> Jobs
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 Unlike taskiq's `RedisStreamBroker` + separate `TaskiqScheduler` process, there's a single container role here: `procrastinate_worker` runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker`, which both executes jobs *and* runs the periodic-task deferrer (`@app.periodic`-registered tasks) as an internal asyncio task of the same worker process. No second scheduler container exists, and none is needed: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why that used to be a single point of failure and structurally can't be one now.
 
@@ -113,9 +119,9 @@ That's the dead-letter queue this template has: no separate infrastructure, no a
 
 ## Testing
 
-`tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly (the success path, the failure-raises-for-retry path) and `EMAIL_RETRY` directly (the exponential-backoff-plus-jitter formula, the 3-attempt cap). `tests/backend/mystic_auth/unit/procrastinate_tasks/test_account_purge_tasks_unit.py` covers the periodic task's cron registration and its CRUD/service wiring with mocked collaborators; `tests/backend/mystic_auth/integration/user_crud/test_account_purge_task_integration.py` covers the same job end-to-end against real Postgres. The call sites (`account_verification_service.py`, `password_reset_service.py`, `account_deletion_service.py`) are separately tested with `send_email_task.defer_async` mocked/patched. See [Testing Overview](../testing/overview.md).
+`tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly (the success path, the failure-raises-for-retry path) and `EMAIL_RETRY` directly (the exponential-backoff-plus-jitter formula, the 3-attempt cap). `tests/backend/mystic_auth/unit/procrastinate_tasks/test_account_purge_tasks_unit.py` covers the periodic task's cron registration and its CRUD/service wiring with mocked collaborators; `tests/backend/mystic_auth/integration/user/test_account_purge_task_integration.py` covers the same job end-to-end against real Postgres. The call sites (`account_verification_service.py`, `password_reset_service.py`, `account_deletion_service.py`) are separately tested with `send_email_task.defer_async` mocked/patched. See [Testing Overview](../testing/overview.md).
 
-`tests/backend/conftest.py`'s `_procrastinate_app_lifecycle` fixture opens and closes `procrastinate_app`'s connector fresh around every test, the same per-event-loop reasoning as the Postgres/Redis pool fixtures beside it: pytest-asyncio hands each test its own event loop, and a psycopg connection pool opened in one test's loop isn't safe to reuse from another's.
+`tests/backend/conftest.py`'s `_procrastinate_app_lifecycle` fixture opens and closes `procrastinate_app`'s connector fresh around every test, the same per-event-loop reasoning as the Postgres/Redis pool fixtures beside it: pytest-asyncio hands each test its own event loop, and a psycopg connection pool opened in one test's loop isn't safe to reuse from another's. That same file also points tests at a dedicated `mystic_auth_test` database rather than the real one a running dev stack's own `procrastinate_worker` container reads from - see [Testing Overview: Dedicated test database](../testing/overview.md#dedicated-test-database) for why.
 
 ---
 
@@ -126,3 +132,5 @@ That's the dead-letter queue this template has: no separate infrastructure, no a
 - **A permanently-failed email**: query `procrastinate_jobs WHERE status = 'failed'` (see above) rather than searching logs for it.
 - **Emails not arriving**: check `GMAIL_APP_PASSWORD` is a valid App Password (not the account password) and that "Less secure app access" / App Passwords are enabled on the sending Google account; check the dev-up log tail or `docker compose logs procrastinate_worker` for the logged traceback (`send_email_task` logs every failure with `logger.error`).
 - **`procrastinate_worker` unhealthy**: its healthcheck runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app healthchecks`, which confirms the DB connection works and the `procrastinate_jobs` table exists (i.e. the schema migration has been applied); a failure there usually means the `alembic` migration hasn't run yet or `DATABASE_URL` is misconfigured.
+
+---

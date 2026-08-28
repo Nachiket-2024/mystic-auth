@@ -1,12 +1,17 @@
 # Security Hardening: Abuse Prevention
+---
 
 Rate limiting, brute-force lockout, and timing-attack resistance: the mechanisms that push back on high-volume or automated abuse at the request layer. See [Security Hardening](hardening.md) for the full index, and [Security Decisions](decisions.md) for the *why* behind non-obvious choices here.
 
+---
+
 ## Rate limiting
 
-`backend/mystic_auth/auth/security/rate_limiter_service.py`: a generic sliding-window-by-fixed-bucket limiter backed by Redis (`INCR` + `EXPIRE` on first request in a window), applied via the `@rate_limiter_service.rate_limited("endpoint_name", account_key_func=...)` decorator on every route in `auth_routes.py` (signup, login, OAuth2 initiate/callback, `/auth/me`, logout, logout-all, password-reset request/confirm, verify-account request/confirm, list/revoke sessions). **Not** applied to `refresh_token_routes.py` (`POST /auth/refresh/`): that route relies instead on its own single-use-token rotation and reuse-detection protection (see [Security Decisions](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular)), which a generic request-volume limiter would only duplicate.
+`backend/mystic_auth/auth/security/rate_limiting/rate_limiter_service.py`: a generic sliding-window-by-fixed-bucket limiter backed by Redis (`INCR` + `EXPIRE` on first request in a window), applied via the `@rate_limiter_service.rate_limited("endpoint_name", account_key_func=...)` decorator on every route in `auth_routes.py` (signup, login, OAuth2 initiate/callback, `/auth/me`, logout, logout-all, password-reset request/confirm, verify-account request/confirm, list/revoke sessions). **Not** applied to `refresh_token_routes.py` (`POST /auth/refresh/`): that route relies instead on its own single-use-token rotation and reuse-detection protection (see [Security Decisions](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular)), which a generic request-volume limiter would only duplicate.
 
+---
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Start(["Request to rate-limited route"]) --> IP{"Per-IP limit exceeded?\n(endpoint:ip:ip)"}
     IP -- "yes" --> R429["429"]
@@ -17,7 +22,16 @@ flowchart TD
     Acct -- "no" --> Allow
     IP -. "Redis error\n(fails closed)" .-> R429
     Acct -. "Redis error\n(fails closed)" .-> R429
+
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    class Allow success
+    class R429 blocked
+    class IP,HasAccount,Acct decision
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 - **Always applies a per-IP limit** (`{endpoint_name}:ip:{ip}`), resolved via [`auth/security/client_ip.py`](../authorization/architecture.md#authorization-context-builder) (trusted-proxy-aware).
 - **The two OAuth2 routes redirect instead of returning the JSON `429` shown as `R429` above**: `oauth2_login`/`oauth2_callback` pass `rate_limited(..., redirect_url=...)`, so an exceeded limit sends the browser to `/login?error=TOO_MANY_ATTEMPTS` instead - both routes are top-level navigations (they always return a `RedirectResponse`), not API calls with anywhere to render a JSON body. See [Google OAuth2 / PKCE](../authentication/oauth2-pkce.md#edge-cases--error-handling).
@@ -25,6 +39,8 @@ flowchart TD
 - Both limits are configured by `MAX_REQUESTS_PER_WINDOW` / `REQUEST_WINDOW_SECONDS` (`.env.example`): one shared threshold/window for every rate-limited endpoint, not per-endpoint tunable today (see [Concerns](../concerns/README.md)).
 - **Fails closed on Redis error, reviewed and kept intentionally**: `record_request` catches all exceptions, logs them, and returns `False` ("not allowed"): a Redis outage makes every rate-limited request appear over-limit and get rejected with `429`, rather than silently disabling rate limiting. This is the opposite tradeoff from the PBAC authorization cache, which fails open to the authoritative database on a Redis error: see [PBAC Troubleshooting: Redis cache management](../authorization/troubleshooting.md#redis-cache-management) for that contrast. Practical implication: a Redis outage makes the API fully unusable for any rate-limited auth route, not just slower: see [Security Decisions](decisions-auth.md#rate-limiter-fails-closed-on-a-redis-outage-reviewed-kept-intentionally) for why this was kept rather than changed.
 - **`reset_counter` only ever deletes an actual rate-limit key**: `DELETE /rate-limits/{key}` (see [API Reference](../api/reference.md)) takes the key straight from the URL, but this same Redis instance also holds unrelated security-critical keys (`revoked:{jti}` token-revocation entries, password-reset/verify/account-delete tokens, the PBAC policy cache, ...). `reset_counter` rejects any key that doesn't match the `<endpoint>:<ip|account>:<identifier>` shape `list_active_limits` itself produces, so this endpoint can never be used to delete something outside the rate-limiter's own keyspace.
+
+---
 
 ### Rate Limit Dashboard (`GET /rate-limits/`)
 
@@ -34,8 +50,6 @@ flowchart TD
 - An `account`- or `email`-scoped row's identifier is always an account/email - **never an IP**, by design: both `account_key_func`-based limits and `login_lock:email:*` lockouts are deliberately keyed only by account, specifically so an attacker spreading requests across many source IPs at one account still gets caught (see the per-account bullet above and [Security Decisions](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular)). There is no IP to show on those rows even in principle - the counter itself never recorded one.
 - To find which IP(s) were behind a given account's activity (e.g. investigating an `account`/`email`-scoped lockout), cross-reference the [Audit Log](#audit-log-cross-reference) instead, which does record `ip_address` per event; the rate limiter's own keys intentionally don't carry that.
 - **The matched-key listing is snapshotted for `_SCAN_SNAPSHOT_TTL_SECONDS` (5s)** per filter pattern (`RateLimitDashboardService._scan_snapshot_cache`, an in-process dict, not Redis), so that paging through one filtered view walks a consistent set of keys instead of two consecutive `SCAN`s disagreeing as counters expire/get created between page requests. `reset_counter` clears this entire snapshot cache on every successful delete, so an admin resetting a counter and immediately re-filtering the dashboard sees the key gone right away, rather than it lingering in the listing (with a correct, live-read count/TTL) for up to 5s until the snapshot naturally expires.
-
-
 
 ---
 
@@ -48,11 +62,14 @@ flowchart TD
 - `check_and_record_action` double-checks `is_locked` both before and after the expensive password-hash comparison, closing a race where a concurrent request crosses the threshold mid-check.
 - Both counters use `INCR`/`EXPIRE`-on-first-failure (not sliding), so the lockout window is fixed from the *first* failure, not extended by each subsequent one.
 - Both keys are visible and resettable from the [Rate Limit Dashboard](#rate-limit-dashboard-get-rate-limits) above, under endpoint `login_lock` - there's no separate lockout-specific admin view.
+- The `429` a lockout returns tells the caller how long to actually wait, read straight from the tripped key's remaining Redis TTL (`get_remaining_seconds`): a standard `Retry-After` header (RFC 9110) plus `params.minutes` (rounded up) in the JSON body for the login form's own translated message. See [Login](../authentication/login.md) for the full response shape.
 
+---
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Start(["POST /auth/login"]) --> Pre{"Account or IP\nalready locked?\n(login_lock:email:*, login_lock:ip:*)"}
-    Pre -- "locked" --> L429["429"]
+    Pre -- "locked" --> L429["429\nRetry-After: &lt;seconds&gt;\nbody.params.minutes"]
     Pre -- "not locked" --> Hash["Argon2 password compare"]
     Hash --> Post{"Locked now?\n(re-check closes race with\na concurrent request's failure)"}
     Post -- "locked" --> L429
@@ -61,7 +78,16 @@ flowchart TD
     Record --> Fail["401"]
     Result -- "yes" --> Reset["Reset failed-attempt counters"]
     Reset --> Success["Login succeeds"]
+
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    class Success success
+    class L429,Fail blocked
+    class Pre,Post,Result decision
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 ### Audit Log cross-reference
 
@@ -72,3 +98,5 @@ The rate limiter and lockout counters are ephemeral (Redis `TTL`-expired) and, f
 ## Timing-attack resistance
 
 See [Security Decisions: timing-attack mitigations](decisions-auth.md#timing-attack-mitigations): applied at login (dummy-hash comparison), signup (unconditional hashing), and password-reset-request (identical generic response).
+
+---

@@ -1,4 +1,5 @@
 # Security Decisions
+---
 
 A decision log capturing the *why* behind non-obvious security choices in this codebase, gathered in one place instead of scattered across code comments. Each entry links to where the actual implementation lives. Split by category into three pages, indexed below.
 
@@ -20,6 +21,8 @@ See [Security Decisions: Auth & Session](decisions-auth.md) for the full entries
 - [Logout and logout-all are idempotent](decisions-auth.md#logout-and-logout-all-are-idempotent-about-an-already-dead-refresh-token): about an already-dead refresh token.
 - [Rate limiting and lockout are layered, not singular](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular): generic rate limiting plus a purpose-built brute-force lockout, including why the rate limiter fails closed on a Redis outage.
 
+---
+
 ## Infrastructure
 
 See [Security Decisions: Infrastructure](decisions-infra.md) for the full entries.
@@ -30,6 +33,9 @@ See [Security Decisions: Infrastructure](decisions-infra.md) for the full entrie
 - [Background task queue: Taskiq vs Celery](decisions-infra.md#background-task-queue-taskiq-vs-celery): the original reasoning, kept as historical record.
 - [Taskiq replaced with Procrastinate](decisions-infra.md#taskiq-replaced-with-procrastinate): a full swap to a Postgres-native queue, and why.
 - [Least-privilege app DB role instead of running as Postgres superuser](decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser): what it protects against, what it doesn't, and why not Row-Level Security.
+- [Test suite gets its own dedicated Postgres database](decisions-infra.md#test-suite-gets-its-own-dedicated-postgres-database): a real dev-stack procrastinate_worker crash, traced to tests deleting jobs out from under it.
+
+---
 
 ## Product decisions
 
@@ -39,3 +45,5 @@ See [Security Decisions: Product](decisions-product.md) for the full entries.
 - [Why MFA is not enabled](decisions-product.md#why-mfa-is-not-enabled): an intentionally deferred scope boundary, with the hooks already in place.
 - [Intentionally deferred features](decisions-product.md#intentionally-deferred-features): per-endpoint rate limits, non-SMTP email providers, deploy automation.
 - [Known accepted gaps / follow-ups](decisions-product.md#known-accepted-gaps--follow-ups): no automated database-backup scheduler.
+
+---

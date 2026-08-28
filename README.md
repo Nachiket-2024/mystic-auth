@@ -1,5 +1,9 @@
 # MysticAuth
 
+---
+
+**📖 Documentation Site: [https://nachiket-2024.github.io/mystic-auth-docs/](https://nachiket-2024.github.io/mystic-auth-docs/)**
+
 ![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-green?logo=fastapi)
 ![React](https://img.shields.io/badge/React-19+-blue?logo=react)
@@ -12,27 +16,34 @@
 ![Bugsink](https://img.shields.io/badge/Error%20Monitoring-Bugsink-purple)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
+---
+
 ## Overview
 
-A reusable full-stack identity and access management template with authentication, OAuth2/PKCE, fine-grained Policy-Based Access Control (PBAC), and self-hosted error monitoring, all enabled by default. Every access decision is made by an assigned, active `Policy`; a user's `role` is display metadata only and is never consulted when deciding what someone can do.
+MysticAuth is a starting point you copy into your own project when you need to handle "who is this user, and what are they allowed to do" for a web app. It gives you sign-up, sign-in, and permission checks that already work, so you don't build them from scratch. In plain terms, it covers two jobs:
 
-Most templates hardcode access to a `role` field (`if role == "admin"`), so every new permission means shipping a code change. Here, permissions live in `Policy` rows that admins assign and revoke at runtime, so access can change without a deploy.
+- **Authentication**: proving who someone is (email and password, or signing in with Google).
+- **Authorization**: deciding what a signed-in user is allowed to do.
 
-Use this if you want Auth and PBAC you own and can modify, instead of wiring up an external IdP. Plain RBAC works too: an unconditioned policy, one per role, is already RBAC, no separate engine needed. See [RBAC Quickstart](docs/mystic_auth/authorization/rbac-quickstart.md).
+For authorization, this template uses something called Policy-Based Access Control, or **PBAC**. If you've used other systems, you've probably seen Role-Based Access Control (RBAC) instead, where access is tied to a `role` field on the user, like `if role == "admin"`. That works, but every new permission means changing code and shipping a deploy. PBAC stores permissions as `Policy` rows in the database instead. An admin can assign or take away a policy while the app is running, with no code change and no redeploy. A user's `role` field still exists here, but only as a label shown in the UI. It is never checked when deciding what someone can do.
 
-**Full docs:** [`docs/mystic_auth/README.md`](docs/mystic_auth/README.md) (architecture, auth, PBAC, database, API reference, security, testing, Docker, CI/CD, deployment) · [`docs/mystic_auth/template-usage/overview.md`](docs/mystic_auth/template-usage/overview.md) (using this repo as a template for your own project)
+---
+
+Use this template if you want authentication and fine-grained permissions that you own and can change, instead of paying for and configuring an external identity provider (a third-party service that handles login for you, often shortened to **IdP**). If your app only needs plain role-based access with no extra conditions, you don't need to learn PBAC's full feature set to get it: one policy per role, with no conditions attached, behaves exactly like RBAC. See [RBAC Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/rbac-quickstart).
 
 ---
 
 ### Why this exists
 
-This started as the same authentication and authorization foundation getting rebuilt from scratch for take-home assignments that needed auth, OAuth2, and roles. It grew from a small reusable module into a full auth template with refresh-token rotation, rate limiting, background email delivery, and a real test suite. See [Project Story](docs/mystic_auth/project-story/README.md) for the full history.
+This started as the same authentication and authorization foundation getting rebuilt from scratch for take-home assignments that needed auth, OAuth2, and roles. It grew from a small reusable module into a full auth + authorization template with refresh-token rotation, rate limiting, background email delivery, and a real test suite. See [Project Story](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/project-story) for the full history.
 
 ---
 
 ## Screenshots
 
-The screenshots below follow the path a user or administrator would normally take through the app: sign in, review their own dashboard, try the command palette, then move into system administration, account appearance settings, user and policy management, and audit review.
+The screenshots below follow the path a user or administrator would normally take through the app: sign in, review their own dashboard, try the command palette, then move into account settings, appearance, user and policy management (including bulk actions and direct permission grants), the permission catalog, and audit review.
+
+---
 
 ### 1. Landing Page
 ![Landing Page](screenshots/mystic_auth/landing_page.png)
@@ -69,23 +80,23 @@ The screenshots below follow the path a user or administrator would normally tak
 
 ---
 
-### 8. Appearance
+### 8. Account Settings - Permissions
+![Account Settings Permissions](screenshots/mystic_auth/account_settings_permissions.png)
+
+---
+
+### 9. Appearance
 ![Appearance](screenshots/mystic_auth/appearance.png)
 
 ---
 
-### 9. User Management
+### 10. User Management
 ![User Management](screenshots/mystic_auth/users.png)
 
 ---
 
-### 10. Policy Management
-![Policy Management](screenshots/mystic_auth/policies.png)
-
----
-
-### 11. Edit Policy
-![Edit Policy](screenshots/mystic_auth/edit_policy.png)
+### 11. Bulk Actions on Users
+![Users Bulk Actions](screenshots/mystic_auth/users_bulk_actions.png)
 
 ---
 
@@ -94,106 +105,124 @@ The screenshots below follow the path a user or administrator would normally tak
 
 ---
 
-### 13. Rate Limits
+### 13. Grant Permission
+![Grant Permission](screenshots/mystic_auth/grant_permission.png)
+
+---
+
+### 14. Permissions Catalog
+![Permissions Catalog](screenshots/mystic_auth/permissions_catalog.png)
+
+---
+
+### 15. Policy Management
+![Policy Management](screenshots/mystic_auth/policies.png)
+
+---
+
+### 16. Edit Policy
+![Edit Policy](screenshots/mystic_auth/edit_policy.png)
+
+---
+
+### 17. Rate Limits
 ![Rate Limits](screenshots/mystic_auth/rate_limits.png)
 
 ---
 
-### 14. Security Events
+### 18. Security Events
 ![Security Events](screenshots/mystic_auth/security_events.png)
 
 ---
 
-### 15. Audit Logs
+### 19. Audit Logs
 ![Audit Logs](screenshots/mystic_auth/audit_log_system_user.png)
 
 ---
 
 ## Stack
 
-- **Backend:** FastAPI (async), SQLAlchemy 2.0 (`asyncpg`), Alembic
-- **Auth:** Email + password (Argon2, JWT httpOnly cookies), Google OAuth2 with PKCE
-- **Authorization:** Policy-Based Access Control. See [PBAC Architecture](docs/mystic_auth/authorization/architecture.md)
+- **Backend:** FastAPI (async), SQLAlchemy 2.0 (`asyncpg`), Alembic (a tool that tracks and applies database schema changes over time, so the database can be upgraded safely instead of by hand)
+- **Auth:** Email and password login with Argon2 password hashing (a one-way scrambling algorithm, so even if the database leaked, the actual passwords aren't recoverable from it), sessions kept in JWTs (JSON Web Tokens: signed, tamper-evident tokens that prove who you are) stored in httpOnly cookies (cookies that JavaScript in the browser can't read, which blocks a common way of stealing a session), plus Google OAuth2 with PKCE (the standard flow for "Sign in with Google," hardened against a token being intercepted mid-flow)
+- **Authorization:** Policy-Based Access Control, explained above. See [PBAC Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/architecture)
 - **Frontend:** TypeScript, React 19 + Vite, Chakra UI v3, Zustand + TanStack Query
-- **i18n:** English, Hindi, Marathi, Gujarati via `react-i18next`. See [Translations](docs/mystic_auth/translations/overview.md)
-- **Data/Infra:** PostgreSQL, Redis (cache/rate-limit/token state), Procrastinate (Postgres-native task queue, no separate broker)
-- **Error Monitoring:** Self-hosted Bugsink, on by default
-- **Deployment:** Docker, with dev, self-hosted local-prod via Cloudflare Tunnel, and prod via Caddy on your own server
+- **i18n:** short for internationalization, meaning the app can display its text in more than one language. Supports English, Hindi, Marathi, and Gujarati via `react-i18next`. See [Translations](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/translations/overview)
+- **Data/Infra:** PostgreSQL (the database), Redis (a fast in-memory store used here for caching, rate limits, and token state), Procrastinate (a background job queue that runs on Postgres itself, so there's no extra broker service like RabbitMQ to run)
+- **Error Monitoring:** Self-hosted Bugsink, on by default, so backend and frontend errors are captured somewhere you can see them instead of only showing up in logs no one is watching
+- **Backups:** A scheduled `pg_dump` (Postgres's built-in database-dump tool) runs as a sidecar container by default in local-prod and prod. This is a reasonable baseline, not a full production backup system: see [Known Issues](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) for what it doesn't cover yet
+- **Deployment:** Docker (packages the app and its dependencies into containers that run the same way everywhere), with a dev mode, a self-hosted local-prod mode reachable through a Cloudflare Tunnel, and a prod mode behind Caddy (a web server that manages HTTPS certificates automatically) on your own server
 
-See [Auth Flow](docs/mystic_auth/authentication/overview.md) and [Security Hardening](docs/mystic_auth/security/hardening.md) for the full feature list.
+See [Auth Flow](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/overview) and [Security Hardening](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/security/hardening) for the full feature list.
 
 ---
 
 ## Key Features
 
-- **Refresh-token rotation with reuse detection**: a replayed refresh token revokes the whole session chain, not just the one request
-- **Real-time cross-device session revocation**: logging out or revoking a session pushes over SSE + Redis Pub/Sub, so other tabs/devices drop within seconds
-- **Dual rate limiting**: per-IP and per-account limits enforced independently, so one leaking IP can't lock out every account behind it (or vice versa)
-- **Offline session geolocation**: session location is resolved from a local IP database, no third-party geolocation API in the request path
-- **Dual audit logs**: a system-wide audit trail and a per-user-facing one, so admins and end users each see the events relevant to them
-- **Per-account appearance**: each account can set its own brand color, applied across the whole UI
+- **Refresh-token rotation with reuse detection**: a login session is really two tokens: a short-lived access token and a longer-lived refresh token that fetches new access tokens. Each time the refresh token is used, it's swapped for a new one. If an old, already-swapped refresh token ever shows up again (a sign it may have been stolen and copied), the whole session chain is revoked, not just that one request.
+- **Real-time cross-device session revocation**: logging out or revoking a session pushes an update over SSE (Server-Sent Events, a way for the server to push updates to the browser without the browser having to keep asking) plus Redis Pub/Sub, so other open tabs and devices sign out within seconds instead of waiting for their next request.
+- **Dual rate limiting**: per-IP and per-account request limits are enforced independently, so one misbehaving IP address can't lock every account behind it out, and vice versa.
+- **Offline session geolocation**: a session's approximate location (city/country) is looked up from a local IP database on disk, not by calling a third-party geolocation API for every request.
+- **Dual audit logs**: one system-wide audit trail for admins, and a separate per-user-facing log, so admins and end users each see the events relevant to them without digging through the other's.
+- **Per-account appearance**: each account can set its own brand color, applied across the whole UI.
 
 ---
 
 ## Quickstart (Docker)
 
-Click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)** on GitHub to create your own repository (no shared history, no fork relationship), then clone *your* new repo:
+This section assumes Docker is installed. Docker runs the whole app (backend, frontend, database, and more) as a set of isolated containers, so you don't need to install Postgres, Redis, or Python packages on your own machine by hand.
 
-```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
-cp .env.example .env
-./scripts/docker/dev-up.sh        # Git Bash / WSL / Linux / macOS
-# .\scripts\docker\dev-up.ps1     # PowerShell
-# scripts\docker\dev-up.cmd       # Command Prompt
-```
+1. On GitHub, click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)**. This creates a brand new repository under your own account that starts as a copy of this one, with no shared commit history and no "fork" relationship back to this repo. It's the standard way to start a new project from a template on GitHub.
+2. Clone *your* new repository and set up its local config:
 
-Placeholder secrets in `.env.example` are enough to boot locally; swap them before deploying (see [Security Decisions](docs/mystic_auth/security/decisions.md)).
+   ```bash
+   git clone https://github.com/<your-username>/<your-repo>.git
+   cd <your-repo>
+   cp .env.example .env
+   ```
 
-Once running:
+   `.env` holds settings and secrets the app reads on startup (database credentials, API keys, and so on). `.env.example` ships with placeholder values that are good enough to run locally out of the box; you only need to replace them with real values before deploying somewhere real (see [Security Decisions](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/security/decisions)).
 
-- **Frontend:** http://localhost:5173
-- **Backend / API docs:** http://localhost:8000/docs
-- **Bugsink (error monitoring):** http://localhost:8010
+3. Start everything with the dev helper script for your shell:
 
-Then create the reserved system account (one-time). Interactively:
+   ```bash
+   ./scripts/docker/dev-up.sh        # Git Bash / WSL / Linux / macOS
+   # .\scripts\docker\dev-up.ps1     # PowerShell
+   # scripts\docker\dev-up.cmd       # Command Prompt
+   ```
 
-```bash
-docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
-```
+4. Once it's up, open:
 
-Or non-interactively (recommended if you reset your local stack often) via `local-scripts/dev/create-system-user.{sh,ps1,bat}`: copy `system-user.env.example` next to the script, fill it in, and run it; it's gitignored so real credentials are never committed.
+   - **Frontend:** http://localhost:5173
+   - **Backend / API docs:** http://localhost:8000/docs
+   - **Bugsink (error monitoring):** http://localhost:8010
 
-For running without Docker, local-prod/prod modes, and env var details, see [Docker Overview](docs/mystic_auth/docker/overview.md), [Deployment Guide](docs/mystic_auth/deployment/guide.md), and [System Superuser: Bootstrapping and Promotion](docs/mystic_auth/authentication/system-superuser.md).
+5. Create the one reserved "system superuser" account. This is a special account meant for the person operating the deployment, separate from any regular user. Interactively:
+
+   ```bash
+   docker compose exec -it backend python -m mystic_auth.scripts.create_system_user
+   ```
+
+   Or non-interactively (handy if you reset your local stack often), using `local-scripts/dev/create-system-user.{sh,ps1,bat}`: copy `system-user.env.example` next to the script, fill in the values, and run it. That filled-in copy is gitignored (excluded from version control), so real credentials never get committed.
+
+For running without Docker, the local-prod and prod modes, and a full list of environment variables, see [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview), [Deployment Guide](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/guide), and [System Superuser: Bootstrapping and Promotion](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser).
 
 ---
 
 ## Using this as a template
 
-See [Using This Repository as a Template](docs/mystic_auth/template-usage/overview.md) for pulling in future upstream updates, and the `app/` vs `mystic_auth/` code split so your own code never conflicts with a `sync-upstream.sh` run.
+See [Using This Repository as a Template](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview) for pulling in future upstream updates, and the `app/` vs `mystic_auth/` code split so your own code never conflicts with a `sync-upstream.sh` run.
 
 ---
 
 ## Documentation
 
-Full documentation lives in [`docs/mystic_auth/`](docs/mystic_auth/README.md):
-
-- [Architecture](docs/mystic_auth/README.md#architecture)
-- [Authentication](docs/mystic_auth/README.md#authentication) · [OAuth2/PKCE](docs/mystic_auth/authentication/oauth2-pkce.md)
-- [Authorization (PBAC)](docs/mystic_auth/README.md#authorization-pbac)
-- [Database Design](docs/mystic_auth/database/design.md)
-- [API Reference](docs/mystic_auth/api/reference.md)
-- [Background Workers](docs/mystic_auth/background-workers/procrastinate.md)
-- [Security](docs/mystic_auth/README.md#security)
-- [Testing](docs/mystic_auth/testing/overview.md)
-- [CI/CD](docs/mystic_auth/cicd/overview.md)
-- [Known Issues & Concerns](docs/mystic_auth/concerns/README.md)
+Documentation site: **[nachiket-2024.github.io/mystic-auth-docs](https://nachiket-2024.github.io/mystic-auth-docs/)**
 
 ---
 
 ## Getting Help & Contributing
 
-Issues and pull requests are welcome. Check [Known Issues & Concerns](docs/mystic_auth/concerns/README.md) and [PBAC Troubleshooting](docs/mystic_auth/authorization/troubleshooting.md) first, then search [existing issues](https://github.com/Nachiket-2024/mystic-auth/issues) before opening a new one. **Found a security vulnerability?** Don't open a public issue. See [SECURITY.md](SECURITY.md) for private reporting.
+Issues and pull requests are welcome. Check [Known Issues & Concerns](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) and [PBAC Troubleshooting](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/troubleshooting) first, then search [existing issues](https://github.com/Nachiket-2024/mystic-auth/issues) before opening a new one. **Found a security vulnerability?** Don't open a public issue. See [SECURITY.md](SECURITY.md) for private reporting.
 
 ---
 

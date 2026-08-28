@@ -139,7 +139,28 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                 )}
             </Flex>
 
-            <Flex align="center" gap={3} wrap="wrap" justify="flex-end" rowGap={2} flexShrink={0}>
+            {/* flexShrink={0} here (present since before any of this file's own
+                wrap fixes) is what actually caused the overflow: it told the
+                browser to never shrink this box below its content's natural
+                width (556px: search field + Size + English + theme-toggle +
+                Logout, at md+), so no matter what wrap="wrap" or width is set
+                below, the box itself was never allowed to become narrower
+                than 556px - guaranteeing overflow past the viewport at any
+                width under that, and leaving wrap="wrap" with nothing to
+                actually wrap against, since a box that can't shrink also
+                never gets narrow enough to force its children onto new
+                lines. flexShrink={1} (the CSS default - restored here since
+                Chakra's Flex doesn't ship that default itself) lets it
+                shrink to whatever the header actually has available; minW={0}
+                overrides flex's own default min-width:auto, which would
+                otherwise refuse to shrink this item below its content's
+                intrinsic minimum and defeat the shrink just the same way.
+                Together these make wrap="wrap" below finally have a
+                container narrow enough to wrap Size/English/theme-toggle/
+                Logout against, at every viewport width where they don't fit
+                as one line - not just one hardcoded breakpoint. Invisible on
+                desktop, where everything already fits without shrinking. */}
+            <Flex align="center" gap={3} wrap="wrap" justify="flex-end" rowGap={2} flexShrink={1} minW={0}>
                 {extraContent}
                 {onOpenCommandPalette && (
                     // A real Input here would need onChange/value wiring for a

@@ -1,23 +1,12 @@
 #!/usr/bin/env bash
 # Starts the full stack, waits for long-running services, and prints a
-# one-line-per-service status table before tailing focused logs.
+# status table before tailing focused logs (backend, frontend,
+# procrastinate_worker only, to skip DB/Redis/Bugsink health-check noise).
+# Polls services directly instead of `docker compose up --wait`, since
+# alembic/bugsink-seed are one-shot containers meant to exit after startup.
 #
-# Avoids `docker compose up --wait` because alembic and bugsink-seed are
-# one-shot containers that should exit 0 after startup work. This polls only
-# the long-running services.
-#
-# On success, tails only backend, frontend, and procrastinate_worker logs.
-# That keeps request traffic, Vite output, and async email jobs (plus
-# their scheduled retries) visible without Postgres, Redis, Alembic, or
-# Bugsink health-check noise. Backend exceptions still go to Bugsink at
-# http://localhost:8010.
-#
-# backend and procrastinate_worker are restarted after `up -d` so their
-# startup banners are fresh even when the stack was already running.
-#
-# This is the recommended day-to-day command. See README.md. Use plain
-# `docker compose up` instead when you actually want every service's full
-# logs in one stream (e.g. debugging Postgres/Bugsink/Procrastinate startup itself).
+# Recommended day-to-day command, see README.md. Use plain `docker compose
+# up` when you want every service's full logs in one stream.
 #
 # Usage: ./scripts/docker/dev-up.sh   (Git Bash or WSL on Windows)
 # PowerShell: .\scripts\docker\dev-up.ps1

@@ -8,8 +8,9 @@ from ...auth.current_user.current_user_dependency import get_current_user
 from ...authorization.dependencies.policy_route_dependencies import READ_DEPENDENCY
 from ...authorization.repositories.audit_log_repository import audit_log_repository
 from ...authorization.schemas.audit_log_schema import AuditLogEntryRead
+from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
 from ...database.connection import database
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
 from ..get_or_404.get_or_404 import get_or_404
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
@@ -29,7 +30,9 @@ async def list_audit_log(
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
-    search: str | None = Query(default=None, description="Case-insensitive substring match on user_email"),
+    search: str | None = Query(
+        default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description="Case-insensitive substring match on user_email"
+    ),
     action: str | None = Query(default=None, description=_ACTION_DESCRIPTION),
     resource_type: str | None = Query(default=None, description=_RESOURCE_TYPE_DESCRIPTION),
     allowed: bool | None = Query(default=None, description=_ALLOWED_DESCRIPTION),
@@ -40,7 +43,7 @@ async def list_audit_log(
 ):
     """Authorization decisions across every user, newest first by default.
     Every real authorize()/require() call anywhere in the app writes one of
-    these rows automatically (see AuthorizationService._log_decision) :
+    these rows automatically (see authorization_audit_logger.log_decision) :
     nothing needs to opt in."""
     # X-Total-Count (see list_all_users' identical pattern) lets the
     # frontend render numbered pages without a separate round trip. Computed

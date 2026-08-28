@@ -1,11 +1,11 @@
-from sqlalchemy import asc, desc, func, or_
+from fastapi import status
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.sql.elements import UnaryExpression
 
 # The one centralized Redis abstraction for authorization data, see its own
 # docstring for exactly what is (and deliberately isn't) cached, and why.
 # Every mutation below invalidates whatever it could have made stale.
+from ...core.errors import AppError
 from ..caching.authorization_cache_service import authorization_cache_service
 from ..models.policy_model import Policy
 
@@ -14,45 +14,7 @@ from ..models.policy_model import Policy
 # every policy mutation must be traceable and reversible.
 from .policy_assignment_repository import policy_assignment_repository
 from .policy_history_repository import policy_history_repository
-
-# Allowlisted sort keys, same rationale as user_base_crud.py's and the audit
-# log repositories' identical _SORTABLE_COLUMN(S) constants: never let a
-# caller-supplied column name reach the query directly.
-_SORTABLE_COLUMN_NAMES = {"name", "resource_type", "is_active", "created_at", "updated_at"}
-
-
-def _search_filter(search: str | None):
-    """Case-insensitive substring match against name or description, same
-    shape as UserBaseCRUD's own _search_filter."""
-    if not search:
-        return None
-    pattern = f"%{search}%"
-    return or_(Policy.name.ilike(pattern), Policy.description.ilike(pattern))
-
-
-def _apply_filters(stmt, search: str | None, resource_type: str | None, is_active: bool | None):
-    """Shared by get_all (row fetch) and count (X-Total-Count), so a
-    filtered page's total always matches what's actually being paged
-    through."""
-    search_condition = _search_filter(search)
-    if search_condition is not None:
-        stmt = stmt.where(search_condition)
-    if resource_type:
-        stmt = stmt.where(Policy.resource_type == resource_type)
-    if is_active is not None:
-        stmt = stmt.where(Policy.is_active == is_active)
-    return stmt
-
-
-def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression]:
-    column = getattr(Policy, sort_by, None) if sort_by in _SORTABLE_COLUMN_NAMES else None
-    if column is None:
-        column = Policy.id
-    direction = asc if sort_dir == "asc" else desc
-    # id as a secondary key for stable ordering (e.g. many rows sharing the
-    # same resource_type), same reasoning as user_base_crud.py's identical
-    # tie-breaker.
-    return [direction(column), direction(Policy.id)]
+from .policy_query_repository import policy_query_repository
 
 
 def _definition_snapshot(policy: Policy) -> dict:
@@ -117,46 +79,6 @@ class PolicyRepository:
         return policy
 
     @staticmethod
-    async def get_by_name(name: str, db: AsyncSession) -> Policy | None:
-        result = await db.execute(select(Policy).where(Policy.name == name))
-        return result.scalar_one_or_none()
-
-    @staticmethod
-    async def get_all(
-        db: AsyncSession,
-        limit: int = 1000,
-        offset: int = 0,
-        search: str | None = None,
-        resource_type: str | None = None,
-        is_active: bool | None = None,
-        sort_by: str | None = None,
-        sort_dir: str = "asc",
-    ) -> list[Policy]:
-        # Capped: every other list endpoint in the app (audit log, policy
-        # history) bounds its query the same way; this one previously read
-        # the whole table unconditionally. `search` is a case-insensitive
-        # substring match on name/description; `resource_type`/`is_active`
-        # are exact matches.
-        stmt = _apply_filters(select(Policy), search, resource_type, is_active)
-        stmt = stmt.order_by(*_order_by(sort_by, sort_dir)).limit(limit).offset(offset)
-        result = await db.execute(stmt)
-        return list(result.scalars().all())
-
-    @staticmethod
-    async def count(
-        db: AsyncSession,
-        search: str | None = None,
-        resource_type: str | None = None,
-        is_active: bool | None = None,
-    ) -> int:
-        """Total matching rows, ignoring limit/offset - lets a caller
-        compute how many pages exist (see list_policies' X-Total-Count
-        header)."""
-        stmt = _apply_filters(select(func.count()).select_from(Policy), search, resource_type, is_active)
-        result = await db.execute(stmt)
-        return result.scalar_one()
-
-    @staticmethod
     async def update(
         db_obj: Policy,
         update_data: dict,
@@ -168,11 +90,41 @@ class PolicyRepository:
         """
         `change_type` is "updated" for a normal edit, or "rolled_back" when
         this call is restoring a prior version (see
-        api/pbac_routes/policy_history_routes.py's rollback endpoint); the
+        api/pbac_routes/policies/policy_history_routes.py's rollback endpoint); the
         only difference is how the resulting
         history entry is labeled; the mutation logic is identical either
         way, so rollback reuses this method rather than duplicating it.
+
+        `db_obj` was read by the caller (e.g. get_by_name) before this
+        transaction held any lock on the row, so two concurrent updates to
+        the same policy could otherwise both start from the same stale
+        snapshot: each would compute previous_definition from
+        pre-either-update state, and the second commit would silently
+        overwrite whichever fields the first update changed but this one
+        didn't touch, corrupting policy_history's previous_definition/
+        new_definition chain and dropping the first admin's change with no
+        conflict surfaced to either caller. Re-fetching with FOR UPDATE
+        here serializes concurrent updates to the same policy (the second
+        transaction blocks until the first commits, then observes its
+        result) and populate_existing refreshes this already-identity-
+        mapped instance's attributes from that fresh row rather than
+        trusting the stale in-memory values.
         """
+        locked_obj = await db.get(Policy, db_obj.id, populate_existing=True, with_for_update=True)
+        if locked_obj is None:
+            # A concurrent request deleted this exact policy while this
+            # request was blocked waiting for the row lock: there is
+            # nothing left to update. Surfacing a clear 404 here (rather
+            # than letting _definition_snapshot below raise AttributeError
+            # on None) keeps this an ordinary, explainable HTTP error
+            # instead of an unhandled-exception 500.
+            raise AppError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="POLICY_NOT_FOUND",
+                detail=f"Policy '{db_obj.name}' was deleted by another request",
+                params={"policyName": db_obj.name},
+            )
+        db_obj = locked_obj
         previous_definition = _definition_snapshot(db_obj)
 
         for field, value in update_data.items():
@@ -205,7 +157,20 @@ class PolicyRepository:
         )
 
         await db.commit()
-        await db.refresh(db_obj)
+        try:
+            await db.refresh(db_obj)
+        except InvalidRequestError:
+            # A concurrent request deleted this policy right after this
+            # update's own commit (already successful, recorded in
+            # policy_history above). No row is left to refresh from, so
+            # report "not found" to reflect the policy's actual state now.
+            policy_name = new_definition["name"]
+            raise AppError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="POLICY_NOT_FOUND",
+                detail=f"Policy '{policy_name}' was deleted by another request immediately after this update",
+                params={"policyName": policy_name},
+            ) from None
 
         # This policy's definition changed: every user who holds it may
         # now have a stale cached effective-policy set (see
@@ -246,22 +211,28 @@ class PolicyRepository:
         # holder's cached effective-policy set just as editing one can.
         await authorization_cache_service.invalidate_all_user_policies()
 
-    # User<->policy assignment queries/mutations live in
-    # policy_assignment_repository.py, re-exported here as bound methods so
-    # every existing `policy_repository.assign_policy_to_user(...)`-style
-    # call site keeps working unchanged.
-    # These are @staticmethod on PolicyAssignmentRepository, so
-    # policy_assignment_repository.X is a plain function, not a bound
-    # method - re-wrapped in staticmethod(...) here too, otherwise assigning
-    # a plain function as a class attribute makes normal instance-method
-    # binding kick in on access via `policy_repository.X(...)`, silently
-    # injecting the PolicyRepository instance as an extra first argument.
+    # Re-exports of policy_query_repository.py's and
+    # policy_assignment_repository.py's functions so existing
+    # `policy_repository.get_all(...)`-style calls keep working. Re-wrapped
+    # in staticmethod(...) or assigning them as a plain class attribute
+    # would trigger normal instance-method binding, silently injecting the
+    # PolicyRepository instance as an extra first argument.
+    get_by_name = staticmethod(policy_query_repository.get_by_name)
+    get_policies_by_names = staticmethod(policy_query_repository.get_policies_by_names)
+    get_all = staticmethod(policy_query_repository.get_all)
+    get_all_as_read_schemas = staticmethod(policy_query_repository.get_all_as_read_schemas)
+    count = staticmethod(policy_query_repository.count)
+
     get_active_policies_for_user = staticmethod(policy_assignment_repository.get_active_policies_for_user)
     get_policies_for_user = staticmethod(policy_assignment_repository.get_policies_for_user)
     get_holder_emails = staticmethod(policy_assignment_repository.get_holder_emails)
+    get_holder_emails_for_update = staticmethod(policy_assignment_repository.get_holder_emails_for_update)
     count_assignments = staticmethod(policy_assignment_repository.count_assignments)
+    user_holds_policy = staticmethod(policy_assignment_repository.user_holds_policy)
     assign_policy_to_user = staticmethod(policy_assignment_repository.assign_policy_to_user)
     remove_policy_from_user = staticmethod(policy_assignment_repository.remove_policy_from_user)
+    bulk_assign_policies = staticmethod(policy_assignment_repository.bulk_assign_policies)
+    bulk_remove_policies = staticmethod(policy_assignment_repository.bulk_remove_policies)
 
 
 policy_repository = PolicyRepository()

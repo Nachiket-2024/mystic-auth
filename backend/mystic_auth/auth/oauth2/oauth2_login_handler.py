@@ -131,13 +131,9 @@ class OAuth2LoginHandler:
                 return self._redirect_to_login_clearing_state("OAUTH_LOGIN_FAILED")
 
             # Account creation/linking is keyed entirely on email, so an
-            # unverified address would let an attacker who merely controls an
-            # inbox-less Google account take over (or get silently linked to) an
-            # existing account of the same email. The v3 userinfo endpoint
-            # (see oauth2_service.get_user_info) returns this as email_verified,
-            # the OIDC-standard claim name -- not verified_email, which is only
-            # what the older v2 endpoint used. Treat a missing field the same
-            # as False rather than assuming trust.
+            # unverified address would let an attacker with an inbox-less
+            # Google account take over an existing account of the same
+            # email. Treat a missing field as False, not as trusted.
             if not user_info.get("email_verified"):
                 logger.warning(
                     "OAuth2 callback rejected: unverified Google email for %s",
@@ -145,13 +141,11 @@ class OAuth2LoginHandler:
                 )
                 return self._redirect_to_login_clearing_state("OAUTH_EMAIL_NOT_VERIFIED")
 
-            # login_or_create_user raises OAuth2LoginRejected for rejections the
-            # user should see a specific reason for (a deactivated/deleted
-            # account, the reserved system account) and returns None for any
-            # other, unexpected failure. Either way the audit entry must
-            # reflect that outcome instead of unconditionally claiming
-            # success, or a blocked takeover attempt against the system
-            # account would read as a normal login in the security audit trail.
+            # login_or_create_user raises OAuth2LoginRejected for rejections
+            # with a specific reason (deactivated account, system account)
+            # and returns None otherwise. The audit entry must reflect that
+            # outcome, or a blocked takeover attempt would read as a normal
+            # login in the audit trail.
             try:
                 jwt_tokens_dict = await self.oauth2_service.login_or_create_user(db, user_info, request=request)
             except OAuth2LoginRejected as rejection:

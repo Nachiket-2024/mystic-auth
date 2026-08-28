@@ -14,11 +14,12 @@ from ...authorization.dependencies.authorization_dependency import require_autho
 # static role-permission helpers.
 from ...authorization.permissions import Permission
 from ...core.errors import AppError
+from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
 from ...core.settings import settings
 from ...database.connection import database
-from ...user_crud.user_crud_collector import UserStatus, user_crud
-from ...user_table.user_model import UserRole
-from ...user_table.user_schema import UserRead, UserStatsRead
+from ...user.user_crud_collector import UserStatus, user_crud
+from ...user.user_model import UserRole
+from ...user.user_schema import UserRead, UserStatsRead
 
 # Read-only management views over the whole user table. Split out of the former
 # user_management_routes.py alongside user_management_update_routes.py (field
@@ -56,7 +57,9 @@ async def list_all_users(
     # passes its own explicit limit and offset.
     limit: int = Query(default=1000, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
-    search: str | None = Query(default=None, description="Case-insensitive substring match on name or email"),
+    search: str | None = Query(
+        default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description="Case-insensitive substring match on name or email"
+    ),
     role: UserRole | None = Query(default=None, description="Exact match on role"),
     is_verified: bool | None = Query(default=None, description="Exact match on is_verified"),
     status: UserStatus | None = Query(
@@ -108,13 +111,10 @@ def _status_label(is_active: bool, deleted_at) -> str:
 
 
 # CSV/formula injection guard (OWASP CSV Injection): `name` is free-form,
-# attacker-controlled text (signup/self-service, max_length=100, no charset
-# restriction - see signup_schema.py / user_schema.py) that ends up here
-# verbatim. A name like "=cmd|'/c calc'!A1" is inert as CSV text but is
-# interpreted as a live formula/DDE payload the instant an admin opens this
-# export in Excel/Sheets/LibreOffice. Prefixing a leading formula-trigger
-# character with a single quote keeps the visible value unchanged while
-# forcing spreadsheet apps to treat the cell as plain text.
+# attacker-controlled text. A name like "=cmd|'/c calc'!A1" is inert as CSV
+# but runs as a live formula the instant an admin opens the export in Excel.
+# Prefixing a leading trigger character with a single quote keeps the
+# visible value unchanged while forcing spreadsheets to treat it as text.
 _CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
 
 
@@ -124,7 +124,9 @@ def _csv_safe(value: str) -> str:
 
 @router.get("/export")
 async def export_users(
-    search: str | None = Query(default=None, description="Case-insensitive substring match on name or email"),
+    search: str | None = Query(
+        default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description="Case-insensitive substring match on name or email"
+    ),
     role: UserRole | None = Query(default=None, description="Exact match on role"),
     is_verified: bool | None = Query(default=None, description="Exact match on is_verified"),
     status: UserStatus | None = Query(default=None, description="One of: active, inactive, deleted"),

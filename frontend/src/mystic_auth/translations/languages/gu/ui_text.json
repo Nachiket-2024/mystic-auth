@@ -19,10 +19,11 @@
     "enabled": "સક્ષમ",
     "disabled": "અક્ષમ",
     "failedToLoadData": "ડેટા લોડ કરવામાં નિષ્ફળ",
+    "notAuthorizedToView": "આ જોવાની પરવાનગી તમારી પાસે નથી.",
     "noDataAvailable": "કોઈ ડેટા ઉપલબ્ધ નથી",
     "errorBoundary": {
         "title": "કંઈક ખોટું થયું",
-        "description": "એક અનપેક્ષિત ભૂલ આવી. પેજ ફરીથી લોડ કરવાથી સામાન્ય રીતે આ ઠીક થાય છે.",
+        "description": "એક અનપેક્ષિત ભૂલ આવી. પૃષ્ઠ ફરીથી લોડ કરવાથી સામાન્ય રીતે આ ઠીક થાય છે.",
         "reload": "ફરીથી લોડ કરો"
     },
     "filterLabel": "ફિલ્ટર: {{label}}",
@@ -31,11 +32,11 @@
     "selectAllRows": "બધી પંક્તિઓ પસંદ કરો",
     "selectRow": "પંક્તિ પસંદ કરો",
     "pagination": {
-        "previousPage": "પાછલું પેજ",
+        "previousPage": "પાછલું પૃષ્ઠ",
         "prev": "પાછળ",
-        "nextPage": "આગલું પેજ",
+        "nextPage": "આગલું પૃષ્ઠ",
         "next": "આગળ",
-        "page": "પેજ {{page}}"
+        "page": "પૃષ્ઠ {{page}}"
     },
     "offlineBanner": {
         "offline": "તમે ઓફલાઇન છો. કનેક્શન પુનઃસ્થાપિત ન થાય ત્યાં સુધી કેટલીક સુવિધાઓ કામ ન કરી શકે.",

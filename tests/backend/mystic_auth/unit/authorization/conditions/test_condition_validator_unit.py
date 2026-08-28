@@ -7,6 +7,7 @@ import pytest
 
 from backend.mystic_auth.authorization.conditions.condition_validator import (
     ConditionValidationError,
+    sanitize_conditions_for_read,
     validate_conditions,
 )
 
@@ -164,3 +165,84 @@ def test_network_rejects_invalid_ip():
 def test_network_rejects_invalid_cidr():
     errors = _errors({"network": {"allowed_ips": ["10.0.0.0/99"]}})
     assert any("invalid IP/CIDR" in e for e in errors)
+
+
+# ---------------------------- size/depth guard ----------------------------
+# resource_attributes/context_attributes/security_context otherwise accept
+# any non-empty dict with no further checks: nothing else bounds key count,
+# nesting depth, or string length. See _validate_size_and_depth's own
+# docstring for the measured impact of skipping this guard.
+
+def test_huge_key_count_is_rejected():
+    huge = {str(i): i for i in range(150_000)}
+    errors = _errors({"resource_attributes": huge})
+    assert any("too many nested keys" in e for e in errors)
+
+
+def test_pathological_nesting_depth_is_rejected():
+    nested: object = "leaf"
+    for _ in range(5000):
+        nested = {"a": nested}
+    errors = _errors({"resource_attributes": {"field": nested}})
+    assert any("nested too deeply" in e for e in errors)
+
+
+def test_oversized_string_value_is_rejected():
+    errors = _errors({"resource_attributes": {"field": "x" * 5_000_000}})
+    assert any("string value longer than" in e for e in errors)
+
+
+def test_oversized_key_is_rejected():
+    errors = _errors({"resource_attributes": {"x" * 5000: "value"}})
+    assert any("key longer than" in e for e in errors)
+
+
+def test_ordinary_conditions_are_unaffected_by_the_size_guard():
+    validate_conditions(
+        {
+            "time": {"start": "09:00", "end": "17:00", "timezone": "UTC"},
+            "resource_attributes": {"status": "active", "owner": "someone"},
+        }
+    )
+
+
+# --------------------- Read-side sanitization (PolicyRead) ---------------------
+# A policy's conditions can predate this validator or be written outside the
+# API (direct DB write, restored backup). sanitize_conditions_for_read is the
+# read-side counterpart: it must catch the same oversized/deep shapes
+# validate_conditions rejects at write time, so one bad row can't crash
+# GET /authorization/policies for every caller with a PydanticSerializationError.
+
+
+def test_sanitize_replaces_pathologically_nested_conditions():
+    deep: dict = {}
+    cursor = deep
+    for _ in range(5000):
+        cursor["x"] = {}
+        cursor = cursor["x"]
+
+    sanitized = sanitize_conditions_for_read(deep)
+
+    assert sanitized is not None
+    assert "_error" in sanitized
+
+
+def test_sanitize_replaces_conditions_with_too_many_nodes():
+    huge = {f"key_{i}": i for i in range(5000)}
+
+    sanitized = sanitize_conditions_for_read({"resource_attributes": huge})
+
+    assert "_error" in sanitized
+
+
+def test_sanitize_leaves_ordinary_conditions_untouched():
+    conditions = {
+        "time": {"start": "09:00", "end": "17:00", "timezone": "UTC"},
+        "resource_attributes": {"status": "active", "owner": "someone"},
+    }
+
+    assert sanitize_conditions_for_read(conditions) == conditions
+
+
+def test_sanitize_passes_through_none():
+    assert sanitize_conditions_for_read(None) is None

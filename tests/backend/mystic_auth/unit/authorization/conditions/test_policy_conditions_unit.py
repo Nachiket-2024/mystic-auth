@@ -58,6 +58,17 @@ def test_self_only_imposes_no_restriction_when_falsy():
     assert handler.evaluate(False, "user@example.com", None, None) is True
 
 
+def test_self_only_fails_safe_on_resource_that_cannot_carry_email():
+    """Regression: an exotic resource type (e.g. a bare object with no
+    "email" attribute) must deny rather than raise, and a falsy
+    user_email must never coincidentally match a resource with no owner
+    email via None == None."""
+    handler = SelfOnlyCondition()
+    assert handler.evaluate(True, "user@example.com", object(), None) is False
+    assert handler.evaluate(True, None, object(), None) is False
+    assert handler.evaluate(True, "", {"email": ""}, None) is False
+
+
 # ==================================================================
 # ResourceAttributesCondition
 # ==================================================================
@@ -77,6 +88,16 @@ def test_resource_attributes_denies_when_no_resource_supplied():
     assert handler.evaluate({"status": "draft"}, "u@example.com", None, None) is False
 
 
+def test_resource_attributes_fails_safe_on_non_mapping_condition_value():
+    """Regression: a malformed condition_value that bypassed the
+    write-time validator (e.g. a direct DB write) must deny rather than
+    raise AttributeError out of .items() when called on a non-dict."""
+    handler = ResourceAttributesCondition()
+    assert handler.evaluate("not-a-dict", "u@example.com", {"status": "draft"}, None) is False
+    assert handler.evaluate(["status", "draft"], "u@example.com", {"status": "draft"}, None) is False
+    assert handler.evaluate(123, "u@example.com", {"status": "draft"}, None) is False
+
+
 # ==================================================================
 # ContextAttributesCondition
 # ==================================================================
@@ -89,6 +110,15 @@ def test_context_attributes_allows_when_all_keys_match():
 def test_context_attributes_denies_when_context_missing():
     handler = ContextAttributesCondition()
     assert handler.evaluate({"mfa_verified": True}, "u@example.com", None, None) is False
+
+
+def test_context_attributes_fails_safe_on_non_mapping_condition_value():
+    """Regression: a malformed condition_value that bypassed the
+    write-time validator (e.g. a direct DB write) must deny rather than
+    raise AttributeError out of .items() when called on a non-dict."""
+    handler = ContextAttributesCondition()
+    assert handler.evaluate(["mfa_verified"], "u@example.com", None, {"mfa_verified": True}) is False
+    assert handler.evaluate("mfa_verified", "u@example.com", None, {"mfa_verified": True}) is False
 
 
 # ==================================================================
@@ -286,6 +316,17 @@ def test_security_context_denies_when_key_absent_from_security_context():
     assert handler.evaluate({"device_trusted": True}, "u@example.com", None, context) is False
 
 
+def test_security_context_fails_safe_on_non_mapping_condition_value():
+    """Regression: a malformed condition_value that bypassed the
+    write-time validator (e.g. a direct DB write) must deny rather than
+    raise AttributeError out of .items() when called on a non-dict, even
+    when a non-empty security_context sub-key is present."""
+    handler = SecurityContextCondition()
+    context = {"security_context": {"device_trusted": True}}
+    assert handler.evaluate(["device_trusted"], "u@example.com", None, context) is False
+    assert handler.evaluate(123, "u@example.com", None, context) is False
+
+
 # ==================================================================
 # ConditionRegistry
 # ==================================================================
@@ -320,6 +361,17 @@ def test_service_ands_across_multiple_condition_keys():
 
     assert allowed is True
     assert denied_by_mfa is False
+
+
+def test_service_fails_safe_when_conditions_is_not_a_mapping():
+    """Regression: Policy.conditions is a JSONB column, so a direct DB
+    write/migration could put a non-dict value there (bypassing
+    condition_validator.py's write-time check). evaluate_detailed must
+    deny rather than raise AttributeError out of conditions.items()."""
+    service = ConditionEvaluationService(default_condition_registry)
+    assert service.evaluate(["self_only"], "u@example.com", None, None) is False
+    assert service.evaluate("self_only", "u@example.com", None, None) is False
+    assert service.evaluate(123, "u@example.com", None, None) is False
 
 
 def test_service_fails_safe_on_unrecognized_condition_key():

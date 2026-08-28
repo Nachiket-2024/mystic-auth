@@ -5,7 +5,7 @@ from ..audit_log.audit_log_service import ACCOUNT_DELETED_SELF, log_security_eve
 from ..auth.refresh_token_logic.refresh_token_service import refresh_token_service
 from ..auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ..logging.logging_config import get_logger
-from ..user_crud.user_crud_collector import user_crud
+from ..user.user_crud_collector import user_crud
 
 logger = get_logger(__name__)
 

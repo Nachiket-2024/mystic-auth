@@ -18,13 +18,14 @@ const ConfirmDeleteAccountPage = trackedLazy(() => import("../mystic_auth/accoun
 const DashboardPage = trackedLazy(() => import("../mystic_auth/dashboard/DashboardPage"));
 const UsersPage = trackedLazy(() => import("../mystic_auth/users/UsersPage"));
 const PoliciesPage = trackedLazy(() => import("../mystic_auth/policies/PoliciesPage"));
+const PermissionsPage = trackedLazy(() => import("../mystic_auth/permissions/PermissionsPage"));
 const RateLimitsPage = trackedLazy(() => import("../mystic_auth/rate_limits/RateLimitsPage"));
 const AuditLogPage = trackedLazy(() => import("../mystic_auth/audit_log/AuditLogPage"));
 const AccountSettingsPage = trackedLazy(() => import("../mystic_auth/account_settings/AccountSettingsPage"));
-const NotFoundPage = trackedLazy(() => import("../mystic_auth/status_pages/NotFoundPage"));
-const NotAuthorizedPage = trackedLazy(() => import("../mystic_auth/status_pages/NotAuthorizedPage"));
-const PrivacyPolicyPage = trackedLazy(() => import("../mystic_auth/legal/PrivacyPolicyPage"));
-const TermsOfServicePage = trackedLazy(() => import("../mystic_auth/legal/TermsOfServicePage"));
+const NotFoundPage = trackedLazy(() => import("./status_pages/NotFoundPage"));
+const NotAuthorizedPage = trackedLazy(() => import("./status_pages/NotAuthorizedPage"));
+const PrivacyPolicyPage = trackedLazy(() => import("./legal/PrivacyPolicyPage"));
+const TermsOfServicePage = trackedLazy(() => import("./legal/TermsOfServicePage"));
 
 // Runs the current-user query once and mirrors it into the Zustand auth
 // store (see its own docstring for why this must be called exactly once,
@@ -159,9 +160,21 @@ const App: React.FC = () => {
                 <Route
                     path="/policies"
                     element={
-                        <ProtectedRoute permission={PERMISSIONS.POLICIES_READ}>
+                        // Any of read/create, not read alone - see
+                        // navItems.ts's matching Policies entry for why.
+                        <ProtectedRoute permission={[PERMISSIONS.POLICIES_READ, PERMISSIONS.POLICIES_CREATE]}>
                             <AppLayout onOpenCommandPalette={openCommandPalette}>
                                 <PoliciesPage />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/permissions"
+                    element={
+                        <ProtectedRoute permission={PERMISSIONS.PERMISSIONS_READ}>
+                            <AppLayout onOpenCommandPalette={openCommandPalette}>
+                                <PermissionsPage />
                             </AppLayout>
                         </ProtectedRoute>
                     }

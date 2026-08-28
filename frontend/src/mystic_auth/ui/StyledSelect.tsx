@@ -17,20 +17,21 @@ interface StyledSelectProps {
     textTransform?: SelectRootProps["textTransform"];
     disabled?: boolean;
     title?: string;
+    /** Text shown in the trigger when `value` matches no option, for a
+     * caller that needs a genuine "nothing chosen yet" state rather than
+     * "one option IS the empty/all state." Omit for that existing pattern. */
+    placeholder?: string;
 }
 
 /**
- * Filter/inline-picker dropdown, shared by every select-shaped control in
- * the app (role/verified/status filters, event/resource/result filters,
- * the inline role-change picker, policy-assign). Wraps Chakra's actual
- * `Select` (a styled, JS-driven listbox) rather than `NativeSelect`: a
- * native `<select>` can have its closed-state trigger restyled, but the
- * OPEN dropdown is always the browser/OS's own unstyled native menu -
- * exactly the "still looks like a plain HTML dropdown" gap this replaces.
- * `Select.Content` below is a real styled popover instead.
+ * Filter/inline-picker dropdown shared by every select-shaped control in the
+ * app. Wraps Chakra's `Select` (a styled, JS-driven listbox), not
+ * `NativeSelect`: a native `<select>`'s open dropdown is always the
+ * browser/OS's unstyled menu, which `Select.Content` below replaces with a
+ * real styled popover.
  */
 const StyledSelect: React.FC<StyledSelectProps> = ({
-    value, onChange, options, ariaLabel, size = "md", w, textTransform, disabled, title,
+    value, onChange, options, ariaLabel, size = "md", w, textTransform, disabled, title, placeholder,
 }) => {
     const collection = useMemo(() => createListCollection({ items: options }), [options]);
 
@@ -45,33 +46,27 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
             title={title}
         >
             <Select.HiddenSelect aria-label={ariaLabel} />
-            {/* Chakra's Select.Trigger auto-wires an aria-labelledby
-                pointing at Select.Label's id whether or not one is actually
-                rendered - omit this and the trigger's accessible name
-                resolves to nothing (aria-labelledby pointing at a
-                nonexistent id wins over Select.HiddenSelect's own
-                aria-label above, it doesn't fall back to it), so every
-                assistive-tech user would hear these as unlabeled controls.
-                Visually hidden since every caller already shows its own
-                on-screen label (a field label, a "Filter by X" heading)
-                right next to this. */}
+            {/* Chakra's Select.Trigger always wires aria-labelledby to
+                Select.Label's id; omitting this leaves the trigger unlabeled
+                for assistive tech, since a labelledby pointing at a
+                nonexistent id doesn't fall back to aria-label. Visually
+                hidden since every caller already shows its own label. */}
             <Select.Label css={visuallyHiddenStyle}>{ariaLabel}</Select.Label>
             <Select.Control>
                 <Select.Trigger
                     borderColor="gray.400"
                     bg="bg.surface"
                     textTransform={textTransform}
-                    // Chakra's own sm/md Select sizes only change the
-                    // trigger's height/padding - both share the same 14px
-                    // textStyle. Explicit override so this matches the
-                    // 15px now used for table text/buttons elsewhere.
+                    // Chakra's sm/md Select sizes only change height/padding
+                    // (both share the same 14px textStyle); overridden to
+                    // match the 15px used for table text/buttons elsewhere.
                     fontSize="md"
                     _hover={{ borderColor: "gray.600" }}
                     _focusVisible={{ borderColor: "brand.solid", boxShadow: "0 0 0 1px var(--chakra-colors-brand-solid)" }}
                     _dark={{ borderColor: "gray.600", _hover: { borderColor: "gray.400" } }}
                     transition="border-color var(--chakra-durations-hover) var(--chakra-easings-hover), box-shadow var(--chakra-durations-hover) var(--chakra-easings-hover)"
                 >
-                    <Select.ValueText />
+                    <Select.ValueText placeholder={placeholder} />
                     <Select.IndicatorGroup>
                         <Select.Indicator />
                     </Select.IndicatorGroup>
@@ -79,36 +74,24 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
             </Select.Control>
             <Portal>
                 <Select.Positioner>
-                    {/* No explicit zIndex here: Chakra's own Select recipe
-                        already computes it as popover + a dynamic
-                        --layer-index (the same mechanism Dialog uses for its
-                        own z-index) so a nested layer like this one, opened
-                        from inside a Dialog, automatically stacks above it.
-                        A hardcoded flat zIndex="popover" here used to
-                        clobber that calc, so this dropdown's list rendered
-                        BEHIND the dialog it lives in instead of on top. */}
+                    {/* No explicit zIndex: Chakra's Select recipe already
+                        computes popover + a dynamic --layer-index (same as
+                        Dialog), so this stacks above a Dialog it opens from.
+                        A hardcoded zIndex here used to clobber that calc and
+                        render the dropdown behind its own dialog. */}
                     <Select.Content
                         borderWidth="1px"
                         borderColor="border.default"
                         bg="bg.surface"
-                        // Same layered density.card elevation Card.tsx uses
-                        // (theme/system.ts), not Chakra's stock boxShadow="lg",
-                        // so every elevated surface in the app - cards and
-                        // popovers alike - shares one deliberate look instead
-                        // of each defaulting to its own stock Chakra shadow.
+                        // Same density.card elevation Card.tsx uses, not Chakra's
+                        // stock boxShadow, so cards and popovers share one look.
                         boxShadow="density.card"
                         rounded="density.control"
                         fontSize="md"
-                        // Cap by row count, not by a flat rem/vh guess: prod
-                        // dropdowns (GitHub, Linear, MUI) size the popover to
-                        // ~7-8 visible rows and let the rest scroll, so the
-                        // list reads the same "about this many rows" no
-                        // matter how many options a given caller has (e.g.
-                        // the audit log action filter's ~19 permissions).
-                        // Chakra's md Select.Item is py="1.5" (12px) plus the
-                        // md textStyle's 24px line-height = 36px/row, so 7.5
-                        // rows (7 full + a half-row "there's more" hint)
-                        // lands at 7.5 * 36px.
+                        // Cap by row count (~7.5 rows, matching GitHub/Linear/MUI
+                        // dropdowns), not a flat rem/vh guess, so the list reads
+                        // consistently regardless of option count. 36px/row =
+                        // Chakra's md Select.Item py (12px) + md line-height (24px).
                         maxH="calc(7.5 * 36px)"
                         overflowY="auto"
                     >
@@ -117,30 +100,17 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                                 key={option.value}
                                 item={option}
                                 textTransform={textTransform}
-                                // Three states, three distinct treatments so
-                                // none of them can be mistaken for another:
-                                // plain/no-fill at rest, a solid brand fill
-                                // + white text on hover (the same "fills up"
-                                // feedback used elsewhere in the app, e.g.
-                                // Delete row-actions), and a colored,
-                                // bold-text tinted wash for the persisted
-                                // selection (already reinforced by its own
-                                // checkmark). `brand.selected` (not
-                                // `brand.subtle`, one step lighter) - subtle
-                                // was too pale to read as "selected" at a
-                                // glance in light mode, the same
-                                // too-faint-tint issue `brand.selected`
-                                // already exists to fix for the sidebar's
-                                // own active-link background.
+                                // Three distinct states: plain at rest, solid
+                                // brand fill on hover, and a tinted wash +
+                                // checkmark for the selection. brand.selected,
+                                // not the paler brand.subtle, so it still reads
+                                // as "selected" at a glance in light mode.
                                 _highlighted={{ bg: "brand.solid", color: "white" }}
-                                // See FontSizeControl.tsx's matching comment: bg brand.200 by
-                                // default (light), overridden to brand.selected's brand.800
-                                // in dark. `_light` is NOT a real Chakra condition, so it
-                                // can't be nested inside the bg value the way `_dark` can -
-                                // it has to be the unconditioned base value instead. Nested
-                                // _highlighted below: without it, hovering the selected row
-                                // renders invisible same-color text (brand.fg and
-                                // brand.solid are both brand.600 light).
+                                // brand.200 in light (no `_light` condition exists,
+                                // so this is the unconditioned base), brand.selected's
+                                // brand.800 in dark. Nested _highlighted is needed here
+                                // too, or hovering the selected row renders invisible
+                                // same-color text (brand.fg == brand.solid in light).
                                 _selected={{
                                     bg: "brand.200",
                                     color: "brand.fg",

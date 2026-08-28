@@ -9,6 +9,8 @@ import appThemeOverrides from "../../app/theme";
 import { tokens } from "./themeTokens";
 import { semanticTokens } from "./themeSemanticTokens";
 import { textStyles, recipes, globalCss } from "./themeStyles";
+import { buildAppearanceThemeOverrides } from "./appearanceThemeOverrides";
+import { BRAND_COLOR } from "../core/settings";
 
 /**
  * Formalizes the palette the app was already using ad hoc (teal for primary actions, gray
@@ -41,11 +43,60 @@ const config: SystemConfig = {
     globalCss,
 };
 
+// The shipped default, exactly (Tailwind's amber scale, hand-tuned).
+// generateBrandScale approximates an arbitrary hex well for a user's own
+// Appearance pick, but regenerating it from this hex loses fidelity: it
+// holds saturation flat across steps instead of desaturating the light end
+// the way this hand-tuned scale does. A genuinely different BRAND_COLOR
+// still gets the generated scale below, same as a user's own pick.
+const SHIPPED_DEFAULT_BRAND_COLOR = "#d97706";
+const SHIPPED_DEFAULT_BRAND_SCALE = {
+    50: "#fffbeb",
+    100: "#fef3c7",
+    200: "#fde68a",
+    300: "#fcd34d",
+    400: "#fbbf24",
+    500: "#f59e0b",
+    600: "#d97706",
+    700: "#b45309",
+    800: "#92400e",
+    900: "#78350f",
+};
+
+// The app-wide default brand scale + canvas-gradient tint: the shipped
+// exact amber above when BRAND_COLOR is still that default, or generated
+// from settings.ts's BRAND_COLOR (VITE_BRAND_COLOR) the same way a signed-in
+// user's own Appearance pick is (generateBrandScale/deriveCanvasFrom, via
+// appearanceThemeOverrides.ts) when it's been changed to something else.
+// See docs/mystic_auth/template-usage/overview.md for the env var.
+const brandDefault: SystemConfig =
+    BRAND_COLOR.toLowerCase() === SHIPPED_DEFAULT_BRAND_COLOR
+        ? {
+              theme: {
+                  tokens: {
+                      colors: {
+                          brand: Object.fromEntries(
+                              Object.entries(SHIPPED_DEFAULT_BRAND_SCALE).map(([step, value]) => [step, { value }])
+                          ),
+                      },
+                  },
+                  semanticTokens: {
+                      colors: {
+                          "bg.canvasFrom": {
+                              value: { _light: "{colors.brand.100}", _dark: "#3a2217" },
+                          },
+                      },
+                  },
+              },
+          }
+        : (buildAppearanceThemeOverrides({ brandColor: BRAND_COLOR }) as SystemConfig);
+
 /**
  * Merges `config` on top of Chakra's `defaultConfig` (rather than replacing it, which is what
  * passing a bare custom config to createSystem would do) so the app keeps every default
- * token/recipe and only overrides what's listed above, then merges `appThemeOverrides` on top of
- * that so a fork's own re-skin (app/theme.ts) wins last without editing this file.
+ * token/recipe and only overrides what's listed above, then `brandDefault` (the BRAND_COLOR-derived
+ * scale), then `appThemeOverrides` on top of that so a fork's own re-skin (app/theme.ts) - which is
+ * empty by default - wins last without editing this file.
  *
  * Exposed as a factory (rather than only the `system` singleton below) so
  * AppearanceThemeProvider.tsx can rebuild the whole system with a signed-in
@@ -65,8 +116,8 @@ const config: SystemConfig = {
  */
 export function buildSystem(userOverrides?: SystemConfig) {
     return userOverrides
-        ? createSystem(defaultConfig, config, appThemeOverrides, userOverrides)
-        : createSystem(defaultConfig, config, appThemeOverrides);
+        ? createSystem(defaultConfig, config, brandDefault, appThemeOverrides, userOverrides)
+        : createSystem(defaultConfig, config, brandDefault, appThemeOverrides);
 }
 
 export const system = buildSystem();

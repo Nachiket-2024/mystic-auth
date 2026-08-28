@@ -1,6 +1,9 @@
 # Error Monitoring
+---
 
 Enabled by default via self-hosted Bugsink. This template ships the wiring to report unhandled backend exceptions and frontend render crashes to an error-tracking service: the Bugsink container starts automatically with the stack and the SDKs make zero calls only if you clear `SENTRY_DSN`/`VITE_SENTRY_DSN` yourself.
+
+---
 
 ## Why Bugsink
 
@@ -20,6 +23,8 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
 **Starting the stack with a dev-up helper or plain `docker compose up` starts Bugsink by default**: see [Docker Overview: services](../docker/overview.md#services) for the full service breakdown. All you need to do is set the variables in step 1 below before you first bring the stack up.
 
+---
+
 1. **Set the Bugsink-specific variables in `.env`** (see `.env.example`):
 
    ```bash
@@ -33,6 +38,8 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
    **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `.env.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If you don't want error monitoring at all, either set a real key anyway (cheapest fix, `openssl rand -base64 50`) or run `docker compose stop bugsink bugsink-seed` to stop the restart loop.
 
+---
+
 2. **Start it** (part of the normal quickstart: no extra flag needed):
 
    ```bash
@@ -40,6 +47,8 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
    ```
 
    First boot runs Bugsink's own database migrations against the `bugsink` database (created automatically by `docker/postgres-init/init-bugsink-db.sh`: see that file's own comment if you're enabling this against an *already-initialized* `postgres_data` volume, since init scripts only run once, against a fresh volume) and creates the superuser from step 1.
+
+---
 
 3. **That's it: no manual project/DSN setup.** Once `bugsink` reports healthy, the one-shot `bugsink-seed` service (`docker-compose.yml`) runs automatically: it creates a "MysticAuth" team and project via Bugsink's Django ORM (idempotent: safe to run on every `up`), then computes both DSN forms itself and writes them to a small shared Docker volume that `backend`/`frontend` read from at their own startup:
 
@@ -57,6 +66,8 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
    You can still log in at `http://localhost:8010` with the superuser credentials from step 1 to browse the "MysticAuth" project's Issues list directly.
 
    **In production-style Compose files, this same auto-wiring exists for `backend` only, not `frontend`.** `bugsink-seed` and the shared `bugsink_dsn` volume are present there too, and `backend`'s DSN is auto-wired identically: it's a container-to-container address (`bugsink:8000`) either way, so nothing about it changes between dev and prod. `frontend` is different: `VITE_SENTRY_DSN` is baked into the static bundle as a Docker build arg (see [Deployment Guide](../deployment/guide.md)), not read at container startup, and it needs whatever address *publicly* reaches Bugsink in production: a reverse-proxy route you set up deliberately (see [Security notes](#security-notes) below), which `bugsink-seed` has no way to know in advance. Set `VITE_SENTRY_DSN` manually in `.env.local-prod`/`.env.prod` before building either production-style Compose file once you know that address; there's no auto-wiring to wait for on the frontend side in production.
+
+---
 
 4. **Verify it actually works**: don't just trust the config, trigger a real error and confirm it shows up in Bugsink's UI:
 
@@ -85,6 +96,8 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
    leave in your issue list. The UI delete action handles related rows correctly;
    a raw Django ORM `.delete()` may hit foreign-key errors.
 
+---
+
 To turn it off again: clear `SENTRY_DSN`/`VITE_SENTRY_DSN` (or just don't set them): every capture call becomes a no-op immediately, no restart of Bugsink itself required. The `bugsink` container can keep running or be stopped independently (`docker compose stop bugsink bugsink-seed`), or removed from the stack entirely by deleting its service block from the Compose file you run if you don't want it at all.
 
 ---
@@ -112,21 +125,25 @@ Written for whoever's never touched Bugsink (or Sentry, or any error tracker lik
 | Frontend (manual) | Anything your own component/hook code catches but still wants tracked | `reportError`, re-exported from `frontend/src/app/sdk.ts` |
 | Frontend (automatic) | Uncaught `window.onerror`/unhandled promise rejections | Sentry SDK's own default browser instrumentation, once initialized |
 
+---
+
 **Not reported automatically**: a normal `403`/`404`/validation error: those are expected API responses handled by the calling code (a toast, an inline `FormAlert`), not exceptions. Reporting every expected error response would drown out the events that actually indicate a bug.
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     subgraph Backend["Backend"]
-        BErr["Unhandled exception<br/><small>reaches main.py's global<br/>exception handler</small>"]
+        BErr["Unhandled exception<br/> reaches main.py's global<br/> exception handler"]
     end
 
     subgraph Frontend["Frontend"]
-        FErr["Uncaught render error<br/><small>caught by ErrorBoundary</small>"]
+        FErr["Uncaught render error<br/> caught by ErrorBoundary"]
     end
 
-    BErr --> SentrySDK["Sentry SDK protocol<br/><small>sentry-sdk / @sentry/react</small>"]
+    BErr --> SentrySDK["Sentry SDK protocol<br/> sentry-sdk / @sentry/react"]
     FErr --> SentrySDK
-    SentrySDK --> Bugsink[("Bugsink<br/>(self-hosted)")]
+    SentrySDK --> Bugsink[("Bugsink<br/> (self-hosted)")]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
 
 ---
@@ -149,3 +166,5 @@ The backend attaches the caller's email (read from their `access_token` cookie, 
 ## Alternative: GlitchTip
 
 [GlitchTip](https://glitchtip.com/) is another real option if you outgrow Bugsink or prefer a fully OSI-approved-open-source (MIT) self-hosted alternative: same DSN-swap story, but heavier to run (needs Redis + Celery + a split frontend/backend on top of Postgres, vs. Bugsink's single container). Not documented step-by-step here since Bugsink already covers the "lightweight, self-hosted, license-compatible" niche this template optimizes for: but nothing in the integration code assumes Bugsink specifically.
+
+---

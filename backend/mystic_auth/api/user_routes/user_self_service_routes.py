@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...auth.password_logic.password_service import password_service
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
-from ...auth.security.rate_limiter_service import rate_limiter_service
+from ...auth.security.rate_limiting.rate_limiter_service import rate_limiter_service
 from ...auth.token_logic.jwt_service import jwt_service
 from ...auth.token_logic.token_cookie_handler import token_cookie_handler
 from ...auth.token_logic.token_schema import TokenPairResponseSchema
@@ -13,19 +13,19 @@ from ...authorization.permissions import Permission
 from ...core.errors import AppError
 from ...database.connection import database
 from ...logging.logging_config import get_logger
-from ...user_crud.user_crud_collector import user_crud
-from ...user_crud.user_crud_modules.user_update_payload_preparation import prepare_update_data
+from ...user.user_crud_collector import user_crud
+from ...user.user_crud_modules.user_update_payload_preparation import prepare_update_data
+
+# UserRole is only used for the system-account guard on self-delete, same
+# resource-protection reasoning as user_lifecycle_routes.py's identical
+# import comment: it's metadata, not a caller-authorization decision.
+from ...user.user_model import UserRole
+from ...user.user_schema import UserRead, UserSelfDeleteRequest, UserSelfUpdateResponse, UserUpdate
 from ...user_lifecycle.account_deletion_confirm_handler import account_deletion_confirm_handler
 from ...user_lifecycle.account_deletion_confirm_schema import AccountDeleteConfirmSchema
 from ...user_lifecycle.account_deletion_service import account_deletion_service
 from ...user_lifecycle.user_self_deletion_service import finalize_self_deletion
 from ...user_session.session_service import session_service
-
-# UserRole is only used for the system-account guard on self-delete, same
-# resource-protection reasoning as user_lifecycle_routes.py's identical
-# import comment: it's metadata, not a caller-authorization decision.
-from ...user_table.user_model import UserRole
-from ...user_table.user_schema import UserRead, UserSelfDeleteRequest, UserSelfUpdateResponse, UserUpdate
 from ..get_or_404.get_or_404 import get_or_404
 
 logger = get_logger(__name__)
@@ -87,17 +87,14 @@ async def update_my_profile(
     prepared_data = await prepare_update_data(update_data)
     updated_user = await user_crud.update(db_obj=user, update_data=prepared_data, db=db)
 
-    # Password changes revoke other sessions because old credentials may be
-    # compromised. Keep the current chain because it supplied the current
-    # password, then reissue tokens so it survives the account-version bump.
+    # Password changes revoke other sessions since old credentials may be
+    # compromised, keeping the current chain (it supplied the password) and
+    # reissuing tokens so it survives the account-version bump.
     #
-    # sessions_revoked stays None unless this update actually attempted a
-    # revoke below: the password write itself (a Postgres write, unrelated
-    # to Redis) always succeeds regardless of whether that revoke could be
-    # confirmed - blocking a password change on an unrelated Redis outage
-    # would be worse than the gap it's protecting against. False instead of
-    # raising means the caller finds out (see UserSelfUpdateResponse) rather
-    # than the account's other sessions silently staying valid.
+    # sessions_revoked stays None unless a revoke was attempted below: the
+    # password write always succeeds regardless, since blocking it on an
+    # unrelated Redis outage would be worse. False (not raising) lets the
+    # caller know, rather than sessions silently staying valid.
     sessions_revoked = None
     if "hashed_password" in prepared_data:
         sessions_revoked = True

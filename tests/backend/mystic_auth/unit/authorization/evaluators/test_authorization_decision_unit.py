@@ -20,6 +20,7 @@ from backend.mystic_auth.authorization.services.authorization_service import (
 )
 
 MODULE = "backend.mystic_auth.authorization.services.authorization_service"
+AUDIT_MODULE = "backend.mystic_auth.authorization.services.authorization_audit_logger"
 
 
 def _policy(actions, resource_type="users", conditions=None, name=None):
@@ -126,7 +127,15 @@ async def test_require_raises_a_generic_error_never_leaking_policy_details(mocke
         new_callable=AsyncMock,
         return_value=[_policy(["users:read_own"], name="self_service")],
     )
-    mocker.patch(f"{MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
+    # _get_effective_policies also fetches direct grants (see
+    # authorization/models/user_permission_model.py); this test only cares
+    # about the policy-driven denial, so stub "the user holds none".
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+    mocker.patch(f"{AUDIT_MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
 
     with pytest.raises(HTTPException) as exc_info:
         await authorization_service.require("user@example.com", "users:list_all", "users", db=None)

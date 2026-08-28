@@ -23,14 +23,14 @@ from ...core.errors import AppError
 from ...database.connection import database
 from ...emails.email_normalization import normalize_email
 from ...logging.logging_config import get_logger
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
+from ...user.user_model import UserRole
+from ...user.user_schema import UserRead
 
 # UserRole is only used for target-account guards such as protecting the
 # reserved system account from generic endpoints. It is resource metadata, not
 # caller authorization; PBAC policies still decide access.
 from ...user_lifecycle.user_purge_service import purge_user_account
-from ...user_table.user_model import UserRole
-from ...user_table.user_schema import UserRead
 from ..get_or_404.get_or_404 import get_or_404
 
 # Account state transitions (delete/purge/reactivate) on another user's
@@ -84,19 +84,13 @@ async def delete_any_user(
 
     await user_crud.soft_delete(db_obj=user, db=db)
 
-    # is_active=False already blocks login and blocks using an existing access
-    # token (current_user_handler.py re-queries the DB on every request), but
-    # refresh_token_service.refresh_tokens() itself is Redis/JWT-only and
-    # doesn't check the database, so without this a still-valid refresh token
-    # could keep minting fresh (if useless) access tokens until it expires on
-    # its own. Also marks every Manage Sessions row revoked (see
-    # revoke_all_tokens_for_user's own implementation).
+    # is_active=False already blocks login, but refresh_tokens() is
+    # Redis/JWT-only and doesn't check the database, so a still-valid
+    # refresh token could keep minting access tokens without this.
     #
-    # The soft-delete above already succeeded (a Postgres write, unrelated
-    # to Redis), so a failed revoke here must not turn an already-successful
-    # deletion into an error response - logged at critical and recorded
-    # honestly in the audit trail instead, same reasoning as
-    # finalize_self_deletion's identical comment.
+    # The soft-delete above already succeeded, so a failed revoke here must
+    # not turn a successful deletion into an error response: log critical
+    # and record it honestly in the audit trail instead.
     try:
         revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
         sessions_revoked_confirmed = True
@@ -158,23 +152,13 @@ async def purge_user(
             detail="Cannot purge your own account through this endpoint"
         )
 
-    # Shared with the scheduled grace-period purge job (see
-    # user_lifecycle/user_purge_service.py) so both go through the exact
-    # same revoke -> audit -> delete sequence: revoke_all_tokens_for_user
-    # also marks every Manage Sessions row revoked, which is redundant work
-    # here specifically (users.id's ON DELETE CASCADE removes those rows a
-    # moment later anyway, unlike delete_any_user's soft-delete case, where
-    # the rows survive) but harmless, and keeping one call site rather than
-    # a purge-specific variant is worth that one extra write.
+    # Shared with the scheduled grace-period purge job so both use the same
+    # revoke -> audit -> delete sequence.
     #
-    # Unlike delete_any_user/finalize_self_deletion (a reversible soft
-    # delete, where the primary write already happened before the revoke),
-    # purge_user_account revokes BEFORE the irreversible hard delete - so a
-    # TokenVersionUnavailableError here (see the function's own docstring)
-    # propagates and the row is never deleted, same fail-closed default as
-    # every other gatekeeping check in the app: better to block an
-    # irreversible action on an unconfirmed revoke than purge an account
-    # while its sessions might still be alive.
+    # Unlike the reversible soft-delete paths, this revokes BEFORE the
+    # irreversible hard delete: a TokenVersionUnavailableError here
+    # propagates and the row is never deleted, so an unconfirmed revoke
+    # blocks the purge rather than risking a purge with live sessions.
     try:
         await purge_user_account(user, db, purged_by=current_user["email"], request=request)
     except TokenVersionUnavailableError as exc:

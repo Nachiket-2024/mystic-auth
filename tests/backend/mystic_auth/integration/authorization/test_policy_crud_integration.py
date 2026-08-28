@@ -6,17 +6,28 @@
 # test_authorization_routes_integration.py. "All management
 # actions must themselves use PBAC authorization": these tests prove that
 # gate on the policy CRUD surface specifically.
+import asyncio
 import uuid
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 
+from backend.app.main import app
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
     USER_ADMINISTRATION_POLICY_NAME,
 )
+from backend.mystic_auth.authorization.repositories.policy_assignment_repository import (
+    policy_assignment_repository,
+)
+from backend.mystic_auth.authorization.repositories.policy_repository import (
+    policy_repository,
+)
+from backend.mystic_auth.database.connection import database
 
 from .authorization_test_accounts import (
+    PASSWORD,
     cleanup_test_policies,
     create_system_user,
     create_verified_user,
@@ -298,6 +309,178 @@ async def test_system_user_can_create_list_update_and_delete_a_policy(client, cr
 
     get_resp = await client.get(f"/authorization/policies/{policy_name}")
     assert get_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_concurrent_updates_to_the_same_policy_do_not_lose_writes_or_corrupt_history(
+    client, created_emails
+):
+    """Regression for a real race in PolicyRepository.update: two admins
+    editing the same policy concurrently each used to read the same
+    pre-update row (via get_by_name, before either transaction held a
+    lock), so the second commit could silently discard the first's change
+    to a field it didn't itself touch, and both history entries' recorded
+    previous_definition could describe a state neither actually preceded.
+    Fires two concurrent PUTs against real Postgres, changing different
+    fields, and asserts both changes land and the two resulting history
+    entries chain correctly against each other and the pre-existing state.
+    """
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+    policy_name = unique_policy_name()
+
+    create_resp = await client.post(
+        "/authorization/policies",
+        json={
+            "name": policy_name,
+            "description": "original description",
+            "actions": ["projects:read"],
+            "resource_type": "projects",
+        },
+    )
+    assert create_resp.status_code == 201
+
+    responses = await asyncio.gather(
+        client.put(f"/authorization/policies/{policy_name}", json={"description": "changed by A"}),
+        client.put(f"/authorization/policies/{policy_name}", json={"conditions": {"self_only": True}}),
+    )
+    assert all(r.status_code == 200 for r in responses)
+
+    final = await client.get(f"/authorization/policies/{policy_name}")
+    assert final.status_code == 200
+    final_body = final.json()
+    # Both concurrent edits must be reflected: neither transaction's write
+    # should have been silently overwritten by the other reading stale data.
+    assert final_body["description"] == "changed by A"
+    assert final_body["conditions"] == {"self_only": True}
+
+    history_resp = await client.get(f"/authorization/policies/{policy_name}/history")
+    assert history_resp.status_code == 200
+    entries = history_resp.json()
+    updated_entries = [e for e in entries if e["change_type"] == "updated"]
+    assert len(updated_entries) == 2
+    # get_for_policy orders newest-first; the chain, read oldest-to-newest,
+    # must have each entry's previous_definition match the prior entry's
+    # new_definition (or the original create for the first one) : proof
+    # that whichever update actually landed second saw the first update's
+    # committed row (via FOR UPDATE + populate_existing), not a stale
+    # pre-either-update snapshot.
+    chain = list(reversed(updated_entries))
+    assert chain[0]["previous_definition"]["description"] == "original description"
+    assert chain[0]["previous_definition"]["conditions"] is None
+    assert chain[1]["previous_definition"] == chain[0]["new_definition"]
+    # The second-committed entry's new_definition must carry both edits,
+    # regardless of which of the two concurrent requests actually won the
+    # race to commit first.
+    assert chain[1]["new_definition"]["description"] == "changed by A"
+    assert chain[1]["new_definition"]["conditions"] == {"self_only": True}
+
+
+@pytest.mark.asyncio
+async def test_concurrent_update_racing_a_delete_of_the_same_policy_returns_404_not_500(
+    client, created_emails
+):
+    """Regression: PolicyRepository.update re-fetches the row with FOR
+    UPDATE before mutating (see the sibling concurrency test above). If a
+    concurrent request deletes the same policy while an update is blocked
+    waiting on that lock, the update's re-fetch returns None; without an
+    explicit check, computing a definition snapshot from None raised an
+    uncaught AttributeError (an unhandled-exception 500) instead of a
+    clean, explainable error."""
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+    policy_name = unique_policy_name()
+
+    create_resp = await client.post(
+        "/authorization/policies",
+        json={
+            "name": policy_name,
+            "description": "original description",
+            "actions": ["projects:read"],
+            "resource_type": "projects",
+        },
+    )
+    assert create_resp.status_code == 201
+
+    responses = await asyncio.gather(
+        client.put(f"/authorization/policies/{policy_name}", json={"description": "changed"}),
+        client.delete(f"/authorization/policies/{policy_name}"),
+        return_exceptions=True,
+    )
+
+    for resp in responses:
+        assert not isinstance(resp, Exception)
+        # Whichever of the two wins the race, the loser must get a clean
+        # 4xx (already-deleted 404, or the update landing before the
+        # delete and the delete then 200ing) - never an unhandled 500.
+        assert resp.status_code < 500, resp.text
+
+
+@pytest.mark.asyncio
+async def test_concurrent_bulk_removes_cannot_jointly_strip_every_superuser_holder(created_emails):
+    """Regression for a real TOCTOU race in bulk_remove_policies' "can't
+    remove the last system_superuser assignment" lockout guard: it used to
+    read the current holder count with a plain (non-locking) SELECT, once
+    per request. Two admins who are the only two system_superuser holders
+    could concurrently revoke *each other's* superuser access: each
+    request's own pre-check only ever sees itself removing one holder out
+    of two, so each independently concludes one holder will remain, and
+    both commit - together stripping every system_superuser assignment
+    (a total admin lockout) despite the guard each individually passed.
+
+    Uses two independent authenticated clients (real cookie sessions, real
+    Postgres) firing concurrently, exactly like two different admins in
+    two different browser tabs.
+    """
+    holder_a = unique_email("holder-a")
+    holder_b = unique_email("holder-b")
+
+    async def _new_client():
+        transport = ASGITransport(app=app)
+        return AsyncClient(transport=transport, base_url="https://testserver", follow_redirects=False)
+
+    setup_client = await _new_client()
+    try:
+        await create_system_user(setup_client, created_emails, holder_a)
+        await create_system_user(setup_client, created_emails, holder_b)
+    finally:
+        await setup_client.aclose()
+
+    client_a = await _new_client()
+    client_b = await _new_client()
+    try:
+        await client_a.post("/auth/login", json={"email": holder_a, "password": PASSWORD})
+        await client_b.post("/auth/login", json={"email": holder_b, "password": PASSWORD})
+
+        # Each holder concurrently revokes the OTHER holder's superuser
+        # assignment - the minimal two-party version of the race.
+        responses = await asyncio.gather(
+            client_a.post(
+                "/authorization/bulk/policies/remove",
+                json={"items": [{"user_email": holder_b, "policy_name": SYSTEM_SUPERUSER_POLICY_NAME}]},
+            ),
+            client_b.post(
+                "/authorization/bulk/policies/remove",
+                json={"items": [{"user_email": holder_a, "policy_name": SYSTEM_SUPERUSER_POLICY_NAME}]},
+            ),
+        )
+        assert all(r.status_code == 200 for r in responses)
+
+        outcomes = [r.json()["results"][0]["status"] for r in responses]
+        # Exactly one of the two removals must have been blocked by the
+        # lockout guard (order is non-deterministic - whichever request's
+        # transaction acquires the row lock first wins and actually
+        # removes the other's assignment; the second must then observe
+        # the post-commit state and refuse to leave zero holders).
+        assert sorted(outcomes) == ["error", "success"]
+
+        async with database.async_session() as session:
+            superuser_policy = await policy_repository.get_by_name(SYSTEM_SUPERUSER_POLICY_NAME, session)
+            remaining_holders = set(await policy_assignment_repository.get_holder_emails(superuser_policy.id, session))
+        assert holder_a in remaining_holders or holder_b in remaining_holders
+    finally:
+        await client_a.aclose()
+        await client_b.aclose()
 
 
 @pytest.mark.asyncio

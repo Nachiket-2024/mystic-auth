@@ -14,14 +14,10 @@ _hasher = PasswordHasher()
 class PasswordService:
     """Handles password hashing/verification, strength checks, and reset tokens."""
 
-    # A fixed Argon2 hash of an arbitrary, never-used password. Callers that need
-    # to perform a password comparison but have no real hash to check against
-    # (e.g. login for a nonexistent account, or an OAuth2-only account with
-    # hashed_password=None) compare against this instead of skipping the check
-    # outright: skipping it would return in a fraction of the time a genuine
-    # hash comparison takes, letting a timing attack distinguish "no such
-    # account" from "wrong password on a real one". Computed once at import time
-    # so it always matches this process's actual Argon2 parameters.
+    # A fixed Argon2 hash of a never-used password. Callers with no real
+    # hash to check against (nonexistent account, OAuth2-only account)
+    # compare against this instead of skipping the check, which would let a
+    # timing attack distinguish "no such account" from "wrong password."
     DUMMY_HASH: str = _hasher.hash("timing-attack-mitigation-placeholder")
 
     @staticmethod
@@ -33,12 +29,9 @@ class PasswordService:
 
     @staticmethod
     async def verify_password(plain_password: str, hashed_password: str) -> bool:
-        # Off the event loop, same rationale as hash_password: this runs on
-        # every login attempt (including the DUMMY_HASH timing-mitigation path).
-        # argon2-cffi raises on a mismatch (VerifyMismatchError) or a
-        # malformed/foreign hash (InvalidHashError) rather than returning
-        # False, unlike passlib's `.verify`; normalized to a bool here so
-        # callers don't need to know that.
+        # argon2-cffi raises on a mismatch or malformed hash rather than
+        # returning False; normalized to a bool here so callers don't need
+        # to know that.
         try:
             return await asyncio.to_thread(_hasher.verify, hashed_password, plain_password)
         except (VerifyMismatchError, InvalidHashError):
@@ -66,10 +59,7 @@ class PasswordService:
         expire = datetime.now(UTC) + timedelta(minutes=expires_minutes)
 
         # The "reset" type claim lets verify_reset_token reject any other
-        # validly-signed JWT (e.g. an access or refresh token, which carries the
-        # same SECRET_KEY signature) that happens to also carry an "email" claim.
-        # Role is intentionally excluded: the single users table makes it
-        # unnecessary.
+        # validly-signed JWT carrying an "email" claim.
         payload: dict[str, str | float] = {
             "email": email,
             "type": "reset",
@@ -86,14 +76,10 @@ class PasswordService:
     @staticmethod
     async def verify_reset_token(token: str) -> dict | None:
         try:
-            # verify_aud disabled: PyJWT auto-rejects on the mere presence
-            # of an "aud" claim unless an audience= kwarg is passed, which
-            # would hard-break every reset token minted before this claim
-            # existed. jwt_service.has_valid_issuer_and_audience below does
-            # the real check instead, with the graceful "absent is fine,
-            # present-and-wrong is not" semantics used across every claim
-            # this app rolls out onto existing tokens - see its own
-            # docstring, and jwt_service.verify_token's matching comment.
+            # verify_aud disabled: PyJWT auto-rejects any "aud" claim
+            # present at all, which would break tokens minted before that
+            # claim existed. has_valid_issuer_and_audience below does the
+            # real check with "absent is fine, present-and-wrong is not."
             payload = await asyncio.to_thread(
                 jwt.decode,
                 token,

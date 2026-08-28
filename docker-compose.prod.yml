@@ -1,39 +1,18 @@
-# ---------------------------- Real Deployment Compose ----------------------------
-# Run with: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-# (or use scripts/docker/prod-up.sh / .ps1 / .cmd, which pass that flag for you)
+# Real internet-facing deployment (e.g. a VPS). Run with:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# (or scripts/docker/prod-up.sh/.ps1/.cmd). For a local production-style test
+# run without deploying anywhere, use docker-compose.local-prod.yml instead.
 #
-# This is the file an actual internet-facing deployment (e.g. a VPS) runs.
-# For testing the production-style build locally without deploying anywhere,
-# use docker-compose.local-prod.yml instead.
+# Differs from docker-compose.local-prod.yml by adding Caddy (terminates TLS
+# via Let's Encrypt using PUBLIC_DOMAIN; the only service with ports on the
+# host, see docker/Caddyfile) and publishing no other service's ports to the
+# host. REDIS_PASSWORD and a real SECRET_KEY/POSTGRES_PASSWORD are effectively
+# required here since .env.prod is assumed to hold real secrets.
 #
-# Differences from docker-compose.local-prod.yml:
-#   - Adds a Caddy service that terminates TLS (automatic Let's Encrypt certs
-#     from PUBLIC_DOMAIN) and is the only container with ports published to
-#     the host. See docker/Caddyfile.
-#   - postgres, redis, backend, and frontend no longer publish ports to the
-#     host at all. They're still reachable container-to-container by service
-#     name on the default network (Caddy -> frontend -> backend), so nothing
-#     about how requests flow changes, only what a port scan against the
-#     host can see. Local debugging convenience (e.g. `psql
-#     localhost:5433`) is the tradeoff; use docker-compose.local-prod.yml or
-#     `docker compose exec` for that instead.
-#   - REDIS_PASSWORD and a real (non-placeholder) SECRET_KEY /
-#     POSTGRES_PASSWORD are effectively required here, not just recommended:
-#     this file assumes .env.prod holds real production secrets.
-#
-# Everything else (restart policies, resource limits, healthchecks,
-# migration gating) is unchanged from docker-compose.local-prod.yml.
-#
-# Explicit project name, distinct from docker-compose.yml's "mystic-auth-dev"
-# and docker-compose.local-prod.yml's "mystic-auth-local-prod": without
-# this, every compose file in this directory defaults to the same project
-# name (the directory name) and therefore the same containers, network, and
-# named volumes - so this stack and the others would silently share one
-# database, and a command meant for one could wipe another's data. See
-# docker-compose.yml's matching comment for the incident this guards
-# against. A real deployment normally only ever runs one of these three
-# files anyway, but naming it explicitly costs nothing and removes the risk
-# entirely if that ever changes.
+# Explicit project name: without one, every compose file here would default
+# to the same name (the directory name) and thus share containers/network/
+# volumes with the others, so a command meant for one stack could wipe
+# another's data.
 name: mystic-auth-prod
 
 services:
@@ -92,8 +71,6 @@ services:
         done
       fi
       exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,14 +80,11 @@ services:
         condition: service_completed_successfully
     volumes:
       - bugsink_dsn:/shared/bugsink-dsn:ro
-      # Read-only: only geoipupdate (below) writes here. Always mounted, even
-      # when the geoip profile isn't enabled - an empty volume just means
-      # GEOIP_DB_PATH (if set at all) points at a missing file, which
-      # session_geolocation.py already handles by logging once and falling
-      # back to "Unknown" (see docs/mystic_auth/security/hardening.md#session-geolocation).
+      # Read-only, only geoipupdate writes here. Safe to mount even when the
+      # geoip profile is off: session_geolocation.py falls back to "Unknown"
+      # if GEOIP_DB_PATH points at nothing.
       - geoip_data:/usr/share/GeoIP:ro
-    # No host port published; only frontend's nginx (same Docker network)
-    # ever needs to reach this service, as backend:8000.
+    # No host port: only frontend's nginx needs to reach backend:8000.
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 10s
@@ -124,35 +98,32 @@ services:
           memory: 512M
 
   frontend:
-    image: mystic-auth-frontend:prod
+    # Distinct image name so building this doesn't overwrite
+    # docker-compose.local-prod.yml's frontend image or docker-compose.yml's.
+    image: mystic-auth-prod-frontend
     pull_policy: build
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
       target: production
       # VITE_* vars are baked into the static bundle at build time, so they
-      # must come from .env.prod as build args (via --env-file; see this
-      # file's header). VITE_APP_NAME/VITE_SUPPORT_EMAIL are aliased from
-      # the backend APP_NAME/SUPPORT_EMAIL vars rather than duplicated in
-      # .env.prod.
+      # come from .env.prod as build args (via --env-file). APP_NAME/
+      # SUPPORT_EMAIL/BRAND_COLOR are aliased from the backend vars instead
+      # of being duplicated.
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
         VITE_APP_NAME: ${APP_NAME}
         VITE_APP_LOGO_URL: ${VITE_APP_LOGO_URL}
         VITE_SUPPORT_EMAIL: ${SUPPORT_EMAIL}
+        VITE_BRAND_COLOR: ${BRAND_COLOR}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
         VITE_SENTRY_ENVIRONMENT: ${VITE_SENTRY_ENVIRONMENT}
-    # Stable address used by TRUSTED_PROXY_IPS: FastAPI sees this container
-    # as the immediate peer for API requests nginx.frontend.conf proxies
-    # through. Caddy sits in front of this, appending its own hop to
-    # X-Forwarded-For same way; get_client_ip() (backend/mystic_auth/auth/
-    # security/client_ip.py) walks the header from the right and discards
-    # any entry matching a TRUSTED_PROXY_IPS hop, so Caddy's own pinned
-    # address (see the caddy service below) needs to be in that list too,
-    # or its hop gets mistaken for the real client.
+    # Pinned address for TRUSTED_PROXY_IPS: get_client_ip() needs to know
+    # this hop (and Caddy's, below) to find the real client IP in
+    # X-Forwarded-For.
     networks:
       default:
-        ipv4_address: 172.28.0.10
+        ipv4_address: 172.29.0.10
     restart: unless-stopped
     # No host port published; Caddy is the only public entrypoint.
     depends_on:
@@ -170,10 +141,9 @@ services:
           cpus: "0.5"
           memory: 256M
 
-  # Terminates TLS and is the only service reachable from outside this host.
-  # See docker/Caddyfile. PUBLIC_DOMAIN (required) must already point at
-  # this host's public IP in DNS before first start, or certificate
-  # issuance fails.
+  # Terminates TLS, the only service reachable from outside this host. See
+  # docker/Caddyfile. PUBLIC_DOMAIN must already point at this host in DNS
+  # before first start, or certificate issuance fails.
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -181,18 +151,14 @@ services:
       - ./.env.prod
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
-      # Caddy's tls directive (see docker/Caddyfile) requires a real-looking
-      # email address; it fails to parse the config entirely if this is
-      # blank. Falls back to a syntactically valid placeholder rather than
-      # empty, so an unset ACME_EMAIL doesn't crash-loop the container.
+      # Caddy's tls directive needs a real-looking email or fails to parse;
+      # falls back to a placeholder so an unset ACME_EMAIL doesn't crash-loop.
       ACME_EMAIL: ${ACME_EMAIL:-you@example.com}
       BUGSINK_PUBLIC_DOMAIN: ${BUGSINK_PUBLIC_DOMAIN:-}
-    # Stable address used by TRUSTED_PROXY_IPS (see the frontend service's
-    # identical comment above) - lets get_client_ip() tell Caddy's own
-    # appended X-Forwarded-For hop apart from the real client's address.
+    # Pinned address, see the frontend service's TRUSTED_PROXY_IPS comment.
     networks:
       default:
-        ipv4_address: 172.28.0.11
+        ipv4_address: 172.29.0.11
     ports:
       - "80:80"
       - "443:443"
@@ -209,11 +175,9 @@ services:
           cpus: "0.5"
           memory: 256M
 
-  # Runs both background jobs this template has (send_email_task, the daily
-  # account-purge cron): Procrastinate's worker process runs its own
-  # periodic-task deferrer internally (see
-  # docs/mystic_auth/background-workers/procrastinate.md), so unlike taskiq
-  # this needs no separate scheduler container/process at all.
+  # Runs both background jobs (send_email_task, the daily account-purge
+  # cron). Procrastinate's worker runs its own periodic-task scheduler
+  # internally, so no separate scheduler container is needed.
   procrastinate_worker:
     build:
       context: .
@@ -224,22 +188,17 @@ services:
       - ./.env.prod
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
-      # The `procrastinate` console-script entrypoint (unlike `python -c` or
-      # uvicorn's own sys.path handling) does not add the working directory
-      # to sys.path, so without this the app fails to load with "Could not
-      # load app from mystic_auth.procrastinate_tasks.procrastinate_app.app"
-      # and the container restart-loops. docker-compose.yml (dev) sets this
-      # for the same reason.
+      # The `procrastinate` console-script doesn't add the working directory
+      # to sys.path like uvicorn does, so without this the app fails to load
+      # and the container restart-loops.
       PYTHONPATH: /app
     depends_on:
       postgres:
         condition: service_healthy
       alembic:
         condition: service_completed_successfully
-    # Override the backend image healthcheck. This container serves no HTTP;
-    # `procrastinate healthchecks` instead confirms the app's DB connection
-    # works and the procrastinate_jobs table exists, a stronger signal than
-    # taskiq's old /proc-grep-for-a-process-name check.
+    # This container serves no HTTP, so `procrastinate healthchecks` checks
+    # the DB connection and that the procrastinate_jobs table exists instead.
     healthcheck:
       test: ["CMD", "procrastinate", "--app=mystic_auth.procrastinate_tasks.procrastinate_app.app", "healthchecks"]
       interval: 30s
@@ -260,22 +219,14 @@ services:
     env_file:
       - ./.env.prod
     command: alembic upgrade head
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy
 
-  # Optional. Keeps backend's mounted GeoLite2-City.mmdb (see backend's
-  # geoip_data mount above) current, using MaxMind's own official updater
-  # instead of a hand-rolled cron script - it re-checks for a new database
-  # on its own schedule (GEOIPUPDATE_FREQUENCY, hours) for as long as this
-  # container runs. Off by default, matching geolocation itself being off by
-  # default: start it with `docker compose -f docker-compose.prod.yml
-  # --env-file .env.prod --profile geoip up -d --build` after setting
-  # GEOIPUPDATE_ACCOUNT_ID / GEOIPUPDATE_LICENSE_KEY (free MaxMind account)
-  # and GEOIP_DB_PATH in .env.prod. See
-  # docs/mystic_auth/security/hardening.md#session-geolocation.
+  # Optional: keeps backend's GeoLite2-City.mmdb current using MaxMind's own
+  # updater. Off by default, matching geolocation itself. Start with
+  # `--profile geoip` after setting GEOIPUPDATE_ACCOUNT_ID/LICENSE_KEY and
+  # GEOIP_DB_PATH. See docs/mystic_auth/security/hardening.md#session-geolocation.
   geoipupdate:
     image: ghcr.io/maxmind/geoipupdate:latest
     restart: unless-stopped
@@ -292,6 +243,54 @@ services:
         limits:
           cpus: "0.25"
           memory: 128M
+
+  # Scheduled Postgres dumps to ./backups, on by default (unlike geoipupdate
+  # below) so a real deployment always has a backup running. Dumps still
+  # need copying off this host manually, see
+  # docs/mystic_auth/deployment/guide.md#backups. Talks to postgres:5432
+  # directly instead of reusing scripts/db/db_backup.sh, which shells out to
+  # `docker compose exec` and has no access to the host from in here.
+  db_backup:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - ./.env.prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      # Defaults to once a day, keep two weeks.
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      # Bind-mounted (not a named volume) so it's the same ./backups
+      # directory scripts/db/db_backup.sh and db_restore.sh use.
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Plain sleep loop instead of cron, simpler than adding a cron daemon to
+    # a stock postgres image. `set -e` makes a failed dump exit and restart
+    # (visible in `docker compose ps`/logs) rather than skip silently.
+    entrypoint: []
+    command: |
+      sh -c '
+      set -e
+      while true; do
+        TIMESTAMP="$$(date +%Y%m%d-%H%M%S)"
+        DUMP_FILE="/backups/$${POSTGRES_DB}-$${TIMESTAMP}.sql"
+        echo "[db_backup] Dumping $${POSTGRES_DB} to $${DUMP_FILE}"
+        pg_dump -h postgres -U "$$POSTGRES_USER" "$$POSTGRES_DB" > "$$DUMP_FILE"
+        echo "[db_backup] Wrote $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
+        find /backups -maxdepth 1 -name "$${POSTGRES_DB}-*.sql" -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
+        sleep "$$((BACKUP_INTERVAL_HOURS * 3600))"
+      done
+      '
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
 
   bugsink:
     image: bugsink/bugsink:2
@@ -390,18 +389,18 @@ services:
 volumes:
   postgres_data:
   bugsink_dsn:
-  # Caddy's certificate/ACME account state. Losing this means re-issuing
-  # certs on next start, which Let's Encrypt rate-limits, so it's a named
-  # volume (persists across `docker compose down`), not ephemeral.
+  # Caddy's cert/ACME state. Losing it means re-issuing certs, which Let's
+  # Encrypt rate-limits, so this persists across `docker compose down`.
   caddy_data:
   caddy_config:
-  # Shared between geoipupdate (writer, --profile geoip only) and backend
-  # (reader, always mounted). Persists across restarts so backend isn't left
-  # without a database while geoipupdate re-downloads on its own schedule.
+  # Shared between geoipupdate (writer) and backend (reader), persists so
+  # backend isn't left without a database while geoipupdate re-downloads.
   geoip_data:
 
 networks:
+  # Distinct subnet from docker-compose.local-prod.yml's 172.28.0.0/24 so
+  # both can run on the same Docker host at once without a pool collision.
   default:
     ipam:
       config:
-        - subnet: 172.28.0.0/24
+        - subnet: 172.29.0.0/24

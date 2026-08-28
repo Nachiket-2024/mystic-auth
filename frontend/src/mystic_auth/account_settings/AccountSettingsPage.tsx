@@ -49,8 +49,8 @@ interface AccountSettingsPageProps {
  * self-service surface users:read_own/users:update_own exist for.
  *
  * Composes five independent widgets, each its own tab: ProfileNameCard
- * (name), ChangePasswordCard (password), AccountStatusCard (read-only
- * password status + policy list), a Legal tab (Privacy Policy/Terms of
+ * (name), ChangePasswordCard (password, including whether one is set),
+ * AccountStatusCard (read-only policy/permission list), a Legal tab (Privacy Policy/Terms of
  * Service links - the only way to reach either document once signed in;
  * LoginPage/SignupForm cover a visitor who isn't), and DeleteAccountCard
  * (self-service account deletion, DELETE /users/me) - kept last in the tab
@@ -89,15 +89,31 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
     return (
         <PageContainer title={t("pageTitle")} icon={Settings} description={t("pageDescription")}>
             <Tabs.Root key={initialTab} defaultValue={initialTab} lazyMount>
-                <Tabs.List>
-                    <Tabs.Trigger value="profile" fontSize="md">{t("tabs.profile")}</Tabs.Trigger>
-                    <Tabs.Trigger value="password" fontSize="md">{t("tabs.password")}</Tabs.Trigger>
-                    <Tabs.Trigger value="status" fontSize="md">{t("tabs.status")}</Tabs.Trigger>
-                    <Tabs.Trigger value="appearance" fontSize="md">{t("tabs.appearance")}</Tabs.Trigger>
-                    <Tabs.Trigger value="legal" fontSize="md">{t("tabs.legal")}</Tabs.Trigger>
+                {/* Six built-in tabs (more with extraTabs) don't fit a phone-
+                    width viewport at their natural size. Without an explicit
+                    scroll container, Chakra's Tabs.List just shrinks each
+                    trigger below its own text width instead of wrapping -
+                    the labels visually overlap each other and become
+                    unreadable/impossible to tap accurately (see
+                    BulkActionToolbar.tsx for the same class of fix on the
+                    Users page). overflowX="auto" plus flexShrink={0}/
+                    whiteSpace="nowrap" on every trigger below turns that into
+                    a horizontally scrollable strip instead - every tab stays
+                    at full readable width and reachable, just off past the
+                    edge until scrolled into view. -mx/px cancel out so the
+                    scrollable strip still lines up with PageContainer's own
+                    edges. */}
+                <Tabs.List overflowX="auto" flexWrap="nowrap" mx={-4} px={4}>
+                    <Tabs.Trigger value="profile" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.profile")}</Tabs.Trigger>
+                    <Tabs.Trigger value="password" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.password")}</Tabs.Trigger>
+                    <Tabs.Trigger value="status" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.status")}</Tabs.Trigger>
+                    <Tabs.Trigger value="appearance" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.appearance")}</Tabs.Trigger>
+                    <Tabs.Trigger value="legal" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.legal")}</Tabs.Trigger>
                     <Tabs.Trigger
                         value="danger"
                         fontSize="md"
+                        flexShrink={0}
+                        whiteSpace="nowrap"
                         colorPalette="red"
                         color="red.600"
                         _dark={{ color: "red.400" }}
@@ -106,7 +122,7 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                         {t("tabs.danger")}
                     </Tabs.Trigger>
                     {extraTabs?.map((tab) => (
-                        <Tabs.Trigger key={tab.value} value={tab.value} fontSize="md">
+                        <Tabs.Trigger key={tab.value} value={tab.value} fontSize="md" flexShrink={0} whiteSpace="nowrap">
                             {tab.label}
                         </Tabs.Trigger>
                     ))}
@@ -125,9 +141,19 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                 </Tabs.Content>
 
                 <Tabs.Content value="status">
-                    <Box maxW="lg">
-                        <AccountStatusCard hasPassword={hasPassword} />
-                    </Box>
+                    {/* Unlike the other tabs (maxW="3xl"/"lg"), this one is
+                        left at the page's own full width (same as Users/
+                        Policies, neither of which caps its content either):
+                        the right column's effective-permissions badge list
+                        is open-ended and routinely the longest thing on this
+                        page, so it benefits from every bit of width
+                        PageContainer's own maxW="container.xl" already
+                        allows, rather than a second, narrower cap on top of
+                        it. See AccountStatusCard's own docstring for its
+                        internal fit-content(320px) 1fr column split, which
+                        gives that room to the right column specifically
+                        rather than splitting it evenly. */}
+                    <AccountStatusCard />
                 </Tabs.Content>
 
                 <Tabs.Content value="appearance">

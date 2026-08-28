@@ -1,4 +1,5 @@
 # Staying in Sync with Upstream Template Updates
+---
 
 "Upstream" just means the original mystic-auth template repo: the one you clicked **Use this template** on. Every so often it gets new fixes or features, and you can pull those into your own project whenever you want. See [Using This Repository as a Template](overview.md) for everything else about building on top of this template; this page is just the sync mechanism itself.
 
@@ -203,3 +204,5 @@ git commit -m "Sync upstream template updates (mystic-auth@<sha>)"
 ```
 
 Same process for `App.tsx`'s route list. After committing, rebuild and re-run the test suite before trusting it: see [Testing Overview](../testing/overview.md).
+
+---

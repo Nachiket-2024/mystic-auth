@@ -1,4 +1,5 @@
 # Frontend Customization
+---
 
 See [Using This Repository as a Template](overview.md) for the full overview (ownership tiers,
 quickstart, backend customization, deployment, and more). This page covers frontend customization
@@ -9,7 +10,7 @@ you can't.
 
 ## Frontend customization
 
-- **Theme**: `frontend/src/app/theme.ts` (empty by default, like `app_sdk.ts`): set your own `brand` color scale here to re-skin the app. Merged on top of `mystic_auth/theme/system.ts`'s own config, so it never needs editing directly. This is the app-owner-level default; end users can additionally pick their own per-account brand color from Account Settings (`account_settings/AppearanceCard.tsx`, backed by `store/appearanceStore.ts` and `theme/generateBrandScale.ts`), which overrides this default client-side for that signed-in user only.
+- **Theme**: just changing the brand color? Set `BRAND_COLOR` in the root `.env` (aliased to `VITE_BRAND_COLOR`, same pattern as `APP_NAME`), no code edit needed - see [Appearance: Default brand color](../appearance/overview.md#default-brand-color). For anything beyond a single color, `frontend/src/app/theme.ts` (empty by default, like `app_sdk.ts`) is merged on top of `mystic_auth/theme/system.ts`'s own config, so it never needs editing directly. Either way this is the app-owner-level default; end users can additionally pick their own per-account brand color from Account Settings (`account_settings/AppearanceCard.tsx`, backed by `store/appearanceStore.ts` and `theme/generateBrandScale.ts`), which overrides this default client-side for that signed-in user only.
 - **Pages**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/` (which includes session management), `account_settings/`, `users/`, `policies/`, `audit_log/`, `authorization/`, `rate_limits/`, `legal/`). See [Frontend Architecture](../architecture/frontend.md#module-layout).
 - **Routing**: declared in `frontend/src/app/App.tsx`: add a `<Route>`, wrapped in `ProtectedRoute`.
 - **State**: Zustand (`frontend/src/mystic_auth/store/`) for client state, TanStack Query for server state: both re-exported from `sdk.ts`.
@@ -21,6 +22,8 @@ you can't.
 
 Some UI, like the sidebar, is rendered by mystic_auth/ but genuinely needs to reflect your own feature routes: "never edit mystic_auth/" can't mean "never add your own nav link." Rather than leaving that as a choice between hand-editing an upstream-owned file or having no nav link at all, the shared-chrome components that need this take an explicit prop for it:
 
+---
+
 | Component | Extension prop | Shape |
 |---|---|---|
 | `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string; order?: number; icon?: LucideIcon }` |
@@ -30,6 +33,8 @@ Some UI, like the sidebar, is rendered by mystic_auth/ but genuinely needs to re
 | `AppLayout` (re-exported from `sdk.ts`) | `onOpenCommandPalette?: () => void` | Renders the clickable "search" button in the navbar (hidden below the `md` breakpoint) that opens the same `CommandPalette` instance. Cmd+K/Ctrl+K works without it (that shortcut is wired globally in `App.tsx`); omitting this prop just means there's no visible button for it, mouse-only users would have no way to open the palette. |
 | `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraResourceTypes?: string[]` | Appended after this app's own `AUTHORIZATION_RESOURCE_TYPES` in the "Authorization decisions" filter's resource dropdown. |
 | `AuditLogPage` (imported directly in `App.tsx`, like any other page) | `extraActions?: string[]` | Appended after `PERMISSIONS`' own action strings in the same filter's action dropdown. |
+
+---
 
 Pass the same array to every `<AppLayout>` usage in your `App.tsx` (define it once, above your `<Routes>`, and reuse the reference) so the sidebar doesn't reshape as the user navigates between routes:
 
@@ -46,8 +51,11 @@ const EXTRA_NAV_ITEMS: NavItem[] = [
     <ProjectsPage />
 </AppLayout>
 ```
+---
 
 Items with a `permission` are gated the same way the built-in nav items are (wrapped in `IfCan`), so a caller who lacks it simply doesn't see the link, the same as any built-in one. Omitting `extraNavItems` entirely renders the sidebar exactly as before this prop existed, so adopting it (or upgrading a project that predates it) is never a breaking change.
+
+---
 
 **Ordering.** By default your items render *after* every built-in one (Dashboard, Users, Policies, Audit Log, Account Settings), in the order you list them. That's what happens if you don't set `order` at all, so leaving it out is never a breaking change either. To interleave with the built-ins instead, give an item an `order` number: the built-ins are `10`/`20`/`30`/`40`/`50` (see `frontend/src/mystic_auth/layout/app_layout/navItems.ts`), spaced out so you can slot in between any two without needing to know anyone else's exact value.
 
@@ -60,6 +68,8 @@ const EXTRA_NAV_ITEMS: NavItem[] = [
 
 Items sharing the same `order` (or all omitting it) keep their relative order from the array they were given in: ties never get shuffled.
 
+---
+
 **Top bar.** `extraNavbarContent` renders wherever you pass it, to the left of ThemeToggle/LogoutButton, no permission gating or ordering of its own since it's a single free-form slot rather than a list:
 
 ```tsx
@@ -71,6 +81,8 @@ import NotificationsBell from "./notifications/NotificationsBell";
     <ProjectsPage />
 </AppLayout>
 ```
+
+---
 
 **Command palette (Cmd+K / Ctrl+K).** `CommandPalette` is mounted once at the app root in `App.tsx`, not inside `AppLayout`, so it takes its extension props there instead. Pass the same `onOpenCommandPalette` handler to every `<AppLayout>` so the navbar's search button opens this one instance:
 
@@ -91,6 +103,8 @@ const openCommandPalette = () => setIsPaletteOpen(true);
 />
 ```
 
+---
+
 `extraNavItems` is the exact same array you already pass to every `<AppLayout>` - reusing it keeps the palette's "Pages" results and the sidebar in sync automatically. `extraSearchItems` is for content search: a specific settings tab, a specific filtered view, anything a user might type a keyword for that isn't a whole page's own nav label. Each `SearchItem` is:
 
 ```ts
@@ -105,6 +119,7 @@ interface SearchItem {
     icon?: LucideIcon;
 }
 ```
+---
 
 `label`/`detail`/`group`/`matchKeys` each accept either a plain string or an i18next `"namespace:key"` (resolved in the chrome language, same convention `NavItem.label` uses) - use translation keys if your app is localized, plain strings otherwise. A result's search text is `label + detail + group + matchKeys` joined, so you don't need to hand-maintain a separate keyword list in sync with whatever visible copy you're already reusing:
 
@@ -123,7 +138,11 @@ const EXTRA_SEARCH_ITEMS: SearchItem[] = [
 ];
 ```
 
+---
+
 For a `to` that points at a specific tab (`?tab=billing`) or a specific in-page section (`#danger-zone`), your page needs to actually read that on mount - see `AccountSettingsPage`/`AuditLogPage` for the query-param-driven-tab pattern (read once via `useSearchParams`, force a remount with `key={initialTab}` so a later deep-link while the page is already open still switches tabs), or `AppLayout`'s `useScrollToHash` for the `#hash` case (mounted once in `AppLayout` already, so any element with a matching `id` on any of your pages gets scrolled to automatically - just give it an `id`, no extra wiring needed). Omitting `extraSearchItems` entirely renders the palette exactly as before this prop existed.
+
+---
 
 **Audit log filters.** Unlike `AppLayout`, `AuditLogPage` isn't behind `sdk.ts`: it's a page component, imported directly in `App.tsx` the same way `DashboardPage`/`UsersPage`/`PoliciesPage` are, so you already edit that import site directly to add routes. If your app extends the PBAC resource-type or action vocabulary for its own domain (e.g. adding resource types beyond this app's own `users`/`policies`/`security_audit`), pass `extraResourceTypes`/`extraActions` so your own values show up in the "Authorization decisions" tab's filter dropdowns instead of only ever showing this app's built-in vocabulary:
 
@@ -146,3 +165,5 @@ If a future release adds an extension point to another shared component, it'll f
   customization, and deployment.
 - [Worked Example: Adding a New Domain, End to End](worked-example.md): wires `extraNavItems` and
   the rest of the pieces above together for one fake domain.
+
+---

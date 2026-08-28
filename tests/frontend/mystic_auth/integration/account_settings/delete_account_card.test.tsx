@@ -50,6 +50,7 @@ describe('DeleteAccountCard', () => {
     mock.reset();
     seedProfile();
     mock.onGet('/authorization/users/me/policies').reply(200, { policies: [] });
+    mock.onGet('/authorization/users/me/permissions').reply(200, { permissions: [] });
   });
 
   it('requires the current password before confirming deletion when the account has one', async () => {

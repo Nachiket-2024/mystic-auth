@@ -25,14 +25,14 @@ from ...core.errors import AppError
 from ...database.connection import database
 from ...emails.email_normalization import normalize_email
 from ...logging.logging_config import get_logger
-from ...user_crud.user_crud_collector import user_crud
-from ...user_crud.user_crud_modules.user_update_payload_preparation import prepare_update_data
+from ...user.user_crud_collector import user_crud
+from ...user.user_crud_modules.user_update_payload_preparation import prepare_update_data
 
 # UserRole is only used for target-account guards such as protecting the
 # reserved system account from generic endpoints. It is resource metadata, not
 # caller authorization; PBAC policies still decide access.
-from ...user_table.user_model import UserRole
-from ...user_table.user_schema import UserAdminUpdateResponse, UserRoleUpdate, UserUpdate
+from ...user.user_model import UserRole
+from ...user.user_schema import UserAdminUpdateResponse, UserRoleUpdate, UserUpdate
 from ..get_or_404.get_or_404 import get_or_404
 
 # Management field updates on another user's account. Split out of the
@@ -82,14 +82,9 @@ async def update_any_user(
     prepared_data = await prepare_update_data(update_data)
     updated_user = await user_crud.update(db_obj=user, update_data=prepared_data, db=db)
 
-    # See update_my_profile's identical comment: an admin-driven password
-    # change must revoke the target account's existing sessions too.
-    #
-    # sessions_revoked stays None unless this update actually attempted a
-    # revoke below: the password write itself (a Postgres write, unrelated
-    # to Redis) always succeeds regardless of whether that revoke could be
-    # confirmed - same contract as update_my_profile's own sessions_revoked
-    # field (see UserSelfUpdateResponse).
+    # An admin-driven password change must revoke the target's existing
+    # sessions too. sessions_revoked stays None unless a revoke was
+    # attempted: the password write always succeeds regardless.
     sessions_revoked = None
     if "hashed_password" in prepared_data:
         sessions_revoked = True

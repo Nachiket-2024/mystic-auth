@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
 from ...auth.security.login_protection_service import login_protection_service
-from ...auth.security.rate_limiter_service import rate_limiter_service
+from ...auth.security.rate_limiting.rate_limiter_service import rate_limiter_service
 from ...core.errors import AppError
 from ...logging.logging_config import get_logger
 

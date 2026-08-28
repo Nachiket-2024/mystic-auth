@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ...audit_log.audit_log_service import SESSION_REVOKED, log_security_event
 from ...core.errors import AppError
 from ...logging.logging_config import get_logger
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
 from ...user_session.session_repository import session_repository
 from ...user_session.session_service import session_service
 from ..current_user.current_user_handler import current_user_handler

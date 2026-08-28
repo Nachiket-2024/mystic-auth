@@ -1,14 +1,18 @@
 # Writing and Testing Policies
+---
 
 ## Policy creation workflow
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    A["1. Decide action(s)<br/>+ resource type"] --> B["2. Decide conditions,<br/>if any"]
-    B --> C["3. Create policy<br/><small>POST<br/>/authorization/policies<br/>requires policies:create</small>"]
-    C --> D["4. Assign to a user<br/><small>POST /authorization/<br/>users/{email}/policies<br/>requires policies:assign</small>"]
-    D --> E["5. Verify<br/><small>POST /authorization/<br/>users/{email}/<br/>authorization-check<br/>requires policies:read</small>"]
+    A["1. Decide action(s)<br/> + resource type"] --> B["2. Decide conditions,<br/> if any"]
+    B --> C["3. Create policy<br/> POST<br/> /authorization/policies<br/> requires policies:create"]
+    C --> D["4. Assign to a user<br/> POST /authorization/<br/> users/{email}/policies<br/> requires policies:assign"]
+    D --> E["5. Verify<br/> POST /authorization/<br/> users/{email}/<br/> authorization-check<br/> requires policies:read"]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 1. **Decide the action(s) and resource type.** Use an existing `Permission` value if this is about users/policies themselves ([Adding New Permissions](adding-permissions.md)); otherwise any action string works for a downstream application's own resources.
 2. **Decide conditions, if any.** See the [Condition Schema Reference](condition-schema-reference.md): omit `conditions` entirely for an unconditional grant.
@@ -43,17 +47,25 @@ flowchart TD
      -d '{"action": "reports:view", "resource_type": "reports"}'
    ```
 
+---
+
 ### Editing a policy
 
 `PUT /authorization/policies/{name}` (requires `policies:update`): only the fields you send are changed. Every edit is versioned: see [Policy history and rollback](#policy-history-and-rollback) below. If you change `actions`, you must already hold every action in the *new* list, not just the ones being added.
+
+---
 
 ### Protected baseline policies
 
 `self_service`, `user_administration`, and `system_superuser` can never be deleted or renamed via the management API, regardless of who's calling: every default account assignment (signup, OAuth2, `create_system_user.py`) looks them up by these exact names. Their other fields (description, actions, conditions) can still be edited.
 
+---
+
 ### Giving every user a second default policy
 
 `self_service` is assigned unconditionally at signup, before the account is even verified. If your app wants every user to *also* get one of its own policies by default, once verified, set `DEFAULT_APP_POLICIES` (`.env`, comma-separated policy names) rather than editing `signup_service.py`/`oauth2_service.py`/`user_verification_service.py` directly: those three call a shared, downstream-configurable hook (`authorization/policies/default_policies.py::assign_app_default_policies`) the moment an account transitions to verified (email-link verification, or OAuth2, which verifies on the spot). Empty (the default) is a no-op: self_service only, same as before this setting existed. The policies it names must already exist (create them the normal way: `POST /authorization/policies` or your own Alembic migration) or the assignment is skipped with a logged error, not a failure of the signup/login request that triggered it.
+
+---
 
 ### Policy history and rollback
 
@@ -145,3 +157,5 @@ def test_inactive_policy_is_never_a_candidate():
     # engine ever sees a policy, so pass an empty list to simulate that:
     assert PolicyEvaluationEngine.evaluate([], "x:read", "x", "u@example.com") is False
 ```
+
+---

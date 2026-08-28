@@ -10,7 +10,7 @@ from backend.mystic_auth.auth.oauth2.oauth2_service import (
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
 )
-from backend.mystic_auth.user_table.user_model import UserRole
+from backend.mystic_auth.user.user_model import UserRole
 
 MODULE = "backend.mystic_auth.auth.oauth2.oauth2_service"
 

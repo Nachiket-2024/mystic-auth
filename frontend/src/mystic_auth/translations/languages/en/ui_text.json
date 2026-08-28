@@ -19,6 +19,7 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "failedToLoadData": "Failed to load data",
+    "notAuthorizedToView": "You don't have permission to view this.",
     "noDataAvailable": "No data available",
     "errorBoundary": {
         "title": "Something went wrong",

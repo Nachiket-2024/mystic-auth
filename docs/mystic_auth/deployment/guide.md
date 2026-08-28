@@ -1,4 +1,5 @@
 # Deployment Guide
+---
 
 Reference material shared across all three deployment modes. For
 step-by-step instructions on running a given mode, see:
@@ -10,6 +11,8 @@ step-by-step instructions on running a given mode, see:
 
 New to the repo? Start with [Dev Deployment](dev.md). It's the mode you'll
 use day to day, and needs no domain, tunnel, or server.
+
+---
 
 ## At a glance
 
@@ -61,6 +64,8 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 # or: ./scripts/docker/prod-up.sh
 ```
 
+---
+
 The `--env-file` flag (or the equivalent `scripts/docker/*-up.{sh,ps1,cmd}`
 helper) matters for local-prod and prod: Compose only auto-loads a file
 literally named `.env` for `${VAR}`-style substitution (e.g. frontend build
@@ -68,6 +73,8 @@ args) in the compose YAML itself. Each service's `env_file:` entry already
 points at the right dedicated file, but without `--env-file` those build-arg
 substitutions would silently fall back to whatever (if anything) is in `.env`
 instead of `.env.local-prod`/`.env.prod`.
+
+---
 
 Important rules:
 
@@ -79,11 +86,12 @@ Important rules:
   `npm run dev --prefix frontend`. Docker reads `VITE_*` values from the
   mode's dedicated env file above.
 - Production-style frontend values are baked into the image at build time:
-  `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SUPPORT_EMAIL`, `VITE_SENTRY_DSN`,
-  and `VITE_SENTRY_ENVIRONMENT`. `VITE_APP_NAME`/`VITE_SUPPORT_EMAIL` are
-  aliased from the backend `APP_NAME`/`SUPPORT_EMAIL` vars in the compose
-  files rather than needing their own separate entries. After changing any of
-  these, rebuild the frontend image with `--build`.
+  `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_BRAND_COLOR`, `VITE_SUPPORT_EMAIL`,
+  `VITE_SENTRY_DSN`, and `VITE_SENTRY_ENVIRONMENT`. `VITE_APP_NAME`/
+  `VITE_BRAND_COLOR`/`VITE_SUPPORT_EMAIL` are aliased from the backend
+  `APP_NAME`/`BRAND_COLOR`/`SUPPORT_EMAIL` vars in the compose files rather
+  than needing their own separate entries. After changing any of these,
+  rebuild the frontend image with `--build`.
 - Runtime backend values, such as `DATABASE_URL`, `SECRET_KEY`,
   `GOOGLE_REDIRECT_URI`, SMTP settings, and rate-limit settings, are read when
   containers start. After changing them, recreate or restart the affected
@@ -95,21 +103,30 @@ Important rules:
 
 The frontend container's nginx (`docker/nginx.frontend.conf`) also proxies API
 route prefixes to the backend. It forwards `/auth`, `/audit`, `/users`,
-`/authorization`, `/health`, and `/rate-limits` to the `backend` service. In both
-production-style Compose files, the frontend container is pinned to
-`172.28.0.10` so the backend can list that address in `TRUSTED_PROXY_IPS` and
-trust its `X-Forwarded-For` header.
+`/authorization`, `/health`, and `/rate-limits` to the `backend` service. In each
+production-style Compose file, the frontend container is pinned to a fixed
+address on that file's own subnet - `172.28.0.10` in
+`docker-compose.local-prod.yml`, `172.29.0.10` in `docker-compose.prod.yml` -
+so the backend can list that address in `TRUSTED_PROXY_IPS` and trust its
+`X-Forwarded-For` header. The two files deliberately use different subnets
+(`172.28.0.0/24` vs. `172.29.0.0/24`) so both can run on the same Docker host
+at once without a network pool collision - see each file's own `ipam`
+comment.
 
 This single-origin setup works when `VITE_API_BASE_URL` is empty and
-`TRUSTED_PROXY_IPS=172.28.0.10`. Both are set by default in
-`.env.local-prod.example` and `.env.prod.example`. If your TLS terminator
-sits in front of this nginx, forward to port 80 and let
-nginx proxy the API paths internally. `proxy_add_x_forwarded_for` appends rather
-than overwrites, so the client IP chain is preserved.
+`TRUSTED_PROXY_IPS` matches that file's own pinned addresses -
+`172.28.0.10,172.28.0.11` for local-prod, `172.29.0.10,172.29.0.11` for prod.
+Both are set by default in `.env.local-prod.example` and `.env.prod.example`
+respectively. If your TLS terminator sits in front of this nginx, forward to
+port 80 and let nginx proxy the API paths internally.
+`proxy_add_x_forwarded_for` appends rather than overwrites, so the client IP
+chain is preserved.
 
 If you deploy the frontend elsewhere, point `VITE_API_BASE_URL` at the backend's
 real public origin. Set `TRUSTED_PROXY_IPS` to the proxy that actually sits in
 front of the backend for that topology.
+
+---
 
 ### Route collisions between the SPA and the proxied API prefixes
 
@@ -221,12 +238,13 @@ real production use:
   auto-wires it through the shared volume. `VITE_SENTRY_DSN` is baked into the
   browser bundle at build time and must use the public route to Bugsink. See
   [Error Monitoring](../error-monitoring/overview.md).
-- `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SUPPORT_EMAIL`, `VITE_SENTRY_DSN`,
-  and `VITE_SENTRY_ENVIRONMENT` are consumed at **image build time**, not
-  container runtime. `docker-compose.local-prod.yml` and
+- `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_BRAND_COLOR`, `VITE_SUPPORT_EMAIL`,
+  `VITE_SENTRY_DSN`, and `VITE_SENTRY_ENVIRONMENT` are consumed at **image
+  build time**, not container runtime. `docker-compose.local-prod.yml` and
   `docker-compose.prod.yml` pass them to `docker/frontend.Dockerfile` as
-  build args - `VITE_APP_NAME`/`VITE_SUPPORT_EMAIL` are aliased there from
-  `APP_NAME`/`SUPPORT_EMAIL`, so set those two instead of the `VITE_` ones.
+  build args - `VITE_APP_NAME`/`VITE_BRAND_COLOR`/`VITE_SUPPORT_EMAIL` are
+  aliased there from `APP_NAME`/`BRAND_COLOR`/`SUPPORT_EMAIL`, so set those
+  three instead of the `VITE_` ones.
   Set them in `.env.local-prod`/`.env.prod` before
   `docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build` or
   `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`. Values only in
@@ -272,12 +290,43 @@ scripts/db/db_backup.sh docker-compose.local-prod.yml
 scripts/db/db_restore.sh backups/mystic_auth-20260717-120000.sql
 ```
 
-These scripts are the "how", not the "when". There is no scheduler in this repo
-because no specific production host is assumed. Wire `scripts/db/db_backup.sh` into
-whatever your host provides, such as cron, a systemd timer, managed Postgres
-backups, or a sidecar container. Choose a schedule that matches your data's
-change rate. Daily is a reasonable default for most small apps. Store dumps
-somewhere durable off the host, and periodically test a restore.
+These scripts are the "how" for an on-demand dump or a restore. For "on a
+schedule, unattended", both `docker-compose.prod.yml` and
+`docker-compose.local-prod.yml` also run a `db_backup` service by default: a
+small container that dumps Postgres to `./backups` on its own loop, using
+`BACKUP_INTERVAL_HOURS`/`BACKUP_RETENTION_DAYS` from the matching env file
+(both default to a sane value if left blank).
+
+Be clear about what this is and isn't: it's a periodic `pg_dump` loop, not a
+production-grade backup system. It writes plain dumps to the same host
+running Docker Compose, with no off-host copy, no point-in-time recovery,
+and no failure alerting - see
+[Known Issues: Database backups are scheduled, but not production-grade](../concerns/README.md)
+for the specific gaps and what closing them properly would take
+(`pgBackRest`/`WAL-G`, an off-host upload step, restore verification). It's
+a reasonable baseline for a small/self-hosted deployment, not a substitute
+for a real backup tool if your uptime/RPO requirements are strict.
+
+At minimum, copy dumps somewhere durable off the host they're written to
+(an object storage sync, a second rsync target, whatever your provider
+offers), and periodically test a restore - a backup that only ever lives on
+the machine it protects is not a real backup. If you'd rather not run the
+sidecar at all, wire `scripts/db/db_backup.sh` into cron, a systemd timer,
+or managed Postgres backups instead; a plain crontab entry is the smallest
+way to do that on any Linux host, regardless of provider:
+
+```bash
+# Edit the crontab for whichever user can run `docker compose` in this repo
+crontab -e
+
+# Add a line: daily at 02:00, against the production compose file
+0 2 * * * cd /path/to/mystic-auth && scripts/db/db_backup.sh docker-compose.local-prod.yml >> /var/log/mystic-auth-backup.log 2>&1
+```
+
+Copy `backups/` (or the single dump the line above just wrote) somewhere off
+the host afterward, such as an object storage sync step appended to the same
+cron line, since a backup that lives only on the machine it protects is not a
+real backup.
 
 Equivalent raw commands, if you'd rather not use the scripts:
 
@@ -330,3 +379,5 @@ backend deployments are intentionally out of scope.
   [Error Monitoring](../error-monitoring/overview.md).
 - Capacity planning, host hardening, backups, and alerting remain deployment
   responsibilities outside this template.
+
+---

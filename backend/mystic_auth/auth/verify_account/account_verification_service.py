@@ -6,7 +6,7 @@ from ...emails.email_template_service import render_transactional_email
 from ...logging.logging_config import get_logger
 from ...procrastinate_tasks.email_tasks import send_email_task
 from ...redis.client import redis_client
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
 
 logger = get_logger(__name__)
 

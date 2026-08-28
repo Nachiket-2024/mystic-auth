@@ -19,7 +19,9 @@ from backend.mystic_auth.auth.refresh_token_logic.refresh_token_service import (
     RefreshTokenService,
     refresh_token_service,
 )
-from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
+from backend.mystic_auth.auth.token_logic.token_version_store import (
+    TokenVersionUnavailableError,
+)
 
 MODULE = "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.jwt_service"
 

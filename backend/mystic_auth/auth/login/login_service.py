@@ -5,7 +5,7 @@ import uuid
 from fastapi import Request
 
 from ...logging.logging_config import get_logger
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
 from ...user_session.session_service import session_service
 from ..password_logic.password_service import password_service
 from ..token_logic.jwt_service import jwt_service

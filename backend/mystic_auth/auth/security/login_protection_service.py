@@ -54,6 +54,28 @@ class LoginProtectionService:
             return False
 
     @staticmethod
+    async def get_remaining_seconds(key: str) -> int:
+        """Seconds left until this lockout key naturally expires, floored at
+        0. Used to tell a locked-out caller how long to actually wait,
+        instead of a bare "try again later" with no timeframe - the same
+        thing a `Retry-After` header communicates to a client, just also
+        surfaced in the response body for the login form to render.
+
+        0 covers both "key doesn't exist" and "key has no TTL" (redis TTL's
+        -2/-1 respectively): either way there's nothing meaningful left to
+        wait out, which can legitimately happen if this races the key
+        expiring naturally between the caller's own is_locked check and
+        this call.
+        """
+        try:
+            ttl = await redis_client.ttl(key)
+            return max(ttl, 0)
+
+        except Exception:
+            logger.error("Error reading lockout TTL:\n%s", traceback.format_exc())
+            return 0
+
+    @staticmethod
     async def reset_failed_attempts(key: str) -> None:
         try:
             await redis_client.delete(key)

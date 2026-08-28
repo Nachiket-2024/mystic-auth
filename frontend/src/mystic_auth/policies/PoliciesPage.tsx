@@ -7,17 +7,19 @@ import PageContainer from "../ui/PageContainer";
 import DataTable from "../ui/DataTable/DataTable";
 import Pagination from "../ui/Pagination";
 import ConfirmDialog from "../ui/ConfirmDialog";
+import FormAlert from "../ui/FormAlert";
 import { BRAND_SOLID_HOVER_PROPS } from "../ui/styles/buttonStyles";
 import { IfCan } from "../authorization/IfCan";
+import { useCan } from "../authorization/useCan";
 import { PERMISSIONS } from "../authorization/permissions";
 import { useDebouncedValue } from "../ui/hooks/useDebouncedValue";
 import { useSortState } from "../ui/hooks/useSortState";
 import { usePageResetOn } from "../ui/hooks/usePageResetOn";
 import { toaster } from "../ui/toaster/toasterInstance";
-import { usePoliciesQuery, usePoliciesListQuery } from "./policyQueries";
-import { useCreatePolicyMutation, useUpdatePolicyMutation, useDeletePolicyMutation } from "./policyMutations";
-import PolicyFormDialog, { type PolicyFormValues } from "./PolicyFormDialog";
-import PolicyDetailsDialog from "./PolicyDetailsDialog";
+import { usePoliciesQuery, usePoliciesListQuery } from "./queries/policyQueries";
+import { useCreatePolicyMutation, useUpdatePolicyMutation, useDeletePolicyMutation } from "./queries/policyMutations";
+import PolicyFormDialog, { type PolicyFormValues } from "./dialogs/PolicyFormDialog";
+import PolicyDetailsDialog from "./dialogs/PolicyDetailsDialog";
 import PolicyStatsCard from "./PolicyStatsCard";
 import PoliciesFilterBar, { ALL_VALUE } from "./PoliciesFilterBar";
 import { buildPoliciesColumns } from "./policiesColumns";
@@ -34,17 +36,33 @@ function toBoolFilter(value: string): boolean | undefined {
 /**
  * PoliciesPage
  * ----------------------------
- * Management CRUD for policies (backend: /authorization/policies). Route itself
- * is gated by ProtectedRoute permission="policies:read"; the create/edit/
- * delete affordances are additionally gated per-action here via IfCan,
- * since a caller might hold policies:read without policies:create/update/
- * delete. Search (name/description) and resource-type/status filter server-
- * side, and Name/Resource-type sort server-side (click the header) - same
- * pattern as UsersPage, once policy count could no longer be assumed small
- * enough to load and filter in full client-side.
+ * Management CRUD for policies (backend: /authorization/policies). Route
+ * itself is gated by ProtectedRoute permission=[policies:read,
+ * policies:create] (see navItems.ts's matching entry for why create alone
+ * also belongs there); the create/edit/delete affordances are additionally
+ * gated per-action here via IfCan, since a caller might hold policies:read
+ * without policies:create/update/delete. Search (name/description) and
+ * resource-type/status filter server-side, and Name/Resource-type sort
+ * server-side (click the header) - same pattern as UsersPage, once policy
+ * count could no longer be assumed small enough to load and filter in full
+ * client-side.
+ *
+ * A caller who reached this route via policies:create alone (not
+ * policies:read) cannot list, search, or filter existing policies -
+ * GET /authorization/policies requires policies:read - so the list/stats
+ * queries are never fired for them (see canReadPolicies below) and the page
+ * instead renders a restricted-view notice next to a standalone Create
+ * Policy button, rather than a DataTable stuck permanently in its error
+ * state. Update/delete/assign/revoke all require first finding the target
+ * via that same read-gated list, so create is the one action with a real
+ * standalone path; see PolicyFormDialog and its permissions_catalog fetch
+ * (CATALOG_READ_DEPENDENCY, backend-side) for the matching fix that lets
+ * that form's own fields actually load for this caller too.
  */
 const PoliciesPage: React.FC = () => {
     const { t } = useTranslation(["policies", "ui_text"]);
+
+    const canReadPolicies = useCan(PERMISSIONS.POLICIES_READ);
 
     const [search, setSearch] = useState("");
     // Debounced, not the raw keystroke value: search is now a real request
@@ -63,20 +81,25 @@ const PoliciesPage: React.FC = () => {
     // this is state derived during render, not an effect.
     const [page, setPage] = usePageResetOn(`${debouncedSearch}|${sort.key}|${sort.direction}|${resourceType}|${status}`);
 
-    const { data, isLoading, isError } = usePoliciesListQuery(page, PAGE_SIZE, {
-        search: debouncedSearch,
-        resourceType: resourceType || undefined,
-        isActive: toBoolFilter(status),
-        sortBy: sort.key || undefined,
-        sortDir: sort.direction,
-    });
+    const { data, isLoading, isError } = usePoliciesListQuery(
+        page,
+        PAGE_SIZE,
+        {
+            search: debouncedSearch,
+            resourceType: resourceType || undefined,
+            isActive: toBoolFilter(status),
+            sortBy: sort.key || undefined,
+            sortDir: sort.direction,
+        },
+        canReadPolicies
+    );
     const filteredPolicies = data?.policies;
     const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
     // PolicyStatsCard's summary counts are independent of the main list's
     // current page/filters (same reasoning as UserStatsCard), so it keeps
     // using the full, unfiltered list rather than this page's `data`.
-    const { data: allPolicies, isLoading: isStatsLoading } = usePoliciesQuery();
+    const { data: allPolicies, isLoading: isStatsLoading } = usePoliciesQuery(canReadPolicies);
 
     const [formOpen, setFormOpen] = useState(false);
     const [editingPolicy, setEditingPolicy] = useState<PolicyRead | undefined>(undefined);
@@ -154,57 +177,75 @@ const PoliciesPage: React.FC = () => {
             title={t("policies:page.title")}
             icon={ShieldCheck}
             description={t("policies:page.description")}
-            actions={<PolicyStatsCard policies={allPolicies} isLoading={isStatsLoading} />}
+            actions={canReadPolicies ? <PolicyStatsCard policies={allPolicies} isLoading={isStatsLoading} /> : undefined}
             headerExtra={
-                <PoliciesFilterBar
-                    search={search}
-                    setSearch={setSearch}
-                    resourceType={resourceType}
-                    setResourceType={setResourceType}
-                    status={status}
-                    setStatus={setStatus}
-                    searchRowExtra={
-                        <IfCan action={PERMISSIONS.POLICIES_CREATE}>
-                            <Button colorPalette="brand" onClick={openCreateForm} {...BRAND_SOLID_HOVER_PROPS}>
-                                {t("policies:page.createPolicy")}
-                            </Button>
-                        </IfCan>
-                    }
-                />
+                canReadPolicies ? (
+                    <PoliciesFilterBar
+                        search={search}
+                        setSearch={setSearch}
+                        resourceType={resourceType}
+                        setResourceType={setResourceType}
+                        status={status}
+                        setStatus={setStatus}
+                        searchRowExtra={
+                            <IfCan action={PERMISSIONS.POLICIES_CREATE}>
+                                <Button colorPalette="brand" onClick={openCreateForm} {...BRAND_SOLID_HOVER_PROPS}>
+                                    {t("policies:page.createPolicy")}
+                                </Button>
+                            </IfCan>
+                        }
+                    />
+                ) : (
+                    // No policies:read: no search/filter bar to drive (the
+                    // list query never fires - see canReadPolicies above),
+                    // just a standalone Create Policy button so a
+                    // create-only caller still has a way to reach the form.
+                    <IfCan action={PERMISSIONS.POLICIES_CREATE}>
+                        <Button colorPalette="brand" onClick={openCreateForm} {...BRAND_SOLID_HOVER_PROPS}>
+                            {t("policies:page.createPolicy")}
+                        </Button>
+                    </IfCan>
+                )
             }
         >
-            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} mb={4} />
+            {!canReadPolicies ? (
+                <FormAlert status="warning">{t("policies:page.cannotViewExistingPolicies")}</FormAlert>
+            ) : (
+                <>
+                    <Pagination page={page} totalPages={totalPages} onPageChange={setPage} mb={4} />
 
-            <DataTable
-                columns={columns}
-                rows={filteredPolicies}
-                rowKey={(p) => p.id}
-                isLoading={isLoading}
-                isError={isError}
-                errorMessage={t("policies:page.failedToLoadPolicies")}
-                emptyMessage={
-                    search
-                        ? t("policies:page.noPoliciesMatchSearch")
-                        : resourceType !== ALL_VALUE || status !== ALL_VALUE
-                          ? t("policies:page.noPoliciesMatchFilters")
-                          : t("policies:page.noPoliciesYet")
-                }
-                emptyIcon={<ShieldOff size={32} aria-hidden="true" />}
-                emptyAction={
-                    !hasSearchOrFilters ? (
-                        <IfCan action={PERMISSIONS.POLICIES_CREATE}>
-                            <Button colorPalette="brand" onClick={openCreateForm} {...BRAND_SOLID_HOVER_PROPS}>
-                                {t("policies:page.createPolicy")}
-                            </Button>
-                        </IfCan>
-                    ) : undefined
-                }
-                sort={sort}
-                onSortChange={toggleSort}
-                startIndex={(page - 1) * PAGE_SIZE}
-            />
+                    <DataTable
+                        columns={columns}
+                        rows={filteredPolicies}
+                        rowKey={(p) => p.id}
+                        isLoading={isLoading}
+                        isError={isError}
+                        errorMessage={t("policies:page.failedToLoadPolicies")}
+                        emptyMessage={
+                            search
+                                ? t("policies:page.noPoliciesMatchSearch")
+                                : resourceType !== ALL_VALUE || status !== ALL_VALUE
+                                  ? t("policies:page.noPoliciesMatchFilters")
+                                  : t("policies:page.noPoliciesYet")
+                        }
+                        emptyIcon={<ShieldOff size={32} aria-hidden="true" />}
+                        emptyAction={
+                            !hasSearchOrFilters ? (
+                                <IfCan action={PERMISSIONS.POLICIES_CREATE}>
+                                    <Button colorPalette="brand" onClick={openCreateForm} {...BRAND_SOLID_HOVER_PROPS}>
+                                        {t("policies:page.createPolicy")}
+                                    </Button>
+                                </IfCan>
+                            ) : undefined
+                        }
+                        sort={sort}
+                        onSortChange={toggleSort}
+                        startIndex={(page - 1) * PAGE_SIZE}
+                    />
 
-            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} mt={4} />
+                    <Pagination page={page} totalPages={totalPages} onPageChange={setPage} mt={4} />
+                </>
+            )}
 
             <PolicyDetailsDialog
                 isOpen={!!viewingPolicy}

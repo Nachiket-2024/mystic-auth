@@ -22,14 +22,14 @@ from ...authorization.repositories.policy_repository import policy_repository
 from ...emails.email_normalization import normalize_email
 from ...logging.logging_config import get_logger
 from ...redis.client import redis_client
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
+from ...user.user_model import UserRole
 
 # UserRole is used ONLY to block OAuth2 login into the reserved system account
 # (see login_or_create_user below), mirroring the same guard
 # user_management_routes.py applies to update/delete/role-change. Never used to
 # grant access.
 from ...user_session.session_service import session_service
-from ...user_table.user_model import UserRole
 from ..token_logic.jwt_service import jwt_service
 
 logger = get_logger(__name__)

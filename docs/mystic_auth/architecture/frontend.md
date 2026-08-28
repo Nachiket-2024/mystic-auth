@@ -1,4 +1,5 @@
 # Frontend Architecture
+---
 
 ## Purpose
 
@@ -49,6 +50,8 @@ This layout is feature/page-first, not a layer-first (`components/`/`hooks`/`ser
 
 `react-router` v8 (see [below](#why-react-router-not-react-router-dom) for why not `react-router-dom`), `BrowserRouter`, defined in `App.tsx`. Only `LoginPage` is eager-loaded (the most common unauthenticated entry point); every other route is `React.lazy`-split.
 
+---
+
 ### Why `react-router`, not `react-router-dom`
 
 Upstream stopped publishing `react-router-dom` past `7.18.1` and folded its exports into `react-router` for v8: everything except the RSC-only `RouterProvider`/`HydratedRouter` (under `react-router/dom`, unused here) now comes from the single `react-router` package. Not optional: `react-router-dom@7.18.1` carried an unpatched high-severity advisory ([GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2)) with no further release ever published under that package name. The fix only exists as `react-router@8.3.0`.
@@ -68,6 +71,8 @@ All protected routes are wrapped in `ProtectedRoute`, which redirects
 unauthenticated users to `/login` and unauthorized users to `/not-authorized`.
 `AppLayout` provides the sidebar and top-bar shell, so the shell renders only
 after access is confirmed.
+
+---
 
 ### Route-loading UX
 
@@ -122,7 +127,7 @@ Route-level code splitting is separate and already in place. See [Routing](#rout
 
 ## Configuration requirements
 
-`VITE_API_BASE_URL` (the backend's base URL) and `VITE_APP_NAME` (the product name shown in the UI: navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution). Both are Vite build-time env vars, read through `core/settings.ts`, and set in the root `.env`; running the stack via Docker, that's what the frontend container actually reads. `frontend/.env.example` only matters for running the frontend locally with `npm run dev`, outside Docker. Support email shown in emails is backend-driven (`SUPPORT_EMAIL`) and only ever appears in server-rendered email templates, not in the frontend build.
+`VITE_API_BASE_URL` (the backend's base URL), `VITE_APP_NAME` (the product name shown in the UI: navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution), `VITE_BRAND_COLOR` (the default brand color, see [Appearance: Default brand color](../appearance/overview.md#default-brand-color)), and `VITE_SUPPORT_EMAIL` (contact address, undefined by default). All are Vite build-time env vars, read through `core/settings.ts`, and set in the root `.env`; running the stack via Docker, that's what the frontend container actually reads. `frontend/.env.example` only matters for running the frontend locally with `npm run dev`, outside Docker. `SUPPORT_EMAIL` is shared with the backend (also used as the `Reply-To` on outgoing email, see [Background Email Delivery](../background-workers/procrastinate.md)) and, on the frontend, appears on the Terms of Service / Privacy Policy pages and, once set, as a "Help & Support" mailto link pinned to the bottom of the sidebar (`layout/app_layout/Sidebar.tsx`) - the one spot every authenticated screen shares regardless of permissions, so it stays out of a fresh fork until `SUPPORT_EMAIL` is actually configured.
 
 ---
 
@@ -138,3 +143,5 @@ Route-level code splitting is separate and already in place. See [Routing](#rout
 ## Testing coverage
 
 Tests live in `tests/frontend/` (outside `src/`), not co-located. Vitest + React Testing Library + jsdom + axios-mock-adapter. See [Testing Overview](../testing/overview.md) for the full breakdown and known coverage gaps.
+
+---

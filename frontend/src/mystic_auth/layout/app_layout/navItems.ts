@@ -1,4 +1,4 @@
-import { Gauge, LayoutDashboard, ScrollText, Settings, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { Gauge, KeyRound, LayoutDashboard, ScrollText, Settings, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 
 import { PERMISSIONS } from "../../authorization/permissions";
 
@@ -13,8 +13,13 @@ export interface NavItem {
      */
     label: string;
     to: string;
-    /** Omit for links every authenticated user should see regardless of permissions. */
-    permission?: string;
+    /**
+     * Omit for links every authenticated user should see regardless of
+     * permissions. An array means "any of" - see useAuthorization's `can` -
+     * for a page that's a legitimate destination for more than one
+     * independent action (see the Policies entry below).
+     */
+    permission?: string | string[];
     /**
      * Sort key the Sidebar merges built-in and app-supplied (`extraNavItems`)
      * items by: lower renders first. Every built-in item below has one, in
@@ -57,7 +62,15 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
     { label: "layout:nav.dashboard", to: "/dashboard", order: 10, icon: LayoutDashboard },
     { label: "layout:nav.users", to: "/users", permission: PERMISSIONS.USERS_LIST_ALL, order: 20, icon: Users },
-    { label: "layout:nav.policies", to: "/policies", permission: PERMISSIONS.POLICIES_READ, order: 30, icon: ShieldCheck },
+    // policies:read OR policies:create: a caller holding only policies:create
+    // (no read) still needs to reach this page to use its Create Policy
+    // button - creating a policy needs no visibility into existing ones,
+    // unlike update/delete/assign/revoke, which all require first finding
+    // the target via the read-gated list, so read is a real prerequisite for
+    // every other policy action but not for create. See PoliciesPage's own
+    // docstring for how it renders when the caller can create but not read.
+    { label: "layout:nav.policies", to: "/policies", permission: [PERMISSIONS.POLICIES_READ, PERMISSIONS.POLICIES_CREATE], order: 30, icon: ShieldCheck },
+    { label: "layout:nav.permissions", to: "/permissions", permission: PERMISSIONS.PERMISSIONS_READ, order: 32, icon: KeyRound },
     { label: "layout:nav.rateLimits", to: "/rate-limits", permission: PERMISSIONS.RATE_LIMITS_READ, order: 35, icon: Gauge },
     // No permission required: every authenticated user can view their own
     // audit trail (GET /authorization/audit-log/me, GET /audit/security-log/me)

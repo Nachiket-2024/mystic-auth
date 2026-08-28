@@ -13,7 +13,10 @@ from unittest.mock import AsyncMock
 import pytest
 from procrastinate.jobs import Job
 
-from backend.mystic_auth.procrastinate_tasks.email_tasks import EMAIL_RETRY, send_email_task
+from backend.mystic_auth.procrastinate_tasks.email_tasks import (
+    EMAIL_RETRY,
+    send_email_task,
+)
 
 MODULE = "backend.mystic_auth.procrastinate_tasks.email_tasks"
 

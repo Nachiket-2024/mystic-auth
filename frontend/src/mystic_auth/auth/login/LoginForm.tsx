@@ -49,6 +49,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t("login.emailPlaceholder")}
+                aria-label={t("login.emailPlaceholder")}
                 autoComplete="email"
                 bg="bg.canvas"
                 colorPalette="brand"
@@ -61,10 +62,12 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t("login.passwordPlaceholder")}
+                aria-label={t("login.passwordPlaceholder")}
                 autoComplete="current-password"
                 bg="bg.canvas"
                 colorPalette="brand"
                 required
+                maxLength={128}
                 aria-invalid={loginMutation.isError}
                 aria-describedby={loginMutation.isError ? "login-error" : undefined}
             />

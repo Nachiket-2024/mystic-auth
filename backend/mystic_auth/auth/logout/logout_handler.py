@@ -48,14 +48,12 @@ class LogoutHandler:
                 metadata=None if session_revoked else {"session_revoked": False},
             )
 
-            # Succeeds regardless of whether the token was still live to revoke
-            # (it may already be invalid, e.g. killed by a recent password
-            # change): the caller's actual goal, no valid session left in this
-            # browser, is met either way. Erroring here instead would leave the
-            # frontend stuck "logged in" with a dead cookie it could never clear.
-            # session_revoked=False (Redis was unreachable) still returns 200
-            # for the same reason, but is carried in the body rather than
-            # silently dropped, so the leaked-token risk isn't invisible.
+            # Succeeds regardless of whether the token was still live to
+            # revoke: the caller's actual goal (no valid session left) is
+            # met either way, and erroring here would leave the frontend
+            # stuck "logged in" with a dead cookie. session_revoked=False
+            # (Redis unreachable) still returns 200, but is carried in the
+            # body so the risk isn't silently dropped.
             resp = JSONResponse(
                 content={"message": "Logged out successfully", "session_revoked": session_revoked},
                 status_code=200

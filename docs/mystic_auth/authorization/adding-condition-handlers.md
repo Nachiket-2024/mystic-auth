@@ -1,17 +1,23 @@
 # Adding New Condition Handlers
+---
 
 The condition framework is modular by design:
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Engine["Authorization<br/>Engine<br/><small>policy_evaluator.py</small>"]
-    Service["Condition<br/>Evaluation Service<br/><small>condition_evaluation_<br/>service.py</small>"]
-    Handlers["Condition<br/>Handlers<br/><small>condition_types/*.py</small>"]
+    Engine["Authorization<br/> Engine<br/> policy_evaluator.py"]
+    Service["Condition<br/> Evaluation Service<br/> condition_evaluation_<br/> service.py"]
+    Handlers["Condition<br/> Handlers<br/> condition_types/*.py"]
 
     Engine --> Service --> Handlers
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 Adding a new condition type **never** requires touching `PolicyEvaluationEngine` or `ConditionEvaluationService`: only two new/edited files, plus the validator.
+
+---
 
 ## 1. Create the handler class
 
@@ -119,3 +125,5 @@ def test_device_trust_rejects_invalid_min_level():
 - `policy_evaluator.py`: it only matches action/resource_type and delegates the whole `conditions` block; it has no per-condition-type logic.
 - `condition_evaluation_service.py`: its dispatch loop is generic; it just looks up whatever key is present.
 - Any existing condition handler: they're independent of each other.
+
+---

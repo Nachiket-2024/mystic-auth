@@ -1,4 +1,5 @@
 # Security Hardening
+---
 
 Consolidates the concrete hardening mechanisms in the codebase: rate limiting, lockout, response headers, CORS, and cookie flags. For the *why* behind non-obvious choices, see [Security Decisions](decisions.md). Split by category into three pages, indexed below.
 
@@ -12,6 +13,8 @@ See [Security Hardening: Abuse Prevention](hardening-abuse-prevention.md) for th
 - [Brute-force lockout](hardening-abuse-prevention.md#brute-force-lockout): per-account and per-IP failed-login lockout, layered on top of rate limiting.
 - [Timing-attack resistance](hardening-abuse-prevention.md#timing-attack-resistance): dummy-hash comparison, unconditional hashing, identical generic responses.
 
+---
+
 ## HTTP layer
 
 See [Security Hardening: HTTP Layer](hardening-http.md) for the full entries.
@@ -22,6 +25,8 @@ See [Security Hardening: HTTP Layer](hardening-http.md) for the full entries.
 - [Middleware ordering](hardening-http.md#middleware-ordering): why `CorrelationIdMiddleware` ends up outermost.
 - [Error handling](hardening-http.md#error-handling): the global exception handler and `AppError`'s structured error responses.
 
+---
+
 ## Infrastructure
 
 See [Security Hardening: Infrastructure](hardening-infra.md) for the full entries.
@@ -31,3 +36,5 @@ See [Security Hardening: Infrastructure](hardening-infra.md) for the full entrie
 - [Reverse-proxy IP trust](hardening-infra.md#reverse-proxy-ip-trust): `TRUSTED_PROXY_IPS` gates `X-Forwarded-For` trust.
 - [Session geolocation](hardening-infra.md#session-geolocation-manage-sessions-location-column): MaxMind GeoLite2-City, off by default.
 - [Known accepted gaps](hardening-infra.md#known-accepted-gaps): see [Concerns](../concerns/README.md) for the current open list.
+
+---

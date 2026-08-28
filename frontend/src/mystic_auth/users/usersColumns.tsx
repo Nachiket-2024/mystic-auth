@@ -1,5 +1,5 @@
 import { HStack, Text } from "@chakra-ui/react";
-import { Eye, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { Eye, Key, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
 
 import Badge from "../ui/Badge";
@@ -21,7 +21,8 @@ interface BuildUsersColumnsParams {
     currentUserEmail: string | null | undefined;
     onRoleChangeRequest: (user: ManagedUserRead, role: string) => void;
     onView: (user: ManagedUserRead) => void;
-    onPolicies: (email: string) => void;
+    onPolicies: (user: ManagedUserRead) => void;
+    onPermissions: (user: ManagedUserRead) => void;
     onReactivate: (email: string) => void;
     reactivatingEmail: string | undefined;
     onPurgeRequest: (user: ManagedUserRead) => void;
@@ -40,6 +41,7 @@ export function buildUsersColumns({
     onRoleChangeRequest,
     onView,
     onPolicies,
+    onPermissions,
     onReactivate,
     reactivatingEmail,
     onPurgeRequest,
@@ -91,8 +93,14 @@ export function buildUsersColumns({
                         ariaLabel={t("users:columns.changeRoleAriaLabel", { email: u.email })}
                         textTransform="capitalize"
                         options={ROLE_OPTIONS.map((role) => ({ value: role, label: capitalize(role) }))}
-                        disabled={u.email === currentUserEmail}
-                        title={u.email === currentUserEmail ? t("users:columns.cannotChangeOwnRole") : undefined}
+                        disabled={u.email === currentUserEmail || u.role === "system"}
+                        title={
+                            u.email === currentUserEmail
+                                ? t("users:columns.cannotChangeOwnRole")
+                                : u.role === "system"
+                                  ? t("users:columns.cannotModifySystemUser")
+                                  : undefined
+                        }
                     />
                 </IfCan>
             ),
@@ -118,13 +126,14 @@ export function buildUsersColumns({
             key: "row_actions",
             header: "",
             align: "end",
-            // A deleted row shows up to 4 actions at once (View + Policies +
-            // Reactivate + Purge), vs. 3 for an active row. Icon-only buttons
-            // (TableActionIconButton) rather than text pills, since a
-            // translated label like Marathi's "कायमचे काढून टाका" (Purge) is
-            // 4-5x wider than English, keeping every row's actions on one
-            // line in every locale without the table needing to scroll.
-            width: "9rem",
+            // A deleted row shows up to 5 actions at once (View + Policies +
+            // Permissions + Reactivate + Purge), vs. 4 for an active row.
+            // Icon-only buttons (TableActionIconButton) rather than text
+            // pills, since a translated label like Marathi's
+            // "कायमचे काढून टाका" (Purge) is 4-5x wider than English, keeping
+            // every row's actions on one line in every locale without the
+            // table needing to scroll.
+            width: "11rem",
             render: (u) => (
                 <HStack justify="flex-end" gap={1.5} wrap="nowrap">
                     <TableActionIconButton colorPalette="blue" label={t("users:columns.view")} onClick={() => onView(u)}>
@@ -134,9 +143,18 @@ export function buildUsersColumns({
                         <TableActionIconButton
                             colorPalette="purple"
                             label={t("users:columns.policies")}
-                            onClick={() => onPolicies(u.email)}
+                            onClick={() => onPolicies(u)}
                         >
                             <ShieldCheck size={16} aria-hidden="true" />
+                        </TableActionIconButton>
+                    </IfCan>
+                    <IfCan action={PERMISSIONS.PERMISSIONS_READ}>
+                        <TableActionIconButton
+                            colorPalette="orange"
+                            label={t("users:columns.permissions")}
+                            onClick={() => onPermissions(u)}
+                        >
+                            <Key size={16} aria-hidden="true" />
                         </TableActionIconButton>
                     </IfCan>
                     {u.deleted_at ? (
@@ -155,8 +173,13 @@ export function buildUsersColumns({
                                 <TableActionIconButton
                                     colorPalette="red"
                                     label={t("users:columns.purge")}
+                                    disabledLabel={
+                                        u.email === currentUserEmail
+                                            ? t("users:columns.cannotPurgeOwnAccount")
+                                            : t("users:columns.cannotModifySystemUser")
+                                    }
                                     onClick={() => onPurgeRequest(u)}
-                                    disabled={u.email === currentUserEmail}
+                                    disabled={u.email === currentUserEmail || u.role === "system"}
                                 >
                                     <Trash2 size={16} aria-hidden="true" />
                                 </TableActionIconButton>
@@ -167,8 +190,13 @@ export function buildUsersColumns({
                             <TableActionIconButton
                                 colorPalette="red"
                                 label={t("ui_text:delete")}
+                                disabledLabel={
+                                    u.email === currentUserEmail
+                                        ? t("users:columns.cannotDeleteOwnAccount")
+                                        : t("users:columns.cannotModifySystemUser")
+                                }
                                 onClick={() => onDeleteRequest(u)}
-                                disabled={u.email === currentUserEmail}
+                                disabled={u.email === currentUserEmail || u.role === "system"}
                             >
                                 <Trash2 size={16} aria-hidden="true" />
                             </TableActionIconButton>

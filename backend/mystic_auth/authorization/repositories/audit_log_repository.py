@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql.elements import UnaryExpression
 
+from ...core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
 from ..models.audit_log_model import AuthorizationAuditLog
 
 # See audit_log/audit_log_repository.py's identical constant for why this is
@@ -37,7 +38,7 @@ def _apply_filters(
     strings, this app's resource types, and a bool), the same distinction
     security_audit_log_repository.py draws for search vs. event_type/success."""
     if search:
-        stmt = stmt.where(AuthorizationAuditLog.user_email.ilike(f"%{search}%"))
+        stmt = stmt.where(AuthorizationAuditLog.user_email.ilike(ilike_pattern(search), escape=ILIKE_ESCAPE_CHAR))
     if action:
         stmt = stmt.where(AuthorizationAuditLog.action == action)
     if resource_type:

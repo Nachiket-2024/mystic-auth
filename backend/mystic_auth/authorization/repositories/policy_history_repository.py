@@ -29,10 +29,15 @@ class PolicyHistoryRepository:
     async def get_for_policy(
         policy_name: str, db: AsyncSession, limit: int = 100, offset: int = 0
     ) -> list[PolicyHistory]:
+        # Ordered by id, not created_at: created_at defaults to Postgres's
+        # now() at transaction start, not insert time, so under concurrent
+        # updates the transaction that commits second can have an earlier
+        # timestamp than the one that commits first. id is assigned at
+        # actual INSERT, so it reflects real commit order.
         stmt = (
             select(PolicyHistory)
             .where(PolicyHistory.policy_name == policy_name)
-            .order_by(PolicyHistory.created_at.desc(), PolicyHistory.id.desc())
+            .order_by(PolicyHistory.id.desc())
             .limit(limit)
             .offset(offset)
         )

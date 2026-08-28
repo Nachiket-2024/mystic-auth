@@ -43,7 +43,7 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
  * Read-only "View" panel for one session's full device/IP/location/date
  * info - everything ManageSessionsCard's own table no longer shows at all
  * (ip_address) or truncates (location, dates) for table-width reasons. Pure
- * display surface, same shape as users/UserDetailsDialog.tsx: takes the
+ * display surface, same shape as users/dialogs/UserDetailsDialog.tsx: takes the
  * already-fetched row object directly, no separate query.
  */
 const SessionDetailsDialog: React.FC<SessionDetailsDialogProps> = ({ isOpen, session, onClose }) => {

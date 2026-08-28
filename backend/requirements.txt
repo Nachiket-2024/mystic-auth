@@ -7,14 +7,14 @@
 # unrelated change.
 
 fastapi==0.141.1
-uvicorn[standard]==0.52.0
+uvicorn[standard]==0.52.4
 
-SQLAlchemy==2.0.51
+SQLAlchemy==2.0.52
 asyncpg==0.31.0
-alembic==1.18.5
+alembic==1.19.1
 
-python-dotenv==1.2.2
-pydantic-settings==2.14.2
+python-dotenv==1.2.3
+pydantic-settings==2.15.0
 pydantic[email]==2.13.4
 
 pyjwt==2.13.0
@@ -25,23 +25,23 @@ httpx==0.28.1
 # starlette.testclient (used by tests/backend/mystic_auth/unit/test_correlation_id_middleware_unit.py)
 # now prefers httpx2 over httpx and warns on every import if it is absent.
 # not a runtime dependency, only pulled in so that one test file stays quiet.
-httpx2==2.9.1
+httpx2==2.12.0
 
 redis==8.1.0
 
 # Local MaxMind GeoLite2-City .mmdb reader for Manage Sessions' Location
 # column (see user_session/session_geolocation.py). Offline/no-network lookup, so it adds
 # no latency or third-party dependency to the login/refresh path.
-geoip2==4.8.1
+geoip2==5.3.0
 
 procrastinate==3.9.0
 
 aiosmtplib==5.1.2
 
-python-json-logger==4.1.0
+python-json-logger==4.2.0
 
 # Speaks the same wire protocol against Sentry or any self-hosted
 # Sentry-SDK-compatible server such as Bugsink.
 # The [fastapi] extra pulls in the FastAPI/Starlette integration; a no-op
 # import-time cost when SENTRY_DSN is unset (see error_monitoring/sentry_service.py).
-sentry-sdk[fastapi]==2.66.1
+sentry-sdk[fastapi]==2.68.1

@@ -1,4 +1,5 @@
 # Adding New Permissions
+---
 
 ## Where to define a new action
 
@@ -13,6 +14,8 @@ class Permission(str, enum.Enum):
 Naming convention: `"<resource>:<action>[_<scope>]"`: e.g. `USERS_UPDATE_OWN` vs `USERS_UPDATE_ANY` are genuinely different actions (a policy can grant one without the other), not one action with a role check bolted on.
 
 **`Permission` is a vocabulary, not a grant.** Adding an enum member here does not give anyone access to anything: it only makes the identifier available for a policy's `actions` list. The only thing that ever grants an action is an assigned, active `Policy` whose `actions` include it.
+
+---
 
 ### A note on scope
 
@@ -60,7 +63,7 @@ def downgrade() -> None:
     ...
 ```
 
-**To add a brand-new (non-baseline) policy**, just use the management API (`POST /authorization/policies`, requires `policies:create`: see [Policy JSON Examples](policy-examples.md)): no migration needed. Only the three seeded baseline policies live in migrations.
+**To add a brand-new (non-baseline) policy**, just use the management API (`POST /authorization/policies`, requires `policies:create`: see [Policy JSON Examples](policy-examples.md)): no migration needed.
 
 ---
 
@@ -73,6 +76,26 @@ def downgrade() -> None:
 
 ---
 
+## Direct grants vs. policies
+
+Most access should go through a `Policy`. But occasionally even the narrowest existing policy still grants more than one specific user should have, and defining a new one-off named policy just for that single case would just recreate RBAC-by-another-name: a pile of single-purpose "policies" that are really just a role for one person. For that case there's `UserPermission` (`authorization/models/user_permission_model.py`): an unnamed, ad hoc `(user, action, resource_type, conditions)` grant, bypassing `Policy` entirely.
+
+Use a direct grant instead of a policy when the access is genuinely one-off for one user (e.g. a single support engineer needs `users:read_own` on one extra resource type temporarily), not when it's a bundle of actions or something you'd want to hand out to more than one person: that's still a policy's job.
+
+Direct grants reuse the exact same `conditions` shape/semantics as `Policy.conditions` (see [Condition Schema Reference](condition-schema-reference.md)), and go through the identical privilege-escalation guard (`assert_authorized_to_grant`) as policy assignment: a caller can never grant an action they don't already hold themselves.
+
+At evaluation time, `PolicyEvaluationEngine` never sees a `UserPermission` row directly. `AuthorizationService._get_effective_policies` fetches a user's assigned policies and active direct grants together, and normalizes each grant into a transient, unpersisted `Policy` object (named `"direct:{action}"`, never `db.add()`-ed) before handing the combined list to the evaluator. So a direct grant flows through the exact same action/resource_type/condition matching as a real policy, and shows up as `direct:{action}` in `matched_policies`/`rejected_policies` on the resulting `AuthorizationDecision`, distinguishable from a real named policy with no schema change.
+
+Managed via `POST`/`DELETE /authorization/users/{email}/permissions` (see `api/pbac_routes/permissions/permission_assignment_routes.py`), or in bulk via `POST /authorization/bulk/permissions/assign` and `/remove` (`api/pbac_routes/bulk/bulk_permission_routes.py`) for granting/revoking the same action to many users at once. In the UI: `users/dialogs/UserPermissionsDialog.tsx` for a single user, the bulk action toolbar's "Grant Permission" dialog for multiple.
+
+An admin never types an action or resource_type by hand: both are picked from `GET /authorization/permissions/catalog` (`authorization/permissions_catalog.py`), a static, code-defined list of every `Permission` enum member paired with the resource_type it's actually checked against and a short description. This is deliberately read-only with no create/edit endpoint: a permission only does something once a route checks for it, so letting an admin invent a new action string would just produce a grant that looks real but never matches anything. Adding a new `Permission` (see above) automatically makes it available to pick from, once you also add its entry to the catalog's `_RESOURCE_TYPE_BY_ACTION`/`_DESCRIPTION_BY_ACTION` maps. `UserPermissionsDialog.tsx`'s picker further excludes any catalog entry the target user already effectively has, whether from a prior direct grant or an assigned policy - see [Architecture Overview: Dropdown filtering in the single-user dialogs](architecture.md#dropdown-filtering-in-the-single-user-dialogs).
+
+The same catalog backs the standalone Permissions page (`permissions/PermissionsPage.tsx`, route `/permissions`), a read-only, browsable reference for the whole action vocabulary - separate from the Policies page so "what permissions exist" and "who has which policy" stay two distinct questions, not one page trying to answer both.
+
+---
+
 ## Roles vs. policies
 
 Roles (`users.role`) are **display/grouping metadata only**: nullable, never read by the authorization service, evaluator, or condition handlers. New users (signup and OAuth2) receive access purely through an explicit `self_service` policy assignment (`authorization_repository.assign_policy_to_user`), never through a default role. If you're tempted to add a role-based shortcut anywhere in the authorization path, don't: see `authorization/services/authorization_service.py`'s own docstring for why.
+
+---

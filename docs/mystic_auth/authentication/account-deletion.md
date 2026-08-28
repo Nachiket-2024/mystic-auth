@@ -1,4 +1,5 @@
 # Account Deletion and Purge
+---
 
 This doc covers the full account-deletion lifecycle across backend, frontend, and the scheduled
 cleanup job: self-service delete (both the password-account and OAuth-only-account paths), admin
@@ -6,6 +7,8 @@ delete/reactivate/purge, and the automatic grace-period purge. It is split out o
 [Database Design: Account lifecycle](../database/design.md#account-lifecycle) and
 [Security Decisions: Product](../security/decisions-product.md) so the full flow, end to end, lives in one place
 with the sequence of each path made explicit.
+
+---
 
 ## Feature map
 
@@ -15,7 +18,7 @@ with the sequence of each path made explicit.
 | Self-service services | `backend/mystic_auth/user_lifecycle/user_self_deletion_service.py`, `account_deletion_service.py`, `account_deletion_confirm_handler.py` | Shared soft-delete routine, deletion-confirmation token issue/verify, confirm-endpoint handler |
 | Admin routes | `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py` | `DELETE /users/{email}`, `DELETE /users/{email}/purge`, `PATCH /users/{email}/reactivate` |
 | Purge routine | `backend/mystic_auth/user_lifecycle/user_purge_service.py` | `purge_user_account()`, shared by the manual purge route and the scheduled job |
-| Soft-delete mechanics | `backend/mystic_auth/user_crud/user_crud_modules/user_lifecycle_crud.py` | `soft_delete`, `reactivate`, `get_deleted_before(cutoff)` |
+| Soft-delete mechanics | `backend/mystic_auth/user/user_crud_modules/user_lifecycle_crud.py` | `soft_delete`, `reactivate`, `get_deleted_before(cutoff)` |
 | Scheduled job | `backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py` | Daily 03:00 UTC purge of accounts past their grace period |
 | Frontend | `frontend/src/mystic_auth/account_settings/DeleteAccountCard.tsx`, `confirm_delete/ConfirmDeleteAccountPage.tsx` | Delete UI, password re-confirm, "check your email" state, the public `/confirm-delete` landing page |
 | Tests | `tests/backend/mystic_auth/integration/user_lifecycle/`, matching unit suites, `tests/frontend/mystic_auth/*/account_settings/` | End-to-end and unit coverage for every path below |
@@ -32,7 +35,10 @@ password-reset flow: a signed, single-use link sent to the address on file. Both
 exact same soft-delete routine, so neither path can drift from the other in what it actually does
 to the account.
 
+---
+
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Start(["DELETE /users/me"]) --> HasPw{"hashed_password set?"}
     HasPw -- "yes (password account)" --> Verify["Verify current_password"]
@@ -47,7 +53,9 @@ flowchart TD
 
     HasPw -- "no (OAuth-only account)" --> SendEmail["Mint account_delete JWT\nStore in Redis, single-use\nEmail /confirm-delete link"]
     SendEmail --> Pending["200, confirmation_required: true\naccount untouched\nsession still valid"]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 ### Path A: password account (synchronous)
 
@@ -71,9 +79,12 @@ The route then clears the `access_token`/`refresh_token` cookies on its response
 `logout_handler.py` uses, before returning. All of this happens within the one request; the
 account is gone from the caller's perspective by the time the response arrives.
 
+---
+
 ### Path B: OAuth-only account (asynchronous, email-confirmed)
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155", "signalColor": "#334155", "actorLineColor": "#334155", "activationBorderColor": "#334155", "labelBoxBorderColor": "#334155", "labelBoxBkgColor": "#e2e8f0", "noteBorderColor": "#334155"}, "themeCSS": ".messageLine0, .messageLine1 { stroke-width: 2px !important; }"} }%%
 sequenceDiagram
     participant U as User (browser)
     participant API as Backend
@@ -96,6 +107,7 @@ sequenceDiagram
         API-->>U: 400/401
     end
 ```
+---
 
 1. **Send.** `DELETE /users/me` on an account with no password mints a signed JWT carrying a
    `type` claim of `"account_delete"`, scoping it away from access/refresh/reset tokens that share
@@ -154,7 +166,10 @@ the one routine both purge paths call, so they can never drift apart:
    as a snapshot string rather than a foreign key, so the historical record of what the account did
    survives the account itself.
 
+---
+
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     subgraph Manual
         Admin["Admin: DELETE /users/{email}/purge"]
@@ -169,7 +184,9 @@ flowchart TD
     Purge --> Revoke["Revoke sessions"]
     Revoke -- "confirmed" --> Audit["Audit: account_purged"] --> HardDelete["Hard delete row"]
     Revoke -- "Redis unreachable" --> Blocked["Raises, nothing deleted.\nManual: 503 SESSION_REVOCATION_UNAVAILABLE.\nScheduled: that account skipped,\nretried on tomorrow's run."]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 The scheduled job (`account_purge_tasks.py::purge_expired_soft_deleted_accounts`) is registered via
 `@app.periodic(cron="0 3 * * *")` and deferred automatically by the Procrastinate worker's own
@@ -239,3 +256,5 @@ Both live in `backend/mystic_auth/core/settings.py` and are set via `.env`.
   on both paths.
 - [Session Management](session-management.md): how session revocation (step 2 of every path above)
   actually works.
+
+---

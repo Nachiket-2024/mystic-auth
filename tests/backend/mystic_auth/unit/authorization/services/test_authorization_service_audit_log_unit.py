@@ -18,6 +18,7 @@ from backend.mystic_auth.authorization.services.authorization_service import (
 )
 
 MODULE = "backend.mystic_auth.authorization.services.authorization_service"
+AUDIT_MODULE = "backend.mystic_auth.authorization.services.authorization_audit_logger"
 
 
 def _policy(actions, resource_type="users", conditions=None, name=None):
@@ -27,7 +28,7 @@ def _policy(actions, resource_type="users", conditions=None, name=None):
 
 
 def _mock_audit_log(mocker):
-    return mocker.patch(f"{MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
+    return mocker.patch(f"{AUDIT_MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
 
 
 @pytest.mark.asyncio
@@ -174,7 +175,7 @@ async def test_authorize_still_returns_correctly_even_if_audit_logging_fails(moc
         return_value=[_policy(["users:list_all"])],
     )
     mocker.patch(
-        f"{MODULE}.log_authorization_decision_task.defer_async",
+        f"{AUDIT_MODULE}.log_authorization_decision_task.defer_async",
         new_callable=AsyncMock,
         side_effect=Exception("db is down"),
     )

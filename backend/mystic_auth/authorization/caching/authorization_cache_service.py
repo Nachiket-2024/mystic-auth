@@ -4,12 +4,12 @@ import traceback
 from ...logging.logging_config import get_logger
 from ...redis.client import redis_client
 from ..models.policy_model import Policy
+from ..models.user_permission_model import UserPermission
 
 logger = get_logger(__name__)
 
 # authz:user_policies:{email} -> a user's active, assigned policy list
-# (JSON array of serialized policies). This is the ONE cache target this
-# module currently implements. See the class docstring for why
+# (JSON array of serialized policies). See the class docstring for why
 # "policy lookup by name" and "evaluation results" (both also mentioned in
 # the authorization performance layer) are deliberately NOT cached.
 _USER_POLICIES_KEY_PREFIX = "authz:user_policies:"
@@ -18,6 +18,19 @@ _USER_POLICIES_KEY_PATTERN = f"{_USER_POLICIES_KEY_PREFIX}*"
 
 def _user_policies_key(user_email: str) -> str:
     return f"{_USER_POLICIES_KEY_PREFIX}{user_email}"
+
+
+# authz:user_permissions:{email} -> a user's active direct permission
+# grants (JSON array). A sibling namespace, not merged into
+# _USER_POLICIES_KEY_PREFIX above: a UserPermission row IS the per-user
+# grant (unlike a Policy, which many users can share), so it only ever
+# needs precise, single-user invalidation, never the namespace-wide flush
+# a shared Policy definition edit requires. See invalidate_user_permissions.
+_USER_PERMISSIONS_KEY_PREFIX = "authz:user_permissions:"
+
+
+def _user_permissions_key(user_email: str) -> str:
+    return f"{_USER_PERMISSIONS_KEY_PREFIX}{user_email}"
 
 
 # TTL bounds how long a cached policy list can outlive an invalidation this
@@ -57,26 +70,52 @@ def _deserialize_policy(data: dict) -> Policy:
     )
 
 
+def _serialize_user_permission(grant: UserPermission) -> dict:
+    return {
+        "action": grant.action,
+        "resource_type": grant.resource_type,
+        "conditions": grant.conditions,
+        "is_active": grant.is_active,
+    }
+
+
+def _deserialize_user_permission(data: dict) -> UserPermission:
+    """Reconstructs a plain, session-detached UserPermission - same
+    read-only-consumed reasoning as _deserialize_policy above."""
+    return UserPermission(
+        action=data["action"],
+        resource_type=data["resource_type"],
+        conditions=data.get("conditions"),
+        is_active=data.get("is_active", True),
+    )
+
+
 class AuthorizationCacheService:
     """
     The single, centralized Redis abstraction for authorization data, per
     the authorization performance layer: "Create centralized Redis
     abstraction layer (single module)" / "Do not scatter Redis calls
-    throughout authorization code". Only policy_repository.py calls this;
-    nothing else in the authorization module (the service, the evaluator,
-    routes) talks to Redis directly for authorization purposes.
+    throughout authorization code". Only policy_repository.py and
+    user_permission_repository.py call this; nothing else in the
+    authorization module (the service, the evaluator, routes) talks to
+    Redis directly for authorization purposes.
 
-    Cache target, deliberately scoped to one:
-        get_active_policies_for_user's result (a user's active, assigned
-        policy list): the one authorization-hot-path DB query that runs
-        on literally every authorize() call, is expensive (a two-table
-        join), rarely changes, and is only ever read-consumed downstream
-        (never fed back into a database mutation).
+    Cache targets:
+        - get_active_policies_for_user's result (a user's active, assigned
+          policy list): the one authorization-hot-path DB query that runs
+          on literally every authorize() call, is expensive (a two-table
+          join), rarely changes, and is only ever read-consumed downstream
+          (never fed back into a database mutation).
+        - get_active_permissions_for_user's result (a user's active direct
+          permission grants, see UserPermission): the same shape of
+          hot-path query, kept in its own sibling namespace rather than
+          merged into the policy list above, since its invalidation rules
+          differ (see invalidate_user_permissions).
 
     Explicitly NOT cached in this pass, and why:
         - "Policy lookup [by name]": get_by_name's result is routinely
           fetched immediately before being passed into
-          PolicyRepository.update()/delete() (see api/pbac_routes/policy_crud_routes.py),
+          PolicyRepository.update()/delete() (see api/pbac_routes/policies/policy_crud_routes.py),
           which call session.add(db_obj)/session.delete(db_obj) on it. A
           cache-reconstructed, session-detached object with a pre-set
           primary key handed to session.add() risks SQLAlchemy treating it
@@ -161,6 +200,25 @@ class AuthorizationCacheService:
             logger.warning("Authorization cache invalidation failed (user_policies):\n%s", traceback.format_exc())
 
     @staticmethod
+    async def invalidate_user_policies_bulk(user_emails: set[str]) -> None:
+        """
+        Same effect as calling invalidate_user_policies() once per email,
+        collapsed into a single redis_client.delete() with every key at
+        once: used by PolicyAssignmentRepository's bulk_assign_policies/
+        bulk_remove_policies, where the exact set of affected users is
+        already known up front (unlike invalidate_all_user_policies, which
+        exists for the opposite case - a policy definition edit with no
+        cheap reverse index to the users who hold it). One Redis round trip
+        for the whole batch instead of one per user.
+        """
+        if not user_emails:
+            return
+        try:
+            await redis_client.delete(*(_user_policies_key(email) for email in user_emails))
+        except Exception:
+            logger.warning("Authorization cache invalidation failed (user_policies bulk):\n%s", traceback.format_exc())
+
+    @staticmethod
     async def invalidate_all_user_policies() -> None:
         """
         Called on any policy update/delete: a policy's own definition
@@ -188,6 +246,64 @@ class AuthorizationCacheService:
         except Exception:
             logger.warning(
                 "Authorization cache namespace flush failed (user_policies):\n%s", traceback.format_exc()
+            )
+
+    @staticmethod
+    async def get_user_permissions(user_email: str) -> list[UserPermission] | None:
+        """Same contract as get_user_policies: None on a miss or any
+        failure, both treated identically by the caller."""
+        try:
+            raw = await redis_client.get(_user_permissions_key(user_email))
+        except Exception:
+            logger.warning("Authorization cache read failed (user_permissions):\n%s", traceback.format_exc())
+            return None
+
+        if raw is None:
+            return None
+
+        try:
+            return [_deserialize_user_permission(item) for item in json.loads(raw)]
+        except Exception:
+            logger.warning("Authorization cache payload corrupt (user_permissions):\n%s", traceback.format_exc())
+            return None
+
+    @staticmethod
+    async def set_user_permissions(user_email: str, grants: list[UserPermission]) -> None:
+        """Best-effort populate, same contract as set_user_policies."""
+        try:
+            payload = json.dumps([_serialize_user_permission(grant) for grant in grants])
+            await redis_client.set(_user_permissions_key(user_email), payload, ex=_USER_POLICIES_TTL_SECONDS)
+        except Exception:
+            logger.warning("Authorization cache write failed (user_permissions):\n%s", traceback.format_exc())
+
+    @staticmethod
+    async def invalidate_user_permissions(user_email: str) -> None:
+        """
+        Called on direct-permission grant/revoke for this specific user.
+        Unlike invalidate_all_user_policies, there is no namespace-wide
+        equivalent here: a UserPermission row has no separate "definition"
+        other users share, so a precise, single-user invalidation is always
+        sufficient (see this module's own note above _user_permissions_key).
+        """
+        try:
+            await redis_client.delete(_user_permissions_key(user_email))
+        except Exception:
+            logger.warning("Authorization cache invalidation failed (user_permissions):\n%s", traceback.format_exc())
+
+    @staticmethod
+    async def invalidate_user_permissions_bulk(user_emails: set[str]) -> None:
+        """Bulk counterpart to invalidate_user_permissions, same reasoning
+        as invalidate_user_policies_bulk above: one redis_client.delete()
+        for every affected user's key instead of one round trip per user,
+        used by UserPermissionRepository's bulk_assign_permissions/
+        bulk_remove_permissions."""
+        if not user_emails:
+            return
+        try:
+            await redis_client.delete(*(_user_permissions_key(email) for email in user_emails))
+        except Exception:
+            logger.warning(
+                "Authorization cache invalidation failed (user_permissions bulk):\n%s", traceback.format_exc()
             )
 
 

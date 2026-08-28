@@ -81,6 +81,7 @@ const SignupForm: React.FC = () => {
                         value={name}
                         onChange={e => setName(e.target.value)}
                         placeholder={t("signup.namePlaceholder")}
+                        maxLength={100}
                     />
                 </ChakraField.Root>
 
@@ -103,6 +104,7 @@ const SignupForm: React.FC = () => {
                     placeholder={t("signup.passwordPlaceholder")}
                     aria-invalid={!!localError || signupMutation.isError}
                     aria-describedby={passwordErrorId}
+                    maxLength={128}
                 />
                 {/* Always rendered, even before typing starts (showing a
                     neutral "-" placeholder): reserving this line's height
@@ -127,6 +129,7 @@ const SignupForm: React.FC = () => {
                     placeholder={t("signup.confirmPasswordPlaceholder")}
                     aria-invalid={!!localError}
                     aria-describedby={localError ? "signup-password-error" : undefined}
+                    maxLength={128}
                 />
             </ChakraField.Root>
 

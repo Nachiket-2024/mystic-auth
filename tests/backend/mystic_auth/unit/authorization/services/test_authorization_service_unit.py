@@ -22,6 +22,7 @@ from backend.mystic_auth.authorization.services.authorization_service import (
 )
 
 MODULE = "backend.mystic_auth.authorization.services.authorization_service"
+AUDIT_MODULE = "backend.mystic_auth.authorization.services.authorization_audit_logger"
 
 
 def _policy(actions, resource_type="users", conditions=None, name=None):
@@ -32,17 +33,18 @@ def _policy(actions, resource_type="users", conditions=None, name=None):
 
 def _mock_audit_log(mocker):
     """authorize()/require() always queue an audit entry (see
-    _log_decision, which defers log_authorization_decision_task rather than
-    writing inline); mocked explicitly in tests that don't care about the
-    audit trail itself, rather than relying on _log_decision's own
+    authorization_audit_logger.log_decision, which defers
+    log_authorization_decision_task rather than writing inline); mocked
+    explicitly in tests that don't care about the audit trail itself, rather
+    than relying on log_decision's own
     try/except (which would otherwise silently swallow a real attempt to
     reach Procrastinate's own DB connection, unavailable in these unit
     tests)."""
-    return mocker.patch(f"{MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
+    return mocker.patch(f"{AUDIT_MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
 
 
 # ---------------------------- Audit logging is queued, not written inline ----------------------------
-# _log_decision used to write the audit row itself (db.add()+commit()+
+# authorization_audit_logger.log_decision used to write the audit row itself (db.add()+commit()+
 # refresh(), directly on the request's own DB session); it now defers
 # log_authorization_decision_task instead, so the actual INSERT happens in
 # a background worker off the request path (see concerns.md's now-resolved
@@ -70,7 +72,7 @@ async def test_authorize_queues_an_audit_entry_matching_the_computed_decision(mo
     """The queued entry must reflect the real decision (who, what, on what,
     allowed or not, and which policies actually granted it), not a
     placeholder: this is the only record of the decision until the worker
-    persists it, so if this drifts from what _build_audit_entry actually
+    persists it, so if this drifts from what authorization_audit_logger.build_audit_entry actually
     computed, the audit trail silently lies about what happened."""
     log_mock = _mock_audit_log(mocker)
     mocker.patch(

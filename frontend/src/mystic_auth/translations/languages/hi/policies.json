@@ -12,6 +12,7 @@
         "noPoliciesMatchSearch": "आपकी खोज से कोई नीति मेल नहीं खाती",
         "noPoliciesMatchFilters": "इन फ़िल्टर से कोई नीति मेल नहीं खाती",
         "noPoliciesYet": "अभी तक कोई नीति नहीं : अनुमतियां देना शुरू करने के लिए एक बनाएं।",
+        "cannotViewExistingPolicies": "आप नीतियां बना सकते हैं, लेकिन मौजूदा सूची देखने की अनुमति आपके पास नहीं है। ऊपर दिए गए नीति बनाएं बटन का उपयोग करें।",
         "policyUpdatedToast": "नीति अपडेट की गई",
         "policyCreatedToast": "नीति बनाई गई",
         "policyDeletedToast": "नीति हटाई गई",
@@ -22,7 +23,7 @@
         "name": "नाम",
         "resourceType": "संसाधन प्रकार",
         "actions": "क्रियाएं",
-        "edit": "संपादन",
+        "edit": "संपादित करें",
         "view": "देखें"
     },
     "detailsDialog": {
@@ -41,24 +42,24 @@
         "createdBy": "द्वारा बनाया गया"
     },
     "formDialog": {
-        "editTitle": "नीति संपादन",
+        "editTitle": "नीति संपादित करें",
         "createTitle": "नीति बनाएं",
         "name": "नाम",
         "namePlaceholder": "उदा. document_reviewer",
         "description": "विवरण",
         "descriptionPlaceholder": "यह नीति क्या देती है और क्यों",
         "actions": "क्रियाएं",
-        "actionsPlaceholder": "उदा. documents:view, documents:edit",
-        "actionsHelperText": "अल्पविराम से अलग किए गए क्रिया पहचानकर्ता",
+        "actionsPlaceholder": "क्रियाएं चुनें...",
+        "actionsHelperText": "केवल वे क्रियाएं दिखाई जाती हैं जो चयनित संसाधन प्रकार पर लागू होती हैं।",
         "resourceType": "संसाधन प्रकार",
-        "resourceTypePlaceholder": "उदा. \"documents\" या किसी के लिए \"*\"",
+        "resourceTypePlaceholder": "एक संसाधन प्रकार चुनें...",
         "conditions": "शर्तें (JSON, वैकल्पिक)",
         "conditionsPlaceholder": "उदा. { \"self_only\": true }",
         "conditionsInvalidJson": "शर्तें मान्य JSON होनी चाहिए",
-        "saveChanges": "परिवर्तन सेव करें",
+        "saveChanges": "परिवर्तन सहेजें",
         "createPolicy": "नीति बनाएं",
-        "discardTitle": "असेव किए गए परिवर्तन छोड़ें?",
-        "discardDescription": "इस नीति में आपके परिवर्तन सेव नहीं किए गए हैं। अभी बंद करने से वे छोड़ दिए जाएंगे।",
+        "discardTitle": "न सहेजे गए परिवर्तन छोड़ें?",
+        "discardDescription": "इस नीति में आपके परिवर्तन सहेजे नहीं गए हैं। अभी बंद करने से वे छोड़ दिए जाएंगे।",
         "discard": "छोड़ें"
     },
     "statsCard": {

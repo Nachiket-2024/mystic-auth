@@ -1,5 +1,4 @@
 # Testing Overview
-
 ---
 
 ## Backend: pytest
@@ -11,13 +10,27 @@ Config lives in `pytest.ini` at the repo root. It sets
 partial local runs. CI enforces the 85% cumulative coverage gate after unit,
 integration, and security tests append to the same coverage data.
 
+---
+
+### Dedicated test database
+
+Outside CI, `tests/backend/conftest.py` redirects `DATABASE_URL`/`APP_DATABASE_URL` to a `mystic_auth_test` database on the same Postgres server, instead of the real `mystic_auth` database a running `docker compose up` dev session's own `backend`/`procrastinate_worker` containers use. The first run that needs it creates the database, then applies `alembic upgrade head` (which also creates Procrastinate's own queue tables, via migration `a4c1e8f2b6d3`); every run after that is a fast no-op check. Nothing to configure: this happens automatically, whether you run pytest from the host or via `scripts/docker/backend-exec.sh`.
+
+This exists because a shared database was a real, reproducible bug: a test's own teardown fixture (`_procrastinate_app_lifecycle` below) deletes every row from `procrastinate_jobs` after each test, which used to race a real dev-stack `procrastinate_worker` still mid-write on a job the test itself deferred (an audit-log entry, most commonly) - it lost the row it needed to persist "succeeded" against, logged a `ConnectorException`, and enough of those repeated eventually took the container down. A dedicated database removes the shared table entirely, not just this one symptom of sharing it.
+
+Skipped when `CI` is set (GitHub Actions and effectively every CI provider sets this by convention): CI already provisions its own dedicated, single-purpose `mystic_auth_ci` Postgres service per run (see `.github/workflows/ci.yml`), so there's nothing else there to collide with.
+
+---
+
 | Suite | Path | Covers |
 |---|---|---|
 | App wrapper | `tests/backend/app/` (1 file) | The thin `backend/app/` wrapper itself: the global exception handler wired up in `app/main.py` |
-| Unit | `tests/backend/mystic_auth/unit/` (68 files, feature subfolders mirror `backend/mystic_auth/`) | Auth flows, authorization service/evaluator/cache, condition validation, policy routes/history/repository caching, rate limiting, lockout, middleware, security headers, route helpers, logging config, email tasks, user CRUD, ORM/schema coverage, database and Redis singletons, error monitoring, session events, account deletion/purge, and `Settings` behavior |
+| Unit | `tests/backend/mystic_auth/unit/` (69 files, feature subfolders mirror `backend/mystic_auth/`) | Auth flows, authorization service/evaluator/cache, condition validation, policy/direct-permission routes/history/repository caching, rate limiting, lockout, middleware, security headers, route helpers, logging config, email tasks, user CRUD, ORM/schema coverage, database and Redis singletons, error monitoring, session events, account deletion/purge, and `Settings` behavior |
 | Integration | `tests/backend/mystic_auth/integration/` (20 files plus shared account helpers) | Audit log, policy CRUD, policy assignment, authorization checks, auth flows, health, manage sessions, OAuth, security headers, rate limit dashboard, session geolocation, user export, user self-service, user list/update, and account lifecycle against real DB/Redis and a real HTTP client |
 | Security | `tests/backend/mystic_auth/security/` (6 files) | Batch authorization abuse, context spoofing, invalid condition payload, policy tampering, privilege escalation, least-privilege DB role (opt-in, skipped unless `APP_DATABASE_URL` is set) |
 | Performance | `tests/backend/mystic_auth/performance/` (1 file) | Authorization performance |
+
+---
 
 **Running:**
 
@@ -53,11 +66,13 @@ outside `frontend/src/`, wired through a custom Vite resolver plugin. Coverage
 uses the `v8` provider with `text`, `json`, and `html` reporters. Thresholds are
 enforced only by `vitest run --coverage`, so CI runs `test:coverage`.
 
+---
 | Suite | Path | Covers |
 |---|---|---|
 | App wrapper | `tests/frontend/app/` (1 file) | Routing declared in `frontend/src/app/App.tsx` |
 | Unit | `tests/frontend/mystic_auth/unit/` (51 files) | API clients, refresh interceptor, auth/session hooks, SSE invalidation, authorization components and hooks, password rules, user-agent parsing, unsaved-change handling, theme/language stores, command palette, route-loading UX, shared UI components, error boundary reporting, optional error monitoring, translation key parity across languages, and mobile-overflow regressions |
 | Integration | `tests/frontend/mystic_auth/integration/` (13 files) | Audit log page, auth flow, dashboard, login, Manage Sessions, password policy consistency, PBAC authorization flow, policies page, rate limits page, users page, and account settings |
+---
 
 **Running:**
 
@@ -113,7 +128,7 @@ codebase already uses, rather than introducing a new pattern:
 - **Test helpers/fixtures shared across a split** (account creation, polling
   helpers, a `_cleanup_*` autouse fixture): factor them into a sibling
   `*_test_accounts.py` module in the same test directory, matching
-  `tests/backend/mystic_auth/integration/user_crud/user_test_accounts.py`
+  `tests/backend/mystic_auth/integration/user/user_test_accounts.py`
   and `.../audit_log/audit_log_test_accounts.py`. An autouse fixture defined
   there only activates for a test module that imports it by name - keep that
   import (even if otherwise unused, guard it with `__all__` for lint) rather
@@ -136,3 +151,5 @@ went.
 - **Frontend test cannot resolve a `tests/frontend/...` import:** confirm
   `frontend/vitest.config.ts`'s custom resolver plugin is active. Running Vitest
   from outside `frontend/` bypasses it.
+
+---

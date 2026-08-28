@@ -63,6 +63,17 @@ class Permission(str, enum.Enum):
     POLICIES_ASSIGN = "policies:assign"
     POLICIES_REVOKE = "policies:revoke"
 
+    # Direct, single-action grants to a user (UserPermission), bypassing
+    # Policy entirely - see authorization/models/user_permission_model.py.
+    # Their own action tier, separate from POLICIES_ASSIGN/REVOKE: granting
+    # a bare action directly is more sensitive than assigning a pre-vetted
+    # named policy (no policy author reviewed this specific action+
+    # conditions combination as a unit), so it gets its own audit-visible
+    # permission rather than silently piggybacking on policies:assign.
+    PERMISSIONS_GRANT = "permissions:grant"
+    PERMISSIONS_REVOKE = "permissions:revoke"
+    PERMISSIONS_READ = "permissions:read"
+
     # Reading the security audit trail (login/logout/signup/OAuth2/password-reset/
     # lockout/token-reuse events : see audit/models/security_audit_log_model.py).
     # Its own action, separate from POLICIES_READ, since it covers a different
@@ -70,7 +81,7 @@ class Permission(str, enum.Enum):
     SECURITY_AUDIT_READ = "security_audit:read"
 
     # Reading live Redis-backed rate-limit counters (see
-    # auth/security/rate_limiter_service.py). Its own action, separate from
+    # auth/security/rate_limiting/rate_limiter_service.py). Its own action, separate from
     # SECURITY_AUDIT_READ, since this is live operational state, not a
     # historical log.
     RATE_LIMITS_READ = "rate_limits:read"

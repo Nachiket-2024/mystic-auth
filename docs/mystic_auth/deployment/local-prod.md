@@ -1,4 +1,5 @@
 # Local-Prod Deployment
+---
 
 Self-hosted production image/runtime shape from your own machine or home
 server. The code is baked into images, reload is off, bind mounts are gone,
@@ -47,10 +48,15 @@ Build-time values must be final before you run `--build`:
 - `VITE_API_BASE_URL`: keep empty for the bundled nginx same-origin proxy.
 - `VITE_APP_NAME`: public app name shown in the browser (aliased from
   `APP_NAME` by the compose file - set `APP_NAME`, not this).
+- `VITE_BRAND_COLOR`: default brand color (aliased from `BRAND_COLOR` - set
+  `BRAND_COLOR`, not this). See [Appearance: Default brand color](../appearance/overview.md#default-brand-color).
 - `VITE_SUPPORT_EMAIL`: contact address on the Terms of Service / Privacy
-  Policy pages (aliased from `SUPPORT_EMAIL` - set `SUPPORT_EMAIL`, not this).
+  Policy pages and, once set, a "Help & Support" link in the sidebar
+  (aliased from `SUPPORT_EMAIL` - set `SUPPORT_EMAIL`, not this).
 - `VITE_SENTRY_DSN`: public browser DSN if frontend error reporting is enabled.
 - `VITE_SENTRY_ENVIRONMENT`: frontend environment tag.
+
+---
 
 Runtime values can be changed with a container restart:
 
@@ -87,3 +93,5 @@ terminates at Cloudflare's edge rather than in a container you run.
 Use `docker-compose.prod.yml` instead (see [Prod Deployment](prod.md)) if
 you'd rather the host itself own the public IP and terminate TLS via Caddy,
 for example on your own server.
+
+---

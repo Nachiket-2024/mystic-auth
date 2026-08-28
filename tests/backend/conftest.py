@@ -89,20 +89,94 @@ if "REDIS_URL" not in os.environ:
             r"redis://redis:\d+/\d+", f"redis://localhost:{_LOCAL_REDIS_PORT}/15", _docker_redis_url
         )
 
+# ---------------------------- Dedicated test database ----------------------------
+# Redirects DATABASE_URL/APP_DATABASE_URL to a `mystic_auth_test` database on
+# the SAME Postgres server, instead of the real `mystic_auth` one a running
+# dev stack's own `backend`/`procrastinate_worker` containers use.
+#
+# Without this, `scripts/docker/backend-exec.sh python -m pytest ...` (the
+# documented way to run this suite - see docs/mystic_auth/testing/overview.md)
+# hits the exact same live database a `docker compose up` dev session's own
+# `procrastinate_worker` is watching: DATABASE_URL is "already set" from the
+# container's own env_file in that case, so the localhost-rewrite blocks
+# above never touch it, and it still resolves to the real dev database.
+# Concretely, this is what crashed a real procrastinate_worker container
+# after ~800 repeated errors: a deferred job (e.g. an audit-log write) gets
+# picked up and processed by that real worker, but before it can persist
+# "succeeded" back to procrastinate_jobs, this file's own
+# _procrastinate_app_lifecycle fixture (below) has already run its per-test
+# `DELETE FROM procrastinate_jobs` teardown - deleting the very row the real
+# worker is mid-write on, which then fails with "Job was not found or not
+# in doing/todo status". A dedicated database removes the shared table
+# entirely, not just this one symptom of sharing it.
+#
+# Skipped when CI is set (GitHub Actions and effectively every other CI
+# provider set this by convention): CI already provisions its own dedicated,
+# single-purpose `mystic_auth_ci` Postgres service per run (see ci.yml), so
+# there's nothing else there to collide with, and no dev-stack container is
+# ever running alongside it.
+_BACKEND_DIR = Path(__file__).resolve().parents[2] / "backend"
+_TEST_DB_NAME = "mystic_auth_test"
+
+
+def _with_database(url: str, db_name: str) -> str:
+    return re.sub(r"/[^/@]+$", f"/{db_name}", url)
+
+
+if not os.environ.get("CI"):
+    if "DATABASE_URL" in os.environ:
+        _original_database_url = os.environ["DATABASE_URL"]
+        os.environ["DATABASE_URL"] = _with_database(_original_database_url, _TEST_DB_NAME)
+    else:
+        _original_database_url = None
+    if "APP_DATABASE_URL" in os.environ:
+        os.environ["APP_DATABASE_URL"] = _with_database(os.environ["APP_DATABASE_URL"], _TEST_DB_NAME)
+
+    if _original_database_url:
+        import subprocess
+
+        import psycopg
+
+        # CREATE DATABASE can't run inside a transaction block, hence
+        # autocommit; connects to the real `mystic_auth` database (already
+        # known to exist) rather than assuming a "postgres" maintenance
+        # database is reachable under whatever role this app's own
+        # DATABASE_URL grants.
+        _maintenance_conninfo = _original_database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        with psycopg.connect(_maintenance_conninfo, autocommit=True) as _conn:
+            _exists = _conn.execute(
+                "SELECT 1 FROM pg_database WHERE datname = %s", (_TEST_DB_NAME,)
+            ).fetchone()
+            if not _exists:
+                _conn.execute(f'CREATE DATABASE "{_TEST_DB_NAME}"')
+
+        # Alembic migration a4c1e8f2b6d3 ("add procrastinate schema") already
+        # creates Procrastinate's own queue tables/types as part of this
+        # app's normal migration history, so `alembic upgrade head` alone
+        # brings a fresh database fully up to date for both; a separate
+        # `procrastinate schema --apply` afterward is redundant (and errors,
+        # "type already exists") rather than a no-op. Idempotent/fast once
+        # already at head, so this runs unconditionally rather than trying
+        # to detect "already set up".
+        _test_env = os.environ.copy()
+        subprocess.run(
+            ["alembic", "-c", "alembic.ini", "upgrade", "head"],
+            cwd=_BACKEND_DIR, env=_test_env, check=True,
+        )
+
 # Safety net, independent of whatever EMAIL_ENABLED happens to be set to in
-# .env: every real-DB integration test hits the actual ASGI app with no
-# mocking, so signup/password-reset/account-deletion flows genuinely queue
-# a Procrastinate send_email_task - and if a worker happens to be running
-# against the same database (e.g. a developer's `docker compose up`, or
-# manually starting procrastinate_worker to debug something else), those
-# jobs get picked up and actually sent via emails/email_sender.py's real
-# SMTPEmailSender, against whatever real provider FROM_EMAIL/
-# GMAIL_APP_PASSWORD point at - burning a real send quota on every test run
-# for recipients that don't exist. Forced here, unconditionally overriding
-# .env (unlike DATABASE_URL/REDIS_URL above, which only fill in a value
-# when host env doesn't already have one - an explicit `EMAIL_ENABLED=true`
-# already present in the environment when pytest is invoked, e.g. a
-# deliberate one-off deliverability check, still wins over this).
+# .env, and independent of the dedicated test database above: this suite's
+# own worker(s) (audit_log/conftest.py's session-scoped subprocess) run
+# against mystic_auth_test now, not the real dev database, so a real
+# dev-stack procrastinate_worker no longer shares a queue with these tests
+# at all. This still guards the one remaining path where a real send could
+# happen: this suite's own worker(s) processing a genuinely-deferred
+# send_email_task from a signup/password-reset/account-deletion flow.
+# Forced here, unconditionally overriding .env (unlike DATABASE_URL/
+# REDIS_URL above, which only fill in a value when host env doesn't already
+# have one - an explicit `EMAIL_ENABLED=true` already present in the
+# environment when pytest is invoked, e.g. a deliberate one-off
+# deliverability check, still wins over this).
 if "EMAIL_ENABLED" not in os.environ:
     os.environ["EMAIL_ENABLED"] = "false"
 
@@ -116,7 +190,9 @@ from sqlalchemy.pool import NullPool
 
 from backend.app.main import app
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.procrastinate_tasks.procrastinate_app import app as procrastinate_app
+from backend.mystic_auth.procrastinate_tasks.procrastinate_app import (
+    app as procrastinate_app,
+)
 from backend.mystic_auth.redis.client import redis_client
 
 # pytest-asyncio hands each test function its own event loop, but
@@ -162,9 +238,13 @@ async def _procrastinate_app_lifecycle():
     integration test (signup, verify, password-reset, account-deletion) hits
     the real ASGI app with no mocking, so `.defer_async()` genuinely inserts
     a job row every time. Without this, rows accumulate indefinitely across
-    test runs against the same real Postgres database this app's own
-    `procrastinate_worker` container also reads from, same rationale as
-    `_cleanup_users` below for the `users` table."""
+    test runs. Safe to wipe unconditionally now that this suite runs against
+    its own dedicated mystic_auth_test database (see the Environment Setup
+    section above): no other process shares this table any more, so there's
+    no risk of deleting a row a real dev-stack procrastinate_worker still
+    has in flight, the way there was when this ran against the real
+    database. Same cleanup rationale as `_cleanup_users` below for the
+    `users` table."""
     await procrastinate_app.open_async()
     yield
     async with database.async_session() as session:

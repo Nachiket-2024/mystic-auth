@@ -10,13 +10,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.mystic_auth.auth.security.rate_limit_dashboard_service import (
+from backend.mystic_auth.auth.security.rate_limiting.rate_limit_dashboard_service import (
     RateLimitDashboardService,
     rate_limit_dashboard_service,
 )
-from backend.mystic_auth.auth.security.rate_limiter_service import RateLimiterService
+from backend.mystic_auth.auth.security.rate_limiting.rate_limiter_service import (
+    RateLimiterService,
+)
 
-MODULE = "backend.mystic_auth.auth.security.rate_limit_dashboard_service"
+MODULE = "backend.mystic_auth.auth.security.rate_limiting.rate_limit_dashboard_service"
 
 
 @pytest.fixture(autouse=True)

@@ -16,7 +16,7 @@ from ...authorization.schemas.batch_authorization_schema import (
 from ...authorization.schemas.policy_schema import AuthorizationCheckRequest, AuthorizationCheckResponse
 from ...authorization.services.authorization_service import authorization_service
 from ...database.connection import database
-from ...user_crud.user_crud_collector import user_crud
+from ...user.user_crud_collector import user_crud
 from ..get_or_404.get_or_404 import get_or_404
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])

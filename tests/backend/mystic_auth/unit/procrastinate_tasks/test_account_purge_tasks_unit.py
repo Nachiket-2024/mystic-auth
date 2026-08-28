@@ -11,7 +11,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
+from backend.mystic_auth.auth.token_logic.token_version_store import (
+    TokenVersionUnavailableError,
+)
 from backend.mystic_auth.procrastinate_tasks.account_purge_tasks import (
     purge_expired_soft_deleted_accounts,
 )

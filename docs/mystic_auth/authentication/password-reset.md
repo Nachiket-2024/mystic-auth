@@ -1,8 +1,11 @@
 # Password Reset and Password Change
+---
 
 Split out of [Authentication Flows](overview.md). Covers the "forgot password" self-service reset
 flow, plus the two places a password can otherwise change (self-service and admin), which share the
 same session-revocation and current-password rules for the same reasons.
+
+---
 
 ## Components
 
@@ -19,6 +22,7 @@ same session-revocation and current-password rules for the same reasons.
 ## Forgot-password flow
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155", "signalColor": "#334155", "actorLineColor": "#334155", "activationBorderColor": "#334155", "labelBoxBorderColor": "#334155", "labelBoxBkgColor": "#e2e8f0", "noteBorderColor": "#334155"}, "themeCSS": ".messageLine0, .messageLine1 { stroke-width: 2px !important; }"} }%%
 sequenceDiagram
     participant U as User (browser)
     participant API as Backend
@@ -42,6 +46,7 @@ sequenceDiagram
         API-->>U: 400
     end
 ```
+---
 
 1. **Request** issues a scoped, Redis-backed single-use token (`GETDEL` pattern, same as email
    verification), emailed to the address. **Always** the same generic response whether or not the
@@ -60,6 +65,7 @@ sequenceDiagram
 ## Password change (self-service and admin)
 
 ```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Start(["PUT /users/me or PUT /users/{email}"]) --> HasPwField{"Request includes\na new password field?"}
     HasPwField -- "no" --> Plain["Ordinary profile update\nno session side effects"]
@@ -75,7 +81,9 @@ flowchart TD
     WhoAmI -- "admin" --> ChangeAdmin["Hash + store new password"]
     ChangeAdmin --> RevokeAdmin["revoke_all_tokens_for_user()\nbumps account_ver, no exemption"]
     RevokeAdmin --> Done200Admin["200"]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
+---
 
 1. `PUT /users/me` (self) and `PUT /users/{email}` (admin) both back onto the same `UserUpdate`
    schema, so a `password` field is handled identically by both once past the checks below.
@@ -121,3 +129,5 @@ Postgres/Redis. See [Testing Overview](../testing/overview.md).
 - [Authentication Flows](overview.md): tokens/cookies and how this fits alongside the other flows.
 - [Account Deletion and Purge](account-deletion.md): the OAuth-only-account deletion-confirmation
   flow reuses this same signed-single-use-token pattern.
+
+---

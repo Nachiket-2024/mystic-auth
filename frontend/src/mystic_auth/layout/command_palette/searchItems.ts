@@ -1,4 +1,4 @@
-import { IdCard, KeyRound, Laptop, ScrollText, ShieldCheck, type LucideIcon } from "lucide-react";
+import { IdCard, KeyRound, Laptop, Palette, Scale, ScrollText, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
 
 import { PERMISSIONS } from "../../authorization/permissions";
 import type { Namespace } from "../../translations/translations";
@@ -49,8 +49,9 @@ export interface SearchItem {
      * mount to select a tab (see AccountSettingsPage/AuditLogPage), or a
      * `#hash` AppLayout's useScrollToHash scrolls to once it's in the DOM. */
     to: string;
-    /** Omit for items every authenticated user should see. */
-    permission?: string;
+    /** Omit for items every authenticated user should see. An array means
+     * "any of" - see useAuthorization's `can` and NavItem.permission. */
+    permission?: string | string[];
     icon?: LucideIcon;
 }
 
@@ -82,6 +83,26 @@ export const SEARCH_ITEMS: SearchItem[] = [
         scope: { namespace: "account_settings", paths: ["tabs.status", "accountStatus"] },
         to: "/account-settings?tab=status",
         icon: ShieldCheck,
+    },
+    {
+        label: "account_settings:tabs.appearance",
+        group: "account_settings:pageTitle",
+        scope: { namespace: "account_settings", paths: ["tabs.appearance", "appearance"] },
+        to: "/account-settings?tab=appearance",
+        icon: Palette,
+    },
+    {
+        label: "account_settings:tabs.legal",
+        group: "account_settings:pageTitle",
+        to: "/account-settings?tab=legal",
+        icon: Scale,
+    },
+    {
+        label: "account_settings:tabs.danger",
+        group: "account_settings:pageTitle",
+        scope: { namespace: "account_settings", paths: ["tabs.danger", "deleteAccount"] },
+        to: "/account-settings?tab=danger",
+        icon: Trash2,
     },
     {
         label: "dashboard:manageSessions.heading",
@@ -141,6 +162,7 @@ export const PAGE_CONTENT_NAMESPACES: Partial<Record<string, Namespace[]>> = {
     "/dashboard": ["dashboard"],
     "/users": ["users"],
     "/policies": ["policies"],
+    "/permissions": ["permissions"],
     "/rate-limits": ["rate_limits"],
     "/audit-log": ["audit_log"],
     "/account-settings": ["account_settings"],

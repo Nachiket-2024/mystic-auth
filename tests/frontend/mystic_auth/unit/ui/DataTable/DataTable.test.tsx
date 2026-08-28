@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 import DataTable, { type DataTableColumn } from '@/ui/DataTable/DataTable';
@@ -12,6 +13,9 @@ interface Row {
 const columns: DataTableColumn<Row>[] = [
   { key: 'id', header: 'ID', render: (row) => row.id },
   { key: 'name', header: 'Name', render: (row) => row.name },
+  // A real interactive control inside a cell, same shape as UsersTable's
+  // Role <select> - row-click-to-select must not fire underneath it.
+  { key: 'action', header: 'Action', render: () => <button>Row action</button> },
 ];
 
 function renderTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>> = {}) {
@@ -67,5 +71,74 @@ describe('DataTable', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('Bob')).toBeInTheDocument();
     expect(screen.getAllByRole('row')).toHaveLength(3); // header + 2 rows
+  });
+
+  // Row-click-to-select: opt-in via `rowClickSelects` (a caller-owned
+  // toggle, e.g. BulkActionToolbar's "Select mode" button) - while active,
+  // clicking anywhere in a selectable row toggles it, so a user doesn't
+  // have to land precisely on the checkbox; a click that starts on a real
+  // interactive control inside the row (another button, a select) must
+  // keep doing its own thing instead.
+  describe('row-click-to-select', () => {
+    function renderSelectable(selectedKeys: ReadonlySet<number> = new Set(), rowClickSelects = true) {
+      const onSelectionChange = vi.fn();
+      const utils = render(
+        <ChakraProvider value={defaultSystem}>
+          <DataTable
+            columns={columns}
+            rows={[{ id: 1, name: 'Alice' }]}
+            rowKey={(row) => row.id}
+            selectable
+            rowClickSelects={rowClickSelects}
+            selectedKeys={selectedKeys}
+            onSelectionChange={onSelectionChange}
+          />
+        </ChakraProvider>
+      );
+      return { ...utils, onSelectionChange };
+    }
+
+    it('toggles selection when clicking plain row content, not just the checkbox', async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange } = renderSelectable();
+
+      await user.click(screen.getByText('Alice'));
+
+      // onSelectionChange is called with the FUNCTIONAL form (see
+      // DataTableSelection.ts's own doc on why: it must always compute the
+      // next set off the true latest state, not a render-time snapshot).
+      expect(onSelectionChange).toHaveBeenCalledTimes(1);
+      const updater = onSelectionChange.mock.calls[0][0] as (prev: ReadonlySet<number>) => Set<number>;
+      expect(updater(new Set())).toEqual(new Set([1]));
+    });
+
+    it('does not toggle selection when the click starts on a button inside the row', async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange } = renderSelectable();
+
+      await user.click(screen.getByRole('button', { name: 'Row action' }));
+
+      expect(onSelectionChange).toHaveBeenCalledTimes(0);
+    });
+
+    it('does not toggle on row-content clicks while rowClickSelects is off (the default)', async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange } = renderSelectable(new Set(), false);
+
+      await user.click(screen.getByText('Alice'));
+
+      expect(onSelectionChange).toHaveBeenCalledTimes(0);
+    });
+
+    it('does not double-toggle when clicking the checkbox itself', async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange } = renderSelectable();
+
+      await user.click(screen.getByRole('checkbox', { name: /select row/i }));
+
+      expect(onSelectionChange).toHaveBeenCalledTimes(1);
+      const updater = onSelectionChange.mock.calls[0][0] as (prev: ReadonlySet<number>) => Set<number>;
+      expect(updater(new Set())).toEqual(new Set([1]));
+    });
   });
 });

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import Card from "../ui/Card";
 import StatTile from "../ui/StatTile";
-import { useUserStatsQuery } from "./userQueries";
+import { useUserStatsQuery } from "./queries/userQueries";
 
 interface UserStatsCardProps {
     /** Clears every filter, showing the unfiltered full list. */

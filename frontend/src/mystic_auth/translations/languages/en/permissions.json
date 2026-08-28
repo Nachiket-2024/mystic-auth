@@ -1,0 +1,24 @@
+{
+    "page": {
+        "title": "Permissions",
+        "description": "The fixed, code-defined action vocabulary admins compose into policies or direct grants. Read-only: a permission only means something once a route checks for it, so it can't be created here.",
+        "searchPlaceholder": "Search by action or description...",
+        "filterByResourceType": "Filter by resource type",
+        "allResourceTypes": "All resource types",
+        "failedToLoadPermissions": "Failed to load the permission catalog",
+        "noPermissionsMatchFilters": "No permissions match these filters",
+        "noPermissionsYet": "No permissions in the catalog"
+    },
+    "columns": {
+        "action": "Action",
+        "resourceType": "Resource type",
+        "description": "Description",
+        "view": "View"
+    },
+    "detailsDialog": {
+        "title": "Permission details",
+        "action": "Action",
+        "resourceType": "Resource type",
+        "description": "Description"
+    }
+}

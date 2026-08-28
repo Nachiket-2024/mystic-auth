@@ -9,11 +9,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from backend.mystic_auth.api.pbac_routes.policy_assignment_routes import (
+from backend.mystic_auth.api.pbac_routes.policies.policy_assignment_routes import (
     list_my_policies,
 )
 
-MODULE = "backend.mystic_auth.api.pbac_routes.policy_assignment_routes"
+MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_assignment_routes"
 
 
 def _make_policy(name="self_service"):

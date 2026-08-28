@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..audit_log.audit_log_service import ACCOUNT_PURGED, log_security_event
 from ..auth.refresh_token_logic.refresh_token_service import refresh_token_service
-from ..user_crud.user_crud_collector import user_crud
+from ..authorization.caching.authorization_cache_service import authorization_cache_service
+from ..user.user_crud_collector import user_crud
 
 
 async def purge_user_account(
@@ -47,4 +48,12 @@ async def purge_user_account(
     )
 
     await user_crud.delete(db_obj=user, db=db)
+
+    # This email can be reused by a new signup. Without this, a new account
+    # with the same email could transiently inherit the purged user's stale
+    # cached policies/permissions, since the cache is keyed by email, not
+    # user id. Best-effort: a cache miss just re-reads the empty database.
+    await authorization_cache_service.invalidate_user_policies(user_email)
+    await authorization_cache_service.invalidate_user_permissions(user_email)
+
     return revoked_count

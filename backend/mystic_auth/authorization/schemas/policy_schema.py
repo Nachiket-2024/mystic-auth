@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from ..conditions.condition_validator import sanitize_conditions_for_read
 
 
 class PolicyBase(BaseModel):
@@ -37,7 +39,7 @@ class PolicyUpdate(BaseModel):
     is_active: bool | None = None
 
     # Not a Policy column itself : recorded in policy_history as this
-    # change's audit-trail explanation (see api/pbac_routes/policy_crud_routes.py).
+    # change's audit-trail explanation (see api/pbac_routes/policies/policy_crud_routes.py).
     change_reason: str | None = Field(default=None, max_length=500)
 
 
@@ -52,11 +54,24 @@ class PolicyRead(PolicyBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("conditions", mode="before")
+    @classmethod
+    def _sanitize_conditions(cls, value: dict | None) -> dict | None:
+        return sanitize_conditions_for_read(value)
+
 
 class PolicyAssignmentRequest(BaseModel):
     """Request body for assigning/removing a policy to/from a user."""
 
     policy_name: str = Field(..., max_length=100)
+
+
+class PolicyActionRevocationRequest(BaseModel):
+    """Request body for revoking a single action out of a user's policy
+    assignment (see policy_action_revocation_service.py): `action` must be
+    one of the target policy's own `actions`."""
+
+    action: str = Field(..., min_length=1, max_length=200)
 
 
 class UserPoliciesRead(BaseModel):

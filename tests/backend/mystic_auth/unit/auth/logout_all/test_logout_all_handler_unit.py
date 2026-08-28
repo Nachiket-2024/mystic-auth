@@ -5,7 +5,9 @@ from unittest.mock import AsyncMock
 import pytest
 
 from backend.mystic_auth.auth.logout_all.logout_all_handler import logout_all_handler
-from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
+from backend.mystic_auth.auth.token_logic.token_version_store import (
+    TokenVersionUnavailableError,
+)
 
 MODULE = "backend.mystic_auth.auth.logout_all.logout_all_handler"
 

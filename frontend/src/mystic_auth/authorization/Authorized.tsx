@@ -4,7 +4,8 @@ import { useAuthorization } from "./useAuthorization";
 import { useCan } from "./useCan";
 
 interface AuthorizedProps {
-    permission: string;
+    /** A single action, or an array meaning "any of" - see useAuthorization's `can`. */
+    permission: string | string[];
     // Passed through to useCan; see useAuthorization.ts's `can` for why this doesn't currently
     // narrow the check: the cached permissions list has no resource-type dimension of its own.
     resourceType?: string;

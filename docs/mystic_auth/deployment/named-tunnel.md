@@ -1,4 +1,5 @@
 # Named Tunnel (stable URL)
+---
 
 See [Local-Prod Deployment](local-prod.md) for the mode chooser, environment
 variables, and how local-prod differs from dev/prod. This page is the stable-URL
@@ -16,6 +17,8 @@ a tunnel it doesn't know about. If you don't already own a domain, buying
 a cheap one (a few dollars a year, e.g. from Namecheap or Porkbun) and
 adding its nameservers to your Cloudflare account is the only way to get
 this working.
+
+---
 
 **Step 1: Copy the env file.**
 
@@ -106,3 +109,5 @@ Without it, Manage Sessions' Location column silently shows "Unknown" with
 nothing in the logs to say why. See
 [Session Geolocation](../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.
+
+---

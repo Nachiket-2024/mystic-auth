@@ -65,6 +65,23 @@ export function translateErrorCode(code: unknown, params?: Record<string, unknow
     return null;
 }
 
+/**
+ * Whether a failed request was denied by the backend's own permission check
+ * (403), rather than any other failure (network error, 404, 500, ...). Query
+ * error states across the app (UserDetailsDialog's AuthorizationSection,
+ * UserPoliciesDialog/UserPermissionsDialog, PoliciesPage, ...) use this to
+ * show the same friendly "you don't have permission" copy a client-side
+ * permission check would show, instead of a generic "failed to load" that
+ * reads as if something actually broke. A 403 here is always a genuine,
+ * infrequent race (e.g. a permission was revoked between the page opening
+ * and this particular request firing) rather than the normal path - routes
+ * and dialogs already gate on the cached permission list before ever making
+ * the request - so this only needs to cover the rare case that check missed.
+ */
+export function isForbiddenError(error: unknown): boolean {
+    return axios.isAxiosError(error) && error.response?.status === 403;
+}
+
 export function extractApiErrorMessage(error: unknown, fallback: string): string {
     if (axios.isAxiosError(error)) {
         const data = error.response?.data;

@@ -10,7 +10,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.mystic_auth.auth.token_logic.token_version_store import TokenVersionUnavailableError
+from backend.mystic_auth.auth.token_logic.token_version_store import (
+    TokenVersionUnavailableError,
+)
 from backend.mystic_auth.user_session.session_service import SessionService
 
 MODULE = "backend.mystic_auth.user_session.session_service"

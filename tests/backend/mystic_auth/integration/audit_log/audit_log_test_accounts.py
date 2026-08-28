@@ -26,7 +26,7 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
 )
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.redis.client import redis_client
-from backend.mystic_auth.user_crud.user_crud_collector import user_crud
+from backend.mystic_auth.user.user_crud_collector import user_crud
 
 PASSWORD = "StrongPass123!"
 
@@ -37,7 +37,7 @@ def unique_email(prefix: str = "inttest") -> str:
 
 async def poll_for_entries(fetch, predicate, timeout_seconds: float = 30.0, interval: float = 0.2):
     """Authorization audit rows are now written by a background
-    Procrastinate worker (see AuthorizationService._log_decision), not
+    Procrastinate worker (see authorization_audit_logger.log_decision), not
     inline on the request that triggered them: a real worker container
     picks the job up over LISTEN/NOTIFY, typically well under 100ms, but
     it's no longer guaranteed to have landed by the time the very next
