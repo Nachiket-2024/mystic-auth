@@ -14,21 +14,18 @@ logger = get_worker_logger(__name__)
 @app.periodic(cron="0 3 * * *")
 @app.task
 async def purge_expired_soft_deleted_accounts(timestamp: int) -> int:
-    """
-    Daily hard-purge of accounts that have been soft-deleted (deleted_at set,
-    see user_lifecycle_crud.py::soft_delete) for longer than
-    settings.ACCOUNT_PURGE_GRACE_DAYS: the automatic counterpart to an
+    """Daily hard-purge of accounts soft-deleted (deleted_at set) for longer
+    than settings.ACCOUNT_PURGE_GRACE_DAYS: the automatic counterpart to an
     admin's manual DELETE /users/{email}/purge, giving self-service deletion
-    (DELETE /users/me) an actual recovery window instead of either purging
-    immediately or never purging at all.
+    (DELETE /users/me) a real recovery window instead of purging immediately
+    or never.
 
-    Runs daily at 03:00 UTC. `@app.periodic` deferred jobs run inside the
-    procrastinate worker process itself (PeriodicDeferrer), so there is no
-    separate scheduler process for this to depend on. `timestamp` is the
-    scheduled cron tick (epoch seconds) Procrastinate calls this with; unused
-    here, since the actual cutoff is computed from the current time, not the
-    tick time. Goes through the exact same revoke -> audit -> delete
-    sequence as the admin purge route via purge_user_account, just with
+    Runs daily at 03:00 UTC. `@app.periodic` jobs run inside the
+    procrastinate worker process itself, so there's no separate scheduler
+    process to depend on. `timestamp` is the scheduled cron tick Procrastinate
+    calls this with; unused here since the cutoff is computed from the
+    current time, not the tick time. Goes through the same revoke, audit,
+    delete sequence as the admin purge route via purge_user_account, with
     "system:grace_period_purge" as the actor instead of an admin's email.
     """
     cutoff = datetime.now(UTC) - timedelta(days=settings.ACCOUNT_PURGE_GRACE_DAYS)

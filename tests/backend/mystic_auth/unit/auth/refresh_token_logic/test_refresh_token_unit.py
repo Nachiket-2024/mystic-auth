@@ -1,4 +1,3 @@
-# tests/backend/mystic_auth/unit/test_refresh_token_unit.py
 from unittest.mock import AsyncMock
 
 import pytest
@@ -9,8 +8,7 @@ from backend.mystic_auth.auth.refresh_token_logic.refresh_token_service import (
 
 # Redis-unavailable/fail-closed coverage (bump_account_version/
 # bump_chain_version returning False) lives in
-# test_refresh_token_redis_unavailable_unit.py, split out once this file
-# passed the repo's own file-length guideline.
+# test_refresh_token_redis_unavailable_unit.py.
 MODULE = "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.jwt_service"
 
 
@@ -33,10 +31,10 @@ async def test_refresh_tokens_rotates_on_valid_unused_token(mocker):
     assert result == {"access_token": "new-access", "refresh_token": "new-refresh"}
     # The presented (old) token must be decoded exactly once to check
     # revocation/type, not re-decoded separately for that same purpose. A
-    # second decode of the newly-minted refresh token is expected here too
-    # (session_service.py's rotation tracking for the Manage Sessions card
-    # needs the new token's jti) - a different token, a different purpose,
-    # not the redundant re-decode this guard originally protected against.
+    # second decode of the newly-minted refresh token is expected here
+    # too (session_service.py's rotation tracking for the Manage Sessions
+    # card needs the new token's jti): a different token, a different
+    # purpose.
     assert decode_mock.await_count == 2
     decode_mock.assert_any_await("old-refresh-token")
     claim_mock.assert_awaited_once_with("jti-1", 123, "user@example.com")
@@ -53,6 +51,30 @@ async def test_refresh_tokens_rejects_undecodable_token(mocker):
     # An expired/malformed token never decodes, so there's no jti to even
     # attempt claiming.
     claim_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_refresh_tokens_rejects_wrong_issuer_or_audience_before_claiming_jti(mocker):
+    mocker.patch(
+        f"{MODULE}.decode_payload",
+        new_callable=AsyncMock,
+        return_value={
+            "email": "user@example.com",
+            "type": "refresh",
+            "jti": "jti-1",
+            "chain": "chain-1",
+            "exp": 123,
+            "iss": "https://other.example.com",
+        },
+    )
+    claim_mock = mocker.patch(f"{MODULE}.claim_jti_for_rotation", new_callable=AsyncMock)
+    create_access_mock = mocker.patch(f"{MODULE}.create_access_token", new_callable=AsyncMock)
+
+    result = await refresh_token_service.refresh_tokens("wrong-deployment-refresh-token")
+
+    assert result is None
+    claim_mock.assert_not_called()
+    create_access_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -79,9 +101,9 @@ async def test_refresh_tokens_rotates_for_account_with_no_role_claim(mocker):
     # too, for Manage Sessions rotation tracking.
     assert decode_mock.await_count == 2
     decode_mock.assert_any_await("roleless-refresh-token")
-    # chain_id explicitly carried forward from the rotated-away token's own
-    # "chain" claim, both for the new access token (previously never chain-
-    # aware) and the new refresh token.
+    # chain_id is carried forward from the rotated-away token's own
+    # "chain" claim, both for the new access token (previously never
+    # chain-aware) and the new refresh token.
     create_access_mock.assert_awaited_once_with("oauth-user@example.com", "chain-2")
     create_refresh_mock.assert_awaited_once_with("oauth-user@example.com", "chain-2")
 
@@ -89,10 +111,10 @@ async def test_refresh_tokens_rotates_for_account_with_no_role_claim(mocker):
 @pytest.mark.asyncio
 async def test_refresh_tokens_rejects_a_token_with_no_chain_claim(mocker):
     """A legacy token minted before chain tracking shipped carries no
-    "chain" claim - rotation requires one (every access token must be
-    chain-aware to support a targeted revoke), so this is rejected rather
-    than silently minting an orphan chain. Forces one clean re-login,
-    an acceptable one-time cost for a pre-upgrade session."""
+    "chain" claim. Rotation requires one (every access token must be
+    chain-aware to support a targeted revoke), so this is rejected
+    rather than silently minting an orphan chain: an acceptable
+    one-time cost of one clean re-login for a pre-upgrade session."""
     mocker.patch(
         f"{MODULE}.decode_payload",
         new_callable=AsyncMock,
@@ -135,7 +157,7 @@ async def test_refresh_tokens_rejects_wrong_type_token_without_treating_it_as_re
 async def test_refresh_tokens_reuse_of_a_pre_chain_token_falls_back_to_revoking_everything(mocker):
     """A reused token with no "chain" claim (minted before chain tracking
     shipped) has unknown lineage, so there's nothing to scope a targeted
-    revoke to - this is the maximally-safe fallback, same behavior as
+    revoke to. This is the maximally-safe fallback, same behavior as
     before chain tracking existed."""
     decode_mock = mocker.patch(
         f"{MODULE}.decode_payload",
@@ -162,10 +184,10 @@ async def test_refresh_tokens_reuse_of_a_pre_chain_token_falls_back_to_revoking_
 @pytest.mark.asyncio
 async def test_refresh_tokens_reuse_with_a_chain_scopes_revocation_to_that_chain_only(mocker):
     """Regression guard: reusing a token from chain A must revoke only
-    chain A, never every session on the account - a genuinely unrelated
-    session (e.g. a fresh login that happened after this token was already
-    revoked by an intentional logout-all elsewhere) must survive. Before
-    this, _handle_reuse_detected always called revoke_all_tokens_for_user,
+    chain A, never every session on the account. A genuinely unrelated
+    session (e.g. a fresh login after this token was already revoked by
+    an intentional logout-all elsewhere) must survive. Before this,
+    _handle_reuse_detected always called revoke_all_tokens_for_user,
     which had no concept of "unrelated" and killed everything."""
     decode_mock = mocker.patch(
         f"{MODULE}.decode_payload",
@@ -246,8 +268,9 @@ async def test_decode_payload_ignores_revocation_status(mocker):
     )
     token = await jwt_service.create_refresh_token(email="user@example.com", chain_id="chain-1")
 
-    # decode_payload must return the claims even though revoke status is never
-    # consulted : it's used precisely for tokens Redis already marks as revoked
+    # decode_payload must return the claims even though revoke status is
+    # never consulted: it's used precisely for tokens Redis already marks
+    # as revoked.
     payload = await jwt_service.decode_payload(token)
 
     assert payload["email"] == "user@example.com"

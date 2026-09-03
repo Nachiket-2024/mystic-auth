@@ -1,10 +1,7 @@
-// Regression: the OAuth2 callback redirects back to /login with a
-// `?error=<code>` query param on failure (see backend
-// oauth2_login_handler.py's _redirect_to_login_clearing_state), but nothing
-// in the frontend used to read it - OAuth2LoginButton hardcoded `error={null}`,
-// so a user (e.g. a soft-deleted account trying "Sign in with Google") landed
-// back on /login with no explanation at all. These tests pin that the param
-// is read, translated, displayed, and stripped from the URL afterward.
+// Regression: OAuth2LoginButton used to hardcode error={null}, so a failed
+// login (e.g. a soft-deleted account) redirected to /login?error=<code> with
+// no explanation. These tests confirm the param is read, translated,
+// displayed, and stripped from the URL.
 import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { ChakraProvider, defaultSystem } from '@chakra-ui/react';

@@ -9,10 +9,10 @@ export function plainTextOf(node: React.ReactNode): string | undefined {
 }
 
 // The classic four-background "scroll shadow" trick, so a scrollable table
-// visually hints there's more content off to the side: two opaque gradients
+// hints there's more content off to the side: two opaque gradients
 // (attachment: local, scroll with the content) plus two shadow gradients
-// underneath (attachment: scroll, pinned to the viewport, only visible while
-// there's more to scroll). Chakra CSS vars mean no separate dark-mode case.
+// underneath (attachment: scroll, pinned to the viewport, only visible
+// while there's more to scroll). Chakra CSS vars mean no dark-mode case.
 export const SCROLL_SHADOW_CSS = {
     background: `
         linear-gradient(to right, var(--chakra-colors-bg-surface) 30%, transparent),
@@ -28,13 +28,13 @@ export const SCROLL_SHADOW_CSS = {
 };
 
 // Table.ScrollArea is its own overflow:auto box, separate from the page's
-// html-level scrollbar (see themeStyles.ts's globalCss.html). Left unstyled
-// it renders the bare user-agent scrollbar color, same "black strip" issue
-// as the page. bg.surface (not bg.canvas) as track color, since this
-// scrollbar sits on the table's surface, not the page canvas.
+// html-level scrollbar (themeStyles.ts's globalCss.html). Left unstyled it
+// renders the bare user-agent scrollbar color, same "black strip" issue as
+// the page. bg.surface (not bg.canvas) as track color, since this scrollbar
+// sits on the table's surface, not the page canvas.
 // `\.` in the var() names: scrollbarColor isn't resolved by the token
 // pipeline like plain style props are, so it needs the literal generated
-// CSS custom property name (bg.surface/border.default keep their dot).
+// CSS custom property name.
 export const SCROLL_AREA_SCROLLBAR_CSS = {
     scrollbarColor: "var(--chakra-colors-border\\.default) var(--chakra-colors-bg\\.surface)",
     "&::-webkit-scrollbar": {
@@ -54,9 +54,8 @@ export const SCROLL_AREA_SCROLLBAR_CSS = {
 
 // Applied to every header cell, not the <tr> (sticky on a table row is
 // unreliable cross-browser), so headers stay put as the body scrolls under
-// them. Only matters once Table.ScrollArea's maxH constrains height; a
-// no-op on a short table. bg.surface (not transparent) hides scrolled rows
-// passing beneath the sticky header.
+// them. Only matters once Table.ScrollArea's maxH constrains height. bg.surface
+// (not transparent) hides scrolled rows passing beneath the sticky header.
 export const STICKY_HEADER_CELL_PROPS = {
     position: "sticky" as const,
     top: 0,

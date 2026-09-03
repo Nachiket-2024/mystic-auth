@@ -51,7 +51,7 @@ describe('setupAuthInterceptor', () => {
     let getCalls = 0;
     mock.onGet('/auth/me').reply(() => {
       getCalls += 1;
-      // First attempt 401s (expired access token); the retry after refresh succeeds.
+      // First attempt 401s (expired token); the retry after refresh succeeds.
       return getCalls === 1 ? [401, { detail: 'Not authenticated' }] : [200, { email: 'test@example.com' }];
     });
 
@@ -60,7 +60,7 @@ describe('setupAuthInterceptor', () => {
     expect(res.data).toEqual({ email: 'test@example.com' });
     expect(refreshCalls).toBe(1);
     expect(getCalls).toBe(2);
-    // The session was salvaged : never flagged unauthenticated at any point.
+    // Session was salvaged: never flagged unauthenticated.
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
   });
 
@@ -102,9 +102,8 @@ describe('setupAuthInterceptor', () => {
     let refreshCalls = 0;
     mock.onPost('/auth/refresh/').reply(() => {
       refreshCalls += 1;
-      // First refresh attempt: the old refresh cookie, momentarily stale
-      // because the rotating request's fresh cookies haven't landed yet.
-      // Second attempt (after the rotation settles): the new cookie works.
+      // First attempt: old cookie, stale because the rotation hasn't landed
+      // yet. Second attempt (after rotation settles): new cookie works.
       return refreshCalls === 1
         ? [401, { detail: 'Invalid or revoked refresh token' }]
         : [200, { message: 'Tokens refreshed successfully' }];
@@ -117,8 +116,7 @@ describe('setupAuthInterceptor', () => {
     });
 
     // Simulates the password-change mutation: still in flight when the
-    // racing request above hits its first (failed) refresh attempt, and
-    // resolves shortly after.
+    // racing request hits its first failed refresh, resolves shortly after.
     let resolveRotation: () => void = () => {};
     const rotation = new Promise<void>((resolve) => {
       resolveRotation = resolve;
@@ -126,8 +124,7 @@ describe('setupAuthInterceptor', () => {
     trackSessionRotatingRequest(rotation);
 
     const racingRequest = api.get('/policies/mine');
-    // Let the racing request's first refresh attempt run and fail before the
-    // rotating request settles, to actually exercise the race.
+    // Let the racing request's refresh fail before the rotation settles.
     await new Promise((resolve) => setTimeout(resolve, 10));
     resolveRotation();
 
@@ -136,7 +133,7 @@ describe('setupAuthInterceptor', () => {
     expect(res.data).toEqual({ policies: [] });
     expect(refreshCalls).toBe(2);
     expect(policiesCalls).toBe(2);
-    // Salvaged via the rotation-aware retry : never flagged unauthenticated.
+    // Salvaged via the rotation-aware retry: never flagged unauthenticated.
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
   });
 
@@ -209,8 +206,7 @@ describe('setupAuthInterceptor', () => {
     // Give any runaway invalidate-refetch loop a chance to fire before asserting.
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    // Exactly one GET /auth/me (plus its one refresh-and-retry attempt) :
-    // never more, regardless of how long we wait.
+    // Exactly one GET /auth/me (plus its refresh-and-retry): never more.
     expect(getMeCalls).toBe(1);
   });
 });

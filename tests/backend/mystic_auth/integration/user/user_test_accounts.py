@@ -1,12 +1,9 @@
-# tests/backend/mystic_auth/integration/user_test_accounts.py
+# tests/backend/mystic_auth/integration/user/user_test_accounts.py
 #
-# Real signed-up, verified, policy-holding test accounts (via the actual
-# HTTP surface: signup -> verify -> login), shared by
-# test_user_self_service_routes_integration.py,
-# test_user_list_and_update_integration.py, and
-# test_user_account_lifecycle_integration.py: all three need the same tiers
-# (plain user, admin, system, roleless) and the same refresh-token-cookie
-# manipulation to simulate stale/reused/forged tokens.
+# Shared helpers for creating real test accounts (signup -> verify -> login)
+# used by the user integration tests: plain user, admin, system, and
+# roleless tiers, plus refresh-token-cookie helpers for simulating
+# stale/reused/forged tokens.
 import uuid
 
 from backend.mystic_auth.auth.password_logic.password_service import password_service
@@ -33,35 +30,28 @@ def unique_email(prefix: str = "inttest") -> str:
     return f"{prefix}-{uuid.uuid4().hex}@example.com"
 
 
-# conftest.py's `client` fixture uses base_url="https://testserver", a
-# dotless hostname, which CPython's http.cookiejar (what httpx's cookie jar
-# is built on) normalizes to "testserver.local" internally for matching
-# purposes. Cookies set manually here must match that (domain, path, name)
-# key exactly, or they land as a second, separate jar entry instead of
-# overwriting the real one from a prior response, see
-# post_with_refresh_cookie's docstring below for why that matters.
+# The `client` fixture uses base_url="https://testserver". Python's
+# http.cookiejar normalizes that dotless hostname to "testserver.local", so
+# cookies set manually here must use this domain to match the real one
+# instead of landing as a separate jar entry.
 _TEST_COOKIE_DOMAIN = "testserver.local"
 
 
 async def post_with_refresh_cookie(client, url: str, refresh_token: str):
-    """Posts to a refresh_token-cookie-gated endpoint with an explicit cookie
-    value, independent of whatever the client's shared cookie jar currently
-    holds, needed to simulate stale/reused/forged/cross-session tokens.
-    httpx deprecated per-request `cookies=` in favor of setting cookies on
-    the client itself, hence setting it here rather than passing `cookies=`.
-    Both domain and path must match the real cookie's (see
-    _TEST_COOKIE_DOMAIN above): the jar keys cookies by (domain, path,
-    name), so an inexact match creates a second entry alongside the real one
-    instead of overwriting it, which then survives the endpoint's own
-    cookie-clearing response untouched."""
+    """Posts to a refresh_token-cookie-gated endpoint with an explicit
+    cookie value, overriding whatever the client's cookie jar currently
+    holds. Used to simulate stale/reused/forged/cross-session tokens. Set
+    directly on the client (httpx deprecated per-request `cookies=`), and
+    must match the real cookie's domain and path exactly or it creates a
+    second jar entry instead of overwriting the real one."""
     client.cookies.set("refresh_token", refresh_token, domain=_TEST_COOKIE_DOMAIN, path="/auth")
     return await client.post(url)
 
 
 async def assign_policies(email: str, policy_names: list[str]) -> None:
-    """Grants real capability the same way the policy management API
-    would (see backend/mystic_auth/api/pbac_routes/policies/policy_assignment_routes.py):
-    this is the ONLY thing that determines what an account can do under PBAC."""
+    """Grants capability the same way the policy management API would.
+    Under PBAC, this is the only thing that determines what an account can
+    do."""
     async with database.async_session() as session:
         user = await user_crud.get_by_email(email, session)
         for policy_name in policy_names:
@@ -74,12 +64,10 @@ async def assign_policies(email: str, policy_names: list[str]) -> None:
 async def create_verified_user(
     client, created_emails, email: str, role: UserRole = UserRole.user, policy_names: list[str] | None = None
 ):
-    """Signs up and verifies a user. `role` is set purely as display/
-    grouping metadata (and, for system_email, to trigger the target-account
-    protection invariant in user_management_update_routes.py/user_lifecycle_routes.py; see their module docstrings for
-    why that's not an authorization decision). `policy_names` is what
-    actually grants capability; defaults to just self_service, mirroring
-    what real signup does (see signup_service.py)."""
+    """Signs up and verifies a user. `role` is display/grouping metadata
+    only (it also triggers target-account protection for system users; see
+    user_management_update_routes.py). `policy_names` is what actually
+    grants capability; defaults to self_service, same as real signup."""
     signup_resp = await client.post(
         "/auth/signup", json={"name": "Test User", "email": email, "password": PASSWORD}
     )
@@ -120,10 +108,9 @@ async def create_system_user(client, created_emails, email: str):
 
 
 async def create_roleless_user(created_emails, email: str, policy_names: list[str]) -> None:
-    """Creates a fully real, loggable-in account with role=None directly
-    (signup_service always sets role="user" for display purposes, so a
-    genuinely roleless account can only be produced this way today; there
-    is no API to clear an existing role, which is out of scope here)."""
+    """Creates a loggable-in account with role=None directly. Signup always
+    sets role="user", and there's no API to clear it, so this is the only
+    way to get a genuinely roleless account."""
     async with database.async_session() as session:
         hashed_password = await password_service.hash_password(PASSWORD)
         user = await user_crud.create({

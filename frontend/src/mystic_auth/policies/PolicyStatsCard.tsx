@@ -14,15 +14,11 @@ interface PolicyStatsCardProps {
 /**
  * PolicyStatsCard
  * ----------------------------
- * Summary counts for PoliciesPage, derived client-side from the already-
- * fully-loaded policy list (GET /authorization/policies loads everything at
- * once - see PoliciesPage's own comment on why - so there's no separate
- * aggregate endpoint to call here, unlike UserStatsCard's server-paginated
- * equivalent): total policies, how many are active, how many distinct
- * actions/permissions are granted across all of them, and how many distinct
- * resource types ("policy groups") those policies are organized under. Sits
- * between PageContainer's title and the Create Policy button, in the same
- * header row.
+ * Summary counts for PoliciesPage: total policies, how many are active,
+ * distinct actions granted, and distinct resource types. Computed
+ * client-side from the full policy list since there's no separate
+ * aggregate endpoint (unlike UserStatsCard's server-paginated one). Sits
+ * in the header row next to PageContainer's title.
  */
 const PolicyStatsCard: React.FC<PolicyStatsCardProps> = ({ policies, isLoading }) => {
     const { t } = useTranslation("policies");

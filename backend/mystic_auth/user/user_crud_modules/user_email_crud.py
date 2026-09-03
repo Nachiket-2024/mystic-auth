@@ -12,10 +12,10 @@ class UserEmailCRUD:
         self.model = model
 
     async def get_by_email(self, email: str, db: AsyncSession):
-        # Normalized here rather than trusted from the caller : this is the
-        # single choke point every email lookup in the app goes through
-        # (login, current-user, user-management routes, OAuth2), so callers don't each
-        # need to remember to normalize before calling it.
+        # Normalized here, not trusted from the caller: this is the single
+        # choke point every email lookup in the app goes through (login,
+        # current-user, user-management routes, OAuth2), so callers don't
+        # each need to remember to normalize before calling it.
         result = await db.execute(select(self.model).where(self.model.email == normalize_email(email)))
         return result.scalar_one_or_none()
 

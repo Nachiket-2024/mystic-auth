@@ -6,9 +6,7 @@ import { MemoryRouter } from 'react-router';
 
 import SignupForm from '@/auth/signup/SignupForm';
 
-// Regression guard for the signup legal-consent line added alongside the
-// Privacy Policy/Terms of Service pages: previously there was no
-// consent/legal-link UI anywhere in the signup flow.
+// Regression guard: signup previously had no legal-consent links.
 describe('SignupForm legal consent line', () => {
   it('links to both the Terms of Service and Privacy Policy pages', () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

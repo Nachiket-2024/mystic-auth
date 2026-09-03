@@ -1,8 +1,7 @@
-// Regression: LoginPage used to gate its entire render (including LoginForm)
-// behind a shared OAuth2 loading flag that also toggled during the internal
-// post-login profile fetch, causing the form to unmount for a full-page
-// spinner and remount empty. These tests pin that the form stays mounted
-// and interactive throughout a login attempt.
+// Regression: LoginPage used to gate its whole render behind a shared OAuth2
+// loading flag that also toggled during the post-login profile fetch, so the
+// form unmounted for a full-page spinner and remounted empty. These tests
+// check the form stays mounted and interactive through a login attempt.
 import type { ReactElement } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -53,8 +52,7 @@ describe('LoginPage stays on the login form throughout a login attempt', () => {
     await userEvent.type(screen.getByPlaceholderText('Password'), 'StrongPass123!');
     await userEvent.click(screen.getByRole('button', { name: 'Login' }));
 
-    // Mid-flight: inputs must still be in the DOM (the bug replaced them
-    // with a full-page spinner here).
+    // Mid-flight: inputs must still be in the DOM, not replaced by a spinner.
     expect(screen.getByPlaceholderText('Email')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
     expect(screen.queryByText('Signing you in...')).toBeNull();
@@ -66,8 +64,7 @@ describe('LoginPage stays on the login form throughout a login attempt', () => {
 
   it('keeps whatever the user typed on screen if login ultimately fails', async () => {
     mock.onPost('/auth/login').reply(200, { message: 'Login successful' });
-    // useLoginMutation treats a non-200 /auth/me after login as a failure
-    // of the whole mutation (see useLoginMutation.ts).
+    // A non-200 /auth/me after login fails the whole mutation (see useLoginMutation.ts).
     mock.onGet('/auth/me').reply(delayed([401, { detail: 'Not authenticated' }], 50));
 
     renderWithProviders(<LoginPage />);
@@ -81,8 +78,7 @@ describe('LoginPage stays on the login form throughout a login attempt', () => {
       expect(screen.queryByText(/not authenticated|failed|invalid|error/i)).toBeInTheDocument();
     });
 
-    // Bug guarded against: unmounting LoginForm would reset its local
-    // email/password state even though the user never cleared the form.
+    // Unmounting LoginForm would reset its typed-in state; it shouldn't unmount here.
     expect((screen.getByPlaceholderText('Email') as HTMLInputElement).value).toBe(
       'user@example.com'
     );

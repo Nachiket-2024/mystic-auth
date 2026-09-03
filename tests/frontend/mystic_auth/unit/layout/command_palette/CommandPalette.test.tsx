@@ -146,8 +146,8 @@ describe('CommandPalette', () => {
   it('surfaces every matching piece of page copy, not just titles, under a "Matching text" group', async () => {
     renderPalette();
 
-    // "sessions" isn't any page's nav label, but is real copy on the
-    // Dashboard's "Manage Sessions" section (dashboard.json).
+    // "sessions" isn't a nav label, but real copy on the Dashboard's
+    // "Manage Sessions" section.
     await userEvent.type(screen.getByRole('textbox'), 'sessions');
 
     await waitFor(() => expect(screen.getByText('Matching text')).toBeInTheDocument());
@@ -157,9 +157,8 @@ describe('CommandPalette', () => {
   it('shows one row per distinct matching string, not one collapsed row per page', async () => {
     renderPalette();
 
-    // "password" appears as multiple distinct strings within Account
-    // Settings' Change Password tab (e.g. "Change password" and "Current
-    // password"), each of which should render as its own row.
+    // "password" matches multiple distinct strings on the Change Password
+    // tab (e.g. "Change password", "Current password"), each its own row.
     await userEvent.type(screen.getByRole('textbox'), 'password');
 
     await waitFor(() => expect(screen.getAllByText('Change password').length).toBeGreaterThan(0));

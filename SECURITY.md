@@ -1,5 +1,4 @@
 # Security Policy
-
 ---
 
 ## Supported versions
@@ -7,7 +6,7 @@
 This is a template repository, not a versioned library with a support matrix.
 There is one line of development, `main`, and security fixes land there. If you
 created your own repository from this template, pull fixes by merging from
-upstream. See [Staying in Sync with Upstream Template Updates](docs/mystic_auth/template-usage/syncing-upstream.md).
+upstream. See [Staying in Sync with Upstream Template Updates](docs/mystic_auth/template-usage/syncing-upstream/README.md).
 
 ---
 
@@ -50,3 +49,5 @@ CI. See [CI/CD Overview](docs/mystic_auth/cicd/overview.md).
 ## Known, already-tracked gaps
 
 Not every limitation is a vulnerability to report. Some are deliberate, documented scope boundaries. Check [Known Issues, Limitations & Technical Debt](docs/mystic_auth/concerns/README.md) first for the running list of known gaps and rationale.
+
+---

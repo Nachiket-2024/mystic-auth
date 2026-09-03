@@ -1,10 +1,8 @@
-# tests/backend/mystic_auth/unit/test_password_reset_confirm_handler_unit.py
-#
-# password_reset_confirm_handler.py had no dedicated unit coverage. These
-# tests pin down its lockout key namespace: it must be distinct from login's
-# "login_lock:email:" key, or failures unrelated to a real login attempt
-# (weak new password, reused old password, stale token) would count towards
-# and could trip the unrelated login lockout for the same email.
+# Pins down password_reset_confirm_handler.py's lockout key namespace: it
+# must be distinct from login's "login_lock:email:" key, or failures
+# unrelated to a real login attempt (weak new password, reused old
+# password, stale token) could trip the unrelated login lockout for the
+# same email.
 import json
 
 import pytest
@@ -32,10 +30,9 @@ async def test_invalid_token_returns_400_without_touching_lockout(mocker):
 @pytest.mark.asyncio
 async def test_non_reset_token_is_rejected_without_touching_lockout(mocker):
     """A validly-signed access/refresh/verify token for a victim's account
-    must never reach the lockout path here: password_service.verify_reset_token
-    (unlike a bare jwt_service.verify_token call) already rejects anything
-    whose "type" claim isn't "reset", so this should behave identically to
-    an outright invalid token."""
+    must never reach the lockout path here: verify_reset_token (unlike a
+    bare jwt_service.verify_token call) already rejects anything whose
+    "type" claim isn't "reset", so this behaves like an invalid token."""
     verify_mock = mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value=None)
     record_mock = mocker.patch(f"{MODULE}.login_protection_service.check_and_record_action")
 
@@ -68,11 +65,11 @@ async def test_successful_reset_is_recorded_under_its_own_lock_namespace(mocker)
 
 @pytest.mark.asyncio
 async def test_successful_reset_reports_sessions_revoked_in_the_response_body(mocker):
-    # Regression guard for the "Redis outage failure modes are inconsistent"
-    # gap: reset_password's own sessions_revoked flag (False when the
-    # account-version bump couldn't be confirmed) must reach the caller,
-    # since the point of this field is that a genuinely successful reset
-    # can still leave the attacker's other sessions unrevoked.
+    # Regression guard: reset_password's sessions_revoked flag (False
+    # when the account-version bump couldn't be confirmed) must reach the
+    # caller, since the point of this field is that a genuinely
+    # successful reset can still leave the attacker's other sessions
+    # unrevoked.
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
     mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(True, False))
     mocker.patch(f"{MODULE}.login_protection_service.check_and_record_action", return_value=True)

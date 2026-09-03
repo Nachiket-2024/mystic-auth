@@ -1,11 +1,8 @@
-# tests/backend/mystic_auth/unit/api/pbac_routes/test_policy_history_unit.py
-#
-# Unit coverage for policy versioning and rollback (the policy
-# History": immutable history, version comparison, rollback support).
-# PolicyRepository's create/update/delete are exercised with the
-# policy_history_repository mocked out (DB boundary); the route-level
-# compare/rollback handlers are called directly the same way FastAPI would
-# inject them.
+# Unit coverage for policy versioning and rollback: immutable history,
+# version comparison, rollback support. PolicyRepository's create/update/
+# delete are exercised with policy_history_repository mocked out (DB
+# boundary); the route-level compare/rollback handlers are called
+# directly, the same way FastAPI would inject them.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -217,8 +214,7 @@ async def test_rollback_policy_applies_target_definition_and_labels_history(mock
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
     # A rollback always fans out publish_permissions_changed to every
-    # current holder - see policy_repository.get_holder_emails's own
-    # docstring.
+    # current holder.
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
     mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
@@ -240,8 +236,8 @@ async def test_rollback_policy_applies_target_definition_and_labels_history(mock
 @pytest.mark.asyncio
 async def test_rollback_policy_to_deleted_entry_restores_previous_definition(mocker):
     """A "deleted" history entry has no new_definition, but its
-    previous_definition (the state right before deletion) is still a valid
-    rollback target : _definition_for_entry falls back to it."""
+    previous_definition (the state right before deletion) is still a
+    valid rollback target: _definition_for_entry falls back to it."""
     policy = _make_policy()
     pre_deletion_definition = {"name": "self_service", "actions": ["users:read_own"]}
     deleted_entry = _make_history_entry(

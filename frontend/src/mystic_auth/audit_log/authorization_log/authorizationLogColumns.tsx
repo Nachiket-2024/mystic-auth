@@ -6,12 +6,10 @@ import type { AuthorizationAuditLogEntryRead } from "../../api/audit_api";
 import type { SupportedLanguage } from "../../translations/translations";
 import { formatTimestamp } from "../auditLogListConfig";
 
-// Every column is sortable: `key` doubles as the sort key sent to the
-// backend, and every key here matches one of the backend's own allowlisted
-// sortable columns for this log type (see
+// Every column is sortable: `key` doubles as the sort key sent to the backend, and each one
+// matches an allowlisted sortable column (see
 // authorization/repositories/audit_log_repository.py's _SORTABLE_COLUMNS).
-// A function (not a plain constant) so headers/badge text can be translated
-// via the caller's own useTranslation("audit_log") `t`.
+// A function, not a plain constant, so headers/badge text can use the caller's own `t`.
 export function getAuthorizationColumns(t: TFunction<"audit_log">, language: SupportedLanguage): DataTableColumn<AuthorizationAuditLogEntryRead>[] {
     return [
         { key: "created_at", header: t("authorization.columns.when"), width: "11.875rem", truncate: true, render: (e) => formatTimestamp(e.created_at, language), sortable: true },

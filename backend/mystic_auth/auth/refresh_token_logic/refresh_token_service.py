@@ -34,6 +34,9 @@ class RefreshTokenService:
             if not payload:
                 return None
 
+            if not jwt_service.has_valid_issuer_and_audience(payload):
+                return None
+
             jti = payload.get("jti")
             if not jti:
                 logger.warning("Refresh token payload missing 'jti' claim")

@@ -8,8 +8,7 @@ import FormAlert from "../../ui/FormAlert";
 import PasswordInput from "../../ui/PasswordInput";
 import { BRAND_SOLID_HOVER_PROPS } from "../../ui/styles/buttonStyles";
 
-// Shared password policy logic and checklist UI: kept identical to
-// SignupForm so the two flows can't drift apart again.
+// Shared password policy logic and checklist UI, kept identical to SignupForm.
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../password_rules/passwordRules";
 import PasswordStrengthPanel from "../password_rules/PasswordStrengthPanel";
 
@@ -19,9 +18,8 @@ interface PasswordResetConfirmFormProps {
 
 const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ token: propToken }) => {
     const { t } = useTranslation("auth");
-    // Token typed into the manual-entry field, used only when no token was
-    // supplied via the URL. `token` derives from whichever source applies
-    // instead of syncing propToken into state via an effect.
+    // Manual-entry fallback, used only when no token came from the URL. `token`
+    // derives from whichever source applies instead of syncing propToken via an effect.
     const [manualToken, setManualToken] = useState("");
     const token = propToken || manualToken;
     const [newPassword, setNewPassword] = useState("");
@@ -92,10 +90,8 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
                 />
             </ChakraField.Root>
 
-            {/* Always rendered, even before typing starts (showing a
-                neutral "-" placeholder): kept identical to SignupForm so
-                the strength meter filling in never shifts the fields
-                below it. */}
+            {/* Always rendered, even before typing starts (neutral "-" placeholder), so
+                the strength meter filling in never shifts the fields below it. */}
             <PasswordStrengthPanel
                 password={newPassword}
                 label={t("passwordResetConfirm.strengthLabel", { strength: passwordStrength || "-" })}
@@ -135,13 +131,9 @@ const PasswordResetConfirmForm: React.FC<PasswordResetConfirmFormProps> = ({ tok
             )}
 
             {resetConfirmMutation.isSuccess && (
-                // sessions_revoked === false: the password itself changed
-                // (this succeeded), but Redis was unreachable so the
-                // account's other sessions were NOT revoked - a distinct
-                // warning rather than the plain success message, so this
-                // doesn't look like a completed "other devices signed out"
-                // the way it normally would (same pattern as
-                // ChangePasswordCard.tsx's own toast).
+                // sessions_revoked === false: the password changed but Redis was
+                // unreachable, so other sessions weren't revoked. A distinct warning
+                // instead of the plain success message (same as ChangePasswordCard.tsx).
                 resetConfirmMutation.data.sessions_revoked === false ? (
                     <FormAlert status="warning">{t("passwordResetConfirm.resetButSessionsNotRevoked")}</FormAlert>
                 ) : (

@@ -15,48 +15,34 @@ import CommandPaletteResultsList from "./CommandPaletteResultsList";
 interface CommandPaletteProps {
     isOpen: boolean;
     onClose: () => void;
-    /** Appended after the built-in NAV_ITEMS, same prop AppLayout takes -
-     * pass the same reference given to AppLayout so the palette's "Pages"
-     * group matches the sidebar. See
-     * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points. */
+    /** Appended after the built-in NAV_ITEMS - pass the same reference given
+     * to AppLayout so the palette's "Pages" group matches the sidebar. */
     extraNavItems?: NavItem[];
-    /** Appended after the built-in SEARCH_ITEMS - your own page's
-     * searchable content (a settings card, a specific tab/section), same
-     * "typed, optional, additive" shape as `extraNavItems`. See
-     * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points. */
+    /** Appended after the built-in SEARCH_ITEMS - your own page's searchable
+     * content (a settings card, a specific tab/section). */
     extraSearchItems?: SearchItem[];
 }
 
 /**
  * Cmd+K / Ctrl+K quick-jump palette: search/select any nav destination the
- * caller currently has permission to see, same IfCan-equivalent gating
- * Sidebar uses (via useAuthorization().can), so this never advertises a
- * route the caller can't actually open. Once the query is non-empty it also
- * searches:
- *  - real content within pages (SEARCH_ITEMS/searchItems.ts - a specific
- *    settings tab, a specific audit-log category/scope) matched against
- *    each item's resolved label/detail/group/matchKeys text, so e.g. typing
- *    "password" surfaces "Change Password" even though the current page's
- *    own content isn't otherwise indexed anywhere. Selecting one navigates
- *    to a `?query=param` a page reads once on mount to select the right
- *    tab (AccountSettingsPage/AuditLogPage), or a `#hash` AppLayout's
- *    useScrollToHash scrolls to.
- *  - every individual matching string across all pages, Ctrl+F-style (not
- *    just titles/labels): each distinct leaf translation string under a
- *    page's PAGE_CONTENT_NAMESPACES or a SEARCH_ITEMS' `scope` that
- *    contains the query becomes its own "Matching text" row showing that
- *    exact text, capped at TEXT_MATCH_RESULTS_LIMIT and deduped per
- *    destination. Selecting one navigates the same way the page/feature
- *    row for that destination would.
- *  - real user accounts server-side (same endpoint/`search` param
- *    UsersPage.tsx uses), gated on users:list_all, so a caller who can't
- *    open the Users page never sees account data leak through the palette.
- *    Selecting a user jumps to /users?search=<email>, which UsersPage reads
- *    on mount to land pre-filtered on that account.
- * Controlled by App.tsx, which owns the global keydown listener that
- * toggles `isOpen`. Result-building logic lives in CommandPaletteResults.ts,
- * the result list's rendering in CommandPaletteResultsList.tsx - this file
- * owns the dialog shell, search input, and keyboard navigation.
+ * caller has permission to see (same gating as Sidebar, via
+ * useAuthorization().can). Once the query is non-empty it also searches:
+ *  - content within pages (SEARCH_ITEMS/searchItems.ts - a settings tab, an
+ *    audit-log category/scope), so e.g. "password" surfaces "Change
+ *    Password" even though it's not a nav item itself. Selecting one
+ *    navigates to a `?query=param` a page reads on mount to pick a tab, or a
+ *    `#hash` AppLayout's useScrollToHash scrolls to.
+ *  - every matching string across all pages, Ctrl+F-style: each distinct
+ *    string under a page's PAGE_CONTENT_NAMESPACES or a SEARCH_ITEMS'
+ *    `scope` that contains the query becomes its own row, capped at
+ *    TEXT_MATCH_RESULTS_LIMIT.
+ *  - real user accounts server-side (same endpoint UsersPage.tsx uses),
+ *    gated on users:list_all. Selecting one jumps to
+ *    /users?search=<email>, which UsersPage reads on mount to pre-filter.
+ * Controlled by App.tsx, which owns the global keydown listener that toggles
+ * `isOpen`. Result-building lives in CommandPaletteResults.ts, the list's
+ * rendering in CommandPaletteResultsList.tsx - this file owns the dialog
+ * shell, search input, and keyboard navigation.
  */
 const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraNavItems, extraSearchItems }) => {
     const { t } = useTranslation("layout");
@@ -72,11 +58,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraN
 
     // Reset search + selection every time the palette opens, so it never
     // reopens showing the previous session's leftover query/highlight.
-    // Adjusted during render (React's documented pattern for state derived
-    // from props, same "adjust during render" pattern PolicyFormDialog.tsx/
-    // UserPoliciesDialog.tsx already use for their own open-triggered
-    // resets) rather than in an effect, since setState-in-effect causes an
-    // extra, avoidable render.
+    // Adjusted during render (same pattern as PolicyFormDialog/
+    // UserPoliciesDialog) rather than in an effect, to avoid an extra render.
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     if (isOpen !== prevIsOpen) {
         setPrevIsOpen(isOpen);
@@ -86,9 +69,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraN
         }
     }
 
-    // Same reasoning: highlight always snaps back to the top result as the
-    // query changes, computed during render rather than via a `[query]`
-    // effect.
+    // Same reasoning: snap the highlight back to the top result as the query
+    // changes, computed during render rather than via a `[query]` effect.
     const [prevQuery, setPrevQuery] = useState(query);
     if (query !== prevQuery) {
         setPrevQuery(query);
@@ -138,13 +120,10 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraN
                                     placeholder={t("commandPalette.placeholder")}
                                     variant="flushed"
                                     border="none"
-                                    // border="none" above suppresses the flushed variant's own
-                                    // focus border entirely, leaving this input with no visible
-                                    // focus indicator at all (WCAG 2.4.7) - it's also the palette's
-                                    // initialFocusEl, so it's always the first thing focused on
-                                    // open. An inset bottom-border keeps the borderless look on
-                                    // every other edge while still giving keyboard users a clear
-                                    // focus cue.
+                                    // border="none" suppresses the flushed variant's own focus
+                                    // border, leaving no visible focus indicator (WCAG 2.4.7) on
+                                    // this field, which is always focused first on open. An inset
+                                    // bottom-border restores a focus cue without a full border.
                                     _focus={{ boxShadow: "inset 0 -2px 0 0 var(--chakra-colors-brand-solid)" }}
                                     autoComplete="off"
                                     aria-label={t("commandPalette.placeholder")}

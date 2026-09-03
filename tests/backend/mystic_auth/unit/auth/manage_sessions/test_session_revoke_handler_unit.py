@@ -1,11 +1,7 @@
-# tests/backend/mystic_auth/unit/auth/manage_sessions/test_session_revoke_handler_unit.py
-#
 # DELETE /auth/sessions/{id} must report a real 503, not a false "Session
 # revoked", when the underlying chain-version bump can't be confirmed
-# (Redis unreachable) - session_service.revoke_one_session raises
-# TokenVersionUnavailableError in that case. See
-# docs/mystic_auth/concerns/README.md's now-resolved "Redis outage failure
-# modes are inconsistent" entry.
+# (Redis unreachable): session_service.revoke_one_session raises
+# TokenVersionUnavailableError in that case.
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 

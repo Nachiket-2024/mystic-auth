@@ -15,8 +15,8 @@ export const BRAND_SOLID_HOVER_PROPS = {
 export const BRAND_OUTLINE_HOVER_PROPS = {
     // Set explicitly, not left to the outline recipe: Chakra resolves a
     // custom colorPalette's text/border off raw brand.500, not this app's
-    // brand.fg/brand.border tokens, giving a noticeably paler, lower-contrast
-    // orange (brand.500, 2.15:1) than the rest of the page (brand.600, 3.19:1).
+    // brand.fg/brand.border tokens, giving a noticeably paler orange
+    // (2.15:1) than the rest of the page (brand.600, 3.19:1).
     color: "brand.fg",
     borderColor: "brand.border",
     // borderColor overridden on hover too, or the outline's pale brand.200
@@ -93,7 +93,7 @@ export const BRAND_ICON_BUTTON_PROPS = {
 // Small brand-tinted inline actions (e.g. UserPoliciesDialog's "Expand
 // all"/"Collapse all"). variant="plain" (not "subtle"): "subtle"'s recipe
 // hover competes with a custom _hover at the same specificity, silently
-// no-opping a dark-mode override, so every visual state is explicit here.
+// dropping a dark-mode override, so every state is set explicitly here.
 export const BRAND_SUBTLE_BUTTON_PROPS = {
     variant: "plain" as const,
     borderWidth: "1px",

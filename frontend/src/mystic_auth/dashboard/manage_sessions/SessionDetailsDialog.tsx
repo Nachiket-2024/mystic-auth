@@ -22,10 +22,10 @@ interface DetailRowProps {
     children: React.ReactNode;
 }
 
-/** Same label/value layout as UserDetailsDialog.tsx's own DetailRow - the
- * whole point of this dialog is showing what the table's truncated/dropped
- * columns (ip_address isn't even a column anymore) cut off, so nothing here
- * should re-truncate. */
+/** Same label/value layout as UserDetailsDialog.tsx's own DetailRow. This
+ * dialog exists to show what the table's truncated/dropped columns cut off
+ * (ip_address isn't even a column anymore), so nothing here should
+ * re-truncate. */
 const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
     <Stack gap={0.5}>
         <Text fontSize="sm" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" color="fg.muted">
@@ -41,8 +41,8 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
  * SessionDetailsDialog
  * ----------------------------
  * Read-only "View" panel for one session's full device/IP/location/date
- * info - everything ManageSessionsCard's own table no longer shows at all
- * (ip_address) or truncates (location, dates) for table-width reasons. Pure
+ * info: everything ManageSessionsCard's table no longer shows at all
+ * (ip_address) or truncates (location, dates) for width reasons. Pure
  * display surface, same shape as users/dialogs/UserDetailsDialog.tsx: takes the
  * already-fetched row object directly, no separate query.
  */

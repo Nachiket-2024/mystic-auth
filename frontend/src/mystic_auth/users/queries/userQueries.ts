@@ -39,10 +39,9 @@ export function useUsersQuery(page: number, pageSize: number, filters: UsersFilt
             const total = Number(res.headers["x-total-count"]);
             return { users: res.data, total: Number.isFinite(total) ? total : 0 };
         },
-        // Keeps the current page's rows on screen while a different page
-        // loads in, same reasoning as auditQueries.ts's identical option:
-        // without it, switching pages would flash the table's loading
-        // skeleton and could shift the page's height mid-navigation.
+        // Keeps the current page's rows on screen while the next page loads
+        // (same as auditQueries.ts), avoiding a loading-skeleton flash and
+        // page-height shift on navigation.
         placeholderData: keepPreviousData,
         // CommandPalette reuses this hook to search users on-demand and
         // needs to skip the request entirely while its query is empty,
@@ -51,7 +50,7 @@ export function useUsersQuery(page: number, pageSize: number, filters: UsersFilt
     });
 }
 
-/** Aggregate counts for the Users page's summary card - independent of the
+/** Aggregate counts for the Users page's summary card, independent of the
  * main list's current page/filters, so it stays put while those change. */
 export function useUserStatsQuery() {
     return useQuery({

@@ -1,14 +1,7 @@
-# tests/backend/mystic_auth/unit/authorization/evaluators/test_policy_evaluator_detailed_unit.py
-#
-# Unit coverage for PolicyEvaluationEngine.evaluate_detailed's own
-# explainability contract. evaluate_detailed returns an AuthorizationDecision
-# (see evaluators/authorization_decision.py) rather than a bare dict : per
-# authorization decision explainability, "detailed APIs should use new
-# structure". matched_policies/rejected_policies replace the old
-# granting_policy_names/"candidate minus granting" split. Split out of
-# test_policy_evaluator_unit.py once that file passed the repo's own
-# file-length guideline; see that file for the base allow/deny/conditions
-# coverage this builds on.
+# Unit coverage for PolicyEvaluationEngine.evaluate_detailed's explainability
+# contract: it returns an AuthorizationDecision (matched_policies/rejected_policies)
+# rather than a bare dict. Split out of test_policy_evaluator_unit.py, which has
+# the base allow/deny/conditions coverage this builds on.
 
 from backend.mystic_auth.authorization.evaluators.policy_evaluator import (
     PolicyEvaluationEngine,
@@ -48,10 +41,9 @@ def test_evaluate_detailed_agrees_with_evaluate_on_unconditional_allow():
 
 
 def test_evaluate_detailed_lists_a_policy_as_rejected_with_its_failed_condition_when_conditions_fail():
-    # This is the whole point of evaluate_detailed over evaluate: telling
-    # apart "no policy even applies" from "a policy applies but its
-    # conditions rejected this specific resource" : and now, which
-    # condition key specifically failed.
+    # The point of evaluate_detailed over evaluate: telling apart "no policy even
+    # applies" from "a policy applies but its conditions rejected this resource",
+    # and which condition key failed.
     policy = _policy(
         ["documents:publish"],
         resource_type="documents",
@@ -102,8 +94,8 @@ def test_evaluate_detailed_denial_reason_is_no_matching_policy_when_nothing_matc
 
 
 def test_evaluate_reuses_evaluate_detailed_and_agrees_with_it():
-    # evaluate() is now a thin wrapper : confirm it stays in lockstep with
-    # evaluate_detailed's own "allowed" field rather than drifting.
+    # evaluate() is a thin wrapper: confirm it stays in lockstep with
+    # evaluate_detailed's "allowed" field rather than drifting.
     policy = _policy(
         ["documents:publish"],
         resource_type="documents",

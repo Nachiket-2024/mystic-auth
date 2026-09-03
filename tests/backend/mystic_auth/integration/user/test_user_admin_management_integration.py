@@ -2,11 +2,11 @@
 #
 # End-to-end coverage for admin-side GET /users/ listing/filtering/sorting,
 # PUT /users/{email}, and PATCH /users/{email}/role (user_management_
-# query_routes.py / user_management_update_routes.py) against the real
+# query_routes.py / user_management_update_routes.py), against the real
 # ASGI app, real PostgreSQL, and real Redis (see conftest.py), including
 # the system-user guards no admin capability can bypass. Split out of
 # test_user_list_and_update_integration.py once that file passed the
-# repo's own file-length guideline; see that file for the base
+# repo's file-length guideline; see that file for the base
 # authorization-gate and role-as-metadata PBAC coverage.
 import pytest
 
@@ -39,8 +39,8 @@ async def test_admin_can_list_all_users(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_list_all_users_reports_total_count_via_header(client, created_emails):
-    """X-Total-Count (UsersPage.tsx's numbered-pagination page count) must
-    reflect the true total, not just how many rows this one page returned."""
+    """X-Total-Count (used by UsersPage.tsx for numbered pagination) must
+    reflect the true total, not just how many rows this page returned."""
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
 
@@ -49,8 +49,8 @@ async def test_list_all_users_reports_total_count_via_header(client, created_ema
     assert total == len(full_resp.json())
 
     limited_resp = await client.get("/users/", params={"limit": 1})
-    # Same total regardless of the page size requested: X-Total-Count
-    # describes the whole result set, not this one page.
+    # X-Total-Count describes the whole result set, not this one page, so
+    # it stays the same regardless of the page size requested.
     assert int(limited_resp.headers["x-total-count"]) == total
     assert len(limited_resp.json()) == 1
 
@@ -60,8 +60,8 @@ async def test_list_all_users_search_filters_by_name_or_email(client, created_em
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
     target_email = unique_email("findme")
-    # Ends logged in as target_email, so switch back to the admin
-    # afterwards to actually query the list.
+    # create_verified_user leaves the client logged in as target_email, so
+    # log back in as admin before querying the list.
     await create_verified_user(client, created_emails, target_email)
     login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
     assert login_resp.status_code == 200
@@ -121,8 +121,8 @@ async def test_list_all_users_filters_by_status(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_list_all_users_filters_by_policy_name(client, created_emails):
-    # Only create_admin holds user_administration; create_verified_user's
-    # default (self_service only) doesn't.
+    # create_admin holds user_administration; create_verified_user's
+    # default policy (self_service only) doesn't.
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
     plain_email = unique_email("plainuser")
@@ -145,9 +145,8 @@ async def test_list_all_users_filters_by_policy_name(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_list_all_users_filters_by_permission(client, created_emails):
-    # users:list_all is only granted via user_administration, not
-    # self_service, so this proves the filter matches on the policy's
-    # *actions*, not just its name.
+    # users:list_all comes from user_administration, not self_service, so
+    # this proves the filter matches on the policy's actions, not its name.
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
     plain_email = unique_email("plainuser")
@@ -169,19 +168,19 @@ async def test_list_all_users_filters_by_permission_includes_a_direct_grant_hold
     test_list_all_users_filters_by_permission above), or as a direct
     UserPermission grant that bypasses Policy entirely (POST
     /authorization/users/{email}/permissions). Both are genuinely effective
-    grants, so the filter must surface a user who holds it only the second
-    way, not just users whose access happens to route through a policy."""
+    grants, so the filter must also surface a user who holds it only the
+    direct-grant way."""
     # The granter needs permissions:grant (only system_superuser has it),
-    # which itself also grants rate_limits:read - so it's used purely to
-    # perform the grant and the query, never asserted on below. admin_email
-    # (user_administration only, no rate_limits:read via any policy) is the
-    # "should not appear" control instead.
+    # which also happens to grant rate_limits:read, so system_email is used
+    # only to perform the grant and the query, never asserted on below.
+    # admin_email (user_administration only, no rate_limits:read via any
+    # policy) is the "should not appear" control instead.
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
     direct_grant_email = unique_email("directgrant")
-    # self_service only - no policy grants rate_limits:read, so this user
+    # self_service only: no policy grants rate_limits:read, so this user
     # would be invisible to the filter without the direct-grant branch.
     await create_verified_user(client, created_emails, direct_grant_email)
 
@@ -228,8 +227,8 @@ async def test_admin_can_update_a_regular_user(client, created_emails):
     admin_email = unique_email("admin")
     target_email = unique_email("target")
 
-    # Create the target as its own session first so logging in as the
-    # admin afterwards doesn't affect it.
+    # Create the target first, in its own session, so logging in as admin
+    # afterward doesn't affect it.
     await create_verified_user(client, created_emails, target_email)
     await create_admin(client, created_emails, admin_email)
 
@@ -240,11 +239,11 @@ async def test_admin_can_update_a_regular_user(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_admin_cannot_modify_system_user(client, created_emails):
-    # Regression test for the privilege-escalation gap where update_any_user
-    # lacked the system-user guard present on delete/role-update: an admin
-    # could PUT a new password onto the system account and take it over
-    # entirely. This guard is a target-resource invariant, not a PBAC
-    # decision; see user_management_update_routes.py's UserRole import note.
+    # Regression test: update_any_user used to lack the system-user guard
+    # that delete/role-update already had, so an admin could PUT a new
+    # password onto the system account and take it over. This guard is a
+    # target-resource invariant, not a PBAC decision; see
+    # user_management_update_routes.py's UserRole import note.
     admin_email = unique_email("admin")
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
@@ -297,10 +296,10 @@ async def test_admin_cannot_assign_system_role_to_another_user(client, created_e
 @pytest.mark.asyncio
 async def test_admin_can_change_user_role_to_admin_and_back_via_role_endpoint(client, created_emails):
     # Role changes are bidirectional through the single generic /role
-    # endpoint; there is no separate one-directional "promote" path. An
-    # admin holding only user_administration (which grants users:assign_role,
-    # not users:assign_system_role) can move a non-system user to any
-    # non-system role, in either direction.
+    # endpoint; there's no separate one-directional "promote" path. An
+    # admin holding only user_administration (users:assign_role, not
+    # users:assign_system_role) can move a non-system user to any
+    # non-system role, either direction.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)

@@ -12,9 +12,8 @@ import { formatNumber } from "../../translations/numerals";
 
 const PasswordResetRequestForm: React.FC = () => {
     const { t } = useTranslation("auth");
-    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
-    // even in a mixed "en+hi" mode, the same way dates already do (see
-    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits even in
+    // a mixed "en+hi" mode (same as dates); only translated text switches with pageLanguage.
     const language = useLanguageStore((s) => s.chromeLanguage);
     const [email, setEmail] = useState("");
     const { cooldown, startCooldown } = useCooldown();
@@ -47,9 +46,8 @@ const PasswordResetRequestForm: React.FC = () => {
                 />
             </ChakraField.Root>
 
-            {/* Solid variant's default hover is only colorPalette.solid at 90%
-                opacity - too subtle a shift to read as a hover state (see
-                LoginForm.tsx's Login button for the same fix). */}
+            {/* Solid variant's default hover is only 90% opacity, too subtle (same fix
+                as LoginForm.tsx's Login button). */}
             <Button
                 type="submit"
                 colorPalette="brand"

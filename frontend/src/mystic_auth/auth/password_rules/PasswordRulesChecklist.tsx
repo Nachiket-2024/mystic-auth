@@ -9,12 +9,10 @@ interface PasswordRulesChecklistProps {
     rules: PasswordRules;
     fontSize?: string;
     /**
-     * True before the user has typed anything into the password field.
-     * An empty password trivially fails every rule, so rendering that as
-     * four red X's on first paint (before the user has done anything
-     * "wrong") reads as an alarm rather than guidance. Pristine renders a
-     * neutral, ungraded state instead; the first keystroke turns it back
-     * into the normal red/green pass-fail checklist.
+     * True before the user has typed anything. An empty password trivially fails
+     * every rule, so rendering four red X's on first paint would read as an alarm
+     * rather than guidance. Pristine shows a neutral state instead; the first
+     * keystroke switches it to the normal red/green checklist.
      */
     pristine?: boolean;
     /** Number of grid columns. 2 (default) for a standalone, full-width
@@ -25,17 +23,13 @@ interface PasswordRulesChecklistProps {
 
 /**
  * Shared pass/fail checklist for SignupForm, PasswordResetConfirmForm, and
- * PasswordStrengthPanel. Wrapped in aria-live="polite" so screen-reader
- * users hear each rule's status update as they type, instead of relying on
- * the red/green icon alone.
+ * PasswordStrengthPanel. Wrapped in aria-live="polite" so screen readers announce
+ * each rule's status as it changes, not just the icon color.
  *
- * Laid out as a `SimpleGrid` with two *equal-width* columns rather than two
- * `HStack` rows: an HStack row only ever takes the width its content needs,
- * so on a translated locale with longer labels (or inside a narrower panel)
- * the row would demand more width than its container had and overflow past
- * the card's edge instead of wrapping. A grid instead gives each item a
- * fixed 50% column to wrap within, so it never grows past its container
- * regardless of label length.
+ * Laid out as a `SimpleGrid` with equal-width columns rather than `HStack` rows: an
+ * HStack row only takes the width its content needs, so longer translated labels
+ * would overflow past the card's edge instead of wrapping. The grid gives each item a
+ * fixed column to wrap within.
  */
 const PasswordRulesChecklist: React.FC<PasswordRulesChecklistProps> = ({ rules, fontSize = "md", pristine = false, columns = 2 }) => {
     const { t } = useTranslation("auth");

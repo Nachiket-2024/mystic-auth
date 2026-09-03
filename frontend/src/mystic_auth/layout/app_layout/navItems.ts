@@ -4,78 +4,58 @@ import { PERMISSIONS } from "../../authorization/permissions";
 
 export interface NavItem {
     /**
-     * Either a plain display string (rendered as-is - what app-supplied
-     * `extraNavItems` pass) or a "namespace:key" translation key (what the
-     * built-ins below pass, resolved via t() in Sidebar). Sidebar tells
-     * the two apart with i18next's own `exists()` check, so callers never
-     * need a separate flag - untranslated app strings and translated
-     * built-ins share this one field.
+     * A plain display string (what app-supplied `extraNavItems` pass) or a
+     * "namespace:key" translation key (what the built-ins pass, resolved via
+     * t() in Sidebar). Sidebar tells the two apart with i18next's `exists()`.
      */
     label: string;
     to: string;
     /**
-     * Omit for links every authenticated user should see regardless of
-     * permissions. An array means "any of" - see useAuthorization's `can` -
-     * for a page that's a legitimate destination for more than one
-     * independent action (see the Policies entry below).
+     * Omit for links every authenticated user should see. An array means
+     * "any of" (see useAuthorization's `can`) for a page reachable via more
+     * than one independent action (see the Policies entry below).
      */
     permission?: string | string[];
     /**
-     * Sort key the Sidebar merges built-in and app-supplied (`extraNavItems`)
-     * items by: lower renders first. Every built-in item below has one, in
-     * steps of 10, specifically so an app can slot a link between any two of
-     * them (e.g. `order: 15` lands between Dashboard and Users) without
-     * needing to know anyone else's exact values, just the gap either side
-     * of where it wants to land.
+     * Sort key Sidebar merges built-in and app-supplied items by: lower
+     * renders first. Built-ins step by 10, so an app can slot a link between
+     * any two (e.g. `order: 15` lands between Dashboard and Users) without
+     * knowing the others' exact values.
      *
-     * Omitting `order` is intentional, not an oversight: an item with none
-     * always sorts after every item that has one (ties broken by array
-     * order), which is what makes adding `extraNavItems` without an `order`
-     * a purely additive, non-breaking change: that's the original
-     * append-only behavior, still the default when you don't need to
-     * interleave with the built-ins.
+     * Omitting `order` is intentional: such an item always sorts after every
+     * item that has one, which keeps adding `extraNavItems` without an
+     * `order` a purely additive, append-only change.
      */
     order?: number;
-    /** Rendered muted-gray at rest, brand-colored when the item's route is
-     * active (see Sidebar's SidebarNavLink). Optional so app-supplied
-     * `extraNavItems` without one keep rendering label-only, same as before
-     * this field existed - purely additive. Also reused by PageContainer's
-     * `icon` prop on that same feature's own page, so the sidebar entry and
-     * the page title show the identical glyph rather than two different
-     * icons for one feature. */
+    /** Muted-gray at rest, brand-colored when the route is active (see
+     * Sidebar's SidebarNavLink). Optional. Also reused by PageContainer's
+     * `icon` prop, so the sidebar entry and page title share one glyph. */
     icon?: LucideIcon;
 }
 
 /**
  * Single source of truth for the sidebar's built-in link list. Items with a
- * `permission` are wrapped in IfCan by the Sidebar, so a caller who lacks
- * that permission simply never sees the link, the corresponding route is
- * still independently enforced by ProtectedRoute (and ultimately the
- * backend), this just keeps the nav from advertising pages a user can't
- * open.
+ * `permission` are wrapped in IfCan by the Sidebar; the route itself is still
+ * independently enforced by ProtectedRoute (and the backend) - this just
+ * keeps the nav from advertising pages a user can't open.
  *
  * Downstream apps add their own links via AppLayout's `extraNavItems` prop
- * (same NavItem shape, re-exported from sdk.ts) rather than editing this
- * array directly, see
+ * rather than editing this array directly. See
  * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
  */
 export const NAV_ITEMS: NavItem[] = [
     { label: "layout:nav.dashboard", to: "/dashboard", order: 10, icon: LayoutDashboard },
     { label: "layout:nav.users", to: "/users", permission: PERMISSIONS.USERS_LIST_ALL, order: 20, icon: Users },
-    // policies:read OR policies:create: a caller holding only policies:create
-    // (no read) still needs to reach this page to use its Create Policy
-    // button - creating a policy needs no visibility into existing ones,
-    // unlike update/delete/assign/revoke, which all require first finding
-    // the target via the read-gated list, so read is a real prerequisite for
-    // every other policy action but not for create. See PoliciesPage's own
-    // docstring for how it renders when the caller can create but not read.
+    // policies:read OR policies:create: creating a policy needs no
+    // visibility into existing ones, unlike update/delete/assign/revoke,
+    // which all require finding the target via the read-gated list first.
+    // See PoliciesPage's docstring for the create-but-not-read render case.
     { label: "layout:nav.policies", to: "/policies", permission: [PERMISSIONS.POLICIES_READ, PERMISSIONS.POLICIES_CREATE], order: 30, icon: ShieldCheck },
     { label: "layout:nav.permissions", to: "/permissions", permission: PERMISSIONS.PERMISSIONS_READ, order: 32, icon: KeyRound },
     { label: "layout:nav.rateLimits", to: "/rate-limits", permission: PERMISSIONS.RATE_LIMITS_READ, order: 35, icon: Gauge },
     // No permission required: every authenticated user can view their own
-    // audit trail (GET /authorization/audit-log/me, GET /audit/security-log/me)
-    // The page itself additionally shows an "All Users" tab gated by
-    // policies:read/security_audit:read for callers who hold those.
+    // audit trail. The page itself additionally shows an "All Users" tab
+    // gated by policies:read/security_audit:read.
     { label: "layout:nav.auditLog", to: "/audit-log", order: 40, icon: ScrollText },
     { label: "layout:nav.accountSettings", to: "/account-settings", order: 50, icon: Settings },
 ];

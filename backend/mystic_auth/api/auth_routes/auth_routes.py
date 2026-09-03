@@ -39,23 +39,18 @@ _OAUTH2_RATE_LIMIT_REDIRECT_URL = f"{settings.FRONTEND_BASE_URL}/login?error=TOO
 
 async def _access_token_account_key(kwargs: dict) -> str | None:
     """account_key_func for token-only routes (get_current_user, logout,
-    logout_all, list_sessions, revoke_session): none of these have a
-    request-body field to read an email from synchronously, only an
-    access_token cookie. Reads it either from a declared `access_token`
-    Cookie() param (list_sessions, revoke_session, get_current_user) or, for
-    routes that only read cookies off `request` directly (logout,
-    logout_all), from there instead - so this one function covers both
-    styles.
+    logout_all, list_sessions, revoke_session): none of these has a
+    request-body email field, only an access_token cookie. Reads it from a
+    declared `access_token` Cookie() param where present, otherwise from
+    `request` directly, covering both route styles with one function.
 
-    Uses jwt_service.decode_payload, not verify_token: real signature +
-    expiry verification (never trusts an unverified/tampered token as an
-    account key), but deliberately skips verify_token's revocation/version
-    Redis lookups - those exist to decide whether to let the *request*
-    through, not to decide what bucket to rate-limit it under, so skipping
-    them keeps this a local, fast, no-extra-round-trip decode. Missing/
-    invalid/expired token -> None, same as any other account_key_func miss:
-    the caller falls back to IP-only rate limiting for that request rather
-    than the request failing.
+    Uses jwt_service.decode_payload, not verify_token: verifies signature
+    and expiry (never trusts a tampered token as an account key) but skips
+    verify_token's revocation/version Redis lookups, since those decide
+    whether to let the *request* through, not which rate-limit bucket to
+    use. Missing/invalid/expired token returns None, same as any other
+    account_key_func miss: the caller falls back to IP-only rate limiting
+    instead of failing the request.
     """
     access_token = kwargs.get("access_token")
     if not access_token:
@@ -208,9 +203,9 @@ async def password_reset_confirm(
     )
 
 
-# POST with the token in the body rather than GET with it as a query parameter : a
-# token in a URL ends up in browser history, server access logs, and any Referer
-# header sent from the post-verification page.
+# POST with the token in the body, not GET with it as a query parameter: a
+# token in a URL ends up in browser history, server access logs, and any
+# Referer header sent from the post-verification page.
 @router.post("/verify-account")
 @rate_limiter_service.rate_limited("verify_account")
 async def verify_account(

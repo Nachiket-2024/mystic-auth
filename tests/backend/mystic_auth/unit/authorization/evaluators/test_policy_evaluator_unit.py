@@ -1,19 +1,10 @@
-# tests/backend/mystic_auth/unit/authorization/evaluators/test_policy_evaluator_unit.py
+# Unit coverage for PolicyEvaluationEngine: the single place authorization
+# decisions are computed. Pure and DB-free, so these tests build Policy objects
+# directly rather than mocking a repository or database. Covers allow/deny
+# decisions, ownership rules, resource attributes, and conditional policies.
 #
-# Unit coverage for PolicyEvaluationEngine : the single place authorization
-# decisions are actually computed. Pure and DB-free, so these tests build
-# Policy objects directly rather than mocking a repository or database.
-#
-# Per the PBAC testing requirements, these tests must prove: allow
-# decisions, deny decisions, ownership rules, resource attributes,
-# conditional policies, and (together with test_current_user_handler and
-# test_authorization_service) that identical roles/no-role users can have
-# different authorization outcomes.
-#
-# evaluate_detailed's own explainability coverage (matched/rejected
-# policies, denial reasons) is split out into
-# test_policy_evaluator_detailed_unit.py once this file passed the repo's
-# own file-length guideline.
+# evaluate_detailed's explainability coverage (matched/rejected policies, denial
+# reasons) is split out into test_policy_evaluator_detailed_unit.py.
 
 from backend.mystic_auth.authorization.evaluators.policy_evaluator import (
     PolicyEvaluationEngine,
@@ -70,11 +61,9 @@ def test_grants_access_if_any_one_of_several_policies_allows():
 
 
 def test_inactive_policy_state_is_the_repositorys_responsibility_not_the_evaluators():
-    # The evaluator trusts that only active policies were passed in (the
-    # repository filters is_active=True before evaluation) : it doesn't
-    # re-check is_active itself. Confirm a policy explicitly marked
-    # is_active=False is still evaluated as a grant here, since re-checking
-    # would be dead logic duplicating the repository's filter.
+    # The evaluator trusts that only active policies were passed in (the repository
+    # filters is_active=True first); it doesn't re-check is_active itself. A policy
+    # marked is_active=False is still evaluated as a grant here.
     policy = _policy(["users:list_all"])
     policy.is_active = False
 
@@ -102,8 +91,8 @@ def test_self_only_condition_denies_when_resource_belongs_to_someone_else():
 
 
 def test_self_only_condition_denies_when_no_resource_is_supplied():
-    # An ownership condition with nothing to check ownership against cannot
-    # be assumed satisfied : default-deny applies.
+    # An ownership condition with nothing to check ownership against cannot be
+    # assumed satisfied: default-deny applies.
     policies = [_policy(["documents:read"], resource_type="documents", conditions={"self_only": True})]
 
     assert PolicyEvaluationEngine.evaluate(
@@ -155,7 +144,7 @@ def test_resource_attributes_condition_denies_when_any_field_mismatches():
         resource_type="documents",
         conditions={"resource_attributes": {"status": "draft", "team_id": 5}},
     )]
-    resource = {"status": "published", "team_id": 5}  # status doesn't match
+    resource = {"status": "published", "team_id": 5}
 
     assert PolicyEvaluationEngine.evaluate(
         policies, "documents:publish", "documents", "editor@example.com", resource=resource
@@ -194,7 +183,7 @@ def test_resource_attributes_condition_works_against_an_attribute_bearing_object
 
 
 def test_resource_attributes_and_self_only_can_be_combined():
-    # Both conditions must pass : ownership AND a resource-state check.
+    # Both conditions must pass: ownership and a resource-state check.
     policies = [_policy(
         ["documents:publish"],
         resource_type="documents",
@@ -254,8 +243,8 @@ def test_context_attributes_condition_denies_when_no_context_is_supplied():
 # ---------------------------- Roles do not enter the decision at all ----------------------------
 
 def test_evaluation_never_references_role_two_role_free_policy_sets_differ_correctly():
-    # There is no "role" concept anywhere in Policy or the evaluator's
-    # signature : authorization is 100% a function of assigned policies.
+    # There is no "role" concept in Policy or the evaluator's signature:
+    # authorization is entirely a function of assigned policies.
     admin_like_policies = [_policy(["users:list_all", "users:update_any"])]
     plain_policies = [_policy(["users:read_own"])]
 

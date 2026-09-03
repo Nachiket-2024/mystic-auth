@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # Detects multiple alembic heads by statically parsing
-# backend/alembic/versions/*.py -- no python/alembic install, venv, or
-# running database needed, so this works from a bare git checkout.
+# backend/alembic/versions/*.py -- no python/alembic install or running
+# database needed, so this works from a bare git checkout.
 #
 # Two heads happen when the template and a downstream app each add a
-# migration on the same fork point: both point their down_revision at the
-# same old revision, so neither is anyone else's parent. `alembic upgrade
-# head` doesn't catch this ahead of time -- it fails at deploy/migrate time
-# with "Multiple head revisions are present". This catches it right after a
-# sync instead.
+# migration on the same fork point: both point down_revision at the same old
+# revision, so neither is the other's parent. `alembic upgrade head` only
+# catches this at deploy time ("Multiple head revisions are present"); this
+# catches it right after a sync instead.
 #
 # Usage: scripts/upstream-sync/check-alembic-heads.sh
 # Exit 0: single head (or no migrations yet). Exit 1: 2+ heads, details printed.
@@ -31,21 +30,14 @@ if [ "${#VERSION_FILES[@]}" -eq 0 ]; then
   exit 0
 fi
 
-# Pulls every quoted token off a `revision = ...` / `down_revision = ...`
-# line -- handles both single revisions and the tuple form
-# (`down_revision = ('a', 'b')`) that alembic itself writes for merge
-# migrations, without needing to parse Python.
+# Pulls every quoted ID off a `revision = ...` / `down_revision = ...` line,
+# handling both single revisions and the tuple form alembic writes for merge
+# migrations (`down_revision = ('a', 'b')`), without parsing Python.
 extract_ids() {
-  # `|| true`: no match (e.g. `down_revision = None`) is a normal case here,
-  # not an error -- without it, `set -e` + `pipefail` would kill the whole
-  # script the first time a migration with no parent (like the initial one)
-  # got scanned.
-  # `paste -sd' ' -`: grep -o prints each match on its own line, but callers
-  # fold this into a space-delimited string (`ALL_DOWN_REVISIONS="$ALL_DOWN_REVISIONS $(...)"`)
-  # and match against it with `*" $REV "*` -- a tuple's second-and-later IDs
-  # need a real space before them, not the newline grep -o would leave. Using
-  # `paste` (rather than `tr '\n' ' '`) avoids a trailing space, which would
-  # otherwise corrupt single-ID `REV` values used as associative-array keys.
+  # `|| true`: no match (e.g. `down_revision = None`) is normal, not an error;
+  # without it `set -e` would kill the script on the first parentless migration.
+  # `paste -sd' ' -` joins matches with real spaces (not grep -o's newlines) and
+  # no trailing space, since callers match ids with `*" $REV "*`.
   grep -oE "['\"][a-f0-9]{6,}['\"]" <<<"$1" | tr -d "'\"" | paste -sd' ' - || true
 }
 
@@ -110,7 +102,7 @@ backend container):
   docker compose exec backend alembic merge heads -m "merge migration branches"
 
 That generates one new file whose down_revision is both heads above -- commit
-it like any other migration. See docs/mystic_auth/template-usage/syncing-upstream.md
+it like any other migration. See docs/mystic_auth/template-usage/syncing-upstream/README.md
 for when this runs and why.
 EOF
 exit 1

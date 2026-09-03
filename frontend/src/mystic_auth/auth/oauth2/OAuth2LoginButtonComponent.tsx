@@ -2,9 +2,6 @@ import React from "react";
 import { Box, Button, Flex } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
-// Shared error/success feedback component: replaces the ad hoc
-// <p style={{ color: "red"/"green" }}> pattern, which also carried no
-// role="alert"/aria-live so screen readers never announced login failures.
 import FormAlert from "../../ui/FormAlert";
 
 interface OAuth2LoginButtonComponentProps {
@@ -28,11 +25,8 @@ const OAuth2LoginButtonComponent: React.FC<OAuth2LoginButtonComponentProps> = ({
         <Box w="full" mt={4}>
             <Button
                 w="full"
-                // Google's official "Sign in with Google" button asset comes in a light and a
-                // dark variant (branding guidelines require picking whichever fits the
-                // surrounding UI, not always the light one); previously this always rendered the
-                // light variant, which read as a stark white box against the rest of the app's
-                // dark-mode surfaces.
+                // Google's branding guidelines offer a light and dark button variant; this
+                // switches with the app theme instead of always using the light one.
                 bg="white"
                 color="#1F1F1F"
                 borderWidth="1px"

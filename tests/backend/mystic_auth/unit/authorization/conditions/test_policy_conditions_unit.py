@@ -1,9 +1,6 @@
-# tests/backend/mystic_auth/unit/authorization/conditions/test_policy_conditions_unit.py
-#
-# Unit coverage for the modular condition framework (the advanced
-# Policy Conditions"): Authorization Engine -> Condition Evaluation Service
-# -> Condition Handlers. Each handler is tested in isolation (no DB, no
-# evaluator), plus the service's dispatch/AND/fail-safe-on-unknown-key
+# Unit coverage for the condition framework: Authorization Engine -> Condition
+# Evaluation Service -> Condition Handlers. Each handler is tested in isolation
+# (no DB, no evaluator), plus the service's dispatch/AND/fail-safe-on-unknown-key
 # behavior, plus the registry itself.
 from backend.mystic_auth.authorization.conditions.condition_evaluation_service import (
     ConditionEvaluationService,
@@ -59,10 +56,9 @@ def test_self_only_imposes_no_restriction_when_falsy():
 
 
 def test_self_only_fails_safe_on_resource_that_cannot_carry_email():
-    """Regression: an exotic resource type (e.g. a bare object with no
-    "email" attribute) must deny rather than raise, and a falsy
-    user_email must never coincidentally match a resource with no owner
-    email via None == None."""
+    """An exotic resource type (e.g. an object with no "email" attribute) must
+    deny rather than raise, and a falsy user_email must never coincidentally
+    match a resource with no owner email via None == None."""
     handler = SelfOnlyCondition()
     assert handler.evaluate(True, "user@example.com", object(), None) is False
     assert handler.evaluate(True, None, object(), None) is False
@@ -89,9 +85,8 @@ def test_resource_attributes_denies_when_no_resource_supplied():
 
 
 def test_resource_attributes_fails_safe_on_non_mapping_condition_value():
-    """Regression: a malformed condition_value that bypassed the
-    write-time validator (e.g. a direct DB write) must deny rather than
-    raise AttributeError out of .items() when called on a non-dict."""
+    """A malformed condition_value that bypassed the write-time validator (e.g. a
+    direct DB write) must deny rather than raise when it's not a dict."""
     handler = ResourceAttributesCondition()
     assert handler.evaluate("not-a-dict", "u@example.com", {"status": "draft"}, None) is False
     assert handler.evaluate(["status", "draft"], "u@example.com", {"status": "draft"}, None) is False
@@ -113,9 +108,8 @@ def test_context_attributes_denies_when_context_missing():
 
 
 def test_context_attributes_fails_safe_on_non_mapping_condition_value():
-    """Regression: a malformed condition_value that bypassed the
-    write-time validator (e.g. a direct DB write) must deny rather than
-    raise AttributeError out of .items() when called on a non-dict."""
+    """A malformed condition_value that bypassed the write-time validator (e.g. a
+    direct DB write) must deny rather than raise when it's not a dict."""
     handler = ContextAttributesCondition()
     assert handler.evaluate(["mfa_verified"], "u@example.com", None, {"mfa_verified": True}) is False
     assert handler.evaluate("mfa_verified", "u@example.com", None, {"mfa_verified": True}) is False
@@ -142,17 +136,14 @@ def test_time_denies_outside_business_hours():
 def test_time_handles_overnight_range_wrapping_midnight():
     handler = TimeCondition()
     condition = {"start": "22:00", "end": "06:00", "timezone": "UTC"}
-    # 23:30 is within the overnight window (after 22:00)
     assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-13T23:30:00+00:00"}) is True
-    # 03:00 is within the overnight window (before 06:00)
     assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-14T03:00:00+00:00"}) is True
-    # 12:00 (midday) is outside the overnight window
     assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-13T12:00:00+00:00"}) is False
 
 
 def test_time_respects_timezone_conversion():
     handler = TimeCondition()
-    # 09:00 Sydney (UTC+10 in July, standard time) == 23:00 UTC the prior day
+    # 09:00 Sydney (UTC+10 in July) is 23:00 UTC the prior day
     condition = {"start": "09:00", "end": "17:00", "timezone": "Australia/Sydney"}
     context = {"current_time": "2026-07-13T23:30:00+00:00"}
     assert handler.evaluate(condition, "u@example.com", None, context) is True
@@ -230,11 +221,9 @@ def test_date_range_fails_safe_on_malformed_date():
 
 
 def test_date_range_fails_safe_when_neither_bound_present():
-    """Regression: a date_range condition with no recognizable "start" or
-    "end" (empty dict, or wrong field names like "start_date"/"end_date")
-    must deny : never silently treated as an unconstrained/always-allow
-    range. condition_validator.py already blocks this at write time; this
-    pins the evaluator's own independent fail-safe (defense in depth)."""
+    """A date_range with no recognizable start/end must deny, never fall back to
+    unconstrained/always-allow. condition_validator.py blocks this at write time;
+    this pins the evaluator's own independent fail-safe."""
     handler = DateRangeCondition()
     assert handler.evaluate({}, "u@example.com", None, {}) is False
     assert handler.evaluate(
@@ -317,10 +306,8 @@ def test_security_context_denies_when_key_absent_from_security_context():
 
 
 def test_security_context_fails_safe_on_non_mapping_condition_value():
-    """Regression: a malformed condition_value that bypassed the
-    write-time validator (e.g. a direct DB write) must deny rather than
-    raise AttributeError out of .items() when called on a non-dict, even
-    when a non-empty security_context sub-key is present."""
+    """A malformed condition_value that bypassed the write-time validator must
+    deny rather than raise, even when the security_context sub-key is present."""
     handler = SecurityContextCondition()
     context = {"security_context": {"device_trusted": True}}
     assert handler.evaluate(["device_trusted"], "u@example.com", None, context) is False
@@ -364,10 +351,8 @@ def test_service_ands_across_multiple_condition_keys():
 
 
 def test_service_fails_safe_when_conditions_is_not_a_mapping():
-    """Regression: Policy.conditions is a JSONB column, so a direct DB
-    write/migration could put a non-dict value there (bypassing
-    condition_validator.py's write-time check). evaluate_detailed must
-    deny rather than raise AttributeError out of conditions.items()."""
+    """Policy.conditions is a JSONB column, so a direct DB write could put a
+    non-dict value there. Evaluation must deny, not raise, on that."""
     service = ConditionEvaluationService(default_condition_registry)
     assert service.evaluate(["self_only"], "u@example.com", None, None) is False
     assert service.evaluate("self_only", "u@example.com", None, None) is False
@@ -375,8 +360,7 @@ def test_service_fails_safe_when_conditions_is_not_a_mapping():
 
 
 def test_service_fails_safe_on_unrecognized_condition_key():
-    """An unknown/typo'd condition key must deny rather than be silently
-    ignored : an unenforceable restriction must never be treated as
-    satisfied."""
+    """An unknown/typo'd condition key must deny, not be silently ignored:
+    an unenforceable restriction must never count as satisfied."""
     service = ConditionEvaluationService(default_condition_registry)
     assert service.evaluate({"totally_made_up_condition": True}, "u@example.com", None, None) is False

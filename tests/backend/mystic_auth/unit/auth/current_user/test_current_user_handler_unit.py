@@ -1,15 +1,13 @@
-# tests/backend/mystic_auth/unit/test_current_user_handler_unit.py
-#
 # current_user_handler.py backs GET /auth/me. These tests pin down its PBAC
-# behavior: the 'permissions' it returns must come from the caller's actual
-# *assigned policies* (via policy_repository) AND their direct UserPermission
-# grants (via user_permission_repository) - never from their role. Two users
-# with the identical role can hold different policies/grants and therefore
-# see different permissions here. The direct-grant half mirrors
-# AuthorizationService._get_effective_policies, which real backend
-# enforcement already merges the same way: this response has to agree with
-# that, or a directly-granted action would pass every real authorization
-# check yet never light up in the frontend, which reads only this list.
+# behavior: the 'permissions' it returns must come from the caller's
+# assigned policies (via policy_repository) and their direct
+# UserPermission grants (via user_permission_repository), never from
+# their role. Two users with the same role can hold different
+# policies/grants and see different permissions here. The direct-grant
+# half mirrors AuthorizationService._get_effective_policies, which real
+# backend enforcement merges the same way, so a directly-granted action
+# doesn't pass every real check yet stay invisible in the frontend (which
+# reads only this list).
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -41,10 +39,8 @@ class _FakePolicy:
     def __init__(self, actions, resource_type="users"):
         self.actions = actions
         # Every action below is "users:...", so "users" is a correct
-        # default resource_type for every existing call site here (see
-        # current_user_handler.py's resource_type filter); a test that
-        # actually wants to pin down cross-resource-type filtering passes
-        # resource_type explicitly.
+        # default here; a test that wants cross-resource-type filtering
+        # passes resource_type explicitly.
         self.resource_type = resource_type
 
 
@@ -59,8 +55,8 @@ class _FakeGrant:
 
 
 def _mock_no_direct_grants(mocker):
-    """Most tests here aren't exercising direct grants at all - this keeps
-    them from needing to know that call exists."""
+    """Most tests here aren't exercising direct grants; this keeps them
+    from needing to know that call exists."""
     mocker.patch(
         f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
         new_callable=AsyncMock,
@@ -115,8 +111,7 @@ async def test_no_assigned_policies_means_no_permissions(mocker):
 
 @pytest.mark.asyncio
 async def test_two_users_with_the_same_role_can_have_different_permissions(mocker):
-    # The core PBAC claim the PBAC testing requirements calls out
-    # explicitly: "identical roles can have different permissions."
+    # The core PBAC claim: identical roles can have different permissions.
     mocker.patch(
         f"{MODULE}.jwt_service.verify_token",
         new_callable=AsyncMock,
@@ -153,10 +148,8 @@ async def test_two_users_with_the_same_role_can_have_different_permissions(mocke
 
 
 # ---------------------------- Users without roles ----------------------------
-# role is metadata only, and "the system must support ...
-# users without roles" / "users without roles still work": a roleless
-# account must still authenticate and be authorized purely via its
-# assigned policies.
+# role is metadata only: a roleless account must still authenticate and
+# be authorized purely via its assigned policies.
 
 @pytest.mark.asyncio
 async def test_a_user_with_no_role_at_all_is_still_authenticated(mocker):
@@ -186,9 +179,8 @@ async def test_a_user_with_no_role_at_all_is_still_authenticated(mocker):
 
 @pytest.mark.asyncio
 async def test_a_user_with_no_role_gets_admin_level_permissions_if_assigned_admin_policies(mocker):
-    # The strongest form of the claim: a roleless account is not limited to
-    # "basic" access: it gets exactly whatever its assigned policies grant,
-    # same as any other account.
+    # A roleless account isn't limited to "basic" access: it gets exactly
+    # whatever its assigned policies grant, same as any other account.
     mocker.patch(
         f"{MODULE}.jwt_service.verify_token",
         new_callable=AsyncMock,
@@ -213,13 +205,12 @@ async def test_a_user_with_no_role_gets_admin_level_permissions_if_assigned_admi
 
 
 # -------------------- Direct (bypasses-Policy) UserPermission grants --------------------
-# A UserPermission grant (UserPermissionsDialog / BulkPermissionGrantDialog,
-# never through a Policy) must show up here exactly like a policy-derived
-# action does: AuthorizationService._get_effective_policies already merges
-# both for real enforcement, so a caller granted only a direct permission -
-# no matching Policy at all - passes every real backend authorization check
-# yet would see none of the corresponding UI if this response omitted it,
-# since every IfCan/ProtectedRoute check reads only this permissions list.
+# A UserPermission grant (never through a Policy) must show up here
+# exactly like a policy-derived action does: AuthorizationService
+# already merges both for real enforcement, so a caller granted only a
+# direct permission passes every real check but would see none of the
+# corresponding UI if this response omitted it, since every
+# IfCan/ProtectedRoute check reads only this permissions list.
 
 @pytest.mark.asyncio
 async def test_a_direct_grant_with_no_assigned_policies_at_all_still_appears(mocker):
@@ -293,8 +284,8 @@ async def test_a_direct_grant_already_covered_by_a_policy_is_not_duplicated(mock
 async def test_a_direct_grant_scoped_to_the_wrong_resource_type_is_excluded(mocker):
     # Same reasoning as the identical filter on policy actions above: a
     # UserPermission's resource_type is independently editable from its
-    # action (see UserPermission's own docstring), so a mis-scoped grant
-    # must not light up UI the backend would 403 on for real.
+    # action, so a mis-scoped grant must not light up UI the backend
+    # would 403 on for real.
     mocker.patch(
         f"{MODULE}.jwt_service.verify_token",
         new_callable=AsyncMock,

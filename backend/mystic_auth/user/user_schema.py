@@ -12,9 +12,9 @@ _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 class UserBase(BaseModel):
     """Shared base schema for User data used across create/read schemas."""
 
-    # Capped to match signup_schema.SignupSchema : an unbounded string here
-    # would feed straight into Argon2 hashing (password) or be
-    # stored/displayed/logged indefinitely (name).
+    # Capped to match signup_schema.SignupSchema: an unbounded string here
+    # would feed straight into Argon2 hashing (password) or be stored/
+    # displayed/logged indefinitely (name).
     name: str = Field(..., max_length=100)
     email: EmailStr
 
@@ -34,19 +34,19 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema used when registering a new user account. Role defaults to
-    'user' : admin accounts are assigned separately."""
+    'user'; admin accounts are assigned separately."""
 
     password: str = Field(..., max_length=128)
 
 
 class UserUpdate(BaseModel):
     """Schema for user-controlled profile updates only. Role changes are
-    intentionally excluded : use management endpoints for that.
+    intentionally excluded; use management endpoints for that.
 
-    Backs both PUT /users/me and PUT /users/{email} (management), so the same
-    max_length caps signup_schema.SignupSchema applies must apply here too :
-    an unbounded password submitted through either of these routes would
-    otherwise be fed straight into Argon2 hashing uncapped.
+    Backs both PUT /users/me and PUT /users/{email} (management), so the
+    same max_length caps as signup_schema.SignupSchema must apply here too:
+    an unbounded password submitted through either route would otherwise
+    feed straight into Argon2 hashing uncapped.
     """
 
     name: str | None = Field(default=None, max_length=100)
@@ -63,17 +63,16 @@ class UserUpdate(BaseModel):
         return stripped
 
     # Required (by PUT /users/me's own handler, not this schema) when an
-    # account that already has a password is changing it via self-service :
-    # a hijacked access-token cookie would otherwise be enough to fully lock
-    # the legitimate owner out by just setting a new password, no proof of
-    # the old one needed. Not required for the management route (PUT
-    # /users/{email}, which reuses this schema) or for an OAuth-only account
-    # setting a password for the first time (nothing to confirm against).
+    # account with a password changes it via self-service: otherwise a
+    # hijacked access-token cookie alone could lock the real owner out by
+    # setting a new password, no proof of the old one needed. Not required
+    # for the management route (PUT /users/{email}, which reuses this
+    # schema) or for an OAuth-only account setting a password for the first
+    # time (nothing to confirm against).
     current_password: str | None = Field(default=None, max_length=128)
 
     # Per-user re-skin override (#rrggbb); see user_model.py's brand_color
-    # column docstring. Explicit null resets to the app default, same
-    # exclude_unset semantics as every other field here.
+    # column docstring. Explicit null resets to the app default.
     brand_color: str | None = Field(default=None, max_length=7)
 
     @field_validator("brand_color")
@@ -94,10 +93,10 @@ class UserSelfDeleteRequest(BaseModel):
 
 
 class UserStatsRead(BaseModel):
-    """Aggregate counts backing the Users page's summary card. Independent
-    of whatever page/filters the caller currently has applied to the main
-    list - always reflects the whole table, so the card doesn't shift
-    numbers around as an operator pages/filters through the list below it."""
+    """Aggregate counts backing the Users page's summary card. Always
+    reflects the whole table regardless of the caller's current page/filter,
+    so the card doesn't shift numbers as an operator pages through the list
+    below it."""
 
     total: int
     verified: int
@@ -118,8 +117,8 @@ class UserRead(UserBase):
 
     id: int
 
-    # Display/grouping metadata only; None for an account with no role at all
-    # (see user_model.py's Role note).
+    # Display/grouping metadata only; None for an account with no role at
+    # all (see user_model.py's role note).
     role: UserRole | None
 
     is_verified: bool
@@ -127,15 +126,15 @@ class UserRead(UserBase):
     created_at: datetime
     updated_at: datetime
 
-    # None = using the app default scale (app/theme.ts), never a stored
-    # literal default; see user_model.py's brand_color column docstring.
+    # None = using the app default scale (app/theme.ts); see user_model.py's
+    # brand_color column docstring.
     brand_color: str | None = None
 
-    # When this account was soft-deleted, if ever : None means never deleted
-    # (or fully restored via reactivation, which clears it).
+    # When this account was soft-deleted, if ever. None means never deleted
+    # (or restored via reactivation, which clears it).
     deleted_at: datetime | None = None
 
-    # Pulled in from the ORM object (from_attributes) purely to derive
+    # Pulled from the ORM object (from_attributes) only to derive
     # has_password below; excluded from the response so the hash itself is
     # never serialized.
     hashed_password: str | None = Field(default=None, exclude=True)
@@ -146,29 +145,28 @@ class UserRead(UserBase):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def has_password(self) -> bool:
-        """Whether this account currently has a usable password credential
-        (False for an OAuth-only account : see user_model.py's
-        hashed_password column and oauth2_service.py's login_or_create_user,
-        which is the only thing that ever clears it back to None)."""
+        """Whether this account currently has a usable password credential.
+        False for an OAuth-only account; see user_model.py's hashed_password
+        column and oauth2_service.py's login_or_create_user, the only place
+        that clears it back to None."""
         return self.hashed_password is not None
 
 
 class UserSelfUpdateResponse(UserRead):
-    """PUT /users/me's own response shape : UserRead plus whether a
-    password change's other-session revocation was actually confirmed.
+    """PUT /users/me's response shape: UserRead plus whether a password
+    change's other-session revocation was actually confirmed.
 
-    None for any update that wasn't a password change (nothing to report).
-    False means the password itself was still changed, but Redis was
-    unreachable, so the account's other sessions were NOT revoked and
-    remain valid : see user_self_service_routes.py's update_my_profile."""
+    None for any update that wasn't a password change. False means the
+    password was changed but Redis was unreachable, so other sessions were
+    NOT revoked and remain valid; see user_self_service_routes.py's
+    update_my_profile."""
 
     sessions_revoked: bool | None = None
 
 
 class UserAdminUpdateResponse(UserRead):
-    """PUT /users/{email}'s own response shape (an admin editing another
-    user's account) : same sessions_revoked contract as
-    UserSelfUpdateResponse above, see user_management_update_routes.py's
-    update_any_user."""
+    """PUT /users/{email}'s response shape (an admin editing another user's
+    account). Same sessions_revoked contract as UserSelfUpdateResponse
+    above; see user_management_update_routes.py's update_any_user."""
 
     sessions_revoked: bool | None = None

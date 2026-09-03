@@ -1,9 +1,6 @@
-# tests/backend/mystic_auth/unit/api/health_routes/test_health_routes_unit.py
-#
 # Unit coverage for /health and /health/ready, called directly as plain
-# coroutines (same convention as test_audit_log_me_route_unit.py) with
-# DB/Redis mocked, so both the healthy and failing paths are exercised
-# without needing a real Postgres/Redis connection.
+# coroutines with DB/Redis mocked, so both the healthy and failing paths
+# are exercised without a real Postgres/Redis connection.
 import json
 from unittest.mock import AsyncMock, MagicMock
 

@@ -3,7 +3,7 @@
 
 Split out of [Authentication Flows](overview.md). Both endpoints end sessions by bumping a Redis
 version counter, not by deleting or blacklisting tokens; see
-[Session Management: source of truth](session-management.md#source-of-truth) for why that scheme
+[Session Management: source of truth](session-management/README.md#source-of-truth) for why that scheme
 exists. This doc covers the two endpoints themselves and the idempotency behavior that makes them
 safe to call against an already-dead token.
 
@@ -20,33 +20,33 @@ safe to call against an already-dead token.
 
 ---
 
-## Flow
+## POST /auth/logout flow
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    subgraph Logout["POST /auth/logout"]
-        L1["Decode refresh token claims\n(decode_payload, not verify_token)"] --> L2["Bump chain_ver\nfor this chain_id"]
-        L2 -->|confirmed| L3["Mark matching\nuser_sessions row revoked"]
-        L2 -->|Redis unreachable| L3b["session_revoked: false\nin response body"]
-        L3 --> L4["Clear access_token +\nrefresh_token cookies"]
-        L3b --> L4
-        L4 --> L5["200\n(always, either way)"]
-    end
+    L1["Decode refresh token claims\n (decode_payload, not verify_token)"] --> L2["Bump chain_ver\n for this chain_id"]
+    L2 -->|confirmed| L3["Mark matching\n user_sessions row revoked"]
+    L3 ~~~ L3b
+    L2 -->|Redis unreachable| L3b["session_revoked: false\n in response body"]
+    L3 --> L4["Clear access_token +\n refresh_token cookies"]
+    L3b --> L4
+    L4 --> L5["200\n (always, either way)"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
 
+## POST /auth/logout/all flow
+
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    subgraph LogoutAll["POST /auth/logout/all"]
-        A1["Decode refresh token claims\n(decode_payload, not verify_token)"] --> A2["Bump account_ver\n(one INCR, ends every session)"]
-        A2 -->|confirmed| A3["Clear cookies"]
-        A3 --> A4["200"]
-        A2 -->|Redis unreachable| A5["Clear cookies"]
-        A5 --> A6["503\nSESSION_REVOCATION_UNAVAILABLE"]
-    end
+    A1["Decode refresh token claims\n (decode_payload, not verify_token)"] --> A2["Bump account_ver\n (one INCR, ends every session)"]
+    A2 -->|confirmed| A3["Clear cookies"]
+    A3 --> A4["200"]
+    A3 ~~~ A5
+    A2 -->|Redis unreachable| A5["Clear cookies"]
+    A5 --> A6["503\n SESSION_REVOCATION_UNAVAILABLE"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
@@ -64,14 +64,14 @@ flowchart TD
    itself couldn't be confirmed (Redis unreachable): the caller's own browser session is gone
    regardless, so that isn't treated as a failure, but the response body carries
    `session_revoked: false` instead of silently pretending the leaked token was actually revoked.
-   See [Bump failure handling](session-management.md#bump-failure-handling).
+   See [Bump failure handling](session-management/token-lifecycle.md#bump-failure-handling).
 3. **`POST /auth/logout/all` bumps `account_ver` instead.** One Redis `INCR` ends every device
    immediately. The same mechanism backs refresh-token reuse detection for a pre-chain token and
    account soft-delete/purge. Unlike plain logout, revoking every other session *is* this
    endpoint's whole purpose, so an unconfirmed bump is not treated as a quiet success: cookies are
    still cleared (this browser's own session is done regardless), but the response is
    `503 SESSION_REVOCATION_UNAVAILABLE` rather than `200`, so the caller knows the other devices
-   were not actually logged out. See [Bump failure handling](session-management.md#bump-failure-handling).
+   were not actually logged out. See [Bump failure handling](session-management/token-lifecycle.md#bump-failure-handling).
 
 ---
 
@@ -80,7 +80,7 @@ flowchart TD
 Neither endpoint treats "the presented refresh token is already revoked/expired/malformed" as an
 error: the caller's goal (no valid session left in this browser) is already true either way, so
 both still clear cookies (`POST /auth/logout` also still reports `200`; see
-[Bump failure handling](session-management.md#bump-failure-handling) for logout-all's own,
+[Bump failure handling](session-management/token-lifecycle.md#bump-failure-handling) for logout-all's own,
 separate `503` case above, which is about an *unconfirmed* Redis bump, not a stale token). This matters concretely right after a self- or
 admin-initiated password change, which bumps `account_ver` and revokes every session for the
 account, including the one the current browser is still holding. Clicking Logout immediately
@@ -96,7 +96,7 @@ apparently-still-logged-in UI) behind.
 every "me"-scoped TanStack Query cache: current user, sessions, own policy assignments, own audit
 history. None of those caches are keyed by email, so leaving a stale response cached across a
 logout could otherwise flash the previous account's data for whoever logs in next in the same
-browser tab. See [Session Management: frontend behavior](session-management.md#frontend-behavior).
+browser tab. See [Session Management: frontend behavior](session-management/frontend-and-checks.md#frontend-behavior).
 
 ---
 
@@ -113,7 +113,7 @@ session-management integration suite exercise both against real Postgres/Redis. 
 
 ## See also
 
-- [Session Management](session-management.md): the version-counter mechanism both endpoints use,
+- [Session Management](session-management/README.md): the version-counter mechanism both endpoints use,
   and how a revoked session is pushed to every open tab in real time.
 - [Authentication Flows](overview.md): tokens/cookies and how logout fits alongside the other flows.
 

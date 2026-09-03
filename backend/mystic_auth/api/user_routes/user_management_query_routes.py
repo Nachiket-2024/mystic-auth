@@ -21,12 +21,10 @@ from ...user.user_crud_collector import UserStatus, user_crud
 from ...user.user_model import UserRole
 from ...user.user_schema import UserRead, UserStatsRead
 
-# Read-only management views over the whole user table. Split out of the former
-# user_management_routes.py alongside user_management_update_routes.py (field
-# updates) and user_lifecycle_routes.py (account state transitions), mirroring
-# api/pbac_routes/'s existing split-by-operation-type precedent.
-# main.py registers this router after self-service routes so /{user_email}
-# cannot shadow /users/me or /users/stats.
+# Read-only management views over the whole user table, split out from
+# user_management_update_routes.py (field updates) and user_lifecycle_routes.py
+# (account state transitions). main.py registers this router after
+# self-service routes so /{user_email} cannot shadow /users/me or /users/stats.
 router = APIRouter(prefix="/users", tags=["Users"])
 
 _RESOURCE_TYPE = "users"

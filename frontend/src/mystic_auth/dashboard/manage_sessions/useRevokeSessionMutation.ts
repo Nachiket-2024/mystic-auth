@@ -10,11 +10,10 @@ import translations from "../../translations/translations";
 // Deliberately uses invalidateQueries (a background refetch), not
 // useLogoutAllMutation/useLogoutMutation's setQueryData(..., null): that
 // call is what actually signs this browser out (useAuthStore reads a null
-// current-user as logged-out), and revoking a DIFFERENT device's session
+// current-user as logged-out), and revoking a different device's session
 // must never do that. Invalidating just refetches GET /auth/me so its
-// active_sessions count picks up the change - without it, the dashboard's
-// "Active sessions" stat kept showing the pre-revoke count (a stale cached
-// /auth/me response) until something unrelated happened to refetch it.
+// active_sessions count picks up the change; otherwise the dashboard's
+// "Active sessions" stat kept showing the stale pre-revoke count.
 export function useRevokeSessionMutation() {
     return useMutation<{ message: string }, Error, number>({
         mutationFn: async (sessionId: number) => {

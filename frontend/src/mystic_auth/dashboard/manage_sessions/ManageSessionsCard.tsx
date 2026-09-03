@@ -26,23 +26,19 @@ import type { SessionRead } from "../../api/auth_api";
  * ----------------------------
  * Lists the caller's own active login sessions (GET /auth/sessions) as a
  * table (device/browser, location, first-signed-in, last-seen, an action
- * column), same shape as every other management list in the app, since this
- * list can grow just like those do. IP address isn't a column - it's fixed
- * width real estate a table this narrow can't spare, so it only shows in the
- * per-row "View" action's SessionDetailsDialog, alongside everything else.
- * Every row gets its own working "Log out", including the current device's
- * row ("This device" badge): that one goes through the
- * ordinary single-device logout (POST /auth/logout, same as the navbar's
- * Logout button) rather than DELETE /auth/sessions/{id} - the backend
- * rejects revoking your own current session that way (it would invalidate
- * the very request doing it), so the current row's button intentionally
- * takes the other, already-safe path instead of just being disabled.
+ * column), same shape as every other management list in the app. IP address
+ * isn't a column, since a table this narrow can't spare the width; it only
+ * shows in the per-row "View" action's SessionDetailsDialog. Every row gets
+ * a working "Log out", including the current device's row ("This device"
+ * badge): that one goes through the ordinary single-device logout
+ * (POST /auth/logout, same as the navbar's Logout button) instead of
+ * DELETE /auth/sessions/{id}, because the backend rejects revoking your own
+ * current session that way (it would invalidate the request doing it).
  *
  * Lives in its own `manage_sessions/` feature folder (mirroring the
  * backend's `auth/manage_sessions/` + `user_session/`), not under
- * `dashboard/`: this is session-management domain logic that happens to be
- * rendered on the Dashboard page, not something owned by the dashboard
- * feature itself.
+ * `dashboard/`: this is session-management domain logic that happens to
+ * render on the Dashboard page, not dashboard-owned logic.
  */
 const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
     const { t } = useTranslation("dashboard");
@@ -58,21 +54,20 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
 
     // ConfirmDialog keeps rendering (mid closing-animation) for a beat after
     // endingSession is cleared to null, so its title/description must keep
-    // reading off the last real session rather than endingSession directly -
-    // otherwise the is_current ternary flips to the other copy for that
-    // last frame, flashing the wrong text just before the dialog is gone.
-    // Derived-during-render state (not a ref: react-hooks/refs forbids
-    // reading/writing ref.current during render), matching React's own
-    // "store info from previous renders" pattern.
+    // reading off the last real session, not endingSession directly, or the
+    // is_current ternary flips to the other copy for that last frame and
+    // flashes the wrong text right before the dialog closes. Derived-during-
+    // render state (not a ref, since react-hooks/refs forbids reading or
+    // writing ref.current during render), matching React's own pattern for
+    // storing info from previous renders.
     const [lastEndingSession, setLastEndingSession] = useState<SessionRead | null>(null);
     if (endingSession && endingSession !== lastEndingSession) setLastEndingSession(endingSession);
     const dialogSession = endingSession ?? lastEndingSession;
 
     // isSuccess OR isError: useLogoutMutation clears local auth state in
-    // onSettled regardless of outcome (see its own comment - a
-    // NO_REFRESH_TOKEN_COOKIE 400 is a real, reachable response), so
-    // navigation must follow every settled mutation, not just a successful
-    // one, or ending "This device"'s row here leaves the user stuck on this
+    // onSettled regardless of outcome (a NO_REFRESH_TOKEN_COOKIE 400 is a
+    // real, reachable response), so navigation must follow every settled
+    // mutation, or ending "This device"'s row leaves the user stuck on this
     // now-stale page instead of redirecting to /login.
     useEffect(() => {
         if (logoutMutation.isSuccess || logoutMutation.isError) navigate("/login");
@@ -135,9 +130,8 @@ const ManageSessionsCard: React.FC<CardRootProps> = ({ ...cardProps }) => {
             header: t("manageSessions.signedInColumn"),
             width: "11.875rem",
             truncate: true,
-            // Matches the enlarged date stats in the Welcome card right
-            // above this table - the table's own default cell text
-            // read noticeably smaller sitting directly under those.
+            // Matches the enlarged date stats in the Welcome card above:
+            // the default cell text looked noticeably smaller next to those.
             render: (s) => <Text fontSize="md">{formatDateTime(s.created_at, language)}</Text>,
         },
         {

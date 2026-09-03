@@ -5,12 +5,10 @@ import { useTranslation } from "react-i18next";
 import { ShieldCheck, KeyRound, ScrollText, Globe } from "lucide-react";
 
 // Everything below comes from the public extension surface (../sdk), not
-// internal mystic_auth/* paths - see docs/mystic_auth/template-usage/overview.md
-// and worked-example.md#6-a-pre-auth-landing-page. This page is the
-// reference example for "a page that lives outside the authenticated app
-// shell (no Sidebar/Navbar) but still wants the app's own theme tokens and
-// session state," the same way app/projects/ProjectsPage.tsx in the worked
-// example is the reference for "a page inside the shell."
+// internal mystic_auth/* paths. This page is the reference example for "a
+// page outside the authenticated app shell (no Sidebar/Navbar) that still
+// wants the app's theme tokens and session state" - see
+// docs/mystic_auth/template-usage/overview.md and worked-example.md#6-a-pre-auth-landing-page.
 import {
     useAuthStore,
     APP_NAME,
@@ -22,8 +20,7 @@ import {
     BRAND_OUTLINE_HOVER_PROPS,
 } from "../sdk";
 
-// Side-effect import: registers this page's own "landing" i18next namespace
-// (translations/*.json, all app-owned - see that module's own docstring) so
+// Side-effect import: registers the "landing" i18next namespace so
 // useTranslation("landing") below has something to resolve.
 import "./translations/registerLandingTranslations";
 
@@ -37,15 +34,13 @@ const HIGHLIGHTS = [
 /**
  * LandingPage
  * ----------------------------
- * Minimal pre-auth marketing page: a hero, a feature-highlight grid, and CTAs
- * into signup/login. Rename, restyle, or replace this entirely - it exists as
- * a worked example of the "pages outside the auth shell" pattern (no
- * AppLayout, no ProtectedRoute), not as a page meant to ship as-is.
+ * Minimal pre-auth marketing page: hero, feature-highlight grid, and CTAs
+ * into signup/login. It's a worked example of the "outside the auth shell"
+ * pattern (no AppLayout, no ProtectedRoute), not meant to ship as-is.
  *
- * Redirects a signed-in visitor straight to /dashboard rather than showing
- * them marketing copy for a product they're already inside - same
- * `isAuthenticated` check LoginPage/SignupPage use, so this page and the
- * auth pages agree on what "already signed in" means.
+ * Redirects a signed-in visitor to /dashboard instead of showing marketing
+ * copy for a product they're already in, using the same `isAuthenticated`
+ * check LoginPage/SignupPage use.
  */
 const LandingPage: React.FC = () => {
     const { t } = useTranslation("landing");
@@ -82,10 +77,8 @@ const LandingPage: React.FC = () => {
                         size="sm"
                         borderWidth="2px"
                         {...BRAND_OUTLINE_HOVER_PROPS}
-                        // Same color as the button's own text (BRAND_OUTLINE_HOVER_PROPS's
-                        // "brand.fg"), not an independently-picked shade - an outline whose
-                        // border reads a different color than its own label looks like a
-                        // mismatch, not a deliberate two-tone treatment.
+                        // Matches BRAND_OUTLINE_HOVER_PROPS's text color; a border in a
+                        // different color than the label would look like a mismatch.
                         borderColor="brand.fg"
                     >
                         <RouterLink to="/login">{t("logIn")}</RouterLink>
@@ -96,10 +89,9 @@ const LandingPage: React.FC = () => {
                 </HStack>
             </Flex>
 
-            {/* flex="1" + centered content (same pattern as AuthLayout) so the
-                hero + highlight grid always fill the remaining viewport height
-                instead of pushing the footer below the fold - no page scroll
-                on typical viewport heights. */}
+            {/* flex="1" + centered content (same pattern as AuthLayout) fills the
+                remaining viewport height instead of pushing the footer below
+                the fold, so there's no page scroll at typical viewport heights. */}
             <Flex flex="1" direction="column" align="center" justify="center" px={4} minH={0}>
                 <Box maxW="2xl" mx="auto" textAlign="center">
                     <Heading as="h1" size="4xl" letterSpacing="-0.02em" mb={3}>
@@ -112,10 +104,8 @@ const LandingPage: React.FC = () => {
                         <Button asChild colorPalette="brand" size="lg" {...BRAND_SOLID_HOVER_PROPS}>
                             <RouterLink to="/signup">{t("hero.getStarted")}</RouterLink>
                         </Button>
-                        {/* borderWidth="2px" (Chakra's outline variant default is 1px): next
-                            to the solid "Get started" button, a 1px outline read as barely
-                            there - doubling it makes this a clearly visible second action
-                            rather than a faint outline. */}
+                        {/* borderWidth="2px" (Chakra's outline default is 1px): next to the
+                            solid "Get started" button, a 1px outline read as barely visible. */}
                         <Button
                             asChild
                             variant="outline"
@@ -123,9 +113,7 @@ const LandingPage: React.FC = () => {
                             size="lg"
                             borderWidth="2px"
                             {...BRAND_OUTLINE_HOVER_PROPS}
-                            // Same color as the button's own text (BRAND_OUTLINE_HOVER_PROPS's
-                            // "brand.fg"), not an independently-picked shade - see the header
-                            // Login button's identical comment above.
+                            // Same reasoning as the header Login button's borderColor above.
                             borderColor="brand.fg"
                         >
                             <RouterLink to="/login">{t("logIn")}</RouterLink>
@@ -154,10 +142,8 @@ const LandingPage: React.FC = () => {
                 </Grid>
             </Flex>
 
-            {/* AuthInlineLink (not a plain RouterLink): the same underline/darken
-                hover treatment LoginPage/SignupForm give their own Privacy/Terms
-                footnote, so this page's footer links read as controls instead of
-                static text. */}
+            {/* AuthInlineLink (not a plain RouterLink) gives the same underline/darken
+                hover treatment as LoginPage/SignupForm's Privacy/Terms footnote. */}
             <Flex as="footer" justify="center" py={{ base: 3, md: 4 }} px={4}>
                 <HStack gap={4} fontSize="sm" color="fg.muted">
                     <AuthInlineLink to="/privacy">{t("footer.privacyPolicy")}</AuthInlineLink>

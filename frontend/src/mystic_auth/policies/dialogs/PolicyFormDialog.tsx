@@ -34,9 +34,8 @@ interface PolicyFormDialogProps {
  * PolicyFormDialog
  * ----------------------------
  * Shared create/edit form for a Policy: one component instead of separate
- * "create" and "edit" modals, since the fields and validation are identical
- * (see PolicyBase on the backend). `policy` presence alone distinguishes
- * the two modes.
+ * modals, since the fields and validation are identical (see PolicyBase on
+ * the backend). `policy` presence alone distinguishes the two modes.
  */
 const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
     isOpen,
@@ -60,25 +59,25 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
         return Array.from(types).map((type) => ({ value: type, label: type }));
     }, [catalogQuery.data]);
 
-    // Actions are scoped to the currently selected resource type - a policy
-    // grants actions against one resource type, so showing every catalog
-    // action regardless of that selection would let an admin pick a
-    // combination no route actually matches.
+    // Actions are scoped to the selected resource type: a policy grants
+    // actions against one resource type, so showing every catalog action
+    // regardless of selection would let an admin pick a combination no
+    // route actually matches.
     const actionOptions = useMemo(() => {
         return (catalogQuery.data ?? [])
             .filter((entry) => entry.resource_type === resourceType)
             .map((entry) => ({ value: entry.action, label: entry.action }));
     }, [catalogQuery.data, resourceType]);
 
-    // Snapshot of every field's value right after the form was last reset
-    // (dialog opened), compared against current values to detect unsaved
-    // edits before a close attempt discards them.
+    // Snapshot of every field right after the dialog last opened, compared
+    // against current values to detect unsaved edits before a close discards
+    // them.
     const [initialSnapshot, setInitialSnapshot] = useState("");
 
-    // Reset the form to the policy being edited (or blank, for create)
-    // every time the dialog opens. Adjusted during render (React's
-    // documented pattern for state derived from props) rather than in an
-    // effect, since setState-in-effect causes an extra, avoidable render.
+    // Reset the form to the policy being edited (or blank, for create) each
+    // time the dialog opens. Done during render, React's documented pattern
+    // for state derived from props, since setState-in-effect costs an extra
+    // render.
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     if (isOpen && !prevIsOpen) {
         setPrevIsOpen(isOpen);
@@ -104,16 +103,15 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
     const isDirty =
         JSON.stringify([name, description, actions, resourceType, conditionsText]) !== initialSnapshot;
 
-    // A themed ConfirmDialog, not window.confirm: the latter is an
-    // unstyled native browser dialog, the only one in an otherwise fully
-    // themed app.
+    // A themed ConfirmDialog, not window.confirm, which is an unstyled
+    // native dialog, the only one in an otherwise fully themed app.
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
-    // Changing resource type invalidates any already-selected actions that
-    // don't apply to the new one - actionOptions above only ever offers
-    // actions scoped to the current resourceType, so stale selections from
-    // the previous one would otherwise linger in state, unreachable through
-    // the UI but still submitted.
+    // Changing resource type invalidates any selected actions that don't
+    // apply to the new one, since actionOptions only offers actions scoped
+    // to the current resourceType. Without this, stale selections from the
+    // old type would linger in state, unreachable in the UI but still
+    // submitted.
     const handleResourceTypeChange = (value: string) => {
         setResourceType(value);
         setActions([]);
@@ -197,12 +195,11 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
                                         />
                                     </Field.Root>
 
-                                    {/* No native `required` here (unlike the fields above): a
-                                        required multi-select's browser-native constraint
-                                        validation depends on its <option>s already reflecting
-                                        the current `values` at submit time, which races the
-                                        permission-catalog fetch that populates actionOptions -
-                                        submit is guarded manually below instead. */}
+                                    {/* No native `required` here: a required multi-select's
+                                        browser validation depends on its <option>s already
+                                        matching `values` at submit time, which races the
+                                        permission-catalog fetch that populates actionOptions.
+                                        Submit is guarded manually instead. */}
                                     <Field.Root>
                                         <Field.Label>{t("policies:formDialog.actions")}</Field.Label>
                                         <ActionsMultiSelect
@@ -246,10 +243,9 @@ const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
                                     {policy ? t("policies:formDialog.saveChanges") : t("policies:formDialog.createPolicy")}
                                 </Button>
                             </Dialog.Footer>
-                            {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
-                                (unlike v2) - without explicit children it was an empty
-                                0x0 button, invisible to every user, not just screen
-                                readers (axe-core button-name audit). */}
+                            {/* Chakra v3's Dialog.CloseTrigger has no default icon; without
+                                children it was an empty 0x0 button (axe-core button-name
+                                audit caught it). */}
                             <Dialog.CloseTrigger aria-label={t("ui_text:closeDialog")} {...CLOSE_TRIGGER_PROPS}>
                                 <X size={16} aria-hidden="true" />
                             </Dialog.CloseTrigger>

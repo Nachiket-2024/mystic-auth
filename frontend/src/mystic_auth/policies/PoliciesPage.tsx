@@ -27,7 +27,7 @@ import type { PolicyRead } from "../api/policies_api";
 
 const PAGE_SIZE = 25;
 
-/** "" (a placeholder "All" option) maps to `undefined` (no filter applied). */
+/** Maps the placeholder "All" option ("") to `undefined` (no filter). */
 function toBoolFilter(value: string): boolean | undefined {
     if (value === ALL_VALUE) return undefined;
     return value === "true";
@@ -36,28 +36,19 @@ function toBoolFilter(value: string): boolean | undefined {
 /**
  * PoliciesPage
  * ----------------------------
- * Management CRUD for policies (backend: /authorization/policies). Route
- * itself is gated by ProtectedRoute permission=[policies:read,
- * policies:create] (see navItems.ts's matching entry for why create alone
- * also belongs there); the create/edit/delete affordances are additionally
- * gated per-action here via IfCan, since a caller might hold policies:read
- * without policies:create/update/delete. Search (name/description) and
- * resource-type/status filter server-side, and Name/Resource-type sort
- * server-side (click the header) - same pattern as UsersPage, once policy
- * count could no longer be assumed small enough to load and filter in full
- * client-side.
+ * Management CRUD for policies (backend: /authorization/policies). The
+ * route is gated by ProtectedRoute on policies:read or policies:create;
+ * create/edit/delete are further gated per-action via IfCan since a caller
+ * might have read without create/update/delete. Search and resource-type/
+ * status filters, plus Name/Resource-type sort, all run server-side (same
+ * as UsersPage) since the policy list can no longer be assumed small enough
+ * to filter client-side.
  *
- * A caller who reached this route via policies:create alone (not
- * policies:read) cannot list, search, or filter existing policies -
- * GET /authorization/policies requires policies:read - so the list/stats
- * queries are never fired for them (see canReadPolicies below) and the page
- * instead renders a restricted-view notice next to a standalone Create
- * Policy button, rather than a DataTable stuck permanently in its error
- * state. Update/delete/assign/revoke all require first finding the target
- * via that same read-gated list, so create is the one action with a real
- * standalone path; see PolicyFormDialog and its permissions_catalog fetch
- * (CATALOG_READ_DEPENDENCY, backend-side) for the matching fix that lets
- * that form's own fields actually load for this caller too.
+ * A caller with only policies:create (not policies:read) can't list, search,
+ * or filter policies, since GET /authorization/policies requires read. For
+ * them the list/stats queries never fire (see canReadPolicies below) and the
+ * page shows a restricted-view notice plus a standalone Create Policy
+ * button instead of a DataTable stuck in an error state.
  */
 const PoliciesPage: React.FC = () => {
     const { t } = useTranslation(["policies", "ui_text"]);
@@ -65,20 +56,18 @@ const PoliciesPage: React.FC = () => {
     const canReadPolicies = useCan(PERMISSIONS.POLICIES_READ);
 
     const [search, setSearch] = useState("");
-    // Debounced, not the raw keystroke value: search is now a real request
-    // (server-side), so typing shouldn't fire one request per character.
+    // Debounced since search is now a server request, not a client filter -
+    // typing shouldn't fire one request per keystroke.
     const debouncedSearch = useDebouncedValue(search);
-    // No default sort column: the table's natural order (insertion/id
-    // order) isn't shown as its own column, so nothing should read as
-    // "actively sorted" until a header is actually clicked.
+    // No default sort column: nothing should read as "actively sorted"
+    // until a header is actually clicked.
     const { sort, toggleSort } = useSortState("");
     const [resourceType, setResourceType] = useState(ALL_VALUE);
     const [status, setStatus] = useState(ALL_VALUE);
 
-    // A search/filter/sort change that changes the result set makes
-    // whatever page you were on potentially meaningless - always back to
-    // page 1 for a fresh query. See usePageResetOn's own docstring for why
-    // this is state derived during render, not an effect.
+    // Any search/filter/sort change can make the current page meaningless,
+    // so always reset to page 1. See usePageResetOn's docstring for why
+    // this is derived during render rather than in an effect.
     const [page, setPage] = usePageResetOn(`${debouncedSearch}|${sort.key}|${sort.direction}|${resourceType}|${status}`);
 
     const { data, isLoading, isError } = usePoliciesListQuery(
@@ -96,9 +85,8 @@ const PoliciesPage: React.FC = () => {
     const filteredPolicies = data?.policies;
     const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
 
-    // PolicyStatsCard's summary counts are independent of the main list's
-    // current page/filters (same reasoning as UserStatsCard), so it keeps
-    // using the full, unfiltered list rather than this page's `data`.
+    // PolicyStatsCard's counts should stay independent of the current page/
+    // filters, so it uses the full unfiltered list, not this page's `data`.
     const { data: allPolicies, isLoading: isStatsLoading } = usePoliciesQuery(canReadPolicies);
 
     const [formOpen, setFormOpen] = useState(false);
@@ -196,10 +184,8 @@ const PoliciesPage: React.FC = () => {
                         }
                     />
                 ) : (
-                    // No policies:read: no search/filter bar to drive (the
-                    // list query never fires - see canReadPolicies above),
-                    // just a standalone Create Policy button so a
-                    // create-only caller still has a way to reach the form.
+                    // No policies:read means no list query to drive a filter
+                    // bar, so just a standalone Create Policy button.
                     <IfCan action={PERMISSIONS.POLICIES_CREATE}>
                         <Button colorPalette="brand" onClick={openCreateForm} {...BRAND_SOLID_HOVER_PROPS}>
                             {t("policies:page.createPolicy")}

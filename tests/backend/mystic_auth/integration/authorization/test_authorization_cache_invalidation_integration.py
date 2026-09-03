@@ -1,14 +1,7 @@
-# tests/backend/mystic_auth/integration/authorization/test_authorization_cache_invalidation_integration.py
-#
-# Proves cache invalidation on the ORIGINAL two audit-list mechanisms - policy
-# update/deactivate (policy_crud_routes.py's update_policy) and direct-permission
-# revoke (permission_assignment_routes.py's revoke_permission_from_user) -
-# actually causes fresh re-evaluation end-to-end, against the real ASGI app,
-# real PostgreSQL, and real Redis. test_policy_repository_caching_unit.py only
-# asserts the invalidation method was *called*; this asserts the authorization
-# *decision* itself flips after the same cache-populating check is repeated.
-# Pattern follows test_policy_action_revocation_integration.py, which proves
-# the same thing for the newer revoke-action endpoint.
+# Proves that policy update/deactivate and direct-permission revoke actually
+# invalidate the authorization cache end-to-end (real app, Postgres, Redis).
+# The unit test only checks the invalidation method was *called*; this checks
+# the authorization *decision* itself flips on a repeated, cache-populating check.
 import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (
@@ -61,8 +54,7 @@ async def test_narrowing_policy_actions_flips_authorization_after_cache_was_popu
 
     await client.post("/auth/login", json={"email": system_email, "password": PASSWORD})
 
-    # Populate the cache: this authorize() call is served from a fresh DB
-    # read and caches the result.
+    # Populate the cache with a fresh DB-read result.
     assert await _authorized(client, target_email, "reports:export")
 
     update_resp = await client.put(

@@ -8,10 +8,8 @@ import MockAdapter from 'axios-mock-adapter';
 import api from '@/api/axiosInstance';
 import PasswordResetConfirmForm from '@/auth/password_reset_confirm/PasswordResetConfirmForm';
 
-// Regression guard for the "Redis outage failure modes are inconsistent"
-// fix: a genuinely successful reset (sessions_revoked: false) must show a
-// distinct warning, not the plain success message, so the account's
-// unrevoked other sessions aren't invisible to the user.
+// Regression guard: sessions_revoked: false must show a distinct warning,
+// not the plain success message, so unrevoked sessions aren't hidden.
 const mock = new MockAdapter(api);
 
 function renderForm() {

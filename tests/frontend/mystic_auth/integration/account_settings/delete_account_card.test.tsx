@@ -109,8 +109,7 @@ describe('DeleteAccountCard', () => {
     const user = userEvent.setup();
 
     await openDangerTab(user);
-    // No password field for an OAuth-only account: the button opens the
-    // confirm dialog directly.
+    // OAuth-only account has no password field; the button opens the confirm dialog directly.
     await user.click(screen.getByRole('button', { name: 'Delete my account' }));
     await screen.findByText('Delete your account?');
     await user.click(screen.getByRole('button', { name: 'Send confirmation email' }));

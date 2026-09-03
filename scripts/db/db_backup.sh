@@ -1,22 +1,31 @@
 #!/usr/bin/env bash
-# Dumps the `postgres` Compose service's database to a timestamped .sql
-# file under backups/. Reads POSTGRES_USER/POSTGRES_DB from the env file
-# matching the given compose file.
+# Dumps the `postgres` Compose service's app database and its bugsink
+# database (error monitoring, see docker/postgres-init/init-bugsink-db.sh)
+# to timestamped .dump files under backups/. Reads POSTGRES_USER/POSTGRES_DB
+# from the env file matching the given compose file.
 #
 # Usage: scripts/db/db_backup.sh [compose-file]
-#   compose-file defaults to docker-compose.yml.
+#   compose-file defaults to docker-compose.dev.yml, and can be given as
+#   just a basename (looked up under docker/compose/) or a full path.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-COMPOSE_FILE="${1:-docker-compose.yml}"
+COMPOSE_ARG="${1:-docker-compose.dev.yml}"
+COMPOSE_BASENAME="$(basename "$COMPOSE_ARG")"
+case "$COMPOSE_ARG" in
+  */*) COMPOSE_FILE="$COMPOSE_ARG" ;;
+  *) COMPOSE_FILE="docker/compose/$COMPOSE_BASENAME" ;;
+esac
 
-case "$COMPOSE_FILE" in
-  docker-compose.local-prod.yml) ENV_FILE=".env.local-prod" ;;
-  docker-compose.prod.yml) ENV_FILE=".env.prod" ;;
-  *) ENV_FILE=".env" ;;
+case "$COMPOSE_BASENAME" in
+  docker-compose.local-prod-cloudflare.yml) ENV_FILE="env/.env.local-prod-cloudflare" ;;
+  docker-compose.local-prod-ngrok.yml) ENV_FILE="env/.env.local-prod-ngrok" ;;
+  docker-compose.local-prod-tailscale.yml) ENV_FILE="env/.env.local-prod-tailscale" ;;
+  docker-compose.prod.yml) ENV_FILE="env/.env.prod" ;;
+  *) ENV_FILE="env/.env" ;;
 esac
 
 # Pull just these two vars by name rather than sourcing the whole file:
@@ -36,10 +45,13 @@ BACKUP_DIR="$REPO_ROOT/backups"
 mkdir -p "$BACKUP_DIR"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP_FILE="$BACKUP_DIR/${POSTGRES_DB}-${TIMESTAMP}.sql"
 
-echo "Backing up database '${POSTGRES_DB}' via ${COMPOSE_FILE}..."
-docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "$BACKUP_FILE"
-
-echo "Backup written to $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+for DB in "$POSTGRES_DB" bugsink; do
+  BACKUP_FILE="$BACKUP_DIR/${DB}-${TIMESTAMP}.dump"
+  echo "Backing up database '${DB}' via ${COMPOSE_FILE}..."
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
+    pg_dump -U "$POSTGRES_USER" --format=custom --file=- "$DB" > "$BACKUP_FILE"
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
+    pg_restore --list < "$BACKUP_FILE" >/dev/null
+  echo "Backup written to $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+done

@@ -13,9 +13,8 @@ interface CommandPaletteResultsListProps {
 }
 
 /** CommandPalette's result list: grouped rows with a header wherever the
- * result kind changes, and the currently-highlighted row (keyboard or
- * mouse-hover) shown selected. Pulled out of CommandPalette.tsx so that file
- * only owns the dialog shell/input/keyboard-navigation wiring. */
+ * result kind changes, and the currently-highlighted row (keyboard or hover)
+ * shown selected. */
 const CommandPaletteResultsList: React.FC<CommandPaletteResultsListProps> = ({
     filtered,
     kindCount,
@@ -38,9 +37,8 @@ const CommandPaletteResultsList: React.FC<CommandPaletteResultsListProps> = ({
             {filtered.map((item, i) => {
                 const Icon = item.icon;
                 const isActive = i === activeIndex;
-                // A group header renders right before the first item of
-                // that kind - cheaper than a second pass to build sections,
-                // and `filtered` is already ordered pages-then-content-then-users.
+                // A group header renders right before the first item of that
+                // kind - `filtered` is already ordered pages-then-content-then-users.
                 const isFirstOfKind = kindCount > 1 && (i === 0 || filtered[i - 1].kind !== item.kind);
                 return (
                     <React.Fragment key={`${item.kind}:${item.to}:${item.label}`}>
@@ -72,10 +70,8 @@ const CommandPaletteResultsList: React.FC<CommandPaletteResultsListProps> = ({
                             color="fg.default"
                         >
                             {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
-                            {/* A real user's name/email result (unlike every other
-                                palette row, all short translated labels) can be
-                                arbitrarily long - truncate with an ellipsis instead
-                                of wrapping unevenly against the fixed-size icon. */}
+                            {/* A user's name/email can be arbitrarily long - truncate
+                                instead of wrapping unevenly against the icon. */}
                             <Stack gap={0} minW={0} flex="1 1 auto">
                                 <Text fontWeight="medium" truncate title={item.label}>{item.label}</Text>
                                 {item.sublabel && (

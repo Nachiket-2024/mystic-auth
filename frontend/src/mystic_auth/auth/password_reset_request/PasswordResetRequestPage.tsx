@@ -4,8 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import PasswordResetRequestForm from "./PasswordResetRequestForm";
 
-// Shared surface styling (theme surface/border tokens), replacing this
-// page's own hand-rolled bg="white"/boxShadow="lg" card.
 import Card from "../../ui/Card";
 import AuthInlineLink from "../../ui/AuthInlineLink";
 

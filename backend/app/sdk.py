@@ -5,22 +5,16 @@ template (see docs/mystic_auth/template-usage/overview.md).
 Import from HERE, not internal paths like
 `mystic_auth.authorization.dependencies.authorization_dependency` directly:
 one file to discover what's available, and one file to reconcile when
-pulling in upstream template updates instead of every call site.
-
-`main.py` itself is held to the same rule: it imports only from this module,
-never reaching into `mystic_auth/` directly, so the app's entry point and any
-downstream app code share one boundary.
+pulling in upstream template updates. main.py follows the same rule and
+never reaches into `mystic_auth/` directly.
 
 Everything below is a straight re-export; see the original module's
 docstring for the "why" behind any given piece.
 
-DO NOT hand-edit this file. Treat it as a drop-in you receive from upstream,
-not a place to add your own re-exports: this is the one file a
-`scripts/sync-upstream.sh` sync is expected to touch, and local edits here
-are exactly what turns that sync into a manual conflict instead of applying
-cleanly. If you need your own re-exports for your own domain code, add
-them to app_sdk.py instead: it's the counterpart file kept empty by
-upstream for exactly this purpose, so it never conflicts on a sync.
+DO NOT hand-edit this file. It's a drop-in from upstream and the one file a
+`scripts/upstream-sync/sync-upstream.sh` sync is expected to touch, so local edits here
+turn a clean sync into a manual conflict. Add your own re-exports to
+app_sdk.py instead: it's kept empty by upstream for exactly this purpose.
 """
 
 import importlib
@@ -40,11 +34,14 @@ def _m(path: str):
     return importlib.import_module(f"{_mystic_auth_root}.{path}")
 
 
-# PBAC, see docs/mystic_auth/authorization/architecture.md
+# PBAC, see docs/mystic_auth/authorization/architecture/README.md
 Permission = _m("authorization.permissions").Permission
+PERMISSION_CATALOG = _m("authorization.permissions_catalog").PERMISSION_CATALOG
+PermissionCatalogEntry = _m("authorization.permissions_catalog").PermissionCatalogEntry
 require_authorization = _m("authorization.dependencies.authorization_dependency").require_authorization
 authorization_service = _m("authorization.services.authorization_service").authorization_service
 build_authorization_context = _m("authorization.context.request_context_builder").build_authorization_context
+AuthorizationDecision = _m("authorization.evaluators.authorization_decision").AuthorizationDecision
 
 # Authentication, see docs/mystic_auth/authentication/overview.md
 get_current_user = _m("auth.current_user.current_user_dependency").get_current_user
@@ -60,7 +57,7 @@ settings = _m("core.settings").settings
 get_or_404 = _m("api.get_or_404.get_or_404").get_or_404
 
 # Machine-readable error codes for frontend translation, see
-# docs/mystic_auth/translations/overview.md
+# docs/mystic_auth/translations/overview/README.md
 AppError = _m("core.errors").AppError
 
 # Routers, mounted on the FastAPI app in main.py
@@ -86,7 +83,30 @@ health_router = _m("api.health_routes.health_routes").router
 
 # Display/grouping metadata only, never a gating decision, see
 # docs/mystic_auth/security/decisions.md#role-is-never-used-to-decide-access
+User = _m("user.user_model").User
 UserRole = _m("user.user_model").UserRole
+UserCreate = _m("user.user_schema").UserCreate
+UserRead = _m("user.user_schema").UserRead
+UserSelfDeleteRequest = _m("user.user_schema").UserSelfDeleteRequest
+UserSelfUpdateResponse = _m("user.user_schema").UserSelfUpdateResponse
+UserStatsRead = _m("user.user_schema").UserStatsRead
+UserUpdate = _m("user.user_schema").UserUpdate
+
+_policy_schema = _m("authorization.schemas.policy_schema")
+PolicyCreate = _policy_schema.PolicyCreate
+PolicyRead = _policy_schema.PolicyRead
+PolicyUpdate = _policy_schema.PolicyUpdate
+PolicyAssignmentRequest = _policy_schema.PolicyAssignmentRequest
+PolicyActionRevocationRequest = _policy_schema.PolicyActionRevocationRequest
+UserPoliciesRead = _policy_schema.UserPoliciesRead
+AuthorizationCheckRequest = _policy_schema.AuthorizationCheckRequest
+AuthorizationCheckResponse = _policy_schema.AuthorizationCheckResponse
+
+_permission_schema = _m("authorization.schemas.permission_schema")
+PermissionAssignmentRequest = _permission_schema.PermissionAssignmentRequest
+PermissionCatalogEntryRead = _permission_schema.PermissionCatalogEntryRead
+UserPermissionRead = _permission_schema.UserPermissionRead
+UserPermissionsRead = _permission_schema.UserPermissionsRead
 
 # Redis client singleton, closed on shutdown in main.py's lifespan
 redis_client = _m("redis.client").redis_client
@@ -123,9 +143,12 @@ signal_session_events_shutdown = _m("user_session.session_events").signal_shutdo
 
 __all__ = [
     "Permission",
+    "PERMISSION_CATALOG",
+    "PermissionCatalogEntry",
     "require_authorization",
     "authorization_service",
     "build_authorization_context",
+    "AuthorizationDecision",
     "get_current_user",
     "SecurityHeadersMiddleware",
     "database",
@@ -151,7 +174,26 @@ __all__ = [
     "security_audit_router",
     "rate_limit_router",
     "health_router",
+    "User",
     "UserRole",
+    "UserCreate",
+    "UserRead",
+    "UserSelfDeleteRequest",
+    "UserSelfUpdateResponse",
+    "UserStatsRead",
+    "UserUpdate",
+    "PolicyCreate",
+    "PolicyRead",
+    "PolicyUpdate",
+    "PolicyAssignmentRequest",
+    "PolicyActionRevocationRequest",
+    "UserPoliciesRead",
+    "AuthorizationCheckRequest",
+    "AuthorizationCheckResponse",
+    "PermissionAssignmentRequest",
+    "PermissionCatalogEntryRead",
+    "UserPermissionRead",
+    "UserPermissionsRead",
     "redis_client",
     "procrastinate_app",
     "LoggingMiddleware",

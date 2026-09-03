@@ -1,14 +1,9 @@
-# tests/backend/mystic_auth/integration/rate_limits/test_rate_limit_routes_integration.py
-#
-# End-to-end coverage for GET /rate-limits/ and DELETE /rate-limits/{key}
-# (the admin Rate Limit Dashboard) against the real ASGI app and real
-# Redis. Permission-enforcement setup mirrors
-# integration/authorization/authorization_test_accounts.py's
-# create_user_with_custom_policy_actions, but grants rate_limits:read/
-# rate_limits:reset (resource_type="rate_limits") instead of a policies:*
-# action. rate_limits:read and rate_limits:reset are tested as independently
-# enforced actions, the same fine-grained-action-separation pattern as
-# integration/authorization/test_policy_action_separation_integration.py.
+# End-to-end tests for GET /rate-limits/ and DELETE /rate-limits/{key} (the
+# admin Rate Limit Dashboard) against the real app and Redis. Permission
+# setup mirrors authorization_test_accounts.create_user_with_custom_policy_actions,
+# but grants rate_limits:read/rate_limits:reset instead of a policies:*
+# action, and checks the two are enforced independently, same pattern as
+# test_policy_action_separation_integration.py.
 import uuid
 
 import pytest
@@ -94,9 +89,8 @@ async def test_authorized_user_can_list_a_tripped_limiter_and_see_its_count(clie
     endpoint = f"test_dashboard_endpoint_{uuid.uuid4().hex}"
     key = f"{endpoint}:ip:203.0.113.5"
     try:
-        # Directly drives the same primitive the rate_limited decorator
-        # itself calls (see rate_limiter_service.py), rather than actually
-        # hitting a real rate-limited route N times just to trip it.
+        # Calls the same primitive the rate_limited decorator uses, instead
+        # of hitting a real rate-limited route N times to trip it.
         await rate_limiter_service.record_request(key)
         await rate_limiter_service.record_request(key)
 
@@ -140,10 +134,8 @@ async def test_scope_filter_excludes_the_other_scope(client, created_emails):
 @pytest.mark.asyncio
 async def test_scope_filter_accepts_email_scope(client, created_emails):
     # Regression test: the route's scope Query pattern used to be
-    # ^(ip|account)$, so "email" - a real RateLimitEntry.scope value (see
-    # login_protection_service's login_lock:email:* counters) and an option
-    # the frontend's own scope filter dropdown offers - 422'd instead of
-    # filtering.
+    # ^(ip|account)$, so "email" (a real RateLimitEntry.scope value, and an
+    # option the frontend's scope filter offers) 422'd instead of filtering.
     await _create_user_with_rate_limits_read(client, created_emails)
 
     endpoint = f"test_dashboard_email_scope_{uuid.uuid4().hex}"

@@ -11,10 +11,9 @@ interface ConfirmDeleteAccountButtonProps {
     onSuccess?: () => void;
 }
 
-// Mirrors VerifyAccountButton.tsx: a deliberate click (not auto-fired on
-// page load) redeems the token, same reasoning - a link that gets
-// prefetched/scanned by an email client or link-preview bot before the
-// human ever opens it must not silently consume a single-use token.
+// Mirrors VerifyAccountButton.tsx: a deliberate click (not auto-fired on page
+// load) redeems the token, since a link prefetched or scanned by an email
+// client or link-preview bot must not silently consume a single-use token.
 const ConfirmDeleteAccountButton: React.FC<ConfirmDeleteAccountButtonProps> = ({ token, onSuccess }) => {
     const { t } = useTranslation("account_settings");
     const confirmMutation = useConfirmDeleteMyAccountMutation();

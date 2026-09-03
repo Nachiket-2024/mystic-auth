@@ -131,39 +131,33 @@ async def update_policy(
     db: AsyncSession = Depends(database.get_session),
 ):
     """
-    Partially updates a policy: only provided fields are applied (e.g.
-    this can disable a policy via is_active=False without touching its
-    actions).
+    Partially updates a policy: only provided fields are applied (e.g. this
+    can disable a policy via is_active=False without touching its actions).
 
     Baseline policies (self_service, user_administration, system_superuser)
-    cannot be renamed away from their well-known name, since every default
-    assignment (signup, oauth2, create_system_user.py) looks them up by
-    name. They also cannot be deactivated: is_active=False excludes a
-    policy from evaluation for every holder simultaneously, and for
-    system_superuser specifically that would silently strip every superuser
-    (including the true system account) of all access, bypassing both the
-    rename/delete guards and the separate "last remaining assignment"
-    lockout guard on remove_policy_from_user (which only fires on
-    unassignment, a different endpoint this doesn't go through).
+    can't be renamed away from their well-known name, since default
+    assignments (signup, oauth2, create_system_user.py) look them up by
+    name. They also can't be deactivated: is_active=False excludes a policy
+    from evaluation for every holder at once, and for system_superuser that
+    would silently strip every superuser of all access, bypassing both the
+    rename/delete guards and the separate lockout guard on
+    remove_policy_from_user (which only fires on unassignment).
 
-    If actions are being changed, the caller must already hold every action
-    the policy would grant afterwards, since without this, policies:update alone
-    could silently re-grant an existing (possibly widely-assigned) policy
-    new, more powerful actions the caller doesn't themselves have.
+    If actions are changing, the caller must already hold every action the
+    policy would grant afterwards: otherwise policies:update alone could
+    re-grant an existing, possibly widely-assigned policy new actions the
+    caller doesn't have.
 
-    Symmetrically, changing `actions`/`resource_type`, or deactivating via
-    is_active=False, requires the caller to already hold every action this
-    policy *currently* grants (checked against the pre-update definition),
-    not just the grant-side check above against the post-update one.
-    Without this, policies:update alone (without holding what the policy
-    actually grants) could narrow, retarget, or deactivate a policy an
-    equally- or more-privileged peer depends on, silently stripping their
-    access. A pure description/conditions edit, or reactivating
-    (is_active=True), touches none of that and is deliberately left
-    ungated: it doesn't change what the policy grants or who it grants it
-    to. See delete_policy and remove_policy_from_user
-    (policy_assignment_routes.py) for the same guard applied symmetrically
-    to delete and revoke, where every removal is a downgrade by definition.
+    Symmetrically, changing actions/resource_type or deactivating requires
+    the caller to already hold every action the policy *currently* grants
+    (checked pre-update), not just the post-update grant-side check above.
+    Otherwise policies:update alone could narrow, retarget, or deactivate a
+    policy a more-privileged peer depends on, stripping their access. A
+    pure description/conditions edit, or reactivating (is_active=True),
+    doesn't change what the policy grants or to whom, so it's left ungated.
+    See delete_policy and remove_policy_from_user (policy_assignment_routes.py)
+    for the same guard applied to delete and revoke, where removal is
+    always a downgrade.
     """
     policy = await get_or_404(policy_repository.get_by_name(policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
 

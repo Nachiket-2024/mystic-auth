@@ -1,12 +1,7 @@
-# tests/backend/mystic_auth/unit/authorization/services/test_authorization_audit_logger_unit.py
-#
-# authorization_audit_logger.py (build_audit_entry/log_decision) was split
-# out of authorization_service.py but had no test exercising its own logic
-# directly - every other test in this package only ever mocks it away
-# entirely (see AUDIT_MODULE in the sibling test files). Covers:
-# build_audit_entry's best-effort resource_identifier extraction (dict vs.
-# object vs. neither), and log_decision's "queueing failure must never
-# raise" guarantee.
+# Unit coverage for authorization_audit_logger.py (build_audit_entry/log_decision),
+# which sibling test files only ever mock away. Covers build_audit_entry's
+# best-effort resource_identifier extraction (dict vs. object vs. neither), and
+# log_decision's guarantee that a queueing failure never raises.
 from unittest.mock import AsyncMock
 
 import pytest
@@ -101,9 +96,8 @@ async def test_log_decision_queues_the_built_entry(mocker):
 
 @pytest.mark.asyncio
 async def test_log_decision_swallows_a_failure_to_queue_instead_of_raising(mocker):
-    """The authorize()/require() choke point every protected route goes
-    through must never fail because the audit *write* failed - a real
-    decision must still reach the caller."""
+    """authorize()/require() must never fail because the audit write failed:
+    a real decision must still reach the caller."""
     mocker.patch(
         f"{MODULE}.log_authorization_decision_task.defer_async",
         new_callable=AsyncMock,

@@ -12,7 +12,7 @@ A policy's fields (see `authorization/models/policy_model.py` / `authorization/s
 | `conditions` | object, optional | See [Condition Schema Reference](condition-schema-reference.md). `null`/omitted = unconditional grant. |
 | `is_active` | bool | Inactive policies are never evaluated as granting access. |
 
-All examples below are the request body for `POST /authorization/policies` (requires `policies:create`, and the caller must already hold every action being granted; see [Architecture: Authorization Service](architecture.md#authorization-service)).
+All examples below are the request body for `POST /authorization/policies` (requires `policies:create`, and the caller must already hold every action being granted; see [Architecture: Authorization Service](architecture/component-responsibilities.md#authorization-service)).
 
 ---
 

@@ -2,11 +2,10 @@ import translations from "../../translations/translations";
 
 /**
  * Turns a raw User-Agent string into a short "Browser on OS" label for the
- * Manage Sessions card - good enough for a display list, not a security
- * control (a client can send any UA string it likes). No UA-parser
- * dependency exists on either side of this app (grepped both
- * package.json/requirements before adding this), and a full parser is more
- * than a one-line device label needs.
+ * Manage Sessions card. Good enough for a display list, not a security
+ * control, since a client can send any UA string it likes. No UA-parser
+ * dependency exists in this app, and a full parser is more than a one-line
+ * device label needs.
  *
  * Browser/OS names (Chrome, Windows, ...) are brand names and stay
  * untranslated; only the "unknown"/connector text is localized via

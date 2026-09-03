@@ -5,12 +5,10 @@ import { applyFaviconAndMetaColor } from "../theme/applyFaviconAndMetaColor";
 interface AppearanceState {
     /** null = using the app default scale (app/theme.ts). */
     brandColor: string | null;
-    /** Applies immediately (favicon/meta + localStorage cache); the brand
-     * scale/background CSS itself reacts automatically since
-     * AppearanceThemeProvider.tsx subscribes to this store directly. See
-     * AppearanceCard.tsx for the save step, and useCurrentUserQuery.ts's
-     * useAuthSession for how the server's value (once known) is applied
-     * here too. */
+    /** Applies immediately (favicon/meta + localStorage cache). The brand scale and
+     * background CSS react automatically since AppearanceThemeProvider.tsx subscribes
+     * to this store directly. See AppearanceCard.tsx for the save step, and
+     * useCurrentUserQuery.ts's useAuthSession for applying the server's value. */
     setBrandColor: (hex: string | null) => void;
 }
 
@@ -27,21 +25,15 @@ function writeCached(key: string, hex: string | null): void {
 
 const initialBrandColor = readCached(BRAND_KEY);
 
-// Applied immediately at module load, before first paint - same reasoning
-// as themeStore.ts, but scoped to just the favicon/meta tag now: the brand
-// scale/background themselves are applied by AppearanceThemeProvider.tsx
-// rebuilding Chakra's system on its own very first render (using this same
-// locally-cached guess), not via a DOM-level side effect here. This is
-// only the locally cached guess either way - useAuthSession reconciles it
-// against the account's real, server-stored value once GET /auth/me
-// resolves.
+// Applied immediately at module load, before first paint (same reasoning as
+// themeStore.ts), but scoped to just the favicon/meta tag: the brand scale and
+// background are applied separately, by AppearanceThemeProvider.tsx rebuilding
+// Chakra's system on its first render. This is only the locally cached guess;
+// useAuthSession reconciles it against the server value once GET /auth/me resolves.
 applyFaviconAndMetaColor(initialBrandColor);
 
-/**
- * Client-side UI preference cache (not the server state itself), same
- * "own Zustand store + localStorage" split this app already uses for
- * color mode (themeStore.ts), font size, and language.
- */
+// Client-side preference cache, not server state, same Zustand + localStorage split
+// this app uses for color mode, font size, and language.
 export const useAppearanceStore = create<AppearanceState>((set) => ({
     brandColor: initialBrandColor,
 

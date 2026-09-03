@@ -14,10 +14,8 @@ import { usePermissionCatalogQuery } from "../../policies/queries/permissionQuer
 const USER_RESULTS_LIMIT = 5;
 const TEXT_MATCH_RESULTS_LIMIT = 20;
 
-// Same routes as Sidebar's NAV_ITEMS, keyed by `to` so this stays in sync
-// with navItems.ts without needing its own parallel route list - if a
-// built-in nav item is ever added/removed there, only this icon map needs a
-// matching entry (a missing one just renders no icon, not a crash).
+// Same routes as Sidebar's NAV_ITEMS, keyed by `to`. A missing entry just
+// renders no icon, not a crash.
 const ROUTE_ICONS: Record<string, React.ElementType> = {
     "/dashboard": LayoutDashboard,
     "/users": Users,
@@ -45,10 +43,8 @@ export const GROUP_LABEL_KEY: Record<ResultKind, string> = {
 
 /**
  * Builds CommandPalette's four result groups (pages, in-page features,
- * Ctrl+F-style text matches, and live user search) for a given query. Pulled
- * out of CommandPalette.tsx so that file only owns the dialog UI/keyboard
- * navigation - see CommandPalette.tsx's own docstring for what each group
- * actually searches and why.
+ * Ctrl+F-style text matches, and live user search) for a given query. See
+ * CommandPalette.tsx's docstring for what each group searches.
  */
 export function useCommandPaletteResults(
     trimmedQuery: string,
@@ -58,20 +54,18 @@ export function useCommandPaletteResults(
     const { can } = useAuthorization();
     const q = trimmedQuery.toLowerCase();
 
-    // Nav/content item labels are chrome, not page content pulled from the
-    // page-language store - same reasoning as Sidebar's own resolveLabel
-    // (see its docstring). Plain (non-translation-key) strings, e.g. an
-    // app's own extraNavItems/extraSearchItems, pass through unchanged.
+    // Nav/content item labels are chrome, not page content, so they resolve
+    // via chromeLanguage - same reasoning as Sidebar's resolveLabel. Plain
+    // (non-translation-key) strings pass through unchanged.
     const chromeLanguage = useLanguageStore((s) => s.chromeLanguage);
     const tChrome = translations.getFixedT(chromeLanguage, "layout");
     const resolveLabel = (label: string): string =>
         translations.exists(label, { lng: chromeLanguage }) ? tChrome(label) : label;
 
-    // {result, haystack} built once per language/permission change (not per
-    // keystroke, since flattening a whole translation namespace each time
-    // would be wasteful), then just an `.includes(q)` scan below. haystack
-    // sweeps each page's full i18next namespace (PAGE_CONTENT_NAMESPACES),
-    // not just its nav label, so any word visible on that page surfaces it.
+    // {result, haystack} built once per language/permission change, not per
+    // keystroke, then scanned with `.includes(q)` below. haystack sweeps
+    // each page's full i18next namespace (PAGE_CONTENT_NAMESPACES), not just
+    // its nav label, so any word visible on that page surfaces it.
     const pageIndex = useMemo(
         () =>
             [...NAV_ITEMS, ...(extraNavItems ?? [])]
@@ -98,9 +92,8 @@ export function useCommandPaletteResults(
 
     // Same {result, haystack} precompute as pageIndex above. Each item's
     // haystack folds in its `scope` sweep (every string under the given
-    // dot-paths in that namespace, e.g. every field/button/helper-text on
-    // the Change Password tab) plus any one-off `matchKeys`, so typing any
-    // word actually rendered in that section finds it, not just its label.
+    // dot-paths, e.g. every field/button/helper-text on the Change Password
+    // tab) plus any one-off `matchKeys`, so any rendered word finds it.
     const contentIndex = useMemo(
         () =>
             [...SEARCH_ITEMS, ...(extraSearchItems ?? [])]
@@ -129,20 +122,18 @@ export function useCommandPaletteResults(
     );
 
     // Content results only surface once there's a query - unlike pages, the
-    // full built-in list would otherwise dump 8+ extra rows into the
-    // palette's default (empty-query) view, which nobody's looking for yet.
+    // full built-in list would otherwise dump extra rows into the palette's
+    // default empty-query view.
     const filteredContent = useMemo(() => {
         if (!q) return [];
         return contentIndex.filter(({ haystack }) => haystack.includes(q)).map(({ result }) => result);
     }, [contentIndex, q]);
 
-    // Ctrl+F-style results: every distinct string rendered anywhere across
-    // all pages that contains the query, each as its own row, rather than
-    // collapsed into one row per page/feature like filteredPages/
-    // filteredContent above. Sweeps the same sources those two already
-    // sweep. Deduped by (destination, text) since the same string can
-    // legitimately repeat (e.g. shared button copy), and capped so a common
-    // word doesn't dump dozens of rows.
+    // Ctrl+F-style results: every distinct string across all pages that
+    // contains the query, each as its own row (not collapsed into one row
+    // per page/feature like above). Sweeps the same sources. Deduped by
+    // (destination, text) since strings can legitimately repeat, and capped
+    // so a common word doesn't dump dozens of rows.
     const textMatches = useMemo(() => {
         if (!q) return [];
         const seen = new Set<string>();
@@ -180,11 +171,10 @@ export function useCommandPaletteResults(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [q, chromeLanguage, can, extraNavItems, extraSearchItems]);
 
-    // Permission catalog entries are backend data rendered straight from the
-    // API response, not i18next copy, so no namespace sweep sees them. Small
-    // and fixed (~20 entries), so it's swept client-side rather than
-    // round-tripped per keystroke like filteredUsers below. Query only runs
-    // for viewers who can reach the Permissions page.
+    // Permission catalog entries are backend data, not i18next copy, so no
+    // namespace sweep sees them. Small and fixed (~20 entries), so it's
+    // swept client-side rather than round-tripped per keystroke like
+    // filteredUsers below.
     const canViewPermissions = can(PERMISSIONS.PERMISSIONS_READ);
     const { data: permissionCatalog } = usePermissionCatalogQuery(canViewPermissions);
     const permissionsPageLabel = resolveLabel("layout:nav.permissions");
@@ -210,11 +200,9 @@ export function useCommandPaletteResults(
         return results.slice(0, TEXT_MATCH_RESULTS_LIMIT);
     }, [q, canViewPermissions, permissionCatalog, permissionsPageLabel]);
 
-    // Users are real account data, not app chrome like NAV_ITEMS/SEARCH_ITEMS
-    // - matched server-side (same `search` param/endpoint UsersPage.tsx
-    // uses) rather than against any locally-held list, and only for callers
-    // who could already reach the Users page (users:list_all), same gating
-    // Sidebar/NAV_ITEMS apply to that link.
+    // Users are real account data, matched server-side (same endpoint
+    // UsersPage.tsx uses) rather than a locally-held list, gated on
+    // users:list_all like the sidebar link itself.
     const canSearchUsers = can(PERMISSIONS.USERS_LIST_ALL);
     const { data: userResults } = useUsersQuery(
         1,
@@ -241,9 +229,8 @@ export function useCommandPaletteResults(
         () => [...filteredPages, ...filteredContent, ...textMatches, ...permissionMatches, ...filteredUsers],
         [filteredPages, filteredContent, textMatches, permissionMatches, filteredUsers]
     );
-    // Only worth a group header once there are two-plus kinds of result to
-    // tell apart - a lone "Pages" header over an all-pages list (the
-    // common case: empty/page-only query) is just noise.
+    // Only worth a group header once there are two-plus kinds of result -
+    // a lone "Pages" header over an all-pages list is just noise.
     const kindCount = useMemo(() => new Set(filtered.map((item) => item.kind)).size, [filtered]);
 
     return { filtered, kindCount };

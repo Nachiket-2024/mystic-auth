@@ -1,4 +1,3 @@
-# tests/backend/mystic_auth/unit/test_login_protection_unit.py
 from unittest.mock import AsyncMock
 
 import pytest
@@ -63,6 +62,15 @@ async def test_is_locked_false_under_threshold(mocker):
     assert await login_protection_service.is_locked("key") is False
 
 
+@pytest.mark.asyncio
+async def test_is_locked_fails_closed_on_redis_error(mocker):
+    mocker.patch(f"{MODULE}.redis_client.get", side_effect=ConnectionError("redis unreachable"))
+    error_mock = mocker.patch(f"{MODULE}.logger.error")
+
+    assert await login_protection_service.is_locked("key") is True
+    error_mock.assert_called_once()
+
+
 # ---------------------------- get_remaining_seconds ----------------------------
 
 @pytest.mark.asyncio
@@ -75,9 +83,9 @@ async def test_get_remaining_seconds_returns_the_real_ttl(mocker):
 @pytest.mark.asyncio
 async def test_get_remaining_seconds_floors_a_missing_key_at_zero(mocker):
     # redis TTL returns -2 for a key that doesn't exist at all (already
-    # expired, or never existed) - a real possibility if this races the key
-    # expiring naturally between the caller's own is_locked check and this
-    # call. There's nothing meaningful left to wait out either way.
+    # expired, or never existed): a real possibility if this races the
+    # key expiring naturally between the caller's is_locked check and
+    # this call. There's nothing meaningful left to wait out either way.
     mocker.patch(f"{MODULE}.redis_client.ttl", new_callable=AsyncMock, return_value=-2)
 
     assert await login_protection_service.get_remaining_seconds("key") == 0
@@ -85,9 +93,10 @@ async def test_get_remaining_seconds_floors_a_missing_key_at_zero(mocker):
 
 @pytest.mark.asyncio
 async def test_get_remaining_seconds_floors_a_key_with_no_expiry_at_zero(mocker):
-    # redis TTL returns -1 for a key that exists but was never given a TTL -
-    # shouldn't happen for a lockout key (record_failed_attempt always sets
-    # one), but this must not surface as a negative wait time if it ever did.
+    # redis TTL returns -1 for a key that exists but was never given a
+    # TTL. Shouldn't happen for a lockout key (record_failed_attempt
+    # always sets one), but this must not surface as a negative wait
+    # time if it ever did.
     mocker.patch(f"{MODULE}.redis_client.ttl", new_callable=AsyncMock, return_value=-1)
 
     assert await login_protection_service.get_remaining_seconds("key") == 0
@@ -135,9 +144,9 @@ async def test_check_and_record_action_denies_when_already_locked(mocker):
     incr_mock = mocker.patch(f"{MODULE}.redis_client.incr", new_callable=AsyncMock)
     delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
 
-    # Even a "successful" outcome must be denied once the account is already
-    # locked : this is the race-safety check that exists independently of
-    # any pre-check a caller performed earlier.
+    # Even a "successful" outcome must be denied once the account is
+    # already locked: this race-safety check exists independently of any
+    # pre-check a caller performed earlier.
     allowed = await login_protection_service.check_and_record_action("key", success=True)
 
     assert allowed is False
@@ -146,10 +155,11 @@ async def test_check_and_record_action_denies_when_already_locked(mocker):
 
 
 # ---------------------------- per-IP threshold/window overrides ----------------------------
-# These support login_handler.py's additive IP-keyed counter, which aggregates
-# failed attempts across ANY account from a single source IP : catching
-# credential-stuffing/spraying that the email-keyed counter alone can't see,
-# since no single email ever crosses its own threshold in that attack.
+# These support login_handler.py's additive IP-keyed counter, which
+# aggregates failed attempts across any account from a single source IP,
+# catching credential-stuffing/spraying that the email-keyed counter
+# alone can't see, since no single email ever crosses its own threshold
+# in that attack.
 
 @pytest.mark.asyncio
 async def test_is_locked_honors_a_custom_max_attempts_threshold(mocker):

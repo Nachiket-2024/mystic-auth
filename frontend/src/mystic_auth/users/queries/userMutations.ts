@@ -80,9 +80,8 @@ export function useReactivateUserMutation() {
     });
 }
 
-/** Extracts the server-picked filename (users_export_<timestamp>.csv,
- * see export_users' Content-Disposition header) rather than hardcoding one
- * client-side, so the two stay in sync automatically. */
+/** Extracts the server-picked filename (users_export_<timestamp>.csv, from
+ * export_users' Content-Disposition header) instead of hardcoding one here. */
 function filenameFromContentDisposition(contentDisposition: string | undefined): string {
     const match = contentDisposition?.match(/filename="([^"]+)"/);
     return match?.[1] ?? "users_export.csv";

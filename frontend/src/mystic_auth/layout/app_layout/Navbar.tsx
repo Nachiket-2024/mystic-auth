@@ -10,10 +10,8 @@ import ControlCluster from "../controls/ControlCluster";
 import { ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 import { FAST_HOVER_TRANSITION } from "../../theme/system";
 
-/** First letter of up to the first two words in `name` (e.g. "Ada Lovelace"
- * -> "AL", "cheryl" -> "C") - falls back to the first letter of `email`
- * (before the @) when `name` is empty, so a profile with no display name
- * yet still gets a one-letter avatar instead of a blank circle. */
+/** Initials from `name` (e.g. "Ada Lovelace" -> "AL"), falling back to the
+ * first letter of `email` when `name` is empty. */
 function initialsFor(name: string | null, email: string | null): string {
     const source = name?.trim() ? name.trim() : email?.split("@")[0] ?? "";
     if (!source) return "";
@@ -27,39 +25,24 @@ function initialsFor(name: string | null, email: string | null): string {
 interface NavbarProps {
     onToggleSidebar: () => void;
     /**
-     * App-supplied content (buttons, icons, links, ...) rendered in the top
-     * bar's action cluster, to the left of ThemeToggle/LogoutButton. Unlike
-     * Sidebar's `extraItems` (a declarative link list, since sidebar entries
-     * are all "the same shape"), the top bar's own built-ins are each
-     * bespoke components, so this is a free-form ReactNode slot rather than
-     * a typed item array: pass whatever you'd render anywhere else. See
-     * AppLayout's own docstring and
-     * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
-     * Optional and defaults to none, so existing callers see no change.
+     * App-supplied content rendered in the top bar's action cluster, left of
+     * ThemeToggle/LogoutButton. A free-form ReactNode (unlike Sidebar's
+     * `extraItems` list) since the built-ins here are each bespoke
+     * components. Optional, defaults to none.
      */
     extraContent?: React.ReactNode;
     /**
-     * Opens the same Cmd+K/Ctrl+K command palette App.tsx's global keydown
-     * listener toggles - wired here so the palette has a visible, clickable
-     * affordance (a search-bar-styled button) instead of being discoverable
-     * only via the keyboard shortcut. Optional: omitting it simply hides the
-     * trigger, same as before this prop existed.
+     * Opens the Cmd+K/Ctrl+K command palette, giving it a visible clickable
+     * trigger alongside the keyboard shortcut. Optional: omitting it hides
+     * the trigger.
      */
     onOpenCommandPalette?: () => void;
 }
 
-/**
- * Top bar shown alongside Sidebar. Hosts the mobile menu toggle (hidden on
- * md+, where Sidebar is always visible), the caller's own name, and the
- * existing LogoutButton container (unchanged, already owns its own
- * mutation/navigation logic).
- */
+/** Top bar shown alongside Sidebar: mobile menu toggle, signed-in user, logout. */
 const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCommandPalette }) => {
-    // Chrome (this navbar, plus Sidebar) always renders in chromeLanguage,
-    // not the page-wide translation language: it's English by default and stays
-    // English even in the "en+hi"/"en+mr" mixed modes, only switching along
-    // with the rest of the app for the plain "hi"/"mr" modes. See
-    // store/languageStore.ts's LanguageMode docstring.
+    // Chrome (navbar + Sidebar) renders in chromeLanguage, not the page-wide
+    // translation language. See store/languageStore.ts's LanguageMode docstring.
     const chromeLanguage = useLanguageStore((s) => s.chromeLanguage);
     const t = translations.getFixedT(chromeLanguage, "layout");
     const name = useAuthStore((s) => s.name);
@@ -71,12 +54,10 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
             as="header"
             align="center"
             justify="space-between"
-            // Below md, the right-hand action cluster doesn't fit next to the
-            // left-hand menu toggle/greeting in a single 375px row - a fixed
-            // h="16" + nowrap there forced the whole page into horizontal
-            // scroll. Wrapping (auto height) lets it fall to a second line
-            // instead; md+ keeps the original single row, where h="16" also
-            // has to line up with Sidebar's own border-bottom.
+            // Below md, the action cluster doesn't fit next to the menu
+            // toggle/greeting in one row, so wrap to a second line instead of
+            // forcing horizontal scroll. md+ stays a single fixed-height row,
+            // lined up with Sidebar's border-bottom.
             wrap={{ base: "wrap", md: "nowrap" }}
             rowGap={2}
             px={{ base: 4, md: 6 }}
@@ -119,14 +100,11 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                         >
                             {initials}
                         </Flex>
-                        {/* A flex row (not inline text) so the name is the one flex
-                            item that shrinks/truncates - a plain inline maxW inside
-                            block text doesn't adapt to however much space the flex
-                            ancestors actually squeezed this into, and just overflows
-                            past its own paragraph instead. "Signed in as" itself
-                            never shrinks or wraps (flexShrink=0/whiteSpace=nowrap);
-                            at a fixed-height (md+) navbar, a wrapped second line was
-                            pushed past the row's own height. */}
+                        {/* Flex row (not inline text) so the name is the one item
+                            that shrinks/truncates against however much space the
+                            flex ancestors give it. "Signed in as" never shrinks or
+                            wraps, since a wrapped line would overflow the
+                            fixed-height (md+) navbar. */}
                         <HStack gap={1} minW={0}>
                             <Text fontSize="md" color="fg.muted" flexShrink={0} whiteSpace="nowrap">
                                 {t("signedInAs")}
@@ -139,36 +117,18 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                 )}
             </Flex>
 
-            {/* flexShrink={0} here (present since before any of this file's own
-                wrap fixes) is what actually caused the overflow: it told the
-                browser to never shrink this box below its content's natural
-                width (556px: search field + Size + English + theme-toggle +
-                Logout, at md+), so no matter what wrap="wrap" or width is set
-                below, the box itself was never allowed to become narrower
-                than 556px - guaranteeing overflow past the viewport at any
-                width under that, and leaving wrap="wrap" with nothing to
-                actually wrap against, since a box that can't shrink also
-                never gets narrow enough to force its children onto new
-                lines. flexShrink={1} (the CSS default - restored here since
-                Chakra's Flex doesn't ship that default itself) lets it
-                shrink to whatever the header actually has available; minW={0}
-                overrides flex's own default min-width:auto, which would
-                otherwise refuse to shrink this item below its content's
-                intrinsic minimum and defeat the shrink just the same way.
-                Together these make wrap="wrap" below finally have a
-                container narrow enough to wrap Size/English/theme-toggle/
-                Logout against, at every viewport width where they don't fit
-                as one line - not just one hardcoded breakpoint. Invisible on
-                desktop, where everything already fits without shrinking. */}
+            {/* flexShrink={1} (CSS default, Chakra doesn't set it) plus
+                minW={0} (overrides flex's default min-width:auto) let this
+                box actually shrink below its 556px natural width, so
+                wrap="wrap" below has room to wrap its children onto a second
+                line instead of forcing horizontal overflow. No visible effect
+                on desktop, where it all fits on one line anyway. */}
             <Flex align="center" gap={3} wrap="wrap" justify="flex-end" rowGap={2} flexShrink={1} minW={0}>
                 {extraContent}
                 {onOpenCommandPalette && (
-                    // A real Input here would need onChange/value wiring for a
-                    // field that never actually accepts typed text (typing
-                    // opens the dialog's input, not this one), so a plain
-                    // button styled to look like a search field avoids that
-                    // dead state. Hidden below md; the keyboard shortcut itself
-                    // (App.tsx's global keydown listener) still works there.
+                    // A button styled like a search field, not a real Input:
+                    // typing here does nothing, it just opens the dialog.
+                    // Hidden below md; the keyboard shortcut still works there.
                     <HStack
                         as="button"
                         onClick={onOpenCommandPalette}
@@ -184,12 +144,10 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                         bg="bg.canvas"
                         color="fg.muted"
                         cursor="pointer"
-                        // Same border weight as the icon-button cluster it sits
-                        // next to (ICON_BUTTON_PROPS in ui/styles/buttonStyles.ts)
-                        // so the whole action cluster reads as one coherent
-                        // group, while keeping bg.canvas (not their solid gray
-                        // fill) so this one still reads as an input field, not
-                        // another button.
+                        // Same border weight as the icon-button cluster
+                        // (ICON_BUTTON_PROPS) for a coherent group, but
+                        // bg.canvas instead of their solid fill so this still
+                        // reads as an input field.
                         _hover={{ borderColor: "gray.700" }}
                         _dark={{ borderColor: "gray.500", _hover: { borderColor: "gray.300" } }}
                         transition={FAST_HOVER_TRANSITION}

@@ -1,8 +1,5 @@
-# tests/backend/mystic_auth/unit/authorization/conditions/test_condition_validator_unit.py
-#
-# Unit coverage for validate_conditions (the policy condition
-# Validation"): invalid policies must be rejected before storage: unknown
-# keys, wrong types, missing required fields, invalid timezone/IP/dates.
+# Unit coverage for validate_conditions: invalid policies must be rejected before
+# storage (unknown keys, wrong types, missing required fields, invalid timezone/IP/dates).
 import pytest
 
 from backend.mystic_auth.authorization.conditions.condition_validator import (
@@ -132,11 +129,8 @@ def test_date_range_rejects_malformed_date():
 
 
 def test_date_range_canonical_field_names_are_start_and_end_only():
-    """Regression pin: "start"/"end" are date_range's one canonical,
-    documented shape (matching "time"'s own start/end naming), no
-    aliases like "start_date"/"end_date" are recognized. A dict using
-    those names has neither "start" nor "end" from this validator's point
-    of view, so it must be rejected exactly like an empty dict."""
+    """date_range only recognizes "start"/"end". Aliases like "start_date"/"end_date"
+    aren't recognized, so this dict looks empty to the validator and is rejected."""
     errors = _errors({"date_range": {"start_date": "2026-01-01", "end_date": "2026-03-01"}})
     assert any("at least one of" in e for e in errors)
 
@@ -168,10 +162,8 @@ def test_network_rejects_invalid_cidr():
 
 
 # ---------------------------- size/depth guard ----------------------------
-# resource_attributes/context_attributes/security_context otherwise accept
-# any non-empty dict with no further checks: nothing else bounds key count,
-# nesting depth, or string length. See _validate_size_and_depth's own
-# docstring for the measured impact of skipping this guard.
+# resource_attributes/context_attributes/security_context otherwise accept any
+# non-empty dict with no other checks on key count, nesting depth, or string length.
 
 def test_huge_key_count_is_rejected():
     huge = {str(i): i for i in range(150_000)}
@@ -207,11 +199,10 @@ def test_ordinary_conditions_are_unaffected_by_the_size_guard():
 
 
 # --------------------- Read-side sanitization (PolicyRead) ---------------------
-# A policy's conditions can predate this validator or be written outside the
-# API (direct DB write, restored backup). sanitize_conditions_for_read is the
-# read-side counterpart: it must catch the same oversized/deep shapes
-# validate_conditions rejects at write time, so one bad row can't crash
-# GET /authorization/policies for every caller with a PydanticSerializationError.
+# A policy's conditions can predate this validator or be written outside the API
+# (direct DB write, restored backup). sanitize_conditions_for_read must catch the
+# same oversized/deep shapes validate_conditions rejects at write time, so one bad
+# row can't crash GET /authorization/policies for every caller.
 
 
 def test_sanitize_replaces_pathologically_nested_conditions():

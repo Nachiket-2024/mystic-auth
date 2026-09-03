@@ -79,11 +79,9 @@ describe('ConfirmDialog', () => {
   it('calls onCancel when clicking the backdrop behind the dialog', async () => {
     const { onCancel } = renderDialog();
 
-    // The rest of the page is made inert while the dialog is open, so the
-    // backdrop is the only "background" surface a click can actually land
-    // on - clicking it is equivalent to clicking anywhere outside the
-    // dialog. The outside-click listener attaches on a deferred timer, so
-    // give it a tick before clicking.
+    // The page is made inert while the dialog is open, so the backdrop is the
+    // only surface a click can land on outside the dialog. Its listener
+    // attaches on a deferred timer, so wait a tick before clicking.
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     await userEvent.click(document.querySelector('[data-part="backdrop"]') as HTMLElement);
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)));

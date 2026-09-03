@@ -9,7 +9,7 @@ You don't need a different mechanism for this. This template doesn't ship a sepa
 
 ## The recipe
 
-1. **One policy per role**, `conditions` omitted (or explicitly `null`): an unconditioned policy always evaluates to "granted" for anyone holding it, since [`condition_evaluation_service.py`](../authorization/architecture.md#condition-evaluation-service) has nothing to check:
+1. **One policy per role**, `conditions` omitted (or explicitly `null`): an unconditioned policy always evaluates to "granted" for anyone holding it, since [`condition_evaluation_service.py`](../authorization/architecture/component-responsibilities.md#condition-evaluation-service) has nothing to check:
 
    ```json
    {
@@ -45,7 +45,7 @@ This pattern doesn't change the one rule the rest of this template's authorizati
 
 ## Optional: a CLI script for this
 
-`backend/mystic_auth/scripts/create_rbac_policies.py`, same shape as [`create_system_user.py`](../authentication/system-superuser.md), interactive and CLI-only:
+`backend/mystic_auth/scripts/create_rbac_policies.py`, same shape as [`create_system_user.py`](../authentication/system-superuser/README.md), interactive and CLI-only:
 
 ```bash
 python -m mystic_auth.scripts.create_rbac_policies

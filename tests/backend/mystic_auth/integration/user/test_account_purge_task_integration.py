@@ -3,10 +3,9 @@
 # End-to-end coverage for the scheduled grace-period hard-purge job
 # (backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py) against
 # the real ASGI app, real PostgreSQL, and real Redis (see conftest.py).
-# Companion to test_user_account_lifecycle_integration.py's manual-purge
-# coverage and test_user_self_service_routes_integration.py's self-delete
-# coverage: this file is what proves the two are actually connected by the
-# daily job.
+# Manual purge is covered in test_user_account_lifecycle_integration.py and
+# self-delete in test_user_self_service_routes_integration.py; this file
+# proves the daily job actually connects the two.
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -25,9 +24,9 @@ from .user_test_accounts import (
 
 
 async def _soft_delete_with_deleted_at(email: str, deleted_at: datetime) -> None:
-    """Backdoors deleted_at directly (bypassing user_crud.soft_delete's
-    always-now() timestamp) so a test can place an account on either side of
-    the grace-period cutoff without waiting real days."""
+    """Sets deleted_at directly instead of using user_crud.soft_delete (which
+    always uses now()), so a test can place an account on either side of the
+    grace-period cutoff without waiting real days."""
     async with database.async_session() as session:
         user = await user_crud.get_by_email(email, session)
         user.is_active = False

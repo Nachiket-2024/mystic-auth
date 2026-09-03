@@ -1,12 +1,7 @@
-# tests/backend/mystic_auth/security/test_least_privilege_db_role.py
-#
-# Real-DB proof that the app's runtime Postgres role (mystic_auth_app, see
-# alembic migration b1e6a9f3c7d2_add_least_privilege_app_role.py) is
-# actually least-privilege: normal CRUD works, but DDL and role management
-# are rejected. Opt-in like the feature itself: skipped unless
-# APP_DATABASE_URL is actually configured, since a fresh checkout that
-# never sets it (falling back to DATABASE_URL everywhere, per
-# core/settings.py) has no separate role to test against.
+# Checks the app's runtime Postgres role (mystic_auth_app, see alembic
+# migration b1e6a9f3c7d2_add_least_privilege_app_role.py) can do normal CRUD
+# but not DDL or role management. Skipped unless APP_DATABASE_URL is set,
+# since a fresh checkout without it has no separate role to test against.
 import asyncpg
 import pytest
 
@@ -14,9 +9,8 @@ from backend.mystic_auth.core.settings import settings
 
 
 def _to_dsn(url: str) -> str:
-    """asyncpg.connect() wants a plain postgresql:// DSN, not SQLAlchemy's
-    postgresql+asyncpg:// dialect prefix - same translation as
-    settings.procrastinate_database_url."""
+    """asyncpg wants a plain postgresql:// DSN, not SQLAlchemy's
+    postgresql+asyncpg:// prefix."""
     return url.replace("postgresql+asyncpg://", "postgresql://", 1)
 
 

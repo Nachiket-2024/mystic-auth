@@ -1,10 +1,10 @@
 @echo off
 REM Non-interactively bootstraps the system superuser against the dev stack
-REM (docker-compose.yml). Fill in local-scripts\dev\system-user.env first.
+REM (docker/compose/docker-compose.dev.yml). Fill in local-scripts\dev\system-user.env first.
 REM Assumes a fresh account (no existing user with that email): this pipes a
 REM fixed 3-line stdin (email, name, password) matching create_system_user.py's
 REM "brand new account" prompt sequence. If the account already exists, run
-REM `docker compose exec backend python -m mystic_auth.scripts.create_system_user`
+REM `docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec backend python -m mystic_auth.scripts.create_system_user`
 REM by hand instead, since that branch asks different questions.
 setlocal enabledelayedexpansion
 set "SCRIPT_DIR=%~dp0"
@@ -19,6 +19,6 @@ cd /d "%SCRIPT_DIR%..\.."
   echo %SYSTEM_USER_EMAIL%
   echo %SYSTEM_USER_NAME%
   echo %SYSTEM_USER_PASSWORD%
-) | docker compose -f docker-compose.yml exec -T backend python -m mystic_auth.scripts.create_system_user
+) | docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T backend python -m mystic_auth.scripts.create_system_user
 
 endlocal

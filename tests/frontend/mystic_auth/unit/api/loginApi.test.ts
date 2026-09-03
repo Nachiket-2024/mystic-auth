@@ -12,8 +12,7 @@ describe('loginApi', () => {
 
   it('should send POST request to /auth/login with email and password', async () => {
     const payload = { email: 'test@example.com', password: 'Test123!' };
-    // Real backend behavior: tokens are set as HttpOnly cookies, never
-    // returned in the JSON body : only a generic success message.
+    // Real backend behavior: tokens are set as HttpOnly cookies, never returned in the JSON body.
     const mockResponse = { message: 'Login successful' };
 
     mock.onPost('/auth/login', payload).reply(200, mockResponse);
@@ -24,9 +23,8 @@ describe('loginApi', () => {
   });
 
   it('should reject with the same generic message for wrong password or unknown email', async () => {
-    // Backend deliberately returns an identical response for both cases to
-    // resist account enumeration : the frontend must not depend on being
-    // able to distinguish them.
+    // Backend deliberately returns an identical response for both cases to resist
+    // account enumeration; the frontend must not depend on distinguishing them.
     mock.onPost('/auth/login').reply(401, { error: 'Invalid credentials or account locked' });
 
     await expect(loginApi({ email: 'nobody@example.com', password: 'wrong' })).rejects.toMatchObject({

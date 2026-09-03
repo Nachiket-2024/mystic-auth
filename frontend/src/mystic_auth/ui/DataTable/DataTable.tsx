@@ -25,34 +25,25 @@ export interface DataTableColumn<T> {
     /** Fixed width (e.g. "10rem"), applied via <colgroup> below with
      * `table-layout: fixed`. Without this, a plain HTML table sizes each
      * column from its own current cell contents, so switching filters/tabs
-     * (a shorter name, an empty IP, a different badge set) reflows every
-     * column width on every render - distracting movement that has nothing
-     * to do with the data itself. Give a fixed width to any column whose
-     * content varies a lot in length; columns left unset share the
-     * remaining space evenly - AS LONG AS every column in the table is
-     * either unset or a percentage. Mixing an unset/percentage column with
-     * this table's OWN rem-sized columns doesn't reliably share leftover
-     * space under `table-layout: fixed`: once the rem-sized columns alone
-     * exceed the container's width (e.g. several action/status columns on
-     * a 1024px-wide viewport), the unset column can get squeezed to a few
-     * illegible px instead of the table properly overflowing into
-     * Table.ScrollArea's horizontal scroll. Give every column in a table
-     * that has ANY rem-sized column a rem width too, so the total is
-     * deterministic and a too-narrow viewport scrolls the whole table
-     * instead of silently truncating just that one column (see
-     * usersColumns.tsx's Name/Email and PoliciesPage.tsx's actions_list for
-     * the fix applied after finding this the hard way). */
+     * reflows every column width on every render. Give a fixed width to any
+     * column whose content varies a lot in length; columns left unset share
+     * the remaining space evenly - AS LONG AS every column in the table is
+     * either unset or a percentage. Mixing an unset column with this
+     * table's own rem-sized columns doesn't reliably share leftover space:
+     * once the rem-sized columns alone exceed the container's width, the
+     * unset column can get squeezed to a few illegible px instead of the
+     * table properly overflowing into Table.ScrollArea's horizontal scroll.
+     * Give every column in a table that has ANY rem-sized column a rem
+     * width too, so a too-narrow viewport scrolls the whole table instead
+     * of silently truncating just that one column. */
     width?: string;
     /** Clips this column's content to one line with a trailing ellipsis
-     * instead of letting it overflow into the next column - the fix for a
-     * long unbroken string (an email, a UA string, an audit "action" id)
-     * that has nowhere to wrap once its column has a fixed width. Set this
-     * on any column whose content is free-form text of unpredictable
-     * length; leave it off for columns that already manage their own
-     * overflow (badges/buttons in an HStack/Wrap that's meant to wrap onto
-     * a second line). When `render` returns a plain string, that string is
-     * also used as the cell's `title` so the full value is still available
-     * on hover. */
+     * instead of overflowing into the next column - for a long unbroken
+     * string (an email, a UA string) with nowhere to wrap once its column
+     * has a fixed width. Set this on free-form text columns; leave it off
+     * for columns that already manage their own overflow (badges/buttons
+     * meant to wrap). When `render` returns a plain string, it's also used
+     * as the cell's `title` so the full value is available on hover. */
     truncate?: boolean;
 }
 
@@ -84,52 +75,43 @@ interface DataTableProps<T> {
     /** When set, prepends a numbered "#" column so rows are easy to track
      * by position - `startIndex + 1` for the first rendered row. Pass the
      * page offset (e.g. `(page - 1) * PAGE_SIZE`) for a server-paginated
-     * table so numbers reflect the row's real position across the whole
-     * result set, not just its position on the current page; pass `0` for
-     * an unpaginated/client-filtered table. Omit entirely for a table where
-     * row position isn't meaningful (e.g. one already keyed by a visible
-     * id/name column). */
+     * table so numbers reflect the row's real position, not just its
+     * position on the current page; pass `0` for an unpaginated table. Omit
+     * for a table where row position isn't meaningful. */
     startIndex?: number;
-    /** Prepends a checkbox column (per-row + a header "select all" that
-     * covers every currently-rendered row) and a selected-count indicator
-     * above the table. This only adds the selection UI itself - it's the
-     * caller's job to wire the resulting keys up to an actual bulk action
-     * (or not: a table can be selectable purely so a caller can read off
-     * `onSelectionChange` without offering any bulk button yet). Requires
+    /** Prepends a checkbox column (per-row + a header "select all" covering
+     * every rendered row) and a selected-count indicator above the table.
+     * This only adds the selection UI itself; wiring the resulting keys up
+     * to a bulk action is the caller's job. Requires
      * `selectedKeys`/`onSelectionChange` below; omit all three for a plain,
-     * non-selectable table, same as before this prop existed. */
+     * non-selectable table. */
     selectable?: boolean;
     /** Currently-selected row keys (same key space as `rowKey`), owned by
      * the caller so selection can survive a page/filter change if the
      * caller wants that, or be cleared on one if it doesn't. */
     selectedKeys?: ReadonlySet<string | number>;
     /** Called on every checkbox toggle (row or select-all), always with the
-     * FUNCTIONAL form (same shape as React's own `Dispatch<SetStateAction>`)
-     * - `(prev) => next`, computed off whatever the true latest selection is
-     * when the update actually applies, never off a snapshot taken at
-     * render/click time. Passing a plain `useState` setter directly (e.g.
-     * `onSelectionChange={setSelectedIds}`) satisfies this automatically,
-     * since React's own setters already accept an updater function - that's
-     * also what makes this safe under several rapid selection changes fired
-     * in quick succession (see DataTableSelection.ts's own comment on why a
-     * value-only version could silently resurrect a just-cleared row). */
+     * FUNCTIONAL form (same shape as React's `Dispatch<SetStateAction>`) -
+     * `(prev) => next`, computed off the true latest selection when the
+     * update applies, never a render/click-time snapshot. Passing a plain
+     * `useState` setter directly satisfies this automatically, and is also
+     * what makes this safe under several rapid selection changes fired in
+     * quick succession (see DataTableSelection.ts for why a value-only
+     * version could silently resurrect a just-cleared row). */
     onSelectionChange?: SelectionChangeHandler;
     /** Opt-in: while true (and `selectable`), clicking anywhere in a row
-     * (except an interactive control inside it - a button, a select)
-     * toggles that row's selection, not just its checkbox. Defaults to
-     * false/unset so a table stays normal-click-to-select-text everywhere
-     * else - always-on would fight a user trying to double-click/drag-select
-     * an email or other cell text to copy it. The caller is expected to
-     * expose this as its own explicit toggle (e.g. a toolbar button) rather
-     * than leaving it permanently on. */
+     * (except an interactive control inside it) toggles that row's
+     * selection, not just its checkbox. Defaults to off so a table stays
+     * normal-click-to-select-text elsewhere - always-on would fight a user
+     * trying to double-click/drag-select cell text to copy it. */
     rowClickSelects?: boolean;
 }
 
 /**
  * Generic table with a shared loading/error/empty treatment, so every
- * management list page (Users, Policies, Audit Log) doesn't reimplement the same three
- * conditional branches around a bare Chakra Table. Selection bookkeeping
- * lives in DataTableSelection.ts, the loading skeleton in
+ * management list page (Users, Policies, Audit Log) doesn't reimplement the
+ * same three conditional branches around a bare Chakra Table. Selection
+ * bookkeeping lives in DataTableSelection.ts, the loading skeleton in
  * DataTableSkeleton.tsx, and shared style constants in DataTableStyles.ts -
  * this file owns only the loaded-state render.
  */
@@ -153,9 +135,8 @@ function DataTable<T>({
     rowClickSelects,
 }: DataTableProps<T>) {
     const { t } = useTranslation("ui_text");
-    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
-    // even in a mixed "en+hi" mode, the same way dates already do (see
-    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    // chromeLanguage, not pageLanguage: numerals stay ASCII even in a mixed
+    // "en+hi" mode, same as dates (dateFormat.ts).
     const language = useLanguageStore((s) => s.chromeLanguage);
     const showRowNumbers = startIndex !== undefined;
 
@@ -193,12 +174,10 @@ function DataTable<T>({
             <EmptyState.Root size="md">
                 <EmptyState.Content>
                     {emptyIcon && (
-                        // A bare icon glyph on its own reads as thin/
-                        // accidental at this size - a soft accent-tinted
-                        // circle behind it gives the empty state some visual
-                        // weight, matching the treatment DashboardPage's own
-                        // identity avatar already uses for its icon-in-a-
-                        // circle.
+                        // A bare icon glyph on its own reads as thin at this
+                        // size - a soft accent-tinted circle behind it gives
+                        // the empty state visual weight, matching
+                        // DashboardPage's own icon-in-a-circle treatment.
                         <EmptyState.Indicator
                             bg="accent.subtle"
                             color="accent.fg"
@@ -222,14 +201,11 @@ function DataTable<T>({
 
     return (
         <>
-            {/* maxH caps this table's own height once it has enough rows to
-                exceed it, turning Table.ScrollArea (already overflow:auto on
-                both axes, for the horizontal scroll-shadow above) into a real
-                vertical scroll container too - which is what makes the sticky
-                header cells below actually stick to something instead of the
-                whole page scrolling past a header that "sticks" to nothing. A
-                table with fewer rows than fit in 70dvh never hits this cap, so
-                it renders exactly as before (no inner scrollbar, no clipping). */}
+            {/* maxH caps this table's height once it has enough rows to exceed
+                it, turning Table.ScrollArea into a real vertical scroll
+                container too - which is what makes the sticky header cells
+                below actually stick to something. A table with fewer rows
+                than fit in 70dvh never hits this cap. */}
             <Table.ScrollArea
                 borderWidth="1px"
                 borderColor="border.default"
@@ -244,13 +220,11 @@ function DataTable<T>({
                     tableLayout: "fixed",
                     width: "100%",
                     fontSize: "md",
-                    // The last row's own borderBottomWidth (from the "line" variant's
-                    // default cell styling) stacked directly on top of
-                    // Table.ScrollArea's outer borderColor="border.default" above,
-                    // reading as a doubled line at the bottom edge once that border
-                    // token got darker/more visible - drop just that one row's
-                    // bottom border since the ScrollArea's own border already closes
-                    // the box off there.
+                    // The last row's own borderBottomWidth stacked directly
+                    // on top of Table.ScrollArea's outer border, reading as
+                    // a doubled line at the bottom edge - drop just that
+                    // row's bottom border since the ScrollArea's own border
+                    // already closes the box off there.
                     "& tbody tr:last-of-type td": { borderBottomWidth: 0 },
                 }}
             >

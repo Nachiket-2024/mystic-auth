@@ -14,21 +14,18 @@ export interface ManagedUserRead {
     /** Per-user brand color override (#rrggbb). null = using the app
      * default scale (app/theme.ts). See appearanceStore.ts. */
     brand_color: string | null;
-    /** PUT /users/me only (undefined from the management route): whether a
-     * password change's other-session revocation was confirmed. null/absent
-     * for any update that wasn't a password change. False means the
-     * password itself still changed, but the account's other sessions were
-     * NOT revoked (Redis was unreachable) - see ChangePasswordCard.tsx. */
+    /** Self-service PUT /users/me only, and only set on a password change: whether the
+     * account's other sessions got revoked. False means the password changed but Redis
+     * was unreachable, so other sessions are still live - see ChangePasswordCard.tsx. */
     sessions_revoked?: boolean | null;
 }
 
 export interface UserUpdatePayload {
     name?: string;
     password?: string;
-    // Required by the backend when changing the password on an account that
-    // already has one (self-service PUT /users/me only; the management route
-    // ignores it). Not needed when setting a password for the first time on
-    // an OAuth-only account.
+    // Required when changing a password on an account that already has one
+    // (self-service PUT /users/me only; ignored by the management route).
+    // Not needed when setting a password for the first time on an OAuth-only account.
     current_password?: string;
     /** #rrggbb to set a custom brand color, or null to reset to the app
      * default. Omitted (undefined) leaves the stored value unchanged. */
@@ -56,9 +53,9 @@ export interface ListUsersParams {
     /** Users holding a policy whose actions include this permission, one of
      * PERMISSIONS' own values (authorization/permissions.ts). */
     permission?: string;
-    /** Column to sort by; must be one of the backend's own allowlisted
-     * sortable columns (see user_base_crud.py's _SORTABLE_COLUMN_NAMES) -
-     * any other value is ignored server-side and falls back to id. */
+    /** Column to sort by. Must be one of the backend's allowlisted sortable columns
+     * (see user_base_crud.py's _SORTABLE_COLUMN_NAMES); anything else is ignored
+     * server-side and falls back to id. */
     sortBy?: string;
     sortDir?: "asc" | "desc";
 }
@@ -72,10 +69,8 @@ function toApiParams({
     };
 }
 
-// X-Total-Count (total matching rows, ignoring limit/offset) rides the
-// response headers rather than the body: response_model on the backend
-// stays a plain list, and the header is what UsersPage derives its page
-// count from (see userQueries.ts).
+// Total matching row count rides the X-Total-Count response header; UsersPage reads
+// it for the page count (see userQueries.ts).
 export const listUsersApi = (params: ListUsersParams = {}) =>
     api.get<ManagedUserRead[]>("/users/", { params: toApiParams(params) });
 

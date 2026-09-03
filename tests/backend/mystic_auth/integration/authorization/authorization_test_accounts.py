@@ -1,12 +1,7 @@
-# tests/backend/mystic_auth/integration/authorization_test_accounts.py
-#
-# Shared account/policy helpers for the PBAC policy-management integration
-# test files (test_policy_crud_integration.py,
-# test_policy_action_separation_integration.py,
-# test_policy_assignment_integration.py,
-# test_authorization_check_integration.py): all four need the same
-# verified-user/system-user setup and a disposable, uniquely-named policy
-# to test against without colliding with the baseline seeded policies.
+# Shared account/policy helpers for the PBAC policy-management integration tests
+# (policy CRUD, action separation, assignment, authorization check): a verified
+# user/system user setup plus a disposable, uniquely-named policy so tests don't
+# collide with the baseline seeded policies.
 import uuid
 
 import pytest_asyncio
@@ -70,11 +65,9 @@ async def create_system_user(client, created_emails, email):
 
 
 async def create_user_with_custom_policy_actions(client, created_emails, email, actions):
-    """Creates a user holding a single, freshly-created policy granting
-    exactly `actions` on resource_type="policies", used to prove the
-    fine-grained policies:read/create/update/delete/assign/revoke actions
-    are each independently enforced, rather than all-or-nothing like the
-    old coarse policies:manage."""
+    """Creates a user with a fresh policy granting only `actions` on
+    resource_type="policies", to prove each fine-grained action
+    (read/create/update/delete/assign/revoke) is enforced independently."""
     policy_name = unique_policy_name()
     async with database.async_session() as session:
         await policy_repository.create(

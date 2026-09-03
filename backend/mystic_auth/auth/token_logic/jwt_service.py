@@ -67,7 +67,7 @@ class JWTService:
         targeted revoke (logout, Manage Sessions, reuse-detection) end
         exactly this one session via bump_chain_version, without touching
         any other session on the account - see
-        docs/mystic_auth/authentication/session-management.md.
+        docs/mystic_auth/authentication/session-management/README.md.
         """
         now = datetime.now(UTC)
         expire = now + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)

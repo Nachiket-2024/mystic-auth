@@ -10,20 +10,15 @@ from ...database.base import Base
 
 class AuthorizationAuditLog(Base):
     """
-    One row per authorization decision (per the PBAC
-    Work: "Authorization decisions must be auditable" / "Automatically log
-    every authorize() call"). Written by
+    One row per authorization decision. Written by
     AuthorizationService.authorize_detailed, the single choke point every
-    authorize()/require() call goes through, so no protected route or
-    caller needs to log anything itself.
+    authorize()/require() call goes through, so no route needs to log
+    anything itself.
 
-    Deliberately append-only and independent of the policies/user_policies
-    tables (no foreign keys to Policy): a policy referenced by an old audit
-    entry may since have been edited or deleted, and the audit trail must
-    keep reflecting exactly what was evaluated *at the time*, not whatever
-    that policy id currently means. Policy names, not just ids, are stored
-    for the same reason: a renamed or deleted policy's audit history
-    should still read as which policy(ies) were involved.
+    Append-only, no foreign keys to Policy: a policy referenced by an old
+    entry may since be edited or deleted, and the audit trail must reflect
+    what was evaluated at the time, not what that id means now. Policy
+    names (not just ids) are stored for the same reason.
     """
 
     __tablename__ = "authorization_audit_log"

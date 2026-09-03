@@ -14,7 +14,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     async def dispatch(self, request, call_next):
-        logger.info(f"Incoming request: {request.method} {request.url}")
+        request_path = request.url.path
+        logger.info("Incoming request: %s %s", request.method, request_path)
 
         # Exceptions are intentionally NOT caught here; they're left to
         # propagate to the single global exception handler in main.py, which
@@ -26,7 +27,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
         if not isinstance(response, StreamingResponse):
             logger.info(
-                f"Response: {response.status_code} for {request.method} {request.url}"
+                "Response: %s for %s %s", response.status_code, request.method, request_path
             )
 
         if isinstance(response, StreamingResponse):

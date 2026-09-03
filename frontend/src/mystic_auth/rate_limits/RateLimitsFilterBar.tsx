@@ -17,18 +17,14 @@ interface RateLimitsFilterBarProps {
     setScope: (v: string) => void;
 }
 
-/** Same shape as UsersFilterBar/audit_log's *FilterBar components: this
- * owns only the filter controls, RateLimitsPage owns the state and the
- * query it drives. Unlike `identifier` (a substring match, server-side via
- * rate_limiter_service.list_active_limits, so RateLimitsPage debounces it
- * same as audit_log's ipAddress/search filters), `endpoint` here is an
- * exact match, same as the scope select below it - it's a dropdown over
- * RATE_LIMIT_ENDPOINTS (the fixed, known set of values the backend can
- * actually match) rather than free text, so there's nothing to debounce:
- * the page only refetches once an option is picked. A free-text box here
- * used to silently return zero rows for anything but an exact internal
- * endpoint id (e.g. "Login" or "signin" instead of "login"), which read as
- * the filter being broken. */
+/** Same shape as UsersFilterBar/audit_log's *FilterBar components: this owns
+ * only the filter controls, RateLimitsPage owns the state and query.
+ * `identifier` is a substring match (debounced, like audit_log's search
+ * filters), but `endpoint` needs an exact match server-side, so it's a
+ * dropdown over RATE_LIMIT_ENDPOINTS instead of free text (a free-text box
+ * used to silently return zero rows unless you typed the exact internal id,
+ * e.g. "login" not "Login"). Nothing to debounce there: it refetches once an
+ * option is picked. */
 const RateLimitsFilterBar: React.FC<RateLimitsFilterBarProps> = ({
     endpoint, setEndpoint, identifier, setIdentifier, scope, setScope,
 }) => {

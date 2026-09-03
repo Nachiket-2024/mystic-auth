@@ -10,11 +10,11 @@ import api from '@/api/axiosInstance';
 import { useAuthStore } from '@/store/authStore';
 import UsersPage from '@/users/UsersPage';
 
-// The per-user "View" details dialog: its own name/email/role/status/dates
-// fields plus the policies/effective-permissions/direct-permissions section
-// it fetches itself (see UserDetailsDialog.tsx and effectiveGrants.ts's
+// The per-user "View" details dialog: its own fields plus the
+// policies/effective-permissions/direct-permissions section it fetches
+// itself (see UserDetailsDialog.tsx and effectiveGrants.ts's
 // buildEffectivePermissionList). Split out of users_page.test.tsx to keep
-// that file focused on the table itself.
+// that file focused on the table.
 
 const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();
@@ -109,14 +109,11 @@ describe('UsersPage details dialog', () => {
     expect(within(dialog).getByText('user@example.com')).toBeInTheDocument();
     expect(within(dialog).getByText('self_service')).toBeInTheDocument();
 
-    // Effective permissions: union of the fanned-out policy action
-    // (users:read_own) and the direct grant (reports:view). reports:view
-    // shows up twice overall (once under Effective, once under Direct), so
-    // this only asserts the policy-derived action is present at all.
+    // reports:view appears twice (Effective and Direct), so only check the
+    // policy-derived action is present in Effective.
     expect(within(dialog).getByText('users:read_own')).toBeInTheDocument();
     expect(within(dialog).getAllByText('reports:view').length).toBe(2);
 
-    // Direct permissions: the raw grant only, not the policy-derived one.
     const directHeading = within(dialog).getByText('Direct permissions');
     const directSection = directHeading.parentElement;
     expect(directSection).toBeTruthy();
@@ -162,19 +159,16 @@ describe('UsersPage details dialog', () => {
 
     const dialog = await openDetailsDialog(user, 'Regular User');
 
-    // Only the Policies section failed - Direct permissions (whose own
-    // request succeeded) still renders normally, since each section now
-    // tracks its own independent loading/error state (see
-    // UserDetailsDialog.tsx's AuthorizationSection).
+    // Each section tracks its own loading/error state (see
+    // UserDetailsDialog.tsx's AuthorizationSection), so a failed Policies
+    // fetch shouldn't affect the Direct permissions section.
     expect(await within(dialog).findByText("Failed to load this user's policies")).toBeInTheDocument();
     expect(within(dialog).getByText('No direct permissions granted.')).toBeInTheDocument();
   });
 
   it("shows a restricted-view notice (not a failed-to-load error) for a viewer who lacks policies:read, and still loads the direct permissions section", async () => {
-    // e.g. an admin holding only user_administration (users:list_all),
-    // neither policies:read nor permissions:read - a real, expected
-    // permission restriction, not an outage, so this must read differently
-    // from the genuine-failure case above.
+    // A missing permission is an expected restriction, not an outage, so it
+    // must read differently from the genuine-failure case above.
     seed(['users:list_all', 'permissions:read']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/users/user%40example.com/permissions').reply(200, {
@@ -188,19 +182,11 @@ describe('UsersPage details dialog', () => {
     const dialog = await openDetailsDialog(user, 'Regular User');
 
     expect(await within(dialog).findByText("You don't have permission to view this user's policies.")).toBeInTheDocument();
-    // GET /authorization/users/{email}/policies must never fire for this
-    // viewer - if it regressed and did, the unconfigured mock above (no
-    // .onGet for that URL) would 404 and this would show a failed-to-load
-    // error instead of the restricted-view copy asserted above. Matched by
-    // the specific per-user path, not a bare "/policies" substring: this
-    // page also mounts BulkPolicyAssignDialog, which independently fires
-    // GET /authorization/policies (the full list, for its own dropdown)
-    // regardless of whether this details dialog is even open.
+    // Matched by the specific per-user path, not a bare "/policies"
+    // substring, since BulkPolicyAssignDialog on this page independently
+    // fires GET /authorization/policies for its own dropdown.
     expect(mock.history.get.filter((r) => r.url?.includes('/users/user%40example.com/policies'))).toHaveLength(0);
-    // permissions:read alone can't compute the union (needs policies too).
     expect(within(dialog).getByText('Viewing effective permissions requires both policies:read and permissions:read.')).toBeInTheDocument();
-    // But the Direct permissions section (gated on permissions:read alone)
-    // still loads normally.
     expect(within(dialog).getByText('reports:view')).toBeInTheDocument();
   });
 
@@ -218,20 +204,17 @@ describe('UsersPage details dialog', () => {
     const dialog = await openDetailsDialog(user, 'Regular User');
 
     expect(await within(dialog).findByText("You don't have permission to view this user's direct permissions.")).toBeInTheDocument();
-    // Same specific-path reasoning as the sibling test above - a bare
+    // Same specific-path reasoning as the sibling test above: a bare
     // "/permissions" substring would also match the unrelated
-    // /authorization/permissions/catalog fetch PolicyFormDialog-adjacent
-    // dialogs on this page make independently of this details dialog.
+    // /authorization/permissions/catalog fetch other dialogs on this page make.
     expect(mock.history.get.filter((r) => r.url?.includes('/users/user%40example.com/permissions'))).toHaveLength(0);
   });
 
   it("shows the viewer's own policies/permissions via the self-service endpoints when they open their own row, even with neither policies:read nor permissions:read", async () => {
-    // e.g. an admin holding only user_administration (users:list_all) -
-    // narrowly scoped, no policies:read/permissions:read at all - clicking
-    // their own row in the table. GET /authorization/users/me/policies and
-    // .../me/permissions are self-service (auth-only, see
-    // policy_assignment_routes.py / permission_assignment_routes.py), so
-    // this must never depend on those two management permissions.
+    // GET /authorization/users/me/policies and .../me/permissions are
+    // self-service (auth-only, see policy_assignment_routes.py /
+    // permission_assignment_routes.py), so viewing your own row must not
+    // depend on the management permissions.
     seed(['users:list_all']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/users/me/policies').reply(200, {

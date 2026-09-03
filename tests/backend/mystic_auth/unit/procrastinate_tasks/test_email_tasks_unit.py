@@ -1,12 +1,12 @@
 # tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py
 #
-# Regression guard for email delivery reliability: send_email_task previously
-# caught every exception and returned False, which no retry mechanism ever
-# sees (it only reacts to a raised exception): so a transient SMTP failure
-# silently dropped the email with no retry. The fix makes the task raise on
-# failure (after logging) so Procrastinate's retry_strategy can see it and
-# schedule a retry, up to max_attempts, while every attempt still leaves a
-# full traceback in the logs.
+# Regression guard for email delivery reliability: send_email_task used to
+# catch every exception and return False, which no retry mechanism ever
+# sees (it only reacts to a raised exception), so a transient SMTP failure
+# silently dropped the email. The fix makes the task raise on failure
+# (after logging) so Procrastinate's retry_strategy can see it and schedule
+# a retry, up to max_attempts, while every attempt still leaves a full
+# traceback in the logs.
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 

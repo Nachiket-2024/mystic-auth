@@ -1,10 +1,7 @@
 /**
- * The pagination size, filter-placeholder value, timestamp formatting, and
- * page-count/bool-filter parsing every audit-log list table needs to render
- * itself consistently: all four section components, in both
- * authorization_log/ and security_log/, depend on these same five things
- * identically, so this is the one place they live rather than each tab
- * duplicating them.
+ * Pagination size, filter-placeholder value, timestamp formatting, and page-count/bool-filter
+ * parsing shared by all four audit-log section components (authorization_log/ and
+ * security_log/), kept here once instead of duplicated per tab.
  */
 
 import type { SupportedLanguage } from "../translations/translations";
@@ -15,12 +12,11 @@ import { formatHourMinute } from "../translations/timeOfDay";
 export const PAGE_SIZE = 25;
 export const ALL_VALUE = "";
 
-/** e.g. "14 Aug 2026, 8:58 PM" - fixed dd-Mon-yyyy (not the browser's locale
- * format, which could read mm/dd/yyyy for a US-locale viewer looking at the
- * same log row as a viewer elsewhere), so a timestamp reads unambiguously
- * the same way for every operator regardless of their system locale, with
- * the month name, digits, and time-of-day all localized to the active
- * language (see timeOfDay.ts for hi/mr's native day-period words). */
+/** e.g. "14 Aug 2026, 8:58 PM" - fixed dd-Mon-yyyy, not the browser's locale format (which
+ * could read mm/dd/yyyy for a US viewer looking at the same row as someone elsewhere), so
+ * every operator sees the same unambiguous format regardless of system locale. Month name,
+ * digits, and time-of-day are still localized to the active language (see timeOfDay.ts for
+ * hi/mr's native day-period words). */
 export function formatTimestamp(iso: string, language: SupportedLanguage): string {
     const date = new Date(iso);
     const day = String(date.getDate()).padStart(2, "0");

@@ -26,8 +26,8 @@ async def health():
 async def health_ready(db: AsyncSession = Depends(database.get_session)):
     """
     Readiness probe: confirms Postgres and Redis connectivity. Each check is
-    independently wrapped in try/except : one dependency being down must still
-    report the other's real status, not mask it behind an unrelated exception.
+    wrapped in its own try/except, so one dependency being down still
+    reports the other's real status instead of masking it.
     """
     checks: dict[str, str] = {}
 

@@ -30,13 +30,10 @@ def _apply_filters(
     resource_type: str | None,
     allowed: bool | None,
 ) -> Select:
-    """Shared by get_all/get_for_user (row fetch) and count/count_for_user
-    (X-Total-Count), so a filtered page's total always matches what's
-    actually being paged through. `search` is a substring match on
-    user_email (a free-text field); `action`/`resource_type`/`allowed` are
-    exact matches against fixed, finite vocabularies (Permission's action
-    strings, this app's resource types, and a bool), the same distinction
-    security_audit_log_repository.py draws for search vs. event_type/success."""
+    """Shared by get_all/get_for_user and count/count_for_user, so a
+    filtered page's total always matches what's actually paged through.
+    `search` is a substring match on user_email; the rest are exact
+    matches against fixed vocabularies."""
     if search:
         stmt = stmt.where(AuthorizationAuditLog.user_email.ilike(ilike_pattern(search), escape=ILIKE_ESCAPE_CHAR))
     if action:

@@ -1,10 +1,7 @@
-# tests/backend/mystic_auth/unit/authorization/repositories/test_user_permission_repository_unit.py
-#
 # Coverage for UserPermissionRepository's cache-aside wiring, the
-# insert-vs-reactivate-existing-row branch in assign_permission_to_user, and
-# the bulk stage-then-commit-once/per-user-invalidation contract shared with
-# PolicyAssignmentRepository (see that module's own
-# test_policy_repository_caching_unit.py for the pattern this mirrors).
+# insert-vs-reactivate-existing-row branch in assign_permission_to_user, and the
+# bulk stage-then-commit-once/per-user-invalidation contract (shared with
+# PolicyAssignmentRepository; see test_policy_repository_caching_unit.py).
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -211,9 +208,8 @@ async def test_bulk_assign_permissions_commits_once_and_invalidates_each_affecte
     assert all(r.status == "success" for r in results)
     assert db.add.call_count == 2
     db.commit.assert_awaited_once()
-    # Batched invalidation (one redis_client.delete(*keys) call for every
-    # affected user), not one invalidate_user_permissions(...) round trip
-    # per user - see PolicyAssignmentRepository's identical bulk contract.
+    # Batched invalidation (one delete(*keys) call for every affected user),
+    # not one invalidate_user_permissions round trip per user.
     cache.invalidate_user_permissions.assert_not_called()
     cache.invalidate_user_permissions_bulk.assert_awaited_once()
     invalidated = cache.invalidate_user_permissions_bulk.await_args.args[0]

@@ -1,13 +1,8 @@
-# tests/backend/mystic_auth/unit/authorization/services/test_authorization_service_audit_log_unit.py
-#
-# The PBAC audit logging requirement: "Automatically log every authorize()
-# call". Logged inside authorize() (not authorize_detailed) so the
-# authorization-check inspection endpoint's hypothetical "what would happen
-# if" queries, which call authorize_detailed directly, never pollute the
-# audit trail with decisions nothing actually acted on. Split out of
-# test_authorization_service_unit.py once that file passed the repo's own
-# file-length guideline; see that file for the base authorize()/require()
-# coverage this builds on.
+# Every authorize() call must be logged. Logged inside authorize() (not
+# authorize_detailed) so the inspection endpoint's "what would happen if" queries,
+# which call authorize_detailed directly, never pollute the audit trail with
+# decisions nothing actually acted on. Split out of test_authorization_service_unit.py,
+# which has the base authorize()/require() coverage this builds on.
 from unittest.mock import AsyncMock
 
 import pytest

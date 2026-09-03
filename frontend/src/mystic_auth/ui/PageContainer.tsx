@@ -7,39 +7,31 @@ import Breadcrumbs, { type BreadcrumbEntry } from "./Breadcrumbs";
 interface PageContainerProps {
     title: string;
     /** Renders a Breadcrumbs trail above the title when given a non-empty
-     * array - omit entirely (the default) for no breadcrumb bar, which is
-     * every current page in this template: the built-in nav (Dashboard/
-     * Users/Policies/Audit Log/Account Settings) is flat, with no nested
-     * detail routes yet, so a breadcrumb next to the page title would just
-     * repeat it. Wired here so the first nested/detail page (e.g. a user's
-     * own detail view reached from Users) can adopt it without inventing a
-     * new pattern. */
+     * array - omit for no breadcrumb bar, which every current page uses
+     * (the built-in nav is flat, no nested detail routes yet). Wired here so
+     * the first nested/detail page can adopt it without a new pattern. */
     breadcrumbs?: BreadcrumbEntry[];
     /** Same lucide-react icon assigned to this feature's NavItem
-     * (navItems.ts), so the sidebar entry and this page's own title show
-     * the identical glyph rather than two different icons for one feature.
-     * Optional - omit for a bare text title, same as before this prop
-     * existed. */
+     * (navItems.ts), so the sidebar entry and page title share one glyph.
+     * Optional - omit for a bare text title. */
     icon?: LucideIcon;
     description?: string;
     /** Right-aligned slot next to the heading, typically a primary action
      * button or a summary/stats card. */
     actions?: React.ReactNode;
-    /** Extra content rendered directly below the title/description, but
-     * still inside the same left-hand column as those - so it stacks
-     * beneath the title while staying in the same header row as `actions`.
-     * Use this (rather than putting the same content in `children`) when
-     * `actions` is tall (e.g. a stats card) and this content should sit
-     * beside it - a search bar/filter row, for instance - instead of
-     * being pushed below the actions block's full height. */
+    /** Extra content rendered below the title/description, in the same
+     * left-hand column, so it stacks beneath the title while staying in the
+     * same header row as `actions`. Use this instead of `children` when
+     * `actions` is tall (e.g. a stats card) and this content (a search
+     * bar/filter row) should sit beside it, not below its full height. */
     headerExtra?: React.ReactNode;
     children: React.ReactNode;
 }
 
 /**
- * Consistent heading/description/action-slot layout for every management page
- * (Users, Policies, Audit Log, Account Settings) so they share the same page-header
- * rhythm instead of each hand-rolling its own Heading + Flex.
+ * Consistent heading/description/action-slot layout for every management
+ * page (Users, Policies, Audit Log, Account Settings) so they share one
+ * page-header rhythm instead of each hand-rolling its own Heading + Flex.
  */
 const PageContainer: React.FC<PageContainerProps> = ({
     title,

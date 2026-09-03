@@ -20,9 +20,8 @@ import { sortRateLimitEntries } from "./sortRateLimitEntries";
 import { totalPagesFor } from "./rateLimitsListConfig";
 import type { RateLimitEntry } from "../api/rate_limits_api";
 
-// Small enough that one page of rows fits within a normal viewport without
-// DataTable's own inner Table.ScrollArea ever having to kick in (see
-// DataTable.tsx's maxH="70dvh").
+// Small enough that one page of rows fits a normal viewport without
+// DataTable's inner scroll area kicking in (see DataTable.tsx's maxH).
 const PAGE_SIZE = 10;
 
 /**
@@ -30,12 +29,11 @@ const PAGE_SIZE = 10;
  * ----------------------------
  * Admin view of live Redis-backed rate-limit counters (see
  * rate_limiter_service.py), gated by rate_limits:read (resetting a counter
- * is its own, separate rate_limits:reset action - see IfCan in
- * rateLimitsColumns.tsx). Numbered pagination, same shape as the audit log
- * tables: the backend walks the matching Redis keyspace (bounded, see
- * list_active_limits' docstring) to compute a real total and slice out one
- * page. Sorting is client-side over only the current page - see
- * sortRateLimitEntries.
+ * needs the separate rate_limits:reset action, see IfCan in
+ * rateLimitsColumns.tsx). Numbered pagination like the audit log tables:
+ * the backend walks the matching Redis keyspace to compute a real total and
+ * slice out one page. Sorting is client-side over just the current page,
+ * see sortRateLimitEntries.
  */
 const RateLimitsPage: React.FC = () => {
     const { t } = useTranslation("rate_limits");

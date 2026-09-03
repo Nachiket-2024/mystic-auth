@@ -4,7 +4,7 @@
 // pointerEvents:"auto" is required, not cosmetic: the dialog machine sets
 // `document.body { pointer-events: none }` while open, which the backdrop
 // would otherwise inherit, silently breaking "click background to close".
-// animationDuration matches to "fast"/"faster": the stock recipe times the
+// animationDuration matches "fast"/"faster": the stock recipe timed the
 // backdrop slower than the panel, so it visibly trailed behind it.
 export const DIALOG_BACKDROP_PROPS = {
     bg: "blackAlpha.600",

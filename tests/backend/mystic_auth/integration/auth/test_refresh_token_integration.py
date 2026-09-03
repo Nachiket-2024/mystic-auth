@@ -1,11 +1,10 @@
-# tests/backend/mystic_auth/integration/test_refresh_token_integration.py
+# tests/backend/mystic_auth/integration/auth/test_refresh_token_integration.py
 #
 # End-to-end refresh-token rotation/reuse-detection coverage, and the
 # real-time session-events (SSE) route's auth gate, against the real ASGI
-# app, real PostgreSQL, and real Redis (see conftest.py). Split out of what
-# used to be one 799-line test_auth_api_integration.py. Unlike the mocked
-# unit suite, these exercise the actual Redis atomicity behavior (claim_jti_
-# for_rotation's SET...NX) that mocks cannot surface.
+# app, real PostgreSQL, and real Redis (see conftest.py). Unlike the mocked
+# unit suite, these exercise the real Redis atomicity behavior
+# (claim_jti_for_rotation's SET...NX) that mocks can't surface.
 import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -44,7 +43,7 @@ async def test_refresh_token_rotates_and_old_token_is_rejected(client, created_e
 async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, created_emails):
     # Regression guard for the refresh-token double-spend race: two requests
     # firing concurrently with the identical still-valid refresh token must
-    # not both be able to rotate it into a new pair: claim_jti_for_rotation's
+    # not both be able to rotate it into a new pair. claim_jti_for_rotation's
     # atomic Redis SET...NX means only one can ever win, regardless of how
     # the two requests interleave.
     email = unique_email()
@@ -71,22 +70,22 @@ async def test_refresh_token_reuse_revokes_the_compromised_chain_only(client, cr
     leave a genuinely independent session (device B: a separate login, a
     separate chain) alone. An earlier version revoked every session on the
     account unconditionally, which meant a stale/already-revoked token
-    being replayed on ANY device (e.g. an old tab retrying after an
+    being replayed on any device (e.g. an old tab retrying after an
     intentional logout-all elsewhere) could also kill an unrelated,
-    never-compromised session created afterward - see
-    docs/mystic_auth/authentication/session-management.md."""
+    never-compromised session created afterward. See
+    docs/mystic_auth/authentication/session-management/README.md."""
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
     device_a_refresh = login_resp.cookies["refresh_token"]
 
-    # A second, independent session/device for the same user: its own login,
-    # its own rotation chain, sharing nothing with device A's.
+    # A second, independent session/device for the same user: its own
+    # login, its own rotation chain, sharing nothing with device A's.
     second_login = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     device_b_refresh = second_login.cookies["refresh_token"]
 
-    # Rotate device A forward once (the legitimate use) - its current,
-    # descendant token, still part of the SAME chain as the one about to be
-    # replayed - then replay the original, now-revoked device A token,
+    # Rotate device A forward once (the legitimate use): its current,
+    # descendant token, still part of the same chain as the one about to be
+    # replayed. Then replay the original, now-revoked device A token,
     # simulating a stolen refresh token being used after the real client
     # already rotated it.
     rotate_resp = await refresh_with_cookie(client, device_a_refresh)
@@ -119,13 +118,12 @@ async def test_refresh_rejects_access_token_type(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_refresh_rejects_an_actually_expired_token(client, created_emails):
-    # Regression guard: existing refresh-token tests only ever mock
-    # decode_payload directly, never exercising PyJWT's own exp check. A
-    # genuinely expired (but otherwise validly-signed) refresh token must
-    # be rejected the same generic way as a tampered one, deliberately
-    # indistinguishable, per refresh_token_handler.py's anti-enumeration
-    # comment, but this at least confirms the expiry path is reached at
-    # all and doesn't crash or behave differently.
+    # Regression guard: existing refresh-token tests only mock decode_payload
+    # directly, never exercising PyJWT's own exp check. A genuinely expired
+    # (but otherwise validly-signed) refresh token must be rejected the same
+    # generic way as a tampered one, per refresh_token_handler.py's
+    # anti-enumeration comment; this confirms the expiry path is actually
+    # reached and doesn't crash or behave differently.
     email = unique_email()
     await signup_verify_login(client, created_emails, email)
 
@@ -147,11 +145,10 @@ async def test_repeated_legitimate_refreshes_do_not_trip_failed_attempt_lockout(
     # Regression guard (real Redis): rate_key and lock_key previously
     # collided ("refresh:ip:{ip}" for both), so rate_limiter_service's
     # per-request counter (incremented on every call, success or failure)
-    # and login_protection_service's failure counter shared one key:
-    # a handful of legitimate token rotations alone could trip the
-    # 5-failed-attempt lockout with zero real failures. Chain more than
-    # MAX_FAILED_LOGIN_ATTEMPTS consecutive legitimate rotations and confirm
-    # every single one succeeds.
+    # and login_protection_service's failure counter shared one key: a
+    # handful of legitimate token rotations alone could trip the lockout
+    # with zero real failures. Chain more than MAX_FAILED_LOGIN_ATTEMPTS
+    # consecutive legitimate rotations and confirm every one succeeds.
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
     refresh_token = login_resp.cookies["refresh_token"]
@@ -177,16 +174,15 @@ async def test_refresh_token_cookie_is_scoped_to_auth_path(client, created_email
 
 # ---------------------------- real-time session events (SSE) ----------------------------
 # The stream itself (real Redis Pub/Sub, heartbeats, disconnect handling) is
-# exercised directly against user_session/session_events.py in
+# exercised directly in
 # tests/backend/mystic_auth/unit/user_session/test_session_events_unit.py, and
 # the end-to-end publish-on-revoke wiring in
 # test_manage_sessions_integration.py, not here: httpx's ASGITransport test
 # harness doesn't reliably support this endpoint's held-open streaming
-# response at all (even opening one with nothing else going on hangs
-# indefinitely), so trying to drive it through this specific test client is
-# fighting the harness, not testing real behavior. What's left worth
-# confirming at the route level, without actually opening the stream, is
-# that auth is enforced.
+# response (even opening one with nothing else going on hangs indefinitely),
+# so driving it through this test client would fight the harness, not test
+# real behavior. What's left worth confirming at the route level, without
+# opening the stream, is that auth is enforced.
 
 @pytest.mark.asyncio
 async def test_session_events_stream_requires_authentication(client, created_emails):

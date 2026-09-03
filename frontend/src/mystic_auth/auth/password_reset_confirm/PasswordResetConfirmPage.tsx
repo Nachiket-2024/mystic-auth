@@ -5,8 +5,6 @@ import { useTranslation } from "react-i18next";
 
 import PasswordResetConfirmForm from "./PasswordResetConfirmForm";
 
-// Shared surface styling (theme surface/border tokens): replaces this
-// page's own hand-rolled bg="white"/boxShadow="lg" card.
 import Card from "../../ui/Card";
 import AuthInlineLink from "../../ui/AuthInlineLink";
 

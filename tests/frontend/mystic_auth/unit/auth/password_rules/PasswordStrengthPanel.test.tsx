@@ -18,15 +18,11 @@ function renderPanel(password: string, label: string, pristine = false) {
   );
 }
 
-// The segment row is the aria-hidden HStack; each direct child is one of
-// the 4 fixed segments. Chakra/Panda gives same-styled segments an
-// identical generated className and differently-styled ones a different
-// one, so counting distinct classNames among the trailing (unfilled)
-// segments' class vs the leading (filled) ones' class tells filled count
-// without depending on jsdom resolving CSS custom properties.
+// Chakra/Panda gives same-styled segments an identical generated className,
+// so comparing classNames (instead of reading CSS vars, which jsdom won't
+// resolve) tells us how many of the 4 segments are filled.
 function segmentClasses(container: HTMLElement): string[] {
-  // The ShieldCheck icon is also aria-hidden, so narrow to the
-  // aria-hidden element that actually has the 4 segment children.
+  // The ShieldCheck icon is also aria-hidden; narrow to the element with 4 children.
   const candidates = Array.from(container.querySelectorAll('[aria-hidden="true"]'));
   const row = candidates.find((el) => el.children.length === 4) as HTMLElement;
   return Array.from(row.children).map((el) => (el as HTMLElement).className);

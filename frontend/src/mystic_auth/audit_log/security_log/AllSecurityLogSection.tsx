@@ -20,8 +20,8 @@ import { useLanguageStore } from "../../store/languageStore";
 // Same reasoning as AllAuthorizationLogSection.tsx.
 const AllSecurityLogSection: React.FC = () => {
     const { t } = useTranslation("audit_log");
-    // See AllAuthorizationLogSection.tsx's matching comment: dates/month
-    // names use chromeLanguage, not pageLanguage.
+    // See AllAuthorizationLogSection.tsx's matching comment: dates use chromeLanguage, not
+    // pageLanguage.
     const language = useLanguageStore((s) => s.chromeLanguage);
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebouncedValue(search);

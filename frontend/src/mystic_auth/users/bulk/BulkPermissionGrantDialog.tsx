@@ -23,9 +23,9 @@ interface BulkPermissionGrantDialogProps {
     onClose: () => void;
 }
 
-/** Fans one chosen direct permission grant (action + resource_type +
- * optional conditions) out across every user in `userEmails`. Grant/revoke
- * counterpart to BulkPolicyAssignDialog - see that file's own docstring. */
+/** Applies one chosen direct permission grant (action + resource_type +
+ * optional conditions) to every user in `userEmails`. Grant/revoke
+ * counterpart to BulkPolicyAssignDialog; see that file's docstring. */
 const BulkPermissionGrantDialog: React.FC<BulkPermissionGrantDialogProps> = ({ isOpen, userEmails, onClose }) => {
     const { t } = useTranslation(["users", "ui_text"]);
     const [action, setAction] = useState("");
@@ -33,8 +33,8 @@ const BulkPermissionGrantDialog: React.FC<BulkPermissionGrantDialogProps> = ({ i
     const [conditionsText, setConditionsText] = useState("");
     const [conditionsError, setConditionsError] = useState<string | null>(null);
 
-    // See BulkPolicyAssignDialog's identical comment: NOT derived from
-    // `.isPending`, tracked explicitly from whichever button was clicked.
+    // See BulkPolicyAssignDialog: not derived from `.isPending`, tracked
+    // from whichever button was clicked instead.
     const [lastAction, setLastAction] = useState<"grant" | "revoke" | null>(null);
 
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
@@ -51,9 +51,9 @@ const BulkPermissionGrantDialog: React.FC<BulkPermissionGrantDialogProps> = ({ i
 
     const catalogQuery = usePermissionCatalogQuery();
 
-    // See BulkPolicyAssignDialog's identical comment: exclusion only makes
-    // sense (and is only reachable, via the self-service /me endpoints)
-    // when exactly one user is selected and that user is the viewer.
+    // See BulkPolicyAssignDialog: exclusion only makes sense (and is only
+    // reachable, via the self-service /me endpoints) when exactly one user
+    // is selected and that user is the viewer.
     const currentUserEmail = useAuthStore((s) => s.email);
     const isSoleSelectionSelf = userEmails.length === 1 && userEmails[0] === currentUserEmail;
     const myPoliciesQuery = useMyPoliciesQuery(isOpen && isSoleSelectionSelf);
@@ -69,10 +69,9 @@ const BulkPermissionGrantDialog: React.FC<BulkPermissionGrantDialogProps> = ({ i
     const revokeMutation = useBulkRemovePermissionsMutation();
     const activeMutation = lastAction === "revoke" ? revokeMutation : grantMutation;
 
-    // See BulkPolicyAssignDialog's identical comment: react-query mutations
-    // keep their last `.data` around across remounts otherwise, so a
-    // reopened dialog showed the previous run's success summary again
-    // before this run had done anything.
+    // See BulkPolicyAssignDialog: react-query mutations keep their last
+    // `.data` around across remounts, so this avoids showing the previous
+    // run's success summary again before this run does anything.
     if (isOpen !== prevIsOpen && isOpen) {
         grantMutation.reset();
         revokeMutation.reset();

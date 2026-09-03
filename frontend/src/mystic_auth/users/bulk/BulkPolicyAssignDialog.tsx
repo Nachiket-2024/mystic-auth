@@ -22,17 +22,16 @@ interface BulkPolicyAssignDialogProps {
     onClose: () => void;
 }
 
-/** Fans one chosen policy out across every user in `userEmails`: assign or
- * remove, both wired to the real bulk endpoints (not a client-side loop
- * over the single-item assign/revoke calls) - see bulkAssignment_api.ts. */
+/** Applies one chosen policy (assign or remove) to every user in
+ * `userEmails`, using the real bulk endpoints rather than looping over the
+ * single-item assign/revoke calls; see bulkAssignment_api.ts. */
 const BulkPolicyAssignDialog: React.FC<BulkPolicyAssignDialogProps> = ({ isOpen, userEmails, onClose }) => {
     const { t } = useTranslation(["users", "ui_text"]);
     const [policyName, setPolicyName] = useState("");
 
-    // Which mutation's result to show: NOT derived from `.isPending` (both
-    // are false once either one settles, so that would silently fall back
-    // to whichever mutation is listed second the instant the real one
-    // succeeds) - tracked explicitly from whichever button was last clicked.
+    // Which mutation's result to show. Not derived from `.isPending`: both
+    // are false once either settles, which would silently fall back to
+    // whichever mutation is listed second. Tracked from the last click instead.
     const [lastAction, setLastAction] = useState<"assign" | "remove" | null>(null);
 
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
@@ -46,13 +45,11 @@ const BulkPolicyAssignDialog: React.FC<BulkPolicyAssignDialogProps> = ({ isOpen,
 
     const policiesQuery = usePoliciesQuery(isOpen);
 
-    // Excluding a policy that adds nothing new only makes sense when the
-    // "already effectively holds this" question has one unambiguous answer
-    // - i.e. exactly one user is selected - and only when that one user is
-    // the viewer, since their own effective grants are the only ones
-    // reachable via the self-service /me endpoints without an extra
-    // permission check. Any other selection (multiple users, or a single
-    // OTHER user) shows the full, unfiltered list instead.
+    // Excluding a policy that adds nothing new only makes sense when exactly
+    // one user is selected and that user is the viewer: only then is "does
+    // this user already effectively hold it" unambiguous, and only the
+    // viewer's own grants are reachable via /me without an extra permission
+    // check. Any other selection shows the full, unfiltered list.
     const currentUserEmail = useAuthStore((s) => s.email);
     const isSoleSelectionSelf = userEmails.length === 1 && userEmails[0] === currentUserEmail;
     const myPoliciesQuery = useMyPoliciesQuery(isOpen && isSoleSelectionSelf);
@@ -69,10 +66,8 @@ const BulkPolicyAssignDialog: React.FC<BulkPolicyAssignDialogProps> = ({ isOpen,
     const activeMutation = lastAction === "remove" ? removeMutation : assignMutation;
 
     // react-query mutations keep their last `.data`/`.isSuccess` around
-    // across remounts until told otherwise: without this, reopening the
-    // dialog after a successful assign showed that same success summary
-    // again, even before touching anything this time. Reset alongside
-    // policyName/lastAction above, on the same reopen edge.
+    // across remounts, so without this a reopened dialog showed the
+    // previous run's success summary before anything happened this time.
     if (isOpen !== prevIsOpen && isOpen) {
         assignMutation.reset();
         removeMutation.reset();

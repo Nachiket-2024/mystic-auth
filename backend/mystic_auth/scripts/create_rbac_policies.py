@@ -14,32 +14,23 @@ def _policy_name_for_role(role_name: str) -> str:
 
 
 async def create_rbac_policy():
-    """
-    Interactive CLI script to seed one unconditioned, RBAC-shaped policy :
-    "everyone holding this role gets exactly this action list, with no
-    per-resource scoping" : for downstream projects that don't need PBAC's
-    full conditions/resource_attributes generality. See
-    docs/mystic_auth/authorization/rbac-quickstart.md for the concept this
-    implements: a policy with no `conditions` at all is already RBAC, the
-    same shape this template's own seeded `self_service`/
-    `user_administration`/`system_superuser` baseline policies already use
-    (see docs/mystic_auth/authorization/policy-examples.md).
+    """Interactive CLI script that seeds one unconditioned, RBAC-shaped
+    policy: "everyone holding this role gets exactly this action list, with
+    no per-resource scoping", for downstream projects that don't need
+    PBAC's full conditions/resource_attributes generality. A policy with no
+    `conditions` at all is already RBAC, the same shape this template's own
+    seeded baseline policies use.
 
-    Does NOT touch `users.role` : that column stays exactly what it always
-    was, display/grouping metadata only (see
-    docs/mystic_auth/authorization/adding-permissions.md#roles-vs-policies).
-    Actual access still comes entirely from the policy this script creates,
-    assigned to whichever users should hold it : via the `/policies` UI, or
-    `POST /authorization/users/{email}/policies`, same as any other policy.
+    Does NOT touch `users.role`; that column stays display/grouping
+    metadata only. Actual access comes entirely from the policy this script
+    creates, assigned to whichever users should hold it via the
+    `/policies` UI or `POST /authorization/users/{email}/policies`.
 
-    Idempotent by name: if a policy named `role_<role>` already exists, this
-    prints its current actions and exits without changing anything : use
-    `PUT /authorization/policies/{id}` (or the UI) to edit it instead of
-    re-running this script.
+    Idempotent by name: if a policy named `role_<role>` already exists,
+    prints its current actions and exits without changing anything.
 
-    Deliberately CLI-only, same reasoning as create_system_user.py : no API
-    endpoint bypasses the privilege-escalation guard this way, so this stays
-    an explicit operator action.
+    Deliberately CLI-only, same reasoning as create_system_user.py: no API
+    endpoint bypasses the privilege-escalation guard this way.
 
     Run interactively:
         python -m mystic_auth.scripts.create_rbac_policies

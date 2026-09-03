@@ -1,11 +1,6 @@
-# tests/backend/mystic_auth/security/test_permission_grant_escalation_security.py
-#
-# Real-DB proof that AuthorizationService.assert_authorized_to_grant also
-# guards direct permission grants (authorization/models/user_permission_model.py),
-# both the single-item and bulk routes: a caller holding only
-# permissions:grant (never system_superuser itself) must never be able to
-# grant - to themselves or anyone else, one at a time or in a bulk batch -
-# one of this app's own sensitive actions they don't already hold. Mirrors
+# Checks that a caller holding only permissions:grant (not
+# system_superuser) can't grant a sensitive action they don't already hold,
+# to themselves or anyone else, via the single-item or bulk routes. Mirrors
 # test_privilege_escalation_security.py's policies:assign coverage.
 import pytest
 
@@ -34,11 +29,11 @@ async def test_permissions_grant_only_cannot_grant_an_unheld_sensitive_action(cl
 
     resp = await client.post(
         f"/authorization/users/{email}/permissions",
-        json={"action": "users:purge", "resource_type": "users"},  # sensitive action this caller doesn't hold
+        json={"action": "users:purge", "resource_type": "users"},  # caller doesn't hold this
     )
     assert resp.status_code == 403
 
-    # Confirm it actually didn't take.
+    # confirm it didn't take
     list_resp = await client.get("/authorization/users/me/permissions")
     assert list_resp.status_code == 200
     assert list_resp.json()["permissions"] == []
@@ -48,10 +43,9 @@ async def test_permissions_grant_only_cannot_grant_an_unheld_sensitive_action(cl
 async def test_permissions_grant_only_cannot_self_escalate_to_users_purge_via_bulk_endpoint(
     client, created_emails
 ):
-    """The bulk endpoint's per-item guard must not be skippable just
-    because the route-level permissions:grant check passed - the canonical
-    real-world attempt: self-escalate through the bulk path instead of the
-    single-item one."""
+    """Passing the route-level permissions:grant check shouldn't skip the
+    per-item guard: tries self-escalation through the bulk path instead of
+    the single-item one."""
     email = unique_email("bulk-grant-escalate")
     await create_user_with_custom_policy(client, created_emails, email, ["permissions:grant"], resource_type="permissions")
 
@@ -73,15 +67,13 @@ async def test_permissions_grant_only_cannot_self_escalate_to_users_purge_via_bu
 async def test_bulk_permissions_assign_applies_valid_items_even_when_one_item_attempts_escalation(
     client, created_emails
 ):
-    """One item in the batch is a genuine escalation attempt (denied), the
-    other is a legitimate grant of an action the caller already holds
-    (allowed) - proves the per-item guard doesn't fail the whole batch."""
+    """One batch item is an escalation attempt (denied), the other is a
+    legitimate grant of an action the caller already holds (allowed): the
+    per-item guard shouldn't fail the whole batch."""
     email = unique_email("bulk-mixed-escalate")
-    # Two policies, since each is scoped to exactly one resource_type:
-    # permissions:grant on resource_type="permissions" (route-level gate,
-    # see GRANT_DEPENDENCY) and users:list_all on resource_type="users"
-    # (the action the second item legitimately grants, which the caller
-    # must already hold on that same resource type).
+    # Two policies, since each is scoped to one resource_type: permissions:grant
+    # on "permissions" (route-level gate) and users:list_all on "users"
+    # (what the second item grants, which the caller must already hold).
     grant_policy_name = unique_policy_name()
     list_all_policy_name = unique_policy_name()
     async with database.async_session() as session:
@@ -115,8 +107,8 @@ async def test_bulk_permissions_assign_applies_valid_items_even_when_one_item_at
 
 @pytest.mark.asyncio
 async def test_system_superuser_can_still_grant_permissions(client, created_emails):
-    """Negative-control, same as the policies:assign equivalent: a genuine
-    system_superuser holder is NOT blocked by the same guard."""
+    """Negative control, same as the policies:assign equivalent: a genuine
+    system_superuser holder is not blocked by the same guard."""
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
 
@@ -124,8 +116,8 @@ async def test_system_superuser_can_still_grant_permissions(client, created_emai
     await create_user_with_custom_policy(client, created_emails, target_email, [], resource_type="users")
 
     # create_user_with_custom_policy leaves `client` logged in as the
-    # target it just created - switch back to the actual system_superuser
-    # caller before making the grant request under test.
+    # target: switch back to the actual system_superuser caller before
+    # making the grant request under test.
     await client.post("/auth/login", json={"email": system_email, "password": PASSWORD})
 
     resp = await client.post(

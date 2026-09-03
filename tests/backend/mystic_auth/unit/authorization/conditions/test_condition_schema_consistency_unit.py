@@ -1,12 +1,7 @@
-# tests/backend/mystic_auth/unit/authorization/conditions/test_condition_schema_consistency_unit.py
-#
-# Cross-checks that condition_validator.py (write-time) and the condition
-# handlers (conditions/*.py, evaluation-time) agree on exactly one JSON
-# shape per condition type : policy condition schema
-# Consistency": one documented shape, one validator representation, one
-# evaluator representation, per condition. Each canonical payload below
-# must both pass validation and be understood (evaluate to the intended
-# outcome, not silently ignored) by its handler.
+# Cross-checks that condition_validator.py (write-time) and the condition handlers
+# (conditions/*.py, evaluation-time) agree on the same JSON shape per condition type.
+# Each canonical payload below must pass validation and be understood correctly by
+# its handler, not silently ignored.
 from backend.mystic_auth.authorization.conditions.condition_types.context_attributes_condition import (
     ContextAttributesCondition,
 )

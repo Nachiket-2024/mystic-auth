@@ -1,19 +1,15 @@
 import React from "react";
 import { Box, Flex, HStack, Separator, Skeleton, SkeletonCircle, Stack, VisuallyHidden } from "@chakra-ui/react";
 
-// Skeleton's default variant fills with the "bg.emphasized" token, which in
-// this app's dark-mode palette is the exact same gray.800 as Card's own
-// "bg.surface" background (see theme/system.ts) - invisible against a card,
-// even mid-pulse, since the color never actually differs from what's behind
-// it. "bg.muted" (gray.900 in dark mode, gray.100 in light) reads as a
-// visibly distinct block in both modes instead.
+// Skeleton's default "bg.emphasized" fill is the same gray.800 as Card's
+// own background in dark mode (see theme/system.ts), so it's invisible even
+// mid-pulse. "bg.muted" reads as a visibly distinct block in both modes.
 const SKELETON_PROPS = { bg: "bg.muted" };
 
 interface DashboardIdentityCardSkeletonProps {
-    /** Announced to screen readers via a visually-hidden role="status" node -
-     * the shimmering boxes convey "loading" visually, but carry no signal
-     * of their own for anyone not seeing them, so this is the only cue a
-     * screen reader user gets that the identity card is still loading. */
+    /** Announced to screen readers via a visually-hidden role="status" node,
+     * since the shimmering boxes carry no signal for anyone not seeing
+     * them. */
     loadingLabel: string;
 }
 

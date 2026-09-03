@@ -2,29 +2,25 @@ from fastapi import status
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# The one centralized Redis abstraction for authorization data, see its own
-# docstring for exactly what is (and deliberately isn't) cached, and why.
-# Every mutation below invalidates whatever it could have made stale.
+# Centralized Redis cache for authorization data (see its own docstring
+# for what's cached and why). Every mutation below invalidates whatever
+# it could have made stale.
 from ...core.errors import AppError
 from ..caching.authorization_cache_service import authorization_cache_service
 from ..models.policy_model import Policy
 
 # Every create/update/delete below also stages a policy_history row in the
-# same transaction, policy versioning writes history rows in the same transaction:
-# every policy mutation must be traceable and reversible.
+# same transaction: every policy mutation must be traceable and reversible.
 from .policy_assignment_repository import policy_assignment_repository
 from .policy_history_repository import policy_history_repository
 from .policy_query_repository import policy_query_repository
 
 
 def _definition_snapshot(policy: Policy) -> dict:
-    """
-    The versioned "definition" of a policy: everything that determines
-    what it grants, for policy_history's previous_definition/
-    new_definition columns. Deliberately excludes id/timestamps: those
-    identify *which row*, not *what it currently grants*, and would make
-    every history diff spuriously include updated_at.
-    """
+    """The versioned "definition" of a policy: everything that determines
+    what it grants, for policy_history's previous/new_definition columns.
+    Excludes id/timestamps: those identify the row, not what it grants,
+    and would make every diff spuriously include updated_at."""
     return {
         "name": policy.name,
         "description": policy.description,
@@ -37,21 +33,15 @@ def _definition_snapshot(policy: Policy) -> dict:
 
 class PolicyRepository:
     """
-    Persistence layer for policies and user<->policy assignments. This is
-    the only place that issues queries against the policies/user_policies
-    tables: evaluators and services call through here rather than building
-    their own queries, so the schema/query shape only needs to change in
-    one place.
+    Persistence layer for policies and user<->policy assignments. The
+    only place that queries the policies/user_policies tables directly,
+    so the schema/query shape only needs to change in one place.
 
-    Policies are looked up by name throughout the app (routes take a
-    human-readable policy_name, never a numeric id), so there is no
-    get_by_id; add one if/when a caller actually needs id-based lookup.
+    No get_by_id: policies are looked up by name throughout the app.
 
-    create/update/delete each stage a policy_history row (via
-    policy_history_repository.add_entry) alongside their own mutation and
-    commit both in the same transaction, so a history entry can never
-    exist without the change it describes actually having been persisted,
-    or vice versa.
+    create/update/delete each stage a policy_history row alongside their
+    own mutation and commit both together, so history can't exist
+    without the change it describes, or vice versa.
     """
 
     @staticmethod
@@ -88,27 +78,17 @@ class PolicyRepository:
         change_type: str = "updated",
     ) -> Policy:
         """
-        `change_type` is "updated" for a normal edit, or "rolled_back" when
-        this call is restoring a prior version (see
-        api/pbac_routes/policies/policy_history_routes.py's rollback endpoint); the
-        only difference is how the resulting
-        history entry is labeled; the mutation logic is identical either
-        way, so rollback reuses this method rather than duplicating it.
+        `change_type` is "updated" for a normal edit, or "rolled_back"
+        when restoring a prior version: only the history label differs,
+        the mutation logic is identical, so rollback reuses this method.
 
-        `db_obj` was read by the caller (e.g. get_by_name) before this
-        transaction held any lock on the row, so two concurrent updates to
-        the same policy could otherwise both start from the same stale
-        snapshot: each would compute previous_definition from
-        pre-either-update state, and the second commit would silently
-        overwrite whichever fields the first update changed but this one
-        didn't touch, corrupting policy_history's previous_definition/
-        new_definition chain and dropping the first admin's change with no
-        conflict surfaced to either caller. Re-fetching with FOR UPDATE
-        here serializes concurrent updates to the same policy (the second
-        transaction blocks until the first commits, then observes its
-        result) and populate_existing refreshes this already-identity-
-        mapped instance's attributes from that fresh row rather than
-        trusting the stale in-memory values.
+        `db_obj` was read before this transaction held any row lock, so
+        two concurrent updates could otherwise both start from the same
+        stale snapshot, silently overwriting each other's changes and
+        corrupting the history chain with no conflict surfaced. Re-fetching
+        with FOR UPDATE serializes concurrent updates (the second blocks
+        until the first commits); populate_existing then refreshes this
+        instance from that fresh row instead of trusting stale values.
         """
         locked_obj = await db.get(Policy, db_obj.id, populate_existing=True, with_for_update=True)
         if locked_obj is None:

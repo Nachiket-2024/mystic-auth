@@ -1,9 +1,7 @@
-# tests/backend/mystic_auth/integration/rate_limits/test_rate_limit_dashboard_edge_cases_integration.py
-#
-# Edge-case coverage for GET /rate-limits/ and DELETE /rate-limits/{key},
-# split out from test_rate_limit_routes_integration.py: no-match filters,
-# concurrent resets of the same key, and identifiers containing characters
-# that need URL-encoding (e.g. "@" in an email-scoped identifier).
+# Edge-case tests for GET /rate-limits/ and DELETE /rate-limits/{key}, split
+# out from test_rate_limit_routes_integration.py: no-match filters,
+# concurrent resets of the same key, and identifiers with characters that
+# need URL-encoding (e.g. "@" in an email-scoped identifier).
 import asyncio
 import uuid
 

@@ -19,20 +19,19 @@ a bullet list.
 
 ---
 
-## Flow
+## Login flow
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Start(["POST /auth/login"]) --> RL{"Rate limit\n(per-IP, per-account)?"}
+    Start(["POST /auth/login"]) --> RL{"Rate limit\n (per-IP, per-account)?"}
     RL -- "exceeded" --> R429["429"]
-    RL -- "ok" --> LK{"Account locked\n(too many failed attempts)?"}
-    LK -- "locked" --> L429["429\nRetry-After header +\nparams.minutes in body"]
-    LK -- "ok" --> Hash["Argon2 compare\n(real hash, or DUMMY_HASH\nif no account/password)\nalways runs first"]
-    Hash --> Order{"Reject order:\nnot found -> not verified\n-> not active -> wrong password"}
-    Order -- "any reason" --> Fail["401, log LOGIN_FAILURE\nrecord failed attempt"]
-    Order -- "all pass" --> Success["Issue access+refresh pair\nSet cookies\nlog LOGIN_SUCCESS\nreset failed-attempt counter"]
-
+    RL -- "ok" --> LK{"Account locked\n (too many failed attempts)?"}
+    LK -- "locked" --> L429["429\n Retry-After header +\n params.minutes in body"]
+    LK -- "ok" --> Hash["Argon2 compare\n (real hash, or DUMMY_HASH\n if no account/password)\n always runs first"]
+    Hash --> Order{"Reject order:\n not found -> not verified\n -> not active -> wrong password"}
+    Order -- "any reason" --> Fail["401, log LOGIN_FAILURE\n record failed attempt"]
+    Order -- "all pass" --> Success["Issue access+refresh pair\n Set cookies\n log LOGIN_SUCCESS\n reset failed-attempt counter"]
     classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d
     classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
     classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
@@ -46,7 +45,7 @@ flowchart TD
 1. **Dual rate limiting.** A per-IP and a per-account sliding-window limit
    (`rate_limiter_service.py`) run before any credential check, alongside a separate brute-force
    lockout (`login_protection_service.py`) keyed by `MAX_FAILED_LOGIN_ATTEMPTS` per email and
-   `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` per IP (`.env.example`).
+   `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` per IP (`env/.env.example`).
 2. **Timing-attack-resistant comparison.** `login_service.py` always runs the Argon2 comparison,
    against the real `hashed_password` if the account exists and has one, or a fixed `DUMMY_HASH`
    otherwise, *before* checking whether the account exists, is verified, or is active. "Wrong
@@ -85,7 +84,7 @@ exercises the full path against real Postgres/Redis. See [Testing Overview](../t
 ## See also
 
 - [Authentication Flows](overview.md): tokens/cookies and how login fits alongside the other flows.
-- [Session Management](session-management.md): what happens to `chain_id`/`account_ver` right after
+- [Session Management](session-management/README.md): what happens to `chain_id`/`account_ver` right after
   a successful login.
 - [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md): the concrete rate-limit/lockout thresholds.
 

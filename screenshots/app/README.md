@@ -1,4 +1,5 @@
 # Your Screenshots Go Here
+---
 
 This mirrors the `app/` + `mystic_auth/` split used elsewhere in this repo (`backend/app/` vs `backend/mystic_auth/`, `frontend/src/app/` vs `frontend/src/mystic_auth/`, `docs/app/` vs `docs/mystic_auth/`): `screenshots/mystic_auth/` is this template's own screenshots, upstream-owned; `screenshots/app/` (this folder) is yours.
 

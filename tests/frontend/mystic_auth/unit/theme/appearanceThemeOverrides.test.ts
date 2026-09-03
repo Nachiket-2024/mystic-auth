@@ -47,8 +47,7 @@ describe('deriveCanvasFrom', () => {
   it('blends gray.900 with the 900 step for the dark-mode value (not a flat brand.900 wash)', () => {
     const scale = generateBrandScale('#2563eb');
 
-    // A 65/35 blend of gray.900 with the 900 step, matching the function's
-    // own docstring - not a flat #18181b or a flat scale['900'] wash.
+    // 65/35 blend of gray.900 with the 900 step, not a flat wash of either.
     const { dark } = deriveCanvasFrom(scale);
     const blended = colord('#18181b').mix(scale['900'], 0.35).toHex();
     expect(dark).toBe(blended);

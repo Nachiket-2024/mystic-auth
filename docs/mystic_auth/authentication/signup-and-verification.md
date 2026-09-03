@@ -29,7 +29,6 @@ sequenceDiagram
     participant DB as Postgres
     participant Q as Procrastinate
     participant E as Email
-
     U->>API: POST /auth/signup {email, password, name}
     API->>API: hash_password(password) - always, even if email is taken
     API->>DB: SELECT existing user by email
@@ -68,7 +67,6 @@ sequenceDiagram
     participant API as Backend
     participant R as Redis
     participant DB as Postgres
-
     U->>API: POST /auth/verify-account { token }
     API->>API: decode JWT (role=verify claim)
     API->>R: GETDEL verify:{token} (atomic, single-use)
@@ -78,7 +76,6 @@ sequenceDiagram
     else missing/expired/reused
         API-->>U: 400
     end
-
     Note over U,API: If the link is dead, the user can request a fresh one
     U->>API: POST /auth/verify-account/request { email }
     API->>DB: exists and still unverified?

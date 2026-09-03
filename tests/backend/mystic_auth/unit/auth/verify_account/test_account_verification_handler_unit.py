@@ -1,10 +1,8 @@
-# tests/backend/mystic_auth/unit/test_account_verification_handler_unit.py
-#
-# account_verification_handler.py had no dedicated unit coverage. These tests
-# pin down its lockout key namespace: it must be distinct from login's
-# "login_lock:email:" key, or a burst of failed verification attempts (e.g. a
-# double-submitted, already-consumed link racing the single-use check) would
-# count towards and could trip the unrelated login lockout for the same email.
+# Pins down account_verification_handler.py's lockout key namespace: it
+# must be distinct from login's "login_lock:email:" key, or a burst of
+# failed verification attempts (e.g. a double-submitted, already-consumed
+# link racing the single-use check) could trip the unrelated login
+# lockout for the same email.
 import pytest
 
 from backend.mystic_auth.auth.verify_account.account_verification_handler import (

@@ -17,14 +17,11 @@ interface PaginationProps extends Omit<StackProps, "children" | "page" | "onChan
 const ELLIPSIS = "…";
 
 // variant="outline"'s stock border/hover (see TableActionButton.tsx and
-// SEARCH_INPUT_PROPS's identical fix) is too close in value to bg.canvas in
-// both modes to read as a distinct, clickable button sitting on the page.
-// Fixed, higher-contrast values instead, plus an explicit background so
-// each button reads as a raised control rather than bare text. Hover now
-// fills solid with a contrasting text color - the same "fills up" treatment
-// as TableActionButton.tsx's red palette (Delete/Purge) and
-// SECONDARY_BUTTON_PROPS, rather than just a lighter/darker shade of the
-// same tint.
+// SEARCH_INPUT_PROPS's identical fix) is too close in value to bg.canvas to
+// read as a distinct, clickable button. Fixed, higher-contrast values plus
+// an explicit background instead, so each button reads as raised. Hover
+// fills solid with contrasting text, the same "fills up" treatment as
+// TableActionButton.tsx's red palette and SECONDARY_BUTTON_PROPS.
 const INACTIVE_PAGE_PROPS = {
     variant: "plain" as const,
     bg: "gray.100",
@@ -40,11 +37,10 @@ const INACTIVE_PAGE_PROPS = {
     transition: FAST_HOVER_TRANSITION,
 };
 
-// Active page: brand.solid already has plenty of contrast on its own; this
-// only adds a matching border so it doesn't look like a different kind of
-// control next to its plain-styled siblings, plus the same hover fix every
-// other colorPalette="brand" solid button uses (BRAND_SOLID_HOVER_PROPS) -
-// the stock solid hover was too subtle to read as a real hover state here too.
+// Active page: brand.solid already has plenty of contrast; this adds a
+// matching border so it doesn't look like a different control next to its
+// plain-styled siblings, plus the same hover fix every other
+// colorPalette="brand" solid button uses (BRAND_SOLID_HOVER_PROPS).
 const ACTIVE_PAGE_PROPS = {
     variant: "solid" as const,
     colorPalette: "brand" as const,
@@ -55,9 +51,8 @@ const ACTIVE_PAGE_PROPS = {
 
 /**
  * Always includes page 1, the last page, and a window of `siblingCount`
- * pages around the current one, collapsing any gap into a single "…" -
- * the standard truncated numbered-pagination layout, so a 40-page list
- * doesn't render 40 buttons.
+ * pages around the current one, collapsing any gap into a single "…", so a
+ * 40-page list doesn't render 40 buttons.
  */
 function buildPageList(page: number, totalPages: number, siblingCount = 1): (number | typeof ELLIPSIS)[] {
     const pages: (number | typeof ELLIPSIS)[] = [];
@@ -74,21 +69,17 @@ function buildPageList(page: number, totalPages: number, siblingCount = 1): (num
 }
 
 /**
- * Numbered page navigation (1 2 3 ... N), meant to be rendered both above
- * and below a table so the user doesn't have to scroll back up to move
- * between pages. Always renders the same Prev/page/Next row - even for a
- * single page, where Prev/Next are simply disabled and "1" is the only
- * (already-active) page - rather than collapsing to nothing or to an
- * empty placeholder: either of those still risked a pixel or two of drift
- * against the real rendered row (borders, line-height) depending on
- * surrounding content, where rendering the identical structure every time
- * can't drift at all.
+ * Numbered page navigation (1 2 3 ... N), meant to render both above and
+ * below a table so the user doesn't scroll back up to move between pages.
+ * Always renders the same Prev/page/Next row, even for a single page (Prev/
+ * Next simply disabled), rather than collapsing to a placeholder that could
+ * drift a pixel or two from the real rendered row.
  */
 const Pagination: React.FC<PaginationProps> = ({ page, totalPages, onPageChange, ...rest }) => {
     const { t } = useTranslation("ui_text");
-    // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits
-    // even in a mixed "en+hi" mode, the same way dates already do (see
-    // dateFormat.ts's callers) - only translated text switches with pageLanguage.
+    // chromeLanguage, not pageLanguage: numerals stay ASCII even in a mixed
+    // "en+hi" mode, same as dates (dateFormat.ts). Only translated text
+    // switches with pageLanguage.
     const language = useLanguageStore((s) => s.chromeLanguage);
     const pages = buildPageList(page, Math.max(1, totalPages));
 

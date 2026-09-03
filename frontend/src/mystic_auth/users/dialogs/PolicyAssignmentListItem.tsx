@@ -15,8 +15,8 @@ interface PolicyAssignmentListItemProps {
     onToggleExpanded: () => void;
     isSelf: boolean;
     /** True when the target holds the reserved system role: the backend
-     * rejects every revoke against it, same reasoning as isSelf but with its
-     * own tooltip copy (see UserPoliciesDialog's own doc on this prop). */
+     * rejects every revoke against it, same as isSelf but with its own
+     * tooltip copy (see UserPoliciesDialog's doc on this prop). */
     isSystemUser: boolean;
     onRevokePolicy: () => void;
     isRevokePolicyPending: boolean;
@@ -30,8 +30,8 @@ interface PolicyAssignmentListItemProps {
  * One assigned policy's row within UserPoliciesDialog: the collapsed badge
  * (name + expand toggle + top-level revoke) plus, once expanded, every
  * individual action it grants with its own independently-revocable X (see
- * revokePolicyActionApi's own docstring for why revoking just one action is
- * a distinct operation from revoking the whole policy).
+ * revokePolicyActionApi for why revoking one action differs from revoking
+ * the whole policy).
  */
 const PolicyAssignmentListItem: React.FC<PolicyAssignmentListItemProps> = ({
     policy,
@@ -55,17 +55,14 @@ const PolicyAssignmentListItem: React.FC<PolicyAssignmentListItemProps> = ({
     return (
         <Box w="full">
             <Badge colorPalette="brand" variant="subtle" size="md" px={2} py={1} maxW="16rem">
-                {/* maxW + truncate on the name (not the whole Badge) so a
-                    long policy name ellipsizes instead of growing this one
-                    chip - and its embedded revoke button with it - wide
-                    enough to spill past the dialog's own edge. */}
+                {/* maxW + truncate on the name (not the whole Badge) so a long
+                    policy name ellipsizes instead of growing the chip (and its
+                    revoke button) past the dialog's edge. */}
                 <HStack gap={1} minW={0}>
-                    {/* IconButton, not a plain Button wrapping only an icon: Button
-                        reserves horizontal padding sized for a text label even with
-                        no text child, which both left a visible gap around the glyph
-                        and ate into the space truncate had left for the policy name
-                        itself (see the maxW bump above) - same fix
-                        TableActionIconButton already uses for this exact reason. */}
+                    {/* IconButton, not a Button wrapping just an icon: Button
+                        reserves padding for a text label even with none, leaving
+                        a gap around the glyph and eating into truncate's space
+                        (same fix TableActionIconButton uses). */}
                     <IconButton
                         size="2xs"
                         variant="ghost"
@@ -90,12 +87,10 @@ const PolicyAssignmentListItem: React.FC<PolicyAssignmentListItemProps> = ({
                             disabled={revokeDisabled}
                             title={revokeDisabledTitle}
                             loading={isRevokePolicyPending}
-                            // Plain ghost is invisible at rest and its stock hover is
-                            // too faint against the brand badge it sits in - same
-                            // "reads as a static glyph, not a button" issue
-                            // ICON_BUTTON_PROPS/PasswordInput's toggle fix elsewhere.
-                            // Red tint (not gray) since this is the destructive
-                            // revoke action, echoing TableActionButton's red palette.
+                            // Plain ghost hover is too faint against the brand badge
+                            // (same fix as ICON_BUTTON_PROPS/PasswordInput's toggle).
+                            // Red tint since this is the destructive revoke action,
+                            // matching TableActionButton's red palette.
                             _hover={{ bg: "red.100", color: "fg.error" }}
                             _dark={{ _hover: { bg: "red.900" } }}
                             transition={FAST_HOVER_TRANSITION}
@@ -107,13 +102,11 @@ const PolicyAssignmentListItem: React.FC<PolicyAssignmentListItemProps> = ({
             </Badge>
             {isExpanded && (
                 <Wrap gap={2} mt={1} ml={6}>
-                    {/* teal, not brand: matches AccountStatusCard's own color coding
+                    {/* teal, not brand: matches AccountStatusCard's color coding
                         (Policies=brand, Effective permissions=teal, Direct
-                        permissions=purple) - these are the individual actions a policy
-                        grants, the same kind of thing as that card's teal "Effective
-                        permissions" badges, not a second policy-name badge. size/no
-                        fontSize override so this reads at the same text size as the
-                        policy-name badge above it, not larger. */}
+                        permissions=purple). These are the actions a policy grants,
+                        not a second policy-name badge. No fontSize override, so
+                        text stays the same size as the policy-name badge above. */}
                     {policy.actions.map((action) => (
                         <Badge key={action} colorPalette="teal" variant="subtle" size="md" px={2} py={1} maxW="16rem">
                             <HStack gap={1} minW={0}>

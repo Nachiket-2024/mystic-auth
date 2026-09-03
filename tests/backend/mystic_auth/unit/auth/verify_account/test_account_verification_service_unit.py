@@ -1,15 +1,13 @@
-# tests/backend/mystic_auth/unit/test_account_verification_service_unit.py
-#
-# Regression guard for a Phase 1 auth-audit fix to verify_token:
-#   Single-use enforcement previously did a separate GET then DELETE against
-#   Redis, a TOCTOU race let two concurrent requests both pass the GET
-#   before either ran the DELETE, both treating a single-use token as valid.
-#   Fixed by using an atomic GETDEL.
+# Regression guard for a fix to verify_token: single-use enforcement
+# previously did a separate GET then DELETE against Redis, and a TOCTOU
+# race let two concurrent requests both pass the GET before either ran
+# the DELETE, both treating a single-use token as valid. Fixed by using
+# an atomic GETDEL.
 #
 # Token-purpose scoping (this token must never work anywhere else) is
-# enforced by jwt_service.verify_token via expected_type="verify", see
-# test_account_verification_requires_verify_type in test_jwt_unit.py,
-# rather than by anything in this file.
+# enforced by jwt_service.verify_token via expected_type="verify"; see
+# test_account_verification_requires_verify_type in
+# test_jwt_service_unit.py, not anything in this file.
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -61,12 +59,12 @@ async def test_verify_token_rejects_already_consumed_single_use_token(mocker):
 async def test_create_verification_token_forwards_expires_minutes_to_jwt_service(mocker):
     """Regression guard: create_verification_token used to call
     jwt_service.create_verification_token(email=email) without forwarding
-    expires_minutes, so the JWT's own exp claim silently used
-    ACCESS_TOKEN_EXPIRE_MINUTES (15min default) while the Redis single-use
-    key TTL and the emailed wording both used RESET_TOKEN_EXPIRE_MINUTES
-    (60min default), so a user clicking between 15-60 minutes in got a
-    confusing invalid/expired error despite the email promising the link
-    should still work."""
+    expires_minutes, so the JWT's exp claim silently used
+    ACCESS_TOKEN_EXPIRE_MINUTES (15min default) while the Redis
+    single-use key TTL and the emailed wording both used
+    RESET_TOKEN_EXPIRE_MINUTES (60min default): a user clicking between
+    15-60 minutes in got a confusing invalid/expired error despite the
+    email promising the link should still work."""
     create_mock = mocker.patch(
         f"{MODULE}.jwt_service.create_verification_token", new_callable=AsyncMock, return_value="token"
     )

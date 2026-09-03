@@ -5,21 +5,18 @@ from zoneinfo import available_timezones
 
 
 class ConditionValidationError(ValueError):
-    """
-    Raised by validate_conditions when a policy's `conditions` block is
-    invalid. Carries every problem found (not just the first), so a caller
-    creating/updating a policy with several mistakes gets one useful error
-    response instead of having to fix issues one at a time.
-    """
+    """Raised by validate_conditions. Carries every problem found (not
+    just the first) so a caller with several mistakes gets one useful
+    error instead of fixing issues one at a time."""
 
     def __init__(self, errors: list[str]):
         self.errors = errors
         super().__init__("; ".join(errors))
 
 
-# Mirrors condition_registry.py's default_condition_registry, kept as its
-# own explicit set so this validator's key list is a deliberate, reviewable
-# contract, not whatever handlers happen to be registered.
+# Mirrors default_condition_registry, kept as its own explicit set so this
+# validator's key list is a deliberate contract, not just whatever
+# handlers happen to be registered.
 _SUPPORTED_KEYS = frozenset(
     {
         "self_only",
@@ -33,12 +30,11 @@ _SUPPORTED_KEYS = frozenset(
 )
 
 # resource_attributes/context_attributes/security_context only check "is a
-# non-empty dict" below and never look inside the values, so without these
-# limits a policy could carry a pathological key count, nesting depth, or
-# string size (measured: a 150k-key dict took over a second to write and
-# re-walks fully on every evaluation; deep nesting crashed the response
-# serializer instead of failing cleanly). Generous for any real condition
-# (the deepest built-in shape is 2 levels) while rejecting worst-case input.
+# non-empty dict" and never look inside the values, so without these limits
+# a policy could carry a pathological key count, nesting depth, or string
+# size (measured: a 150k-key dict took over a second and re-walks fully on
+# every evaluation; deep nesting crashed the response serializer). Generous
+# for any real condition (deepest built-in shape is 2 levels).
 _MAX_CONDITION_DEPTH = 10
 _MAX_CONDITION_NODES = 2000
 _MAX_CONDITION_STRING_LENGTH = 2000
@@ -46,26 +42,19 @@ _MAX_CONDITION_STRING_LENGTH = 2000
 
 def validate_conditions(conditions: dict | None) -> None:
     """
-    Validates a policy's whole `conditions` block, exactly as it would be
-    persisted. None/empty is valid (an unconditional grant).
+    Validates a policy's whole `conditions` block before it's persisted.
+    None/empty is valid (unconditional grant).
 
-    Raises:
-        ConditionValidationError: if `conditions` isn't a JSON object, if
-        it contains a key outside this app's supported vocabulary, or if
-        any key's value fails that condition type's own shape/type/range
-        checks (see the per-key validators below): collecting every
-        problem found across the whole block, not just the first.
+    Raises ConditionValidationError if `conditions` isn't a JSON object,
+    has a key outside the supported vocabulary, or a value fails its
+    condition type's shape/type/range checks; collects every problem, not
+    just the first.
 
-    Called from api/pbac_routes/policies/policy_crud_routes.py's create_policy and update_policy
-    *before* any database write ("Must happen before database
-    writes"): an invalid conditions block must never be persisted. This
-    is a write-time complement to ConditionEvaluationService's own
-    fail-safe deny-on-unknown-key behavior at *evaluation* time (defense in
-    depth): that runtime fail-safe protects against conditions that
-    somehow got into the database another way (e.g. a direct migration/DB
-    write); this validator's job is to stop bad data from ever reaching
-    that point via the management API, with a clear error explaining why,
-    rather than a policy silently never granting anything.
+    Called before any database write, so bad data never reaches storage
+    with a clear error explaining why. Complements
+    ConditionEvaluationService's own fail-safe deny-on-unknown-key at
+    evaluation time, which guards against conditions that got into the
+    database some other way (direct write, migration).
     """
     if conditions is None:
         return
@@ -94,16 +83,12 @@ def validate_conditions(conditions: dict | None) -> None:
 def sanitize_conditions_for_read(conditions: dict | None) -> dict | None:
     """
     Read-side counterpart to validate_conditions: called from PolicyRead
-    (see authorization/schemas/policy_schema.py) so a policy whose
-    `conditions` predates this validator, or was written some other way
-    (direct DB write, restored backup), can't crash the whole list/get
-    response. Pydantic's serializer raises PydanticSerializationError
-    ("Circular reference detected (depth exceeded)") on any sufficiently
-    deep dict, not just an actual cycle - so a pathological but valid JSON
-    value already in the database, not just a bug, can 500 every caller of
-    GET /authorization/policies until the row is fixed. Replaces an
-    oversized/too-deep value with a short marker instead of ever handing
-    it to the serializer.
+    so a policy whose `conditions` predates this validator, or was written
+    some other way, can't crash the whole list/get response. Pydantic's
+    serializer raises on any sufficiently deep dict, not just an actual
+    cycle, so a pathological but valid stored value can 500 every caller
+    of GET /authorization/policies. Replaces an oversized/too-deep value
+    with a short marker instead of handing it to the serializer.
     """
     if conditions is None or not _validate_size_and_depth(conditions):
         return conditions
@@ -112,15 +97,12 @@ def sanitize_conditions_for_read(conditions: dict | None) -> dict | None:
 
 def _validate_size_and_depth(conditions: dict) -> list[str]:
     """
-    Cheap structural guard applied before any per-key validation: caps
-    total node count, nesting depth, and string length across the whole
-    `conditions` tree, regardless of which key a value sits under (see the
-    limits' own docstring above for why this is needed).
+    Cheap structural guard applied before per-key validation: caps total
+    node count, nesting depth, and string length across the whole tree.
 
     Walked iteratively with an explicit stack, not recursion: a
-    deliberately deep payload must not be able to raise a RecursionError
-    while it's still being *checked*, which would turn a clean 422 into an
-    unhandled 500 - the exact failure mode this guard exists to prevent.
+    deliberately deep payload must not raise RecursionError while still
+    being checked, which would turn a clean 422 into an unhandled 500.
     """
     errors: list[str] = []
     stack: list[tuple[object, int]] = [(conditions, 0)]
@@ -199,11 +181,9 @@ def _validate_time(value) -> list[str]:
 
 
 def _validate_date_range(value) -> list[str]:
-    # Canonical, only-supported field names are "start"/"end" (matching
-    # the "time" condition's own start/end naming), mirrored exactly by
-    # DateRangeCondition.evaluate. No aliases (e.g. "start_date"/"end_date")
-    # are recognized; a dict using them fails the "requires at least one
-    # of" check below the same as an empty dict would.
+    # Only "start"/"end" are recognized (mirrors DateRangeCondition.evaluate);
+    # aliases like "start_date"/"end_date" fail the check below like an
+    # empty dict would.
     if not isinstance(value, dict):
         return ["'date_range' must be an object"]
 

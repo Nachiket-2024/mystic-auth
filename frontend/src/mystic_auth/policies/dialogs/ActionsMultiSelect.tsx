@@ -17,12 +17,11 @@ interface ActionsMultiSelectProps {
 
 /**
  * Multi-value counterpart to StyledSelect, used only by PolicyFormDialog's
- * `actions` field: a policy grants a LIST of actions, unlike every other
- * caller of StyledSelect (which is single-value). Kept as its own component
- * rather than adding a `multiple` mode to StyledSelect, since that would
- * change `value`/`onChange`'s shape for every existing single-select caller.
- * Same visual styling as StyledSelect (see that file's own comments for the
- * rationale behind each style choice) - only the selection model differs.
+ * `actions` field (a policy grants a list of actions, unlike every other
+ * StyledSelect caller). Kept as its own component rather than adding a
+ * `multiple` mode to StyledSelect, which would change `value`/`onChange`'s
+ * shape for every single-select caller. Same styling as StyledSelect, just a
+ * different selection model.
  */
 const ActionsMultiSelect: React.FC<ActionsMultiSelectProps> = ({ values, onChange, options, ariaLabel, placeholder, disabled }) => {
     const collection = useMemo(() => createListCollection({ items: options }), [options]);

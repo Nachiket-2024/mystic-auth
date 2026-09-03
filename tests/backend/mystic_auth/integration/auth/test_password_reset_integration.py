@@ -1,8 +1,7 @@
 # tests/backend/mystic_auth/integration/auth/test_password_reset_integration.py
 #
 # End-to-end password-reset coverage against the real ASGI app, real
-# PostgreSQL, and real Redis (see conftest.py). Split out of what used to be
-# one 799-line test_auth_api_integration.py.
+# PostgreSQL, and real Redis (see conftest.py).
 import asyncio
 
 import pytest
@@ -25,7 +24,7 @@ from .auth_test_accounts import (
 async def _request_password_reset(client, email: str) -> str:
     """Mirrors password_reset_service.send_reset_email's Redis single-use
     registration so the test can drive password-reset/confirm without
-    depending on the Taskiq email worker being up to deliver the link."""
+    depending on the email worker being up to deliver the link."""
     resp = await client.post("/auth/password-reset/request", json={"email": email})
     assert resp.status_code == 200
 
@@ -48,8 +47,8 @@ async def test_password_reset_revokes_existing_sessions(client, created_emails):
     )
     assert confirm_resp.status_code == 200
 
-    # The gap finding #2 fixed: a stolen refresh token from before the reset
-    # must no longer work afterwards.
+    # A stolen refresh token from before the reset must no longer work
+    # afterwards.
     reuse_resp = await refresh_with_cookie(client, old_refresh)
     assert reuse_resp.status_code == 401
 
@@ -110,9 +109,9 @@ async def test_password_reset_survives_retry_after_weak_password(client, created
 @pytest.mark.asyncio
 async def test_password_reset_concurrent_requests_only_one_succeeds(client, created_emails):
     # The core TOCTOU race (real Redis, real Postgres): two requests firing
-    # concurrently with the same valid token and *different* new passwords
-    # must not both succeed: GETDEL's atomicity means only one can ever
-    # win the single-use check, regardless of how the DB writes interleave.
+    # concurrently with the same valid token and different new passwords
+    # must not both succeed. GETDEL's atomicity means only one can ever win
+    # the single-use check, regardless of how the DB writes interleave.
     email = unique_email()
     await signup_verify_login(client, created_emails, email)
     reset_token = await _request_password_reset(client, email)

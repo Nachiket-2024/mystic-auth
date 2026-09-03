@@ -1,16 +1,11 @@
-# tests/backend/mystic_auth/unit/authorization/services/test_authorization_service_unit.py
-#
 # Unit coverage for AuthorizationService, the centralized layer routes and
-# services must go through per the target authorization flow:
-#   Request -> Authentication -> Authorization Service
-#           -> Policy Evaluation Engine -> Allow / Deny
-# These tests mock the repository (DB boundary) and exercise the real
-# evaluator underneath, confirming the service wires "fetch policies, ask
-# the engine" correctly and that require() raises 403 on denial. Automatic
-# audit logging is covered separately in
+# services go through: Request -> Authentication -> Authorization Service ->
+# Policy Evaluation Engine -> Allow/Deny. These tests mock the repository (DB
+# boundary) and exercise the real evaluator underneath, confirming the service
+# wires "fetch policies, ask the engine" correctly and that require() raises
+# 403 on denial. Audit logging is covered in
 # test_authorization_service_audit_log_unit.py, and authorize_batch in
-# test_authorization_service_batch_unit.py - split out of this file once it
-# passed the repo's own file-length guideline.
+# test_authorization_service_batch_unit.py.
 from unittest.mock import AsyncMock
 
 import pytest
@@ -32,26 +27,18 @@ def _policy(actions, resource_type="users", conditions=None, name=None):
 
 
 def _mock_audit_log(mocker):
-    """authorize()/require() always queue an audit entry (see
-    authorization_audit_logger.log_decision, which defers
-    log_authorization_decision_task rather than writing inline); mocked
-    explicitly in tests that don't care about the audit trail itself, rather
-    than relying on log_decision's own
-    try/except (which would otherwise silently swallow a real attempt to
-    reach Procrastinate's own DB connection, unavailable in these unit
-    tests)."""
+    """authorize()/require() always queue an audit entry via
+    log_authorization_decision_task. Mocked explicitly here rather than relying
+    on log_decision's own try/except, which would otherwise silently swallow a
+    real attempt to reach Procrastinate's DB, unavailable in unit tests."""
     return mocker.patch(f"{AUDIT_MODULE}.log_authorization_decision_task.defer_async", new_callable=AsyncMock)
 
 
 # ---------------------------- Audit logging is queued, not written inline ----------------------------
-# authorization_audit_logger.log_decision used to write the audit row itself (db.add()+commit()+
-# refresh(), directly on the request's own DB session); it now defers
-# log_authorization_decision_task instead, so the actual INSERT happens in
-# a background worker off the request path (see concerns.md's now-resolved
-# "audit logging blocks every protected request" entry, and
-# audit_log_tasks.py for the write itself). This suite covers the
-# decoupling: the right entry gets queued, exactly once, and a queueing
-# failure never breaks the real decision.
+# log_decision defers log_authorization_decision_task rather than writing the
+# audit row inline, so the INSERT happens in a background worker off the
+# request path. This suite covers that: the right entry gets queued exactly
+# once, and a queueing failure never breaks the real decision.
 
 @pytest.mark.asyncio
 async def test_authorize_queues_exactly_one_audit_entry_per_call(mocker):
@@ -70,10 +57,8 @@ async def test_authorize_queues_exactly_one_audit_entry_per_call(mocker):
 @pytest.mark.asyncio
 async def test_authorize_queues_an_audit_entry_matching_the_computed_decision(mocker):
     """The queued entry must reflect the real decision (who, what, on what,
-    allowed or not, and which policies actually granted it), not a
-    placeholder: this is the only record of the decision until the worker
-    persists it, so if this drifts from what authorization_audit_logger.build_audit_entry actually
-    computed, the audit trail silently lies about what happened."""
+    allowed or not, and which policies granted it), not a placeholder: it's
+    the only record of the decision until the worker persists it."""
     log_mock = _mock_audit_log(mocker)
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
@@ -114,9 +99,8 @@ async def test_authorize_queues_a_denied_entry_with_no_granting_policies(mocker)
 
 @pytest.mark.asyncio
 async def test_authorize_detailed_never_queues_an_audit_entry(mocker):
-    """authorize_detailed is the hypothetical 'what would happen if' path
-    (the authorization-check inspection endpoint); it must never queue a
-    job, same requirement as it never writing a row when this was inline."""
+    """authorize_detailed is the hypothetical "what would happen if" path
+    (the inspection endpoint); it must never queue an audit job."""
     log_mock = _mock_audit_log(mocker)
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",

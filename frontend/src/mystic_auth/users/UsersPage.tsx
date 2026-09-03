@@ -22,17 +22,16 @@ import { useUsersPageState } from "./useUsersPageState";
  * UsersPage
  * ----------------------------
  * Management list of every user (backend: GET /users/), with per-row role
- * change, delete, and a "Policies" dialog for assigning/
- * revoking individual policy grants. Route is gated by
- * ProtectedRoute permission="users:list_all"; each destructive/privileged
- * action is additionally gated per-action via IfCan. Name/Email/Role sort
- * server-side (click the header), and Role/Verified/Status/Policy/Permission
- * filter server-side too - both narrow the whole result set, not just the
- * currently-loaded page, same as the audit_log/ section components (both
- * share ui/hooks/usePageResetOn.ts for the page-reset-on-filter-change logic).
- * The filter controls live in UsersFilterBar.tsx, every dialog this page can
- * open lives in UsersPageDialogs.tsx, and the query/mutation/handler wiring
- * lives in useUsersPageState.ts - this file just composes the three.
+ * change, delete, and a "Policies" dialog for assigning/revoking individual
+ * policy grants. Route is gated by ProtectedRoute permission="users:list_all";
+ * each destructive/privileged action is additionally gated via IfCan.
+ * Name/Email/Role sort and Role/Verified/Status/Policy/Permission filter
+ * both happen server-side, narrowing the whole result set rather than just
+ * the loaded page (same as audit_log/, sharing its
+ * ui/hooks/usePageResetOn.ts for resetting to page 1 on filter change).
+ * The filter controls live in UsersFilterBar.tsx, every dialog this page
+ * can open lives in UsersPageDialogs.tsx, and the query/mutation/handler
+ * wiring lives in useUsersPageState.ts; this file just composes the three.
  */
 const UsersPage: React.FC = () => {
     const { t } = useTranslation(["users", "ui_text"]);

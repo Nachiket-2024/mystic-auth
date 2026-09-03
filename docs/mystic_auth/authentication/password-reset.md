@@ -28,12 +28,10 @@ sequenceDiagram
     participant API as Backend
     participant R as Redis
     participant E as Email
-
     U->>API: POST /auth/password-reset/request { email }
     API->>R: SET reset:{token} (single-use, TTL)
     API->>E: send reset link
     API-->>U: 200 generic response (always, either way)
-
     U->>API: POST /auth/password-reset/confirm { token, new_password }
     API->>R: GETDEL reset:{token} (atomic, single-use)
     alt token valid and password strong enough
@@ -67,19 +65,19 @@ sequenceDiagram
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Start(["PUT /users/me or PUT /users/{email}"]) --> HasPwField{"Request includes\na new password field?"}
-    HasPwField -- "no" --> Plain["Ordinary profile update\nno session side effects"]
+    Start(["PUT /users/me or PUT /users/{email}"]) --> HasPwField{"Request includes\n a new password field?"}
+    HasPwField -- "no" --> Plain["Ordinary profile update\n no session side effects"]
     HasPwField -- "yes" --> WhoAmI{"Self (/me) or admin route?"}
-    WhoAmI -- "self" --> ReConfirm{"hashed_password set\non this account?"}
-    ReConfirm -- "yes" --> CheckCurrent{"current_password\nmatches?"}
+    WhoAmI -- "self" --> ReConfirm{"hashed_password set\n on this account?"}
+    ReConfirm -- "yes" --> CheckCurrent{"current_password\n matches?"}
     CheckCurrent -- "no" --> Fail401["401"]
     CheckCurrent -- "yes" --> ChangeSelf
-    ReConfirm -- "no (OAuth-only,\nfirst password)" --> ChangeSelf["Hash + store new password"]
-    ChangeSelf --> RevokeSelf["revoke_all_tokens_for_user_except_chain()\nbumps account_ver, exempts caller's own chain"]
-    RevokeSelf --> ReissueSelf["Reissue fresh cookies for\nthe caller's current session"]
+    ReConfirm -- "no (OAuth-only,\n first password)" --> ChangeSelf["Hash + store new password"]
+    ChangeSelf --> RevokeSelf["revoke_all_tokens_for_user_except_chain()\n bumps account_ver, exempts caller's own chain"]
+    RevokeSelf --> ReissueSelf["Reissue fresh cookies for\n the caller's current session"]
     ReissueSelf --> Done200Self["200, caller stays logged in"]
     WhoAmI -- "admin" --> ChangeAdmin["Hash + store new password"]
-    ChangeAdmin --> RevokeAdmin["revoke_all_tokens_for_user()\nbumps account_ver, no exemption"]
+    ChangeAdmin --> RevokeAdmin["revoke_all_tokens_for_user()\n bumps account_ver, no exemption"]
     RevokeAdmin --> Done200Admin["200"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
@@ -127,7 +125,7 @@ Postgres/Redis. See [Testing Overview](../testing/overview.md).
 ## See also
 
 - [Authentication Flows](overview.md): tokens/cookies and how this fits alongside the other flows.
-- [Account Deletion and Purge](account-deletion.md): the OAuth-only-account deletion-confirmation
+- [Account Deletion and Purge](account-deletion/README.md): the OAuth-only-account deletion-confirmation
   flow reuses this same signed-single-use-token pattern.
 
 ---

@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....audit_log.audit_log_service import POLICY_ACTION_REVOKED, POLICY_ASSIGNED, POLICY_REVOKED, log_security_event
 
-# Authentication-only dependency (no permission required) : used by
-# /users/me/policies, where a user inspects their own assignments regardless
+# Authentication-only dependency (no permission required), used by
+# /users/me/policies so a user can inspect their own assignments regardless
 # of whether they hold policies:read.
 from ....auth.current_user.current_user_dependency import get_current_user
 from ....authorization.context.request_context_builder import build_authorization_context
@@ -48,17 +48,16 @@ async def assign_policy_to_user(
     db: AsyncSession = Depends(database.get_session),
 ):
     """
-    Assigns a policy to a user (idempotent : already holding it is a
-    no-op). The caller must already hold every action this policy grants :
-    otherwise policies:assign alone (without system_superuser itself) would
-    let a caller hand out (to themselves or anyone else) a pre-existing
-    policy more powerful than what they hold. policies:assign is the one
-    action that can escalate access without policies:create/update at all,
-    so this guard is what actually enforces that policy assignments cannot
-    exceed the caller's own permissions.
+    Assigns a policy to a user (idempotent: already holding it is a no-op).
+    The caller must already hold every action this policy grants, otherwise
+    policies:assign alone (without system_superuser itself) would let a
+    caller hand out a pre-existing policy more powerful than what they
+    hold. policies:assign is the one action that can escalate access
+    without policies:create/update at all, so this guard is what enforces
+    that policy assignments can't exceed the caller's own permissions.
 
     This is the actual mechanism by which an account gains capability under
-    PBAC : never a role change. Role may be used for display/grouping, but
+    PBAC, never a role change. Role may be used for display/grouping, but
     must never select policies automatically.
     """
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
@@ -85,12 +84,11 @@ async def assign_policy_to_user(
     )
 
     # This is the actual mechanism by which an account gains capability
-    # (see this function's own docstring) - including, potentially,
-    # system_superuser itself - so an unrecorded grant here is a real gap
-    # in the security audit trail, not just a nice-to-have. user_email is
-    # the RECEIVING user (consistent with every other audit entry here
-    # being keyed on whose account was affected); the granting user is
-    # in metadata, mirroring delete_any_user's assigned_by/deleted_by shape.
+    # (see docstring above), including potentially system_superuser itself,
+    # so an unrecorded grant here is a real gap in the audit trail.
+    # user_email is the RECEIVING user, consistent with every other audit
+    # entry being keyed on whose account was affected; the granting user
+    # goes in metadata, mirroring delete_any_user's assigned_by/deleted_by shape.
     await log_security_event(
         POLICY_ASSIGNED,
         db,
@@ -195,25 +193,23 @@ async def revoke_policy_action_from_user(
     db: AsyncSession = Depends(database.get_session),
 ):
     """
-    Carves ONE action out of a user's policy assignment: that single
-    action is revoked, but every other action the policy grants this user
-    is preserved (converted to a direct grant - see
+    Carves ONE action out of a user's policy assignment: that single action
+    is revoked, but every other action the policy grants this user is
+    preserved (converted to a direct grant, see
     policy_action_revocation_service.py). Unlike remove_policy_from_user,
-    this never touches the Policy row itself, so every OTHER holder of
-    this policy is entirely unaffected.
+    this never touches the Policy row itself, so every OTHER holder of this
+    policy is entirely unaffected.
 
     Requires BOTH policies:revoke (this ends the user's policy assignment)
     AND permissions:grant (this creates new direct grants for the actions
-    kept) - a caller holding only one of the two could otherwise use this
-    route to do half of what either dedicated route alone would refuse to
-    let them do.
+    kept): a caller holding only one of the two could otherwise use this
+    route to do half of what either dedicated route alone would refuse.
 
     Same privilege-escalation guard as remove_policy_from_user, checked
     against the policy's FULL action set (not just the remaining ones):
     without it, a caller holding policies:revoke + permissions:grant but
     not the policy's own actions could still strip a more-privileged
-    peer's access via this route, the same gap remove_policy_from_user's
-    guard closes for a plain revoke.
+    peer's access via this route.
     """
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
     policy = await get_or_404(policy_repository.get_by_name(policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
@@ -300,11 +296,11 @@ async def revoke_policy_action_from_user(
     return {"detail": f"Action '{revocation.action}' revoked from {user_email}'s '{policy_name}' assignment; other actions retained as direct grants"}
 
 
-# Registered BEFORE /users/{user_email}/policies below : FastAPI/Starlette
+# Registered BEFORE /users/{user_email}/policies below: FastAPI/Starlette
 # matches routes in registration order, and a parameterized path segment
-# happily matches the literal string "me" too; this specific route must
-# come first or /users/{user_email}/policies (which requires policies:read)
-# would shadow it.
+# happily matches the literal string "me" too; this route must come first
+# or /users/{user_email}/policies (which requires policies:read) would
+# shadow it.
 @router.get("/users/me/policies", response_model=UserPoliciesRead)
 async def list_my_policies(
     current_user: dict = Depends(get_current_user),
@@ -312,16 +308,16 @@ async def list_my_policies(
 ):
     """
     Self-service: every policy currently assigned to the caller (active or
-    not : for inspection, not an authorization decision). No policies:read
-    required : a user inspecting their own assignments is not privileged
-    information, mirroring GET /audit-log/me's own self-service rationale.
-    Same response shape as the management GET /users/{email}/policies below,
-    scoped to the caller.
+    not, for inspection, not an authorization decision). No policies:read
+    required: inspecting one's own assignments isn't privileged
+    information, mirroring GET /audit-log/me's rationale. Same response
+    shape as the management GET /users/{email}/policies below, scoped to
+    the caller.
     """
     policies = await policy_repository.get_policies_for_user(current_user["email"], db)
-    # Explicit ORM -> schema conversion (unlike the response_model=... routes
-    # in policy_crud_routes.py, which get this for free from FastAPI's own
-    # serialization step) since UserPoliciesRead is constructed directly here.
+    # Explicit ORM -> schema conversion, unlike the response_model=... routes
+    # in policy_crud_routes.py which get this for free from FastAPI's own
+    # serialization, since UserPoliciesRead is constructed directly here.
     return UserPoliciesRead(
         user_email=current_user["email"], policies=[PolicyRead.model_validate(p) for p in policies]
     )
@@ -333,7 +329,7 @@ async def list_user_policies(
     current_user: dict = READ_DEPENDENCY,
     db: AsyncSession = Depends(database.get_session),
 ):
-    """Every policy assigned to this user (active or not : for inspection,
+    """Every policy assigned to this user (active or not, for inspection,
     not an authorization decision)."""
     await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
 

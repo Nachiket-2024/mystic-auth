@@ -1,11 +1,6 @@
-// Regression: nothing previously caught a translation file drifting out of
-// sync with the others (e.g. a key added to en/*.json but never mirrored
-// into hi/mr/gu, or a stray key left behind in one language after a rename
-// elsewhere) - a missing key silently falls back to the raw i18next key
-// string in the UI, in whichever language is missing it, rather than
-// failing anything visibly during development. This walks every namespace
-// listed in translations.ts and asserts all four languages expose exactly
-// the same set of (nested) keys.
+// A missing translation key silently falls back to the raw i18next key in the UI
+// instead of failing visibly, so this checks every namespace in translations.ts
+// and asserts all languages expose the same set of (nested) keys as en.
 import { describe, it, expect } from 'vitest';
 
 import { NAMESPACES, SUPPORTED_LANGUAGES } from '@/translations/translations';

@@ -1,9 +1,8 @@
-// Regression: SignupForm/PasswordResetConfirmForm required a special
-// character but never checked for lowercase, while the backend
-// (password_service.validate_password_strength) requires upper+lower+digit
-// and has no special-character requirement : so "PASSWORD1!" passed client
-// validation but was rejected server-side. These tests pin the two layers
-// back in sync.
+// Regression: the forms required a special character but never checked for
+// lowercase, while the backend (password_service.validate_password_strength)
+// requires upper+lower+digit and has no special-character rule, so
+// "PASSWORD1!" passed client validation but was rejected server-side.
+// These tests keep the two layers in sync.
 import type { ReactElement } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';

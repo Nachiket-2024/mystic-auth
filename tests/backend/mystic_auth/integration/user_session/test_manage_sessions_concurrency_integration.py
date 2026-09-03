@@ -82,9 +82,8 @@ async def test_concurrently_revoking_the_same_session_twice_only_one_request_suc
             client.delete(f"/auth/sessions/{other_session['id']}"),
         )
         statuses = sorted(r.status_code for r in results)
-        # Either both observe the same already-revoked outcome (200/200,
-        # idempotent) or the loser gets a 404 - either way, never a 5xx and
-        # never a half-revoked session.
+        # Both can see the already-revoked outcome (200/200) or the loser
+        # can get a 404. Either way, no 5xx and no half-revoked session.
         assert statuses in ([200, 200], [200, 404]), statuses
 
         remaining = (await client.get("/auth/sessions")).json()

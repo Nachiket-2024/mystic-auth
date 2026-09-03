@@ -1,15 +1,13 @@
 # tests/backend/mystic_auth/integration/user_session/test_session_geolocation_integration.py
 #
 # End-to-end coverage for the Manage Sessions "Location" column: city/
-# country resolved from the login IP via session_geolocation.py and surfaced
-# on GET /auth/sessions. Mirrors test_manage_sessions_integration.py's
-# fixture/cleanup style. GEOIP_DB_PATH is unset in the test environment (no
-# .mmdb file is available in CI), so resolve_city_country is patched at its
-# session_service import site to prove the plumbing (session_service ->
-# session_repository -> UserSession.city/country -> SessionRead) end to
-# end, and a second, unpatched test proves the real fail-open "Unknown"
-# behavior when geolocation is disabled - both real paths this feature
-# must support.
+# country resolved from the login IP via session_geolocation.py and
+# surfaced on GET /auth/sessions. GEOIP_DB_PATH is unset in this test
+# environment (no .mmdb file in CI), so resolve_city_country is patched
+# at its session_service import site to prove the plumbing end to end
+# (session_service -> session_repository -> UserSession.city/country ->
+# SessionRead). A second, unpatched test covers the real fail-open
+# behavior when geolocation is disabled.
 import uuid
 
 import pytest

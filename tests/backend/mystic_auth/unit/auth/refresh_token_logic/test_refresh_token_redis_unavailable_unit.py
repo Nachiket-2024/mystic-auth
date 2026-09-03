@@ -1,16 +1,9 @@
-# tests/backend/mystic_auth/unit/auth/refresh_token_logic/test_refresh_token_redis_unavailable_unit.py
-#
-# Redis fail-open regression coverage: bump_account_version/bump_chain_version
-# returning False (Redis unreachable) must propagate as
-# TokenVersionUnavailableError instead of being swallowed into a false
-# "revoked" success - see docs/mystic_auth/concerns/README.md's now-resolved
-# "Redis outage failure modes are inconsistent" entry.
-#
-# Split out of test_refresh_token_unit.py once that file passed the repo's
-# own file-length guideline; this half covers only the Redis-unavailable
-# fail-closed paths, matching the section this exact comment already
-# delimited in that file. See test_refresh_token_unit.py for
-# refresh_tokens()'s rotation/reuse-detection coverage.
+# Redis fail-open regression coverage: bump_account_version /
+# bump_chain_version returning False (Redis unreachable) must propagate
+# as TokenVersionUnavailableError instead of being swallowed into a
+# false "revoked" success. Covers only the Redis-unavailable fail-closed
+# paths; see test_refresh_token_unit.py for refresh_tokens()'s
+# rotation/reuse-detection coverage.
 from unittest.mock import AsyncMock
 
 import pytest
@@ -82,10 +75,10 @@ async def test_revoke_chain_for_user_raises_when_chain_bump_is_unconfirmed(mocke
 @pytest.mark.asyncio
 async def test_reuse_detection_stays_fail_closed_and_still_audits_when_bump_is_unconfirmed(mocker):
     """Even if the chain-version bump can't be confirmed (Redis down), the
-    reused token itself must still be rejected (refresh_tokens returns None
-    regardless - see the "not claimed" branch), and the critical audit
-    event must still be written, with revocation_confirmed=False so the gap
-    is visible rather than silently indistinguishable from a real revoke."""
+    reused token itself must still be rejected (refresh_tokens returns
+    None regardless, via the "not claimed" branch), and the audit event
+    must still be written, with revocation_confirmed=False so the gap is
+    visible rather than indistinguishable from a real revoke."""
     decode_mock = mocker.patch(
         f"{MODULE}.decode_payload",
         new_callable=AsyncMock,

@@ -50,11 +50,9 @@ class SMTPEmailSender:
 class NullEmailSender:
     """Used instead of SMTPEmailSender when settings.EMAIL_ENABLED is False:
     logs what would have been sent (recipient/subject only, never the body -
-    it can contain a raw verification/reset token) and returns, without ever
-    opening an SMTP connection. For local dev/test runs against a real
-    provider (e.g. a personal Gmail account with a real daily send quota),
-    where every signup/password-reset/account-deletion flow would otherwise
-    burn a real send."""
+    it can contain a raw verification/reset token) without opening an SMTP
+    connection. Keeps local dev/test runs from burning a real provider's
+    send quota on every signup/reset/account-deletion flow."""
 
     async def send(self, to_email: str, subject: str, body: str, is_html: bool = True) -> None:
         logger.info("EMAIL_ENABLED=false, not sending: to=%s subject=%r", to_email, subject)

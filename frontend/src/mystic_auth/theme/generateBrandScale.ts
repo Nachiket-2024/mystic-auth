@@ -7,10 +7,8 @@ export type BrandScaleStep = "50" | "100" | "200" | "300" | "400" | "500" | "600
 export type BrandScale = Record<BrandScaleStep, string>;
 
 // Target lightness (%) per step, calibrated against the shipped amber scale
-// (app/theme.ts's brand.50-900, itself Tailwind's amber scale) so an
-// arbitrary input hue lands at roughly the same visual weight/contrast per
-// step as that hand-tuned scale, rather than every custom color needing its
-// own manual re-tuning.
+// (app/theme.ts's brand.50-900, Tailwind's amber scale) so an arbitrary
+// input hue lands at roughly the same visual weight per step.
 const LIGHTNESS_LADDER: Record<BrandScaleStep, number> = {
     "50": 96,
     "100": 90,
@@ -24,10 +22,8 @@ const LIGHTNESS_LADDER: Record<BrandScaleStep, number> = {
     "900": 25,
 };
 
-// Saturation is held close to the input color's own, but tapered slightly
-// at the darkest steps (matching the shipped scale's 900 measuring ~78%
-// against 600's ~95%) so very dark steps don't read as an oversaturated,
-// almost-neon near-black.
+// Saturation stays close to the input color's own, tapered slightly at the
+// darkest steps so they don't read as an oversaturated near-black.
 const SATURATION_MULTIPLIER: Record<BrandScaleStep, number> = {
     "50": 1,
     "100": 1,
@@ -43,11 +39,9 @@ const SATURATION_MULTIPLIER: Record<BrandScaleStep, number> = {
 
 /**
  * Generates a Chakra-shaped 50-900 color scale from a single user-picked
- * hex, keeping that color's hue (and roughly its saturation) fixed and
- * interpolating lightness across LIGHTNESS_LADDER. This is the single
- * source of truth every brand-colored surface (buttons, focus rings, the
- * canvas gradient tint, the logo badge, the favicon) is generated from -
- * see appearanceThemeOverrides.ts and brandIcon.ts for where it's consumed.
+ * hex: fixes hue (and roughly saturation), interpolates lightness across
+ * LIGHTNESS_LADDER. Single source of truth for every brand-colored surface
+ * (buttons, focus rings, canvas tint, logo badge, favicon).
  */
 export function generateBrandScale(hex: string): BrandScale {
     const { h, s } = colord(hex).toHsl();

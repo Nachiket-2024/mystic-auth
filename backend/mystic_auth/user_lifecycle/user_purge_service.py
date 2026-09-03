@@ -17,23 +17,21 @@ async def purge_user_account(
     """
     Hard-delete path shared by the admin `DELETE /users/{email}/purge` route
     (user_lifecycle_routes.py::purge_user) and the scheduled grace-period
-    purge job (procrastinate_tasks/account_purge_tasks.py), so both go through the
-    exact same revoke -> audit -> delete sequence rather than two
-    independently-maintained copies of it.
+    purge job (procrastinate_tasks/account_purge_tasks.py), so both go
+    through the same revoke -> audit -> delete sequence instead of two
+    independently-maintained copies.
 
-    Sessions are revoked and the irreversible action is audit-logged before
-    the row is deleted, same reasoning as the original purge_user: the audit
-    write is what makes the action reviewable afterward, and `user_id`'s
-    ON DELETE CASCADE would otherwise remove Manage Sessions rows out from
-    under a post-delete revoke call.
+    Sessions are revoked and the action audit-logged before the row is
+    deleted: the audit write is what makes the action reviewable afterward,
+    and `user_id`'s ON DELETE CASCADE would otherwise remove Manage Sessions
+    rows out from under a post-delete revoke call.
 
     Raises TokenVersionUnavailableError, uncaught, if the account-version
-    bump can't be confirmed (Redis unreachable): unlike a reversible soft
-    delete, this fails closed on purpose, since the row deletion below
-    hasn't happened yet at that point - better to block an irreversible
-    purge on an unconfirmed revoke than delete an account while its
-    sessions might still be alive. Both callers (the admin purge route and
-    the scheduled grace-period job) must handle this themselves.
+    bump can't be confirmed (Redis unreachable). Unlike a reversible soft
+    delete, this fails closed on purpose since the row deletion hasn't
+    happened yet at that point; better to block an irreversible purge on an
+    unconfirmed revoke than delete an account while its sessions might still
+    be alive. Both callers must handle this themselves.
     """
     user_email = user.email
     revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
@@ -49,10 +47,11 @@ async def purge_user_account(
 
     await user_crud.delete(db_obj=user, db=db)
 
-    # This email can be reused by a new signup. Without this, a new account
-    # with the same email could transiently inherit the purged user's stale
-    # cached policies/permissions, since the cache is keyed by email, not
-    # user id. Best-effort: a cache miss just re-reads the empty database.
+    # This email can be reused by a new signup. Without this invalidation, a
+    # new account with the same email could transiently inherit the purged
+    # user's stale cached policies/permissions, since the cache is keyed by
+    # email, not user id. Best-effort: a cache miss just re-reads the
+    # (now empty) database.
     await authorization_cache_service.invalidate_user_policies(user_email)
     await authorization_cache_service.invalidate_user_permissions(user_email)
 

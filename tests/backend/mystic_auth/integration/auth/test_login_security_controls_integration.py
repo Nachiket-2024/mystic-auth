@@ -1,13 +1,12 @@
-# tests/backend/mystic_auth/integration/test_login_security_controls_integration.py
+# tests/backend/mystic_auth/integration/auth/test_login_security_controls_integration.py
 #
 # End-to-end coverage for the login timing side-channel, login lockout,
 # lockout key isolation across flows, and IP/account rate limiting, against
-# the real ASGI app, real PostgreSQL, and real Redis (see conftest.py).
-# Split out of test_login_integration.py once that file passed the repo's
-# own file-length guideline; see that file for the base signup/verify/login
-# coverage. Unlike the mocked unit suite, these exercise the actual Redis
-# type/atomicity behavior, the class of bug (e.g. a Set/Hash key-type
-# collision) that mocks cannot surface.
+# the real ASGI app, real PostgreSQL, and real Redis (see conftest.py). See
+# test_login_integration.py for the base signup/verify/login coverage.
+# Unlike the mocked unit suite, these exercise real Redis type/atomicity
+# behavior, the class of bug (a Set/Hash key-type collision) that mocks
+# can't surface.
 import statistics
 import time
 
@@ -45,11 +44,11 @@ async def _median_login_latency(client, email: str, password: str, samples: int 
 @pytest.mark.asyncio
 async def test_login_timing_does_not_distinguish_nonexistent_from_wrong_password(client, created_emails):
     # Regression guard for the login timing side-channel (real Argon2, real
-    # DB, a mocked test can't observe this since it doesn't perform real
+    # DB; a mocked test can't observe this since it doesn't perform real
     # hashing). Before the fix, "no such account" returned in a fraction of
-    # the time "wrong password on a real, verified account" took, because
-    # only the latter paid for an Argon2 comparison. Both must now cost
-    # about the same, since both perform one.
+    # the time "wrong password on a real account" took, since only the
+    # latter paid for an Argon2 comparison. Both must now cost about the
+    # same.
     email = unique_email()
     await signup_verify_login(client, created_emails, email)
     client.cookies.clear()
@@ -59,7 +58,7 @@ async def test_login_timing_does_not_distinguish_nonexistent_from_wrong_password
 
     # Generous tolerance to absorb normal jitter: the bug this guards
     # against produces an orders-of-magnitude gap (no hashing vs. real
-    # Argon2), not a marginal one, so 3x is still a tight bound against it.
+    # Argon2), so 3x is still a tight bound.
     assert nonexistent_latency < wrong_password_latency * 3
     assert wrong_password_latency < nonexistent_latency * 3
 
@@ -126,11 +125,11 @@ async def test_successful_login_resets_failed_attempt_counter(client, created_em
 #
 # Regression coverage for a bug where password_reset_confirm_handler and
 # account_verification_handler shared login_handler's exact "login_lock:
-# email:{email}" Redis key. That meant failures with no bearing on a real
-# login attempt, such as a weak new password during reset, or an already-verified
-# account being re-submitted for verification, counted towards, and could
-# trip, the unrelated login lockout for the same email. Each flow now uses
-# its own key namespace (password_reset_confirm_lock / verify_account_lock).
+# email:{email}" Redis key. Failures with no bearing on a real login
+# attempt (a weak new password during reset, an already-verified account
+# resubmitted for verification) could trip the unrelated login lockout for
+# the same email. Each flow now uses its own key namespace
+# (password_reset_confirm_lock / verify_account_lock).
 
 @pytest.mark.asyncio
 async def test_repeated_weak_password_reset_confirm_failures_do_not_lock_out_login(client, created_emails):
@@ -146,8 +145,8 @@ async def test_repeated_weak_password_reset_confirm_failures_do_not_lock_out_log
     for _ in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
         # Too-short new password fails validate_password_strength, which
         # restores the single-use Redis entry so the same token can be
-        # retried, letting this loop drive enough failures to have tripped
-        # the old shared lockout key.
+        # retried, letting this loop drive enough failures to trip the old
+        # shared lockout key.
         resp = await client.post(
             "/auth/password-reset/confirm", json={"token": reset_token, "new_password": "weak"}
         )
@@ -167,7 +166,7 @@ async def test_repeated_already_verified_failures_do_not_lock_out_login(client, 
         # A fresh, valid, single-use-registered token for an account that's
         # already verified: verify_token succeeds (real token, real Redis
         # single-use entry) but mark_user_verified fails because is_verified
-        # is already True: the "already verified" failure branch.
+        # is already True, the "already verified" failure branch.
         token = await account_verification_service.create_verification_token(email)
         await redis_client.set(f"verify:{token}", "1", ex=600)
         resp = await client.post("/auth/verify-account", json={"token": token})
@@ -183,9 +182,8 @@ async def test_repeated_already_verified_failures_do_not_lock_out_login(client, 
 async def test_ip_rate_limit_blocks_after_max_requests_per_window(client, created_emails):
     # Uses oauth2/login/google rather than /auth/login: that endpoint has no
     # account-level lockout side effect, so exactly MAX_REQUESTS_PER_WINDOW
-    # requests exercise only the per-IP rate limiter in isolation, in real
-    # Redis, instead of tripping login_protection_service's 5-attempt
-    # lockout first.
+    # requests exercise only the per-IP rate limiter, in real Redis,
+    # instead of tripping login_protection_service's lockout first.
     for _ in range(settings.MAX_REQUESTS_PER_WINDOW):
         resp = await client.get("/auth/oauth2/login/google")
         assert resp.status_code in (302, 307)
@@ -202,9 +200,9 @@ async def test_ip_rate_limit_blocks_after_max_requests_per_window(client, create
 
 @pytest.mark.asyncio
 async def test_signup_account_key_rate_limit_is_tracked_in_real_redis(client, created_emails):
-    # Regression guard for finding #8's fix and the account_key_func wiring
-    # in auth_routes.py: confirm the per-account signup key is actually
-    # incremented in real Redis, not just under a mock.
+    # Regression guard for the account_key_func wiring in auth_routes.py:
+    # confirm the per-account signup key is actually incremented in real
+    # Redis, not just under a mock.
     email = unique_email()
     await client.post("/auth/signup", json={"name": "A", "email": email, "password": PASSWORD})
     created_emails.append(email)

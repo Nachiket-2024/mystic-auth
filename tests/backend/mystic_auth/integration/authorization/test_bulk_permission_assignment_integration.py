@@ -101,7 +101,7 @@ async def test_bulk_assign_permissions_reports_success_not_already_held_when_con
         "/authorization/bulk/permissions/assign",
         json={"items": [{
             "user_email": target, "action": "users:list_all", "resource_type": "users",
-            "conditions": {"scope": "own_team"},
+            "conditions": {"time": {"start": "00:00", "end": "23:59", "timezone": "UTC"}},
         }]},
     )
     assert second.status_code == 200
@@ -112,7 +112,7 @@ async def test_bulk_assign_permissions_reports_success_not_already_held_when_con
         grants = await user_permission_repository.get_permissions_for_user(target, session)
     matching = [g for g in grants if g.action == "users:list_all" and g.resource_type == "users"]
     assert len(matching) == 1
-    assert matching[0].conditions == {"scope": "own_team"}
+    assert matching[0].conditions == {"time": {"start": "00:00", "end": "23:59", "timezone": "UTC"}}
 
 
 @pytest.mark.asyncio

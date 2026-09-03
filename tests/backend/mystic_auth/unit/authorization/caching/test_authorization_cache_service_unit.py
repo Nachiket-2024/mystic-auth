@@ -1,9 +1,5 @@
-# tests/backend/mystic_auth/unit/authorization/caching/test_authorization_cache_service_unit.py
-#
-# Unit coverage for AuthorizationCacheService: cache hit/miss behavior,
-# invalidation, and the Redis-unavailable fallback. "Fail closed with
-# respect to the cache" means never trust
-# the cache, always fall through to the database on any doubt).
+# Unit coverage for AuthorizationCacheService: cache hit/miss, invalidation, and the
+# Redis-unavailable fallback (on any doubt, skip the cache and hit the database).
 import json
 from unittest.mock import AsyncMock
 

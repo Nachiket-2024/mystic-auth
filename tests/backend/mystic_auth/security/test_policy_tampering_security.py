@@ -1,10 +1,7 @@
-# tests/backend/mystic_auth/security/test_policy_tampering_security.py
-#
-# Real-DB proof of the two "System policy protection" guarantees
-# : baseline policies can never be deleted/renamed via the
-# management API, and the last remaining system_superuser assignment can
-# never be revoked : even by a genuine system_superuser holder. Unit
-# tests already cover this with mocks; these hit the real API + real DB.
+# Checks the system policy protection guarantees against the real API and
+# DB: baseline policies can't be deleted or renamed, and the last
+# system_superuser assignment can't be revoked, even by a system_superuser
+# holder. (Unit tests already cover this with mocks.)
 import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (

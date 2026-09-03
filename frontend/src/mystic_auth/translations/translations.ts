@@ -54,7 +54,7 @@ import guRateLimits from "./languages/gu/rate_limits.json";
 import guErrors from "./languages/gu/errors.json";
 
 // One namespace per feature folder under src/mystic_auth/, so translation
-// files stay small and map 1:1 to code ownership rather than one giant JSON.
+// files stay small and map to code ownership instead of one giant JSON.
 export const NAMESPACES = [
     "ui_text",
     "layout",

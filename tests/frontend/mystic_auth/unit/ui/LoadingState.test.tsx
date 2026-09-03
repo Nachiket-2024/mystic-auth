@@ -16,9 +16,8 @@ describe('LoadingState', () => {
   });
 
   it('renders different styling for fullScreen vs. container-sized (h/bg props differ)', () => {
-    // Chakra v3 resolves style props (h, bg, py) to atomic CSS classes rather
-    // than inline styles, so the only DOM-observable signal that fullScreen
-    // actually changed anything is the generated className itself.
+    // Chakra v3 resolves style props to atomic CSS classes, not inline
+    // styles, so className is the only observable signal fullScreen changed anything.
     const { container: fullScreenContainer } = render(
       <ChakraProvider value={defaultSystem}>
         <LoadingState message="Loading..." fullScreen />

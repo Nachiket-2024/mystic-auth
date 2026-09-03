@@ -5,9 +5,8 @@ import { Link as RouterLink } from "react-router";
 export interface BreadcrumbEntry {
     label: string;
     /** Omit for the current/last page - rendered as plain text instead of a
-     * link, same as omitting it on any trailing entry (whichever comes
-     * last in the array always renders as the current page regardless of
-     * whether it happens to set `to`). */
+     * link. The last entry always renders as the current page regardless of
+     * whether it sets `to`. */
     to?: string;
 }
 
@@ -17,13 +16,10 @@ interface BreadcrumbsProps {
 
 /**
  * Reusable breadcrumb trail: an ordered `{ label, to? }` list, rendered as
- * links (react-router `Link`) for every entry except the last, which always
- * renders as the current, non-clickable page regardless of whether it sets
- * `to`. No current page in this template actually needs one yet (the nav is
- * flat - see PageContainer's own `breadcrumbs` prop docstring) - this
- * exists so the first nested/detail route (e.g. a user's own detail page
- * reached from Users) has a ready-made pattern instead of inventing one
- * from scratch.
+ * links for every entry except the last, which always renders as the
+ * current, non-clickable page. No page in this template needs one yet (the
+ * nav is flat - see PageContainer's `breadcrumbs` prop) - this exists as a
+ * ready-made pattern for the first nested/detail route.
  */
 const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ items }) => {
     if (items.length === 0) return null;

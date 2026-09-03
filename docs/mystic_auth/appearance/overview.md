@@ -45,12 +45,12 @@ The page background gradient's start color (`bg.canvasFrom`, the semantic token 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart LR
-    Hex["User picks a hex color\n(native color input or typed hex)"] --> Scale["generateBrandScale(hex)\n50-900 Chakra scale"]
-    Scale --> Overrides["buildAppearanceThemeOverrides()\nbrand.* tokens + bg.canvasFrom"]
-    Scale --> Icon["getBrandIconDataUri(hex)\nbrandIcon.ts"]
-    Overrides --> System["AppearanceThemeProvider\nrebuilds Chakra system"]
-    Icon --> Favicon["applyFaviconAndMetaColor()\nfavicon link + theme-color meta"]
-    System --> Live["Live everywhere: buttons,\nfocus rings, canvas gradient, logo badge"]
+    Hex["User picks a hex color\n (native color input or typed hex)"] --> Scale["generateBrandScale(hex)\n 50-900 Chakra scale"]
+    Scale --> Overrides["buildAppearanceThemeOverrides()\n brand.* tokens + bg.canvasFrom"]
+    Scale --> Icon["getBrandIconDataUri(hex)\n brandIcon.ts"]
+    Overrides --> System["AppearanceThemeProvider\n rebuilds Chakra system"]
+    Icon --> Favicon["applyFaviconAndMetaColor()\n favicon link + theme-color meta"]
+    System --> Live["Live everywhere: buttons,\n focus rings, canvas gradient, logo badge"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 

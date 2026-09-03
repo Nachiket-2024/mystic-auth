@@ -29,12 +29,9 @@ interface BuildUsersColumnsParams {
     onDeleteRequest: (user: ManagedUserRead) => void;
 }
 
-/** UsersPage's DataTable column definitions, extracted since they need the
- * page's own state/handlers (current user, pending dialogs, in-flight
- * mutations) to render per-row actions - unlike the audit_log/ tables'
- * columns.tsx files, which are pure display with no row-level interaction,
- * these are built from a params object rather than exported as a plain
- * array. */
+/** UsersPage's DataTable column definitions, built from a params object
+ * (not a plain array) since they need page state/handlers to render
+ * per-row actions. */
 export function buildUsersColumns({
     t,
     currentUserEmail,
@@ -52,12 +49,10 @@ export function buildUsersColumns({
             key: "name",
             header: t("users:columns.name"),
             sortable: true,
-            // Fixed rem, not a percentage: table-layout:fixed resolves a
-            // percentage column against the table's own rendered width, so
-            // mixing it with the other rem-sized columns squeezed Name/Email
-            // to illegible px once fixed columns exceeded a 1024px viewport,
-            // instead of the table overflowing into Table.ScrollArea's
-            // horizontal scroll. All-rem widths make the total deterministic.
+            // Fixed rem width, not a percentage: mixing units squeezed
+            // Name/Email illegibly small on narrow viewports instead of
+            // triggering the table's horizontal scroll. All-rem widths
+            // keep the total width deterministic.
             width: "12rem",
             truncate: true,
             render: (u) => (
@@ -126,13 +121,9 @@ export function buildUsersColumns({
             key: "row_actions",
             header: "",
             align: "end",
-            // A deleted row shows up to 5 actions at once (View + Policies +
-            // Permissions + Reactivate + Purge), vs. 4 for an active row.
-            // Icon-only buttons (TableActionIconButton) rather than text
-            // pills, since a translated label like Marathi's
-            // "कायमचे काढून टाका" (Purge) is 4-5x wider than English, keeping
-            // every row's actions on one line in every locale without the
-            // table needing to scroll.
+            // Icon-only buttons, not text pills: some translated labels run
+            // 4-5x wider than English, and icons keep every row's actions
+            // on one line regardless of locale.
             width: "11rem",
             render: (u) => (
                 <HStack justify="flex-end" gap={1.5} wrap="nowrap">

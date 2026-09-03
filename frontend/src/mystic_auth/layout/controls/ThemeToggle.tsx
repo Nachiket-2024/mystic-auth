@@ -6,16 +6,15 @@ import { useTranslation } from "react-i18next";
 import { useThemeStore } from "../../store/themeStore";
 import { BRAND_ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
 
-// Rotate+cross-fade timing for the Sun/Moon swap below, composed from the
-// same durations.hover/easings.hover tokens FAST_HOVER_TRANSITION uses
-// elsewhere (see theme/system.ts) rather than a separate hardcoded duration.
+// Rotate+cross-fade timing for the Sun/Moon swap, from the same
+// durations.hover/easings.hover tokens FAST_HOVER_TRANSITION uses (theme/system.ts).
 const ICON_SWAP_TRANSITION = "opacity var(--chakra-durations-hover) var(--chakra-easings-hover), transform var(--chakra-durations-hover) var(--chakra-easings-hover)";
 
 /**
  * Light/dark mode switch, backed by store/themeStore.ts (persists to
- * localStorage, toggles the `.dark` class Chakra's own _dark/_light style
- * conditions key off, see that store's own docstring for why there's no
- * separate ColorModeProvider in Chakra v3 to reach for instead).
+ * localStorage, toggles the `.dark` class Chakra's _dark/_light conditions
+ * key off - see that store's docstring for why Chakra v3 needs no separate
+ * ColorModeProvider).
  */
 const ThemeToggle: React.FC = () => {
     const { t } = useTranslation("layout");
@@ -32,10 +31,8 @@ const ThemeToggle: React.FC = () => {
         >
             {/* Both icons always render, stacked in the same spot - only
                 opacity/rotation swap on colorMode change, so the toggle
-                animates between them instead of instantly swapping. Neither
-                is ever permanently tinted (no fixed yellow sun / blue moon):
-                color still just inherits ICON_BUTTON_PROPS' own currentColor/
-                hover treatment, same as every other top-bar icon button. */}
+                animates between them. Neither is permanently tinted; color
+                still inherits the button's own currentColor/hover treatment. */}
             <Box position="relative" boxSize="4" display="flex" alignItems="center" justifyContent="center">
                 <Sun
                     size={16}

@@ -12,18 +12,16 @@ import { generateBrandScale, contrastRatio } from "../theme/generateBrandScale";
 import { deriveCanvasFrom } from "../theme/appearanceThemeOverrides";
 import { BRAND_COLOR as DEFAULT_BRAND_COLOR } from "../core/settings";
 
-// fg.default's fixed values (themeSemanticTokens.ts): text color doesn't
-// move with the derived background, so preview boxes check against these.
+// fg.default's fixed values (themeSemanticTokens.ts): text color doesn't move
+// with the derived background, so preview boxes check against these.
 const FG_LIGHT = "#3f3f46";
 const FG_DARK = "#f4f4f5";
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-// Committing to appearanceStore rebuilds Chakra's entire system, which isn't
-// cheap. Doing that on every 'input' tick while dragging the native color
-// picker blocked the main thread continuously, making the drag itself feel
-// laggy (Chromium's picker popup shares the renderer process). The
-// swatch/hex field and preview still update every tick; only the expensive
-// theme commit is debounced.
+// Committing to appearanceStore rebuilds Chakra's entire theme system, which
+// isn't cheap. Doing that on every 'input' tick while dragging the native
+// color picker made the drag feel laggy. The swatch/hex field and preview
+// still update every tick; only the expensive theme commit is debounced.
 const COMMIT_DEBOUNCE_MS = 100;
 
 /**
@@ -38,10 +36,9 @@ const AppearanceCard: React.FC = () => {
     const { t } = useTranslation("account_settings");
     // Selected as an individual primitive, not an object-literal selector:
     // Zustand's useSyncExternalStore compares snapshots by reference, and
-    // `(s) => ({...})` returns a brand-new object every render, which
-    // never compares equal to the previous one - React treats that as "the
-    // store changed," re-renders, gets a new object again, and loops until
-    // it throws "Maximum update depth exceeded" (an earlier version of
+    // `(s) => ({...})` returns a new object every render, which never equals
+    // the previous one. React treats that as "the store changed" and loops
+    // until it throws "Maximum update depth exceeded" (an earlier version of
     // this file had exactly that bug, seen as a blank Appearance tab).
     const storedBrandColor = useAppearanceStore((s) => s.brandColor);
     const setBrandColor = useAppearanceStore((s) => s.setBrandColor);

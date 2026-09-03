@@ -12,11 +12,9 @@ interface BuildPermissionsColumnsParams {
     onView: (entry: PermissionCatalogEntry) => void;
 }
 
-/** Same "columns as a function of page state" shape as policiesColumns.tsx's
- * buildPoliciesColumns. Description has no fixed width/truncate (unlike
- * name/resource_type), so a long one just wraps the row instead of
- * disappearing - the View button (row_actions below) exists for the case
- * where that wrapped text is still awkward to read in the table. */
+/** Description has no fixed width/truncate, so a long one wraps the row
+ * instead of disappearing; the View button covers the case where wrapped
+ * text is still awkward to read in the table. */
 export function buildPermissionsColumns({ t, onView }: BuildPermissionsColumnsParams): DataTableColumn<PermissionCatalogEntry>[] {
     return [
         {
@@ -48,8 +46,7 @@ export function buildPermissionsColumns({ t, onView }: BuildPermissionsColumnsPa
             key: "row_actions",
             header: "",
             align: "end",
-            // Icon-only, same reasoning as policiesColumns.tsx's row_actions:
-            // guarantees this stays on one line regardless of locale.
+            // Icon-only so this stays on one line regardless of locale.
             width: "4rem",
             render: (entry) => (
                 <HStack justify="flex-end" gap={1.5} wrap="nowrap">

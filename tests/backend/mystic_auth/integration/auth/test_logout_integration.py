@@ -1,8 +1,7 @@
 # tests/backend/mystic_auth/integration/auth/test_logout_integration.py
 #
 # End-to-end logout/logout-all coverage against the real ASGI app, real
-# PostgreSQL, and real Redis (see conftest.py). Split out of what used to be
-# one 799-line test_auth_api_integration.py.
+# PostgreSQL, and real Redis (see conftest.py).
 import pytest
 
 from .auth_test_accounts import (
@@ -19,8 +18,8 @@ from .auth_test_accounts import (
 async def test_logout_actually_clears_the_scoped_refresh_token_cookie(client, created_emails):
     # Regression guard: logout's delete_cookie call must use the same
     # path="/auth" the cookie was set with, or the browser (real cookie jar
-    # here) never actually removes it, it just leaves the real one behind
-    # and layers an ignored, differently-scoped tombstone next to it.
+    # here) never removes it: it just leaves the real one behind and layers
+    # an ignored, differently-scoped tombstone next to it.
     email = unique_email()
     await signup_verify_login(client, created_emails, email)
     assert any(cookie.name == "refresh_token" for cookie in client.cookies.jar)
@@ -65,13 +64,11 @@ async def test_logout_all_revokes_every_device(client, created_emails):
 @pytest.mark.asyncio
 async def test_logout_all_immediately_invalidates_already_issued_access_tokens(client, created_emails):
     """Regression guard: logout-all used to only revoke each device's
-    refresh token, leaving its still-valid (short-lived but not instant)
-    access token fully usable for up to ACCESS_TOKEN_EXPIRE_MINUTES - a
-    device that had already been logged in stayed logged in until it next
+    refresh token, leaving its still-valid access token usable for up to
+    ACCESS_TOKEN_EXPIRE_MINUTES: a device stayed logged in until it next
     tried to refresh, not "immediately" as documented. Confirms
-    revoke_all_tokens_for_user's account_ver bump actually kills a
-    still-unexpired access token from a different device right away, not
-    just on its next refresh."""
+    revoke_all_tokens_for_user's account_ver bump kills a still-unexpired
+    access token from a different device right away."""
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
     device_a_access = login_resp.cookies["access_token"]
@@ -91,10 +88,9 @@ async def test_logout_all_immediately_invalidates_already_issued_access_tokens(c
     assert a_me_resp.status_code == 401
     assert b_me_resp.status_code == 401
 
-    # A token minted *after* the revoke (e.g. logging back in) must still
+    # A token minted after the revoke (e.g. logging back in) must still
     # work. Validity is an integer version comparison (account_ver), not
-    # time-based, so this needs no delay to avoid same-second ambiguity -
-    # login_resp above already embeds the bumped account_ver.
+    # time-based, so this needs no delay to avoid same-second ambiguity.
     fresh_login = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     assert fresh_login.status_code == 200
     fresh_access = fresh_login.cookies["access_token"]

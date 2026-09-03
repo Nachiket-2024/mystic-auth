@@ -1,11 +1,8 @@
-# tests/backend/mystic_auth/unit/authorization/evaluators/test_authorization_decision_unit.py
-#
-# Focused coverage for authorization decision explainability
-# named test list: allowed-because-matched, denied-because-no-match,
-# denied-because-condition-failed, denied-because-invalid-context,
-# multiple-policies-one-grants-one-fails, plus the security requirement
-# that require()'s user-facing error stays generic (never leaks which
-# policies were evaluated/rejected).
+# Coverage for authorization decision explainability: allowed-because-matched,
+# denied-because-no-match, denied-because-condition-failed,
+# denied-because-invalid-context, multiple-policies-one-grants-one-fails, plus
+# the requirement that require()'s user-facing error stays generic (never
+# leaks which policies were evaluated/rejected).
 from unittest.mock import AsyncMock
 
 import pytest
@@ -118,18 +115,15 @@ def test_multiple_policies_one_grants_and_one_fails():
 
 @pytest.mark.asyncio
 async def test_require_raises_a_generic_error_never_leaking_policy_details(mocker):
-    """'Never expose sensitive policy details to unauthorized
-    users. User-facing errors should remain generic.' require() must
-    surface only a generic 403, regardless of how much detail
+    """require() must surface only a generic 403, regardless of how much detail
     AuthorizationDecision carries internally."""
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
         return_value=[_policy(["users:read_own"], name="self_service")],
     )
-    # _get_effective_policies also fetches direct grants (see
-    # authorization/models/user_permission_model.py); this test only cares
-    # about the policy-driven denial, so stub "the user holds none".
+    # _get_effective_policies also fetches direct grants; stub "the user holds none"
+    # since this test only cares about the policy-driven denial.
     mocker.patch(
         f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
         new_callable=AsyncMock,

@@ -23,10 +23,9 @@ function renderCard() {
   );
 }
 
-// AppearanceCard debounces the store commit by 100ms (COMMIT_DEBOUNCE_MS)
-// while dragging/typing; tests that assert on the committed store value wait
-// past that window instead of using fake timers, since userEvent.type
-// already runs on real timers.
+// AppearanceCard debounces the store commit by 100ms (COMMIT_DEBOUNCE_MS).
+// Wait past that window instead of using fake timers, since userEvent.type
+// runs on real timers.
 const PAST_DEBOUNCE = { timeout: 1000 };
 
 describe('AppearanceCard', () => {

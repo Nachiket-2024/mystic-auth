@@ -10,12 +10,12 @@ router = APIRouter(prefix="/authorization", tags=["Authorization"])
 @router.get("/permissions/catalog", response_model=list[PermissionCatalogEntryRead])
 async def get_permission_catalog(current_user: dict = CATALOG_READ_DEPENDENCY):
     """The fixed, code-defined action vocabulary an admin can assign, either
-    as a direct grant or bundled into a Policy (see
-    authorization/permissions_catalog.py). Static and small (~20 entries):
-    no pagination/filter/sort params, the frontend does that client-side.
+    directly or bundled into a Policy (see authorization/permissions_catalog.py).
+    Static and small (~20 entries), so no pagination/filter/sort: the
+    frontend does that client-side.
 
     Gated by CATALOG_READ_DEPENDENCY (permissions:read OR policies:create OR
-    policies:update), not permissions:read alone: see that dependency's own
-    docstring for why the Policy create/edit form needs this same catalog
-    independently of the standalone Permissions page."""
+    policies:update), not permissions:read alone, since the Policy
+    create/edit form needs this catalog too - see that dependency's
+    docstring."""
     return PERMISSION_CATALOG

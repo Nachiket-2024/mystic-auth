@@ -3,22 +3,26 @@
 
 ## Backend: pytest
 
-Config lives in `pytest.ini` at the repo root. It sets
-`testpaths = tests/backend` and collects coverage for `backend/app` and
-`backend/mystic_auth`. An HTML report is generated in `htmlcov/` on every run.
-`--cov-fail-under` is not set in `pytest.ini` because it would also apply to
-partial local runs. CI enforces the 85% cumulative coverage gate after unit,
-integration, and security tests append to the same coverage data.
+1. Config lives in `pytest.ini` at the repo root. It sets `testpaths = tests/backend` and collects coverage for `backend/app` and `backend/mystic_auth`.
+2. An HTML report is generated in `htmlcov/` on every run.
+3. `--cov-fail-under` is not set in `pytest.ini` because it would also apply to partial local runs.
+4. CI enforces the 85% cumulative coverage gate after unit, integration, and security tests append to the same coverage data.
 
 ---
 
 ### Dedicated test database
 
-Outside CI, `tests/backend/conftest.py` redirects `DATABASE_URL`/`APP_DATABASE_URL` to a `mystic_auth_test` database on the same Postgres server, instead of the real `mystic_auth` database a running `docker compose up` dev session's own `backend`/`procrastinate_worker` containers use. The first run that needs it creates the database, then applies `alembic upgrade head` (which also creates Procrastinate's own queue tables, via migration `a4c1e8f2b6d3`); every run after that is a fast no-op check. Nothing to configure: this happens automatically, whether you run pytest from the host or via `scripts/docker/backend-exec.sh`.
+1. Outside CI, `tests/backend/conftest.py` redirects `DATABASE_URL`/`APP_DATABASE_URL` to a `mystic_auth_test` database on the same Postgres server, instead of the real `mystic_auth` database a running dev session's own `backend`/`procrastinate_worker` containers use.
+2. The first run that needs it creates the database, then applies `alembic upgrade head` (which also creates Procrastinate's own queue tables, via migration `a4c1e8f2b6d3`); every run after that is a fast no-op check.
+3. Nothing to configure: this happens automatically, whether you run pytest from the host or via `scripts/docker/dev/backend-exec.sh`.
 
-This exists because a shared database was a real, reproducible bug: a test's own teardown fixture (`_procrastinate_app_lifecycle` below) deletes every row from `procrastinate_jobs` after each test, which used to race a real dev-stack `procrastinate_worker` still mid-write on a job the test itself deferred (an audit-log entry, most commonly) - it lost the row it needed to persist "succeeded" against, logged a `ConnectorException`, and enough of those repeated eventually took the container down. A dedicated database removes the shared table entirely, not just this one symptom of sharing it.
+**Why this exists**: a shared database was a real, reproducible bug.
 
-Skipped when `CI` is set (GitHub Actions and effectively every CI provider sets this by convention): CI already provisions its own dedicated, single-purpose `mystic_auth_ci` Postgres service per run (see `.github/workflows/ci.yml`), so there's nothing else there to collide with.
+1. A test's own teardown fixture (`_procrastinate_app_lifecycle` below) deletes every row from `procrastinate_jobs` after each test.
+2. This used to race a real dev-stack `procrastinate_worker` still mid-write on a job the test itself deferred (an audit-log entry, most commonly): it lost the row it needed to persist "succeeded" against, logged a `ConnectorException`, and enough of those repeated eventually took the container down.
+3. A dedicated database removes the shared table entirely, not just this one symptom of sharing it.
+
+**Skipped when `CI` is set** (GitHub Actions and effectively every CI provider sets this by convention): CI already provisions its own dedicated, single-purpose `mystic_auth_ci` Postgres service per run (see `.github/workflows/ci.yml`), so there's nothing else there to collide with.
 
 ---
 
@@ -35,7 +39,7 @@ Skipped when `CI` is set (GitHub Actions and effectively every CI provider sets 
 **Running:**
 
 ```bash
-# From repo root, against local Postgres/Redis (see .env)
+# From repo root, against local Postgres/Redis (see env/.env)
 python -m pytest tests/backend/app -q
 python -m pytest tests/backend/mystic_auth/unit -q
 python -m pytest tests/backend/mystic_auth/integration -q
@@ -43,10 +47,10 @@ python -m pytest tests/backend/mystic_auth/security -q
 python -m pytest tests/backend/mystic_auth/performance -q
 
 # Inside the Docker network. This avoids host/container Postgres port conflicts.
-# scripts/docker/backend-exec.sh (or .ps1/.cmd) wraps the --user root and
+# scripts/docker/dev/backend-exec.sh (or .ps1/.cmd) wraps the --user root and
 # MSYS_NO_PATHCONV workarounds this needs. See
-# docs/mystic_auth/docker/overview.md#running-a-one-off-command-inside-a-container.
-scripts/docker/backend-exec.sh python -m pytest tests/backend/
+# docs/mystic_auth/docker/dev-workflow.md#running-a-one-off-command-inside-a-container.
+scripts/docker/dev/backend-exec.sh python -m pytest tests/backend/
 ```
 
 CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and
@@ -67,11 +71,13 @@ uses the `v8` provider with `text`, `json`, and `html` reporters. Thresholds are
 enforced only by `vitest run --coverage`, so CI runs `test:coverage`.
 
 ---
+
 | Suite | Path | Covers |
 |---|---|---|
 | App wrapper | `tests/frontend/app/` (1 file) | Routing declared in `frontend/src/app/App.tsx` |
 | Unit | `tests/frontend/mystic_auth/unit/` (51 files) | API clients, refresh interceptor, auth/session hooks, SSE invalidation, authorization components and hooks, password rules, user-agent parsing, unsaved-change handling, theme/language stores, command palette, route-loading UX, shared UI components, error boundary reporting, optional error monitoring, translation key parity across languages, and mobile-overflow regressions |
 | Integration | `tests/frontend/mystic_auth/integration/` (13 files) | Audit log page, auth flow, dashboard, login, Manage Sessions, password policy consistency, PBAC authorization flow, policies page, rate limits page, users page, and account settings |
+
 ---
 
 **Running:**
@@ -84,6 +90,8 @@ npm run test:coverage --prefix frontend  # vitest run --coverage (thresholds enf
 ```
 
 CI runs `typecheck`, `lint`, `test:coverage`, and `build` on every push and pull request to `main`.
+
+---
 
 ### `.not` chaining and jest-dom/Vitest type augmentation
 
@@ -145,7 +153,7 @@ went.
 ## Troubleshooting
 
 - **A test hangs or cannot connect to Postgres from the host:** see
-  [PBAC Troubleshooting: database connection issues](../authorization/troubleshooting.md#database-connection-issues).
+  [PBAC Troubleshooting: database connection issues](../authorization/troubleshooting/database-connection.md#database-connection-issues).
   A native Postgres install or another project's container can still intercept
   the configured host port.
 - **Frontend test cannot resolve a `tests/frontend/...` import:** confirm

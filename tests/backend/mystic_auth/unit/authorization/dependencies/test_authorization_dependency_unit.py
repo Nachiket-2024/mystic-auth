@@ -1,11 +1,7 @@
-# tests/backend/mystic_auth/unit/authorization/dependencies/test_authorization_dependency_unit.py
-#
-# Unit coverage for require_authorization: the FastAPI dependency factory
-# every PBAC-protected route depends on. Called directly here the same way
-# FastAPI injects its inner `dependency` function in real requests, with an
-# explicit current_user dict and a fake Request, so these tests exercise
-# the authorization decision (and context building) without needing a
-# running app.
+# Unit coverage for require_authorization: the FastAPI dependency factory every
+# PBAC-protected route depends on. Called directly with an explicit current_user
+# dict and a fake Request (the same way FastAPI injects it in real requests), so
+# these tests exercise the authorization decision without needing a running app.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -103,11 +99,9 @@ async def test_missing_client_connection_yields_no_ip_address_not_a_crash(mocker
 # route that's a genuine prerequisite of more than one independent feature
 # doesn't have to pick just one action to gate behind.
 class TestRequireAnyAuthorization:
-    """Each candidate is probed via the non-logging authorize_detailed()
-    first (a denied candidate must never write a spurious audit row for an
-    action the caller wasn't actually attempting); only the one candidate
-    that actually succeeds is re-checked via authorize() to log the real
-    decision, mirroring require_authorization's own single logged check."""
+    """Each candidate is probed via the non-logging authorize_detailed() first
+    (a denied candidate must never write a spurious audit row); only the one
+    that actually succeeds is re-checked via authorize() to log the decision."""
 
     @pytest.mark.asyncio
     async def test_grants_access_when_the_first_check_is_authorized(self, mocker):

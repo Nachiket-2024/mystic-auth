@@ -30,10 +30,10 @@ export function renderHeaderCell<T>(col: DataTableColumn<T>, sort: SortState | u
 }
 
 /** aria-sort belongs on the <th> itself (not the inner label span), so
- * screen readers announce a sortable table's current sort state the same
- * way sighted users see it from the arrow icon - "none" for every
- * unsorted sortable column, never omitted, so its presence alone also
- * tells assistive tech the column is sortable at all. */
+ * screen readers announce a sortable table's current sort state the way
+ * sighted users see it from the arrow icon - "none" for every unsorted
+ * sortable column, never omitted, so its presence alone also tells
+ * assistive tech the column is sortable at all. */
 export function ariaSortFor<T>(col: DataTableColumn<T>, sort: SortState | undefined): React.AriaAttributes["aria-sort"] {
     if (!col.sortable) return undefined;
     if (sort?.key !== col.key) return "none";

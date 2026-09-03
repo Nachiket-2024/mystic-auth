@@ -1,9 +1,6 @@
-# Names of the three policies this template seeds out of the box. The
-# actual definitions live only in the Alembic migration (a historical
-# record that must keep producing the same rows regardless of later
-# constant edits); these names are the reusable part, used to look up and
-# assign the already-seeded policies (signup_service assigns
-# SELF_SERVICE_POLICY_NAME; create_system_user.py assigns all three).
+# Names of the three seeded policies. Definitions live only in the Alembic
+# migration (must keep producing the same rows regardless of later constant
+# edits); these names are used to look up and assign them elsewhere.
 
 from ...core.settings import settings
 from ...logging.logging_config import get_logger
@@ -19,13 +16,12 @@ logger = get_logger(__name__)
 async def assign_app_default_policies(user_id: int, db, assigned_by: str = "system") -> None:
     """Assigns every policy named in settings.DEFAULT_APP_POLICIES to a user.
 
-    The extension point downstream apps use to get their own default policy
-    set onto every account without editing signup_service.py / oauth2_service.py
-    / user_verification_service.py: set DEFAULT_APP_POLICIES in .env, nothing
-    else changes. Empty (default) is a no-op.
+    Extension point for downstream apps to get their own default policy set
+    without editing signup/oauth2/verification services: set
+    DEFAULT_APP_POLICIES in .env. Empty (default) is a no-op.
 
-    Only call this once a user is already known to be verified. self_service
-    is granted separately, at signup, regardless of verification state.
+    Only call once a user is verified. self_service is granted separately,
+    at signup, regardless of verification state.
     """
     for policy_name in settings.default_app_policy_names:
         policy = await policy_repository.get_by_name(policy_name, db)

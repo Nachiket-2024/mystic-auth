@@ -1,9 +1,6 @@
-# tests/backend/mystic_auth/unit/api/get_or_404/test_get_or_404_unit.py
-#
 # get_or_404 centralizes the "fetch by id/email/name, 404 if missing"
-# pattern previously duplicated ~15 times across user_routes/ and the
-# pbac_routes/ modules (Phase 6 architecture cleanup) : pinning its two
-# behaviors directly guards every route that now depends on it.
+# pattern used across user_routes/ and pbac_routes/. Pinning its two
+# behaviors here guards every route that depends on it.
 import pytest
 from fastapi import HTTPException
 

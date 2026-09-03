@@ -22,11 +22,11 @@ class AccountDeletionService:
     """
     Async, email-confirmed self-service account-deletion flow for
     OAuth-only accounts (hashed_password is None, so there's no password to
-    re-confirm with synchronously - see
+    re-confirm with synchronously; see
     user_self_service_routes.py::delete_my_account for the password-holding
-    account's unchanged synchronous path). Modeled directly on
+    account's synchronous path). Modeled on
     auth/password_logic/password_reset_service.py: a signed, single-use JWT
-    e-mailed as a link, redeemed exactly once via Redis GETDEL.
+    emailed as a link, redeemed exactly once via Redis GETDEL.
     """
 
     @staticmethod
@@ -38,7 +38,7 @@ class AccountDeletionService:
 
         # The "account_delete" type claim rejects any other validly-signed
         # JWT (access, refresh, reset) carrying an "email" claim, so tokens
-        # can't be swapped across these otherwise-similar flows.
+        # can't be swapped between these otherwise-similar flows.
         payload: dict[str, str | float] = {
             "email": email,
             "type": "account_delete",
@@ -54,10 +54,10 @@ class AccountDeletionService:
     @staticmethod
     async def verify_account_deletion_token(token: str) -> dict | None:
         try:
-            # verify_aud disabled: PyJWT auto-rejects any "aud" claim
-            # present at all, which would break tokens minted before that
-            # claim existed. has_valid_issuer_and_audience below does the
-            # real check with "absent is fine, present-and-wrong is not."
+            # verify_aud disabled: PyJWT rejects any "aud" claim outright,
+            # which would break tokens minted before that claim existed.
+            # has_valid_issuer_and_audience below does the real check:
+            # absent is fine, present-and-wrong is not.
             payload = await asyncio.to_thread(
                 jwt.decode,
                 token,
@@ -91,9 +91,9 @@ class AccountDeletionService:
 
             expires_minutes = settings.ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES
 
-            # Persisted in Redis so confirm_deletion() can enforce
-            # single-use; without this the JWT stays valid and replayable
-            # for the whole expiry window even after being redeemed once.
+            # Persisted in Redis so confirm_deletion() can enforce single
+            # use; without it the JWT stays valid and replayable for the
+            # whole expiry window even after being redeemed once.
             await redis_client.set(f"account_delete:{token}", "1", ex=expires_minutes * 60)
 
             deletion_url = f"{settings.FRONTEND_BASE_URL}/confirm-delete?token={token}"
@@ -103,8 +103,8 @@ class AccountDeletionService:
                 preheader="Confirm you want to permanently delete your account.",
                 heading="Confirm Account Deletion",
                 # Red, unlike the reset/verification emails' brand color:
-                # this action deactivates the account immediately, so a
-                # more consequential-looking CTA is appropriate here.
+                # this deactivates the account immediately, so a more
+                # consequential-looking CTA fits.
                 accent_color="#c53030",
                 intro=(
                     "A deletion request was made for your account. Click the button below to "
@@ -135,17 +135,15 @@ class AccountDeletionService:
     @staticmethod
     async def confirm_deletion(token: str, db: AsyncSession, request: Request | None = None) -> bool:
         """
-        Atomically fetch-and-delete the Redis entry (GETDEL, not GET+DEL), so
-        reuse/replay is impossible: two concurrent requests carrying the same
+        Atomically fetch-and-delete the Redis entry (GETDEL, not GET+DEL) so
+        reuse/replay is impossible: two concurrent requests with the same
         valid link could otherwise both pass a plain GET before either
-        deleted the key, and both then run the (irreversible-ish, session
-        revoking) deletion. Same race, same fix, as
-        password_reset_service.reset_password. Unlike that flow there's no
-        recoverable-validation-failure case worth restoring the token for
-        (deletion has no equivalent to "weak new password" or "same as old
-        password"): once the token verifies and the Redis entry is
-        successfully redeemed, the only remaining failure is "user not
-        found", which a retry with the same link can't fix either.
+        deleted the key, and both then run the deletion. Same race, same
+        fix, as password_reset_service.reset_password. Unlike that flow
+        there's no recoverable-validation-failure case worth restoring the
+        token for (no equivalent to "weak new password"): once the token
+        verifies and the Redis entry is redeemed, the only remaining failure
+        is "user not found", which a retry can't fix either.
         """
         try:
             payload = await account_deletion_service.verify_account_deletion_token(token)

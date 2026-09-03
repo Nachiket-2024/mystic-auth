@@ -21,10 +21,8 @@ const SPARSE_DATA: LoginTrendPoint[] = [
 describe('LoginTrendChart', () => {
   it('renders 0/half/max as three distinct y-axis labels even when the busiest day only has one event', () => {
     // Regression guard: niceMax(1) used to return 1, and the middle tick
-    // (scaleMax / 2, rounded) rounded 0.5 up to 1 too - "1" appeared twice
-    // (top and middle), reading as a broken/duplicated axis instead of a
-    // real midpoint, exactly what happens right after your very first login
-    // when there's nothing else in the last 14 days to compare against.
+    // (half of that, rounded) also rounded up to 1, so "1" appeared twice
+    // instead of a real midpoint.
     renderChart(SPARSE_DATA);
 
     const axisLabels = screen.getAllByText(/^[0-9]+$/).map((el) => el.textContent);

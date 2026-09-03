@@ -21,26 +21,21 @@ const PAGE_SIZE = 25;
  * PermissionsPage
  * ----------------------------
  * Read-only, browsable view of the fixed, code-defined permission catalog
- * (backend: GET /authorization/permissions/catalog - see
- * authorization/permissions_catalog.py). Deliberately separate from
- * PoliciesPage rather than a tab on it, for clarity: this is the closed
- * action vocabulary developers define, Policies is how admins compose it.
- * No create/edit/delete here - a permission only means something once a
- * route in the backend checks for it, so there is nothing an admin can
- * legitimately "manage" here.
+ * (backend: GET /authorization/permissions/catalog, see
+ * authorization/permissions_catalog.py). Kept separate from PoliciesPage
+ * rather than a tab on it: this is the closed action vocabulary developers
+ * define, Policies is how admins compose it. No create/edit/delete, since a
+ * permission only means something once a backend route checks for it.
  *
  * Search/filter/sort/paginate all run client-side against the single,
- * already-fully-loaded catalog (~20 static rows, long staleTime - see
- * usePermissionCatalogQuery) rather than round-tripping to the server per
- * page/sort/filter the way PoliciesPage's much larger, mutable list does -
- * same DataTable/Pagination/StyledSelect components, so the UX matches every
- * other page exactly.
+ * already-loaded catalog (~20 static rows, long staleTime, see
+ * usePermissionCatalogQuery) instead of round-tripping to the server like
+ * PoliciesPage's larger, mutable list, but uses the same DataTable/
+ * Pagination/StyledSelect components so the UX still matches.
  *
  * Reads an initial `?search=` query param the same way AuditLogPage reads
- * `?category=`/`?scope=` - CommandPaletteResults' catalog-entry matches
- * (layout/command_palette/CommandPaletteResults.ts) link here with the
- * matched action so landing on the page already shows it, not just an
- * empty search box.
+ * `?category=`/`?scope=`: CommandPaletteResults' catalog-entry matches link
+ * here with the matched action so the page opens with it already shown.
  */
 const PermissionsPage: React.FC = () => {
     const { t } = useTranslation(["permissions", "ui_text"]);

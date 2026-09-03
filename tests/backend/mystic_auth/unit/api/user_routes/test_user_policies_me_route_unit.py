@@ -1,9 +1,6 @@
-# tests/backend/mystic_auth/unit/api/user_routes/test_user_policies_me_route_unit.py
-#
-# Unit coverage for GET /authorization/users/me/policies : the self-service
-# "my own policy assignments" endpoint, added to support the frontend
-# authorization service's getUserPolicies() (no policies:read required,
-# mirroring GET /authorization/audit-log/me's own self-service rationale).
+# Unit coverage for GET /authorization/users/me/policies: the self-service
+# "my own policy assignments" endpoint. Needs no policies:read, mirroring
+# GET /authorization/audit-log/me.
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -48,9 +45,8 @@ async def test_list_my_policies_scopes_to_caller_email(mocker):
 
 @pytest.mark.asyncio
 async def test_list_my_policies_never_accepts_a_different_users_email(mocker):
-    """There is no email parameter at all on this endpoint : it can only
-    ever return the authenticated caller's own policies, never anyone
-    else's, regardless of what a client might try to pass."""
+    """There is no email parameter on this endpoint: it can only ever
+    return the authenticated caller's own policies, never anyone else's."""
     current_user = {"email": "someone@example.com", "name": "Someone"}
     get_policies_mock = mocker.patch(
         f"{MODULE}.policy_repository.get_policies_for_user", new_callable=AsyncMock, return_value=[]

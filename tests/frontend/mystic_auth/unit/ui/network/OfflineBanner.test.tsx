@@ -41,9 +41,8 @@ describe('OfflineBanner', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/offline/i);
 
     act(() => useNetworkStatusStore.setState({ isOnline: true }));
-    // A real reconnect (as opposed to a page loading already online) always
-    // earns the brief "back online" confirmation below - covered by its own
-    // test - so this one only asserts the offline warning itself is gone.
+    // A real reconnect earns a "back online" confirmation (covered separately below);
+    // this test only checks the offline warning is gone.
     expect(screen.queryByText("You're offline. Some features may not work until your connection is restored.")).toBeNull();
   });
 

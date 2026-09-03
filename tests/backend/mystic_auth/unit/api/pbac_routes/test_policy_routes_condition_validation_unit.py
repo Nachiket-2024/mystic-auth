@@ -1,9 +1,6 @@
-# tests/backend/mystic_auth/unit/api/pbac_routes/test_policy_routes_condition_validation_unit.py
-#
-# Proves create_policy/update_policy reject a malformed `conditions` block
-# with 422 *before* touching the repository ("Must happen
-# before database writes") : and that a valid conditions block passes
-# through untouched.
+# Checks create_policy/update_policy reject a malformed `conditions` block
+# with 422 before touching the repository, and that a valid conditions
+# block passes through untouched.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -111,14 +108,12 @@ async def test_update_policy_does_not_validate_when_conditions_untouched(mocker)
     update_data = PolicyUpdate(is_active=False)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
-    # Deactivating requires the symmetric grant-guard (see
-    # policy_crud_routes.py::update_policy): unrelated to what this test
-    # actually verifies (conditions validation being skipped), but still on
+    # Deactivating requires the grant-guard check; unrelated to what this
+    # test verifies (conditions validation being skipped), but still on
     # the code path since is_active=False is part of this update.
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
-    # is_active=False affects_grants too, so this fans out
-    # publish_permissions_changed - also unrelated to what this test
-    # verifies, but still on the code path.
+    # is_active=False also fans out publish_permissions_changed; also
+    # unrelated to what this test verifies, but still on the code path.
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
     mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 
@@ -130,13 +125,12 @@ async def test_update_policy_does_not_validate_when_conditions_untouched(mocker)
 @pytest.mark.asyncio
 async def test_update_policy_rejects_deactivating_a_baseline_policy(mocker):
     # is_active=False excludes a policy from evaluation for every holder at
-    # once (see policy_repository.py) : for system_superuser, that would
-    # silently strip every superuser (including the true system account) of
-    # all access, bypassing both the rename/delete guards and the separate
-    # "last remaining assignment" lockout guard on remove_policy_from_user
-    # (a different endpoint this update doesn't go through). This must be
-    # rejected even though "actions" isn't being touched at all, so
-    # assert_authorized_to_grant is never reached/relevant here.
+    # once. For system_superuser, that would silently strip every
+    # superuser (including the true system account) of all access,
+    # bypassing the rename/delete guards and the separate last-holder
+    # lockout guard on remove_policy_from_user. This must be rejected
+    # even though "actions" isn't touched, so assert_authorized_to_grant
+    # is never reached here.
     policy = _make_policy(name=SYSTEM_SUPERUSER_POLICY_NAME)
     update_data = PolicyUpdate(is_active=False)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
@@ -151,14 +145,14 @@ async def test_update_policy_rejects_deactivating_a_baseline_policy(mocker):
 
 @pytest.mark.asyncio
 async def test_update_policy_allows_reactivating_a_baseline_policy(mocker):
-    # Only is_active=False (deactivation) is blocked : re-activating a
+    # Only is_active=False (deactivation) is blocked; re-activating a
     # baseline policy that was somehow already inactive must still work.
     policy = _make_policy(name=SYSTEM_SUPERUSER_POLICY_NAME, is_active=False)
     update_data = PolicyUpdate(is_active=True)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
-    # is_active in the patch affects_grants regardless of direction, so this
-    # fans out publish_permissions_changed too - unrelated to what this
+    # is_active changes affect grants regardless of direction, so this
+    # fans out publish_permissions_changed too; unrelated to what this
     # test verifies, but still on the code path.
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
     mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)

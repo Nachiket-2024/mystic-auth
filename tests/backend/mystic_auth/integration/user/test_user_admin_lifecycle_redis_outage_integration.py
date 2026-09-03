@@ -3,10 +3,10 @@
 # End-to-end coverage for the "Redis outage failure modes are inconsistent"
 # fix as it applies to admin-driven account-lifecycle actions: delete,
 # purge, and password change (user_lifecycle_routes.py,
-# user_management_update_routes.py) against the real ASGI app, real
-# PostgreSQL, and real Redis (see conftest.py). Split into its own file
-# (rather than added to test_user_account_lifecycle_integration.py) so that
-# file stays under the repo's own file-length guideline.
+# user_management_update_routes.py), against the real ASGI app, real
+# PostgreSQL, and real Redis (see conftest.py). Kept in its own file rather
+# than added to test_user_account_lifecycle_integration.py, to stay under
+# the repo's file-length guideline.
 import pytest
 
 from backend.mystic_auth.database.connection import database
@@ -21,10 +21,9 @@ from .user_test_accounts import (
 
 
 def _fail_token_version_bump(mocker):
-    # jwt_service.bump_account_version is a bound-method reference captured
-    # from TokenVersionStore at import time (see jwt_service.py's own
-    # comment on this), so patching the class doesn't reach it - the
-    # jwt_service instance attribute itself has to be patched directly.
+    # bump_account_version is a bound method captured from TokenVersionStore
+    # at import time (see jwt_service.py's own comment on this), so patching
+    # the class doesn't reach it. Patch the jwt_service instance directly.
     return mocker.patch(
         "backend.mystic_auth.auth.token_logic.jwt_service.jwt_service.bump_account_version",
         new_callable=mocker.AsyncMock,
@@ -35,9 +34,8 @@ def _fail_token_version_bump(mocker):
 @pytest.mark.asyncio
 async def test_admin_delete_still_soft_deletes_when_session_revocation_cant_be_confirmed(client, created_emails, mocker):
     # The soft-delete write itself (Postgres, independent of Redis) must
-    # still succeed even if the account-version bump can't be confirmed -
-    # an admin deleting an account must not get a false error for an action
-    # that actually went through.
+    # still succeed even if the account-version bump can't be confirmed:
+    # an admin shouldn't see an error for an action that actually went through.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)
@@ -57,12 +55,12 @@ async def test_admin_delete_still_soft_deletes_when_session_revocation_cant_be_c
 @pytest.mark.asyncio
 async def test_admin_purge_is_blocked_with_503_when_session_revocation_cant_be_confirmed(client, created_emails, mocker):
     # Unlike a reversible soft delete, purge is irreversible and revokes
-    # BEFORE deleting the row - so an unconfirmed revoke must fail closed:
-    # block the purge entirely rather than delete an account whose sessions
+    # sessions before deleting the row, so an unconfirmed revoke must fail
+    # closed: block the purge rather than delete an account whose sessions
     # might still be alive.
     # USERS_PURGE isn't part of the default admin policy set (see
     # test_admin_without_purge_permission_cannot_purge in
-    # test_user_account_lifecycle_integration.py) - a system-superuser
+    # test_user_account_lifecycle_integration.py); a system-superuser
     # account is what actually holds it.
     system_email = unique_email("system")
     target_email = unique_email("target")

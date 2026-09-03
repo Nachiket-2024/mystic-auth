@@ -11,10 +11,9 @@ import { useAuthStore } from '@/store/authStore';
 import UsersPage from '@/users/UsersPage';
 
 // Row-level actions: viewing, deleting, changing role, reactivating, and
-// purging a user. Pagination/search/filter/sort/export are covered
-// separately in users_page_list_controls.test.tsx, and the Policies dialog
-// in users_page_policies.test.tsx - split out of one file once it passed
-// the repo's own file-length guideline.
+// purging a user. Pagination/search/filter/sort/export live in
+// users_page_list_controls.test.tsx, and the Policies dialog in
+// users_page_policies.test.tsx.
 
 const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();
@@ -123,7 +122,7 @@ describe('UsersPage', () => {
 
     await screen.findByText('Admin User');
     const deleteButtons = screen.getAllByRole('button', { name: 'Delete' });
-    // First row is the admin (self) : must be disabled to prevent self-deletion
+    // First row is the admin (self); must be disabled to prevent self-deletion.
     expect(deleteButtons[0]).toBeDisabled();
     expect(deleteButtons[1]).toBeEnabled();
   });
@@ -156,11 +155,9 @@ describe('UsersPage', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    // StyledSelect's visible trigger button and its hidden native <select>
-    // mirror share the same accessible name (both properly labeled via
-    // Select.Label), so getByRole('combobox', ...) alone is ambiguous -
-    // selectOptions needs the real <select>, found via getByLabelText's
-    // selector option instead.
+    // StyledSelect's visible button and its hidden native <select> share the
+    // same accessible name, so getByRole('combobox') is ambiguous; get the
+    // real <select> via getByLabelText instead.
     await user.selectOptions(screen.getByLabelText('Change role for user@example.com', { selector: 'select' }), 'admin');
 
     // The dialog capitalizes the role for display ("Admin", not the raw "admin" option value).

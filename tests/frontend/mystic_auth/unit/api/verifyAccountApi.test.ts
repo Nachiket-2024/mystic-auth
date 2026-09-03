@@ -10,9 +10,8 @@ describe('verifyAccountApi', () => {
     mock.reset();
   });
 
-  // Regression guard: the verification token must travel in the POST body,
-  // not as a GET query parameter : a token in a URL ends up in browser
-  // history, server access logs, and Referer headers.
+  // The verification token must travel in the POST body, not a GET query param:
+  // a token in a URL ends up in browser history, server logs, and Referer headers.
   it('should send POST request to /auth/verify-account with the token in the body', async () => {
     const mockResponse = { message: 'Account verified successfully for test@example.com.' };
 

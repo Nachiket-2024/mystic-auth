@@ -15,9 +15,8 @@ from fastapi import Request
 from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME, assign_app_default_policies
 
 # PBAC: new users get their access via an explicit default policy assignment,
-# never via their (metadata-only) role, see the role-as-metadata invariant. New
-# users must receive access through default policy assignment, not default
-# roles." Mirrors signup_service.py.
+# never via their (metadata-only) role; see the role-as-metadata invariant.
+# Mirrors signup_service.py.
 from ...authorization.repositories.policy_repository import policy_repository
 from ...emails.email_normalization import normalize_email
 from ...logging.logging_config import get_logger
@@ -37,6 +36,7 @@ logger = get_logger(__name__)
 # Lifetime of an OAuth2 CSRF state token: long enough to cover the user
 # completing the Google consent screen, short enough to limit replay risk.
 OAUTH2_STATE_TTL_SECONDS = 300
+OAUTH2_HTTP_TIMEOUT_SECONDS = 10.0
 
 
 class OAuth2LoginRejected(Exception):
@@ -114,7 +114,7 @@ class OAuth2Service:
                 "code_verifier": code_verifier,
             }
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=OAUTH2_HTTP_TIMEOUT_SECONDS) as client:
                 resp = await client.post(token_url, data=data)
                 resp.raise_for_status()
                 return resp.json()
@@ -129,7 +129,7 @@ class OAuth2Service:
             userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=OAUTH2_HTTP_TIMEOUT_SECONDS) as client:
                 resp = await client.get(userinfo_url, headers=headers)
                 resp.raise_for_status()
                 return resp.json()

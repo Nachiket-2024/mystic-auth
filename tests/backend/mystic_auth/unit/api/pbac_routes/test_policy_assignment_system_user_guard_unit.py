@@ -1,13 +1,8 @@
-# tests/backend/mystic_auth/unit/api/pbac_routes/test_policy_assignment_system_user_guard_unit.py
-#
-# Coverage gap found during a PBAC review: assign_policy_to_user,
-# remove_policy_from_user, and revoke_policy_action_from_user
-# (policy_assignment_routes.py) all refuse to touch a UserRole.system
-# target ("SYSTEM_USER_CANNOT_BE_MODIFIED") before any escalation/lockout
-# check runs - but every existing test in
-# test_policy_assignment_authorization_security_unit.py builds its target
-# user as a bare MagicMock, whose unset `.role` is never equal to
-# UserRole.system, so this guard was never actually exercised.
+# assign_policy_to_user, remove_policy_from_user, and
+# revoke_policy_action_from_user (policy_assignment_routes.py) all refuse
+# to touch a UserRole.system target ("SYSTEM_USER_CANNOT_BE_MODIFIED")
+# before any escalation/lockout check runs. This suite sets `.role` to
+# UserRole.system on the target user to exercise that guard.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

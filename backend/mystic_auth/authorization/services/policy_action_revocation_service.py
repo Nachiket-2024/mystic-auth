@@ -14,33 +14,24 @@ class ActionNotInPolicyError(ValueError):
 class PolicyActionRevocationService:
     """
     Carves a single action out of a user's policy assignment, without
-    touching the policy definition itself (which other users may also
-    hold) and without dropping the user's OTHER actions from that same
-    policy.
+    touching the policy definition (other users may hold it too) and
+    without dropping the user's other actions from that same policy.
 
-    A Policy assignment is otherwise all-or-nothing (see
-    PolicyAssignmentRepository.remove_policy_from_user): revoking it drops
-    every action it granted this user, even ones they should keep. The
-    only two ways to get "this user loses exactly one action" without this
-    service are: revoke the whole policy and manually re-grant the rest as
-    direct grants (the same outcome, just done by hand across two dialogs
-    and two requests instead of atomically), or edit the policy definition
-    itself, which affects every other holder too. Neither is what an admin
-    means by "take this one action away from this one user".
+    A Policy assignment is otherwise all-or-nothing: revoking it drops
+    every action it granted, even ones the user should keep. Without this
+    service, "lose exactly one action" means revoking the whole policy and
+    manually re-granting the rest, or editing the policy definition
+    itself (which affects every other holder). Neither matches "take one
+    action away from one user".
 
-    Implementation: within a single transaction, remove the user's
-    UserPolicy assignment row for this policy, then re-create (or
-    reactivate) a direct UserPermission grant for every one of the
-    policy's OTHER actions, carrying over the policy's own `conditions` so
-    the user's effective access is unchanged for everything except the
-    one revoked action. The user ends up holding the same resource_type/
-    conditions as before, just via direct grants instead of the policy,
-    for every action except the revoked one.
+    Implementation: in one transaction, remove the UserPolicy assignment
+    row, then re-create (or reactivate) a direct UserPermission grant for
+    each of the policy's other actions, carrying over its `conditions` so
+    the user's effective access is unchanged except for the revoked
+    action.
 
-    Deliberately NOT a database trigger or generic "diff a policy
-    assignment" mechanism: this only ever runs at the moment an admin
-    explicitly asks to carve out one action, a one-shot conversion from
-    policy-derived to direct-derived access for the actions kept.
+    One-shot conversion triggered by an explicit admin action, not a
+    generic "diff a policy assignment" mechanism or a DB trigger.
     """
 
     @staticmethod

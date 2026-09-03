@@ -5,12 +5,10 @@ import { ArrowLeft } from "lucide-react";
 
 import { Card, AuthLayout, Logo, BRAND_SOLID_HOVER_PROPS, useAuthStore } from "../sdk";
 
-// Side-effect import: registers the "legal" i18next namespace (translations/
-// *.json, all app-owned - see that module's own docstring) so both
+// Side-effect import: registers the "legal" i18next namespace so both
 // PrivacyPolicyPage and TermsOfServicePage's useTranslation("legal") calls
-// have something to resolve, regardless of which one is visited first.
-// Lives here (the shell both pages render through) rather than in either
-// page file, so it only needs registering once.
+// resolve, regardless of which one is visited first. Lives here (the shell
+// both pages render through) so it only needs registering once.
 import "./translations/registerLegalTranslations";
 
 export interface LegalSection {
@@ -29,16 +27,13 @@ interface LegalDocumentLayoutProps {
 
 /**
  * Goes back to wherever the visitor actually came from (Sidebar footer for
- * an authenticated user, LoginPage/SignupForm's footnote for a visitor)
- * instead of hardcoding "/" - that previously bounced every "Back" click to
- * the landing page even when the click originated from deep inside the
- * authenticated app. `location.key !== "default"` is react-router's own
- * signal for "this entry has a predecessor in *this* browser history stack"
- * (a fresh/bookmarked load of /privacy or /terms gets the literal string
- * "default" instead of a generated key) - only then is `navigate(-1)` safe;
- * otherwise fall back to the same destination the document would have sent
- * an already-signed-in visitor to anyway (/dashboard), or "/" for a visitor
- * who isn't signed in.
+ * an authenticated user, LoginPage/SignupForm's footnote otherwise) instead
+ * of hardcoding "/", which used to send every "Back" click to the landing
+ * page even from deep inside the app. `location.key !== "default"` is
+ * react-router's signal that this history entry has a predecessor in this
+ * browser tab (a fresh/bookmarked load of /privacy or /terms gets the
+ * literal string "default"); only then is `navigate(-1)` safe. Otherwise
+ * fall back to /dashboard (signed in) or "/" (not signed in).
  */
 const BackButton: React.FC<{ label: string }> = ({ label }) => {
     const navigate = useNavigate();
@@ -63,14 +58,13 @@ const BackButton: React.FC<{ label: string }> = ({ label }) => {
 
 /**
  * Shared shell for the Privacy Policy and Terms of Service pages: same
- * AuthLayout/Card chrome (plus the same Logo every other unauthenticated
- * page opens with, so this reads as a full page rather than starting cold
- * at the document title) as the rest of the unauthenticated flow, just wide
- * enough to read prose comfortably instead of the narrow auth-form width.
+ * AuthLayout/Card chrome as the rest of the unauthenticated flow (plus the
+ * same Logo so the page doesn't start cold at the document title), just
+ * wide enough for comfortable prose instead of the narrow auth-form width.
  *
- * Purely presentational - all translated content is resolved by the caller
- * (PrivacyPolicyPage/TermsOfServicePage, via the "legal" i18n namespace) and
- * passed in as props, so this component doesn't need to know which document
+ * Purely presentational: the caller (PrivacyPolicyPage/TermsOfServicePage)
+ * resolves all translated content via the "legal" i18n namespace and passes
+ * it in as props, so this component doesn't need to know which document
  * it's rendering.
  */
 const LegalDocumentLayout: React.FC<LegalDocumentLayoutProps> = ({
@@ -81,15 +75,13 @@ const LegalDocumentLayout: React.FC<LegalDocumentLayoutProps> = ({
     intro,
     sections,
 }) => {
-    // These are also reachable via an in-app link (Sidebar's footer, once
-    // logged in) whose page can be scrolled well past the top - without
-    // this, a client-side navigation here keeps that old scroll position,
-    // landing mid-document instead of at the top of the page.
+    // Reachable via an in-app link (Sidebar's footer) whose page may be
+    // scrolled well past the top; without this, navigating here keeps that
+    // old scroll position instead of landing at the top of the document.
     useEffect(() => {
-        // `document.body`, not the viewport, is this app's actual
-        // scrolling element (see globalCss's html/body split in
-        // theme/themeStyles.ts) - window.scrollTo(0, 0) targets the
-        // viewport/documentElement and is a silent no-op here.
+        // `document.body`, not the viewport, is this app's actual scrolling
+        // element (see globalCss's html/body split in theme/themeStyles.ts).
+        // window.scrollTo(0, 0) would be a silent no-op here.
         document.body.scrollTop = 0;
     }, []);
 
@@ -98,11 +90,8 @@ const LegalDocumentLayout: React.FC<LegalDocumentLayoutProps> = ({
             <Card w="full" maxW="3xl" p={{ base: 5, md: 8 }}>
                 <Stack gap={6}>
                     <HStack justify="space-between" align="center">
-                        {/* Default (md) size, not Sidebar's compact "sm" -
-                            now that the title below no longer repeats the
-                            app name (see PrivacyPolicyPage/TermsOfServicePage),
-                            this is the only brand mark on the page, same
-                            "primary visual anchor" role Logo plays on
+                        {/* Default (md) size, not Sidebar's compact "sm": this is the only
+                            brand mark on the page, same anchor role Logo plays on
                             LoginPage/SignupPage. */}
                         <Logo />
                         <BackButton label={backLabel} />

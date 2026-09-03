@@ -1,12 +1,9 @@
-# tests/backend/mystic_auth/integration/test_user_self_service_account_deletion_integration.py
+# tests/backend/mystic_auth/integration/user/test_user_self_service_account_deletion_integration.py
 #
 # End-to-end coverage for DELETE /users/me and its OAuth-only
 # confirm-delete flow (user_self_service_routes.py,
-# account_deletion_service.py) against the real ASGI app, real PostgreSQL,
-# and real Redis (see conftest.py). Split out of
-# test_user_self_service_routes_integration.py once that file passed the
-# repo's own file-length guideline; see that file for GET/PUT /users/me
-# coverage.
+# account_deletion_service.py). See test_user_self_service_routes_
+# integration.py for GET/PUT /users/me coverage.
 import pytest
 
 from backend.mystic_auth.database.connection import database
@@ -27,9 +24,8 @@ from .user_test_accounts import (
 
 @pytest.mark.asyncio
 async def test_self_delete_soft_deletes_own_account(client, created_emails):
-    # DELETE /users/me is the self-service counterpart to delete_any_user:
-    # same soft-delete mechanics (is_active=False + deleted_at set), just
-    # acting on current_user's own row instead of a path-parameterized email.
+    # Self-service counterpart to delete_any_user: same soft-delete
+    # mechanics, acting on the caller's own row instead of a path email.
     email = unique_email()
     await create_verified_user(client, created_emails, email)
 
@@ -38,25 +34,22 @@ async def test_self_delete_soft_deletes_own_account(client, created_emails):
 
     async with database.async_session() as session:
         user = await user_crud.get_by_email(email, session)
-        assert user is not None  # row still exists, this is a soft delete
+        assert user is not None  # soft delete: row still exists
         assert user.is_active is False
         assert user.deleted_at is not None
 
 
 @pytest.mark.asyncio
 async def test_self_delete_still_soft_deletes_when_session_revocation_cant_be_confirmed(client, created_emails, mocker):
-    # Regression guard for the "Redis outage failure modes are inconsistent"
-    # gap: the soft-delete write itself (Postgres, independent of Redis)
-    # must still succeed even if the account-version bump can't be
-    # confirmed - the account really is deleted, so this must not surface
-    # as an error to the caller (see finalize_self_deletion's docstring).
+    # The soft-delete write (Postgres) must still succeed even if the
+    # account-version bump (Redis) can't be confirmed: the account really
+    # is deleted, so this must not surface as an error to the caller.
     email = unique_email()
     await create_verified_user(client, created_emails, email)
 
-    # jwt_service.bump_account_version is a bound-method reference captured
-    # from TokenVersionStore at import time (see jwt_service.py's own
-    # comment on this), so patching the class doesn't reach it - the
-    # jwt_service instance attribute itself has to be patched directly.
+    # bump_account_version is a bound-method reference captured at import
+    # time, so patching the class wouldn't reach it; patch the instance
+    # attribute directly instead.
     mocker.patch(
         "backend.mystic_auth.auth.token_logic.jwt_service.jwt_service.bump_account_version",
         new_callable=mocker.AsyncMock,
@@ -83,7 +76,7 @@ async def test_self_delete_requires_current_password(client, created_emails):
 
     async with database.async_session() as session:
         user = await user_crud.get_by_email(email, session)
-        assert user.is_active is True  # rejected: no deletion happened
+        assert user.is_active is True  # rejected, so no deletion happened
 
 
 @pytest.mark.asyncio
@@ -95,7 +88,7 @@ async def test_self_delete_rejects_wrong_current_password(client, created_emails
     assert resp.status_code == 400
     assert "current password" in resp.json()["detail"].lower()
 
-    # The rejected delete had no effect: the account is still active and usable.
+    # The rejected delete had no effect: account is still active and usable.
     async with database.async_session() as session:
         user = await user_crud.get_by_email(email, session)
         assert user.is_active is True
@@ -106,9 +99,8 @@ async def test_self_delete_rejects_wrong_current_password(client, created_emails
 
 @pytest.mark.asyncio
 async def test_system_user_cannot_self_delete(client, created_emails):
-    # Same target-account guard user_lifecycle_routes.py's admin routes use,
-    # applied here even though this is the account's own caller: the system
-    # account must never disappear via any route, self-service included.
+    # Same target-account guard as the admin routes: the system account
+    # must never disappear via any route, self-service included.
     email = unique_email("system")
     await create_system_user(client, created_emails, email)
 
@@ -129,22 +121,20 @@ async def test_self_delete_revokes_existing_sessions(client, created_emails):
     resp = await client.request("DELETE", "/users/me", json={"current_password": PASSWORD})
     assert resp.status_code == 200
 
-    # The now-deleted account's old refresh token must stop working
-    # immediately, same reasoning as delete_any_user's identical guard.
+    # The old refresh token must stop working immediately.
     refresh_resp = await post_with_refresh_cookie(client, "/auth/refresh/", refresh_token)
     assert refresh_resp.status_code == 401
 
-    # And the account itself can no longer log back in.
+    # And the account can no longer log back in.
     relogin_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     assert relogin_resp.status_code in (401, 403)
 
 
 @pytest.mark.asyncio
 async def test_self_delete_clears_auth_cookies_on_success(client, created_emails):
-    # Regression guard: every other endpoint that ends a session
-    # (logout_handler.py, logout_all_handler.py) clears both auth cookies;
-    # DELETE /users/me previously didn't, leaving the browser holding
-    # now-dead cookies for an already-deleted account.
+    # Every other endpoint that ends a session clears both auth cookies;
+    # this checks DELETE /users/me does too, instead of leaving the
+    # browser holding dead cookies for an already-deleted account.
     email = unique_email()
     await create_verified_user(client, created_emails, email)
     assert any(cookie.name == "refresh_token" for cookie in client.cookies.jar)
@@ -158,13 +148,11 @@ async def test_self_delete_clears_auth_cookies_on_success(client, created_emails
 
 # ------------------- Self-service account deletion: OAuth-only accounts -------------------
 #
-# An OAuth-only account (hashed_password=None) has no password to
-# synchronously re-confirm with, so a stolen session cookie alone would
-# otherwise be enough to delete it outright. Instead it gets an async,
-# email-confirmed equivalent (account_deletion_service.py, modeled on
-# password_reset_service.py): DELETE /users/me only sends a confirmation
-# link and leaves the account untouched, and POST /users/me/confirm-delete
-# (unauthenticated - the token is the proof) actually performs the deletion.
+# An OAuth-only account (hashed_password=None) has no password to confirm
+# with, so a stolen session cookie alone would otherwise be enough to
+# delete it. Instead DELETE /users/me only sends a confirmation email, and
+# POST /users/me/confirm-delete (unauthenticated; the token is the proof)
+# actually performs the deletion.
 
 async def _make_oauth_only_user(client, created_emails, email: str):
     await create_verified_user(client, created_emails, email)
@@ -194,7 +182,7 @@ async def test_self_delete_on_oauth_only_account_does_not_require_current_passwo
     assert resp.status_code == 200
     assert resp.json()["confirmation_required"] is True
 
-    # Deliberately NOT deleted yet: only a confirmation email was sent.
+    # Not deleted yet: only a confirmation email was sent.
     async with database.async_session() as session:
         user = await user_crud.get_by_email(email, session)
         assert user.is_active is True
@@ -254,9 +242,8 @@ async def test_confirm_delete_token_is_single_use(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_confirm_delete_rejects_token_never_persisted_in_redis(client, created_emails):
-    # A structurally valid, correctly-signed token that was never actually
-    # issued via send_deletion_email (so never written to Redis) must be
-    # rejected by the GETDEL check, same as an already-used one.
+    # A validly-signed token that was never actually issued (never written
+    # to Redis) must be rejected, same as an already-used one.
     email = unique_email()
     await _make_oauth_only_user(client, created_emails, email)
 
@@ -279,8 +266,7 @@ async def test_confirm_delete_rejects_garbage_token(client, created_emails):
 @pytest.mark.asyncio
 async def test_confirm_delete_one_accounts_token_cannot_delete_a_different_account(client, created_emails):
     # The token embeds its owning account's email as a signed claim, so it
-    # can only ever resolve to and delete that same account, regardless of
-    # who calls the confirm endpoint.
+    # can only ever delete that same account.
     victim_email = unique_email("victim")
     other_email = unique_email("bystander")
     await _make_oauth_only_user(client, created_emails, victim_email)

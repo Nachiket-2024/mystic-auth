@@ -1,7 +1,7 @@
 name: CI
 
-# Runs on pushes and pull requests targeting main. The Docker full-suite job is
-# gated to pushes to main because it repeats the native suites inside containers.
+# Runs on pushes and PRs targeting main. The Docker full-suite job only runs
+# on pushes to main since it repeats the native suites inside containers.
 on:
   push:
     branches: [main]
@@ -186,7 +186,7 @@ jobs:
 
       # There is no checked-in frontend/.env; use the fork-configurable
       # defaults from frontend/.env.example so CI reflects whatever a fork
-      # has set there, same as the docker-build job does for the root .env.
+      # has set there, same as the docker-build job does for env/.env.
       - name: Set up frontend .env
         working-directory: frontend
         run: cp .env.example .env
@@ -241,24 +241,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          # React Router 8 requires Node 22.22.0 or newer.
+          node-version: "22.22.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies for browser tests
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
       # Uses the *.example files only to satisfy each compose file's own
-      # env_file reference (.env, .env.local-prod, .env.prod respectively)
-      # and --env-file for build-arg interpolation.
+      # env_file reference (env/.env, env/.env.local-prod-*, env/.env.prod
+      # respectively) and --env-file for build-arg interpolation.
       - name: Validate docker-compose configs
         run: |
-          cp .env.example .env
-          cp .env.local-prod.example .env.local-prod
-          cp .env.prod.example .env.prod
-          docker compose -f docker-compose.yml config > /dev/null
-          docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod config > /dev/null
-          docker compose -f docker-compose.prod.yml --env-file .env.prod config > /dev/null
-          rm .env .env.local-prod .env.prod
+          created_env_files="env/.env env/.env.local-prod-cloudflare env/.env.local-prod-ngrok env/.env.local-prod-tailscale env/.env.prod"
+          for env_file in $created_env_files; do
+            if [ -e "$env_file" ]; then
+              echo "::error::Refusing to overwrite existing $env_file"
+              exit 1
+            fi
+          done
+          trap 'rm -f $created_env_files' EXIT
+          cp env/.env.example env/.env
+          cp env/.env.local-prod-cloudflare.example env/.env.local-prod-cloudflare
+          cp env/.env.local-prod-ngrok.example env/.env.local-prod-ngrok
+          cp env/.env.local-prod-tailscale.example env/.env.local-prod-tailscale
+          cp env/.env.prod.example env/.env.prod
+          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env config > /dev/null
+          docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare config > /dev/null
+          docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok config > /dev/null
+          docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale config > /dev/null
+          docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod config > /dev/null
 
       - name: Build backend image
-        run: docker build --target runtime -f docker/backend.Dockerfile -t backend:ci .
+        run: docker build --target runtime -f docker/dockerfiles/backend.Dockerfile -t backend:ci .
 
       - name: Build frontend production image
-        run: docker build --target production -f docker/frontend.Dockerfile -t frontend:ci .
+        run: docker build --target production -f docker/dockerfiles/frontend.Dockerfile -t frontend:ci .
 
       # Regression guard for local request logs leaking into the image. /app/logs
       # should exist but be empty.
@@ -273,9 +299,15 @@ jobs:
       # bounded DSN wait in the backend startup command.
       - name: Boot the dev stack
         run: |
-          cp .env.example .env
-          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' .env
-          docker compose up -d --build postgres redis alembic backend frontend
+          if [ -e env/.env ]; then
+            echo "::error::Refusing to overwrite existing env/.env"
+            exit 1
+          fi
+          cp env/.env.example env/.env
+          touch env/.env.ci-created
+          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/.env
+          sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/.env
+          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build postgres redis alembic backend frontend procrastinate_worker
 
       - name: Wait for backend to report healthy
         run: timeout 150 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'
@@ -290,16 +322,23 @@ jobs:
           curl -sf http://localhost:5173 | grep -qi '<div id="root">' \
             && echo "OK: frontend dev server serves the app shell through the actual image"
 
+      - name: Run browser E2E tests
+        env:
+          EMAIL_ENABLED: "false"
+        run: npm run test:browser --prefix frontend
+
       # Prints container logs only when a previous step failed.
       - name: Show container logs (only runs on failure)
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env logs --no-color
 
       - name: Tear down the dev stack
         if: always()
         run: |
-          docker compose down -v
-          rm -f .env
+          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env down -v
+          if [ -f env/.env.ci-created ]; then
+            rm -f env/.env env/.env.ci-created
+          fi
 
   # Re-runs the full suites through the actual Compose stack. This catches
   # container-specific drift and is gated to pushes to main to avoid doubling
@@ -321,9 +360,15 @@ jobs:
         env:
           BACKEND_BUILD_TARGET: test
         run: |
-          cp .env.example .env
-          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' .env
-          docker compose up -d --build postgres redis alembic backend procrastinate_worker
+          if [ -e env/.env ]; then
+            echo "::error::Refusing to overwrite existing env/.env"
+            exit 1
+          fi
+          cp env/.env.example env/.env
+          touch env/.env.ci-created
+          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/.env
+          sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/.env
+          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build postgres redis alembic backend procrastinate_worker
 
       - name: Wait for backend to report healthy
         run: timeout 180 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'
@@ -333,14 +378,15 @@ jobs:
       # integration suite polls for them (see its own _poll_for_entries), but
       # only succeeds if a worker is actually running to process the queue.
       - name: Wait for procrastinate_worker to report healthy
-        run: timeout 60 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" $(docker compose ps -q procrastinate_worker))" = "healthy" ]; do sleep 3; done'
+        run: timeout 60 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" $(docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env ps -q procrastinate_worker))" = "healthy" ]; do sleep 3; done'
 
       # Same tiers and flags as the native backend job, but inside the backend
       # container. --user root lets pytest-cov write coverage output to /repo,
       # the whole-repo bind mount.
       - name: Run the full backend suite inside the backend container
         run: |
-          docker compose exec -T --user root backend bash -c '
+          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T --user root backend bash -c '
+            export PATH=/opt/venv/bin:$PATH &&
             cd /repo &&
             python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q &&
             python -m pytest tests/backend/mystic_auth/integration -q --cov-append &&
@@ -348,18 +394,20 @@ jobs:
           '
 
       - name: Boot the frontend
-        run: docker compose up -d --build frontend
+        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build frontend
 
       - name: Run the full frontend suite inside the frontend container
-        run: docker compose exec -T frontend sh -c "npm run test -- --run"
+        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T frontend sh -c "npm run test -- --run"
 
       # Prints container logs only when a previous step failed.
       - name: Show container logs (only runs on failure)
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env logs --no-color
 
       - name: Tear down
         if: always()
         run: |
-          docker compose down -v
-          rm -f .env
+          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env down -v
+          if [ -f env/.env.ci-created ]; then
+            rm -f env/.env env/.env.ci-created
+          fi

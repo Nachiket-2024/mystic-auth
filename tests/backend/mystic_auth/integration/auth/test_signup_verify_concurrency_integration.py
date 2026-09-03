@@ -5,13 +5,12 @@
 # signup -> create a verification token -> immediately verify it, for many
 # accounts in quick succession, was once observed to occasionally reject a
 # token as "Invalid, expired, or already used" even though the token had
-# just been issued and nothing else in the codebase writes to the
-# "verify:*" Redis keyspace. Two rounds of focused Redis-level tracing
-# (redis-cli MONITOR against the real dev Redis, both sequential and
-# concurrent, well over 1000 chains total) never reproduced it, so no fix
-# was made. This test exists so that if the underlying condition ever does
-# recur, CI catches it immediately instead of relying on another manual
-# investigation to notice.
+# just been issued and nothing else writes to the "verify:*" Redis
+# keyspace. Two rounds of focused Redis-level tracing (redis-cli MONITOR,
+# sequential and concurrent, well over 1000 chains total) never reproduced
+# it, so no fix was made. This test exists so that if the underlying
+# condition recurs, CI catches it instead of relying on another manual
+# investigation.
 import asyncio
 
 import pytest
@@ -37,10 +36,10 @@ async def _signup_and_verify(client, created_emails) -> bool:
     )
     from backend.mystic_auth.redis.client import redis_client
 
-    # Mirrors signup_verify_login's approach in auth_test_accounts.py:
-    # mint a real single-use token the same way the app does internally,
-    # rather than depending on the email worker being up, so this test can
-    # control exactly how many chains fire and how quickly.
+    # Mirrors signup_verify_login's approach in auth_test_accounts.py: mint
+    # a real single-use token the same way the app does internally, rather
+    # than depending on the email worker, so this test controls exactly how
+    # many chains fire and how quickly.
     token = await account_verification_service.create_verification_token(email)
     await redis_client.set(f"verify:{token}", "1", ex=600)
 
@@ -60,9 +59,10 @@ async def test_sequential_signup_verify_chains_never_reject_a_fresh_token(client
 @pytest.mark.asyncio
 async def test_concurrent_signup_verify_chains_never_reject_a_fresh_token(client, created_emails):
     # Each chain uses its own email/token, so there is no legitimate reason
-    # for any of these to fail: unlike test_concurrent_refresh_with_the_
-    # same_token_only_one_succeeds (test_refresh_token_integration.py),
-    # nothing here is intentionally contending over a shared key.
+    # for any of these to fail: unlike
+    # test_concurrent_refresh_with_the_same_token_only_one_succeeds
+    # (test_refresh_token_integration.py), nothing here intentionally
+    # contends over a shared key.
     results = await asyncio.gather(
         *(_signup_and_verify(client, created_emails) for _ in range(30))
     )

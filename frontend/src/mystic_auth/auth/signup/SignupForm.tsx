@@ -9,8 +9,7 @@ import PasswordInput from "../../ui/PasswordInput";
 import AuthInlineLink from "../../ui/AuthInlineLink";
 import { BRAND_SOLID_HOVER_PROPS } from "../../ui/styles/buttonStyles";
 
-// Shared password policy logic and checklist UI, kept identical to
-// PasswordResetConfirmForm so the two flows can't drift apart again.
+// Shared password policy logic and checklist UI, kept identical to PasswordResetConfirmForm.
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../password_rules/passwordRules";
 import PasswordStrengthPanel from "../password_rules/PasswordStrengthPanel";
 
@@ -49,11 +48,9 @@ const SignupForm: React.FC = () => {
         signupMutation.mutate(
             { name, email, password },
             {
-                // Clears the sensitive fields (not name/email, which stay
-                // as a visible receipt of what was submitted) and, with the
-                // button below, blocks an accidental duplicate submit with
-                // the same still-filled password once signup has already
-                // succeeded.
+                // Clears sensitive fields only (name/email stay as a receipt of what
+                // was submitted); combined with the disabled button below, this
+                // blocks an accidental duplicate submit after signup succeeded.
                 onSuccess: () => {
                     setPassword("");
                     setConfirmPassword("");
@@ -68,11 +65,9 @@ const SignupForm: React.FC = () => {
 
     return (
         <Stack as="form" onSubmit={handleSubmit} w="full">
-            {/* Column on narrow screens: side-by-side Name/Email is what makes
-                this card genuinely wider than the other auth cards (see
-                SignupPage's own comment), but that same width is exactly
-                what overflowed a 375px viewport before this broke to a
-                single column there. */}
+            {/* Column on narrow screens: side-by-side Name/Email is what makes this
+                card wider than the other auth cards, which overflowed a 375px
+                viewport before this broke to a single column there. */}
             <Stack direction={{ base: "column", sm: "row" }}>
                 <ChakraField.Root required flex={1}>
                     <ChakraField.Label>{t("signup.nameLabel")}</ChakraField.Label>
@@ -106,12 +101,8 @@ const SignupForm: React.FC = () => {
                     aria-describedby={passwordErrorId}
                     maxLength={128}
                 />
-                {/* Always rendered, even before typing starts (showing a
-                    neutral "-" placeholder): reserving this line's height
-                    from the very first render means the strength meter
-                    filling in never shifts the fields below it, unlike a
-                    conditionally-mounted line that only appears once
-                    passwordStrength has a value. */}
+                {/* Always rendered, even before typing starts (neutral "-" placeholder),
+                    so the strength meter filling in never shifts the fields below it. */}
                 <PasswordStrengthPanel
                     password={password}
                     label={t("signup.strengthLabel", { strength: passwordStrength || "-" })}
@@ -163,11 +154,8 @@ const SignupForm: React.FC = () => {
                 <AuthInlineLink to="/privacy">{t("signup.privacyPolicy")}</AuthInlineLink>
             </Text>
 
-            {/* Matches LoginPage's reciprocal "Don't have an account? Sign
-                Up" treatment - a plain inline link, not a second competing
-                button, so the two auth pages read as one consistent
-                pattern instead of two different conventions for the same
-                "wrong page? go to the other one" action. */}
+            {/* Matches LoginPage's reciprocal link treatment: a plain inline link, not
+                a second competing button, so both pages read as one consistent pattern. */}
             <Text fontSize="md" color="fg.muted" textAlign="center">
                 {t("signup.alreadyHaveAccount")}{" "}
                 <AuthInlineLink to="/login">

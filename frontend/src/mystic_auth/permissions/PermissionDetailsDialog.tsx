@@ -19,8 +19,8 @@ interface DetailRowProps {
     children: React.ReactNode;
 }
 
-/** Same label/value layout as policies/dialogs/PolicyDetailsDialog.tsx's own
- * DetailRow - shows what the table's own Description column truncates. */
+/** Same label/value layout as PolicyDetailsDialog's DetailRow. Shows what
+ * the table's Description column truncates. */
 const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
     <Stack gap={0.5}>
         <Text fontSize="sm" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" color="fg.muted">
@@ -35,11 +35,10 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
 /**
  * PermissionDetailsDialog
  * ----------------------------
- * Read-only "View" panel for one permission catalog entry's full action/
- * resource type/description - same shape as policies/dialogs/PolicyDetailsDialog.tsx,
- * sized down since a catalog entry has no name, status, or timestamps of its
- * own. Pure display surface: takes the already-fetched row object directly,
- * no separate query.
+ * Read-only "View" panel for one permission catalog entry's action/
+ * resource type/description. Same shape as PolicyDetailsDialog, sized down
+ * since a catalog entry has no name, status, or timestamps. Takes the
+ * already-fetched row object directly, no separate query.
  */
 const PermissionDetailsDialog: React.FC<PermissionDetailsDialogProps> = ({ isOpen, entry, onClose }) => {
     const { t } = useTranslation(["permissions", "ui_text"]);

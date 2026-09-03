@@ -11,25 +11,18 @@ from ...database.base import Base
 class UserPermission(Base):
     """
     A direct grant of a single action to a single user, bypassing Policy
-    entirely. This is the genuinely granular counterpart to UserPolicy
-    (authorization/models/policy_model.py): a Policy is a named, reusable
-    bundle of actions meant for the common case ("give this user the
-    self_service set"); a UserPermission is an unnamed, ad hoc
-    (user, action, resource_type, conditions) tuple for the case where even
-    the narrowest existing policy still grants more than intended, and
-    defining a new one-off named policy per such case would just recreate
-    RBAC-by-another-name.
+    entirely. Policy is a named, reusable bundle for the common case;
+    UserPermission is an ad hoc (user, action, resource_type, conditions)
+    tuple for when even the narrowest policy grants more than intended,
+    without needing a one-off named policy per case.
 
-    Reuses the exact same `conditions` shape/semantics as Policy.conditions
-    (see policy_evaluator.py) rather than a second, weaker scoping
-    mechanism: at evaluation time, PolicyEvaluationEngine.evaluate_detailed
-    never sees UserPermission rows directly, it sees them normalized into
-    transient Policy-shaped objects (see AuthorizationService._get_effective_policies),
-    so both flow through identical action/resource_type/condition matching.
+    Reuses Policy.conditions' exact shape (see policy_evaluator.py):
+    at evaluation time these rows get normalized into transient
+    Policy-shaped objects (AuthorizationService._get_effective_policies),
+    so both flow through identical matching logic.
 
-    No name/description: unlike a Policy, this isn't a shareable,
-    independently-editable object other users can also hold; it only ever
-    describes this one user's one grant.
+    No name/description: unlike a Policy, this isn't shareable or
+    independently editable, it only ever describes this one grant.
     """
 
     __tablename__ = "user_permissions"

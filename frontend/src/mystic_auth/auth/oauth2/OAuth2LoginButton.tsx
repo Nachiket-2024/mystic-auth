@@ -11,17 +11,16 @@ interface OAuth2ButtonProps {
     onAttempt?: () => void;
 }
 
-// A full-page redirect to the backend's OAuth2 endpoint, not an API call.
-// It handles the Google callback server-side and redirects back to /login
-// with `?error=<code>` on failure. `error` is read from that param once on
-// mount, translated the same way as API errors, then stripped from the URL
-// so a refresh doesn't re-show it. Only `globalAuth` carries live session
-// data; there is no frontend OAuth2 callback route.
+// A full-page redirect to the backend's OAuth2 endpoint, not an API call. It handles
+// the Google callback server-side and redirects back to /login with `?error=<code>`
+// on failure. `error` is read from that param once on mount, translated like API
+// errors, then stripped from the URL so a refresh doesn't re-show it. There is no
+// frontend OAuth2 callback route.
 const OAuth2LoginButton: React.FC<OAuth2ButtonProps> = ({ onAttempt }) => {
     const globalAuth = useAuthStore((s) => !!s.isAuthenticated);
     const [searchParams, setSearchParams] = useSearchParams();
-    // Lazy initializer reads the `error` param once, during the first
-    // render, instead of via setState in an effect (an avoidable extra render).
+    // Lazy initializer reads `error` once during the first render, avoiding an
+    // extra render via setState in an effect.
     const [error] = useState<string | null>(() => {
         const errorCode = searchParams.get("error");
         return errorCode ? translateErrorCode(errorCode) : null;
@@ -40,9 +39,8 @@ const OAuth2LoginButton: React.FC<OAuth2ButtonProps> = ({ onAttempt }) => {
             },
             { replace: true }
         );
-        // Only the error param present on the initial redirect back from
-        // Google matters here; deliberately not re-running on every
-        // searchParams change (that would just observe the deletion above).
+        // Only the error param from the initial redirect back from Google matters;
+        // deliberately not re-running on every searchParams change.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

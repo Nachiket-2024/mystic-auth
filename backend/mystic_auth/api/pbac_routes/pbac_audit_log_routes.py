@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Authentication-only dependency (no permission required) : used by
-# /audit-log/me, where a user inspects their own decisions regardless of
-# whether they hold policies:read
+# Authentication-only dependency (no permission required), used by
+# /audit-log/me so a user can inspect their own decisions regardless of
+# whether they hold policies:read.
 from ...auth.current_user.current_user_dependency import get_current_user
 from ...authorization.dependencies.policy_route_dependencies import READ_DEPENDENCY
 from ...authorization.repositories.audit_log_repository import audit_log_repository
@@ -42,8 +42,8 @@ async def list_audit_log(
     db: AsyncSession = Depends(database.get_session),
 ):
     """Authorization decisions across every user, newest first by default.
-    Every real authorize()/require() call anywhere in the app writes one of
-    these rows automatically (see authorization_audit_logger.log_decision) :
+    Every real authorize()/require() call in the app writes one of these
+    rows automatically (see authorization_audit_logger.log_decision);
     nothing needs to opt in."""
     # X-Total-Count (see list_all_users' identical pattern) lets the
     # frontend render numbered pages without a separate round trip. Computed
@@ -80,11 +80,10 @@ async def list_my_audit_log(
 ):
     """
     The caller's own authorization decisions, newest first by default. No
-    policies:read (or any other) permission required, since a user
-    inspecting their own authorization history is not a privileged
-    operation. Scoped server-side to current_user's email : the caller
-    cannot request another user's entries through this endpoint (see
-    list_audit_log_for_user for that, which does require policies:read).
+    policies:read (or any other) permission required, since inspecting
+    one's own history isn't a privileged operation. Scoped server-side to
+    current_user's email; the caller cannot request another user's entries
+    here (see list_audit_log_for_user, which requires policies:read).
     """
     response.headers["X-Total-Count"] = str(
         await audit_log_repository.count_for_user(

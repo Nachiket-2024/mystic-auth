@@ -24,14 +24,13 @@ interface BuildRateLimitsColumnsParams {
 }
 
 /** Same "columns as a function of page state" shape as usersColumns.tsx's
- * buildUsersColumns - the Reset action needs the page's own confirm-dialog
- * state and in-flight mutation.
+ * buildUsersColumns: the Reset action needs the page's confirm-dialog state
+ * and in-flight mutation.
  *
- * Every data column is sortable, but unlike audit_log's columns this is a
- * client-side sort over only the currently-loaded page(s) (see
- * RateLimitsPage.tsx) - the backend is a Redis SCAN cursor, not a SQL
- * table, so there's no cheap way to sort the *entire* live keyspace without
- * materializing it, which list_active_limits deliberately avoids doing. */
+ * Every data column is sortable, but unlike audit_log this is a client-side
+ * sort over only the loaded page (see RateLimitsPage.tsx): the backend is a
+ * Redis SCAN cursor, not a SQL table, so sorting the whole live keyspace
+ * would mean materializing it, which list_active_limits avoids. */
 export function buildRateLimitsColumns({
     t,
     language,
@@ -52,12 +51,9 @@ export function buildRateLimitsColumns({
             sortable: true,
         },
         {
-            // One column for both cases instead of two side-by-side ones:
-            // an "ip" row's identifier IS an IP, an "account"/"email" row's
-            // identifier IS an email - never both at once for the same row
-            // (see rate_limiter_service.py / login_protection_service.py),
-            // so a second column would only ever hold a dash. The Scope
-            // badge already tells you which kind of value this is.
+            // One column for both cases instead of two: a row's identifier
+            // is either an IP or an email, never both, so a second column
+            // would always be empty. The Scope badge shows which kind it is.
             key: "identifier",
             header: t("page.identifierColumn"),
             width: "16rem",

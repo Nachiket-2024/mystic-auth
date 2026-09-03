@@ -1,11 +1,7 @@
-# tests/backend/mystic_auth/integration/test_security_headers_integration.py
-#
-# Regression guard: main.py previously registered no security-headers
-# middleware at all : no X-Frame-Options, Content-Security-Policy,
-# Strict-Transport-Security, X-Content-Type-Options, or Referrer-Policy on
-# any response. Verified end-to-end against the real ASGI app (middleware
-# ordering/registration bugs wouldn't be caught by a unit test that
-# constructs SecurityHeadersMiddleware in isolation).
+# Regression guard: main.py used to register no security-headers middleware,
+# so responses had no X-Frame-Options, CSP, HSTS, etc. Tested end-to-end
+# against the real app, since a unit test on SecurityHeadersMiddleware alone
+# wouldn't catch middleware ordering or registration bugs.
 import pytest
 
 
@@ -40,10 +36,9 @@ async def test_hsts_header_absent_outside_production(client, mocker):
 
 @pytest.mark.asyncio
 async def test_docs_page_gets_a_csp_that_allows_its_cdn_assets(client):
-    # Regression guard: the blanket `default-src 'none'` CSP applied
-    # everywhere else also blocked Swagger UI's CDN-hosted JS/CSS and its
-    # inline init script, so /docs returned 200 but rendered as a blank
-    # page in a real browser : nothing on it could actually execute.
+    # Regression guard: the strict `default-src 'none'` CSP used elsewhere
+    # also blocked Swagger UI's CDN assets and inline init script, so /docs
+    # loaded (200) but rendered as a blank page in a real browser.
     resp = await client.get("/docs")
 
     assert resp.status_code == 200
@@ -71,8 +66,8 @@ async def test_ordinary_routes_keep_the_strict_csp_docs_relaxation_does_not_leak
 
 @pytest.mark.asyncio
 async def test_security_headers_present_even_on_error_responses(client):
-    # A 404 (unmatched route) still passes through the middleware stack :
-    # headers must not be skipped just because the request failed.
+    # A 404 still passes through the middleware stack; headers should not be
+    # skipped just because the request failed.
     resp = await client.get("/no-such-route")
 
     assert resp.status_code == 404
@@ -107,7 +102,7 @@ async def test_cors_preflight_rejects_an_untrusted_origin(client):
         },
     )
 
-    # Starlette's CORSMiddleware doesn't 4xx a disallowed-origin preflight :
-    # it simply omits the Access-Control-Allow-Origin header, which is what
-    # actually makes the browser block the real request from succeeding.
+    # Starlette's CORSMiddleware doesn't reject a disallowed origin with a
+    # 4xx; it just omits Access-Control-Allow-Origin, which is what makes
+    # the browser block the real request.
     assert "Access-Control-Allow-Origin" not in resp.headers

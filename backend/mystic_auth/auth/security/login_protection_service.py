@@ -51,7 +51,7 @@ class LoginProtectionService:
 
         except Exception:
             logger.error("Error checking login lock status:\n%s", traceback.format_exc())
-            return False
+            return True
 
     @staticmethod
     async def get_remaining_seconds(key: str) -> int:

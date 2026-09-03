@@ -99,9 +99,7 @@ describe('ProtectedRoute', () => {
   });
 
   it('shows the protected content when an array permission is given and the caller holds only one of the listed actions', () => {
-    // e.g. the /policies route, reachable via policies:read OR
-    // policies:create (see navItems.ts and App.tsx) - a caller who can only
-    // create policies must still reach this route to do so.
+    // e.g. /policies, reachable via policies:read OR policies:create (navItems.ts, App.tsx).
     seed({ isAuthenticated: true, permissions: ['policies:create'] });
     renderProtectedRoute({ permission: ['policies:read', 'policies:create'] });
 
@@ -117,12 +115,9 @@ describe('ProtectedRoute', () => {
   });
 
   it('shows a loading state (not an immediate /dashboard bounce) the instant permissions are dropped, while the follow-up refetch is still pending', () => {
-    // dropPermissions() alone (see authStore.ts) only zeroes the list and
-    // flips permissionsPending on - it does NOT by itself prove this route
-    // is actually revoked, since a permissions_changed push fires for ANY
-    // change to the account, not just ones affecting this route. Committing
-    // to /dashboard before the authoritative GET /auth/me resolves would
-    // bounce a tab off a page an unrelated change never touched.
+    // dropPermissions() (authStore.ts) just zeroes the list; a permissions_changed
+    // push fires for any account change, not only ones affecting this route. So we
+    // must wait for the authoritative GET /auth/me before bouncing off the page.
     seed({ isAuthenticated: true, permissions: ['policies:read'] });
     renderProtectedRoute({ permission: 'policies:read' });
     expect(screen.getByText('Protected Content')).toBeInTheDocument();

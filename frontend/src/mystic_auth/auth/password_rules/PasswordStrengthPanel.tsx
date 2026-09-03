@@ -24,11 +24,9 @@ const SEGMENT_COUNT = 4;
 const STRENGTH_COLUMN_WIDTH = "140px";
 
 /**
- * Strength (icon + bar + label) on the left, the 4 rules as a compact
- * single-column block on the right (via the shared PasswordRulesChecklist,
- * so this and the standalone checklist can't drift apart visually), the
- * whole panel centered as a unit. Wraps to a stacked layout on narrow
- * viewports so the checklist never gets squeezed.
+ * Strength (icon + bar + label) on the left, the 4 rules as a compact single-column
+ * block on the right (via the shared PasswordRulesChecklist), centered as a unit.
+ * Wraps to a stacked layout on narrow viewports so the checklist never gets squeezed.
  */
 const PasswordStrengthPanel: React.FC<PasswordStrengthPanelProps> = ({ password, label, rules, pristine, mt }) => {
     const strength = evaluatePasswordStrength(password);

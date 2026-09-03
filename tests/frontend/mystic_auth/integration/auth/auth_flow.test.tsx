@@ -36,7 +36,7 @@ describe('auth flow: login', () => {
     mock.onPost('/auth/login', { email: 'user@example.com', password: 'StrongPass123!' }).reply(200, {
       message: 'Login successful',
     });
-    // useLoginMutation calls getCurrentUserApi once to fetch the fresh profile.
+    // Login success triggers a follow-up fetch of the fresh profile.
     mock.onGet('/auth/me').reply(200, { name: 'Test User', email: 'user@example.com', role: 'user', permissions: [] });
 
     const onSuccess = vi.fn();
@@ -53,7 +53,6 @@ describe('auth flow: login', () => {
     expect(await screen.findByText('Login successful!')).toBeInTheDocument();
     expect(onSuccess).toHaveBeenCalledTimes(1);
 
-    // Both the login call and the profile fetch actually went out.
     expect(mock.history.post.filter((r) => r.url === '/auth/login')).toHaveLength(1);
     expect(mock.history.get.filter((r) => r.url === '/auth/me')).toHaveLength(1);
   });
@@ -70,9 +69,8 @@ describe('auth flow: login', () => {
 
     expect(await screen.findByText('Invalid credentials or account locked')).toBeInTheDocument();
 
-    expect(useAuthStore.getState().isAuthenticated).toBeNull(); // never touched by a failed login attempt
+    expect(useAuthStore.getState().isAuthenticated).toBeNull();
     expect(onSuccess).toHaveBeenCalledTimes(0);
-    // /auth/me must never be called if the login call itself failed.
     expect(mock.history.get.filter((r) => r.url === '/auth/me')).toHaveLength(0);
   });
 
@@ -114,15 +112,10 @@ describe('auth flow: logout', () => {
   });
 
   it('logout failure (no session) still clears the auth store and navigates away', async () => {
-    // Reproduces the real, reachable case where POST /auth/logout 400s
-    // (backend's logout_handler.py: NO_REFRESH_TOKEN_COOKIE, e.g. the
-    // refresh_token cookie already expired while this tab sat idle, or a
-    // sibling tab/device already ended the session). Regression test for a
-    // bug where this response left the user stuck on the current,
-    // now-stale page indefinitely (looking like a hung/slow logout) because
-    // the auth-store cleanup and navigate-to-login effect were both gated
-    // on the mutation succeeding, and a 400 makes it fail instead. See
-    // useLogoutMutation.ts's onSettled comment.
+    // POST /auth/logout can 400 (e.g. an already-expired refresh token cookie).
+    // Regression: that response used to leave the user stuck on the stale page
+    // because cleanup/navigation only ran on mutation success. See
+    // useLogoutMutation.ts's onSettled.
     mock.onPost('/auth/logout').reply(400, { error: 'No refresh token cookie found' });
     useAuthStore.setState({ ...initialAuthState, isAuthenticated: true });
 

@@ -3,8 +3,7 @@ import traceback
 from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME
 
 # PBAC: new users get their access via an explicit default policy assignment,
-# never via their (metadata-only) role: see the role-as-metadata invariant. New
-# users must receive access through default policy assignment, not default roles."
+# never via their (metadata-only) role: see the role-as-metadata invariant.
 from ...authorization.repositories.policy_repository import policy_repository
 from ...logging.logging_config import get_logger
 from ...user.user_crud_collector import user_crud

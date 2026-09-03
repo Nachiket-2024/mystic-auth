@@ -69,8 +69,7 @@ describe('PasswordResetRequestForm', () => {
 
     expect(mock.history.post).toHaveLength(1);
 
-    // Button now reads the "try again in Ns" countdown and a second click
-    // must not fire a second request while the cooldown is active.
+    // Button shows a "try again in Ns" countdown; clicking during cooldown must not re-fire.
     const button = screen.getByRole('button');
     expect(button).toBeDisabled();
     await user.click(button);

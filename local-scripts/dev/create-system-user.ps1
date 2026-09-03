@@ -1,9 +1,9 @@
 # Non-interactively bootstraps the system superuser against the dev stack
-# (docker-compose.yml). Fill in local-scripts/dev/system-user.env first.
+# (docker/compose/docker-compose.dev.yml). Fill in local-scripts/dev/system-user.env first.
 # Assumes a fresh account (no existing user with that email) : this pipes a
 # fixed 3-line stdin (email, name, password) matching create_system_user.py's
 # "brand new account" prompt sequence. If the account already exists, run
-# `docker compose exec backend python -m mystic_auth.scripts.create_system_user`
+# `docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec backend python -m mystic_auth.scripts.create_system_user`
 # by hand instead, since that branch asks different questions.
 $ErrorActionPreference = "Stop"
 $repoRoot = Join-Path $PSScriptRoot "../.."
@@ -29,7 +29,7 @@ $stdin = "$($envValues['SYSTEM_USER_EMAIL'])`n$($envValues['SYSTEM_USER_NAME'])`
 $tempFile = [System.IO.Path]::GetTempFileName()
 try {
     [System.IO.File]::WriteAllText($tempFile, $stdin, (New-Object System.Text.UTF8Encoding $false))
-    cmd /c "docker compose -f docker-compose.yml exec -T backend python -m mystic_auth.scripts.create_system_user < ""$tempFile"""
+    cmd /c "docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T backend python -m mystic_auth.scripts.create_system_user < ""$tempFile"""
 } finally {
     Remove-Item $tempFile -ErrorAction SilentlyContinue
 }

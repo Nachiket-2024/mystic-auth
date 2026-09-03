@@ -15,14 +15,10 @@ interface AuthLayoutProps {
 }
 
 /**
- * Shared shell for unauthenticated pages: a plain canvas (no colored banner,
- * no separate site-chrome header/footer bands), theme/language toggles
- * pinned top-right, and the card as the only composed unit on the page. No
- * copyright/legal footer: most production auth screens (Linear, Stripe,
- * Notion, Clerk's hosted pages) skip one entirely, and the effect of adding
- * one back here was exactly the "floating text" problem this layout was
- * rewritten to avoid - an isolated line with no real function on a gate
- * screen, disconnected from the card above it.
+ * Shared shell for unauthenticated pages: plain canvas, theme/language
+ * toggles pinned top-right, and the card as the only composed unit. No
+ * copyright/legal footer, deliberately: an isolated line with no real
+ * function on a gate screen, disconnected from the card above it.
  */
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children, variant = "form" }) => {
     return (
@@ -30,19 +26,14 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, variant = "form" }) =
             direction="column"
             minH="100vh"
             bg="bg.canvas"
-            // Same soft depth treatment as AppLayout - see bg.canvasFrom/To's
-            // own comment in theme/system.ts.
+            // Same soft depth treatment as AppLayout; see theme/system.ts.
             bgGradient="to-b"
             gradientFrom="bg.canvasFrom"
             gradientTo="bg.canvasTo"
         >
-            {/* In normal document flow (not position="absolute") so it always
-                reserves its own row height. An absolutely-positioned overlay
-                here would float outside the flex layout that centers the
-                content below, so on short viewports or taller cards (e.g.
-                signup's, with more fields than login) the card's top edge
-                could rise up underneath these controls and visually collide
-                with them. */}
+            {/* Normal document flow (not position="absolute"), so it reserves
+                its own row height and never collides with a tall card's top
+                edge on short viewports. */}
             <Box px={4} pt={4}>
                 <Flex justify="flex-end">
                     <ControlCluster />

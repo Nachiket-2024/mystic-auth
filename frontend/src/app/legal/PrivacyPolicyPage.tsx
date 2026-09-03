@@ -4,12 +4,11 @@ import { useTranslation } from "react-i18next";
 import { APP_NAME, SUPPORT_EMAIL } from "../sdk";
 import LegalDocumentLayout, { type LegalSection } from "./LegalDocumentLayout";
 
-// Content lives in translations/languages/*/legal.json (kept in sync with
-// the actual data flows in the codebase - see
-// docs/mystic_auth/security/decisions-infra.md for the audit this was
-// written against - rather than generic boilerplate) so update that file
-// whenever a data-collecting field, cookie, or third party actually
-// changes, in every language.
+// Content lives in translations/languages/*/legal.json, kept in sync with
+// the codebase's actual data flows (see docs/mystic_auth/security/decisions-infra.md
+// for the audit this was written against) rather than generic boilerplate.
+// Update that file, in every language, whenever a data-collecting field,
+// cookie, or third party changes.
 const PrivacyPolicyPage: React.FC = () => {
     const { t } = useTranslation("legal");
 

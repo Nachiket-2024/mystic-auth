@@ -8,10 +8,8 @@ from .user_model import User, UserRole
 
 
 class UserCRUDCollector:
-    """
-    Facade over the user CRUD sub-classes (base, email, role, lifecycle),
-    forwarding their methods for convenience and IDE discovery.
-    """
+    """Facade over the user CRUD sub-classes (base, email, role, lifecycle),
+    forwarding their methods for convenience and IDE discovery."""
 
     def __init__(self, model):
         self.base = UserBaseCRUD(model)

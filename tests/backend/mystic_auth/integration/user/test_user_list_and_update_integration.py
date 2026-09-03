@@ -1,16 +1,11 @@
-# tests/backend/mystic_auth/integration/test_user_list_and_update_integration.py
+# tests/backend/mystic_auth/integration/user/test_user_list_and_update_integration.py
 #
 # End-to-end PBAC coverage for the GET /users/ authorization gate and the
-# core PBAC claims (role is metadata only, never consulted for access;
-# roleless accounts work) against the real ASGI app, real PostgreSQL, and
-# real Redis (see conftest.py). Admin-side listing/filtering/sorting and
-# admin-driven updates (including the system-user guards) are covered
-# separately in test_user_admin_management_integration.py, split out of
-# this file once it passed the repo's own file-length guideline. Split out
-# of what used to be one 629-line test_user_management_routes_integration.py:
-# this half covers viewing/editing an existing account; test_user_account_
-# lifecycle_integration.py covers delete/purge/reactivate and
-# password-change side effects.
+# core PBAC claims: role is metadata only and never consulted for access,
+# and roleless accounts still work. Admin-side listing/filtering/sorting
+# and admin-driven updates live in test_user_admin_management_integration.py;
+# delete/purge/reactivate and password-change side effects live in
+# test_user_account_lifecycle_integration.py.
 import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (
@@ -57,15 +52,15 @@ async def test_regular_user_cannot_update_another_user(client, created_emails):
 
 
 # ---------------------------- Core PBAC claims ----------------------------
-# Per the PBAC testing requirements: prove that identical roles can have
-# different permissions, and that policies (not roles) determine access.
+# Proves identical roles can have different permissions, and that policies
+# (not roles) determine access.
 
 @pytest.mark.asyncio
 async def test_identical_roles_can_have_different_permissions(client, created_emails):
     admin_with_access_email = unique_email("admin-full")
     admin_without_access_email = unique_email("admin-bare")
 
-    # Both accounts carry role=admin (identical metadata)...
+    # Both accounts carry role=admin...
     await create_verified_user(
         client, created_emails, admin_with_access_email,
         role=UserRole.admin,
@@ -95,9 +90,8 @@ async def test_identical_roles_can_have_different_permissions(client, created_em
 
 @pytest.mark.asyncio
 async def test_a_plain_role_user_with_admin_policy_gets_admin_capability(client, created_emails):
-    # The converse: role="user" (the lowest metadata tier) with
-    # user_administration assigned directly must be authorized exactly like
-    # an "admin"-role account: role plays no part in the decision at all.
+    # The converse: role="user" with user_administration assigned directly
+    # must be authorized exactly like an "admin"-role account.
     email = unique_email()
     await create_verified_user(
         client, created_emails, email,
@@ -127,18 +121,13 @@ async def test_list_all_users_respects_limit_query_param(client, created_emails)
 
 
 # ---------------------------- Users without roles ----------------------------
-# Per the role-as-metadata invariant: "The system must support ... users
-# without roles", and Testing Requirements: "users without roles still
-# work". role is nullable precisely so this is possible (see
-# user_model.py): a roleless account must still authenticate (real login,
-# real JWT, real GET /auth/me) and be authorized purely via its assigned
-# policies, with no fallback to any role-based behavior anywhere.
+# role is nullable so a roleless account can still authenticate and be
+# authorized purely via its assigned policies, with no role fallback.
 
 @pytest.mark.asyncio
 async def test_roleless_user_gets_admin_level_access_when_assigned_admin_policies(client, created_emails):
-    # The strongest form of the claim: a roleless account isn't capped at
-    # "basic" access: it gets exactly whatever policies it holds, same as
-    # any role-carrying account, proving role never enters the decision.
+    # A roleless account isn't capped at "basic" access: it gets whatever
+    # policies it holds, same as any role-carrying account.
     email = unique_email("roleless-admin")
     await create_roleless_user(
         created_emails, email, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]

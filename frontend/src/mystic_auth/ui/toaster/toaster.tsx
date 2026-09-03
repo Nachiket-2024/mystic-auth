@@ -8,10 +8,8 @@ import {
 
 import { toaster } from "./toasterInstance";
 
-/**
- * Renders the shared toast queue. Mount exactly once near the app root: rendering it more than
- * once would duplicate every toast.
- */
+/** Renders the shared toast queue. Mount exactly once near the app root:
+ * rendering it more than once would duplicate every toast. */
 export const Toaster = () => {
     return (
         <Portal>

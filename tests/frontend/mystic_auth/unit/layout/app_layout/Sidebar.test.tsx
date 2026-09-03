@@ -71,9 +71,8 @@ describe('Sidebar', () => {
 
   it('shows the Policies link for a caller holding only policies:create (no policies:read)', () => {
     // Creating a policy needs no visibility into existing ones, unlike
-    // policies:read's other siblings (update/delete/assign/revoke), which
-    // all require first finding the target via the read-gated list - see
-    // navItems.ts's Policies entry and PoliciesPage's own docstring.
+    // update/delete/assign/revoke, which require finding the target
+    // through the read-gated list first.
     seed(['policies:create']);
     renderSidebar();
 
@@ -90,9 +89,8 @@ describe('Sidebar', () => {
   it('renders no extra links when extraItems is omitted, unchanged from before this prop existed', () => {
     renderSidebar();
 
-    // Scoped to the nav-links list, not the whole sidebar: the brand text
-    // above it is also a link (to /dashboard), which would otherwise count
-    // itself here and throw every length/order assertion below off by one.
+    // Scoped to the nav-links list: the brand text above it is also a
+    // link (to /dashboard) and would otherwise be counted too.
     const navLinks = within(screen.getByTestId('nav-links'));
     expect(navLinks.getAllByRole('link')).toHaveLength(3); // Dashboard, Audit Log, Account Settings
   });
@@ -112,10 +110,10 @@ describe('Sidebar', () => {
   });
 
   it('slots an extraItems link between two built-ins using order', () => {
-    // Dashboard is order:10, Audit Log is order:40 : 25 lands between them,
-    // after Users/Policies too (order:20/30) even though this caller can't
-    // see those two (no matching permissions), confirming order is applied
-    // to the full merged list, not just to the items actually rendered.
+    // Dashboard is order:10, Audit Log is order:40, so 25 lands between
+    // them, after Users/Policies (order:20/30) too even though this caller
+    // can't see those two: order applies to the full merged list, not just
+    // rendered items.
     renderSidebar(['/'], [{ label: 'Extra B', to: '/extra-b', order: 25 }]);
 
     const navLinks = within(screen.getByTestId('nav-links'));

@@ -1,5 +1,10 @@
 # Docker Overview
+
 ---
+
+This stack runs as several Docker Compose services. This page lists them
+and links to the detail pages for images, compose modes, healthchecks, and
+day-to-day workflow.
 
 ## Services
 
@@ -7,17 +12,20 @@
 |---|---|---|
 | `postgres` | `postgres:15` | Primary database, plus the Procrastinate job queue (`procrastinate_jobs`) |
 | `redis` | `redis:7` | Cache, rate limits, lockout counters, account/chain version counters, single-use refresh-token claims |
-| `backend` | `docker/backend.Dockerfile` | FastAPI app (uvicorn) |
-| `frontend` | `docker/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
-| `procrastinate_worker` | `docker/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue and runs the daily scheduled account-purge job (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
-| `alembic` | `docker/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend` and `procrastinate_worker` wait on its success |
+| `backend` | `docker/dockerfiles/backend.Dockerfile` | FastAPI app (uvicorn) |
+| `frontend` | `docker/dockerfiles/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
+| `procrastinate_worker` | `docker/dockerfiles/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue and runs the daily scheduled account-purge job (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
+| `alembic` | `docker/dockerfiles/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend` and `procrastinate_worker` wait on its success |
 | `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring that starts by default with the stack. See [Error Monitoring](../error-monitoring/overview.md) |
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy. It creates the "MysticAuth" team/project idempotently and writes seeded DSNs into the `bugsink_dsn` volume. Locally, both backend and frontend DSN forms are written and read at startup. In prod, only the backend form is written because `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time |
+| `cloudflared` / `ngrok` / `tailscale` | Pulled, not built | The public tunnel, one per `docker-compose.local-prod-*.yml` variant. Proxies `frontend:80` to a public URL and terminates TLS at the provider's edge. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want) |
+| `geoipupdate` | `ghcr.io/maxmind/geoipupdate:latest` (pulled, not built) | Optional, off by default (`geoip` Compose profile): keeps `backend`'s GeoLite2-City `.mmdb` file current. See [Session Geolocation](../geolocation/overview.md) |
+| `db_backup` | `postgres:15` (same image as `postgres`, different `command:`) | On by default in every production-style Compose file: dumps both databases to `./backups` on a loop. See [Deployment Guide: Backups](../deployment/migrations-and-backups.md) |
 
 ---
 
 `backend`, `procrastinate_worker`, and `alembic` all build from
-the same `docker/backend.Dockerfile` image with different `command:`
+the same `docker/dockerfiles/backend.Dockerfile` image with different `command:`
 overrides. This keeps dependency versions and application code identical
 across all three roles.
 
@@ -27,7 +35,7 @@ The `postgres` service mounts `docker/postgres-init/` to
 
 ---
 
-### Startup order
+## Startup order
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
@@ -36,22 +44,19 @@ flowchart TD
         postgres(("postgres"))
         redis(("redis"))
     end
-
-    subgraph App["Application<br/> services"]
-        alembic["alembic<br/> runs once,<br/> exits"]
+    subgraph App["Application\n services"]
+        alembic["alembic\n runs once,\n exits"]
         backend["backend"]
-        worker["procrastinate<br/> _worker"]
+        worker["procrastinate\n _worker"]
         frontend["frontend"]
     end
-
     subgraph Monitoring["Error monitoring"]
         bugsink["bugsink"]
-        bugsinkseed["bugsink-seed<br/> runs once,<br/> exits"]
+        bugsinkseed["bugsink-seed\n runs once,\n exits"]
     end
-
     postgres --> alembic
     redis --> alembic
-    alembic -->|"prod: waits for<br/> success.<br/> dev: no gate"| backend
+    alembic -->|"prod: waits for\n success,\n dev: no gate"| backend
     alembic --> worker
     postgres --> backend
     redis --> backend
@@ -64,217 +69,12 @@ flowchart TD
 
 ---
 
-## Dockerfiles
+## More on this topic
 
-- **`docker/backend.Dockerfile`**: three named stages. `builder` compiles native dependencies (`gcc`, `libpq-dev`) into an isolated venv. `runtime` (`python:3.14.6-slim` with only `libpq5`, the runtime client lib, not the dev headers, running as a non-root `app` user) copies that venv plus the app source; this is the image `backend`, `procrastinate_worker`, and `alembic` all deploy from, and the default target when none is passed. `test` builds on top of `runtime` and adds `backend/requirements-dev.txt` (pytest and friends) as `root`, so `docker-full-suite` (CI) can run the full backend suite against the actual pinned dependency set inside the real image, without that tooling ever shipping in the `runtime` image everyone else deploys. Selected via the `backend` service's `target: ${BACKEND_BUILD_TARGET:-runtime}` in `docker-compose.yml`; CI builds `--target runtime` for the real image and sets `BACKEND_BUILD_TARGET=test` only for the `docker-full-suite` job. Ships a `HEALTHCHECK` against `/health/ready` as a fallback for when the image runs outside Compose (Compose's own healthcheck, defined per-service, is what actually gates dependent-service startup).
-- **`docker/frontend.Dockerfile`**: three stages: `dev` (default target: `node:22.22.0-bullseye`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user), `builder` (compiles the production bundle; takes `VITE_API_BASE_URL`/`VITE_APP_NAME`/`VITE_SENTRY_DSN`/`VITE_SENTRY_ENVIRONMENT` as build args, since this stage has no bind-mounted `frontend/.env` to read them from the way `dev` does: wired from the root `.env` via `docker-compose.local-prod.yml`'s `build.args`, see [Deployment Guide](../deployment/guide.md#required-production-environment-variables)), `production` (`nginx:1.27-alpine` serving the static build as a non-root `nginx` user, port 80, `HEALTHCHECK` via `wget`).
-- **`docker/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP). No HSTS at this layer: by design, since TLS terminates in front of this container in a real deployment, not here (see [Security Hardening: HTTP Layer](../security/hardening-http.md#security-response-headers)).
-- **`.dockerignore`** (repo root: the build context for both Dockerfiles above is `.`, not `backend/`/`frontend/` individually, so its patterns are written relative to the repo root): excludes `backend/logs/` (real local request logs, previously leaking into the backend image: a real bug, not a hypothetical one, see [Security Decisions](../security/decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images)) and `**/`-recursive patterns for `__pycache__/`/`*.pyc`/`.pytest_cache/` (bare patterns without the `**/` prefix looked like they should already match at any depth but empirically didn't).
-
----
-
-### Why `frontend` sets `pull_policy: build`
-
-`frontend` is the only service in any of the three compose files with both
-`image:` (`mystic-auth-dev-frontend` / `mystic-auth-local-prod-frontend` /
-`mystic-auth-prod-frontend`, one per file so building one never overwrites
-another's image) and `build:` set. Every other service either only has
-`build:` (nothing to pull) or only has `image:` (postgres, redis, bugsink,
-genuinely pulled from a registry). Without `pull_policy: build`, Compose
-attempts a pull of `image:` first on every run, which always fails (`pull
-access denied for mystic-auth-dev-frontend, repository does not exist`)
-since these tags are never published, before falling back to building
-anyway. Harmless but noisy on every startup; `pull_policy: build` skips
-straight to building.
-
----
-
-## Dev vs. production compose
-
-| | `docker-compose.yml` | `docker-compose.local-prod.yml` | `docker-compose.prod.yml` |
-|---|---|---|---|
-| Purpose | Local development | Self-hosted production image shape behind Cloudflare Tunnel or an external TLS layer | Self-hosted deployment on your own server with Caddy-managed TLS |
-| Frontend | Vite dev server, HMR, bind-mounted source | nginx serving the baked-in static build | nginx serving the baked-in static build, reached through Caddy |
-| Backend/worker | `--reload`, bind-mounted `./backend:/app` | No reload, code baked into the image | No reload, code baked into the image |
-| Restart policy | `restart: always` for Postgres/Redis only | `unless-stopped` on every long-running service | `unless-stopped` on every long-running service |
-| Ports exposed | 5433 (Postgres), 6380 (Redis), 8000 (backend), 5173 (frontend), 8010 (Bugsink), all on localhost-friendly dev ports | 8001 (backend) and 8080 (frontend) published for a local reverse proxy or tunnel, 8011 (Bugsink) on localhost only. Deliberately offset from dev's ports so both stacks can run side by side | Only 80/443 on Caddy. Postgres, Redis, backend, and frontend are internal-only |
-| TLS | None | External terminator or tunnel | Caddy with automatic Let's Encrypt certificates |
-| `backend` startup gate | Postgres and Redis healthy | Postgres and Redis healthy, plus `alembic: service_completed_successfully` | Postgres and Redis healthy, plus `alembic: service_completed_successfully` |
-| `procrastinate_worker` startup gate | Postgres healthy | Postgres healthy, plus `alembic: service_completed_successfully` | Postgres healthy, plus `alembic: service_completed_successfully` |
-
-Use `docker-compose.local-prod.yml` when you want to self-host the production image/runtime shape from a machine that does not own a public IP, with Cloudflare Tunnel or another external tool owning the public URL and TLS. Use `docker-compose.prod.yml` when the host itself should expose only Caddy on 80/443. See [Deployment Guide](../deployment/guide.md).
-
----
-
-### Each compose file is its own Compose project
-
-All three files declare a top-level `name:` (`mystic-auth-dev`,
-`mystic-auth-local-prod`, `mystic-auth-prod`). Without it, Compose derives
-the project name from the directory (`mystic-auth` for every file here,
-since they all live in the same directory), which means every container,
-network, and **named volume** (`postgres_data`, `backend_logs`, ...) from
-any of the three files collides on the exact same name. Two of these
-stacks running "side by side" then aren't actually isolated: they silently
-share one Postgres volume, so a command that looks scoped to one stack
-(`docker compose -f docker-compose.yml down -v`, or even just recreating a
-volume to fix a stale password) can wipe what's actually a different
-stack's real data. That's a real incident, not a hypothetical: an early
-local-prod test environment's database (test users, custom PBAC policies)
-was lost exactly this way, mid-session, before this fix.
-
-With each file's `name:` set, `docker compose -f docker-compose.yml up -d`
-and `docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod up -d --build` can run
-at the same time on one machine with zero collision - separate containers
-(`mystic-auth-dev-postgres-1` vs. `mystic-auth-local-prod-postgres-1`),
-separate networks, separate volumes. If you have a pre-existing stack from
-before this change (containers plainly named `mystic-auth-postgres-1`
-etc., no `-dev`/`-local-prod`/`-prod` in the name), it's running under the
-old directory-derived project name and is now orphaned from every compose
-file's default target - `docker compose -p mystic-auth -f <file>.yml down`
-(explicitly naming the old project) stops it; its data volumes
-(`mystic-auth_postgres_data`, ...) survive that and can be inspected or
-removed manually once you've confirmed you don't need them.
-
----
-
-### Running a one-off command inside a container
-
-**Shortcut: `scripts/docker/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\docker\backend-exec.ps1 <command>` (PowerShell), or `scripts\docker\backend-exec.cmd <command>` (Command Prompt)** run this section's recommended invocation. Both workarounds below are built in and are harmless no-ops on platforms that do not need them. Use these day to day. The raw command is spelled out below for cases the wrapper does not cover.
-
-`docker compose exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see `docker-compose.yml`'s `backend` service).
-
----
-
-**On Windows, using Git Bash specifically:** this can fail with `OCI runtime exec failed: exec failed: Cwd must be an absolute path`, even though `/repo` clearly is one. Git Bash silently rewrites arguments that look like Unix paths into Windows paths before handing them to non-MSYS programs like `docker.exe`, which mangles `-w /repo` into something Docker no longer recognizes. Two ways around it, either works:
-
-```bash
-# Option 1: disable Git Bash's path rewriting for this one command
-MSYS_NO_PATHCONV=1 docker compose exec -w /repo backend <command>
-
-# Option 2: cd inside the container's own shell instead of using -w
-docker compose exec backend bash -c "cd /repo && <command>"
-```
-
-This is specific to Git Bash's own path handling: PowerShell, Command Prompt, and native Linux/macOS terminals all run `-w /repo` as written, with nothing to work around.
-
----
-
-**Running `pytest` specifically needs `--user root`, on native Linux.** `pytest.ini` writes coverage output (`.coverage`, `htmlcov/`) to the current working directory: `/repo`, the whole-repo bind mount: and that directory's actual ownership on disk is whatever owns the host's checkout, not the container's own non-root `app` user (same root cause as [why `/app/logs` is a named volume](#why-applogs-is-a-named-volume-not-part-of-the-backendapp-bind-mount), just for coverage's output files instead of the app's own log directory, and not something a single named-volume mount can carve out the way `/app/logs` could, since coverage's output isn't confined to one fixed path). Invisible on Docker Desktop for the same reason as always; a hard `PermissionError`/`INTERNALERROR` on native Linux otherwise:
-
-```text
-docker compose exec --user root -w /repo backend pytest tests/backend/
-```
-
-Running as root here is scoped to this one throwaway test invocation: it has no bearing on the actual application, which still runs as its normal non-root `app` user by default (`backend.Dockerfile`'s `USER app`) for every real request it serves. One minor side effect worth knowing on native Linux specifically: `.coverage`/`htmlcov/` end up root-owned on the host afterward, so a later `rm -rf htmlcov/` may need `sudo`. Docker Desktop (Windows/Mac) doesn't have this wrinkle either, for the same permissive-bind-mount reason as above.
-
----
-
-## Healthchecks
-
-| Service | Check | Notes |
-|---|---|---|
-| `postgres` | `pg_isready` | |
-| `redis` | `redis-cli ping` | |
-| `backend` | `GET /health/ready` via a Python one-liner (no curl in the slim image) | Confirms DB + Redis connectivity, not just process liveness. Budget is 10 retries / 30s start period (~130s total) rather than a tighter 5/10s (~60s): generous headroom for a genuinely cold first boot on modest or shared hardware. This is a secondary hardening, not the fix for the specific bug below: no healthcheck budget helps if the container is actually crash-looping. |
-| `frontend` (prod) | `wget` against `/` | |
-| `frontend` (dev) | none | Acceptable for local dev: Vite's own dev server failure is immediately visible in the terminal |
-| `procrastinate_worker` | `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app healthchecks` | Overrides the inherited HTTP healthcheck from `backend.Dockerfile`, since the worker serves no HTTP and would otherwise always report unhealthy. Confirms the DB connection works and the `procrastinate_jobs` table exists, not just process liveness |
-| `bugsink` | `GET /health/ready` via a Python one-liner | Same reasoning as `backend`'s own check |
-| `alembic` | none | One-shot; `service_completed_successfully` is the signal other services wait on, not a healthcheck |
-| `bugsink-seed` | none | One-shot, same shape as `alembic`: creates the Bugsink project/DSN once, then exits 0 |
-
----
-
-### Day-to-day: dev-up helpers
-
-`docker compose up` (no `-d`) attaches to and interleaves *every* service's
-full stdout/stderr into one stream: Postgres's own boot log, Alembic's
-migration list, Bugsink's 100+ Django migrations, and (worst of it)
-Bugsink's own healthcheck hitting `/health/ready` every 10 seconds,
-forever, all mixed in with whatever you actually started the stack to look
-at. None of that is useful once the stack is actually up.
-
-Use the helper for your shell:
-
-```bash
-# Git Bash, WSL, Linux, macOS
-./scripts/docker/dev-up.sh
-```
-
-```powershell
-# PowerShell
-.\scripts\docker\dev-up.ps1
-```
-
-```bat
-rem Command Prompt
-scripts\docker\dev-up.cmd
-```
----
-
-The helper script starts the stack detached, restarts `backend` and
-`procrastinate_worker` so their startup banners are fresh, waits for health checks,
-prints one status line per service, and tails fresh logs from
-`backend`/`frontend`/`procrastinate_worker`. The tail includes startup banners, API
-traffic, Vite output, and async email task execution.
-
-The script records a timestamp before starting Compose and passes it to
-`docker compose logs --since`, so old request or task activity is not replayed
-as if it belonged to the current startup. If a service fails to come up, the
-status table still prints and the script exits non-zero.
-
----
-
-Because `backend`/`procrastinate_worker` restart on every invocation, running the
-helper a second time while it (or another copy of it) is already tailing
-the same stack will restart both again because each invocation is independent.
-In-flight requests or tasks may retry, and you should expect an extra boot
-banner in that case.
-
-It deliberately does **not** use `docker compose up --wait`, despite that
-being the obvious built-in choice. `--wait` treats *any* exited container
-as a failure to reach "running," with no exception for a one-shot job that
-exited 0 on purpose. `alembic` and `bugsink-seed` (see the table above)
-are exactly that. `--wait` reports this stack as failed on every single
-successful start, because those two containers correctly finished and
-exited. The dev-up helpers poll the long-running services' own status
-text directly instead, entirely sidestepping that mismatch.
-
-Plain `docker compose up` still has its place. Run it directly when you
-want everything's full logs in one interleaved stream, e.g. actually
-debugging Postgres/Bugsink/Alembic startup itself rather than the app.
-
----
-
-### Why `/app/logs` is a named volume, not part of the `./backend:/app` bind mount
-
-Dev's `backend` and `procrastinate_worker` services bind-mount `./backend:/app` for
-hot reload. `mystic_auth/logging/logging_config.py` writes to `/app/logs`.
-Without a separate volume, that path would live inside the bind mount and be
-owned by the host checkout owner, not the container's non-root `app` user.
-
-Docker Desktop on Windows and macOS hides this because its bind mounts are more
-permissive. Native Linux does not. A fresh clone has no `backend/logs/`
-directory because it is gitignored, so the container's `app` user cannot create
-it inside the host-owned bind mount. `os.makedirs()` then raises
-`PermissionError` at import time before the app starts serving. This broke CI
-the first time a job booted the dev Compose stack on a Linux runner.
-
-The fix has two parts. `docker/backend.Dockerfile` creates `/app/logs` and
-`chown`s it to the `app` user at build time. `docker-compose.yml` mounts a
-Docker-managed volume, `backend_logs:/app/logs`, on top of that path for both
-`backend` and `procrastinate_worker`. Docker initializes a fresh named volume from the
-image path, including ownership, so the app always writes to a directory owned
-by the container user. The tradeoff is that `backend/logs/access.log` is no
-longer directly readable from the host in dev. Use
-`docker compose exec backend tail -f logs/access.log`, or
-`docker compose logs backend` for WARNING and above.
-
----
-
-## Validation history
-
-Live verification notes live in their own doc so this page stays
-reference-focused. See [Docker Validation History](validation-history.md).
+- [Dockerfiles](dockerfiles.md): the backend and frontend image build stages, `nginx.frontend.conf`, `.dockerignore`, and why `frontend` sets `pull_policy: build`.
+- [Compose Modes](compose-modes.md): dev vs. production compose differences, and why each compose file declares its own Compose project name.
+- [Healthchecks](healthchecks.md): the per-service healthcheck table.
+- [Dev Workflow](dev-workflow.md): the dev-up helper scripts, running one-off commands inside a container, and why `/app/logs` is a named volume.
+- [Docker Validation History](validation-history.md): live verification notes.
 
 ---

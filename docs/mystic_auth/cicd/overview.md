@@ -15,14 +15,14 @@ fifth runs only on a push to `main`.
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Trigger(["Push / PR<br/> to main"])
-    TriggerMain(["Push to<br/> main only"])
-
-    Trigger --> Backend["backend<br/> lint, type-check, bandit,<br/> pip-audit, pytest<br/> (85% cov gate)"]
-    Trigger --> Frontend["frontend<br/> typecheck, lint,<br/> test:coverage, build"]
-    Trigger --> Secrets["secrets-scan<br/> gitleaks,<br/> full git history"]
-    Trigger --> DockerBuild["docker-build,<br/> build both images,<br/> assert no leaked logs,<br/> boot the dev stack,<br/> smoke-test it"]
-    TriggerMain --> DockerFullSuite["docker-full-suite<br/> full backend + frontend suites,<br/> run inside the actual containers"]
+    Trigger(["Push / PR\n to main"])
+    TriggerMain(["Push to\n main only"])
+    Trigger --> Backend["backend\n lint, type-check, bandit,\n pip-audit, pytest\n (85% cov gate)"]
+    Trigger --> Frontend["frontend\n typecheck, lint,\n test:coverage, build"]
+    Trigger --> Secrets["secrets-scan\n gitleaks,\n full git history"]
+    Trigger --> DockerBuild["docker-build,\n build both images,\n assert no leaked logs,\n boot the dev stack,\n smoke-test it"]
+    DockerBuild ~~~ TriggerMain
+    TriggerMain --> DockerFullSuite["docker-full-suite\n full backend + frontend suites,\n run inside the actual containers"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
@@ -33,7 +33,7 @@ flowchart TD
   remains the source of truth for local development, but service containers are
   a lower-overhead CI equivalent for the backend job.
 - Provides all required settings as job-level environment variables with
-  clearly fake CI-only values because CI has no checked-in `.env`. `APP_NAME`
+  clearly fake CI-only values because CI has no checked-in `env/.env`. `APP_NAME`
   is set to `MysticAuth` only because `Settings` requires a value. It is a test
   placeholder, not branding that a downstream project must keep in sync.
 - Installs `backend/requirements.txt` and `backend/requirements-dev.txt`, then
@@ -73,15 +73,15 @@ flowchart TD
 
 ### `docker-build`: Docker image build verification
 
-- Builds `docker/backend.Dockerfile` and `docker/frontend.Dockerfile --target production` to confirm both images still build cleanly.
-- Validates all three Compose files parse: `docker-compose.yml`, `docker-compose.local-prod.yml`, and `docker-compose.prod.yml`.
+- Builds `docker/dockerfiles/backend.Dockerfile` and `docker/dockerfiles/frontend.Dockerfile --target production` to confirm both images still build cleanly.
+- Validates all five Compose files (under `docker/compose/`) parse: `docker-compose.dev.yml`, `docker-compose.local-prod-cloudflare.yml`, `docker-compose.local-prod-ngrok.yml`, `docker-compose.local-prod-tailscale.yml`, and `docker-compose.prod.yml`.
 - Runs the built backend image and asserts `/app/logs` exists but is **empty**: a regression guard for a real bug found during a pre-release image-contents audit (local access-log files, with real request data, were previously getting baked into the image via a `.dockerignore` gap: see [Security Decisions](../security/decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images)). The directory itself is expected to exist (the app creates it on import); this only checks that no host-side log content rode along inside it.
-- Boots the real dev stack with `docker compose up -d --build postgres redis
+- Boots the real dev stack with `docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build postgres redis
   alembic backend frontend`, waits for `/health/ready` and the frontend dev
   server, checks response bodies, and tears the stack down. This verifies the
   images and Compose wiring actually serve traffic. It does not re-run the test
   suite because that is handled by `docker-full-suite`.
-- Blanks `BUGSINK_SUPERUSER_EMAIL` in the job's temporary `.env` copy before
+- Blanks `BUGSINK_SUPERUSER_EMAIL` in the job's temporary `env/.env` copy before
   booting because `bugsink` and `bugsink-seed` are not started in this job. This
   avoids waiting for a DSN file that will never be written.
 - Prints `docker compose logs --no-color` on failure so container startup
@@ -100,7 +100,7 @@ flowchart TD
   inside the running backend container. `--user root` is required because
   coverage output writes to `/repo`, the whole-repo bind mount. Native Linux
   does not let the container's non-root `app` user write there. See
-  [Docker Overview: running a one-off command inside a container](../docker/overview.md#running-a-one-off-command-inside-a-container).
+  [Docker Overview: running a one-off command inside a container](../docker/dev-workflow.md#running-a-one-off-command-inside-a-container).
 - Boots the frontend, then runs its full test suite inside that container the same way.
 - Same on-failure `docker compose logs` step as `docker-build`.
 - This repeats tests already run natively. The value is running them through the
@@ -159,38 +159,38 @@ npm run typecheck --prefix frontend && npm run lint --prefix frontend && npm run
 gitleaks detect --source . -v
 
 # Docker image builds (from repo root)
-docker build --target runtime -f docker/backend.Dockerfile -t backend:local .
-docker build --target production -f docker/frontend.Dockerfile -t frontend:local .
+docker build --target runtime -f docker/dockerfiles/backend.Dockerfile -t backend:local .
+docker build --target production -f docker/dockerfiles/frontend.Dockerfile -t frontend:local .
 
 # Boot + smoke-test the dev stack, the same thing docker-build does on every PR
-cp .env.example .env
-sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' .env   # skip the wasted Bugsink-DSN wait: bugsink isn't started below
-docker compose up -d --build postgres redis alembic backend frontend
+cp env/.env.example env/.env
+sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/.env   # skip the wasted Bugsink-DSN wait: bugsink isn't started below
+docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build postgres redis alembic backend frontend
 curl -sf http://localhost:8000/health/ready   # wait/retry until it returns {"status":"ok"}
 curl -sf http://localhost:5173                # wait/retry until it responds
-docker compose down -v && rm .env
+docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env down -v && rm env/.env
 
 # Full suite through the actual containers, the same thing docker-full-suite
 # does on every push to main
-cp .env.example .env
-sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' .env
-# BACKEND_BUILD_TARGET=test builds docker/backend.Dockerfile's `test` stage
+cp env/.env.example env/.env
+sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/.env
+# BACKEND_BUILD_TARGET=test builds docker/dockerfiles/backend.Dockerfile's `test` stage
 # (runtime image + pytest), so pytest is available inside the container below
 # without the runtime image everyone else deploys ever shipping test tooling.
-BACKEND_BUILD_TARGET=test docker compose up -d --build postgres redis alembic backend
+BACKEND_BUILD_TARGET=test docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build postgres redis alembic backend
 # --user root: needed on native Linux, or pytest-cov's coverage output
 # (written to /repo, the whole-repo bind mount) crashes with a permission
 # error: see docs/mystic_auth/docker/overview.md's "running a one-off
 # command inside a container" section
-docker compose exec -T --user root backend bash -c "
+docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T --user root backend bash -c "
   cd /repo &&
   python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q &&
   python -m pytest tests/backend/mystic_auth/integration -q --cov-append &&
   python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=85
 "
-docker compose up -d --build frontend
-docker compose exec -T frontend sh -c "npm run test -- --run"
-docker compose down -v && rm .env
+docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build frontend
+docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T frontend sh -c "npm run test -- --run"
+docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env down -v && rm env/.env
 ```
 
 ---

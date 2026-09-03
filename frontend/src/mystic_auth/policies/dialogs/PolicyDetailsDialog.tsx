@@ -21,10 +21,9 @@ interface DetailRowProps {
     children: React.ReactNode;
 }
 
-/** Same label/value layout as users/dialogs/UserDetailsDialog.tsx's own DetailRow -
- * this dialog exists to show what the table's own Name/Actions columns
- * truncate (see DataTable.tsx's `truncate` columns and PoliciesPage.tsx's
- * fixed-width actions column), so nothing here should re-truncate. */
+/** Same label/value layout as UserDetailsDialog's DetailRow. This dialog
+ * exists to show what the table's Name/Actions columns truncate, so
+ * nothing here should re-truncate. */
 const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
     <Stack gap={0.5}>
         <Text fontSize="sm" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" color="fg.muted">
@@ -40,10 +39,9 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
  * PolicyDetailsDialog
  * ----------------------------
  * Read-only "View" panel for one policy's full name/description/actions/
- * conditions - everything PoliciesPage's own table truncates or hides
- * (conditions isn't a column at all). Pure display surface, same shape as
- * users/dialogs/UserDetailsDialog.tsx: takes the already-fetched row object
- * directly, no separate query.
+ * conditions, everything PoliciesPage's table truncates or hides entirely
+ * (conditions isn't a column at all). Takes the already-fetched row object
+ * directly, no separate query, same as UserDetailsDialog.
  */
 const PolicyDetailsDialog: React.FC<PolicyDetailsDialogProps> = ({ isOpen, policy, onClose }) => {
     const { t } = useTranslation(["policies", "ui_text"]);
@@ -66,11 +64,10 @@ const PolicyDetailsDialog: React.FC<PolicyDetailsDialogProps> = ({ isOpen, polic
                         </Dialog.Header>
                         <Dialog.Body>
                             <Stack gap={4}>
-                                {/* Short fields pair up two-per-row at this width (size="xl"
-                                    above) instead of each claiming a full row, so a policy
-                                    with many actions (e.g. system_superuser's 18) has enough
-                                    headroom left in the body to show every badge without the
-                                    dialog needing its own internal scroll. */}
+                                {/* Short fields pair up two-per-row instead of each taking a
+                                    full row, leaving enough headroom for policies with many
+                                    actions (e.g. system_superuser's 18) to show every badge
+                                    without the dialog needing its own scroll. */}
                                 <SimpleGrid columns={2} gap={4}>
                                     <DetailRow label={t("policies:detailsDialog.name")}>{policy.name}</DetailRow>
                                     <DetailRow label={t("policies:detailsDialog.resourceType")}>{policy.resource_type}</DetailRow>
@@ -119,10 +116,9 @@ const PolicyDetailsDialog: React.FC<PolicyDetailsDialogProps> = ({ isOpen, polic
                                 {t("ui_text:close")}
                             </Button>
                         </Dialog.Footer>
-                        {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
-                            (unlike v2) - without explicit children it was an empty
-                            0x0 button, invisible to every user, not just screen
-                            readers (axe-core button-name audit). */}
+                        {/* Chakra v3's Dialog.CloseTrigger has no default icon; without
+                            children it was an empty 0x0 button (axe-core button-name
+                            audit caught it). */}
                         <Dialog.CloseTrigger aria-label={t("ui_text:closeDialog")} {...CLOSE_TRIGGER_PROPS}>
                             <X size={16} aria-hidden="true" />
                         </Dialog.CloseTrigger>

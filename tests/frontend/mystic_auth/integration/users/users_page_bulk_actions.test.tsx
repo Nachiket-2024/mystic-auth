@@ -92,10 +92,8 @@ describe('UsersPage bulk actions', () => {
     });
   });
 
-  // Explicit timeout: passes well within vitest's 5000ms default in
-  // isolation, but this suite's full parallel run occasionally pushes it
-  // past that under load - same reasoning as users_page_permissions.test.tsx's
-  // own identical comment on its assign+revoke roundtrip test.
+  // Explicit timeout: this suite's full parallel run occasionally exceeds
+  // vitest's 5000ms default, even though it's fast in isolation.
   it('always renders the bulk action buttons, enabling them only once rows are selected', async () => {
     seed(['users:list_all', 'policies:assign']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
@@ -110,9 +108,8 @@ describe('UsersPage bulk actions', () => {
 
     const rowCheckboxes = await screen.findAllByRole('checkbox', { name: 'Select row' });
     await user.click(rowCheckboxes[0]);
-    // "1 selected" itself is DataTable's own built-in selection summary
-    // (see DataTable.tsx), not this toolbar's concern - this only checks
-    // that the bulk-action buttons enable/disable with the selection.
+    // The "1 selected" text is DataTable's own summary (see DataTable.tsx);
+    // this only checks the bulk-action buttons enable/disable correctly.
     expect(await screen.findByRole('button', { name: 'Assign / revoke policy' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Clear selection' })).toBeEnabled();
 
@@ -158,11 +155,9 @@ describe('UsersPage bulk actions', () => {
   });
 
   it('does not still show the previous run\'s result summary when the bulk policy dialog is reopened', async () => {
-    // Regression: react-query mutations keep their last `.data` around
-    // across remounts until told otherwise (see BulkPolicyAssignDialog.tsx's
-    // reset-on-reopen fix) - closing the dialog after a successful assign
-    // and reopening it, before touching anything this time, showed the
-    // exact same "succeeded" summary again.
+    // Regression: react-query mutations kept their last `.data` around
+    // across remounts, so reopening the dialog showed the previous run's
+    // summary (see BulkPolicyAssignDialog.tsx's reset-on-reopen fix).
     seed(['users:list_all', 'policies:assign', 'policies:read']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
@@ -195,9 +190,8 @@ describe('UsersPage bulk actions', () => {
   });
 
   it('surfaces a toast when the bulk-assign request itself fails (not a per-item error)', async () => {
-    // Regression: the bulk-assign mutation had no onError handler at all,
-    // so a request-level failure (network error, 500) left the button's
-    // spinner simply stop with no feedback of any kind.
+    // Regression: the bulk-assign mutation had no onError handler, so a
+    // request-level failure just stopped the spinner with no feedback.
     seed(['users:list_all', 'policies:assign', 'policies:read']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
@@ -323,14 +317,10 @@ describe('UsersPage bulk actions', () => {
   });
 
   it('excludes an action the sole selected user (themselves) already effectively holds via a policy, from the bulk-grant dropdown', async () => {
-    // Regression coverage: selecting just one row (here, the viewer's own)
-    // and bulk-granting used to skip exclusion filtering entirely, letting
-    // an admin "grant" themselves an action already covered by an assigned
-    // policy - a redundant, duplicate direct grant that then showed up
-    // under "Direct permissions" despite adding no real access. See
-    // BulkPermissionGrantDialog's own docstring: exclusion only applies
-    // when exactly one user is selected, using the self-service /me
-    // endpoints when that one user is the viewer.
+    // Regression: bulk-granting to a single selected row used to skip
+    // exclusion filtering, letting an admin grant themselves an action
+    // already covered by an assigned policy. Exclusion only applies when
+    // exactly one user is selected (see BulkPermissionGrantDialog).
     seed(['users:list_all', 'permissions:grant']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/permissions/catalog').reply(200, [
@@ -349,9 +339,7 @@ describe('UsersPage bulk actions', () => {
     renderPage();
 
     await screen.findByText('Regular User');
-    // Select only the admin's own row (Admin User = admin@example.com,
-    // the seeded viewer), not both rows - the single-selection case this
-    // test exercises.
+    // Select only the admin's own row (the single-selection case this test exercises).
     const rowCheckboxes = await screen.findAllByRole('checkbox', { name: 'Select row' });
     await user.click(rowCheckboxes[0]);
     await user.click(await screen.findByRole('button', { name: 'Grant / revoke permission' }));
@@ -365,12 +353,9 @@ describe('UsersPage bulk actions', () => {
   });
 
   it('shows "already had this" for a bulk-assign item the backend reports as a no-op', async () => {
-    // status: "already_held" (see bulk_schema.py's BulkItemResult) is a
-    // genuine no-op the backend reports separately from "success" - the
-    // picker itself never filters out policies/permissions some selected
-    // users already have (that's ambiguous across a multi-user selection),
-    // so this after-the-fact per-user annotation is the only place that
-    // distinction surfaces.
+    // status "already_held" (see bulk_schema.py's BulkItemResult) is a
+    // no-op the backend reports separately from "success", since the picker
+    // can't filter per-user across a multi-user selection.
     seed(['users:list_all', 'policies:assign', 'policies:read']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
@@ -434,13 +419,9 @@ describe('UsersPage bulk actions', () => {
   });
 
   it('hides "Remove from selected" in the bulk policy dialog when the caller lacks policies:revoke', async () => {
-    // Regression coverage: the toolbar's own "Assign / revoke policy" button is
-    // correctly gated on policies:assign (see BulkActionToolbar.tsx), but
-    // the dialog it opens also renders a destructive "Remove from
-    // selected" action of its own, which must independently gate on
-    // policies:revoke - holding assign alone must never surface a control
-    // whose backend call (bulk/policies/remove) this caller can't actually
-    // make.
+    // The toolbar's "Assign / revoke policy" button is gated on
+    // policies:assign, but the dialog's own "Remove from selected" action
+    // must independently gate on policies:revoke.
     seed(['users:list_all', 'policies:assign', 'policies:read']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [

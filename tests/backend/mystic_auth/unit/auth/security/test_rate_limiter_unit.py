@@ -1,4 +1,3 @@
-# tests/backend/mystic_auth/unit/test_rate_limiter_unit.py
 from unittest.mock import AsyncMock
 
 import pytest
@@ -165,10 +164,10 @@ async def test_record_request_only_sets_expiry_on_first_request_in_window(mocker
 
 @pytest.mark.asyncio
 async def test_record_request_fails_closed_on_redis_exception(mocker):
-    # Deliberate, documented tradeoff (see docs/mystic_auth/security/decisions.md): a
-    # Redis outage must deny the request rather than silently allow it: the
-    # safer default for an auth-focused template, even though it means a
-    # Redis outage takes down every rate-limited route, not just caching.
+    # Deliberate tradeoff: a Redis outage must deny the request rather
+    # than silently allow it. The safer default for an auth-focused
+    # template, even though it means a Redis outage takes down every
+    # rate-limited route, not just caching.
     mocker.patch(f"{MODULE}.redis_client.incr", side_effect=ConnectionError("redis unreachable"))
     error_mock = mocker.patch(f"{MODULE}.logger.error")
 

@@ -25,17 +25,14 @@ describe('PrivacyPolicyPage', () => {
   it('renders the policy heading and back buttons (top and bottom)', () => {
     renderPage(<PrivacyPolicyPage />);
     expect(screen.getByRole('heading', { name: /Privacy Policy/i })).toBeInTheDocument();
-    // Buttons, not links: the back action navigates to wherever the visitor
-    // came from (browser history), not a fixed href - see
-    // LegalDocumentLayout's BackButton docstring.
+    // Buttons, not links: back navigates browser history, not a fixed href.
     const backButtons = screen.getAllByRole('button', { name: /Back/i });
     expect(backButtons).toHaveLength(2);
   });
 
   it('discloses the actual data collected (session IPs and audit log retention)', () => {
-    // Regression guard: these two facts are easy to accidentally drop if the
-    // content is ever rewritten, and both were flagged specifically during
-    // the data-inventory review this policy was written against.
+    // Regression guard: these facts were flagged in the data-inventory
+    // review and are easy to drop by accident in a content rewrite.
     renderPage(<PrivacyPolicyPage />);
     expect(screen.getByText(/IP address and user agent/i)).toBeInTheDocument();
     expect(screen.getByText(/does not delete your prior log entries/i)).toBeInTheDocument();
@@ -110,20 +107,16 @@ describe('Back button navigation', () => {
 });
 
 describe('legal pages in every supported language', () => {
-  // Regression guard for the {{appName}}/{{contactPlaceholder}}/
-  // {{entityPlaceholder}} interpolation in app/legal/translations/*.json:
-  // a missing key or a typo'd token would leave a raw "{{...}}" in the
-  // rendered page instead of throwing, so this has to be asserted, not
-  // assumed.
+  // Regression guard: a missing or typo'd translation key leaves a raw
+  // "{{...}}" placeholder in the rendered page instead of throwing.
   const languages = ['en', 'hi', 'mr', 'gu'] as const;
 
   afterEach(() => {
     i18next.changeLanguage('en');
   });
 
-  // Phrased as a positive "matches nothing" equality check, not
-  // `.not.toMatch()` - see docs/mystic_auth/testing/overview.md's ".not
-  // chaining" note on why this repo avoids that chain.
+  // Uses a positive "matches nothing" check instead of `.not.toMatch()`;
+  // see docs/mystic_auth/testing/overview.md on why this repo avoids that chain.
   it.each(languages)('renders %s with no unresolved interpolation placeholders', async (lang) => {
     await i18next.changeLanguage(lang);
     const { container: privacyContainer } = renderPage(<PrivacyPolicyPage />);

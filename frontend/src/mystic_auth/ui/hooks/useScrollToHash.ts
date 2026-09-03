@@ -3,16 +3,13 @@ import { useLocation } from "react-router";
 
 /**
  * Scrolls the element whose `id` matches the current URL's `#hash` into
- * view once it exists in the DOM. Mounted once in AppLayout (see its own
- * comment) so every page gets this for free - CommandPalette's content
- * search (layout/command_palette/searchItems.ts) relies on it to land on a specific
- * in-page section (e.g. `/dashboard#manage-sessions`), not just the page
- * top, the same way UsersPage reads `?search=` for its own deep link.
+ * view once it exists in the DOM. Mounted once in AppLayout so every page
+ * gets this for free - CommandPalette's content search relies on it to land
+ * on a specific in-page section (e.g. `/dashboard#manage-sessions`).
  *
- * Retries briefly instead of running once: the target can still be
- * mounting when this effect first runs (a lazy-loaded route chunk, a
- * loading skeleton ahead of real data), so a single `getElementById` right
- * after navigation would often find nothing.
+ * Retries briefly instead of running once: the target can still be mounting
+ * (a lazy-loaded route chunk, a loading skeleton) when this effect first
+ * runs, so a single `getElementById` right after navigation often finds nothing.
  */
 export function useScrollToHash() {
     const { hash } = useLocation();

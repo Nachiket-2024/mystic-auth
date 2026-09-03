@@ -6,10 +6,9 @@ The condition framework is modular by design:
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Engine["Authorization<br/> Engine<br/> policy_evaluator.py"]
-    Service["Condition<br/> Evaluation Service<br/> condition_evaluation_<br/> service.py"]
-    Handlers["Condition<br/> Handlers<br/> condition_types/*.py"]
-
+    Engine["Authorization\n Engine\n policy_evaluator.py"]
+    Service["Condition\n Evaluation Service\n condition_evaluation_\n service.py"]
+    Handlers["Condition\n Handlers\n condition_types/*.py"]
     Engine --> Service --> Handlers
     linkStyle default stroke:#334155,stroke-width:2px
 ```

@@ -1,13 +1,9 @@
-# tests/backend/mystic_auth/unit/authorization/services/test_authorization_service_direct_grants_unit.py
-#
 # Unit coverage for AuthorizationService._get_effective_policies: a direct
-# UserPermission grant (authorization/models/user_permission_model.py) must
-# be normalized into a transient, single-action Policy-shaped object and
-# combined with the user's real assigned policies before evaluation - see
-# that method's own docstring for why (reuses PolicyEvaluationEngine
-# unchanged rather than a parallel evaluation path). conftest.py in this
-# directory stubs the direct-grants fetch to "none" by default; these tests
-# override it explicitly.
+# UserPermission grant must be normalized into a transient, single-action
+# Policy-shaped object and combined with the user's real assigned policies
+# before evaluation (this lets it reuse PolicyEvaluationEngine unchanged
+# instead of a parallel evaluation path). conftest.py in this directory stubs
+# the direct-grants fetch to "none" by default; these tests override it.
 from unittest.mock import AsyncMock
 
 import pytest
@@ -57,9 +53,9 @@ async def test_a_direct_grant_for_a_different_action_does_not_authorize(mocker):
 
 @pytest.mark.asyncio
 async def test_direct_grant_conditions_are_evaluated_the_same_way_a_policys_are(mocker):
-    """Reuses the exact same conditions mechanism as Policy.conditions, not
-    a second, weaker one - a self_only-scoped direct grant behaves
-    identically to a self_only-scoped policy."""
+    """Reuses the same conditions mechanism as Policy.conditions, not a second,
+    weaker one: a self_only-scoped direct grant behaves identically to a
+    self_only-scoped policy."""
     mocker.patch(f"{MODULE}.policy_repository.get_active_policies_for_user", new_callable=AsyncMock, return_value=[])
     mocker.patch(
         f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
@@ -80,9 +76,9 @@ async def test_direct_grant_conditions_are_evaluated_the_same_way_a_policys_are(
 
 @pytest.mark.asyncio
 async def test_a_direct_grant_and_a_policy_both_contribute_to_the_same_decision(mocker):
-    """OR-across-grants, same as OR-across-policies: a user can be
-    authorized by their assigned policy for one action and a direct grant
-    for another, evaluated together in one decision."""
+    """OR across grants, same as OR across policies: a user can be authorized
+    by their assigned policy for one action and a direct grant for another,
+    evaluated together in one decision."""
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
@@ -106,8 +102,8 @@ async def test_a_direct_grant_and_a_policy_both_contribute_to_the_same_decision(
 @pytest.mark.asyncio
 async def test_authorize_batch_combines_direct_grants_with_policies_for_every_check(mocker):
     """authorize_batch shares the same _get_effective_policies helper as
-    authorize_detailed - a direct grant must be visible to every check in
-    the batch, fetched once, not per-check."""
+    authorize_detailed: a direct grant must be visible to every check in the
+    batch, fetched once, not per-check."""
     mocker.patch(f"{MODULE}.policy_repository.get_active_policies_for_user", new_callable=AsyncMock, return_value=[])
     permissions_mock = mocker.patch(
         f"{MODULE}.user_permission_repository.get_active_permissions_for_user",

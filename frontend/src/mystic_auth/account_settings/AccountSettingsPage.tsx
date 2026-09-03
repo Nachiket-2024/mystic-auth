@@ -16,12 +16,12 @@ import DeleteAccountCard from "./DeleteAccountCard";
 import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 
 /**
- * Extra tabs an app can append after the four built-in ones below, same
- * "typed, optional, additive" shape as AppLayout's `extraNavItems`/
+ * Extra tabs an app can append after the built-in ones, same "typed,
+ * optional, additive" shape as AppLayout's `extraNavItems`/
  * `extraNavbarContent` (see
- * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points).
- * `value` must be unique among both built-in and app-supplied tabs - it's
- * the Tabs.Trigger/Tabs.Content pairing key, not just a label.
+     * docs/mystic_auth/template-usage/frontend-customization.md#shared-chrome-extension-points).
+ * `value` must be unique among built-in and app-supplied tabs: it's the
+ * Tabs.Trigger/Tabs.Content pairing key, not just a label.
  */
 export interface AccountSettingsExtraTab {
     value: string;
@@ -30,9 +30,8 @@ export interface AccountSettingsExtraTab {
 }
 
 interface AccountSettingsPageProps {
-    /** Appended after the built-in Profile/Password/Account Status/Danger
-     * Zone tabs, in the order given. Optional - omitting it renders exactly
-     * the four built-in tabs, same as before this prop existed. */
+    /** Appended after the built-in tabs, in the order given. Optional: omitting
+     * it renders just the built-in tabs. */
     extraTabs?: AccountSettingsExtraTab[];
 }
 
@@ -40,31 +39,25 @@ interface AccountSettingsPageProps {
  * AccountSettingsPage (nav label/route: "Account Settings")
  * ----------------------------
  * Self-service account management: rename your own account, change/set your
- * password, and see your own effective policies (GET /authorization/users/
- * me/policies) - name and/or password both PUT /users/me, via two
- * independent forms/cards, see below. Deliberately doesn't repeat email/role/
- * member-since/session-count: DashboardPage already shows those as read-only
- * context, so this page only holds what's actually actionable here. No
- * permission required beyond authentication: this is exactly the
- * self-service surface users:read_own/users:update_own exist for.
+ * password, and see your own effective policies. Name and password both go
+ * through PUT /users/me, via two independent forms/cards below. Doesn't
+ * repeat email/role/member-since/session-count since DashboardPage already
+ * shows those as read-only context. No permission required beyond
+ * authentication: this is the self-service surface users:read_own/
+ * users:update_own exist for.
  *
  * Composes five independent widgets, each its own tab: ProfileNameCard
  * (name), ChangePasswordCard (password, including whether one is set),
- * AccountStatusCard (read-only policy/permission list), a Legal tab (Privacy Policy/Terms of
- * Service links - the only way to reach either document once signed in;
- * LoginPage/SignupForm cover a visitor who isn't), and DeleteAccountCard
- * (self-service account deletion, DELETE /users/me) - kept last in the tab
- * strip since it's the destructive one. This page only owns what has to
- * live above all of them: the combined unsaved-changes warning, since from the
- * user's perspective "I have unsaved changes" doesn't care which tab they're
- * in - switching tabs (not just leaving the page) doesn't discard either
- * card's own in-progress edit either, since `lazyMount` (without
- * `unmountOnExit`) mounts a tab's content on first visit and then leaves it
- * mounted-but-hidden, rather than tearing down and losing whatever the user
- * typed there. DeleteAccountCard is deliberately excluded from the dirty
- * tracking above: its password field isn't an in-progress edit worth warning
- * about losing, and its own ConfirmDialog step is warning enough before
- * anything destructive actually happens.
+ * AccountStatusCard (read-only policy/permission list), a Legal tab (Privacy
+ * Policy/Terms of Service links, the only way to reach either once signed
+ * in), and DeleteAccountCard (self-service deletion, DELETE /users/me),
+ * kept last since it's destructive. This page only owns what has to live
+ * above all of them: a combined unsaved-changes warning, since switching
+ * tabs shouldn't discard an in-progress edit on another tab. `lazyMount`
+ * (without `unmountOnExit`) keeps a visited tab mounted-but-hidden instead of
+ * tearing it down, which is what makes that possible. DeleteAccountCard is
+ * excluded from the dirty tracking: its password field isn't an edit worth
+ * warning about losing, and its own ConfirmDialog is warning enough already.
  */
 const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) => {
     const { t } = useTranslation(["account_settings", "layout"]);
@@ -75,34 +68,26 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
     const [passwordDirty, setPasswordDirty] = useState(false);
     useUnsavedChangesWarning(nameDirty || passwordDirty);
 
-    // Read-once initializer, not a synced-both-ways URL param - same
-    // reasoning as UsersPage's `?search=` deep link. CommandPalette's
-    // content-search results (layout/command_palette/searchItems.ts) navigate to e.g.
+    // Read-once initializer, not a synced-both-ways URL param (same as UsersPage's
+    // `?search=` deep link). CommandPalette navigates to e.g.
     // /account-settings?tab=password to land on a specific tab; `key` below
-    // forces Tabs.Root to pick up a new `initialTab` on a fresh deep-link
-    // navigation while leaving normal in-page tab clicks (which never touch
-    // the URL) alone, so switching tabs by hand still doesn't lose whatever
-    // you were mid-typing in another tab (see this component's own docstring).
+    // forces Tabs.Root to pick up a new `initialTab` on a fresh deep link
+    // while leaving normal in-page tab clicks (which don't touch the URL)
+    // alone, so manual tab switches still don't lose an in-progress edit.
     const [searchParams] = useSearchParams();
     const initialTab = searchParams.get("tab") ?? "profile";
 
     return (
         <PageContainer title={t("pageTitle")} icon={Settings} description={t("pageDescription")}>
             <Tabs.Root key={initialTab} defaultValue={initialTab} lazyMount>
-                {/* Six built-in tabs (more with extraTabs) don't fit a phone-
-                    width viewport at their natural size. Without an explicit
-                    scroll container, Chakra's Tabs.List just shrinks each
-                    trigger below its own text width instead of wrapping -
-                    the labels visually overlap each other and become
-                    unreadable/impossible to tap accurately (see
-                    BulkActionToolbar.tsx for the same class of fix on the
-                    Users page). overflowX="auto" plus flexShrink={0}/
-                    whiteSpace="nowrap" on every trigger below turns that into
-                    a horizontally scrollable strip instead - every tab stays
-                    at full readable width and reachable, just off past the
-                    edge until scrolled into view. -mx/px cancel out so the
-                    scrollable strip still lines up with PageContainer's own
-                    edges. */}
+                {/* Six built-in tabs (more with extraTabs) don't fit a phone-width
+                    viewport at natural size. Without a scroll container, Chakra's
+                    Tabs.List shrinks each trigger below its own text width instead
+                    of wrapping, so labels overlap and become unreadable (same fix
+                    as BulkActionToolbar.tsx on the Users page). overflowX="auto"
+                    plus flexShrink={0}/whiteSpace="nowrap" on each trigger turns
+                    this into a horizontally scrollable strip instead. -mx/px cancel
+                    out so the strip still lines up with PageContainer's edges. */}
                 <Tabs.List overflowX="auto" flexWrap="nowrap" mx={-4} px={4}>
                     <Tabs.Trigger value="profile" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.profile")}</Tabs.Trigger>
                     <Tabs.Trigger value="password" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.password")}</Tabs.Trigger>
@@ -141,18 +126,12 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                 </Tabs.Content>
 
                 <Tabs.Content value="status">
-                    {/* Unlike the other tabs (maxW="3xl"/"lg"), this one is
-                        left at the page's own full width (same as Users/
-                        Policies, neither of which caps its content either):
-                        the right column's effective-permissions badge list
-                        is open-ended and routinely the longest thing on this
-                        page, so it benefits from every bit of width
-                        PageContainer's own maxW="container.xl" already
-                        allows, rather than a second, narrower cap on top of
-                        it. See AccountStatusCard's own docstring for its
-                        internal fit-content(320px) 1fr column split, which
-                        gives that room to the right column specifically
-                        rather than splitting it evenly. */}
+                    {/* Unlike the other tabs, this one keeps the page's full width
+                        (same as Users/Policies): the right column's
+                        effective-permissions badge list is open-ended and often the
+                        longest thing on the page, so it gets all the width
+                        PageContainer's maxW="container.xl" allows. See
+                        AccountStatusCard's docstring for its own column split. */}
                     <AccountStatusCard />
                 </Tabs.Content>
 
@@ -162,12 +141,10 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                     </Box>
                 </Tabs.Content>
 
-                {/* Its own tab (not a page-level footer) so it reads as one
-                    more self-contained settings section like the other four,
-                    reachable post-login without hunting outside the tab
-                    strip. Signed-out visitors still get both links from
-                    LoginPage/SignupForm. Ordered before Danger Zone so the
-                    destructive action stays last in the tab strip. */}
+                {/* Its own tab (not a page footer) so it reads as another
+                    self-contained settings section, reachable without leaving the
+                    tab strip. Ordered before Danger Zone so the destructive
+                    action stays last. */}
                 <Tabs.Content value="legal">
                     <Box maxW="lg">
                         <Card p={5}>

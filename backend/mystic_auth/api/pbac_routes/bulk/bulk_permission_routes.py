@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....audit_log.audit_log_service import PERMISSION_GRANTED, PERMISSION_REVOKED
+from ....authorization.conditions.condition_validator import ConditionValidationError, validate_conditions
 from ....authorization.context.request_context_builder import build_authorization_context
 from ....authorization.dependencies.permission_route_dependencies import GRANT_DEPENDENCY, REVOKE_DEPENDENCY
 from ....authorization.repositories.user_permission_repository import user_permission_repository
@@ -45,6 +46,12 @@ async def bulk_assign_permissions(
     valid_items = []
     error_results = []
     for item in body.items:
+        try:
+            validate_conditions(item.conditions)
+        except ConditionValidationError:
+            error_results.append(bulk_error(item.user_email, item.action, "INVALID_CONDITIONS"))
+            continue
+
         user = users_by_email.get(item.user_email)
         if user is None:
             error_results.append(bulk_error(item.user_email, item.action, "USER_NOT_FOUND"))

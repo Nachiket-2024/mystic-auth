@@ -1,9 +1,6 @@
-# tests/backend/mystic_auth/integration/test_health_integration.py
-#
-# End-to-end coverage for /health and /health/ready against the real ASGI
-# app, real PostgreSQL, and real Redis (via the shared `client` fixture :
-# see conftest.py). Confirms the readiness endpoint actually reaches both
-# dependencies rather than just returning a static response.
+# End-to-end tests for /health and /health/ready, using the real app, Postgres,
+# and Redis (via the `client` fixture in conftest.py). Confirms /health/ready
+# actually checks both dependencies instead of just returning a static reply.
 import pytest
 
 

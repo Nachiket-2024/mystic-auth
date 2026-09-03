@@ -30,19 +30,17 @@ interface DetailRowProps {
     children: React.ReactNode;
 }
 
-/** Label/value pair, wrapping (not truncating) the value: the entire point
- * of this dialog is showing what the table's own truncated columns cut
- * off, so nothing in it should re-truncate the same content. */
+/** Label/value pair, wrapping (not truncating) the value: this dialog exists
+ * to show what the table's truncated columns cut off, so it shouldn't
+ * re-truncate that same content. */
 const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
     <Stack gap={0.5}>
         <Text fontSize="sm" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" color="fg.muted">
             {label}
         </Text>
         {/* as="div", not Text's default <p>: the Status row's value is an
-            HStack of badges (renders a <div>), and a <div> can't legally
-            nest inside a <p> - this wrapper has to stay block-agnostic
-            since every row shares it regardless of what kind of content
-            it holds. */}
+            HStack of badges (a <div>), which can't legally nest inside a
+            <p>, and every row shares this wrapper regardless of content. */}
         <Text as="div" fontSize="md" wordBreak="break-word">
             {children}
         </Text>
@@ -56,28 +54,24 @@ interface AuthorizationSectionProps {
     error?: string;
     emptyText?: string;
     badges?: string[];
-    // Matches AccountStatusCard's own self-service equivalent: policies,
-    // direct permissions, and effective permissions each get their own
-    // color (brand/purple/teal) so the three sections stay visually
-    // distinct at a glance rather than blurring into one same-colored wall
-    // of chips - not just here, but consistently with what a caller sees
-    // of their own access on the Account Settings page.
+    // Matches AccountStatusCard's self-service equivalent: policies, direct
+    // permissions, and effective permissions each get their own color
+    // (brand/purple/teal) so the three sections stay visually distinct,
+    // consistent with what a caller sees of their own access.
     colorPalette: "brand" | "purple" | "teal";
 }
 
 /** One labeled block within the Policies/Permissions area: exactly one of
  * restricted/loading/error/emptyText/badges is meaningful at a time, chosen
- * by whichever the caller passes - each of Policies, Effective permissions,
- * and Direct permissions independently tracks its own gating/loading/error
- * state (see UserDetailsDialog's own docstring), so this can't just be one
- * shared isLoading/isError pair. */
+ * by whichever the caller passes, since Policies, Effective permissions,
+ * and Direct permissions each track their own gating/loading/error state
+ * independently (can't be one shared isLoading/isError pair). */
 const AuthorizationSection: React.FC<AuthorizationSectionProps> = ({ heading, restricted, loading, error, emptyText, badges, colorPalette }) => (
     <Stack gap={2}>
-        {/* Same heading treatment as AccountStatusCard's own StatusSection
-            (the self-service equivalent of this exact block), not the
-            small uppercase label style DetailRow uses above - those are
-            fixed one-line facts, these are open-ended badge lists that read
-            better under a real section heading. */}
+        {/* Same heading style as AccountStatusCard's StatusSection (the
+            self-service equivalent), not DetailRow's small uppercase label:
+            those are fixed one-line facts, these are open-ended badge lists
+            that read better under a real heading. */}
         <Heading as="h2" size="lg" textStyle="sectionHeader">
             {heading}
         </Heading>
@@ -104,13 +98,12 @@ const AuthorizationSection: React.FC<AuthorizationSectionProps> = ({ heading, re
 /**
  * UserDetailsDialog
  * ----------------------------
- * Read-only "View" panel for one user's full name/email/role/status/dates -
- * everything UsersPage's own Name/Email columns truncate (see DataTable.tsx's
- * `truncate` columns) for table layout reasons. Purely a display surface, no
- * mutations of its own: role changes, policy assignment, delete/reactivate/
- * purge all stay on their own existing controls. Takes the already-fetched
- * row object directly (no separate query), since UsersPage already has the
- * full, untruncated data in hand the moment a row renders.
+ * Read-only "View" panel for one user's full name/email/role/status/dates:
+ * everything UsersPage's Name/Email columns truncate for table layout
+ * reasons (see DataTable.tsx's `truncate` columns). Purely a display
+ * surface: role changes, policy assignment, delete/reactivate/purge all
+ * stay on their own existing controls. Takes the already-fetched row object
+ * directly (no separate query), since UsersPage already has the full data.
  */
 const UserDetailsDialog: React.FC<UserDetailsDialogProps> = ({ isOpen, user, onClose }) => {
     const { t } = useTranslation(["users", "ui_text"]);
@@ -128,8 +121,8 @@ const UserDetailsDialog: React.FC<UserDetailsDialogProps> = ({ isOpen, user, onC
     const canViewPermissions = isSelf || hasPermissionsReadPermission;
     const canViewEffective = canViewPolicies && canViewPermissions;
 
-    // Own row = self-service /me endpoints, not the management ones (see
-    // UserPoliciesDialog/UserPermissionsDialog's matching switch) - a
+    // Own row uses the self-service /me endpoints, not the management ones
+    // (see UserPoliciesDialog/UserPermissionsDialog's matching switch): a
     // caller always has access to their own /me endpoints regardless of
     // holding policies:read/permissions:read.
     const managementPoliciesQuery = useUserPoliciesQuery(userEmail, isOpen && !!userEmail && !isSelf && hasPoliciesReadPermission);
@@ -157,47 +150,35 @@ const UserDetailsDialog: React.FC<UserDetailsDialogProps> = ({ isOpen, user, onC
             closeOnInteractOutside
             // Wide enough for the two-column layout below (name/email/role
             // on the left, Policies/Effective/Direct permissions on the
-            // right) to actually read as two columns rather than a cramped
-            // wrap - the dialog's own default width was sized for the old
-            // single-column stack.
+            // right) to read as two columns rather than a cramped wrap;
+            // the default width was sized for the old single-column stack.
             size="xl"
         >
             <Portal>
                 <Dialog.Backdrop {...DIALOG_BACKDROP_PROPS} />
                 <Dialog.Positioner>
                         {/* maxW override on top of size="xl" (the largest fixed size
-                            used anywhere else in this app - see PolicyDetailsDialog):
-                            the right column is an open-ended list of badges that only
-                            grows as more permissions get added to the catalog over time,
-                            so this dialog gets some headroom beyond every other dialog's
-                            own max rather than sharing their cap. */}
+                            used elsewhere, see PolicyDetailsDialog): the right column's
+                            badge list only grows as the permission catalog grows, so
+                            this dialog gets extra headroom beyond the usual cap. */}
                     <Dialog.Content {...DIALOG_CONTENT_PROPS} maxW={{ md: "3xl", lg: "4xl" }}>
                         <Dialog.Header>
                             <Dialog.Title>{t("users:detailsDialog.title")}</Dialog.Title>
                         </Dialog.Header>
                         <Dialog.Body>
-                            {/* The left column (fixed one-line facts - name/email/role/
-                                status/dates) is normally the shorter of the two, so it sizes
-                                to its own content rather than always claiming an equal half
-                                of this now-wider dialog - a short name/email shouldn't leave
-                                a wide empty gutter before Policies starts. fit-content(320px)
-                                (not minmax(min-content, 320px): a minmax track's max is a
-                                definite size grid sizing fills greedily, so that sized to
-                                320px flat regardless of how short the content actually was)
-                                caps a long name/email at 320px, past which it reads as "the
-                                details column" rather than the dialog's main content - at
-                                that point the right column (Policies/Effective/Direct
-                                permissions - open-ended badge lists that actually benefit
-                                from the dialog's extra width) takes whatever's left. A real
-                                border between the columns (borderStartWidth, not just a gap)
-                                reads as one divided panel rather than two coincidentally-
-                                adjacent stacks - same reasoning as AccountStatusCard's own
-                                divider (that file's own comment on its right column cross-
-                                references this dialog, though its version splits evenly
-                                since both its columns hold open-ended badge lists, not one
-                                side of fixed facts). Single column below `md`: there's no
-                                room for two on a narrow dialog, so the divider becomes a top
-                                border instead of a side one. */}
+                            {/* Left column (fixed one-line facts) sizes to its own content
+                                instead of claiming an equal half, so a short name/email
+                                doesn't leave a wide gutter before Policies starts.
+                                fit-content(320px), not minmax(min-content, 320px): a minmax
+                                track's max is a definite size grid fills greedily, sizing to
+                                320px flat regardless of actual content length. Past 320px it
+                                caps, and the right column (open-ended Policies/Effective/
+                                Direct permissions badge lists) takes the rest. A real border
+                                (borderStartWidth, not just a gap) reads as one divided panel
+                                rather than two adjacent stacks, same as AccountStatusCard's
+                                divider (its version splits evenly since both its columns
+                                hold badge lists). Single column below `md`, where the
+                                divider becomes a top border instead of a side one. */}
                             <Grid templateColumns={{ base: "1fr", md: "fit-content(320px) 1fr" }} gap={0} alignItems="start">
                                 <Stack gap={4} minW={0} pe={{ base: 0, md: 6 }} pb={{ base: 4, md: 0 }}>
                                     <DetailRow label={t("users:detailsDialog.name")}>{user.name}</DetailRow>
@@ -298,9 +279,9 @@ const UserDetailsDialog: React.FC<UserDetailsDialogProps> = ({ isOpen, user, onC
                             </Button>
                         </Dialog.Footer>
                         {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
-                            (unlike v2) - without explicit children it was an empty
-                            0x0 button, invisible to every user, not just screen
-                            readers (axe-core button-name audit). */}
+                            (unlike v2); without explicit children it was an empty
+                            0x0 button, invisible to every user (axe-core button-name
+                            audit), not just screen readers. */}
                         <Dialog.CloseTrigger aria-label={t("ui_text:closeDialog")} {...CLOSE_TRIGGER_PROPS}>
                             <X size={16} aria-hidden="true" />
                         </Dialog.CloseTrigger>

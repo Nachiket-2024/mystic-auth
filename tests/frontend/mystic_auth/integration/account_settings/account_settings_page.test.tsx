@@ -54,9 +54,7 @@ describe('AccountSettingsPage', () => {
   it("renders the caller's own editable name on the Profile tab", async () => {
     renderAccountSettings();
 
-    // Email/role are deliberately not repeated here: DashboardPage already
-    // shows them as read-only context, so this page only holds the name
-    // field (actually editable here) plus policies.
+    // Email/role aren't shown here; DashboardPage already covers them read-only.
     expect(screen.getByDisplayValue('Test User')).toBeInTheDocument();
   });
 
@@ -69,11 +67,8 @@ describe('AccountSettingsPage', () => {
   });
 
   it('renders the effective permissions (fanned-out policy actions and direct grants) and the raw direct grants, via the self-service /me endpoints', async () => {
-    // Overrides the shared beforeEach mocks with a direct grant added, so
-    // this test can prove the union AND the raw-direct-only section both
-    // reflect it - the same self-service data every authenticated caller
-    // can see about themselves regardless of policies:read/permissions:read
-    // (see AccountStatusCard's own docstring).
+    // Adds a direct grant on top of the shared mocks to prove both the
+    // union (effective) and the raw-direct-only section reflect it.
     mock.onGet('/authorization/users/me/permissions').reply(200, {
       permissions: [{ action: 'policies:create', resource_type: 'policies' }],
     });
@@ -84,12 +79,11 @@ describe('AccountSettingsPage', () => {
     await user.click(screen.getByRole('tab', { name: 'Permissions' }));
 
     await screen.findByText('self_service');
-    // Effective permissions: the fanned-out policy action AND the direct
-    // grant both appear here.
+    // Effective permissions include both the policy action and the direct grant.
     expect(screen.getByText('users:read_own')).toBeInTheDocument();
     expect(screen.getAllByText('policies:create').length).toBeGreaterThanOrEqual(1);
 
-    // Direct permissions: the raw grant only, not the policy-derived one.
+    // Direct permissions show only the raw grant, not the policy-derived one.
     const directHeading = screen.getByText('Direct permissions');
     const directSection = directHeading.parentElement;
     expect(directSection).toBeTruthy();
@@ -113,10 +107,8 @@ describe('AccountSettingsPage', () => {
   });
 
   it('collapses a specific permission into its wildcard counterpart on the Permissions tab', async () => {
-    // A direct grant of an action on a specific resource_type is redundant
-    // to show next to that same action already granted on "*" - only the
-    // wildcard badge should render, in both the Direct permissions and
-    // Effective permissions sections.
+    // A direct grant on a specific resource_type is redundant once the same
+    // action is already granted on "*"; only the wildcard badge should render.
     mock.onGet('/authorization/users/me/permissions').reply(200, {
       permissions: [
         { action: 'policies:read', resource_type: '*' },
@@ -135,9 +127,8 @@ describe('AccountSettingsPage', () => {
   });
 
   it('collapses a direct grant into a POLICY-sourced wildcard, not just another direct wildcard grant', async () => {
-    // The covering wildcard here comes from an assigned policy
-    // (resource_type "*"), not from another direct grant - the Direct
-    // permissions section still has to drop the redundant specific grant.
+    // The covering wildcard here comes from an assigned policy, not another
+    // direct grant; Direct permissions still has to drop the redundant grant.
     mock.onGet('/authorization/users/me/policies').reply(200, {
       policies: [
         { name: 'system_superuser', actions: ['permissions:grant'], resource_type: '*' },

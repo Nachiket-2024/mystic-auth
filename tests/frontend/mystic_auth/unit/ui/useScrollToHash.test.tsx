@@ -83,7 +83,6 @@ describe('useScrollToHash', () => {
       vi.advanceTimersByTime(3000);
     });
 
-    // 1 immediate attempt + 20 retries scheduled via setTimeout, no more after that.
     expect(setTimeoutSpy).toHaveBeenCalledTimes(20);
   });
 

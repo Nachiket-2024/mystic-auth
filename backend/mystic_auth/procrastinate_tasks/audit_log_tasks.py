@@ -22,20 +22,17 @@ AUDIT_LOG_RETRY = ExponentialBackoffWithJitter(max_attempts=3, base_delay=2, max
     retry=AUDIT_LOG_RETRY,
 )
 async def log_authorization_decision_task(entry: dict) -> None:
-    """
-    Persists one authorization-decision audit row (see
+    """Persists one authorization-decision audit row (see
     authorization_audit_logger.build_audit_entry for the row shape), off the
-    request path: authorization_audit_logger.log_decision defers this instead of
-    writing the row itself, so a protected route's response no longer waits
-    on the audit-log commit (see concerns.md's now-resolved "audit logging
-    blocks every protected request" entry).
+    request path: authorization_audit_logger.log_decision defers this
+    instead of writing the row itself, so a protected route's response
+    doesn't wait on the audit-log commit.
 
     Runs against `database`'s own SQLAlchemy engine (a fresh session per
-    job, opened here), not the request's session: by the time a worker picks
-    this job up, the request that produced `entry` has already returned and
-    its session is long closed. If this exhausts all retries, the row lands
-    as a `status='failed'` job in `procrastinate_jobs`, inspectable directly
-    via SQL, same as email_tasks.py's send_email_task; the authorization
+    job, opened here), not the request's session, since that session is
+    already closed by the time a worker picks this job up. If this
+    exhausts all retries, the row lands as a `status='failed'` job in
+    `procrastinate_jobs`, inspectable directly via SQL; the authorization
     decision itself was never at risk, only its audit trail entry.
     """
     # Imported here, not at module scope: avoids a circular import between

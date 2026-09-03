@@ -5,38 +5,30 @@ from sqlalchemy.future import select
 
 from ...user.user_model import User
 
-# The one centralized Redis abstraction for authorization data, see its own
-# docstring for exactly what is (and deliberately isn't) cached, and why.
-# Every mutation below invalidates whatever it could have made stale.
+# Centralized Redis cache for authorization data (see its own docstring
+# for what's cached and why). Every mutation below invalidates whatever
+# it could have made stale.
 from ..caching.authorization_cache_service import authorization_cache_service
 from ..models.policy_model import Policy, UserPolicy
 from ..schemas.bulk_schema import BulkItemResult
 
 
 class PolicyAssignmentRepository:
-    """
-    User<->policy assignment queries and mutations: which policies a user
-    holds, and granting/revoking one. Split out of policy_repository.py,
-    which owns policy CRUD itself (create/update/delete a Policy row) but
-    re-exports every method here as a bound method, so every existing
-    `policy_repository.assign_policy_to_user(...)`-style call site keeps
-    working unchanged.
-    """
+    """User<->policy assignment queries and mutations: which policies a
+    user holds, and granting/revoking one. Split out of
+    policy_repository.py (which owns policy CRUD), which re-exports every
+    method here so existing call sites keep working unchanged."""
 
     @staticmethod
     async def get_active_policies_for_user(user_email: str, db: AsyncSession) -> list[Policy]:
         """
-        The query the authorization/evaluation path actually runs: every
-        *active* policy assigned to the user with this email. Filtering
-        is_active here (rather than in the evaluator) keeps a disabled
-        policy from ever reaching evaluation at all.
+        The query the evaluation path actually runs: every active policy
+        assigned to this user. Filtering is_active here (not in the
+        evaluator) keeps a disabled policy from ever reaching evaluation.
 
-        Cache-aside: this is the one authorization-hot-path query cached
-        by AuthorizationCacheService (see its docstring for exactly what's
-        cached and why); checked first; on a miss (or any cache failure),
-        falls through to the database and populates the cache for next
-        time. A cache read failure is indistinguishable from a miss here
-        by design (see AuthorizationCacheService's "fail closed" note).
+        Cache-aside via AuthorizationCacheService: checked first, falls
+        through to the database on a miss (or any cache failure, which is
+        indistinguishable from a miss by design) and populates the cache.
         """
         cached = await authorization_cache_service.get_user_policies(user_email)
         if cached is not None:
@@ -70,16 +62,11 @@ class PolicyAssignmentRepository:
 
     @staticmethod
     async def count_assignments(policy_id: int, db: AsyncSession) -> int:
-        """
-        How many users currently hold this policy (assigned, regardless of
-        the policy's own is_active flag). Used by
-        api/pbac_routes/policies/policy_assignment_routes.py's revoke endpoint to refuse removing the
-        last remaining holder of system_superuser, see the
-        "System policies are protected": deleting a policy row is already
-        blocked for baseline policies, but *revoking every assignment* of
-        system_superuser would leave the system equally unrecoverable
-        (no one left able to manage policies at all).
-        """
+        """How many users currently hold this policy, regardless of the
+        policy's own is_active flag. Used by the revoke endpoint to refuse
+        removing the last remaining holder of system_superuser: deleting
+        the policy row is already blocked, but revoking every assignment
+        would leave the system equally unrecoverable."""
         result = await db.execute(
             select(func.count()).select_from(UserPolicy).where(UserPolicy.policy_id == policy_id)
         )
@@ -87,17 +74,11 @@ class PolicyAssignmentRepository:
 
     @staticmethod
     async def get_holder_emails(policy_id: int, db: AsyncSession) -> list[str]:
-        """
-        Every email currently assigned this policy (regardless of the
-        policy's own is_active flag - a holder of a just-deactivated policy
-        still needs to be told its access dropped). Used by
-        policy_crud_routes.py's update_policy/delete_policy to know who to
-        push a permissions_changed event to when a policy's *definition*
-        changes rather than one user's assignment of it (see
-        session_events.publish_permissions_changed): unlike
-        assign/remove_policy_from_user, those two affect every holder at
-        once, not a single already-known user_email.
-        """
+        """Every email currently assigned this policy, regardless of the
+        policy's own is_active flag (a holder of a just-deactivated policy
+        still needs to be told its access dropped). Used when a policy's
+        definition changes, affecting every holder at once rather than a
+        single already-known user_email."""
         result = await db.execute(
             select(User.email).join(UserPolicy, UserPolicy.user_id == User.id).where(UserPolicy.policy_id == policy_id)
         )
@@ -106,21 +87,16 @@ class PolicyAssignmentRepository:
     @staticmethod
     async def get_holder_emails_for_update(policy_id: int, db: AsyncSession) -> list[str]:
         """
-        Locking counterpart to get_holder_emails: takes a row lock on every
-        current UserPolicy assignment of this policy before returning
-        their holders' emails.
+        Locking counterpart to get_holder_emails: row-locks every current
+        UserPolicy assignment of this policy before returning holders.
 
-        Used by bulk_remove_policies' route-level "can't remove the last
-        system_superuser assignment" lockout guard: without a lock, two
-        concurrent bulk-remove requests each targeting a different subset
-        of superuser holders could both read the same pre-either-removal
-        holder count, each independently conclude its own subset leaves
-        someone behind, and both commit - together stripping every
-        system_superuser assignment (a full admin lockout) despite the
-        guard each individually passed. Locking these rows up front
-        serializes any two such requests touching the same policy: the
-        second blocks until the first commits its removals, then this
-        call re-reads the real post-removal holder set.
+        Used by the route-level "can't remove the last system_superuser
+        assignment" guard: without a lock, two concurrent bulk-remove
+        requests targeting different holder subsets could each read the
+        same pre-removal count, each pass the guard individually, and
+        together strip every assignment (full admin lockout). Locking up
+        front serializes such requests: the second blocks until the first
+        commits, then re-reads the real post-removal holder set.
         """
         result = await db.execute(
             select(User.email)
@@ -140,16 +116,12 @@ class PolicyAssignmentRepository:
     ) -> UserPolicy:
         """
         `assigned_by` is the email of the user making the assignment, or
-        "system" for automated assignment (e.g. default policy at signup),
-        for the audit trail.
+        "system" for automated assignment, for the audit trail.
 
-        `user_email` is the receiving user's email, if the caller has it:
-        used only to precisely invalidate that user's cached effective-
-        policy set (see AuthorizationCacheService). Optional and backward
-        compatible: system-side self-assignment at signup/OAuth2/system-
-        user-bootstrap doesn't pass it, since a brand-new user has nothing
-        cached yet to invalidate anyway; the management-facing assign route
-        (api/pbac_routes/policies/policy_assignment_routes.py) does pass it, since that target user may
+        `user_email`, if given, precisely invalidates that user's cached
+        policy set. Optional: system-side self-assignment at signup
+        doesn't pass it (a brand-new user has nothing cached yet), while
+        the management-facing assign route does, since that user may
         already have a populated cache entry.
 
         Idempotent: assigning an already-held policy is a no-op, returning
@@ -176,15 +148,11 @@ class PolicyAssignmentRepository:
 
     @staticmethod
     async def user_holds_policy(user_id: int, policy_id: int, db: AsyncSession) -> bool:
-        """
-        Whether this user currently holds this policy assignment, regardless
-        of the policy's own is_active flag. Used by the revoke routes
-        (api/pbac_routes/policies/policy_assignment_routes.py) to check holdership
-        BEFORE the system_superuser last-holder lockout check runs, so a
-        caller revoking from a user who never held the policy gets the
-        correct 404 POLICY_NOT_HELD_BY_USER instead of being incorrectly
-        blocked by the lockout guard.
-        """
+        """Whether this user currently holds this policy assignment,
+        regardless of the policy's own is_active flag. Checked before the
+        system_superuser last-holder lockout, so revoking from a user who
+        never held the policy gets a correct 404 instead of being blocked
+        by the lockout guard."""
         result = await db.execute(
             select(UserPolicy).where(
                 UserPolicy.user_id == user_id, UserPolicy.policy_id == policy_id
@@ -225,29 +193,21 @@ class PolicyAssignmentRepository:
         valid_items: list[tuple[User, Policy]], db: AsyncSession, assigned_by: str | None
     ) -> list[BulkItemResult]:
         """
-        `valid_items` is every (User, Policy) pair that already passed
-        resolution and the per-item privilege-escalation guard in the route
-        layer (bulk_policy_routes.py) - this method only stages writes and
-        commits once for the whole batch (see this module's own bulk
-        semantics: best-effort per item, all-or-nothing only for a genuine
-        DB-level commit failure, mirrored below).
+        `valid_items` already passed resolution and the per-item
+        privilege-escalation guard in the route layer. Stages writes and
+        commits once for the whole batch.
 
-        Idempotent per item, same as assign_policy_to_user: an already-held
-        pair adds no duplicate row and is reported "already_held" rather
-        than "success".
+        Idempotent per item, same as assign_policy_to_user: an
+        already-held pair adds no duplicate row, reported "already_held".
 
-        The existing_pairs snapshot below only rules out pairs already held
-        *before* this call started - it can't see another request's insert
-        of the same (user, policy) pair racing this one, so a plain insert
-        can still hit the uq_user_policy unique constraint. Each insert is
-        therefore staged inside its own SAVEPOINT (db.begin_nested) and
-        flushed individually: a unique-violation there is caught and
-        resolved to "already_held" (the pair is genuinely held either way,
-        by whichever request won) without discarding the rest of the
-        batch's SAVEPOINTs, unlike letting it surface at the final
-        db.commit() - which would fail the whole transaction and previously
-        got reported as "commit_failed" across every item, including
-        unrelated ones that never conflicted with anything.
+        The existing_pairs snapshot only rules out pairs already held
+        before this call started; it can't see a concurrent request's
+        insert of the same pair, so a plain insert can still hit the
+        uq_user_policy constraint. Each insert is staged in its own
+        SAVEPOINT (db.begin_nested) so a unique-violation resolves to
+        "already_held" for just that item, instead of surfacing at the
+        final db.commit() and failing the whole transaction, including
+        unrelated items that never conflicted with anything.
         """
         if not valid_items:
             return []

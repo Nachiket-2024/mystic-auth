@@ -40,11 +40,9 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     // through its ~150ms close animation. Freezing the last real content
     // avoids a flash of empty text during that exit transition.
     //
-    // State, not a ref: reading a ref during render is disallowed (render
-    // shouldn't depend on a value React can't see change). This is React's
-    // sanctioned "adjust state during render" pattern: setShown here
-    // re-renders immediately with the new value, then bails out once it
-    // already matches, so it can't loop.
+    // State, not a ref: React's "adjust state during render" pattern -
+    // setShown re-renders immediately with the new value, then bails out
+    // once it already matches, so it can't loop.
     const [shown, setShown] = useState({ title, description, confirmLabel });
     if (isOpen && (shown.title !== title || shown.description !== description || shown.confirmLabel !== confirmLabel)) {
         setShown({ title, description, confirmLabel });
@@ -65,10 +63,9 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                             <Dialog.Title>{shown.title}</Dialog.Title>
                         </Dialog.Header>
                         <Dialog.Body>
-                            {/* Dialog.Description (not a plain Text) so Ark UI wires
-                                aria-describedby on the dialog itself : a screen reader
-                                announcing this alertdialog reads the warning text, not
-                                just the title, without a caller having to do it by hand. */}
+                            {/* Dialog.Description (not plain Text) so Ark UI wires
+                                aria-describedby, so a screen reader announcing this
+                                alertdialog reads the warning text too, not just the title. */}
                             <Dialog.Description color="fg.muted" fontSize="md">{shown.description}</Dialog.Description>
                         </Dialog.Body>
                         <Dialog.Footer>
@@ -84,10 +81,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                                 {shown.confirmLabel ?? t("confirm")}
                             </Button>
                         </Dialog.Footer>
-                        {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
-                            (unlike v2) - without explicit children it was an empty
-                            0x0 button, invisible to every user, not just screen
-                            readers (axe-core button-name audit). */}
+                        {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own -
+                            without explicit children it was an empty 0x0 button. */}
                         <Dialog.CloseTrigger aria-label={t("closeDialog")} {...CLOSE_TRIGGER_PROPS}>
                             <X size={16} aria-hidden="true" />
                         </Dialog.CloseTrigger>

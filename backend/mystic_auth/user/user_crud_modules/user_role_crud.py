@@ -26,12 +26,12 @@ class UserRoleCRUD:
     ) -> list[BulkItemResult]:
         """
         `valid_items` is every (User, UserRole) pair that already passed
-        resolution and the same per-item safeguards
-        update_user_role (user_management_update_routes.py) enforces
-        (system-role targets blocked, users:assign_system_role required for
-        assigning `system`) in bulk_role_routes.py. Stages every write,
-        commits once for the whole batch - see bulk_schema.py's
-        best-effort-except-commit-failure contract, mirrored below.
+        resolution and the same per-item safeguards update_user_role
+        (user_management_update_routes.py) enforces, e.g. system-role
+        targets blocked, users:assign_system_role required to assign
+        `system`. Stages every write and commits once for the whole batch;
+        see bulk_schema.py's best-effort-except-commit-failure contract,
+        mirrored below.
         """
         if not valid_items:
             return []

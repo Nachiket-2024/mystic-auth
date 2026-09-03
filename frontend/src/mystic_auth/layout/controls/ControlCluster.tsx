@@ -8,8 +8,7 @@ import ThemeToggle from "./ThemeToggle";
 /**
  * Font size / language / theme toggles - three separately-boxed, brand-
  * tinted buttons (see BRAND_ICON_BUTTON_PROPS in ui/styles/buttonStyles.ts),
- * shared by Navbar, AuthLayout and LandingPage, the three places this exact
- * trio appears together. A single shared-border grouped/segmented-control
+ * shared by Navbar, AuthLayout and LandingPage. A shared-border segmented
  * version was tried and reverted back to this standalone layout.
  */
 const ControlCluster: React.FC = () => (

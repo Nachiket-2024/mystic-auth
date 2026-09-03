@@ -5,9 +5,9 @@ from pydantic import ValidationError
 from backend.mystic_auth.core.settings import Settings
 
 # Every Settings field is required, no Python-level defaults: .env (or the
-# process environment) is the single source of truth for every value, dev
-# and prod alike. This fixture is a complete, valid payload; the tests below
-# poke at deviations from it.
+# process environment) is the single source of truth, in dev and prod alike.
+# This fixture is a complete, valid payload; the tests below poke at
+# deviations from it.
 _ALL_FIELDS = {
     "BACKEND_BASE_URL": "http://localhost:8000",
     "FRONTEND_BASE_URL": "http://localhost:5173",
@@ -54,22 +54,20 @@ _ALL_FIELDS = {
 
 
 def test_settings_construction_succeeds_with_only_declared_fields():
-    # Baseline: the fixture above actually is a complete, valid Settings
-    # payload : if this ever fails, the other tests in this file would be
-    # testing against a payload that was already broken for an unrelated
-    # reason.
+    # Baseline: confirms the fixture above is a complete, valid payload.
+    # If this fails, every other test in the file is testing against a
+    # payload that was already broken for an unrelated reason.
     Settings(_env_file=None, **_ALL_FIELDS)
 
 
 @pytest.mark.parametrize("missing_field", sorted(_ALL_FIELDS))
 def test_settings_construction_fails_when_any_field_is_missing(missing_field, monkeypatch):
-    # Every field is required: .env is the source of truth, not a Python
-    # default. A field silently falling back would mean a real deployment
-    # could start up misconfigured without any error. monkeypatch.delenv is
-    # needed alongside omitting the kwarg: _env_file=None only disables
-    # reading a dotenv file, pydantic-settings still falls back to the real
-    # process environment (set here by docker-compose's env_file:), which
-    # this suite runs inside.
+    # Every field is required: a silent fallback could let a real deployment
+    # start up misconfigured with no error. monkeypatch.delenv is needed
+    # alongside omitting the kwarg: _env_file=None only disables reading a
+    # dotenv file, pydantic-settings still falls back to the real process
+    # environment (set here by docker-compose's env_file:), which this suite
+    # runs inside.
     monkeypatch.delenv(missing_field, raising=False)
     payload = {key: value for key, value in _ALL_FIELDS.items() if key != missing_field}
 
@@ -78,18 +76,18 @@ def test_settings_construction_fails_when_any_field_is_missing(missing_field, mo
 
 
 def test_settings_ignores_env_vars_that_are_not_declared_fields():
-    # Regression guard: the root .env is shared with docker-compose.yml's
-    # `env_file:` directive, which also passes it to infra-only services :
+    # Regression guard: the root .env is shared with docker/compose/docker-compose.dev.yml's
+    # `env_file:` directive, which also passes it to infra-only services.
     # REDIS_PASSWORD (redis-server's own auth) and BUGSINK_* (the optional
     # self-hosted error-monitoring service, see
-    # docs/mystic_auth/error-monitoring/overview.md) have no corresponding Settings
-    # field. pydantic-settings defaults to extra="forbid", which crashed
-    # Settings() construction the moment any such var was present : this
-    # only actually surfaced when Settings' own env_file resolved to a real
-    # file (true when cwd=/repo, e.g. running tests) rather than the app's
-    # own cwd=/app, where a relative ".env" never resolves to anything :
-    # so the same .env silently worked for the running app while crashing
-    # every test collection. Settings.Config now sets extra="ignore".
+    # docs/mystic_auth/error-monitoring/overview.md) have no corresponding
+    # Settings field. pydantic-settings defaults to extra="forbid", which
+    # crashed Settings() construction whenever such a var was present. This
+    # only surfaced when Settings' own env_file resolved to a real file
+    # (true when cwd=/repo, e.g. running tests) rather than the app's own
+    # cwd=/app, where a relative ".env" never resolves to anything, so the
+    # same .env silently worked for the running app while crashing every
+    # test collection. Settings.Config now sets extra="ignore".
     payload = {
         **_ALL_FIELDS,
         "REDIS_PASSWORD": "redis-password",

@@ -24,26 +24,21 @@ function formatDayLabel(iso: string, language: SupportedLanguage): string {
     return formatNumber(`${d.getDate()} ${monthNameShort(d.getMonth(), language)}`, language);
 }
 
-/** "21 Jul" - day-then-month so every axis tick is self-contained (no
- * separate "which month is this?" lookup against the subtitle range). */
+/** "21 Jul" - day-then-month so each axis tick is self-contained, no separate lookup against
+ * the subtitle range needed. */
 function formatAxisLabel(iso: string, language: SupportedLanguage): string {
     const d = new Date(`${iso}T00:00:00`);
     return formatNumber(`${d.getDate()} ${monthNameShort(d.getMonth(), language)}`, language);
 }
 
-/** Rounds a max value up to a "clean" tick value (1/2/2.5/5/10 x a power of
- * ten), e.g. 432 -> 500, 7 -> 10, 21 -> 25 - so the y-axis reads 0/half/max
- * in round numbers close to the actual data, rather than an arbitrary
- * data-derived value. The 2.5 step matters: without it, a max of 21 rounds
- * all the way to 50 (residual 2.1 jumping straight from the "2" tier to the
- * "5" tier), leaving most of the chart's height empty above every real bar. */
+/** Rounds a max value up to a "clean" tick value (1/2/2.5/5/10 x a power of ten), e.g.
+ * 432 -> 500, 7 -> 10, 21 -> 25, so the y-axis reads 0/half/max in round numbers instead of
+ * an arbitrary data-derived value. The 2.5 step matters: without it, a max of 21 rounds all
+ * the way to 50, leaving most of the chart's height empty above every real bar. */
 function niceMax(value: number): number {
-    // 1 specifically (the smallest value this can ever be called with -
-    // rawMax is already floored at 1) has no integer strictly between 0 and
-    // itself, so the y-axis's middle tick (scaleMax / 2, rounded) collides
-    // with the top tick: both display "1", reading as a duplicated/wrong
-    // label instead of a real midpoint. Bumping straight to 2 guarantees a
-    // distinct middle tick (1) whenever the data is this sparse.
+    // 1 (the smallest value this is ever called with, since rawMax is floored at 1) has no
+    // integer strictly between 0 and itself, so the middle tick (scaleMax / 2, rounded) would
+    // collide with the top tick, both showing "1". Bump straight to 2 for a distinct midpoint.
     if (value <= 1) return 2;
     if (value <= 5) return value;
     const magnitude = 10 ** Math.floor(Math.log10(value));
@@ -56,28 +51,21 @@ function niceMax(value: number): number {
 /**
  * LoginTrendChart
  * ----------------------------
- * Daily login success/failure counts as a stacked bar chart, so an operator
- * (or a user checking their own activity) can spot a spike - a brute-force
- * run, a lockout wave - at a glance instead of paging/filtering through
- * individual rows below. Colors match this same page's own Result badges
- * (green=Success, red=Failed), not a new vocabulary. Deliberately a fixed
- * 14-day window with no controls of its own: a small trend glance, not a
- * second filterable table.
+ * Daily login success/failure counts as a stacked bar chart, so a spike (a brute-force run, a
+ * lockout wave) is visible at a glance instead of requiring paging through rows below. Colors
+ * match this page's own Result badges (green=Success, red=Failed). Fixed 14-day window with
+ * no controls of its own: a trend glance, not a second filterable table.
  *
- * Every bar is individually labeled with its day-of-month (not just the
- * first/last day) so a reader can read off which day a spike happened on
- * without guessing/counting bars. Hovering (or focusing via keyboard) a bar
- * lifts it slightly and opens a floating tooltip with the full date and
- * exact success/failure counts - every value here is already reachable in
- * the security-log table below, so this is a glance-level enhancement, not
- * a data source of its own.
+ * Every bar is labeled with its day-of-month, not just the first/last, so a reader can tell
+ * which day a spike happened on. Hovering or keyboard-focusing a bar lifts it slightly and
+ * opens a tooltip with the full date and exact counts; all of this is already reachable in
+ * the security-log table below, so the chart is a glance-level enhancement, not a data source.
  */
 const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isError }) => {
     const { t } = useTranslation("audit_log");
-    // chromeLanguage, not pageLanguage, for every number/date in this chart -
-    // see AllAuthorizationLogSection.tsx's matching comment. Numerals stay in
-    // English/ASCII digits even in a mixed "en+hi" mode; only the translated
-    // labels (t()) switch with pageLanguage.
+    // chromeLanguage, not pageLanguage, for every number/date here: see
+    // AllAuthorizationLogSection.tsx's matching comment. Numerals stay ASCII even in a mixed
+    // "en+hi" mode; only the translated labels (t()) switch with pageLanguage.
     const language = useLanguageStore((s) => s.chromeLanguage);
     const [hovered, setHovered] = useState<number | null>(null);
 

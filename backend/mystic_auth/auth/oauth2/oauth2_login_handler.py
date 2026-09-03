@@ -32,7 +32,7 @@ class OAuth2LoginHandler:
         if error_code:
             url += f"?error={error_code}"
         response = RedirectResponse(url=url)
-        response.delete_cookie("oauth_state")
+        response.delete_cookie("oauth_state", httponly=True, secure=True, samesite="lax")
         return response
 
     async def handle_oauth2_login_initiate(self) -> RedirectResponse:
@@ -183,7 +183,7 @@ class OAuth2LoginHandler:
             response = RedirectResponse(url=f"{settings.FRONTEND_BASE_URL}/dashboard")
 
             token_cookie_handler.set_tokens_in_cookies(response, jwt_tokens)
-            response.delete_cookie("oauth_state")
+            response.delete_cookie("oauth_state", httponly=True, secure=True, samesite="lax")
 
             return response
 

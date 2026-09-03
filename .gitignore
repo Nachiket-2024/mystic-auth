@@ -3,11 +3,13 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-.env
-.env.*
-!.env.example
-!.env.local-prod.example
-!.env.prod.example
+env/.env
+env/.env.*
+!env/.env.example
+!env/.env.local-prod-cloudflare.example
+!env/.env.local-prod-ngrok.example
+!env/.env.local-prod-tailscale.example
+!env/.env.prod.example
 *.venv/
 venv/
 .envrc
@@ -36,6 +38,7 @@ docker-compose.override.yml
 backend/__pycache__/
 backend/*.pyc
 backend/*.db
+backend/.cache/
 
 # ---------------------------- Frontend ----------------------------
 node_modules/
@@ -46,6 +49,10 @@ frontend/.env
 frontend/.DS_Store
 frontend/.cache/
 frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.cache/playwright/
 
 # ---------------------------- Testing / Coverage ----------------------------
 .coverage
@@ -78,7 +85,7 @@ logs/
 backups/
 
 # ---------------------------- Local scripts (system user bootstrap) ----------------------------
-# Real credentials for local-scripts/{dev,local-prod,prod}/create-system-user.*;
+# Real credentials for local-scripts/{dev,local-prod-*,prod}/create-system-user.*;
 # the .example templates alongside them stay tracked.
 local-scripts/**/system-user.env
 

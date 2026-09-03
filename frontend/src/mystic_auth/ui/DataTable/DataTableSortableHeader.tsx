@@ -17,8 +17,8 @@ interface DataTableHeaderRowProps<T> {
     selectAllLabel: string;
 }
 
-/** The full header <Table.Row>, split out of DataTable.tsx so that file's
- * own render stays under the repo's file-length guideline - this owns only
+/** The full header <Table.Row>, split out of DataTable.tsx to keep that
+ * file's render under the repo's file-length guideline - this owns only
  * the header cells, DataTableRow owns a body row, DataTable.tsx wires both
  * up to the shared column/selection state. */
 export function DataTableHeaderRow<T>({
@@ -63,10 +63,9 @@ export function DataTableHeaderRow<T>({
                             ? (e) => {
                                   // SortableHeaderLabel renders role="button", but the
                                   // click handler lives here on the parent cell - a
-                                  // span[role=button] (unlike a real <button>) doesn't
-                                  // fire on Enter/Space by itself, so without this the
-                                  // header is focusable but not actually operable via
-                                  // keyboard.
+                                  // span[role=button] doesn't fire on Enter/Space by
+                                  // itself, so without this the header is focusable
+                                  // but not operable via keyboard.
                                   if (e.key === "Enter" || e.key === " ") {
                                       e.preventDefault();
                                       onSortChange?.(col.key);

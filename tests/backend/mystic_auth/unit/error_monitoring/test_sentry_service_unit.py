@@ -17,9 +17,9 @@ def _fake_request(cookies: dict | None = None, method: str = "GET", path: str = 
 
 
 def test_init_sentry_is_a_no_op_when_dsn_is_unset(mocker):
-    # This is the default state for every clone of this template : error
-    # monitoring must never crash startup, or make any SDK call, just
-    # because SENTRY_DSN was never configured.
+    # Default state for every clone of this template: error monitoring must
+    # never crash startup, or make any SDK call, just because SENTRY_DSN
+    # was never configured.
     mocker.patch(f"{MODULE}.settings.SENTRY_DSN", "")
     init_mock = mocker.patch(f"{MODULE}.sentry_sdk.init")
 
@@ -55,11 +55,10 @@ def test_init_sentry_falls_back_to_environment_when_sentry_environment_unset(moc
 
 def test_init_sentry_does_not_raise_when_the_dsn_is_malformed(mocker):
     # Regression guard: sentry_sdk.init() raises (sentry_sdk.utils.BadDsn)
-    # on a malformed DSN, and this function runs unguarded at import time
-    # in main.py : before the app's own global_exception_handler exists to
-    # catch anything. A typo in what's meant to be an optional, best-effort
-    # setting must never crash the whole app's startup. Uses the real
-    # sentry_sdk.init (not mocked) specifically so this test would fail
+    # on a malformed DSN, and this function runs unguarded at import time in
+    # main.py, before global_exception_handler exists to catch anything. A
+    # typo in this optional, best-effort setting must never crash startup.
+    # Uses the real sentry_sdk.init (not mocked) so this test would fail
     # again if the try/except around it were ever removed.
     mocker.patch(f"{MODULE}.settings.SENTRY_DSN", "not-a-valid-dsn-at-all")
 
@@ -123,7 +122,7 @@ async def test_capture_exception_omits_user_context_when_no_access_token_cookie(
 
 @pytest.mark.asyncio
 async def test_capture_exception_omits_user_context_when_access_token_fails_to_verify(mocker):
-    # Expired/tampered/wrong-type access_token cookie : same "no user
+    # Expired/tampered/wrong-type access_token cookie: same "no user
     # context, but still capture the exception" outcome as no cookie at all.
     request = _fake_request(cookies={"access_token": "expired-or-invalid"})
     mocker.patch(f"{MODULE}.jwt_service.verify_token", new_callable=AsyncMock, return_value=None)

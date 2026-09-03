@@ -10,10 +10,10 @@ interface BulkOperationResultListProps {
 }
 
 /** Renders one bulk mutation's per-item outcome (BulkItemResult[]): which
- * of the selected users succeeded vs. errored, and why. Used by
+ * selected users succeeded vs. errored, and why. Used by
  * BulkPolicyAssignDialog / BulkPermissionGrantDialog / BulkRoleAssignDialog
- * after a submit, since a bulk operation is best-effort - a single
- * success/error toast can't represent "18 succeeded, 2 failed". */
+ * after submit, since a single success/error toast can't represent
+ * "18 succeeded, 2 failed". */
 const BulkOperationResultList: React.FC<BulkOperationResultListProps> = ({ results }) => {
     const { t } = useTranslation("users");
     if (results.length === 0) return null;
@@ -33,11 +33,9 @@ const BulkOperationResultList: React.FC<BulkOperationResultListProps> = ({ resul
                             {r.error}
                         </Text>
                     )}
-                    {/* "already_held" is a genuine no-op the backend reports
-                        separately from "success" (see BulkPolicyAssignDialog's
-                        matching test comment) - shown here since the picker
-                        itself never filters this out across a multi-user
-                        selection. */}
+                    {/* "already_held" is a no-op the backend reports separately
+                        from "success" (see BulkPolicyAssignDialog); shown here
+                        because the picker doesn't filter it out across users. */}
                     {r.status === "already_held" && (
                         <Text color="fg.muted" truncate>
                             {t("users:bulkActions.alreadyHeld")}

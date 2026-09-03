@@ -7,9 +7,11 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ## Security
 
+---
+
 ### Database backups are scheduled, but not production-grade
 
-**Description**: `docker-compose.prod.yml` and `docker-compose.local-prod.yml` both run a `db_backup` service by default: a loop that calls `pg_dump` on an interval (`BACKUP_INTERVAL_HOURS`) and writes a plain-text `.sql` dump to `./backups` on the same host, deleting dumps older than `BACKUP_RETENTION_DAYS`. This closes the original gap ("no scheduler exists at all") but the mechanism itself stops well short of what real production Postgres backup practice looks like.
+**Description**: `docker-compose.prod.yml` and every `docker-compose.local-prod-*.yml` variant run a `db_backup` service by default: a loop that calls `pg_dump` on an interval (`BACKUP_INTERVAL_HOURS`) and writes a plain-text `.sql` dump to `./backups` on the same host, deleting dumps older than `BACKUP_RETENTION_DAYS`. This closes the original gap ("no scheduler exists at all") but the mechanism itself stops well short of what real production Postgres backup practice looks like.
 
 **Impact**: Three concrete gaps against a real production setup:
 - **Single point of failure**: dumps live on the same host/disk as the database they're backing up. If that host or disk fails, the backups are gone too - nothing ships them off-host automatically.
@@ -25,6 +27,8 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 ---
 
 ## Configuration
+
+---
 
 ### One global rate-limit threshold for every endpoint
 
@@ -42,11 +46,13 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ## CI/CD
 
+---
+
 ### No deploy automation
 
 **Description**: `docker-build` in CI verifies that both Dockerfiles build but does not push to a registry or deploy anywhere.
 
-**Why it exists**: This is a template repository with no assumed production target. See [Deployment Guide](../deployment/guide.md#production-host-requirements). Adding a deploy stage would need to assume a specific host.
+**Why it exists**: This is a template repository with no assumed production target. See [Deployment Guide](../deployment/production-host.md). Adding a deploy stage would need to assume a specific host.
 
 **Priority**: N/A, an intentional scope boundary, not a gap.
 

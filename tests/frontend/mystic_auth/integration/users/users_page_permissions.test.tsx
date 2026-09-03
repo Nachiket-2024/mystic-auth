@@ -81,12 +81,8 @@ describe('UsersPage Permissions dialog', () => {
     mock.reset();
   });
 
-  // Explicit timeout: this test's two full mutation round trips (grant,
-  // then revoke via ConfirmDialog) plus a preceding StyledSelect
-  // interaction run long enough to occasionally exceed vitest's 5000ms
-  // default under this suite's full parallel run (confirmed the identical
-  // pattern in the pre-existing users_page_policies.test.tsx's own
-  // assign+revoke roundtrip test, not something this change introduced).
+  // Explicit timeout: two full mutation round trips (grant, then revoke)
+  // can exceed vitest's 5000ms default under the suite's full parallel run.
   it('opens the Permissions dialog, grants a direct permission, and revokes an existing one', async () => {
     seed(['users:list_all', 'permissions:read', 'permissions:grant', 'permissions:revoke']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
@@ -106,14 +102,10 @@ describe('UsersPage Permissions dialog', () => {
     await user.click(permissionsButtons[permissionsButtons.length - 1]);
 
     const dialog = await screen.findByRole('dialog');
-    // ignore: the action Select's hidden native <option>s (always in the
-    // DOM, even closed) now also contain "users:read_own" as a choice -
-    // scope this assertion to the granted-permission badge, not any option.
+    // The action Select's hidden native <option>s also contain
+    // "users:read_own"; scope this to the granted-permission badge.
     expect(within(dialog).getByText(/users:read_own/, { ignore: 'option' })).toBeInTheDocument();
 
-    // Same StyledSelect interaction pattern as users_page_policies.test.tsx's
-    // "Select a policy to assign" - the hidden native <select> mirror, found
-    // via its accessible name, is what user.selectOptions actually drives.
     // resource_type is derived automatically from the chosen action (see
     // UserPermissionsDialog's handleActionChange), not selected separately.
     await user.selectOptions(screen.getByLabelText('Select an action to grant', { selector: 'select' }), 'users:list_all');
@@ -133,9 +125,8 @@ describe('UsersPage Permissions dialog', () => {
   it("disables revoke for the caller's own direct grants in the Permissions dialog", async () => {
     seed(['users:list_all', 'permissions:read', 'permissions:revoke'], 'admin@example.com');
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
-    // Own row = self-service /me endpoints, not the management ones (see
-    // UserPermissionsDialog's own docstring) - regardless of holding
-    // permissions:read/policies:read here, since isSelf always prefers /me.
+    // Own row always uses the self-service /me endpoints, regardless of
+    // holding permissions:read/policies:read (see UserPermissionsDialog).
     mock.onGet('/authorization/users/me/permissions').reply(200, {
       user_email: 'admin@example.com',
       permissions: [{ id: 1, action: 'users:read_own', resource_type: 'users', conditions: null, is_active: true, assigned_by: null }],

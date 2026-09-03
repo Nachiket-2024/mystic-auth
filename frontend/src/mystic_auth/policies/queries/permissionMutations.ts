@@ -11,8 +11,8 @@ import { MY_PERMISSIONS_QUERY_KEY, userPermissionsQueryKey } from "./permissionQ
  * useGrantPermissionMutation / useRevokePermissionMutation
  * ----------------------------
  * Direct (bypasses-Policy) grant/revoke, the granular counterpart to
- * useAssignPolicyMutation/useRevokePolicyMutation (policyMutations.ts) -
- * same invalidation shape, including the self-grant CURRENT_USER_QUERY_KEY
+ * useAssignPolicyMutation/useRevokePolicyMutation (policyMutations.ts).
+ * Same invalidation shape, including the self-grant CURRENT_USER_QUERY_KEY
  * refresh (see that file's onSuccess comment for why).
  */
 export function useGrantPermissionMutation() {

@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from ..conditions.condition_validator import sanitize_conditions_for_read
 
 
 class PermissionAssignmentRequest(BaseModel):
@@ -20,6 +22,11 @@ class UserPermissionRead(BaseModel):
     assigned_by: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("conditions", mode="before")
+    @classmethod
+    def _sanitize_conditions(cls, value: dict | None) -> dict | None:
+        return sanitize_conditions_for_read(value)
 
 
 class UserPermissionsRead(BaseModel):

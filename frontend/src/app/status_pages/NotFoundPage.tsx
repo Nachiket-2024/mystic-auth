@@ -5,10 +5,8 @@ import { useTranslation } from "react-i18next";
 
 import { BRAND_SOLID_HOVER_PROPS } from "../sdk";
 
-// Side-effect import: registers this page's own "status_pages" i18next
-// namespace (translations/*.json, all app-owned - see that module's own
-// docstring) so useTranslation("status_pages") below has something to
-// resolve.
+// Side-effect import: registers the "status_pages" i18next namespace so
+// useTranslation("status_pages") below has something to resolve.
 import "./translations/registerStatusPagesTranslations";
 
 const NotFoundPage: React.FC = () => {

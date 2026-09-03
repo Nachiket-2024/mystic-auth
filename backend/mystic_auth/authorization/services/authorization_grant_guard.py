@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.errors import AppError
 from ..permissions import Permission
 
-# The app's own fixed, known-sensitive action vocabulary: see
-# assert_authorized_to_grant below for why only these are escalation-guarded.
+# This app's known-sensitive actions; see assert_authorized_to_grant below
+# for why only these are escalation-guarded.
 _KNOWN_SENSITIVE_ACTIONS = frozenset(permission.value for permission in Permission)
 
 
@@ -18,63 +18,39 @@ async def assert_authorized_to_grant(
     cache: dict[tuple[str, str], bool] | None = None,
 ) -> None:
     """
-    Guards against privilege escalation: `caller_email` is the user
-    attempting to create/update a policy, or assign one to someone
-    (possibly themselves), and `actions` is the full set of actions
-    that would end up granted as a result. For every action in
-    `actions` that is one of this app's own known-sensitive actions
-    (Permission's fixed vocabulary, identity and authorization-
-    management actions), confirms the caller is already authorized for
-    it, raising HTTP 403 on the first one the caller doesn't already
-    hold. Any action outside that vocabulary, an arbitrary business-
-    domain action a downstream application built on this template
-    defines for its own resources (e.g. "projects:read"), is skipped
-    entirely.
+    Guards against privilege escalation. `caller_email` is the user
+    creating/updating/assigning a policy; `actions` is the full set of
+    actions that would end up granted. For every action in `actions` that
+    is one of this app's own known-sensitive actions (Permission's fixed
+    vocabulary), confirms the caller already holds it, raising HTTP 403
+    on the first one they don't. Anything outside that vocabulary (a
+    downstream app's own business action, e.g. "projects:read") is
+    skipped: without this guard, holding only policies:create+assign
+    (without system_superuser) would let a caller mint an all-powerful
+    policy and assign it to themselves.
 
-    `context` should be the same request-derived context (see
-    context/request_context_builder.py's build_authorization_context) the
-    route's own require_authorization dependency built for this request.
-    Without it, the "do you already hold this action" check below evaluates
-    with no IP/time/security_context at all, which fails CLOSED for any
-    caller who holds the action only through a context-dependent policy
-    (e.g. network- or time-restricted) - denying a grant/assign the caller
-    is genuinely entitled to make. Callers that can't supply one (e.g. a
-    background task with no real request) still get the old context-less
-    behavior by omitting it, which is conservative (may under-grant, never
-    over-grants) rather than unsafe.
+    `context` should be the same request context the route's own
+    require_authorization dependency built. Without it, the "do you
+    already hold this" check evaluates with no IP/time/security_context,
+    failing closed for a caller who holds the action only via a
+    context-dependent policy (e.g. network- or time-restricted). Callers
+    with no real request (background tasks) can omit it; that's
+    conservative (may under-grant, never over-grants).
 
-    Creating a policy, editing a policy's actions, or assigning a
-    policy to a user must never be able to hand out (to anyone,
-    including the caller themselves) one of *this app's own* sensitive
-    actions that the caller doesn't already have, otherwise holding
-    only policies:create+policies:assign (without system_superuser
-    itself) would let a caller mint an all-powerful policy and assign
-    it to themselves.
+    Scoped to Permission's fixed vocabulary, not every action string:
+    policies:create/assign is a general-purpose authoring capability, not
+    itself the protected resource, so only this app's built-in identity/
+    authorization actions need guarding here.
 
-    Deliberately scoped to Permission's fixed vocabulary rather than
-    every action string: PBAC policies in this template are meant to
-    freely grant whatever actions a downstream application defines for
-    its own business resources; policies:create/assign is a
-    general-purpose policy-authoring capability, not itself the
-    resource being protected. Only this app's built-in identity/
-    authorization actions are sensitive enough to guard here. Called
-    from api/pbac_routes/policies/policy_crud_routes.py's create/update
-    endpoints and policy_assignment_routes.py's assign endpoint,
-    never bypassed by going straight to the repository from a route.
-
-    Imports AuthorizationService locally (not at module level) since
-    authorization_service.py imports this module to delegate its own
-    assert_authorized_to_grant here - a top-level import would be circular.
+    Imports AuthorizationService locally to avoid a circular import
+    (authorization_service.py delegates its own assert_authorized_to_grant
+    here).
 
     `cache`, when given, is an (action, resource_type) -> allowed dict the
-    caller owns and reuses across repeated calls within the same request
-    (e.g. a bulk-assign loop calling this once per item). caller_email and
-    context are already fixed for the duration of one request, so a given
-    (action, resource_type) pair always evaluates to the same answer within
-    it - safe to memoize there without a TTL, unlike AuthorizationService's
-    own Redis-backed policy cache. Bulk requests routinely repeat the same
-    policy (and therefore the same actions/resource_type) across many
-    items, so this avoids re-running the full evaluation for each one.
+    caller reuses across repeated calls in the same request (e.g. a
+    bulk-assign loop). Safe to memoize without a TTL since caller_email
+    and context are fixed for the request's duration; avoids re-running
+    evaluation for the same action across many bulk items.
     """
     from .authorization_service import AuthorizationService
 

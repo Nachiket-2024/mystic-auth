@@ -18,9 +18,8 @@ function renderChecklist(
   );
 }
 
-// Each rule renders as an icon (lucide "check" or "x") next to its label,
-// not inline text, so assert on the icon adjacent to that label rather than
-// on a leading character.
+// Each rule renders as an icon (lucide "check" or "x"), not inline text,
+// so assert on the icon next to the label instead of a leading character.
 function expectRuleIcon(labelText: string, iconClass: 'lucide-check' | 'lucide-x') {
   const label = screen.getByText(labelText);
   const row = label.closest('.chakra-stack');
@@ -60,9 +59,8 @@ describe('PasswordRulesChecklist', () => {
 
     const label = screen.getByText('At least 8 characters');
     const row = label.closest('.chakra-stack');
-    // .not.toBeInTheDocument() doesn't type-check here, see
-    // docs/mystic_auth/testing/overview.md's ".not chaining" note: toBeNull() on
-    // querySelector's result is the positive-assertion equivalent.
+    // .not.toBeInTheDocument() doesn't type-check here (see the ".not chaining"
+    // note in docs/mystic_auth/testing/overview.md); toBeNull() is the equivalent.
     expect(row?.querySelector('svg.lucide-x')).toBeNull();
     expect(row?.querySelector('svg.lucide-check')).toBeNull();
     expect(row?.querySelector('svg.lucide-circle')).toBeInTheDocument();

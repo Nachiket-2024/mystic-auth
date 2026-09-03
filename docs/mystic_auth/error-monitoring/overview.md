@@ -25,7 +25,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
 ---
 
-1. **Set the Bugsink-specific variables in `.env`** (see `.env.example`):
+1. **Set the Bugsink-specific variables in `env/.env`** (see `env/.env.example`):
 
    ```bash
    BUGSINK_SECRET_KEY=<run: openssl rand -base64 50>
@@ -36,21 +36,21 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
    These configure the Bugsink *container* directly: they are unrelated to this app's own `Settings` class and never read by the backend/frontend themselves. `BUGSINK_BASE_URL` is what Bugsink uses to construct links back to itself (e.g. in any email it sends): `http://localhost:8010` is only correct for local dev; update it to match wherever you're actually reaching Bugsink from (a LAN IP, a tunnel, a real hostname) if that's not `localhost`.
 
-   **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `.env.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If you don't want error monitoring at all, either set a real key anyway (cheapest fix, `openssl rand -base64 50`) or run `docker compose stop bugsink bugsink-seed` to stop the restart loop.
+   **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `env/.env.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If you don't want error monitoring at all, either set a real key anyway (cheapest fix, `openssl rand -base64 50`) or run `docker compose stop bugsink bugsink-seed` to stop the restart loop.
 
 ---
 
 2. **Start it** (part of the normal quickstart: no extra flag needed):
 
    ```bash
-   docker compose up -d
+   docker compose -f docker/compose/docker-compose.dev.yml up -d
    ```
 
    First boot runs Bugsink's own database migrations against the `bugsink` database (created automatically by `docker/postgres-init/init-bugsink-db.sh`: see that file's own comment if you're enabling this against an *already-initialized* `postgres_data` volume, since init scripts only run once, against a fresh volume) and creates the superuser from step 1.
 
 ---
 
-3. **That's it: no manual project/DSN setup.** Once `bugsink` reports healthy, the one-shot `bugsink-seed` service (`docker-compose.yml`) runs automatically: it creates a "MysticAuth" team and project via Bugsink's Django ORM (idempotent: safe to run on every `up`), then computes both DSN forms itself and writes them to a small shared Docker volume that `backend`/`frontend` read from at their own startup:
+3. **That's it: no manual project/DSN setup.** Once `bugsink` reports healthy, the one-shot `bugsink-seed` service (`docker-compose.dev.yml`) runs automatically: it creates a "MysticAuth" team and project via Bugsink's Django ORM (idempotent: safe to run on every `up`), then computes both DSN forms itself and writes them to a small shared Docker volume that `backend`/`frontend` read from at their own startup:
 
    ```
    SENTRY_DSN=http://<key>@bugsink:8000/<id>        # backend: reaches Bugsink over the Docker network
@@ -59,13 +59,13 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
    (This two-host split, `bugsink:8000` internally vs. `localhost:8010` from the browser, used to be a manual, easy-to-miss trap when copy-pasting a single DSN Bugsink's UI showed you. `bugsink-seed` computes both forms directly from the project's id/key, so there's nothing to copy-paste or get wrong.)
 
-   `backend`'s and `frontend`'s own `command:` in `docker-compose.yml` wait briefly (bounded at ~10s) for `bugsink-seed` to finish writing these before starting their real process. That covers a warm restart (Bugsink already healthy) reliably, but not a fresh boot (first clone, or after `docker compose down -v`): Bugsink itself can take 20+ seconds to become healthy on a cold start (its own ~150 first-boot migrations), past that 10s window.
+   `backend`'s and `frontend`'s own `command:` in `docker-compose.dev.yml` wait briefly (bounded at ~10s) for `bugsink-seed` to finish writing these before starting their real process. That covers a warm restart (Bugsink already healthy) reliably, but not a fresh boot (first clone, or after `docker compose down -v`): Bugsink itself can take 20+ seconds to become healthy on a cold start (its own ~150 first-boot migrations), past that 10s window.
 
    **`backend` has a second layer for exactly that case**: `error_monitoring/sentry_service.py`'s `watch_for_late_dsn()`, started as a background task from `main.py`'s lifespan, keeps polling the same file with no fixed assumption about how long Bugsink takes, and picks it up whenever it actually appears. `frontend` doesn't have this second layer. Vite's dev server reads `VITE_*` at process start with no clean hot-reload path, so a fresh boot can genuinely leave frontend monitoring off until the container's next restart; lower stakes than backend missing it, since it's dev-only and a page reload after that restart picks it up.
 
    You can still log in at `http://localhost:8010` with the superuser credentials from step 1 to browse the "MysticAuth" project's Issues list directly.
 
-   **In production-style Compose files, this same auto-wiring exists for `backend` only, not `frontend`.** `bugsink-seed` and the shared `bugsink_dsn` volume are present there too, and `backend`'s DSN is auto-wired identically: it's a container-to-container address (`bugsink:8000`) either way, so nothing about it changes between dev and prod. `frontend` is different: `VITE_SENTRY_DSN` is baked into the static bundle as a Docker build arg (see [Deployment Guide](../deployment/guide.md)), not read at container startup, and it needs whatever address *publicly* reaches Bugsink in production: a reverse-proxy route you set up deliberately (see [Security notes](#security-notes) below), which `bugsink-seed` has no way to know in advance. Set `VITE_SENTRY_DSN` manually in `.env.local-prod`/`.env.prod` before building either production-style Compose file once you know that address; there's no auto-wiring to wait for on the frontend side in production.
+   **In production-style Compose files, this same auto-wiring exists for `backend` only, not `frontend`.** `bugsink-seed` and the shared `bugsink_dsn` volume are present there too, and `backend`'s DSN is auto-wired identically: it's a container-to-container address (`bugsink:8000`) either way, so nothing about it changes between dev and prod. `frontend` is different: `VITE_SENTRY_DSN` is baked into the static bundle as a Docker build arg (see [Deployment Guide](../deployment/guide.md)), not read at container startup, and it needs whatever address *publicly* reaches Bugsink in production: a reverse-proxy route you set up deliberately (see [Security notes](#security-notes) below), which `bugsink-seed` has no way to know in advance. Set `VITE_SENTRY_DSN` manually in that mode's `env/.env.local-prod-*`/`env/.env.prod` before building the matching production-style Compose file once you know that address; there's no auto-wiring to wait for on the frontend side in production.
 
 ---
 
@@ -132,17 +132,11 @@ Written for whoever's never touched Bugsink (or Sentry, or any error tracker lik
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    subgraph Backend["Backend"]
-        BErr["Unhandled exception<br/> reaches main.py's global<br/> exception handler"]
-    end
-
-    subgraph Frontend["Frontend"]
-        FErr["Uncaught render error<br/> caught by ErrorBoundary"]
-    end
-
-    BErr --> SentrySDK["Sentry SDK protocol<br/> sentry-sdk / @sentry/react"]
+    BErr["Backend: unhandled exception\n reaches main.py's global\n exception handler"]
+    FErr["Frontend: uncaught render error\n caught by ErrorBoundary"]
+    BErr --> SentrySDK["Sentry SDK protocol\n sentry-sdk / @sentry/react"]
     FErr --> SentrySDK
-    SentrySDK --> Bugsink[("Bugsink<br/> (self-hosted)")]
+    SentrySDK --> Bugsink[("Bugsink\n (self-hosted)")]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 

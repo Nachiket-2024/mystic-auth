@@ -1,39 +1,37 @@
 #!/usr/bin/env bash
 # On-demand: pulls in updates from the original mystic-auth template repo.
-# Nothing here runs automatically -- this only does anything when you run it.
-# See docs/mystic_auth/template-usage/syncing-upstream.md for the full
-# explanation of what conflicts and what almost never will.
+# Nothing here runs automatically. See
+# docs/mystic_auth/template-usage/syncing-upstream/README.md for what conflicts and
+# what almost never will.
 #
 # Two sync strategies, chosen automatically:
 #
 #   1. First sync ever (no .mystic-auth-sync-state file yet): a whole-tree
 #      `git merge --squash --allow-unrelated-histories`, so upstream's own
 #      commits never become ancestors of your history.
-#   2. Every sync after that: an incremental `git diff <last-synced-sha>
-#      upstream/branch | git apply --3way`. Not the same algorithm rerun --
-#      `--squash` has no merge-base on unrelated histories, so it re-diffs
-#      the whole tree every time; the incremental diff has a real baseline,
-#      so an untouched file produces zero diff instead of a phantom
-#      conflict. `--3way` is what turns an unclean hunk into a real 3-way
-#      merge with normal conflict markers instead of hard-failing the patch.
+#   2. Every sync after: an incremental `git diff <last-synced-sha>
+#      upstream/branch | git apply --3way`. Squash has no merge-base on
+#      unrelated histories so it re-diffs the whole tree every time; the
+#      incremental diff has a real baseline, so an untouched file produces
+#      zero diff instead of a phantom conflict. `--3way` turns an unclean
+#      hunk into a real 3-way merge with conflict markers instead of
+#      hard-failing the patch.
 #
 # Three safety nets run after either strategy, before anything commits:
 #   - A "did anything actually change" check: `git apply`/`git merge` can
-#     report success while one file -- a binary file is the sharpest
-#     example -- silently fails to apply. Compares the file list the diff
-#     says should have changed against what's actually staged/conflicted,
-#     and refuses to commit on a mismatch.
+#     report success while one file (a binary file is the sharpest example)
+#     silently fails to apply. Compares the file list the diff says should
+#     have changed against what's actually staged/conflicted, and refuses to
+#     commit on a mismatch.
 #   - An executable-bit self-heal for scripts/**/*.sh (see the comment at
-#     that check below for why this is needed every sync, not just once).
+#     that check below for why this runs every sync, not just once).
 #   - scripts/upstream-sync/check-alembic-heads.sh: catches this app and
 #     upstream both adding a migration on the same fork point, which
-#     otherwise sits silent until `alembic upgrade head` fails at deploy
-#     time.
+#     otherwise stays silent until `alembic upgrade head` fails at deploy time.
 #
 # Also enables `git rerere`: once a conflict is resolved by hand, git
-# reapplies the same resolution if an identically-shaped conflict recurs --
-# useful since upstream rewording a comment next to your own edit produces
-# that exact shape of low-value conflict on every subsequent sync.
+# reapplies that resolution if the same-shaped conflict recurs, which happens
+# often when upstream rewords a comment next to your own edit.
 #
 # Usage: scripts/upstream-sync/sync-upstream.sh [upstream-url]
 #   upstream-url defaults to the original template repo; pass your own fork's
@@ -164,10 +162,10 @@ if [ -n "$MISSING_FILES" ]; then
 fi
 
 # A synced script can land non-executable (mode 100644) on a repo running
-# core.filemode=false (the Windows default) -- git never diffs a mode-only
-# change there, so it stays silently broken until someone runs it and it
-# fails. Fixed unconditionally every sync rather than relying on a human to
-# notice. Stage 0 only (`$3 == "0"`), so an unresolved conflict is untouched.
+# core.filemode=false (the Windows default), since git never diffs a
+# mode-only change there. Fixed unconditionally rather than relying on a
+# human to notice. Stage 0 only (`$3 == "0"`), so an unresolved conflict is
+# left untouched.
 MODE_DRIFT_FILES="$(git ls-files -s -- 'scripts/**/*.sh' 2>/dev/null | awk '$1 != "100755" && $3 == "0" { print $NF }')"
 if [ -n "$MODE_DRIFT_FILES" ]; then
   echo ""
@@ -231,11 +229,11 @@ Your history stays yours -- no upstream commits were imported.
 Before trusting this, rebuild and rerun the test suite -- a sync can change
 behavior underneath you even when every file merged automatically:
 
-  docker compose up -d --build
-  scripts/docker/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security
+  docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build
+  scripts/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security
   # frontend: see docs/mystic_auth/testing/overview.md for the equivalent commands
-  # scripts/docker/backend-exec.sh wraps the two Windows/Git Bash and native-Linux
+  # scripts/docker/dev/backend-exec.sh wraps the two Windows/Git Bash and native-Linux
   # workarounds documented in
-  # docs/mystic_auth/docker/overview.md#running-a-one-off-command-inside-a-container
+  # docs/mystic_auth/docker/dev-workflow.md#running-a-one-off-command-inside-a-container
   # -- safe to use on every platform.
 EOF

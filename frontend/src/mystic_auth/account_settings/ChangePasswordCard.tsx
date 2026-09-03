@@ -29,11 +29,10 @@ interface ChangePasswordCardProps {
  * change never shows a loading spinner or a stale error on the unrelated
  * name card, and vice versa.
  *
- * Also owns the read-only Set/Not set status badge - it used to live on
- * the Account Status tab, but that's authorization info (policies/
- * permissions), and whether a password is set is squarely a password
- * concern, not an authorization one. Living here also means the status
- * badge sits right next to the actual form that would change it.
+ * Also owns the read-only Set/Not set status badge. It used to live on the
+ * Account Status tab, but that's authorization info, and whether a password
+ * is set is a password concern, not an authorization one. Living here also
+ * puts the badge right next to the form that would change it.
  */
 const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, onDirtyChange }) => {
     const { t } = useTranslation("account_settings");
@@ -61,8 +60,8 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
             return;
         }
         // Only an account that already has a password needs to confirm it:
-        // setting one for the first time on an OAuth-only account has
-        // nothing to confirm against.
+        // setting one for the first time on an OAuth-only account has nothing
+        // to confirm against.
         if (hasPassword && !currentPassword) {
             setPasswordError(t("changePassword.confirmCurrentRequired"));
             return;
@@ -73,12 +72,10 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
 
         passwordMutation.mutate(payload, {
             onSuccess: (data) => {
-                // sessions_revoked === false: the password itself changed
-                // (this succeeded), but Redis was unreachable so the
-                // account's other sessions were NOT revoked - a distinct,
-                // narrower warning rather than the plain success toast, so
-                // this doesn't look like a completed "other devices signed
-                // out" the way it normally would.
+                // sessions_revoked === false: the password changed successfully,
+                // but Redis was unreachable so other sessions weren't revoked.
+                // Show a narrower warning instead of the plain success toast, since
+                // "other devices signed out" didn't actually happen here.
                 if (data.sessions_revoked === false) {
                     toaster.create({ title: t("changePassword.updatedButSessionsNotRevokedToast"), type: "warning" });
                 } else {
@@ -124,15 +121,11 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                     />
                 </Field.Root>
 
-                {/* Directly below New password, not after Current
-                    password: these rules describe the new password
-                    you're typing above, not the confirmation field
-                    below, so they read more naturally attached to
-                    the field they're actually validating. Always rendered
-                    (pristine before typing starts), same reasoning as
-                    SignupForm/PasswordResetConfirmForm: reserving this
-                    block's height from the first render means it filling
-                    in never shifts the fields below it. */}
+                {/* Placed right below New password since these rules describe
+                    that field, not the confirmation field below. Always rendered
+                    (pristine before typing starts), same as SignupForm/
+                    PasswordResetConfirmForm, so reserving its height up front
+                    means it filling in never shifts the fields below. */}
                 <PasswordStrengthPanel
                     password={newPassword}
                     label={t("changePassword.strengthLabel", { strength: strength || "-" })}
@@ -141,11 +134,9 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                     mt={1}
                 />
 
-                {/* Always rendered when the account has a password to
-                    confirm against, not only once newPassword has a
-                    value: this whole card should look the same the
-                    moment it opens as it does mid-edit, not visibly grow
-                    a field the instant you start typing. */}
+                {/* Always rendered when the account has a password to confirm
+                    against, not only once newPassword has a value: the card
+                    should look the same on open as it does mid-edit. */}
                 {hasPassword && (
                     <Field.Root>
                         <Field.Label fontSize="md">{t("changePassword.currentPasswordLabel")}</Field.Label>

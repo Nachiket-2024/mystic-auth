@@ -22,8 +22,7 @@ import { userPermissionsQueryKey, MY_PERMISSIONS_QUERY_KEY } from "./permissionQ
  * useCreatePolicyMutation / useUpdatePolicyMutation / useDeletePolicyMutation
  * ----------------------------
  * Each invalidates the shared policies list on success so the Policy
- * Management page always reflects the backend's current state rather than
- * a stale cached list. TanStack Query owns this cache, not local state.
+ * Management page reflects the backend's current state, not a stale cache.
  */
 export function useCreatePolicyMutation() {
     return useMutation<PolicyRead, Error, PolicyCreatePayload>({
@@ -88,11 +87,11 @@ export function useAssignPolicyMutation() {
         onSuccess: (_data, { userEmail }) => {
             queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(userEmail) });
             queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
-            // If the caller just changed their OWN policies, the Zustand
-            // permissions cache (populated from this same query, see
+            // If the caller changed their OWN policies, the Zustand
+            // permissions cache (populated from this query, see
             // useAuthSession) would otherwise stay stale until the next
             // reload or 401, leaving IfCan/ProtectedRoute checks acting on
-            // a permission set that no longer matches the backend.
+            // permissions the backend no longer grants.
             if (userEmail === useAuthStore.getState().email) {
                 queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
             }
@@ -124,10 +123,9 @@ export function useRevokePolicyMutation() {
  * useRevokePolicyActionMutation
  * ----------------------------
  * Carves one action out of a user's policy assignment (see
- * revokePolicyActionApi's own docstring) - the policy's other actions
- * survive, converted server-side into direct grants, so both the assigned-
- * policies list AND the user's direct-permissions list can change as a
- * result. Invalidates both queries, not just the policies one.
+ * revokePolicyActionApi's docstring): the policy's other actions survive,
+ * converted server-side into direct grants, so both the assigned-policies
+ * list and the direct-permissions list can change. Invalidates both.
  */
 export function useRevokePolicyActionMutation() {
     return useMutation<unknown, Error, { userEmail: string; policyName: string; action: string }>({

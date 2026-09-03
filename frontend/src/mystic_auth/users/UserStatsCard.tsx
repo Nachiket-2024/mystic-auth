@@ -21,16 +21,13 @@ interface UserStatsCardProps {
  * UserStatsCard
  * ----------------------------
  * Summary counts (GET /users/stats) for UsersPage: total, verified,
- * unverified, inactive - always across the whole table, independent of
- * whatever page/search/filters the list below currently has applied, so
- * these numbers don't shift as an operator pages or filters through the list.
- * Sits in PageContainer's own actions slot (top-right, level with the page
- * title), so the search/filter row and table below it are unaffected.
+ * unverified, inactive. Always reflects the whole table, not whatever
+ * page/search/filters are currently applied, so the numbers don't shift as
+ * an operator pages or filters through the list. Sits in PageContainer's
+ * actions slot (top-right, level with the page title).
  *
- * Each tile doubles as a filter shortcut when its handler is supplied:
- * clicking "Verified" applies the same filter an operator would otherwise set
- * by hand via the Verified select below, rather than just being a
- * read-only count next to it.
+ * Each tile also acts as a filter shortcut when its handler is supplied:
+ * clicking "Verified" applies the same filter as the Verified select below.
  */
 const UserStatsCard: React.FC<UserStatsCardProps> = ({
     onFilterTotal, onFilterVerified, onFilterUnverified, onFilterInactive,

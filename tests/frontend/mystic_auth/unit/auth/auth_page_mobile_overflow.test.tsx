@@ -1,9 +1,6 @@
-// Regression: LoginPage/SignupPage/PasswordResetRequestPage/
-// PasswordResetConfirmPage/VerifyAccountPage's Card used to render with a
-// fixed pixel `w` (e.g. w="400px"), which overflowed a 375px viewport
-// (the card itself is wider than the screen, forcing horizontal scroll).
-// The fix made every one of these Cards use w="full" maxW="<n>px" instead,
-// so the card shrinks to the viewport and only caps its growth on wide
+// Regression: these auth pages' Cards used to render with a fixed pixel `w`
+// (e.g. w="400px"), which overflowed a 375px viewport. The fix switched to
+// w="full" maxW="<n>px" so the card shrinks to fit and only caps on wide
 // screens. These tests pin that a fixed-pixel `w` doesn't come back.
 import type { ReactElement } from 'react';
 import { describe, it, expect } from 'vitest';
@@ -29,11 +26,9 @@ function renderPage(ui: ReactElement, initialEntries: string[] = ['/']) {
   );
 }
 
-// Chakra/Panda resolves a token width like w="full" to a CSS custom
-// property reference (var(--chakra-sizes-full)); a fixed pixel width like
-// the old bug would instead resolve to a literal "<n>px" string. Asserting
-// against that literal-px shape (rather than the exact token) is what
-// actually catches a regression back to a hardcoded pixel width.
+// A token width like w="full" resolves to var(--chakra-sizes-full); a fixed
+// pixel width resolves to a literal "<n>px" string. Asserting against that
+// shape catches a regression back to a hardcoded pixel width.
 function expectNonFixedPixelWidth(container: HTMLElement) {
   const card = container.querySelector('.chakra-card__root') as HTMLElement | null;
   expect(card).toBeInstanceOf(HTMLElement);
@@ -53,9 +48,8 @@ describe('auth page Cards no longer use a fixed pixel width (mobile-overflow reg
   });
 
   it('SignupPage stacks the Name/Email row as a single column at the base (mobile) breakpoint', () => {
-    // Previously a fixed-direction HStack, which is what forced the wide
-    // Card in the first place; direction={{ base: "column", sm: "row" }}
-    // is what lets a narrow Card actually fit the fields.
+    // Was a fixed-direction HStack, forcing the wide Card; direction={{
+    // base: "column", sm: "row" }} lets a narrow Card fit the fields.
     const { container } = renderPage(<SignupPage />);
     const nameInput = container.querySelector('input[placeholder="Enter your name"]') as HTMLElement;
     const row = nameInput.closest('.chakra-stack') as HTMLElement;

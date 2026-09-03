@@ -6,11 +6,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-_ = load_dotenv(dotenv_path=BASE_DIR / ".env")
+_ = load_dotenv(dotenv_path=BASE_DIR / "env" / ".env")
 
 from .sdk import (  # noqa: E402, must follow load_dotenv() above, since sdk.py reads env-dependent settings at import time
     AppError,
@@ -57,38 +59,20 @@ init_sentry()
 
 def _relay_shutdown_signal_to_session_events() -> None:
     """
-    Chains our own SIGTERM/SIGINT handler in front of uvicorn's, so
-    signal_session_events_shutdown() fires the instant the OS delivers the
-    signal - not when uvicorn gets around to calling the app's lifespan
-    shutdown.
+    Runs signal_session_events_shutdown() the instant SIGTERM/SIGINT arrives,
+    ahead of uvicorn's own handler.
 
-    That timing matters: uvicorn's own Server.shutdown() (see
-    site-packages/uvicorn/server.py) requests shutdown on every open
-    connection, then AWAITS THEM ALL CLOSING NATURALLY - with no timeout by
-    default (`timeout_graceful_shutdown` is None) - before it ever calls the
-    app's lifespan shutdown handler. A GET /auth/session-events connection
-    never closes on its own; its whole point is staying open. So a
-    shutdown_event set inside our own lifespan's teardown (after `yield`)
-    would never actually run: uvicorn would already be stuck waiting for
-    that same connection to close, forever, exactly the hang this exists to
-    prevent.
+    Why: uvicorn's shutdown waits for every open connection to close on its
+    own before it calls our lifespan teardown, with no default timeout. A
+    GET /auth/session-events stream never closes by itself, so signaling
+    from inside lifespan teardown would never run - uvicorn would already be
+    stuck waiting for that same connection forever. Chaining in front of
+    uvicorn's handler here (installed at import time, before uvicorn
+    registers its own) fires our shutdown signal first, then still calls
+    uvicorn's original handler so its own shutdown sequence is unaffected.
 
-    Installed at import time. uvicorn's own Server.serve() wraps its whole
-    run in capture_signals(), which installs its handle_exit as the
-    SIGTERM/SIGINT handler BEFORE it loads and imports this app module (see
-    Server._serve() calling config.load() after capture_signals() has
-    already entered) - so by the time this function runs, uvicorn's handler
-    is already registered. signal.getsignal() below picks it up and this
-    still calls it after our own work, so uvicorn's own shutdown sequence
-    (should_exit -> main_loop exits -> shutdown()) proceeds completely
-    unchanged; this only adds a side effect that runs first, on every
-    signal delivery.
-
-    Only meaningful on the main thread - signal.signal() raises off it
-    (e.g. importing this module from a worker thread in some test runner
-    configurations). Skipped rather than raised in that case: nothing else
-    in this app depends on this relay actually being installed to function
-    correctly outside a real server process.
+    Only works on the main thread; signal.signal() raises off it, so we just
+    skip installing the relay in that case.
     """
     for sig in (signal.SIGTERM, signal.SIGINT):
         try:
@@ -113,21 +97,15 @@ _relay_shutdown_signal_to_session_events()
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     """
-    Starts watch_for_late_dsn() as a fire-and-forget background task, a
-    no-op unless init_sentry() above ran with SENTRY_DSN still unset (see
-    that function's own docstring for why: Bugsink can take longer to
-    become healthy than this app takes to boot, on a fresh/cold start).
-    Never awaited, so it can't delay startup or block a single request;
-    cancelled on shutdown along with everything else.
+    Starts watch_for_late_dsn() as a fire-and-forget background task (a
+    no-op unless init_sentry() ran with SENTRY_DSN still unset, e.g. Bugsink
+    isn't healthy yet on a cold start). Never awaited, so it can't delay
+    startup or block a request; cancelled on shutdown.
 
-    On shutdown (SIGTERM from `docker stop` / orchestrator rolling
-    restarts) explicitly dispose the DB connection pool and close the Redis
-    client instead of relying on the process dying and the OS reclaiming
-    the sockets. By the time this runs, every open session-events stream
-    has already been told to stop by
-    _relay_shutdown_signal_to_session_events() above - see that function's
-    docstring for why this teardown itself is too late to be the one
-    signaling it.
+    On shutdown, explicitly dispose the DB pool and close the Redis client
+    rather than relying on the OS to reclaim the sockets. Session-events
+    streams are already told to stop by
+    _relay_shutdown_signal_to_session_events() before this runs.
     """
     dsn_watcher = asyncio.create_task(watch_for_late_dsn())
     # Opens procrastinate_app's psycopg pool (separate from database.engine's
@@ -191,6 +169,22 @@ async def app_error_handler(request: Request, exc: AppError):
         status_code=exc.status_code,
         content={"detail": exc.detail, "code": exc.code, "params": exc.params},
         headers=exc.headers,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, exc: RequestValidationError):
+    # FastAPI's default 422 body includes each rejected field's raw
+    # `input`. That can echo submitted passwords, reset tokens, or bearer
+    # material back to clients and logs. Keep location/type/message, drop
+    # the original value.
+    sanitized_errors = [
+        {key: value for key, value in error.items() if key != "input"}
+        for error in exc.errors()
+    ]
+    return JSONResponse(
+        status_code=422,
+        content={"detail": jsonable_encoder(sanitized_errors)},
     )
 
 

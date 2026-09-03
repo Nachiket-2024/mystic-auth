@@ -17,9 +17,7 @@ describe('generateBrandScale', () => {
   it('gets lighter from 900 to 50 (lightness ladder is respected)', () => {
     const scale = generateBrandScale('#2563eb');
 
-    // 50 is the lightest step, 900 the darkest - a rough luminance proxy
-    // (average of the RGB channels) should increase monotonically enough
-    // to catch a broken/reversed ladder without over-asserting exact values.
+    // 50 is lightest, 900 darkest; sum of RGB channels as a rough luminance proxy.
     const luminance = (hex: string) => {
       const n = parseInt(hex.slice(1), 16);
       return ((n >> 16) & 0xff) + ((n >> 8) & 0xff) + (n & 0xff);
@@ -30,8 +28,8 @@ describe('generateBrandScale', () => {
   });
 
   it('caps saturation at 100 for an already-saturated input (no overflow crash)', () => {
-    // No .not.toThrow() (see docs/mystic_auth/testing/overview.md's ".not
-    // chaining" note) - an uncaught throw here fails the test on its own.
+    // No .not.toThrow() (see the ".not chaining" note in
+    // docs/mystic_auth/testing/overview.md); an uncaught throw fails this test on its own.
     const scale = generateBrandScale('#ff0000');
 
     expect(scale['500']).toMatch(/^#[0-9a-f]{6}$/i);

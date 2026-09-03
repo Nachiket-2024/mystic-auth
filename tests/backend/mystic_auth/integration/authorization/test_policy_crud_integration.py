@@ -2,10 +2,8 @@
 #
 # End-to-end coverage for policy_crud_routes.py (backend/mystic_auth/api/
 # pbac_routes/) against the real ASGI app, real PostgreSQL, and real Redis.
-# Split out of what used to be one 568-line
-# test_authorization_routes_integration.py. "All management
-# actions must themselves use PBAC authorization": these tests prove that
-# gate on the policy CRUD surface specifically.
+# Proves the "all management actions must themselves use PBAC authorization"
+# rule on the policy CRUD surface specifically.
 import asyncio
 import uuid
 
@@ -56,9 +54,8 @@ async def test_regular_user_cannot_manage_policies(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_admin_without_policies_read_cannot_manage_policies(client, created_emails):
-    # user_administration does not include policies:read (or any of the
-    # other fine-grained policies:* actions); only system_superuser does.
-    # An ordinary admin must be denied here.
+    # user_administration doesn't include any policies:* action; only
+    # system_superuser does, so an ordinary admin must be denied here.
     email = unique_email("admin")
     await create_verified_user(client, created_emails, email, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME])
 
@@ -68,10 +65,9 @@ async def test_admin_without_policies_read_cannot_manage_policies(client, create
 
 @pytest.mark.asyncio
 async def test_list_policies_respects_limit_query_param(client, created_emails):
-    # Regression guard: GET /authorization/policies previously read the
-    # whole table unconditionally, unlike every other list endpoint in the
-    # app. The baseline seeded policies (self_service, user_administration,
-    # system_superuser, ...) guarantee more than one row exists already.
+    # Regression guard: this endpoint used to read the whole table
+    # unconditionally. Baseline seeded policies guarantee more than one row
+    # already exists.
     email = unique_email("system")
     await create_verified_user(client, created_emails, email, [SYSTEM_SUPERUSER_POLICY_NAME])
 
@@ -81,10 +77,8 @@ async def test_list_policies_respects_limit_query_param(client, created_emails):
 
 
 # ---------------------------- List: search/filter/sort/pagination ----------------------------
-# Regression guard for the server-side search/resource_type/is_active/
-# sort_by/sort_dir/X-Total-Count behavior PoliciesPage.tsx now relies on
-# (see policy_repository.py's _apply_filters/_order_by): only `limit` had
-# integration coverage before these were added.
+# Server-side search/resource_type/is_active/sort_by/sort_dir/X-Total-Count
+# behavior that PoliciesPage.tsx relies on.
 
 @pytest.mark.asyncio
 async def test_list_policies_search_matches_name_or_description_case_insensitively(client, created_emails):
@@ -193,10 +187,7 @@ async def test_list_policies_sorts_by_name_ascending(client, created_emails):
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
 
-    # Sharing a common prefix isolates this test's own two rows from other
-    # entries in the table (baseline seeded policies, other tests' leftover
-    # rows within this same run), same pattern as the audit log integration
-    # tests' equivalent sort test.
+    # Common prefix isolates this test's rows from other entries in the table.
     prefix = f"test_policy_sorttest_{uuid.uuid4().hex}"
     name_a = f"{prefix}_aaa"
     name_b = f"{prefix}_bbb"
@@ -223,10 +214,8 @@ async def test_list_policies_sorts_by_name_ascending(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_list_policies_unrecognized_sort_by_falls_back_to_id_instead_of_erroring(client, created_emails):
-    # _order_by allowlists sort_by against a fixed column set and falls back
-    # to Policy.id for anything else, rather than letting an arbitrary
-    # caller-supplied column name reach the query. A request for a
-    # non-existent/unsupported column must still succeed, not 400/500.
+    # A request for a non-existent/unsupported sort column must still
+    # succeed, not 400/500.
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
 
@@ -261,8 +250,7 @@ async def test_list_policies_x_total_count_reflects_filtered_total_not_just_this
             params={"search": prefix, "sort_by": "name", "sort_dir": "asc", "limit": 1, "offset": offset},
         )
         assert resp.status_code == 200
-        # The header reports every matching row (3), not this page's size
-        # (1) - what PoliciesPage.tsx's totalPages calculation depends on.
+        # Reports every matching row (3), not this page's size (1).
         assert resp.headers["x-total-count"] == "3"
         body = resp.json()
         assert len(body) == 1
@@ -315,16 +303,10 @@ async def test_system_user_can_create_list_update_and_delete_a_policy(client, cr
 async def test_concurrent_updates_to_the_same_policy_do_not_lose_writes_or_corrupt_history(
     client, created_emails
 ):
-    """Regression for a real race in PolicyRepository.update: two admins
-    editing the same policy concurrently each used to read the same
-    pre-update row (via get_by_name, before either transaction held a
-    lock), so the second commit could silently discard the first's change
-    to a field it didn't itself touch, and both history entries' recorded
-    previous_definition could describe a state neither actually preceded.
-    Fires two concurrent PUTs against real Postgres, changing different
-    fields, and asserts both changes land and the two resulting history
-    entries chain correctly against each other and the pre-existing state.
-    """
+    """Regression: two admins editing the same policy concurrently used to
+    both read the same pre-update row, so the second commit could silently
+    discard the first's change. Fires two concurrent PUTs and asserts both
+    changes land and history chains correctly."""
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
     policy_name = unique_policy_name()
@@ -349,8 +331,7 @@ async def test_concurrent_updates_to_the_same_policy_do_not_lose_writes_or_corru
     final = await client.get(f"/authorization/policies/{policy_name}")
     assert final.status_code == 200
     final_body = final.json()
-    # Both concurrent edits must be reflected: neither transaction's write
-    # should have been silently overwritten by the other reading stale data.
+    # Neither write should have been silently overwritten by stale data.
     assert final_body["description"] == "changed by A"
     assert final_body["conditions"] == {"self_only": True}
 
@@ -359,19 +340,14 @@ async def test_concurrent_updates_to_the_same_policy_do_not_lose_writes_or_corru
     entries = history_resp.json()
     updated_entries = [e for e in entries if e["change_type"] == "updated"]
     assert len(updated_entries) == 2
-    # get_for_policy orders newest-first; the chain, read oldest-to-newest,
-    # must have each entry's previous_definition match the prior entry's
-    # new_definition (or the original create for the first one) : proof
-    # that whichever update actually landed second saw the first update's
-    # committed row (via FOR UPDATE + populate_existing), not a stale
-    # pre-either-update snapshot.
+    # Read oldest-to-newest, each entry's previous_definition must match
+    # the prior entry's new_definition, proof the second update saw the
+    # first's committed row, not a stale snapshot.
     chain = list(reversed(updated_entries))
     assert chain[0]["previous_definition"]["description"] == "original description"
     assert chain[0]["previous_definition"]["conditions"] is None
     assert chain[1]["previous_definition"] == chain[0]["new_definition"]
-    # The second-committed entry's new_definition must carry both edits,
-    # regardless of which of the two concurrent requests actually won the
-    # race to commit first.
+    # Must carry both edits regardless of which request won the commit race.
     assert chain[1]["new_definition"]["description"] == "changed by A"
     assert chain[1]["new_definition"]["conditions"] == {"self_only": True}
 
@@ -380,13 +356,10 @@ async def test_concurrent_updates_to_the_same_policy_do_not_lose_writes_or_corru
 async def test_concurrent_update_racing_a_delete_of_the_same_policy_returns_404_not_500(
     client, created_emails
 ):
-    """Regression: PolicyRepository.update re-fetches the row with FOR
-    UPDATE before mutating (see the sibling concurrency test above). If a
-    concurrent request deletes the same policy while an update is blocked
-    waiting on that lock, the update's re-fetch returns None; without an
-    explicit check, computing a definition snapshot from None raised an
-    uncaught AttributeError (an unhandled-exception 500) instead of a
-    clean, explainable error."""
+    """Regression: if a concurrent delete removes the policy while an
+    update is blocked on the row lock, the update's re-fetch returns None.
+    Without a check, that raised an uncaught AttributeError (500) instead
+    of a clean error."""
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
     policy_name = unique_policy_name()
@@ -410,28 +383,20 @@ async def test_concurrent_update_racing_a_delete_of_the_same_policy_returns_404_
 
     for resp in responses:
         assert not isinstance(resp, Exception)
-        # Whichever of the two wins the race, the loser must get a clean
-        # 4xx (already-deleted 404, or the update landing before the
-        # delete and the delete then 200ing) - never an unhandled 500.
+        # Whichever wins the race, the loser must get a clean 4xx, never a 500.
         assert resp.status_code < 500, resp.text
 
 
 @pytest.mark.asyncio
 async def test_concurrent_bulk_removes_cannot_jointly_strip_every_superuser_holder(created_emails):
-    """Regression for a real TOCTOU race in bulk_remove_policies' "can't
-    remove the last system_superuser assignment" lockout guard: it used to
-    read the current holder count with a plain (non-locking) SELECT, once
-    per request. Two admins who are the only two system_superuser holders
-    could concurrently revoke *each other's* superuser access: each
-    request's own pre-check only ever sees itself removing one holder out
-    of two, so each independently concludes one holder will remain, and
-    both commit - together stripping every system_superuser assignment
-    (a total admin lockout) despite the guard each individually passed.
+    """Regression for a TOCTOU race in the "can't remove the last
+    system_superuser" lockout guard: two admins who are the only two
+    holders could concurrently revoke each other's access, each pre-check
+    only sees itself removing one of two, so both commit and every holder
+    gets stripped.
 
-    Uses two independent authenticated clients (real cookie sessions, real
-    Postgres) firing concurrently, exactly like two different admins in
-    two different browser tabs.
-    """
+    Uses two independent authenticated clients firing concurrently, like
+    two admins in two browser tabs."""
     holder_a = unique_email("holder-a")
     holder_b = unique_email("holder-b")
 
@@ -452,8 +417,7 @@ async def test_concurrent_bulk_removes_cannot_jointly_strip_every_superuser_hold
         await client_a.post("/auth/login", json={"email": holder_a, "password": PASSWORD})
         await client_b.post("/auth/login", json={"email": holder_b, "password": PASSWORD})
 
-        # Each holder concurrently revokes the OTHER holder's superuser
-        # assignment - the minimal two-party version of the race.
+        # Each holder concurrently revokes the other's superuser assignment.
         responses = await asyncio.gather(
             client_a.post(
                 "/authorization/bulk/policies/remove",
@@ -467,11 +431,9 @@ async def test_concurrent_bulk_removes_cannot_jointly_strip_every_superuser_hold
         assert all(r.status_code == 200 for r in responses)
 
         outcomes = [r.json()["results"][0]["status"] for r in responses]
-        # Exactly one of the two removals must have been blocked by the
-        # lockout guard (order is non-deterministic - whichever request's
-        # transaction acquires the row lock first wins and actually
-        # removes the other's assignment; the second must then observe
-        # the post-commit state and refuse to leave zero holders).
+        # Exactly one removal must be blocked by the lockout guard (order
+        # is non-deterministic, whichever wins the row lock removes the
+        # other, and the second must refuse to leave zero holders).
         assert sorted(outcomes) == ["error", "success"]
 
         async with database.async_session() as session:
@@ -524,6 +486,6 @@ async def test_renaming_a_policy_to_an_existing_name_is_rejected(client, created
     rename_resp = await client.put(f"/authorization/policies/{first_name}", json={"name": second_name})
     assert rename_resp.status_code == 409
 
-    # Confirm it actually didn't take: the original policy is still reachable under its old name
+    # Confirm it didn't take: the original policy is still reachable under its old name.
     get_resp = await client.get(f"/authorization/policies/{first_name}")
     assert get_resp.status_code == 200

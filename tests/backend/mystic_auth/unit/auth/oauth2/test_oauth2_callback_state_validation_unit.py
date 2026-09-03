@@ -1,11 +1,8 @@
-# tests/backend/mystic_auth/unit/auth/oauth2/test_oauth2_callback_state_validation_unit.py
-#
 # CSRF state validation for handle_oauth2_callback: the state param must
 # match its oauth_state cookie, be present, and be a fresh (non-replayed)
-# single-use value before any token exchange with Google is attempted, plus
-# the email_verified gate once a valid callback proceeds. Split out of
-# test_oauth2_login_handler_unit.py once that file passed the repo's own
-# file-length guideline; see that file for state/PKCE generation and the
+# single-use value before any token exchange with Google is attempted,
+# plus the email_verified gate once a valid callback proceeds. See
+# test_oauth2_login_handler_unit.py for state/PKCE generation and the
 # cancellation/provider-error paths.
 import pytest
 
@@ -126,6 +123,9 @@ async def test_callback_proceeds_and_clears_state_cookie_on_valid_state(mocker):
     # oauth_state cookie must be cleared once its single-use state token is consumed
     cleared_cookie = next(h for h in _cookie_headers(response) if h.startswith("oauth_state="))
     assert cleared_cookie.startswith(("oauth_state=\"\"", "oauth_state=;"))
+    assert "httponly" in cleared_cookie.lower()
+    assert "secure" in cleared_cookie.lower()
+    assert "samesite=lax" in cleared_cookie.lower()
 
 
 @pytest.mark.asyncio
@@ -167,7 +167,7 @@ async def test_callback_rejects_missing_email_verified_field(mocker):
     )
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.get_user_info",
-        # No email_verified field at all : must not be assumed trustworthy
+        # No email_verified field at all: must not be assumed trustworthy
         return_value={"email": "user@example.com", "name": "Test User"},
     )
     login_or_create_mock = mocker.patch(

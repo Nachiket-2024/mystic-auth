@@ -15,48 +15,32 @@ import AllSecurityLogSection from "./security_log/AllSecurityLogSection";
 /**
  * AuditLogPage
  * ----------------------------
- * Every authenticated user can see their own authorization-decision and
- * security-event history (backend: GET /authorization/audit-log/me,
- * GET /audit/security-log/me, auth-only, no extra permission). A caller
- * who additionally holds policies:read / security_audit:read also sees an
- * "All users" tab for that log, backed by the corresponding management endpoint.
- * The route itself carries no permission requirement: access to each tab
- * is decided per-tab via IfCan, mirroring exactly how the backend splits
- * self vs. management visibility across these four endpoints.
+ * Every authenticated user can see their own authorization-decision and security-event
+ * history (backend: GET /authorization/audit-log/me, GET /audit/security-log/me, auth-only).
+ * A caller who also holds policies:read / security_audit:read gets an "All users" tab for
+ * that log, backed by the matching management endpoint. The route itself needs no permission:
+ * each tab decides its own access via IfCan, mirroring how the backend splits self vs.
+ * management visibility across these four endpoints.
  *
- * Category (Authorization decisions vs. Security events) and scope (My
- * activity vs. All users) are two independent tab bars rather than one
- * page with both log types stacked full-height one after another: only one
- * table renders at a time, so opening the page doesn't dump two full
- * tables' worth of scroll on you before you've picked what you came to
- * look at. Every table pages via numbered Pagination (shown above and
- * below) rather than growing downward, every column header sorts the
- * whole result set server-side, and a filter bar (select/text controls,
- * not free-typed sort) narrows it further - all three compose together and
- * all page/reset state lives client-side while the actual data stays
- * server-side, so none of this depends on how many rows the log has grown to.
+ * Category (Authorization decisions vs. Security events) and scope (My activity vs. All
+ * users) are two independent tab bars rather than both log types stacked on one page: only
+ * one table renders at a time. Every table pages via numbered Pagination, sorts server-side
+ * by column header, and narrows further via a filter bar; all page/filter state lives
+ * client-side while the data stays server-side, so none of this depends on log size.
  *
- * Split across files by section, grouped into two subfolders matching the
- * two tabs - everything specific to just one tab lives inside it:
- * authorization_log/ (MyAuthorizationLogSection, AllAuthorizationLogSection,
- * AuthorizationFilterBar, its own authorizationLogColumns.tsx/authorizationLogQueries.ts/authorizationLogResourceTypes.ts)
- * and security_log/ (MySecurityLogSection, AllSecurityLogSection,
- * SecurityFilterBar, its own securityLogColumns.tsx/securityLogQueries.ts/securityLogEventTypes.ts, plus
- * LoginTrendChart.tsx). What's genuinely identical for both tabs stays here
- * instead of being duplicated into each: auditLogListConfig.ts
- * (PAGE_SIZE/formatTimestamp/etc.) and auditLogPageResult.ts
- * (X-Total-Count -> {rows,total} parsing, shared by both queries.ts files).
- * This file is just the tab shell composing it all, not the ~500-line
- * single file this used to be.
+ * Split by section into two subfolders matching the two tabs: authorization_log/
+ * (MyAuthorizationLogSection, AllAuthorizationLogSection, AuthorizationFilterBar, and its own
+ * columns/queries/resourceTypes files) and security_log/ (the same set, plus
+ * LoginTrendChart.tsx). What's identical across both tabs lives here instead:
+ * auditLogListConfig.ts (PAGE_SIZE/formatTimestamp/etc.) and auditLogPageResult.ts
+ * (X-Total-Count -> {rows,total} parsing). This file is just the tab shell.
  */
 interface AuditLogPageProps {
     /**
-     * Resource types/actions beyond this app's own PBAC vocabulary
-     * (authorizationLogResourceTypes.ts / permissions.ts), for downstream
-     * projects that extend PBAC for their own business domain. Same shape
-     * and spirit as AppLayout's extraNavItems: additive, optional, and a
-     * no-op on the "Authorization decisions" filter dropdowns when omitted.
-     * See docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+     * Resource types/actions beyond this app's own PBAC vocabulary (authorizationLogResourceTypes.ts /
+     * permissions.ts), for downstream projects that extend PBAC for their own domain. Same
+     * pattern as AppLayout's extraNavItems: additive, optional, no-op when omitted.
+     * See docs/mystic_auth/template-usage/frontend-customization.md#shared-chrome-extension-points.
      */
     extraResourceTypes?: string[];
     extraActions?: string[];
@@ -65,13 +49,11 @@ interface AuditLogPageProps {
 const AuditLogPage: React.FC<AuditLogPageProps> = ({ extraResourceTypes, extraActions }) => {
     const { t } = useTranslation("audit_log");
 
-    // Read-once initializers (see AccountSettingsPage's matching comment
-    // for the `key` reasoning): CommandPalette's content-search results
-    // (layout/command_palette/searchItems.ts) navigate to e.g.
-    // /audit-log?category=security&scope=all to land on a specific
-    // category+scope pair. `scope` is shared meaning across both category
-    // branches (each has its own independent inner Tabs.Root), so it's read
-    // once here rather than per-branch.
+    // Read-once initializers (see AccountSettingsPage's matching comment for the `key`
+    // reasoning): CommandPalette's content-search results (layout/command_palette/searchItems.ts)
+    // navigate to e.g. /audit-log?category=security&scope=all to land on a specific
+    // category+scope pair. `scope` means the same thing in both category branches (each has
+    // its own inner Tabs.Root), so it's read once here rather than per-branch.
     const [searchParams] = useSearchParams();
     const initialCategory = searchParams.get("category") ?? "authorization";
     const initialScope = searchParams.get("scope") ?? "mine";

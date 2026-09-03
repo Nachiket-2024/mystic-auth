@@ -98,20 +98,16 @@ describe('UsersPage Policies dialog', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('self_service')).toBeInTheDocument();
 
-    // StyledSelect's visible trigger button and its hidden native <select>
-    // mirror now share the same accessible name (both properly labeled via
-    // Select.Label), so getByRole('combobox', ...) alone is ambiguous here
-    // - selectOptions needs the real <select>, found via getByLabelText's
-    // selector option instead.
+    // StyledSelect's visible button and its hidden native <select> share the
+    // same accessible name, so getByRole('combobox') is ambiguous; get the
+    // real <select> via getByLabelText instead.
     await user.selectOptions(screen.getByLabelText('Select a policy to assign', { selector: 'select' }), 'reporting');
     await user.click(within(dialog).getByRole('button', { name: 'Assign' }));
     await waitFor(() => expect(mock.history.post.length).toBe(1));
     expect(JSON.parse(mock.history.post[0].data)).toEqual({ policy_name: 'reporting' });
 
     await user.click(within(dialog).getByRole('button', { name: 'Revoke self_service' }));
-    // Revoking now goes through a ConfirmDialog (it strips access
-    // immediately and irreversibly), matching every other destructive
-    // action in the app - the click above only opens it.
+    // Revoking is destructive, so it goes through a ConfirmDialog; the click above only opens it.
     await user.click(await screen.findByRole('button', { name: 'Revoke' }));
     await waitFor(() => expect(mock.history.delete.length).toBe(1));
   });
@@ -161,9 +157,8 @@ describe('UsersPage Policies dialog', () => {
     seed(['users:list_all', 'policies:read', 'policies:revoke'], 'admin@example.com');
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, []);
-    // Own row = self-service /me endpoints, not the management ones (see
-    // UserPoliciesDialog's own docstring) - regardless of holding
-    // policies:read/permissions:read here, since isSelf always prefers /me.
+    // Own row always uses the self-service /me endpoints, regardless of
+    // holding policies:read/permissions:read (see UserPoliciesDialog).
     mock.onGet('/authorization/users/me/policies').reply(200, {
       user_email: 'admin@example.com',
       policies: [{ id: 1, name: 'self_service', description: '', actions: ['users:read_own'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null }],
@@ -181,10 +176,8 @@ describe('UsersPage Policies dialog', () => {
     expect(screen.getByRole('button', { name: 'Revoke self_service' })).toBeDisabled();
   });
 
-  // Carving one action out of a policy assignment (see backend's
-  // policy_action_revocation_service.py): expanding a policy shows its
-  // individual actions, each independently revocable without touching the
-  // policy's other actions or its assignment to any other user.
+  // Expanding a policy shows its individual actions, each independently
+  // revocable (see backend's policy_action_revocation_service.py).
   it('expands a policy to reveal its actions and revokes just one of them', async () => {
     seed(['users:list_all', 'policies:read', 'policies:revoke', 'permissions:grant']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);

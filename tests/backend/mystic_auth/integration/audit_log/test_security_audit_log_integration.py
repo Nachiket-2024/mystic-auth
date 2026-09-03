@@ -1,12 +1,11 @@
-# tests/backend/mystic_auth/integration/test_security_audit_log_integration.py
+# tests/backend/mystic_auth/integration/audit_log/test_security_audit_log_integration.py
 #
 # End-to-end coverage for the persistent security audit log
-# (audit_log/audit_log_model.py, audit_log/audit_log_repository.py,
-# and the /audit/security-log query routes) against the real ASGI app, real
-# PostgreSQL, and real Redis. Per security audit logging
-# requirement: security-sensitive auth events (login, logout, signup, etc.)
-# must be persisted automatically, and the query API itself must be
-# PBAC-gated (security_audit:read).
+# (audit_log/audit_log_model.py, audit_log/audit_log_repository.py, and the
+# /audit/security-log query routes) against the real ASGI app, real
+# PostgreSQL, and real Redis. Security-sensitive auth events (login,
+# logout, signup, etc.) must be persisted automatically, and the query API
+# itself must be PBAC-gated (security_audit:read).
 import uuid
 
 import pytest

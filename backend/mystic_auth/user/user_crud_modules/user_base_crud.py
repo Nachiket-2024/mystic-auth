@@ -12,11 +12,11 @@ from ..user_model import UserRole
 
 UserStatus = Literal["active", "inactive", "deleted"]
 
-# Allowlisted sort keys, same rationale as the two audit log repositories'
-# identical _SORTABLE_COLUMNS: never let a caller-supplied column name reach
-# the query directly. "status" is deliberately excluded: it's a UI-level
-# composite of is_active + deleted_at, not one column, so there's no single
-# sensible sort order for it the way there is for the others.
+# Allowlisted sort keys, same reasoning as the audit log repositories'
+# _SORTABLE_COLUMNS: never let a caller-supplied column name reach the query
+# directly. "status" is excluded on purpose: it's a UI-level composite of
+# is_active + deleted_at, not one column, so it has no single sensible sort
+# order the way the others do.
 _SORTABLE_COLUMN_NAMES = {"name", "email", "role", "created_at", "is_verified"}
 
 
@@ -31,9 +31,10 @@ class UserBaseCRUD:
         return result.scalar_one_or_none()
 
     def _search_filter(self, search: str | None):
-        # Case-insensitive substring match against name or email, mirroring
-        # UsersPage's old client-side filter now that pagination means the
-        # frontend can no longer just filter an already-fully-loaded list.
+        # Case-insensitive substring match against name or email. Mirrors
+        # UsersPage's old client-side filter, now done server-side since
+        # pagination means the frontend no longer has the full list to
+        # filter locally.
         if not search:
             return None
         pattern = ilike_pattern(search)
@@ -44,10 +45,10 @@ class UserBaseCRUD:
 
     def _status_filter(self, status: UserStatus | None):
         """Status is a UI-level label derived from two real columns, not a
-        column of its own: "deleted" is deleted_at IS NOT NULL; "inactive"
-        is is_active=False while NOT deleted; "active" is is_active=True
-        while NOT deleted (mirrors UsersPage.tsx's own badge logic:
-        deleted_at wins over is_active when both would otherwise apply)."""
+        column of its own: "deleted" is deleted_at IS NOT NULL, "inactive"
+        is is_active=False while not deleted, "active" is is_active=True
+        while not deleted. Mirrors UsersPage.tsx's badge logic, where
+        deleted_at wins over is_active when both would otherwise apply."""
         if status == "deleted":
             return self.model.deleted_at.isnot(None)
         if status == "inactive":
@@ -78,10 +79,8 @@ class UserBaseCRUD:
             stmt = stmt.where(status_condition)
         if policy is not None:
             # A user can hold the matching policy+permission combination via
-            # more than one assignment, so the join can multiply rows:
-            # distinct() (applied to the full row/aggregate, same as
-            # get_all/count already select) keeps a many-match from showing
-            # the same user twice.
+            # more than one assignment, so the join can multiply rows.
+            # distinct() keeps a many-match from showing the same user twice.
             stmt = (
                 stmt.join(UserPolicy, UserPolicy.user_id == self.model.id)
                 .join(Policy, Policy.id == UserPolicy.policy_id)
@@ -91,10 +90,10 @@ class UserBaseCRUD:
             if permission is not None:
                 stmt = stmt.where(Policy.actions.contains([permission]))
         elif permission is not None:
-            # No policy filter: a user can hold this action via a policy or
-            # a direct UserPermission grant, both effective per
-            # authorization_service.py, so either must match. Two EXISTS
-            # subqueries (not join+distinct) so a user matching several
+            # No policy filter: a user can hold this action via a policy or a
+            # direct UserPermission grant (both effective per
+            # authorization_service.py), so either must match. Two EXISTS
+            # subqueries, not join+distinct, so a user matching several
             # policies/grants still contributes only one row.
             stmt = stmt.where(
                 or_(
@@ -123,8 +122,8 @@ class UserBaseCRUD:
         if column is None:
             column = self.model.id
         direction = asc if sort_dir == "asc" else desc
-        # id as a secondary key for stable ordering (e.g. many rows sharing
-        # the same role), same reasoning as the audit log repositories.
+        # id rides along as a secondary key for stable ordering (e.g. many
+        # rows sharing the same role), same as the audit log repositories.
         return [direction(column), direction(self.model.id)]
 
     async def get_all(
@@ -141,9 +140,9 @@ class UserBaseCRUD:
         policy: str | None = None,
         permission: str | None = None,
     ):
-        # Capped : every other list endpoint in the app (audit log, policy
-        # history) bounds its query the same way; this one previously read
-        # the whole table unconditionally.
+        # Capped, same as every other list endpoint in the app (audit log,
+        # policy history); this one previously read the whole table
+        # unconditionally.
         stmt = self._apply_filters(select(self.model), search, role, is_verified, status, policy, permission)
         stmt = stmt.order_by(*self._order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
@@ -159,11 +158,11 @@ class UserBaseCRUD:
         policy: str | None = None,
         permission: str | None = None,
     ) -> int:
-        """Total matching rows, ignoring limit/offset - lets a caller compute
+        """Total matching rows, ignoring limit/offset. Lets a caller compute
         how many pages exist (see list_all_users' X-Total-Count header).
-        Counts distinct ids rather than plain rows since the policy/
-        permission filter can join in more than one matching policy row per
-        user (see _apply_filters)."""
+        Counts distinct ids, not plain rows, since the policy/permission
+        filter can join in more than one matching policy row per user (see
+        _apply_filters)."""
         stmt = self._apply_filters(
             select(func.count(func.distinct(self.model.id))).select_from(self.model),
             search, role, is_verified, status, policy, permission,
@@ -172,10 +171,10 @@ class UserBaseCRUD:
         return result.scalar_one()
 
     async def create(self, obj_data: dict, db: AsyncSession):
-        # Normalized here (rather than trusted from the caller) so every
-        # stored row is canonical lowercase regardless of which path created
-        # it (signup, OAuth2) : this is the write-side counterpart to
-        # UserEmailCRUD.get_by_email's read-side normalization.
+        # Normalized here, not trusted from the caller, so every stored row
+        # is canonical lowercase regardless of which path created it (signup,
+        # OAuth2). Write-side counterpart to UserEmailCRUD.get_by_email's
+        # read-side normalization.
         if "email" in obj_data:
             obj_data = {**obj_data, "email": normalize_email(obj_data["email"])}
         obj = self.model(**obj_data)

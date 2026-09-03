@@ -10,8 +10,8 @@ MODULE = "backend.mystic_auth.auth.token_logic.jwt_service"
 
 # ---------------------------- is_token_revoked_by_jti ----------------------------
 # Backs claim_jti_for_rotation's single-use guarantee: verify_token checks
-# this for every token, but in practice only refresh-token jtis ever get an
-# entry here now (via claim_jti_for_rotation) - access tokens are governed
+# this for every token, but in practice only refresh-token jtis ever get
+# an entry here (via claim_jti_for_rotation); access tokens are governed
 # purely by version, not by jti.
 
 @pytest.mark.asyncio
@@ -31,13 +31,13 @@ async def test_is_token_revoked_by_jti_missing_jti_is_not_revoked():
 
 # ---------------------------- claim_jti_for_rotation (atomic check-and-claim) ----------------------------
 #
-# Regression guard for the refresh-token concurrent double-spend race: two
-# requests presenting the same still-valid refresh token must not both be
-# able to rotate it. claim_jti_for_rotation uses a single atomic Redis
-# SET...NX so only one caller can ever win the claim for a given jti. This
-# is a narrower problem than "is this session still authorized" (the
-# account_ver/chain_ver checks in verify_token) and not solved by it - see
-# jwt_service.py's own module docstring.
+# Regression guard for the refresh-token concurrent double-spend race:
+# two requests presenting the same still-valid refresh token must not
+# both be able to rotate it. claim_jti_for_rotation uses a single atomic
+# Redis SET...NX so only one caller can ever win the claim for a given
+# jti. This is a narrower problem than "is this session still
+# authorized" (the account_ver/chain_ver checks in verify_token) and not
+# solved by it.
 
 @pytest.mark.asyncio
 async def test_claim_jti_for_rotation_succeeds_for_an_unclaimed_jti(mocker):
@@ -54,9 +54,9 @@ async def test_claim_jti_for_rotation_succeeds_for_an_unclaimed_jti(mocker):
 
 @pytest.mark.asyncio
 async def test_claim_jti_for_rotation_fails_for_an_already_claimed_jti(mocker):
-    # Redis SET...NX returns None/False when the key already exists, this is
-    # exactly what happens when two concurrent requests race on the same jti:
-    # only the first SET succeeds, the second observes it already set.
+    # Redis SET...NX returns None/False when the key already exists: this
+    # is what happens when two concurrent requests race on the same jti,
+    # only the first SET succeeds and the second observes it already set.
     mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock, return_value=None)
 
     claimed = await jwt_service.claim_jti_for_rotation("jti-1", 9999999999, "user@example.com")
@@ -109,9 +109,9 @@ async def test_verify_token_rejects_when_jti_is_already_claimed(mocker):
 
 
 # ---------------------------- refresh_token_service.revoke_all_tokens_for_user ----------------------------
-# The whole-account revoke: one Redis INCR (jwt_service.bump_account_version),
-# no per-token iteration - see refresh_token_service.py's own docstring for
-# why this replaced the old per-jti-registry loop entirely.
+# The whole-account revoke: one Redis INCR
+# (jwt_service.bump_account_version), no per-token iteration. Replaces
+# the old per-jti-registry loop entirely.
 
 @pytest.mark.asyncio
 async def test_revoke_all_tokens_for_user_bumps_the_account_version(mocker):
@@ -152,8 +152,8 @@ async def test_revoke_all_tokens_for_user_bumps_the_account_version(mocker):
 async def test_revoke_all_tokens_for_user_returns_zero_without_a_db(mocker):
     """count_active_sessions needs the Postgres mirror; without `db` (a
     test-only convenience, matching every other best-effort session
-    method) there's nothing to count from, so the returned count is just 0
-    - the actual revoke (the version bump) still happens regardless."""
+    method) there's nothing to count from, so the returned count is just
+    0. The actual revoke (the version bump) still happens regardless."""
     from backend.mystic_auth.auth.refresh_token_logic.refresh_token_service import (
         refresh_token_service,
     )

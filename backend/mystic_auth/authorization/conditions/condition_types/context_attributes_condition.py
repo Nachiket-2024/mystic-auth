@@ -7,16 +7,10 @@ logger = get_logger(__name__)
 
 
 class ContextAttributesCondition(ConditionHandler):
-    """
-    "context_attributes": {key: expected_value, ...}: every listed key
-    must match its expected value in the caller-supplied context (e.g.
-    {"mfa_verified": True} for an MFA-gated action). An empty/missing map
-    imposes no restriction. Unsatisfiable if no context was supplied.
-
-    Fails safe (denies) if condition_value isn't a mapping (e.g. it
-    reached evaluation some way other than the validated management API,
-    per condition_validator.py's defense-in-depth note).
-    """
+    """{key: expected_value, ...}: every key must match the caller-supplied
+    context (e.g. {"mfa_verified": True}). Empty map means no restriction;
+    missing context denies. Denies on a malformed condition_value too
+    (defense in depth against bypassing condition_validator.py)."""
 
     def evaluate(self, condition_value, user_email, resource, context) -> bool:
         try:

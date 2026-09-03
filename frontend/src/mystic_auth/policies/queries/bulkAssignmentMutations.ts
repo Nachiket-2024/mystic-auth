@@ -16,12 +16,11 @@ import { MY_POLICIES_QUERY_KEY, userPoliciesQueryKey } from "./policyQueries";
 import { MY_PERMISSIONS_QUERY_KEY, userPermissionsQueryKey } from "./permissionQueries";
 import { USERS_QUERY_KEY } from "../../users/queries/userQueries";
 
-/** A bulk response fans out across many users, not one - there is no
- * single query key to invalidate the way the single-item mutations do, so
- * every mutation below invalidates once per DISTINCT user_email actually
- * present in the response (not the request: an item that errored before
- * ever reaching the database shouldn't trigger a refetch for a user whose
- * data didn't change). */
+/** A bulk response fans out across many users, so there's no single query
+ * key to invalidate like the single-item mutations do. Each mutation below
+ * invalidates once per distinct user_email actually present in the
+ * response, not the request, since an item that errored before reaching
+ * the database shouldn't trigger a refetch for an unchanged user. */
 function distinctEmails(data: BulkResponse): string[] {
     return [...new Set(data.results.map((r) => r.user_email))];
 }
@@ -125,10 +124,9 @@ export function useBulkUpdateRoleMutation() {
         },
         onSuccess: (data) => {
             const emails = distinctEmails(data);
-            // Unlike the policy/permission mutations above, the users
-            // table itself renders the changed value (the role column),
-            // not a separate per-user dialog, so the list query needs
-            // invalidating too, not just CURRENT_USER_QUERY_KEY.
+            // Unlike the policy/permission mutations above, the users table
+            // itself renders the role column, not a separate per-user
+            // dialog, so the list query needs invalidating too.
             queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
             invalidateSelfIfIncluded(emails);
         },

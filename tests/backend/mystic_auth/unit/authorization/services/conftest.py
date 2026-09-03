@@ -1,15 +1,8 @@
-# tests/backend/mystic_auth/unit/authorization/services/conftest.py
-#
-# AuthorizationService._get_effective_policies fetches BOTH the user's
-# assigned policies (policy_repository.get_active_policies_for_user, mocked
-# per-test throughout this directory) AND their direct permission grants
-# (user_permission_repository.get_active_permissions_for_user, see
-# authorization/models/user_permission_model.py). Every existing test here
-# only cares about the policy-fetching side, so this autouse fixture stubs
-# the direct-grants fetch to "the user holds none" by default - tests that
-# specifically want to exercise direct grants (see
-# test_authorization_service_direct_grants_unit.py) override this mock
-# explicitly instead of relying on the default.
+# AuthorizationService._get_effective_policies fetches both the user's assigned
+# policies and their direct permission grants. Most tests in this directory only
+# care about the policy-fetching side, so this autouse fixture stubs the
+# direct-grants fetch to "the user holds none" by default. Tests that exercise
+# direct grants (test_authorization_service_direct_grants_unit.py) override it.
 from unittest.mock import AsyncMock
 
 import pytest

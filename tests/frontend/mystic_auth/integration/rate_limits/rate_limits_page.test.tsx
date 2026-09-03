@@ -71,8 +71,8 @@ describe('RateLimitsPage', () => {
   });
 
   afterEach(async () => {
-    // toaster is a module-level singleton that outlives each test's render
-    // tree; clear it so a leftover toast from one test can't leak into the next.
+    // toaster is a module-level singleton; clear it so a leftover toast
+    // can't leak into the next test.
     await act(async () => {
       toaster.dismiss();
     });

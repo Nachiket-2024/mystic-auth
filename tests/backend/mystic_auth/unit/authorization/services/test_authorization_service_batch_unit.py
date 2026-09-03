@@ -1,12 +1,7 @@
-# tests/backend/mystic_auth/unit/authorization/services/test_authorization_service_batch_unit.py
-#
-# Coverage for AuthorizationService.authorize_batch's own contract: "reuse
-# the existing AuthorizationService and AuthorizationDecision flow", "avoid
-# repeated policy database queries inside one batch request", "single
-# authorization and batch authorization must produce identical
-# authorization decisions", "fail closed for invalid individual checks".
-# Split out of test_authorization_service_unit.py once that file passed the
-# repo's own file-length guideline.
+# Coverage for AuthorizationService.authorize_batch: it must avoid repeated
+# policy database queries within one batch request, produce decisions identical
+# to single authorize() calls, and fail closed for invalid individual checks.
+# Split out of test_authorization_service_unit.py.
 from unittest.mock import AsyncMock
 
 import pytest

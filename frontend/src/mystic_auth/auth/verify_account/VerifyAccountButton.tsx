@@ -16,13 +16,10 @@ const VerifyAccountButton: React.FC<VerifyAccountButtonProps> = ({ token, email,
     const { t } = useTranslation("auth");
     const verifyMutation = useVerifyAccountMutation();
 
-    // Fires onSuccess exactly once per successful verification, not once
-    // per render where onSuccess's identity happens to change: `onSuccess`
-    // is deliberately left out of the dependency array (most callers pass
-    // an inline arrow function, a fresh identity every render) and read via
-    // a ref instead, so a later, unrelated re-render of the page while
-    // isSuccess is still true can't re-fire this (e.g. re-navigating away
-    // a second time).
+    // Fires onSuccess exactly once per successful verification, not once per render
+    // where its identity happens to change (most callers pass an inline arrow
+    // function). Read via a ref instead of the dependency array, so an unrelated
+    // re-render while isSuccess is still true can't re-fire it.
     const onSuccessRef = useRef(onSuccess);
     const firedRef = useRef(false);
 

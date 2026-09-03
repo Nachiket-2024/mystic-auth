@@ -15,17 +15,14 @@ interface PoliciesFilterBarProps {
     setResourceType: (v: string) => void;
     status: string;
     setStatus: (v: string) => void;
-    /** Rendered right next to the search input (e.g. Create Policy), so it
-     * reads as a sibling action on the search row rather than drifting to
-     * the far edge of the page header. */
+    /** Rendered next to the search input (e.g. Create Policy) so it reads as
+     * a sibling action on the search row, not stranded at the page edge. */
     searchRowExtra?: React.ReactNode;
 }
 
-/** PoliciesPage's search box + resource type/status filters. Split out of
- * PoliciesPage.tsx, same "filter bar as its own component" pattern as
- * UsersFilterBar.tsx and audit_log/*\/*FilterBar.tsx - this owns only the
- * filter controls themselves; PoliciesPage still owns the state and the
- * server-side query it drives. */
+/** PoliciesPage's search box + resource type/status filters, split out like
+ * UsersFilterBar.tsx and the audit_log FilterBars. Owns only the controls;
+ * PoliciesPage owns the state and the server-side query they drive. */
 const PoliciesFilterBar: React.FC<PoliciesFilterBarProps> = ({
     search, setSearch, resourceType, setResourceType, status, setStatus, searchRowExtra,
 }) => {

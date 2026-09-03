@@ -8,11 +8,9 @@ const SKELETON_PROPS = { bg: "bg.muted" };
 
 /**
  * Suspense fallback for App.tsx's route-level code splitting, shown only for
- * the brief window before a lazy page chunk resolves (see App.tsx's own
- * comment on why this rarely triggers in practice). Shaped like a generic
- * page - a title bar plus a couple of content blocks - rather than a bare
- * spinner, so a route that does suspend reads as "this page is arriving,"
- * not a hard blank cut.
+ * the brief window before a lazy page chunk resolves. Shaped like a generic
+ * page (title bar plus content blocks) rather than a bare spinner, so a
+ * route that does suspend reads as "arriving," not a hard blank cut.
  */
 const RouteSkeleton: React.FC = () => (
     <Box maxW="container.xl" mx="auto" w="full" py={2}>

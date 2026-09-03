@@ -8,9 +8,8 @@ import api from '@/api/axiosInstance';
 import App from '@app/App';
 import { useAuthStore } from '@/store/authStore';
 
-// App.tsx builds its own BrowserRouter internally (rather than accepting one
-// from the caller), so the route under test is set via the real browser
-// history before each render instead of a MemoryRouter wrapper.
+// App.tsx builds its own BrowserRouter, so we set the route via real
+// browser history before each render instead of a MemoryRouter wrapper.
 function renderAppAt(path: string) {
   window.history.pushState({}, '', path);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -62,13 +61,10 @@ describe('App routing', () => {
     });
     renderAppAt('/dashboard');
 
-    // "Manage Sessions" (not a page title) is the landmark here: the
-    // Dashboard's own welcome banner is a compact identity/stats/actions
-    // row with no unique static heading of its own, unlike this card.
-    // Dashboard is a lazily code-split route (see trackedLazy.ts), so its
-    // first render here also pays for a real dynamic import; that's slow
-    // enough under coverage instrumentation to occasionally miss the
-    // default 1000ms findBy* timeout, hence the explicit longer one.
+    // "Manage Sessions" is used as the landmark since Dashboard's welcome
+    // banner has no unique static heading. Dashboard is a lazy-loaded route
+    // (trackedLazy.ts), so the first render can be slow under coverage
+    // instrumentation, hence the longer timeout.
     expect(await screen.findByText('Manage Sessions', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText('user@example.com')).toBeInTheDocument();
   });
@@ -82,13 +78,10 @@ describe('App routing', () => {
     });
     renderAppAt('/');
 
-    // "Manage Sessions" (not a page title) is the landmark here: the
-    // Dashboard's own welcome banner is a compact identity/stats/actions
-    // row with no unique static heading of its own, unlike this card.
-    // Dashboard is a lazily code-split route (see trackedLazy.ts), so its
-    // first render here also pays for a real dynamic import; that's slow
-    // enough under coverage instrumentation to occasionally miss the
-    // default 1000ms findBy* timeout, hence the explicit longer one.
+    // "Manage Sessions" is used as the landmark since Dashboard's welcome
+    // banner has no unique static heading. Dashboard is a lazy-loaded route
+    // (trackedLazy.ts), so the first render can be slow under coverage
+    // instrumentation, hence the longer timeout.
     expect(await screen.findByText('Manage Sessions', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/dashboard');
   });
@@ -97,10 +90,8 @@ describe('App routing', () => {
     mock.onGet('/auth/me').reply(401);
     renderAppAt('/');
 
-    // The landing page (app/landing_page/LandingPage.tsx) itself, not an
-    // auto-redirect to /login: it's a pre-auth marketing page whose own
-    // CTAs link into /login and /signup, so it should stay on / until the
-    // visitor actually clicks one.
+    // Stays on the landing page (not an auto-redirect to /login): it's a
+    // pre-auth marketing page whose own CTAs link to /login and /signup.
     expect(await screen.findByRole('link', { name: 'Get started' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
   });

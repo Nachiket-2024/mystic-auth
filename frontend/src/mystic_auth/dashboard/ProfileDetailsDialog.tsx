@@ -20,8 +20,8 @@ interface DetailRowProps {
 }
 
 /** Same label/value layout as UserDetailsDialog.tsx's/SessionDetailsDialog.tsx's
- * own DetailRow - the whole point of this dialog is showing the identity
- * card's own name/email untruncated, so nothing here should re-truncate. */
+ * own DetailRow. This dialog exists to show the identity card's name/email
+ * untruncated, so nothing here should re-truncate. */
 const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
     <Stack gap={0.5}>
         <Text fontSize="sm" fontWeight="semibold" textTransform="uppercase" letterSpacing="wide" color="fg.muted">
@@ -36,9 +36,9 @@ const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
 /**
  * ProfileDetailsDialog
  * ----------------------------
- * Read-only "View" panel for the current user's full name/email/role -
- * DashboardPage.tsx's own identity card truncates all three to a fixed width
- * so a long value can't push its action buttons onto their own line. Same
+ * Read-only "View" panel for the current user's full name/email/role.
+ * DashboardPage.tsx's identity card truncates all three to a fixed width so
+ * a long value can't push its action buttons onto their own line. Same
  * shape as users/dialogs/UserDetailsDialog.tsx and manage_sessions/SessionDetailsDialog.tsx:
  * takes the already-fetched user object directly, no separate query.
  */

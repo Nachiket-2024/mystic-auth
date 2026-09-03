@@ -1,17 +1,8 @@
-# tests/backend/mystic_auth/unit/api/pbac_routes/test_policy_assignment_authorization_security_unit.py
-#
-# Security-review coverage (authorization security review):
-# assigning/removing a policy must never let a caller hand out (or strip)
-# one of this app's own sensitive actions (Permission's fixed vocabulary)
-# they do not already hold themselves, and the last system_superuser
-# assignment must be irrevocable, all traced to concrete
-# privilege-escalation / lockout scenarios below.
-#
-# Split from the former test_policy_authorization_security_unit.py: this
-# half covers policy_assignment_routes.py (assign/remove). See
-# test_policy_crud_authorization_security_unit.py for the create/update/
-# delete half, matching the same crud vs. assignment route split as
-# backend/mystic_auth/api/pbac_routes/.
+# Security coverage: assigning/removing a policy must never let a caller
+# hand out (or strip) a sensitive action they don't already hold
+# themselves, and the last system_superuser assignment must be
+# irrevocable. Covers policy_assignment_routes.py (assign/remove); see
+# test_policy_crud_authorization_security_unit.py for create/update/delete.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -59,9 +50,8 @@ def _make_policy(**overrides):
 
 @pytest.mark.asyncio
 async def test_assign_policy_blocks_self_escalation_to_superuser(mocker):
-    """The canonical escalation attempt: a caller holding only
-    policies:assign tries to assign themselves system_superuser, which
-    they do not otherwise hold."""
+    """A caller holding only policies:assign tries to assign themselves
+    system_superuser, which they do not otherwise hold."""
     target_user = MagicMock(id=2, email="caller@example.com")
     superuser_policy = _make_policy(
         name=SYSTEM_SUPERUSER_POLICY_NAME,
@@ -128,10 +118,9 @@ async def test_assign_policy_allows_business_domain_policy_regardless_of_caller_
 
 @pytest.mark.asyncio
 async def test_remove_policy_blocks_when_caller_lacks_current_actions(mocker):
-    """Symmetric guard: without holding what's being revoked, bare
-    policies:revoke could strip an equally- or more-privileged peer's
-    access - including system_superuser itself - with no escalation check
-    at all."""
+    """Without holding what's being revoked, bare policies:revoke could
+    strip an equally- or more-privileged peer's access, including
+    system_superuser itself."""
     target_user = MagicMock(id=2, email="someone@example.com")
     policy = _make_policy(name="custom_policy", actions=["users:purge"], resource_type="users")
     mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
@@ -188,16 +177,16 @@ async def test_remove_policy_allows_when_other_superusers_remain(mocker):
 
 # ==================================================================
 # revoke_policy_action_from_user: same guards as remove_policy_from_user,
-# since it also ends the user's policy ASSIGNMENT (converting the rest to
-# direct grants) - see policy_action_revocation_service.py.
+# since it also ends the user's policy assignment (converting the rest to
+# direct grants). See policy_action_revocation_service.py.
 # ==================================================================
 
 @pytest.mark.asyncio
 async def test_revoke_policy_action_blocks_when_caller_lacks_current_actions(mocker):
-    """Same escalation gap remove_policy_from_user's guard closes: without
-    holding the policy's full action set, bare policies:revoke +
+    """Same gap remove_policy_from_user's guard closes: without holding
+    the policy's full action set, bare policies:revoke +
     permissions:grant could still strip a more-privileged peer's access
-    via this route instead."""
+    via this route."""
     target_user = MagicMock(id=2, email="someone@example.com")
     policy = _make_policy(name="custom_policy", actions=["users:purge"], resource_type="users")
     mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
@@ -294,10 +283,9 @@ async def test_revoke_policy_action_404s_when_user_does_not_hold_policy(mocker):
     policy = _make_policy(name="custom_policy", actions=["users:read_own"], resource_type="users")
     mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=target_user)
     mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
-    # Confirmed here at the route's own holdership guard (fixed to run
-    # BEFORE the lockout check / repository call, see
-    # policy_repository.user_holds_policy's own docstring), rather than by
-    # letting revoke_single_action fall through to a not-held return.
+    # The route's own holdership guard runs before the lockout check and
+    # repository call, rather than letting revoke_single_action fall
+    # through to a not-held return.
     mocker.patch(f"{ASSIGNMENT_ROUTES_MODULE}.policy_repository.user_holds_policy", new_callable=AsyncMock, return_value=False)
     revoke_mock = mocker.patch(
         f"{ASSIGNMENT_ROUTES_MODULE}.policy_action_revocation_service.revoke_single_action",

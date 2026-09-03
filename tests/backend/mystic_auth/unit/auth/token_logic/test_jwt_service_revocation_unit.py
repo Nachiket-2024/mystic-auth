@@ -1,15 +1,11 @@
-# tests/backend/mystic_auth/unit/auth/token_logic/test_jwt_service_revocation_unit.py
-#
 # Version-based revocation and issuer/audience claim enforcement for
-# jwt_service. Revocation is entirely version-based: a token is valid only
-# if its own embedded account_ver and chain_ver still match Redis's current
-# values. bump_account_version/bump_chain_version are what an actual revoke
-# calls (see refresh_token_service.py); these tests cover the
-# read/write/compare primitives in isolation, plus the JWT_ISSUER/
-# JWT_AUDIENCE claims verify_token enforces alongside them. Split out of
-# test_jwt_service_unit.py once that file passed the repo's own
-# file-length guideline; see that file for token creation/type-enforcement
-# coverage.
+# jwt_service. Revocation is entirely version-based: a token is valid
+# only if its embedded account_ver and chain_ver still match Redis's
+# current values. bump_account_version/bump_chain_version are what an
+# actual revoke calls (see refresh_token_service.py); these tests cover
+# the read/write/compare primitives in isolation, plus the JWT_ISSUER/
+# JWT_AUDIENCE claims verify_token enforces alongside them. See
+# test_jwt_service_unit.py for token creation/type-enforcement coverage.
 from unittest.mock import AsyncMock
 
 import jwt as pyjwt
@@ -70,9 +66,9 @@ async def test_bump_chain_version_increments_and_sets_a_ttl(mocker):
 
     incr_mock.assert_awaited_once_with("chain_ver:user@example.com:chain-1")
     # TTL'd to the refresh-token lifetime: nothing could still be validly
-    # using this chain_id after that elapses anyway (see the key's own
-    # module-level comment), so the key can safely expire instead of
-    # accumulating one per revoked session forever.
+    # using this chain_id after that elapses anyway, so the key can
+    # safely expire instead of accumulating one per revoked session
+    # forever.
     expire_mock.assert_awaited_once_with(
         "chain_ver:user@example.com:chain-1", settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60
     )
@@ -94,8 +90,8 @@ async def test_verify_token_rejects_a_token_whose_account_version_is_stale(mocke
 @pytest.mark.asyncio
 async def test_verify_token_accepts_a_token_minted_after_the_account_bump(mocker):
     """A token minted (e.g. by logging back in) after a revoke event must
-    still work - the version is a fixed point in time, not a blanket ban on
-    the account."""
+    still work: the version is a fixed point in time, not a blanket ban
+    on the account."""
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
     # Minted after the account was already bumped to version 1.
     mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value="1")
@@ -113,7 +109,7 @@ async def test_verify_token_rejects_a_token_whose_chain_version_is_stale(mocker)
     mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
     token = await jwt_service.create_refresh_token(email="user@example.com", chain_id="chain-1")
 
-    # Only this one chain gets revoked - a different, unrelated chain on
+    # Only this one chain gets revoked: a different, unrelated chain on
     # the same account would read a version of 0 and stay unaffected.
     mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value="1")
 
@@ -124,7 +120,7 @@ async def test_verify_token_rejects_a_token_whose_chain_version_is_stale(mocker)
 async def test_verify_token_accepts_a_token_with_no_account_or_chain_claims(mocker):
     """A token minted before this feature shipped (or any token type that
     never carried these claims, e.g. password reset tokens) must not be
-    rejected just because there's nothing to compare - same reasoning as
+    rejected just because there's nothing to compare: same reasoning as
     the jti-less early return in is_token_revoked_by_jti."""
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
 
@@ -151,10 +147,9 @@ async def test_create_access_token_embeds_issuer_and_audience(mocker):
 @pytest.mark.asyncio
 async def test_verify_token_accepts_a_token_with_no_issuer_or_audience_claims(mocker):
     """A token minted before JWT_ISSUER/JWT_AUDIENCE existed (or any token
-    type that never carried these claims, e.g. password reset tokens) must
-    not be rejected just because there's nothing to compare - same
-    "nothing to check against" reasoning as the account_ver/chain_ver-less
-    token accepted above."""
+    type that never carried these claims, e.g. password reset tokens)
+    must not be rejected just because there's nothing to compare: same
+    reasoning as the account_ver/chain_ver-less token accepted above."""
     _mock_no_versions(mocker)
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
 

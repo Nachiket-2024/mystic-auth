@@ -1,9 +1,5 @@
-# tests/backend/mystic_auth/integration/test_authorization_check_integration.py
-#
-# End-to-end coverage for authorization_check_routes.py (backend/
-# mystic_auth/api/pbac_routes/) against the real ASGI app, real PostgreSQL,
-# and real Redis. Split out of what used to be one 568-line
-# test_authorization_routes_integration.py.
+# End-to-end coverage for authorization_check_routes.py against the real
+# ASGI app, PostgreSQL, and Redis.
 import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (

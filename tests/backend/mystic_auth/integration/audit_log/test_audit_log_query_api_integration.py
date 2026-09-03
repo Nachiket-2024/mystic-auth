@@ -1,12 +1,11 @@
 # tests/backend/mystic_auth/integration/audit_log/test_audit_log_query_api_integration.py
 #
-# End-to-end coverage for the /authorization/audit-log query routes'
-# own PBAC gating and search/sort/filter behavior, against the real ASGI
-# app, real PostgreSQL, and real Redis.
+# End-to-end coverage for the /authorization/audit-log query routes' own
+# PBAC gating and search/sort/filter behavior, against the real ASGI app,
+# real PostgreSQL, and real Redis.
 #
-# Split out of test_audit_log_integration.py once that file passed the
-# repo's own file-length guideline; this half covers only the query API.
-# See test_audit_log_automatic_logging_integration.py for coverage of
+# Covers only the query API. See
+# test_audit_log_automatic_logging_integration.py for coverage of
 # automatic logging on real protected routes.
 import pytest
 
@@ -26,9 +25,9 @@ PASSWORD = "StrongPass123!"
 
 # _cleanup_audit_log (imported above): pytest discovers autouse fixtures by
 # name in a test module's own namespace, so importing it here is what
-# actually activates it for this file's tests - see its docstring in
-# audit_log_test_accounts.py. Not referenced directly, hence unused-import
-# lint suppression.
+# activates it for this file's tests (see its docstring in
+# audit_log_test_accounts.py). Not referenced directly, hence the
+# unused-import lint suppression.
 __all__ = ["_cleanup_audit_log"]
 
 

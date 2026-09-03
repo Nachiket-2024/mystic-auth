@@ -22,11 +22,9 @@ export interface AuthorizationLogFilters {
     sortDir?: SortDirection;
 }
 
-// Every hook below pages via limit/offset (offset = (page-1)*pageSize) and
-// keeps the previous page's rows on screen while the next one loads (see
-// keepPreviousData), same reasoning as userQueries.ts's useUsersQuery: the
-// table stays visually stable instead of flashing its loading skeleton on
-// every page, sort, or filter change.
+// Every hook below pages via limit/offset (offset = (page-1)*pageSize) and keeps the previous
+// page's rows on screen while the next loads (keepPreviousData), same as userQueries.ts's
+// useUsersQuery, so the table doesn't flash a loading skeleton on every page/sort/filter change.
 
 export function useAuthorizationAuditLogQuery(page: number, pageSize: number, filters: AuthorizationLogFilters = {}) {
     return useQuery({

@@ -90,7 +90,7 @@ describe('ManageSessionsCard', () => {
 
     await screen.findByText('This device');
     const logoutButtons = screen.getAllByRole('button', { name: 'Log out' });
-    // OTHER_SESSION renders second (list order from the mock response).
+    // OTHER_SESSION is second in the mock response's list order.
     await user.click(logoutButtons[1]);
 
     expect(await screen.findByText(/End the session on/)).toBeInTheDocument();

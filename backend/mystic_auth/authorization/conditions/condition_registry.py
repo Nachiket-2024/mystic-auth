@@ -9,13 +9,8 @@ from .condition_types.time_condition import TimeCondition
 
 
 class ConditionRegistry:
-    """
-    Maps a condition key (as it appears in a Policy's `conditions` dict,
-    e.g. "self_only", "time") to the ConditionHandler responsible for it.
-    This is the one place that needs to change to add a new condition
-    type: neither PolicyEvaluationEngine nor ConditionEvaluationService
-    need any change (see conditions/condition_handler.py's docstring).
-    """
+    """Maps a condition key (e.g. "self_only", "time") to its handler.
+    The only place that needs a change to add a new condition type."""
 
     def __init__(self) -> None:
         self._handlers: dict[str, ConditionHandler] = {}

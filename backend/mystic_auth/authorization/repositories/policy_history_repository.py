@@ -5,22 +5,15 @@ from ..models.policy_history_model import PolicyHistory
 
 
 class PolicyHistoryRepository:
-    """
-    Persistence layer for the policy_history table. Entries are written by
-    PolicyRepository's create/update/delete (the only places a policy is
-    ever mutated) and never updated afterwards, only queried back for
-    inspection, comparison, or as the source of a rollback.
-    """
+    """Persistence layer for the policy_history table. Entries are
+    written by PolicyRepository's create/update/delete and never updated
+    afterwards, only queried for inspection, comparison, or rollback."""
 
     @staticmethod
     def add_entry(data: dict, db: AsyncSession) -> PolicyHistory:
-        """
-        Stages a new PolicyHistory row via db.add without committing:
-        PolicyRepository's create/update/delete call this alongside their
-        own policy mutation and commit both together, so a history entry
-        can never be recorded without the mutation it describes actually
-        having happened (or vice versa).
-        """
+        """Stages a PolicyHistory row without committing: callers commit
+        it together with their own policy mutation, so history can't
+        exist without the change it describes (or vice versa)."""
         entry = PolicyHistory(**data)
         db.add(entry)
         return entry
@@ -29,11 +22,9 @@ class PolicyHistoryRepository:
     async def get_for_policy(
         policy_name: str, db: AsyncSession, limit: int = 100, offset: int = 0
     ) -> list[PolicyHistory]:
-        # Ordered by id, not created_at: created_at defaults to Postgres's
-        # now() at transaction start, not insert time, so under concurrent
-        # updates the transaction that commits second can have an earlier
-        # timestamp than the one that commits first. id is assigned at
-        # actual INSERT, so it reflects real commit order.
+        # Ordered by id, not created_at: created_at is set at transaction
+        # start, so under concurrent commits it can be out of commit order.
+        # id is assigned at INSERT, so it reflects true commit order.
         stmt = (
             select(PolicyHistory)
             .where(PolicyHistory.policy_name == policy_name)

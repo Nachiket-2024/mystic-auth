@@ -23,28 +23,25 @@ interface UsersFilterBarProps {
     setPolicy: (v: string) => void;
     permission: string;
     setPermission: (v: string) => void;
-    /** Rendered right next to the search input (e.g. Export CSV), so it
-     * reads as a sibling action on the search row rather than drifting to
-     * the far edge of the page header. */
+    /** Rendered next to the search input (e.g. Export CSV) as a sibling
+     * action, instead of drifting to the far edge of the page header. */
     searchRowExtra?: React.ReactNode;
 }
 
-/** UsersPage's search box + role/verified/status/policy/permission filters.
- * Split out of UsersPage.tsx, same "filter bar as its own component"
- * pattern as audit_log/*\/*FilterBar.tsx - this owns only the filter
- * controls themselves; UsersPage still owns the state and the server-side
- * query it drives. Policy and permission are two different views of the
- * same PBAC assignment (which policy a user holds vs. which action that
- * policy grants) - see user_base_crud.py's _apply_filters for how each one
- * maps onto the user_policies/policies join. */
+/** UsersPage's search box plus role/verified/status/policy/permission
+ * filters. Split out of UsersPage.tsx like audit_log/*\/*FilterBar.tsx:
+ * owns only the controls, UsersPage owns the state and server query.
+ * Policy and permission are two different views of the same PBAC
+ * assignment (which policy a user holds vs. which action that policy
+ * grants); see user_base_crud.py's _apply_filters for how each maps onto
+ * the user_policies/policies join. */
 const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
     search, setSearch, role, setRole, verified, setVerified, status, setStatus,
     policy, setPolicy, permission, setPermission, searchRowExtra,
 }) => {
     const { t } = useTranslation(["users", "ui_text"]);
-    // Full, unfiltered policy list (same query UserPoliciesDialog's "assign
-    // a policy" dropdown already uses) to populate the Policy filter with
-    // real policy names rather than a hardcoded/stale list.
+    // Full policy list (same query UserPoliciesDialog's "assign a policy"
+    // dropdown uses) so the Policy filter shows real names, not a stale list.
     const { data: policies } = usePoliciesQuery();
 
     return (

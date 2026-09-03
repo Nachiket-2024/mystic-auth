@@ -31,9 +31,9 @@ export function useDataTableSelection<T>({
 
     // toggleRow/toggleAll/clearSelection all use the functional form of
     // onSelectionChange, computing `next` from `prev` at commit time, not
-    // the render-time `selectedKeys` prop. Several selection clicks fired in
-    // quick succession could otherwise apply out of order, with a stale
-    // handler overwriting a newer one and resurrecting a cleared selection.
+    // the render-time `selectedKeys` prop. Several rapid selection clicks
+    // could otherwise apply out of order, with a stale handler overwriting a
+    // newer one and resurrecting a cleared selection.
     const toggleRow = (key: string | number) => {
         onSelectionChange?.((prev) => {
             const next = new Set(prev);
@@ -46,8 +46,8 @@ export function useDataTableSelection<T>({
     const toggleAll = () => {
         onSelectionChange?.((prev) => {
             const next = new Set(prev);
-            // Recomputed off `prev`, not the display-only `isAllSelected`
-            // above, for the same staleness reason as toggleRow.
+            // Recomputed off `prev`, not the display-only `isAllSelected`,
+            // for the same staleness reason as toggleRow.
             const allSelected = allKeysOnScreen.length > 0 && allKeysOnScreen.every((k) => prev.has(k));
             if (allSelected) allKeysOnScreen.forEach((k) => next.delete(k));
             else allKeysOnScreen.forEach((k) => next.add(k));

@@ -1,12 +1,10 @@
 import React, { Suspense, useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 
-// LoginPage is loaded eagerly since it's the most common entry point for an
-// unauthenticated visitor, so it shouldn't show a loading flash of its own
-// on top of App's own session-check gate. Every other route is route-level
-// code-split via React.lazy: none of them are needed until their route is
-// actually visited, and splitting them keeps the initial bundle (and every
-// unauthenticated visitor's download) limited to auth + the app shell.
+// LoginPage loads eagerly since it's the most common entry point for an
+// unauthenticated visitor and shouldn't flash on top of the session-check
+// gate below. Every other route is lazy-loaded so the initial bundle stays
+// limited to auth + the app shell.
 import LoginPage from "../mystic_auth/auth/login/LoginPage";
 import { trackedLazy } from "../mystic_auth/ui/routing/trackedLazy";
 const LandingPage = trackedLazy(() => import("./landing_page/LandingPage"));
@@ -28,12 +26,11 @@ const PrivacyPolicyPage = trackedLazy(() => import("./legal/PrivacyPolicyPage"))
 const TermsOfServicePage = trackedLazy(() => import("./legal/TermsOfServicePage"));
 
 // Runs the current-user query once and mirrors it into the Zustand auth
-// store (see its own docstring for why this must be called exactly once,
-// here at the app root), not re-exported from sdk.ts since it's meant to
-// be called exactly once, here, not from arbitrary feature code.
+// store. Not re-exported from sdk.ts since it must only be called here,
+// at the app root, not from arbitrary feature code.
 import { useAuthSession } from "../mystic_auth/auth/current_user/useCurrentUserQuery";
-// Real-time push for cross-tab/cross-device session revocation - same
-// "call exactly once, at the app root" reasoning as useAuthSession above.
+// Real-time push for cross-tab/cross-device session revocation. Same
+// "call once, at the app root" reasoning as useAuthSession above.
 import { useSessionEventsStream } from "../mystic_auth/auth/session_lifecycle/useSessionEventsStream";
 
 import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, LoadingState, CommandPalette } from "./sdk";
@@ -48,11 +45,9 @@ const App: React.FC = () => {
 
     const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-    // Cmd+K / Ctrl+K quick-jump palette: a single listener mounted once here
-    // at the app root (rather than inside CommandPalette itself) so it's
-    // obvious from this file alone that the shortcut is global, not scoped
-    // to whichever page happens to be on screen. Ignored while unauthenticated
-    // since every palette destination is itself a protected route.
+    // Cmd+K / Ctrl+K quick-jump palette. Listener lives here (not inside
+    // CommandPalette) so the shortcut is clearly global. Ignored while
+    // unauthenticated since every palette destination is a protected route.
     const [isPaletteOpen, setIsPaletteOpen] = useState(false);
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,9 +61,8 @@ const App: React.FC = () => {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isAuthenticated]);
 
-    // Passed to every AppLayout below (same reference each render) so
-    // Navbar's visible search-bar trigger opens the identical palette
-    // instance the keydown listener above toggles.
+    // Passed to every AppLayout below so Navbar's search-bar trigger opens
+    // the same palette instance the keydown listener above toggles.
     const openCommandPalette = () => setIsPaletteOpen(true);
 
     // isAuthenticated is null until the session check resolves; showing a
@@ -79,63 +73,50 @@ const App: React.FC = () => {
 
     return (
         <Router>
-            {/* Toast queue renderer, mounted once at the app root (uses a
-                Portal internally, so placement here doesn't affect layout) */}
+            {/* Toast queue renderer (uses a Portal, so placement here doesn't affect layout) */}
             <Toaster />
 
-            {/* Top-of-viewport loading bar, mounted once at the app root so
-                it overlays whatever page is currently on screen during a
-                route-level code-split navigation, instead of the Suspense
-                fallback below blanking it. */}
+            {/* Top-of-viewport loading bar. Mounted here so it overlays the
+                current page during a lazy-route navigation instead of the
+                Suspense fallback below blanking it. */}
             <RouteProgressBar />
 
             {/* Fixed bottom banner reflecting networkStatusStore's isOnline
-                flag, mounted once at the app root so it's visible regardless
-                of which page/dialog is currently on screen. */}
+                flag, visible regardless of which page/dialog is on screen. */}
             <OfflineBanner />
 
             <CommandPalette isOpen={isPaletteOpen} onClose={() => setIsPaletteOpen(false)} />
 
-            {/* react-router's declarative Router already wraps its own
-                location-state updates in React.startTransition, so a
-                client-side navigation to a not-yet-loaded lazy route keeps
-                the outgoing page on screen and defers rather than triggering
-                this boundary's fallback - RouteProgressBar above is what
-                actually signals the pending chunk load. This fallback only
-                matters for edge cases transition deferral doesn't cover
-                (e.g. a lazy route suspending on first paint, before any
-                transition exists to defer) - RouteSkeleton keeps that case
-                from reading as a hard blank cut. RouteFadeIn below fades
-                each route's content in on every navigation, not just this
-                fallback case. */}
+            {/* react-router wraps navigation in React.startTransition, so a
+                click to a not-yet-loaded lazy route defers instead of
+                triggering this Suspense fallback (RouteProgressBar above
+                signals that pending load instead). This fallback only
+                matters for edge cases transition deferral misses, like a
+                lazy route suspending on first paint; RouteSkeleton keeps
+                that from reading as a blank cut. RouteFadeIn fades in every
+                route's content, not just this fallback case. */}
             <RouteFadeIn>
             <Suspense fallback={<RouteSkeleton />}>
             <Routes>
-                {/* Protected routes require authentication. Each is wrapped
-                    in AppLayout (sidebar + top bar) inside ProtectedRoute, so
-                    the shell only ever renders once access has actually been
-                    confirmed.
+                {/* Protected routes require authentication. Each wraps
+                    AppLayout (sidebar + top bar) inside ProtectedRoute, so
+                    the shell only renders once access is confirmed.
 
                     Adding your own feature routes? Give AppLayout an
-                    `extraNavItems` prop (same NavItem shape as sdk.ts's
-                    NavItem, e.g. `[{ label: "Projects", to: "/projects",
-                    permission: APP_PERMISSIONS.PROJECTS_READ }]`) instead of
-                    editing mystic_auth/layout/app_layout/navItems.ts, since that file stays
-                    upstream-owned. Define the array once above this Routes
-                    block and pass the same reference to every AppLayout
-                    usage, so the sidebar doesn't reshape as the user
-                    navigates. Pass that same array to the CommandPalette
-                    instance below via its own `extraNavItems` prop too (plus
-                    `extraSearchItems`, SearchItem shape, for content within
-                    your own pages), so the palette's search matches what the
-                    sidebar shows. See
-                    docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points. */}
-                {/* "/" is the pre-auth landing page (see
-                    app/landing_page/LandingPage.tsx), not a redirect straight into
-                    the app - it self-redirects an already-signed-in visitor
-                    to /dashboard instead, so the Sidebar's active-item
-                    highlight only ever has to match routes that actually
-                    render the app shell. */}
+                    `extraNavItems` prop (NavItem shape from sdk.ts, e.g.
+                    `[{ label: "Projects", to: "/projects", permission:
+                    APP_PERMISSIONS.PROJECTS_READ }]`) instead of editing the
+                    upstream-owned mystic_auth/layout/app_layout/navItems.ts.
+                    Define the array once above this Routes block and reuse
+                    the same reference on every AppLayout usage, so the
+                    sidebar doesn't reshape while navigating. Pass it to
+                    CommandPalette too (plus `extraSearchItems` for
+                    in-page content) so palette search matches the sidebar.
+                    See docs/mystic_auth/template-usage/frontend-customization.md#shared-chrome-extension-points. */}
+                {/* "/" is the pre-auth landing page, not a redirect into the
+                    app - it self-redirects an already-signed-in visitor to
+                    /dashboard, so Sidebar's active-item highlight only ever
+                    has to match routes that render the app shell. */}
                 <Route path="/" element={<LandingPage />} />
                 <Route
                     path="/dashboard"
@@ -193,13 +174,11 @@ const App: React.FC = () => {
                     path="/audit-log"
                     element={
                         // No permission prop: every authenticated user can see
-                        // their own audit trail (see AuditLogPage's docstring
-                        // for how the "All users" tab is gated separately).
-                        // Added your own PBAC resource types/actions? Pass
-                        // AuditLogPage `extraResourceTypes`/`extraActions`
-                        // (string[]) instead of hand-editing
-                        // authorizationLogResourceTypes.ts. See
-                        // docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+                        // their own audit trail (the "All users" tab is gated
+                        // separately, see AuditLogPage). Added your own PBAC
+                        // resource types/actions? Pass AuditLogPage
+                        // `extraResourceTypes`/`extraActions` instead of
+                        // hand-editing authorizationLogResourceTypes.ts.
                         <ProtectedRoute>
                             <AppLayout onOpenCommandPalette={openCommandPalette}>
                                 <AuditLogPage />

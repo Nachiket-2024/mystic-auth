@@ -15,11 +15,9 @@ interface AuthorizationFilterBarProps {
     allowed: string;
     setAllowed: (v: string) => void;
     /**
-     * Resource types beyond this app's own AUTHORIZATION_RESOURCE_TYPES,
-     * for downstream projects that extend the PBAC resource vocabulary
-     * for their own business domain (see authorizationLogResourceTypes.ts's
-     * docstring). Appended after the built-ins; omitting it renders the
-     * dropdown exactly as before this prop existed.
+     * Resource types beyond this app's own AUTHORIZATION_RESOURCE_TYPES, for downstream
+     * projects that extend the PBAC resource vocabulary (see authorizationLogResourceTypes.ts).
+     * Appended after the built-ins; omitting it leaves the dropdown unchanged.
      */
     extraResourceTypes?: string[];
     /** Same idea as extraResourceTypes, for actions beyond PERMISSIONS. */
@@ -27,12 +25,9 @@ interface AuthorizationFilterBarProps {
 }
 
 /**
- * Action/Resource/Result: a server-side filter (composes with search and
- * sort, narrows the whole result set, not just the loaded page), rendered
- * as selects rather than free text since all three are fixed, finite
- * vocabularies (PERMISSIONS' own action strings, this app's resource
- * types, and a bool) - typing them in would just invite typos that quietly
- * match nothing.
+ * Action/Resource/Result: a server-side filter (composes with search and sort, narrows the
+ * whole result set, not just the loaded page). Rendered as selects, not free text, since all
+ * three are fixed, finite vocabularies; a typed value could quietly match nothing.
  */
 const AuthorizationFilterBar: React.FC<AuthorizationFilterBarProps> = ({
     action, setAction, resourceType, setResourceType, allowed, setAllowed,

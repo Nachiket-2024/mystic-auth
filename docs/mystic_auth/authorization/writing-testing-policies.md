@@ -6,17 +6,17 @@
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    A["1. Decide action(s)<br/> + resource type"] --> B["2. Decide conditions,<br/> if any"]
-    B --> C["3. Create policy<br/> POST<br/> /authorization/policies<br/> requires policies:create"]
-    C --> D["4. Assign to a user<br/> POST /authorization/<br/> users/{email}/policies<br/> requires policies:assign"]
-    D --> E["5. Verify<br/> POST /authorization/<br/> users/{email}/<br/> authorization-check<br/> requires policies:read"]
+    A["1. Decide action(s)\n + resource type"] --> B["2. Decide conditions,\n if any"]
+    B --> C["3. Create policy\n POST\n /authorization/policies\n requires policies:create"]
+    C --> D["4. Assign to a user\n POST /authorization/\n users/{email}/policies\n requires policies:assign"]
+    D --> E["5. Verify\n POST /authorization/\n users/{email}/\n authorization-check\n requires policies:read"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
 
 1. **Decide the action(s) and resource type.** Use an existing `Permission` value if this is about users/policies themselves ([Adding New Permissions](adding-permissions.md)); otherwise any action string works for a downstream application's own resources.
 2. **Decide conditions, if any.** See the [Condition Schema Reference](condition-schema-reference.md): omit `conditions` entirely for an unconditional grant.
-3. **Create it** via `POST /authorization/policies` (requires `policies:create`, and you must already hold every action you're granting: see [Architecture](architecture.md#authorization-service)):
+3. **Create it** via `POST /authorization/policies` (requires `policies:create`, and you must already hold every action you're granting: see [Architecture](architecture/component-responsibilities.md#authorization-service)):
 
    ```bash
    curl -X POST https://your-app/authorization/policies \
@@ -96,7 +96,7 @@ def test_my_new_policy_shape_grants_the_right_action():
     assert decision.allowed is True
 ```
 
-**Against a real database** (via `scripts/docker/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting.md): or from the host once `docker compose up -d postgres redis`): create a real user, assign the real policy, log in, and hit a real protected route:
+**Against a real database** (via `scripts/docker/dev/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting/README.md): or from the host once `docker compose -f docker/compose/docker-compose.dev.yml up -d postgres redis`): create a real user, assign the real policy, log in, and hit a real protected route:
 
 ```python
 @pytest.mark.asyncio

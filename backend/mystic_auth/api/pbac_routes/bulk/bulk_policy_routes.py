@@ -88,16 +88,15 @@ async def bulk_remove_policies(
         [item.policy_name for item in body.items], db
     )
 
-    # Batch-aware lockout guard: a bulk request commits every item in one
-    # pass, so unlike the single-item routes, the holder count doesn't
-    # shrink between items. Track how many items in this batch already
-    # remove a system_superuser assignment, and reject the rest once that
-    # would exhaust the policy's holders, or a caller could strip every
-    # system_superuser assignment in one bulk call. Track holder *emails*
-    # (not just a count) so a no-op item (targeting a non-holder) doesn't
-    # wrongly count against the lockout. Uses a locking read
-    # (get_holder_emails_for_update) so two concurrent bulk-removes can't
-    # together strip every holder while each individually passes this guard.
+    # Batch-aware lockout guard: unlike single-item routes, a bulk request
+    # commits every item in one pass, so the holder count doesn't shrink
+    # between items. Count staged system_superuser removals as we go and
+    # reject once that would exhaust the policy's holders, or a caller could
+    # strip every superuser assignment in one call. Tracking holder *emails*
+    # (not just a count) keeps a no-op item (targeting a non-holder) from
+    # wrongly counting against the lockout. get_holder_emails_for_update
+    # locks the rows so two concurrent bulk-removes can't together strip
+    # every holder while each individually passes this guard.
     superuser_policy = policies_by_name.get(SYSTEM_SUPERUSER_POLICY_NAME)
     superuser_holder_emails = (
         set(await policy_repository.get_holder_emails_for_update(superuser_policy.id, db))

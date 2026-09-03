@@ -4,8 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import SignupForm from "./SignupForm";
 
-// Shared surface styling (theme surface/border tokens), replacing this
-// page's own hand-rolled bg="white"/boxShadow="lg" card.
 import Card from "../../ui/Card";
 
 // Shared brand header + footer shell for every unauthenticated page.
@@ -17,10 +15,8 @@ const SignupPage: React.FC = () => {
 
     return (
         <AuthLayout>
-            {/* Wider than the other auth cards since the form itself is
-                genuinely wider (name + email side by side), but the same
-                padding/spacing scale as every other auth page for visual
-                consistency. */}
+            {/* Wider than the other auth cards since the form is genuinely wider
+                (name + email side by side), same padding scale otherwise. */}
             <Card w="full" maxW="3xl" p={{ base: 5, md: 7 }}>
                 <Stack textAlign="center" gap={3}>
                     <Logo />

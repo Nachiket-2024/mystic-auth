@@ -1,12 +1,7 @@
-# tests/backend/mystic_auth/unit/authorization/services/test_bulk_notification_unit.py
-#
-# log_and_notify_bulk_success is the shared tail of every bulk PBAC route
-# (bulk_policy_routes.py / bulk_permission_routes.py / bulk_role_routes.py):
-# audit-log every successful item, then notify each *affected user* once
-# (not once per item) that their permissions changed. Covers the two things
-# that actually differ from the old per-route inline loop: dedup across
-# repeated user_emails in one batch, and only-on-success (never on "error"
-# or "already_held").
+# log_and_notify_bulk_success is the shared tail of every bulk PBAC route:
+# audit-log every successful item, then notify each affected user once (not
+# once per item) that their permissions changed. Covers deduping repeated
+# user_emails in one batch, and only notifying on success.
 from unittest.mock import AsyncMock
 
 import pytest
@@ -65,7 +60,7 @@ async def test_only_successful_items_are_logged_or_notified(mocker):
 @pytest.mark.asyncio
 async def test_notify_permissions_changed_can_be_disabled(mocker):
     """bulk_role_routes.py's role field is display-only metadata, not a PBAC
-    grant - it never fires the permissions-changed nudge."""
+    grant: it never fires the permissions-changed nudge."""
     log_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
     notify_mock = mocker.patch(f"{MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Regression test for sync-upstream.sh, run against throwaway fake
-# "upstream" and "consumer" repos under a temp dir -- never touches this
+# "upstream" and "consumer" repos under a temp dir. Never touches this
 # repo's own history. Run manually after touching sync-upstream.sh:
 #   scripts/upstream-sync/test-sync-upstream.sh
 #
-# Covers the two bugs a naive `git merge --squash` sync has, and that this
-# script's incremental-diff design was built specifically to fix:
+# Covers the two bugs a naive `git merge --squash` sync has, which the
+# incremental-diff design fixes:
 #   - stale "incoming commits" preview after the first sync
 #   - phantom conflicts on files nobody touched, once there's no merge-base
-# plus the actual conflict path, the squash-history-never-imported property,
+# plus the real conflict path, the squash-history-never-imported property,
 # and upgrading an existing repo that predates the state-file mechanism.
 
 set -euo pipefail

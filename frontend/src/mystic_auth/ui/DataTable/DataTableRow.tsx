@@ -7,19 +7,18 @@ import { FAST_HOVER_TRANSITION } from "../../theme/system";
 import type { SupportedLanguage } from "../../translations/translations";
 
 // FAST_HOVER_TRANSITION minus background-color: a Chromium GPU-compositing
-// bug (hardware acceleration only) left a cell's painted background stuck
-// after a batched selection change (clearing many rows via the header
-// checkbox), even with correct `bg`/`checked` state. Making bg/border-color
-// changes instant (no transition) avoids the animated in-between state the
-// bug depends on.
+// bug left a cell's painted background stuck after a batched selection
+// change (clearing many rows via the header checkbox), even with correct
+// `bg`/`checked` state. Making bg/border-color changes instant avoids the
+// animated in-between state the bug depends on.
 const CELL_TRANSITION = FAST_HOVER_TRANSITION.replace(/^background-color[^,]*,\s*/, "");
 
 interface DataTableRowProps<T> {
     row: T;
     columns: DataTableColumn<T>[];
     selectable?: boolean;
-    /** See DataTable's own prop doc: opt-in, off unless the caller
-     * explicitly turns it on (e.g. a toolbar toggle). */
+    /** See DataTable's prop doc: opt-in, off unless the caller explicitly
+     * turns it on (e.g. a toolbar toggle). */
     rowClickSelects?: boolean;
     isSelected: boolean;
     onToggle: () => void;
@@ -30,7 +29,7 @@ interface DataTableRowProps<T> {
 }
 
 /** One body <Table.Row>, split out of DataTable.tsx alongside
- * DataTableHeaderRow - see that component's own comment for why. */
+ * DataTableHeaderRow - see that component's comment for why. */
 export function DataTableRow<T>({
     row,
     columns,
@@ -69,15 +68,14 @@ export function DataTableRow<T>({
     // Table.Row would only show on non-striped rows.
     const cellBg = isSelected ? "brand.selected" : undefined;
     // _groupHover (needs className="group" on the ancestor, not role="group")
-    // instead of plain `_hover`: a per-cell `_hover` would only light up the
-    // one <td> under the cursor, losing the whole-row hover feel.
+    // instead of plain `_hover`: a per-cell `_hover` would only light up
+    // the one <td> under the cursor, losing the whole-row hover feel.
     const cellGroupHoverBg = isSelected ? "brand.selected" : "bg.emphasized";
     // The brand color is user-customizable, so a selected row's background
-    // luminance isn't knowable in advance; the plain gray border token can
-    // end up too close to a dark custom brand shade, making adjacent
-    // selected rows blur into one block. blackAlpha/whiteAlpha always shifts
-    // darker/lighter by a fixed amount, so it stays visible against any
-    // background. 600 + 2px reads as a deliberate divider, not a hairline.
+    // luminance isn't knowable in advance; a plain gray border can end up
+    // too close to a dark custom brand shade, blurring adjacent selected
+    // rows together. blackAlpha/whiteAlpha always shifts by a fixed amount,
+    // so it stays visible against any background.
     const cellBorderColor = isSelected ? { _light: "blackAlpha.600", _dark: "whiteAlpha.600" } : undefined;
     const cellBorderWidth = isSelected ? "2px" : undefined;
 

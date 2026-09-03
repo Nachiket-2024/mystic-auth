@@ -1,11 +1,9 @@
-# tests/backend/mystic_auth/unit/auth/security/test_rate_limiter_service_dashboard_unit.py
-#
-# Unit coverage for RateLimitDashboardService.list_active_limits/reset_counter -
-# the admin Rate Limit Dashboard's read/reset primitives. Mirrors
-# test_rate_limiter_unit.py's pattern of patching redis_client's individual
-# methods directly rather than standing up a real Redis, since these are
-# pure request/response-shape tests, not integration tests of Redis itself
-# (see test_rate_limit_routes_integration.py for the real-Redis path).
+# Unit coverage for RateLimitDashboardService.list_active_limits /
+# reset_counter, the admin Rate Limit Dashboard's read/reset primitives.
+# Patches redis_client's individual methods directly rather than
+# standing up a real Redis, since these are pure request/response-shape
+# tests (see test_rate_limit_routes_integration.py for the real-Redis
+# path).
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,14 +21,12 @@ MODULE = "backend.mystic_auth.auth.security.rate_limiting.rate_limit_dashboard_s
 
 @pytest.fixture(autouse=True)
 def _reset_scan_snapshot_cache():
-    """list_active_limits caches its matched-key walk per filter pattern for
-    _SCAN_SNAPSHOT_TTL_SECONDS (see that method's own docstring) so
-    consecutive dashboard page requests get a consistent view to slice.
-    Most tests here use the same default (unfiltered) pattern, so without
-    clearing this class-level cache between tests, a later test picks up an
-    earlier test's mocked SCAN/pipeline results instead of its own -
-    tests running within the TTL of each other otherwise leak state.
-    """
+    """list_active_limits caches its matched-key walk per filter pattern
+    for _SCAN_SNAPSHOT_TTL_SECONDS so consecutive dashboard page requests
+    get a consistent view to slice. Most tests here use the same default
+    (unfiltered) pattern, so without clearing this class-level cache
+    between tests, a later test could pick up an earlier test's mocked
+    SCAN/pipeline results instead of its own."""
     RateLimitDashboardService._scan_snapshot_cache = {}
     yield
     RateLimitDashboardService._scan_snapshot_cache = {}
@@ -156,8 +152,8 @@ async def test_list_active_limits_slices_the_requested_page(mocker):
 @pytest.mark.asyncio
 async def test_list_active_limits_filters_by_scope_and_endpoint_via_match_pattern(mocker):
     # Filtering happens Redis-side (the MATCH pattern), not by fetching
-    # everything and filtering in Python - a narrowed query must actually be
-    # cheaper, not just smaller.
+    # everything and filtering in Python: a narrowed query must actually
+    # be cheaper, not just smaller.
     scan_mock = _patch_scan(mocker, 0, [])
     _patch_pipeline(mocker, [])
 
@@ -169,9 +165,10 @@ async def test_list_active_limits_filters_by_scope_and_endpoint_via_match_patter
 @pytest.mark.asyncio
 async def test_list_active_limits_filters_by_email_scope_via_match_pattern(mocker):
     # login_protection_service's login_lock:email:* counters are a real
-    # scope value (see RateLimitEntry.scope on the frontend) - the service
-    # layer has always accepted it, it was only the route's Query pattern
-    # that used to reject it (see test_rate_limit_routes_integration.py's
+    # scope value (see RateLimitEntry.scope on the frontend). The service
+    # layer has always accepted it; it was only the route's Query pattern
+    # that used to reject it (see
+    # test_rate_limit_routes_integration.py's
     # test_scope_filter_accepts_email_scope).
     scan_mock = _patch_scan(mocker, 0, [])
     _patch_pipeline(mocker, [])
@@ -228,8 +225,7 @@ async def test_reset_counter_deletes_an_account_scoped_key(mocker):
     [
         # Not a rate-limit key at all: e.g. a token-revocation entry
         # (jwt_service.py), which this endpoint must never be able to
-        # delete regardless of who calls it - see hardening.md's
-        # "reset_counter only ever deletes an actual rate-limit key".
+        # delete regardless of who calls it.
         "revoked:some-jti-value",
         "password_reset:some-token",
         "verify:some-token",

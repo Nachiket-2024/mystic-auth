@@ -12,13 +12,12 @@ import { MY_POLICIES_QUERY_KEY } from "../../policies/queries/policyQueries";
 import type { CurrentUserProfile } from "../current_user/current_user_types";
 import type { LoginRequest } from "./login_types";
 
-// mutationFn logs in, then fetches the fresh profile, so the mutation only
-// resolves once the session is fully confirmed (a plain "invalidate and hope
-// the refetch lands in time" risks a caller reading isAuthenticated too
-// early). onSuccess also invalidates every other "me"-scoped query (sessions,
-// policies, audit history): none are keyed by email, so without this a stale
-// response cached for whoever was last logged in in this tab could show
-// through for the new account until its own staleTime expired.
+// mutationFn logs in, then fetches the fresh profile, so the mutation only resolves
+// once the session is fully confirmed (invalidate-and-hope-the-refetch-lands-in-time
+// risks a caller reading isAuthenticated too early). onSuccess also invalidates every
+// other "me"-scoped query (sessions, policies, audit history): none are keyed by
+// email, so without this a stale response cached for the previous account in this tab
+// could show through until its own staleTime expired.
 export function useLoginMutation() {
     return useMutation<CurrentUserProfile, Error, LoginRequest>({
         mutationFn: async (payload) => {

@@ -24,9 +24,9 @@ class AccountDeletionConfirmHandler:
 
     async def handle_confirm_delete(self, token: str, db: AsyncSession, request: Request | None = None) -> JSONResponse:
         try:
-            # Must scope to type=="account_delete" here, not a generic
-            # verify_token: any validly-signed JWT with an "email" claim (an
-            # access/refresh/reset token) would otherwise pass, letting an
+            # Must scope to type=="account_delete", not a generic
+            # verify_token: any validly-signed JWT with an "email" claim
+            # (access/refresh/reset) would otherwise pass, letting an
             # attacker holding one for a victim account poison their audit
             # log and trip their delete-confirm lockout.
             payload = await self.account_deletion_service.verify_account_deletion_token(token)
@@ -40,11 +40,10 @@ class AccountDeletionConfirmHandler:
             email = payload["email"]
 
             # Distinct namespace from login's "login_lock:email:" key and
-            # from "password_reset_confirm_lock:email:" - sharing either
-            # would mean failures unrelated to a real login attempt (a
-            # stale/reused deletion link) count towards, and can trip, an
-            # unrelated lockout for the same email. Same reasoning as
-            # password_reset_confirm_handler's own separate namespace.
+            # "password_reset_confirm_lock:email:": sharing either would let
+            # failures unrelated to a real login attempt (a stale/reused
+            # deletion link) trip an unrelated lockout for the same email.
+            # Same reasoning as password_reset_confirm_handler.
             email_lock_key = f"account_delete_confirm_lock:email:{email}"
 
             success = await self.account_deletion_service.confirm_deletion(token, db, request=request)
@@ -69,9 +68,9 @@ class AccountDeletionConfirmHandler:
 
             # Clears this browser's auth cookies too, in case the link was
             # opened in the same session that requested the deletion (it
-            # doesn't have to be - the token itself is the proof of intent,
-            # same trust model as password-reset-confirm). Harmless no-op
-            # otherwise. Same as logout_handler.py's own cookie clearing.
+            # doesn't have to be; the token itself is proof of intent, same
+            # trust model as password-reset-confirm). Harmless no-op
+            # otherwise. Same as logout_handler.py's cookie clearing.
             token_cookie_handler.clear_tokens_from_cookies(resp)
 
             return resp

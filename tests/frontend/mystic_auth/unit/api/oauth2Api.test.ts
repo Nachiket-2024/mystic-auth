@@ -5,10 +5,9 @@ import { oauth2LoginGoogleApi, oauth2CallbackGoogleApi } from '@/api/auth_api';
 
 const mock = new MockAdapter(api);
 
-// The real Google login flow uses a full-page redirect (OAuth2LoginButton.tsx),
-// not these functions : a redirect can't be done via XHR/fetch. They're
-// tested here as plain API-layer functions in case a future flow calls
-// them programmatically.
+// The real Google login flow uses a full-page redirect (OAuth2LoginButton.tsx), not
+// these functions, since a redirect can't be done via XHR/fetch. Tested here as plain
+// API-layer functions in case a future flow calls them programmatically.
 describe('oauth2LoginGoogleApi', () => {
   beforeEach(() => {
     mock.reset();

@@ -3,15 +3,13 @@ import { Card as ChakraCard } from "@chakra-ui/react";
 import type { CardRootProps } from "@chakra-ui/react";
 
 /**
- * Thin wrapper around Chakra v3's Card.Root with the app's standard surface styling (theme
- * surface/border tokens, rounded corners, shadow). All CardRootProps pass through, so callers
- * can still override spacing/alignment per use.
+ * Thin wrapper around Chakra v3's Card.Root with the app's standard surface
+ * styling (theme surface/border tokens, rounded corners, shadow). All
+ * CardRootProps pass through, so callers can still override spacing/alignment.
  *
  * `shadow="density.card"` (theme/system.ts), not Chakra's stock "md": a
- * layered, tokenized elevation instead of the single flat drop-shadow every
- * default Chakra app ships with, so the app's cards read as their own look
- * rather than "stock Chakra shapes" - overridable from app/theme.ts the
- * same way every other density.* token is.
+ * layered, tokenized elevation instead of a flat drop-shadow, overridable
+ * from app/theme.ts like every other density.* token.
  */
 const Card: React.FC<CardRootProps> = ({ children, ...props }) => {
     return (

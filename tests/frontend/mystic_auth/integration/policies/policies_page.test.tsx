@@ -230,11 +230,9 @@ describe('PoliciesPage', () => {
 
   it('shows a restricted-view notice and a standalone Create button for a caller with only policies:create (no policies:read)', async () => {
     seed(['policies:create']);
-    // GET /authorization/policies is never called for this caller (the
-    // list query is gated on policies:read) - if PoliciesPage regressed and
-    // fired it anyway, this unconfigured mock would 404, and the
-    // assertions below on the restricted-view copy (not an error state)
-    // would fail.
+    // No mock for GET /authorization/policies: it's gated on policies:read,
+    // so if PoliciesPage fired it anyway, the 404 would break the
+    // restricted-view assertions below.
 
     renderPage();
 
@@ -278,9 +276,8 @@ describe('PoliciesPage', () => {
 
     expect(await screen.findByText('Discard unsaved changes?')).toBeInTheDocument();
 
-    // Cancelling the discard-confirm dialog must leave the form dialog open with the typed value
-    // intact. Both dialogs are mounted at once here, each with their own "Cancel" button - the
-    // discard-confirm's is the last one rendered.
+    // Both dialogs are mounted at once, each with its own "Cancel" button; the
+    // discard-confirm's is rendered last.
     const cancelButtons = screen.getAllByRole('button', { name: 'Cancel' });
     await user.click(cancelButtons[cancelButtons.length - 1]);
     expect(screen.getByDisplayValue('draft_policy')).toBeInTheDocument();

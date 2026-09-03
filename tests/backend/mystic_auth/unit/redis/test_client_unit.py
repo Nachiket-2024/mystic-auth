@@ -7,7 +7,7 @@
 from redis.asyncio import Redis
 
 from backend.mystic_auth.core.settings import settings
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.redis.client import REDIS_SOCKET_TIMEOUT_SECONDS, redis_client
 
 
 def test_redis_client_is_a_redis_instance():
@@ -26,3 +26,10 @@ def test_redis_client_is_configured_from_settings_redis_url():
     port = pool_kwargs["port"]
 
     assert f"{host}:{port}" in settings.REDIS_URL
+
+
+def test_redis_client_has_bounded_socket_timeouts():
+    pool_kwargs = redis_client.connection_pool.connection_kwargs
+
+    assert pool_kwargs["socket_connect_timeout"] == REDIS_SOCKET_TIMEOUT_SECONDS
+    assert pool_kwargs["socket_timeout"] == REDIS_SOCKET_TIMEOUT_SECONDS

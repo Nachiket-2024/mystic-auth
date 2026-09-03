@@ -15,9 +15,9 @@ interface PermissionsFilterBarProps {
     setResourceType: (v: string) => void;
 }
 
-/** PermissionsPage's search box + resource-type filter. Same "filter bar as
- * its own component" pattern as PoliciesFilterBar.tsx, minus the status
- * filter: catalog entries have no active/inactive state. */
+/** PermissionsPage's search box + resource-type filter. Same pattern as
+ * PoliciesFilterBar.tsx, minus the status filter since catalog entries have
+ * no active/inactive state. */
 const PermissionsFilterBar: React.FC<PermissionsFilterBarProps> = ({ search, setSearch, resourceType, setResourceType }) => {
     const { t } = useTranslation(["permissions", "ui_text"]);
 

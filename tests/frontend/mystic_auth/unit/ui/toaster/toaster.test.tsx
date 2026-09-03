@@ -7,9 +7,9 @@ import { toaster } from '@/ui/toaster/toasterInstance';
 
 describe('Toaster', () => {
   afterEach(async () => {
-    // toaster is a module-level singleton (by design : see toasterInstance.ts),
-    // so its queue outlives this test's own render tree; clear it and let the
-    // removal animation's state update land inside act() before the next test.
+    // toaster is a module-level singleton, so its queue outlives this
+    // test's render tree; clear it and let the removal animation's state
+    // update land inside act() before the next test.
     await act(async () => {
       toaster.dismiss();
     });

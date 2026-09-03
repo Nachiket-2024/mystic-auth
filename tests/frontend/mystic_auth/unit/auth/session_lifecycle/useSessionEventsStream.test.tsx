@@ -21,7 +21,7 @@ class MockEventSource {
   constructor(url: string, init?: { withCredentials?: boolean }) {
     this.url = url;
     this.withCredentials = !!init?.withCredentials;
-    // eslint-disable-next-line @typescript-eslint/no-this-alias -- test mock tracks its own last-created instance
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- tracks the last-created instance
     lastInstance = this;
   }
 
@@ -39,7 +39,7 @@ describe('useSessionEventsStream', () => {
     useAuthStore.setState(initialAuthState, true);
     lastInstance = null;
     resetSelfPermissionMutationGuardForTests();
-    // @ts-expect-error - a minimal stand-in for this suite, not a full EventSource implementation
+    // @ts-expect-error - minimal EventSource stand-in for this suite
     globalThis.EventSource = MockEventSource;
   });
 
@@ -95,10 +95,9 @@ describe('useSessionEventsStream', () => {
 
     lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
 
-    // resetQueries (not invalidateQueries) is required here: it drops any
-    // cached data for a permission-gated page - e.g. RateLimitsPage, which
-    // uses placeholderData: keepPreviousData - so a revoked page has
-    // nothing stale left to show as a placeholder while it refetches.
+    // resetQueries (not invalidateQueries): drops cached data outright, so a
+    // permission-gated page using placeholderData: keepPreviousData (e.g.
+    // RateLimitsPage) has no stale data left to show after access is revoked.
     expect(resetSpy).toHaveBeenCalledWith();
     expect(invalidateSpy.mock.calls.length).toBe(0);
 
@@ -109,9 +108,7 @@ describe('useSessionEventsStream', () => {
   it('drops every held permission synchronously, before any refetch resolves, on a permissions_changed event', () => {
     useAuthStore.setState({ isAuthenticated: true, permissions: ['rate_limits:read', 'users:list_all'] });
     renderHook(() => useSessionEventsStream());
-    // Deliberately never resolves - this assertion must hold true purely
-    // from the synchronous part of the handler, before any network
-    // round-trip (queryClient.resetQueries's own refetch) could complete.
+    // Never resolves: proves the drop happens synchronously, not after resetQueries' refetch.
     vi.spyOn(queryClient, 'resetQueries').mockReturnValue(new Promise(() => {}));
 
     lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
@@ -131,11 +128,9 @@ describe('useSessionEventsStream', () => {
   });
 
   it('does not skip a SECOND permissions_changed event within the same window - only one echo is ever swallowed per self-mutation', () => {
-    // Guards against a regression back to a plain time-windowed skip: if a
-    // genuinely unrelated, more sensitive revoke from another admin/session
-    // lands within the guard's window right after this tab's own
-    // self-targeted mutation, it must still fail closed instantly rather
-    // than being mistaken for the same echo twice.
+    // Guards against a plain time-windowed skip: a genuine revoke landing
+    // right after this tab's own mutation must still fail closed, not be
+    // mistaken for the same echo twice.
     useAuthStore.setState({ isAuthenticated: true, permissions: ['rate_limits:read', 'users:list_all'] });
     renderHook(() => useSessionEventsStream());
     vi.spyOn(queryClient, 'resetQueries').mockReturnValue(new Promise(() => {}));
@@ -145,8 +140,7 @@ describe('useSessionEventsStream', () => {
     lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
     expect(useAuthStore.getState().permissions).toEqual(['rate_limits:read', 'users:list_all']);
 
-    // Second event, same window: must be treated as a genuine unrelated
-    // change and fail closed.
+    // Second event, same window: treated as a genuine change, fails closed.
     lastInstance!.onmessage?.({ data: '{"type":"permissions_changed"}' } as MessageEvent);
     expect(useAuthStore.getState().permissions).toEqual([]);
   });

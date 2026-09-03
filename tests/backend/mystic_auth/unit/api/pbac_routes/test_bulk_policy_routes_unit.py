@@ -1,18 +1,11 @@
-# tests/backend/mystic_auth/unit/api/pbac_routes/test_bulk_policy_routes_unit.py
-#
-# Security-review coverage for bulk_policy_routes.py's bulk_remove_policies:
-# unlike the single-item remove_policy_from_user/revoke_policy_action_from_user
-# routes (see test_policy_assignment_authorization_security_unit.py), a bulk
-# request commits every item in one pass, so the DB's system_superuser
-# holder count never shrinks between items within the same batch the way it
-# would across separate requests. This suite mocks
-# policy_repository.get_holder_emails_for_update (the actual holder set,
-# not just a
-# count - a batch item targeting a non-holder must not count against the
-# lockout) to prove the route tracks how many system_superuser removals it
-# has already staged *within the batch itself* and refuses the one that
-# would leave zero holders, rather than only ever checking a stale
-# pre-batch count.
+# Coverage for bulk_policy_routes.py's bulk_remove_policies. A bulk request
+# commits every item in one pass, so unlike the single-item routes (see
+# test_policy_assignment_authorization_security_unit.py) the system_superuser
+# holder count doesn't shrink between items until the whole batch commits.
+# These tests mock policy_repository.get_holder_emails_for_update (the real
+# holder set, not just a count, since a non-holder in the batch must not
+# count against the lockout) to check the route tracks staged removals
+# within the batch itself and blocks the one that would leave zero holders.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

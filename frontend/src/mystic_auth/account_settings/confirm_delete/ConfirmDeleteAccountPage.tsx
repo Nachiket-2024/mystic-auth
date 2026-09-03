@@ -14,11 +14,11 @@ import AuthInlineLink from "../../ui/AuthInlineLink";
 import AuthLayout from "../../layout/auth_layout/AuthLayout";
 import Logo from "../../layout/app_layout/Logo";
 
-// Unauthenticated by design (same trust model as PasswordResetConfirmPage /
-// VerifyAccountPage): reached via the link in the OAuth-only account
-// deletion email (see DeleteAccountCard.tsx / decisions.md#account-lifecycle),
-// which must work from whatever device/browser the caller opened it in, not
-// just the one that originally requested the deletion.
+// Unauthenticated by design (same trust model as PasswordResetConfirmPage/
+// VerifyAccountPage): reached via the link in the OAuth-only account deletion
+// email (see DeleteAccountCard.tsx / decisions.md#account-lifecycle), which
+// must work from any device/browser, not just the one that requested the
+// deletion.
 const ConfirmDeleteAccountPage: React.FC = () => {
     const { t } = useTranslation("account_settings");
     const [searchParams] = useSearchParams();

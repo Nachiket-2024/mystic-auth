@@ -8,19 +8,11 @@ logger = get_logger(__name__)
 
 
 class SelfOnlyCondition(ConditionHandler):
-    """
-    "self_only": true: the resource's owning identity (its "email") must
-    match the acting user's own email. A falsy value (false, missing,
-    None) means this condition imposes no restriction. Unsatisfiable
-    (denied) if no resource was supplied at all, since an ownership
-    condition with nothing to check ownership against cannot be assumed true.
-
-    Also denies if either email is missing/falsy (e.g. the resource
-    carries no "email" field), rather than comparing them directly:
-    otherwise two falsy values (None == None) would compare equal and
-    incorrectly grant "ownership" of a resource that has no owner to a
-    caller with no identity.
-    """
+    """"self_only": true requires the resource's "email" field to match
+    the acting user's email. Falsy value means no restriction; no
+    resource means deny. Both emails are checked for truthiness before
+    comparing so two missing emails (None == None) can't be mistaken for
+    a match."""
 
     def evaluate(self, condition_value, user_email, resource, context) -> bool:
         try:

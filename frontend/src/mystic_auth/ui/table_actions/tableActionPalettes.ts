@@ -1,10 +1,10 @@
 // Covers every colorPalette this app passes to a row-action button
 // (Delete/Purge -> red; Reactivate -> green; Edit -> orange; View -> blue;
 // Policies -> purple). Each has a filled background, not just an outline, so
-// it reads as a raised control against a striped row, plus a hover that
+// it reads as a raised control against a striped row, with a hover that
 // darkens both fill and border together. A plain constants module (not a
-// component) shared by TableActionButton/TableActionIconButton, so both can
-// import it without tripping react-refresh's only-export-components rule.
+// component) so both TableActionButton and TableActionIconButton can import
+// it without tripping react-refresh's only-export-components rule.
 export const TABLE_ACTION_PALETTE_STYLES = {
     // Stronger cue than the other palettes since this is destructive
     // (Delete/Purge).

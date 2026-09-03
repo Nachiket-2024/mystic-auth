@@ -121,33 +121,25 @@ async def rollback_policy(
     Restores a policy to a prior recorded definition. The policy must still
     exist: restoring a deleted policy isn't supported here; recreate it via
     POST /policies instead. Every history entry resolves to a restorable
-    definition, including "deleted" entries (their previous_definition is
-    their pre-deletion state, see _definition_for_entry), so rolling back
-    to a point before the policy was ever deleted is a valid target.
+    definition, including "deleted" entries (see _definition_for_entry), so
+    rolling back to before the policy was deleted is a valid target.
 
-    The restored snapshot is applied via PolicyRepository.update, tagged as
-    a "rolled_back" change so it's distinguishable from an ordinary edit:
-    this creates a new history entry and never overwrites or removes the
-    entry being rolled back to. Like update_policy, this can silently
-    re-grant or strip access for every current holder at once (restoring
-    an old actions/resource_type/is_active), so it fans out the same
-    publish_permissions_changed nudge update_policy does - see
-    policy_crud_routes.py's own comment on that call and
-    docs/mystic_auth/authorization/architecture.md#real-time-push.
+    Applied via PolicyRepository.update, tagged as a "rolled_back" change so
+    it's distinguishable from an ordinary edit: this creates a new history
+    entry rather than overwriting the one being restored. Like
+    update_policy, it can silently re-grant or strip access for every
+    current holder, so it fans out the same publish_permissions_changed
+    nudge (see policy_crud_routes.py and
+    docs/mystic_auth/authorization/architecture/realtime.md#real-time-push).
 
-    Restoring a historical definition is otherwise indistinguishable from an
-    ordinary edit in terms of what it can grant, so it goes through the same
-    guards as PUT /policies/{policy_name}: a malformed conditions block is
-    rejected, baseline policies can't be renamed/deactivated, and the caller
-    must hold both the policy's CURRENT actions and the actions the target
-    (post-rollback) definition would grant - the same symmetric pair
-    update_policy enforces - since without the current-actions half, rolling
-    back a widely-assigned policy to a weaker/different historical definition
-    would silently strip every other holder's access without the caller
-    needing to hold what's currently granted; without the target-actions
-    half, rolling back to an old revision would be a way to silently re-grant
-    a more powerful set of actions than update_policy would ever let the
-    caller assign directly.
+    Goes through the same guards as PUT /policies/{policy_name}: malformed
+    conditions are rejected, baseline policies can't be renamed/deactivated,
+    and the caller must hold both the policy's CURRENT actions and the
+    target (post-rollback) actions - the same symmetric pair update_policy
+    enforces. Without the current-actions check, rolling back a
+    widely-assigned policy could silently strip other holders' access;
+    without the target-actions check, it would let a caller re-grant more
+    than update_policy would ever let them assign directly.
     """
     policy = await get_or_404(policy_repository.get_by_name(policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
 

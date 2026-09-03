@@ -60,16 +60,11 @@ class UserPermissionRepository:
         assigned_by: str | None = None,
         user_email: str | None = None,
     ) -> UserPermission:
-        """
-        Idempotent on (user_id, action, resource_type), but unlike
-        PolicyAssignmentRepository.assign_policy_to_user this is NOT a pure
-        no-op on conflict: a direct grant's `conditions` are supplied at
-        assignment time (a Policy has no per-assignment data at all, so
-        there is nothing analogous to update), and re-assigning the same
-        action/resource_type pair with different conditions is a
-        legitimate way to change an existing grant's scope. Re-assigning
-        also reactivates a previously-deactivated grant.
-        """
+        """Idempotent on (user_id, action, resource_type), but unlike
+        assign_policy_to_user, NOT a pure no-op on conflict: a grant's
+        `conditions` are supplied at assignment time, so re-assigning with
+        different conditions legitimately changes scope. Also reactivates
+        a previously-deactivated grant."""
         existing = await db.execute(
             select(UserPermission).where(
                 UserPermission.user_id == user_id,
@@ -131,15 +126,12 @@ class UserPermissionRepository:
         valid_items: list[tuple[User, BulkPermissionItem]], db: AsyncSession, assigned_by: str | None
     ) -> list[BulkItemResult]:
         """
-        `valid_items` is every (User, BulkPermissionItem) pair that already
-        passed resolution and the per-item privilege-escalation guard in
-        bulk_permission_routes.py. Stages every write, then commits once for
-        the whole batch (see bulk_schema.py's own best-effort-except-commit-
-        failure contract, mirrored below). Idempotent per item: an
-        already-held (action, resource_type) is updated in place, same as
-        assign_permission_to_user. Reported "already_held" (not "success")
-        only when the row existed AND was already active with the exact
-        same conditions - i.e. this item genuinely changed nothing.
+        `valid_items` already passed resolution and the per-item
+        privilege-escalation guard. Stages every write, then commits once
+        for the whole batch. Idempotent per item: an already-held
+        (action, resource_type) is updated in place. Reported
+        "already_held" (not "success") only when the row existed, was
+        already active, and had the exact same conditions.
         """
         if not valid_items:
             return []

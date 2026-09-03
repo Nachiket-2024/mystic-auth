@@ -5,12 +5,12 @@ Self-hosted deployment for your own server. This can be a virtual private
 server, cloud instance, bare-metal server, or any host with a public IP. The
 Compose stack owns the public HTTP/HTTPS entrypoint through Caddy, which
 terminates TLS with automatic Let's Encrypt certificates. Use this instead of
-[Local-Prod](local-prod.md) when traffic should reach the server directly
-rather than route from your own machine through Cloudflare Tunnel. If you do
-not have a public server, see [Local-Prod Deployment](local-prod.md) instead.
+[Local-Prod](local-prod/README.md) when traffic should reach the server directly
+rather than route from your own machine through a tunnel. If you do
+not have a public server, see [Local-Prod Deployment](local-prod/README.md) instead.
 
 Not sure this is the mode you want? See the
-[dev vs. local-prod vs. prod comparison](guide.md#at-a-glance) in the
+[dev vs. local-prod vs. prod comparison](guide.md#1-deployment-modes) in the
 Deployment Guide.
 
 ---
@@ -30,16 +30,16 @@ Deployment Guide.
 **Step 2: Copy the env file and fill in your domain.**
 
 ```bash
-cp .env.prod.example .env.prod
+cp env/.env.prod.example env/.env.prod
 ```
 
-`.env.prod.example` is the prod template for `docker-compose.prod.yml`.
+`env/.env.prod.example` is the prod template for `docker/compose/docker-compose.prod.yml`.
 `ENVIRONMENT=production`, empty `VITE_API_BASE_URL`, and
 `TRUSTED_PROXY_IPS=172.29.0.10,172.29.0.11` are already set correctly for the bundled
 Caddy to frontend nginx to backend route.
 
 Before starting, replace every `<your-domain>` placeholder in the copied
-`.env.prod` with your real domain:
+`env/.env.prod` with your real domain:
 
 - `PUBLIC_DOMAIN`
 - `FRONTEND_BASE_URL`
@@ -54,17 +54,17 @@ Also rotate `SECRET_KEY`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`,
 `BUGSINK_SECRET_KEY`, and `BUGSINK_SUPERUSER_PASSWORD`. Rotate
 `APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s if you keep the
 least-privilege app role enabled (the default; see
-[Deployment Guide: Database migrations](guide.md#database-migrations)).
+[Deployment Guide: Database migrations](migrations-and-backups.md#1-database-migrations)).
 Configure SMTP before
 opening password signup to users, because unverified password accounts cannot
 log in. Configure Google OAuth2 before showing Google login. The CLI-created
 system superuser can sign in without Google or SMTP because the script marks it
-verified. See [System Superuser](../authentication/system-superuser.md) for
+verified. See [System Superuser](../authentication/system-superuser/README.md) for
 the interactive command, or `local-scripts/prod/create-system-user.*` for a
 non-interactive version (fill in real production credentials, not the dev
 placeholder). See also
 [Environment variables](#environment-variables) below for the runtime rules and
-[Choosing the right env template](guide.md#choosing-the-right-env-template)
+[Choosing the right env template](environment.md#1-choosing-the-right-env-template)
 for the mode comparison.
 
 ---
@@ -72,7 +72,7 @@ for the mode comparison.
 **Step 3: Start the stack.**
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod up -d --build
 ```
 
 Only Caddy (ports 80/443) is published to the host. `postgres`, `redis`,
@@ -84,12 +84,12 @@ name. Nothing outside the Docker network can reach them directly.
 **Step 3b (Optional): Enable session geolocation.**
 
 Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
-`.env.prod` alone does nothing: the `geoipupdate` service that downloads the
+`env/.env.prod` alone does nothing: the `geoipupdate` service that downloads the
 `.mmdb` file is gated behind the `geoip` Compose profile, skipped by Step 3's
 command as written. Re-run Step 3 with the profile added instead:
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.prod --profile geoip up -d --build
+docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with
@@ -117,11 +117,11 @@ trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS=172.29.0.10`.
 
 ## Environment variables
 
-`.env.prod.example` is the source of truth for prod values. It is set up for
+`env/.env.prod.example` is the source of truth for prod values. It is set up for
 Caddy-managed TLS, same-origin API routing, production mode, and the fixed
 frontend nginx proxy IP.
 
-Rotate the secrets in the copied `.env.prod` before real use. Review
+Rotate the secrets in the copied `env/.env.prod` before real use. Review
 `PUBLIC_DOMAIN`, `ACME_EMAIL`, `BUGSINK_PUBLIC_DOMAIN`, `FRONTEND_BASE_URL`,
 `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP, rate-limit, Redis, and
 error-monitoring values before opening the service.
@@ -143,25 +143,26 @@ Runtime values can be changed with a container restart:
 
 `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SENTRY_DSN`, and
 `VITE_SENTRY_ENVIRONMENT` are baked in at image build time, not read at
-container runtime. Set them in `.env.prod` before `--build`, not after. See
-[Deployment Guide: required production environment variables](guide.md#required-production-environment-variables)
+container runtime. Set them in `env/.env.prod` before `--build`, not after. See
+[Deployment Guide: required production environment variables](environment.md#5-required-production-review)
 for the full explanation of each.
 
 ---
 
 ## What's different from dev / local-prod
 
-See [Docker Overview: dev vs. production compose](../docker/overview.md#dev-vs-production-compose)
+See [Docker Overview: dev vs. production compose](../docker/compose-modes.md#dev-vs-production-compose)
 for the full table. Same production image/runtime shape as local-prod (no
-bind mounts, no reload, `alembic` gates startup), but Caddy replaces
-Cloudflare Tunnel as the public entrypoint and TLS terminator.
+bind mounts, no reload, `alembic` gates startup), but Caddy replaces the
+tunnel (Cloudflare, ngrok, or Tailscale Funnel) as the public entrypoint and
+TLS terminator.
 
 ---
 
 ## Backups, migrations, graceful shutdown, limitations
 
-These are the same across all three Compose files. See
-[Deployment Guide](guide.md#database-migrations) for migrations, backups
+These are the same across every Compose file. See
+[Deployment Guide](migrations-and-backups.md#1-database-migrations) for migrations, backups
 (`scripts/db/db_backup.sh docker-compose.prod.yml`), graceful shutdown, and
 known limitations of this deployment approach.
 

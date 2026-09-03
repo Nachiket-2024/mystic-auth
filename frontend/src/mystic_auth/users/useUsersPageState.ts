@@ -21,36 +21,26 @@ import { buildUsersColumns } from "./usersColumns";
 
 const PAGE_SIZE = 25;
 
-/** "" (a placeholder "All" option) maps to `undefined` (no filter applied). */
+/** Maps the "All" placeholder option to `undefined` (no filter applied). */
 function toBoolFilter(value: string): boolean | undefined {
     if (value === ALL_VALUE) return undefined;
     return value === "true";
 }
 
-/**
- * useUsersPageState
- * ----------------------------
- * Filter/sort/pagination/selection state, the query/mutation wiring, and
- * every handler UsersPage needs, split out so that file stays composition +
- * JSX. See UsersPage's own docstring for what this page is for.
- */
+/** Filter/sort/pagination/selection state and handlers for UsersPage, split
+ * out so that file stays composition and JSX. */
 export function useUsersPageState() {
     const { t } = useTranslation(["users", "ui_text"]);
-    // Read-once initializer, not a synced-both-ways URL param: this only
-    // needs to support deep-linking in from elsewhere (CommandPalette's
-    // user results navigate to /users?search=<email>), not reflect every
-    // subsequent keystroke back into the URL.
+    // Read once, not synced back to the URL: only needed for deep links in
+    // (CommandPalette navigates to /users?search=<email>).
     const [searchParams] = useSearchParams();
     const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
-    // Debounced, not the raw keystroke value: search is now a real request
-    // (server-side, since the table itself is paginated and no longer holds
-    // every user to filter client-side), so typing shouldn't fire one
-    // request per character.
+    // Debounced since search now hits the server (the table is paginated,
+    // not filtered client-side), so typing shouldn't fire one request per key.
     const debouncedSearch = useDebouncedValue(search);
 
-    // No default sort column: the table's natural order (insertion/id order)
-    // isn't shown as its own column, so nothing should read as "actively
-    // sorted" until a header is actually clicked.
+    // No default sort column: nothing should read as "actively sorted"
+    // until a header is actually clicked.
     const { sort, toggleSort } = useSortState("");
     const [role, setRole] = useState(ALL_VALUE);
     const [verified, setVerified] = useState(ALL_VALUE);
@@ -58,14 +48,10 @@ export function useUsersPageState() {
     const [policy, setPolicy] = useState(ALL_VALUE);
     const [permission, setPermission] = useState(ALL_VALUE);
 
-    // A search/filter/sort change that changes the result set makes whatever
-    // page you were on potentially meaningless (e.g. page 3 of an unfiltered
-    // list may not exist at all once filtered) - always back to page 1 for a
-    // fresh query. See usePageResetOn's own docstring for why this is state
-    // derived during render, not an effect. Also reused below (combined with
-    // `page`) to key the selection reset: a filter change while already on
-    // page 1 is a no-op for setPage(1) but still swaps out the visible rows,
-    // so the selection reset must key off the filters too, not page alone.
+    // A filter/sort change can make the current page number meaningless
+    // (page 3 might not exist once filtered), so it resets to page 1. Also
+    // reused below (with `page`) to key the selection reset, since a filter
+    // change on page 1 wouldn't otherwise be detected.
     const filterResetKey = `${debouncedSearch}|${sort.key}|${sort.direction}|${role}|${verified}|${status}|${policy}|${permission}`;
     const [page, setPage] = usePageResetOn(filterResetKey);
 
@@ -86,34 +72,25 @@ export function useUsersPageState() {
     const [deletingUser, setDeletingUser] = useState<ManagedUserRead | null>(null);
     const [purgingUser, setPurgingUser] = useState<ManagedUserRead | null>(null);
     const [pendingRoleChange, setPendingRoleChange] = useState<{ user: ManagedUserRead; role: string } | null>(null);
-    // The full row, not just the email: UserPoliciesDialog/UserPermissionsDialog
-    // need the target's role too, to disable assign/revoke against the
-    // reserved system account the same way the row actions already do (see
-    // usersColumns.tsx) - the backend rejects those mutations either way
-    // (SYSTEM_USER_CANNOT_BE_MODIFIED), but the dialogs shouldn't offer a
-    // control that can only ever 403.
+    // Stores the full row, not just the email: the dialogs need the role too,
+    // to disable assign/revoke against the system account (same as usersColumns.tsx).
+    // The backend rejects it anyway, but the dialog shouldn't offer a control
+    // that can only ever fail.
     const [policiesUser, setPoliciesUser] = useState<ManagedUserRead | null>(null);
     const [permissionsUser, setPermissionsUser] = useState<ManagedUserRead | null>(null);
     const [viewingUser, setViewingUser] = useState<ManagedUserRead | null>(null);
 
-    // Bulk multi-select: DataTable already supports selectable/selectedKeys/
-    // onSelectionChange (ui/DataTable/DataTable.tsx), just unused until now.
-    // Keyed by user id (same key space as rowKey below), reset whenever the
-    // page/filters change so a stale selection can't silently span rows
-    // that are no longer even on screen.
+    // Bulk multi-select, keyed by user id. Reset whenever the page or filters
+    // change so a stale selection can't silently span rows no longer on screen.
     const [selectedUserIds, setSelectedUserIds] = useState<Set<string | number>>(new Set());
     const [bulkDialog, setBulkDialog] = useState<"policy" | "permission" | "role" | null>(null);
-    // Off by default (see BulkActionToolbar/DataTable's own doc): clicking
-    // a row only selects it once the admin explicitly turns this on, so
-    // normal text selection/copy (an email address, a name) keeps working
-    // the rest of the time.
+    // Off by default: clicking a row only selects it once the admin turns
+    // this on, so normal text selection/copy still works otherwise.
     const [rowClickSelects, setRowClickSelects] = useState(false);
 
     // Clears selection on any page or filter change, so a bulk action can't
-    // silently apply to users no longer on screen. Keyed on page+filterResetKey
-    // together, not `page` alone: a filter change while already on page 1
-    // leaves `page` unchanged, which a page-only comparison would miss.
-    // Derived during render, not an effect, to avoid an extra render.
+    // apply to users no longer on screen. Derived during render (not an
+    // effect) to avoid an extra render.
     const selectionResetKey = `${page}|${filterResetKey}`;
     const [prevSelectionKey, setPrevSelectionKey] = useState(selectionResetKey);
     if (selectionResetKey !== prevSelectionKey) {

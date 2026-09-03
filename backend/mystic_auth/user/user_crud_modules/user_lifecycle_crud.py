@@ -8,11 +8,11 @@ class UserLifecycleCRUD:
     """
     Account-lifecycle-specific CRUD operations for the users table.
 
-    Deliberately separate from UserBaseCRUD.update: both operations touch
-    exactly two columns (is_active, deleted_at) with app-computed values, not
-    caller-supplied ones, so they don't belong behind the generic "update with
-    an arbitrary dict" entry point the way a profile edit does : that dict
-    would let a caller set deleted_at to anything.
+    Kept separate from UserBaseCRUD.update: both operations touch exactly two
+    columns (is_active, deleted_at) with app-computed values, not
+    caller-supplied ones, so they shouldn't go through the generic "update
+    with an arbitrary dict" entry point a profile edit uses. That dict would
+    let a caller set deleted_at to anything.
     """
 
     def __init__(self, model):
@@ -33,10 +33,9 @@ class UserLifecycleCRUD:
         return db_obj
 
     async def reactivate(self, db_obj, db: AsyncSession):
-        """Sets is_active=True and clears deleted_at. Deliberately does NOT
-        touch policy assignments : whatever the account held before deletion
-        is what it holds again, restored exactly as it was left, not
-        silently re-granted or reset."""
+        """Sets is_active=True and clears deleted_at. Does NOT touch policy
+        assignments: the account gets back exactly what it held before
+        deletion, not a silently re-granted or reset set of policies."""
         if not db_obj:
             return None
 
@@ -49,8 +48,8 @@ class UserLifecycleCRUD:
         return db_obj
 
     async def get_deleted_before(self, cutoff: datetime, db: AsyncSession):
-        """Every soft-deleted account (deleted_at set) whose deleted_at is
-        older than `cutoff` : backs the scheduled grace-period purge job
+        """Every soft-deleted account whose deleted_at is older than
+        `cutoff`. Backs the scheduled grace-period purge job
         (procrastinate_tasks/account_purge_tasks.py), which passes
         now - settings.ACCOUNT_PURGE_GRACE_DAYS."""
         result = await db.execute(

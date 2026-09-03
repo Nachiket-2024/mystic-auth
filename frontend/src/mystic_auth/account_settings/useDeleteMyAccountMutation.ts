@@ -12,20 +12,20 @@ import { clearMyAccountSessionCaches } from "../auth/session_lifecycle/clearMyAc
  * useDeleteMyAccountMutation
  * ----------------------------
  * DELETE /users/me. For a password-holding account this soft-deletes the
- * caller's own account immediately (revoked sessions, recoverable by an
- * admin for ACCOUNT_PURGE_GRACE_DAYS, then permanently purged - see
+ * caller's account immediately (revoked sessions, recoverable by an admin
+ * for ACCOUNT_PURGE_GRACE_DAYS, then permanently purged, see
  * DeleteAccountCard.tsx's copy and docs/mystic_auth/security/decisions.md).
- * The route itself already revokes every session including this one, so on
- * that success path this mirrors useLogoutMutation's cache cleanup exactly:
- * mark unauthenticated immediately rather than waiting on a currentUser
- * refetch that would 401 by design, and drop every "me"-scoped query so
- * nothing stale can flash for whoever uses this browser next.
+ * The route already revokes every session including this one, so on success
+ * this mirrors useLogoutMutation's cache cleanup: mark unauthenticated
+ * immediately rather than waiting on a currentUser refetch that would 401 by
+ * design, and drop every "me"-scoped query so nothing stale flashes for
+ * whoever uses this browser next.
  *
  * For an OAuth-only account (no password to re-confirm with), the response
  * instead carries `confirmation_required: true`: nothing was deleted yet,
- * only a confirmation email was sent, so this session and its caches stay
- * exactly as they were - DeleteAccountCard.tsx branches on that flag to show
- * "check your email" messaging instead of navigating away.
+ * only a confirmation email was sent, so the session and its caches stay as
+ * they were. DeleteAccountCard.tsx branches on that flag to show "check your
+ * email" messaging instead of navigating away.
  */
 export function useDeleteMyAccountMutation() {
     return useMutation<DeleteMyAccountResponse, Error, DeleteMyAccountPayload>({

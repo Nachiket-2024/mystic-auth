@@ -3,7 +3,7 @@
 
 ## Purpose
 
-Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. Also runs the daily scheduled hard-purge of soft-deleted accounts past their grace period (see [Account Deletion](../authentication/account-deletion.md)).
+Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. Also runs the daily scheduled hard-purge of soft-deleted accounts past their grace period (see [Account Deletion](../authentication/account-deletion/README.md)).
 
 Replaced [Taskiq](https://taskiq-python.github.io/) (Redis Streams) with [Procrastinate](https://procrastinate.readthedocs.io/) (Postgres-native) in full: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why.
 
@@ -46,11 +46,11 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Req["Request handler<br/> signup / password-reset"] -- "send_email_task.defer_async(...)" --> Jobs[("procrastinate_jobs<br/> (Postgres)")]
+    Req["Request handler\n signup / password-reset"] -- "send_email_task.defer_async(...)" --> Jobs[("procrastinate_jobs\n (Postgres)")]
     Jobs --> Worker["procrastinate_worker"]
     Worker -->|SMTP| Gmail[("Gmail SMTP")]
-    Worker -.->|"raises on failure,<br/> writes retry_at back onto the same row"| Jobs
-    Worker -- "internal PeriodicDeferrer,<br/> same process" --> Jobs
+    Worker -.->|"raises on failure,\n writes retry_at back onto the same row"| Jobs
+    Worker -- "internal PeriodicDeferrer,\n same process" --> Jobs
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
@@ -64,7 +64,7 @@ Unlike taskiq's `RedisStreamBroker` + separate `TaskiqScheduler` process, there'
 | Task | Enqueued from | Purpose |
 |---|---|---|
 | `send_email_task(to_email, subject, body, is_html=True)` | `auth/verify_account/account_verification_service.py`, `auth/password_logic/password_reset_service.py`, `user_lifecycle/account_deletion_service.py` | Sends email from the Procrastinate worker via the configured SMTP sender (`aiosmtplib`) |
-| `purge_expired_soft_deleted_accounts(timestamp)` | `@app.periodic(cron="0 3 * * *")`, deferred automatically by the worker's internal `PeriodicDeferrer` | Daily hard-purge of accounts past their soft-delete grace period; see [Account Deletion](../authentication/account-deletion.md) |
+| `purge_expired_soft_deleted_accounts(timestamp)` | `@app.periodic(cron="0 3 * * *")`, deferred automatically by the worker's internal `PeriodicDeferrer` | Daily hard-purge of accounts past their soft-delete grace period; see [Account Deletion](../authentication/account-deletion/README.md) |
 
 `send_email_task` itself doesn't talk to SMTP directly: it delegates to `emails/email_sender.py::email_sender` (an `EmailSender` protocol with one concrete `SMTPEmailSender` implementation). This is not a plugin system: swapping providers (e.g. SES, SendGrid, Postmark) means writing one new class and pointing `email_sender` at it, without touching the Procrastinate task or its callers.
 
@@ -127,7 +127,7 @@ That's the dead-letter queue this template has: no separate infrastructure, no a
 
 ## Troubleshooting
 
-- **Worker not picking up tasks**: confirm `procrastinate_worker` can reach the same Postgres instance the `backend` container uses (`docker compose logs procrastinate_worker`). `./scripts/docker/dev-up.sh`, `.\scripts\docker\dev-up.ps1`, and `scripts\docker\dev-up.cmd` include `procrastinate_worker` in their live log tail.
+- **Worker not picking up tasks**: confirm `procrastinate_worker` can reach the same Postgres instance the `backend` container uses (`docker compose logs procrastinate_worker`). `./scripts/docker/dev/dev-up.sh`, `.\scripts\docker\dev\dev-up.ps1`, and `scripts\docker\dev\dev-up.cmd` include `procrastinate_worker` in their live log tail.
 - **A job never retries / seems stuck**: query `procrastinate_jobs` directly for its `status` and `scheduled_at`; unlike taskiq there's no separate scheduler process to check the health of.
 - **A permanently-failed email**: query `procrastinate_jobs WHERE status = 'failed'` (see above) rather than searching logs for it.
 - **Emails not arriving**: check `GMAIL_APP_PASSWORD` is a valid App Password (not the account password) and that "Less secure app access" / App Passwords are enabled on the sending Google account; check the dev-up log tail or `docker compose logs procrastinate_worker` for the logged traceback (`send_email_task` logs every failure with `logger.error`).

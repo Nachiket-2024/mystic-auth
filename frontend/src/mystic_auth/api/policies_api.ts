@@ -56,9 +56,9 @@ export interface ListPoliciesParams {
     /** Exact match, e.g. one of AUTHORIZATION_RESOURCE_TYPES. */
     resourceType?: string;
     isActive?: boolean;
-    /** Column to sort by; must be one of the backend's own allowlisted
-     * sortable columns (see policy_repository.py's _SORTABLE_COLUMN_NAMES) -
-     * any other value is ignored server-side and falls back to id. */
+    /** Column to sort by. Must be one of the backend's allowlisted sortable columns
+     * (see policy_repository.py's _SORTABLE_COLUMN_NAMES); anything else is ignored
+     * server-side and falls back to id. */
     sortBy?: string;
     sortDir?: "asc" | "desc";
 }
@@ -71,13 +71,10 @@ function toListPoliciesApiParams({
     };
 }
 
-// X-Total-Count (total matching rows, ignoring limit/offset) rides the
-// response headers rather than the body: response_model on the backend
-// stays a plain list, and the header is what policyQueries.ts's paginated
-// hook derives its page count from, same pattern as listUsersApi. Called
-// with no params (UserPoliciesDialog's "assign a policy" dropdown wants
-// every policy, not one page of them), this returns the same unfiltered,
-// full list it always did.
+// Total matching row count rides the X-Total-Count response header (same pattern as
+// listUsersApi), which policyQueries.ts's paginated hook reads for the page count.
+// Called with no params, this returns the full unfiltered list (used by
+// UserPoliciesDialog's "assign a policy" dropdown, which wants every policy).
 export const listPoliciesApi = (params: ListPoliciesParams = {}) =>
     api.get<PolicyRead[]>("/authorization/policies", { params: toListPoliciesApiParams(params) });
 
@@ -106,11 +103,9 @@ export const revokePolicyApi = (userEmail: string, policyName: string) =>
         `/authorization/users/${encodeURIComponent(userEmail)}/policies/${encodeURIComponent(policyName)}`
     );
 
-// Carves ONE action out of a user's policy assignment: that action is
-// revoked, but every OTHER action the policy grants this user is preserved
-// (converted to a direct grant server-side - see backend's
-// policy_action_revocation_service.py). Unlike revokePolicyApi, this never
-// touches the Policy row itself, so every other holder is unaffected.
+// Revokes one action from a user's policy assignment while keeping the policy's other
+// actions (converted to direct grants server-side, see policy_action_revocation_service.py).
+// Unlike revokePolicyApi, it never touches the Policy row, so other holders are unaffected.
 export const revokePolicyActionApi = (userEmail: string, policyName: string, action: string) =>
     api.post(
         `/authorization/users/${encodeURIComponent(userEmail)}/policies/${encodeURIComponent(policyName)}/revoke-action`,

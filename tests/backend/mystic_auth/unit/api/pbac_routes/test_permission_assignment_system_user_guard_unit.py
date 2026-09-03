@@ -1,14 +1,9 @@
-# tests/backend/mystic_auth/unit/api/pbac_routes/test_permission_assignment_system_user_guard_unit.py
-#
-# Coverage gap found during a PBAC review: grant_permission_to_user and
-# revoke_permission_from_user (permission_assignment_routes.py) both refuse
-# to touch a UserRole.system target ("SYSTEM_USER_CANNOT_BE_MODIFIED"),
-# mirroring the same guard on update_user_role/update_user and on
-# policy_assignment_routes.py's assign/remove routes - but nothing in the
-# suite actually exercised that branch: every existing test's MagicMock
-# target user has an unset `.role` (a MagicMock, never equal to
-# UserRole.system), so the guard's `if user.role == UserRole.system` was
-# never actually True in any prior test.
+# grant_permission_to_user and revoke_permission_from_user
+# (permission_assignment_routes.py) both refuse to touch a UserRole.system
+# target ("SYSTEM_USER_CANNOT_BE_MODIFIED"), mirroring the same guard on
+# update_user_role/update_user and on policy_assignment_routes.py. This is
+# the first suite to actually set `.role` to UserRole.system on the target
+# user, exercising that branch.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

@@ -1,4 +1,3 @@
-# tests/backend/mystic_auth/unit/test_token_cookie_handler_unit.py
 import pytest
 from fastapi.responses import JSONResponse
 
@@ -17,9 +16,9 @@ def _set_cookie_headers(response: JSONResponse) -> list[str]:
 
 def test_refresh_token_cookie_is_scoped_to_auth_path():
     # Regression guard: refresh_token is only ever read by /auth/refresh,
-    # /auth/logout, and /auth/logout/all : all under /auth : so it must be
-    # scoped there instead of the site-wide default, which would send it to
-    # /users/* and every other route that never needed it.
+    # /auth/logout, and /auth/logout/all, all under /auth, so it must be
+    # scoped there instead of the site-wide default, which would send it
+    # to /users/* and every other route that never needed it.
     response = token_cookie_handler.set_tokens_in_cookies(JSONResponse(content={}), TOKENS)
 
     headers = _set_cookie_headers(response)
@@ -28,9 +27,9 @@ def test_refresh_token_cookie_is_scoped_to_auth_path():
 
 
 def test_access_token_cookie_is_not_path_restricted():
-    # access_token is needed by both /auth/me and every /users/* route, so
-    # it must remain valid for the whole site : Starlette's default Path=/
-    # (not narrowed to /auth like refresh_token below).
+    # access_token is needed by both /auth/me and every /users/* route,
+    # so it must remain valid for the whole site: Starlette's default
+    # Path=/ (not narrowed to /auth like refresh_token below).
     response = token_cookie_handler.set_tokens_in_cookies(JSONResponse(content={}), TOKENS)
 
     headers = _set_cookie_headers(response)
@@ -50,11 +49,12 @@ def test_both_cookies_keep_secure_flags(cookie_name):
 
 
 def test_cookie_max_ages_are_derived_from_settings_not_hardcoded():
-    # Regression guard: these used to be hardcoded (3600 / 2592000) instead
-    # of derived from ACCESS_TOKEN_EXPIRE_MINUTES/REFRESH_TOKEN_EXPIRE_MINUTES,
-    # so the cookie's browser-side lifetime could silently diverge from the
-    # JWT's actual expiry (e.g. an operator raising ACCESS_TOKEN_EXPIRE_MINUTES
-    # above 60 would have the cookie deleted before the token itself expired).
+    # Regression guard: these used to be hardcoded (3600 / 2592000)
+    # instead of derived from ACCESS_TOKEN_EXPIRE_MINUTES /
+    # REFRESH_TOKEN_EXPIRE_MINUTES, so the cookie's browser-side lifetime
+    # could silently diverge from the JWT's actual expiry (e.g. an
+    # operator raising ACCESS_TOKEN_EXPIRE_MINUTES above 60 would have the
+    # cookie deleted before the token itself expired).
     response = token_cookie_handler.set_tokens_in_cookies(JSONResponse(content={}), TOKENS)
 
     headers = _set_cookie_headers(response)

@@ -17,11 +17,10 @@ interface BulkRoleAssignDialogProps {
     onClose: () => void;
 }
 
-/** Sets the (display/grouping-only, non-PBAC) role metadata field for every
- * user in `userEmails` at once. The per-item safeguards (a system-role
- * target can't be changed, assigning `system` needs
- * users:assign_system_role) are enforced server-side per item - this
- * dialog just surfaces whatever the backend reports back per user. */
+/** Sets the display/grouping-only role field (not PBAC) for every user in
+ * `userEmails` at once. Per-item safeguards (a system-role target can't be
+ * changed, assigning `system` needs users:assign_system_role) are enforced
+ * server-side; this dialog just surfaces what the backend reports back. */
 const BulkRoleAssignDialog: React.FC<BulkRoleAssignDialogProps> = ({ isOpen, userEmails, onClose }) => {
     const { t } = useTranslation(["users", "ui_text"]);
     const [role, setRole] = useState("");
@@ -34,10 +33,9 @@ const BulkRoleAssignDialog: React.FC<BulkRoleAssignDialogProps> = ({ isOpen, use
 
     const roleMutation = useBulkUpdateRoleMutation();
 
-    // See BulkPolicyAssignDialog's identical comment: react-query mutations
-    // keep their last `.data` around across remounts otherwise, so a
-    // reopened dialog showed the previous run's success summary again
-    // before this run had done anything.
+    // See BulkPolicyAssignDialog: react-query mutations keep their last
+    // `.data` around across remounts, so this avoids showing the previous
+    // run's success summary again before this run does anything.
     if (isOpen !== prevIsOpen && isOpen) {
         roleMutation.reset();
     }

@@ -2,11 +2,11 @@
 #
 # End-to-end coverage for system-only privileged role assignment and the
 # account-lifecycle routes (soft delete, purge, reactivate) plus
-# admin-driven password change (user_management_update_routes.py) against the real
-# ASGI app, real PostgreSQL, and real Redis (see conftest.py). Split out of
-# what used to be one 629-line test_user_management_routes_integration.py:
+# admin-driven password change (user_management_update_routes.py), against
+# the real ASGI app, real PostgreSQL, and real Redis (see conftest.py).
+# Split out of the old 629-line test_user_management_routes_integration.py:
 # this half covers changes to an account's standing (deleted/purged/
-# reactivated, or another device's session revoked by a password reset);
+# reactivated, or a session revoked by a password reset);
 # test_user_list_and_update_integration.py covers viewing/editing an
 # existing account.
 import pytest
@@ -50,9 +50,9 @@ async def test_system_user_can_assign_system_role(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_admin_delete_soft_deletes_a_user(client, created_emails):
-    # DELETE /users/{email} is the default, reversible deletion flow: the
-    # row survives (preserving audit history / FK-referencing rows) with
-    # is_active=False + deleted_at set, not a hard delete.
+    # DELETE /users/{email} is the default, reversible flow: the row stays
+    # (keeping audit history and FK-referencing rows) with is_active=False
+    # and deleted_at set, not a hard delete.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)
@@ -70,10 +70,9 @@ async def test_admin_delete_soft_deletes_a_user(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_admin_cannot_delete_their_own_account(client, created_emails):
-    # The frontend disables this against the caller's own row, but that's
-    # UI-only; the backend is the real trust boundary, and a sole admin
-    # deleting themselves (revoking their own sessions immediately) would
-    # be an unrecoverable self-lockout.
+    # The frontend disables this for the caller's own row, but that's UI
+    # only; the backend must also block it, since a sole admin deleting
+    # themselves would revoke their own sessions and lock them out for good.
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
 
@@ -103,14 +102,14 @@ async def test_soft_deleted_user_cannot_login(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_soft_delete_revokes_the_deleted_users_active_session(client, created_emails):
-    # A deleted account's existing refresh token must stop working
-    # immediately, not just "eventually, once it expires on its own"; see
-    # delete_any_user's Step 4 in user_lifecycle_routes.py.
+    # A deleted account's refresh token must stop working immediately, not
+    # just once it eventually expires; see delete_any_user's Step 4 in
+    # user_lifecycle_routes.py.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)
-    # Capture the just-logged-in target user's own refresh token before the
-    # shared client's cookie jar gets overwritten by the admin login below.
+    # Save the target's refresh token before the admin login below
+    # overwrites the shared client's cookie jar.
     target_refresh_token = client.cookies.get("refresh_token")
     assert target_refresh_token
 
@@ -119,7 +118,7 @@ async def test_soft_delete_revokes_the_deleted_users_active_session(client, crea
     resp = await client.delete(f"/users/{target_email}")
     assert resp.status_code == 200
 
-    # The deleted user's OLD refresh token, presented independently of the
+    # The deleted user's old refresh token, sent independently of the
     # (now admin-owned) cookie jar, must be rejected.
     refresh_resp = await post_with_refresh_cookie(client, "/auth/refresh/", target_refresh_token)
     assert refresh_resp.status_code == 401
@@ -129,18 +128,17 @@ async def test_soft_delete_revokes_the_deleted_users_active_session(client, crea
 async def test_logout_after_admin_password_change_for_another_user_still_succeeds_and_clears_cookies(
     client, created_emails
 ):
-    # "Other users" variant of the bug report: an admin-driven password
-    # change (PUT /users/{email}) revokes the TARGET account's sessions,
-    # not the admin's own, so the target, still holding their own
-    # now-revoked refresh_token cookie from before the admin acted, must
-    # be able to log out cleanly too, not just the self-service path.
+    # An admin-driven password change (PUT /users/{email}) revokes the
+    # TARGET account's sessions, not the admin's own. The target, still
+    # holding their now-revoked refresh_token cookie from before the admin
+    # acted, must still be able to log out cleanly.
     target_email = unique_email("target")
     target_login = await create_verified_user(client, created_emails, target_email)
     target_refresh_token = target_login.cookies["refresh_token"]
 
     admin_email = unique_email("admin")
-    # Logs in as admin on the same shared client, replacing the cookie jar
-    # this mirrors a real second browser/session, not the target's own tab.
+    # Logs in as admin on the same shared client, replacing the cookie jar,
+    # mirroring a real second browser/session rather than the target's tab.
     await create_admin(client, created_emails, admin_email)
 
     admin_update_resp = await client.put(
@@ -148,15 +146,15 @@ async def test_logout_after_admin_password_change_for_another_user_still_succeed
     )
     assert admin_update_resp.status_code == 200
 
-    # The target's own now-revoked cookie, explicitly presented: the jar
-    # currently holds the admin's session, not the target's.
+    # Explicitly send the target's now-revoked cookie, since the jar
+    # currently holds the admin's session.
     logout_resp = await post_with_refresh_cookie(client, "/auth/logout", target_refresh_token)
 
     assert logout_resp.status_code == 200
-    # The response's Set-Cookie deletes "refresh_token" at path=/auth
-    # regardless of whose value the jar currently holds under that same
-    # (name, path) key, so this also proves the admin's own still-live
-    # refresh_token cookie doesn't survive the target's logout call.
+    # The response's Set-Cookie deletes "refresh_token" at path=/auth no
+    # matter whose value the jar holds under that (name, path) key, so this
+    # also proves the admin's own live cookie doesn't survive the target's
+    # logout call.
     assert not any(cookie.name == "refresh_token" for cookie in client.cookies.jar)
 
 
@@ -176,9 +174,9 @@ async def test_admin_password_change_rejects_same_password(client, created_email
 @pytest.mark.asyncio
 async def test_admin_password_change_does_not_require_admins_current_password(client, created_emails):
     # PUT /users/{email} reuses UserUpdate, but the current-password check
-    # only applies to the self-service route (update_my_profile); an admin
-    # changing someone else's password authenticates via their own
-    # users:update_any permission, not by proving the target's old password.
+    # only applies to the self-service route (update_my_profile). An admin
+    # is authorized by their own users:update_any permission, not by
+    # proving the target's old password.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)
@@ -209,9 +207,9 @@ async def test_admin_password_change_revokes_targets_existing_sessions(client, c
 
 @pytest.mark.asyncio
 async def test_admin_without_purge_permission_cannot_purge(client, created_emails):
-    # users:purge is granted only by system_superuser: an admin holding
-    # only user_administration (which includes users:delete_any) does not
-    # have it; hard delete is a deliberately separate, more sensitive action.
+    # users:purge is granted only by system_superuser. user_administration
+    # (which includes users:delete_any) does not include it: hard delete is
+    # a deliberately separate, more sensitive action.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)
@@ -243,9 +241,9 @@ async def test_system_user_can_purge_a_user(client, created_emails):
 @pytest.mark.asyncio
 async def test_purge_holder_cannot_purge_their_own_account(client, created_emails):
     # Same self-lockout reasoning as the delete guard, more severe here
-    # since a purge is irreversible. Deliberately role=user (not system) so
-    # this exercises the self-action guard specifically, not the separate
-    # "system user cannot be purged" role check that would otherwise mask it.
+    # since a purge is irreversible. Uses role=user (not system) so this
+    # tests the self-action guard specifically, not the separate "system
+    # user cannot be purged" check that would otherwise mask it.
     email = unique_email("purge-holder")
     await create_verified_user(
         client, created_emails, email,
@@ -312,8 +310,8 @@ async def test_reactivate_rejects_a_never_deleted_user(client, created_emails):
 @pytest.mark.asyncio
 async def test_admin_without_reactivate_permission_cannot_reactivate(client, created_emails):
     # users:reactivate is granted only by system_superuser, same tier as
-    # users:purge, restoring access is more sensitive than day-to-day
-    # user administration.
+    # users:purge: restoring access is more sensitive than day-to-day user
+    # administration.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)

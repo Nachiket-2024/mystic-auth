@@ -28,11 +28,11 @@ export function useUserPoliciesDialogState(isOpen: boolean, userEmail: string | 
     const [expandedPolicies, setExpandedPolicies] = useState<Set<string>>(new Set());
 
     // Reset on every open (same "adjust during render" pattern as
-    // PolicyFormDialog.tsx, not an effect, to avoid an extra render). Without
-    // this, dismissing the dialog mid-flow (e.g. via backdrop/Escape without
-    // confirming) leaves stale state behind, so reopening for a different
-    // user could pre-select a stale policy or pop the revoke confirm dialog
-    // unprompted, describing the wrong user.
+    // PolicyFormDialog.tsx, not an effect, to avoid an extra render).
+    // Without this, dismissing the dialog mid-flow (e.g. backdrop/Escape
+    // without confirming) leaves stale state, so reopening for a different
+    // user could pre-select a stale policy or pop the revoke confirm
+    // dialog unprompted, describing the wrong user.
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     if (isOpen !== prevIsOpen) {
         setPrevIsOpen(isOpen);
@@ -45,19 +45,18 @@ export function useUserPoliciesDialogState(isOpen: boolean, userEmail: string | 
     }
 
     const currentUserEmail = useAuthStore((s) => s.email);
-    // Revoking your OWN policy here has no confirmation and no
-    // /auth/me refetch of its own: the Zustand permissions cache (source
-    // for every IfCan/ProtectedRoute check) would stay stale until the
-    // next reload, so a self-revoke could silently strand you in a UI that
-    // still shows controls you no longer have access to. Simplest safe
-    // fix, consistent with UsersPage's existing self-delete/self-role-edit
-    // guards: block self-revoke entirely from this dialog.
+    // Revoking your own policy has no confirmation and no /auth/me refetch:
+    // the Zustand permissions cache (source for every IfCan/ProtectedRoute
+    // check) would stay stale until the next reload, silently stranding you
+    // in a UI that still shows controls you no longer have. Simplest safe
+    // fix, consistent with UsersPage's self-delete/self-role-edit guards:
+    // block self-revoke entirely from this dialog.
     const isSelf = !!userEmail && userEmail === currentUserEmail;
 
-    // Own row = self-service /me endpoints, not the management ones (see
-    // UserPermissionsDialog's matching switch) - regardless of holding
-    // policies:read/permissions:read here, since a caller always has access
-    // to their own /me endpoints.
+    // Own row uses the self-service /me endpoints, not the management ones
+    // (see UserPermissionsDialog's matching switch), regardless of holding
+    // policies:read/permissions:read, since a caller always has access to
+    // their own /me endpoints.
     const managementPoliciesQuery = useUserPoliciesQuery(userEmail ?? "", isOpen && !!userEmail && !isSelf);
     const myPoliciesQuery = useMyPoliciesQuery(isOpen && isSelf);
     const userPoliciesQuery = isSelf ? myPoliciesQuery : managementPoliciesQuery;

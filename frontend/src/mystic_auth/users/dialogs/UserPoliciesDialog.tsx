@@ -21,9 +21,9 @@ interface UserPoliciesDialogProps {
     /** True when the target is the reserved system account: the backend
      * rejects every assign/revoke against it (SYSTEM_USER_CANNOT_BE_MODIFIED,
      * see policy_assignment_routes.py), so the assign control and every
-     * per-policy/per-action revoke control are disabled here too, the same
+     * per-policy/per-action revoke control are disabled here too (same
      * "don't offer a control that can only ever 403" reasoning as the Users
-     * table's own row actions (usersColumns.tsx). */
+     * table's row actions in usersColumns.tsx). */
     isSystemUser?: boolean;
     onClose: () => void;
 }
@@ -82,11 +82,9 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
                         </Dialog.Header>
                         <Dialog.Body>
                             <Stack gap={4}>
-                                {/* fontSize="md", not "sm": matches ConfirmDialog's own
-                                    Dialog.Description sizing (the "delete user?" pop-up),
-                                    so an explanatory note in this dialog reads at the same
-                                    size as every other dialog's body copy in the app,
-                                    rather than one step smaller than that baseline. */}
+                                {/* fontSize="md", not "sm": matches ConfirmDialog's
+                                    Dialog.Description sizing so the note here reads at
+                                    the same size as every other dialog's body copy. */}
                                 {isSelf && (
                                     <Text fontSize="md" color="fg.muted">
                                         {t("users:policiesDialog.cannotRevokeOwn")}
@@ -180,9 +178,9 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
                             </Button>
                         </Dialog.Footer>
                         {/* Chakra v3's Dialog.CloseTrigger renders no icon of its own
-                            (unlike v2) - without explicit children it was an empty
-                            0x0 button, invisible to every user, not just screen
-                            readers (axe-core button-name audit). */}
+                            (unlike v2); without explicit children it was an empty
+                            0x0 button, invisible to every user (axe-core button-name
+                            audit), not just screen readers. */}
                         <Dialog.CloseTrigger aria-label={t("ui_text:closeDialog")} {...CLOSE_TRIGGER_PROPS}>
                             <X size={16} aria-hidden="true" />
                         </Dialog.CloseTrigger>
@@ -190,11 +188,10 @@ const UserPoliciesDialog: React.FC<UserPoliciesDialogProps> = ({ isOpen, userEma
                 </Dialog.Positioner>
             </Portal>
 
-            {/* Revoking strips access immediately and irreversibly (the user
-                just loses whatever that policy granted, no undo) - every
-                other destructive action in the app (delete/purge a user,
-                delete a policy) already goes through ConfirmDialog, this
-                one-click X button was the odd one out. */}
+            {/* Revoking strips access immediately and irreversibly. Every other
+                destructive action in the app (delete/purge a user, delete a
+                policy) already goes through ConfirmDialog; this one-click X
+                button was the odd one out. */}
             <ConfirmDialog
                 isOpen={!!revokingPolicy}
                 title={t("users:policiesDialog.revokeDialogTitle")}

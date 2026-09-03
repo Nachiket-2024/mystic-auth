@@ -1,8 +1,5 @@
-# tests/backend/mystic_auth/unit/test_oauth2_unit.py
-#
-# CSRF state validation for handle_oauth2_callback is split out into
-# test_oauth2_callback_state_validation_unit.py once this file passed the
-# repo's own file-length guideline.
+# CSRF state validation for handle_oauth2_callback lives in
+# test_oauth2_callback_state_validation_unit.py.
 import base64
 import hashlib
 from unittest.mock import AsyncMock
@@ -11,6 +8,7 @@ import pytest
 
 from backend.mystic_auth.auth.oauth2.oauth2_login_handler import oauth2_login_handler
 from backend.mystic_auth.auth.oauth2.oauth2_service import (
+    OAUTH2_HTTP_TIMEOUT_SECONDS,
     OAUTH2_STATE_TTL_SECONDS,
     OAuth2LoginRejected,
     oauth2_service,
@@ -47,9 +45,9 @@ async def test_generate_and_store_state_persists_verifier_keyed_by_state(mocker)
 
     assert isinstance(state, str) and len(state) > 20
     assert isinstance(code_challenge, str) and len(code_challenge) > 20
-    # code_challenge must never be the raw verifier itself (must be a SHA256
-    # digest of it) : anyone who could see the challenge would otherwise be
-    # able to complete the PKCE exchange without ever having the verifier.
+    # code_challenge must never be the raw verifier itself (must be a
+    # SHA256 digest of it): otherwise anyone who saw the challenge could
+    # complete the PKCE exchange without ever having the verifier.
     set_mock.assert_awaited_once()
     args, kwargs = set_mock.call_args
     assert args[0] == f"oauth_state:{state}"
@@ -80,10 +78,10 @@ async def test_consume_state_returns_verifier_once_then_rejected_on_replay(mocke
 @pytest.mark.asyncio
 async def test_generate_and_store_state_pkce_challenge_is_correct_sha256_derivation(mocker):
     # Pins the exact RFC 7636 S256 transform: code_challenge must be the
-    # base64url(no padding) of SHA256(code_verifier) : anything looser (e.g.
-    # storing the verifier itself as the challenge) would let a network
-    # observer of the authorization request alone complete the token
-    # exchange without ever needing the verifier, defeating PKCE entirely.
+    # base64url(no padding) of SHA256(code_verifier). Anything looser
+    # (e.g. storing the verifier itself as the challenge) would let a
+    # network observer complete the token exchange without ever needing
+    # the verifier, defeating PKCE entirely.
     set_mock = mocker.patch("backend.mystic_auth.auth.oauth2.oauth2_service.redis_client.set", new_callable=AsyncMock)
 
     _, code_challenge = await oauth2_service.generate_and_store_state()
@@ -114,15 +112,30 @@ async def test_exchange_code_for_tokens_sends_pkce_code_verifier_to_google(mocke
 
     _, kwargs = post_mock.call_args
     assert kwargs["data"]["code_verifier"] == "the-real-verifier"
+    mock_client.assert_called_once_with(timeout=OAUTH2_HTTP_TIMEOUT_SECONDS)
+
+
+@pytest.mark.asyncio
+async def test_get_user_info_uses_bounded_http_timeout(mocker):
+    get_mock = AsyncMock()
+    get_mock.return_value.raise_for_status = lambda: None
+    get_mock.return_value.json = lambda: {"email": "user@example.com"}
+
+    mock_client = mocker.patch("backend.mystic_auth.auth.oauth2.oauth2_service.httpx.AsyncClient")
+    mock_client.return_value.__aenter__.return_value.get = get_mock
+
+    await oauth2_service.get_user_info("google-access-token")
+
+    mock_client.assert_called_once_with(timeout=OAUTH2_HTTP_TIMEOUT_SECONDS)
 
 
 @pytest.mark.asyncio
 async def test_exchange_code_for_tokens_fails_closed_on_pkce_mismatch(mocker):
-    # The actual PKCE security property: if code_verifier doesn't match the
-    # code_challenge sent at authorization time, Google rejects the token
-    # exchange (400 invalid_grant) : raise_for_status turns that into an
-    # exception, which this method must fail closed on (return None), never
-    # returning any partial/fabricated token data.
+    # The actual PKCE security property: if code_verifier doesn't match
+    # the code_challenge sent at authorization time, Google rejects the
+    # token exchange (400 invalid_grant). raise_for_status turns that
+    # into an exception, which this method must fail closed on (return
+    # None), never returning partial or fabricated token data.
     import httpx
 
     post_mock = AsyncMock()
@@ -186,6 +199,10 @@ async def test_callback_redirects_cleanly_on_provider_error_without_touching_sta
     )
 
     assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=OAUTH_CANCELLED"
+    state_cookie = next(h for h in _cookie_headers(response) if h.startswith("oauth_state="))
+    assert "httponly" in state_cookie.lower()
+    assert "secure" in state_cookie.lower()
+    assert "samesite=lax" in state_cookie.lower()
     consume_mock.assert_not_called()
     exchange_mock.assert_not_called()
 

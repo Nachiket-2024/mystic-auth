@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....audit_log.audit_log_service import PERMISSION_GRANTED, PERMISSION_REVOKED, log_security_event
 from ....auth.current_user.current_user_dependency import get_current_user
+from ....authorization.conditions.condition_validator import ConditionValidationError, validate_conditions
 from ....authorization.context.request_context_builder import build_authorization_context
 from ....authorization.dependencies.permission_route_dependencies import (
     GRANT_DEPENDENCY,
@@ -45,6 +46,13 @@ async def grant_permission_to_user(
     itself) would let a caller hand out capability they don't have.
     """
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
+
+    try:
+        validate_conditions(assignment.conditions)
+    except ConditionValidationError as exc:
+        raise AppError(
+            status_code=422, code="INVALID_CONDITIONS", detail=exc.errors
+        ) from exc
 
     # The reserved system account's authorization surface must never be
     # mutated through this generic route, mirroring the same guard on

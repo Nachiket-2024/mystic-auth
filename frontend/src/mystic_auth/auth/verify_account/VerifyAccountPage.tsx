@@ -6,8 +6,6 @@ import { useTranslation } from "react-i18next";
 import VerifyAccountButton from "./VerifyAccountButton";
 import VerificationEmailRequestForm from "./VerificationEmailRequestForm";
 
-// Shared surface styling (theme surface/border tokens), replacing this
-// page's own hand-rolled Box with a plain border/shadow.
 import Card from "../../ui/Card";
 
 // Shared brand header + footer shell for every unauthenticated page.

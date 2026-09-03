@@ -22,8 +22,7 @@ describe('passwordResetRequestApi', () => {
   });
 
   it('should return the same generic response regardless of whether the email is registered', async () => {
-    // Anti-enumeration: the backend always returns 200 with an identical
-    // message, whether or not the account exists.
+    // Anti-enumeration: backend always returns 200 with the same message, regardless of whether the account exists.
     const mockResponse = { message: 'If this email is registered, a reset link has been sent.' };
     mock.onPost('/auth/password-reset/request').reply(200, mockResponse);
 
@@ -61,7 +60,7 @@ describe('passwordResetConfirmApi', () => {
     });
   });
 
-  it('should not send an email field : the backend derives it from the token', async () => {
+  it('should not send an email field, the backend derives it from the token', async () => {
     mock.onPost('/auth/password-reset/confirm').reply((config) => {
       const body = JSON.parse(config.data);
       expect(body).toEqual({ token: 'reset-token-abc', new_password: 'NewStrongPass123!' });

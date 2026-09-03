@@ -18,18 +18,13 @@ async def log_and_notify_bulk_success(
     notify_permissions_changed: bool = True,
 ) -> None:
     """
-    Shared tail of every bulk PBAC route (bulk_policy_routes.py /
-    bulk_permission_routes.py / bulk_role_routes.py): audit-log each
-    successful item, then nudge affected users' open tabs.
+    Shared tail of every bulk PBAC route: audit-log each successful item,
+    then nudge affected users' open tabs.
 
-    Audit logging stays one call per successful item - each is a distinct
-    event worth its own row. The permissions-changed notification is
-    different: it's a "something changed, go check" signal
-    (publish_permissions_changed), not an event record, so firing it once
-    per *user* rather than once per item avoids redundant pub/sub messages
-    when a batch targets the same user more than once (e.g. two policies
-    assigned to the same email in one request), and the unique sends run
-    concurrently rather than one at a time.
+    Audit logging is one call per item (each is its own event). The
+    permissions-changed notification is deduped to once per user instead,
+    since it's just a "something changed, go check" signal, not an event
+    record, so a batch touching the same user twice doesn't double-send.
     """
     notified_emails: set[str] = set()
     for result in repo_results:

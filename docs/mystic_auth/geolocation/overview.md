@@ -15,7 +15,7 @@ Leaving `GEOIP_DB_PATH` empty (the default) disables the feature entirely: `reso
 
 ## Enabling it under Docker
 
-Both production-style Compose files (`docker-compose.prod.yml`, `docker-compose.local-prod.yml`) ship an optional `geoipupdate` service (MaxMind's own official updater, not a hand-rolled cron script) that downloads `GeoLite2-City.mmdb` into a `geoip_data` volume also mounted read-only into `backend`, and keeps re-checking for a new database on its own schedule (`GEOIPUPDATE_FREQUENCY`, in hours) for as long as the container runs. The file never goes stale without anyone having to remember to refresh it by hand.
+Every production-style Compose file (`docker-compose.prod.yml`, and each `docker-compose.local-prod-*.yml` tunnel variant) ships an optional `geoipupdate` service (MaxMind's own official updater, not a hand-rolled cron script) that downloads `GeoLite2-City.mmdb` into a `geoip_data` volume also mounted read-only into `backend`, and keeps re-checking for a new database on its own schedule (`GEOIPUPDATE_FREQUENCY`, in hours) for as long as the container runs. The file never goes stale without anyone having to remember to refresh it by hand.
 
 It's gated behind the `geoip` Compose profile, so it never starts (and never restart-loops on missing credentials) unless explicitly enabled:
 
@@ -33,33 +33,33 @@ It's gated behind the `geoip` Compose profile, so it never starts (and never res
 
 ---
 
-4. In `.env.prod` (or `.env.local-prod`, whichever mode you're running), set `GEOIPUPDATE_ACCOUNT_ID` and `GEOIPUPDATE_LICENSE_KEY` to those two values, and set `GEOIP_DB_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb` (the path `geoipupdate` writes to inside the shared volume).
+4. In `env/.env.prod` (or your mode's `env/.env.local-prod-*`, whichever you're running), set `GEOIPUPDATE_ACCOUNT_ID` and `GEOIPUPDATE_LICENSE_KEY` to those two values, and set `GEOIP_DB_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb` (the path `geoipupdate` writes to inside the shared volume).
 
 ---
 
 5. Start (or restart) the stack **with the profile enabled**. This is the step it's easy to miss, since nothing about steps 1-4 warns you it's still required:
 
    ```bash
-   docker compose -f docker-compose.prod.yml --env-file .env.prod --profile geoip up -d --build
+   docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod --profile geoip up -d --build
    ```
 
-   (swap in `docker-compose.local-prod.yml` for local-prod). Without `--profile geoip`, `geoipupdate` is skipped entirely and `backend` just mounts an empty volume, harmless, same as `GEOIP_DB_PATH` being unset, but silently so: nothing logs a warning that you configured credentials for a service that never started.
+   (swap in your tunnel's `docker-compose.local-prod-*.yml` and matching `env/.env.local-prod-*` for local-prod). Without `--profile geoip`, `geoipupdate` is skipped entirely and `backend` just mounts an empty volume, harmless, same as `GEOIP_DB_PATH` being unset, but silently so: nothing logs a warning that you configured credentials for a service that never started.
 
 ---
 
 6. `geoipupdate` needs one successful run before the file exists; `backend`'s Location column shows "Unknown" until then, same as any other missing-database state. Check it landed:
 
    ```bash
-   docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod exec geoipupdate ls -la /usr/share/GeoIP/
+   docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok exec geoipupdate ls -la /usr/share/GeoIP/
    ```
 
    and expect a ~60MB `GeoLite2-City.mmdb`. If `backend` was already running when the file appeared, restart it: it only checks for the file at startup, not on every request:
 
    ```bash
-   docker compose -f docker-compose.local-prod.yml --env-file .env.local-prod restart backend
+   docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok restart backend
    ```
 
-See [Docker Overview: services](../docker/overview.md#services) for where `geoipupdate` fits among the rest of the stack, and the deployment walkthroughs ([Prod](../deployment/prod.md), [Quick Tunnel](../deployment/quick-tunnel.md), [Named Tunnel](../deployment/named-tunnel.md)) for this as a step in context.
+See [Docker Overview: services](../docker/overview.md#services) for where `geoipupdate` fits among the rest of the stack, and the deployment walkthroughs ([Prod](../deployment/prod.md), and local-prod's [Quick Tunnel](../deployment/local-prod/cloudflare-quick-tunnel.md), [Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](../deployment/local-prod/ngrok-tunnel.md), [Tailscale Funnel](../deployment/local-prod/tailscale-funnel.md)) for this as a step in context.
 
 ---
 

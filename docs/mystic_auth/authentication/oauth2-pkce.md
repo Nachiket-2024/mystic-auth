@@ -73,11 +73,11 @@ A random `state = secrets.token_urlsafe(32)` is generated alongside the PKCE pai
 
 - **Redirect URI is server-side fixed** (`settings.GOOGLE_REDIRECT_URI`), never influenced by the client, ruling out an open-redirect-via-OAuth attack.
 - **`email_verified` is load-bearing**: a callback where Google's own `email_verified` is falsy (or missing) is rejected outright, since this is the only proof of email ownership the flow trusts. See `oauth2_login_handler.py`'s callback handler.
-- **First-time login** creates a user with `role=UserRole.user` (display-only), `is_verified=True`, `hashed_password=None`, and assigns the `self_service` policy, mirroring `signup_service.py`'s policy assignment exactly (role never grants access; see [PBAC Architecture](../authorization/architecture.md)).
+- **First-time login** creates a user with `role=UserRole.user` (display-only), `is_verified=True`, `hashed_password=None`, and assigns the `self_service` policy, mirroring `signup_service.py`'s policy assignment exactly (role never grants access; see [PBAC Architecture](../authorization/architecture/README.md)).
 - **Pre-registration hijack guard**: if an email was already registered via password signup but never verified, and the real owner later authenticates via Google with that address, the existing account's `hashed_password` is cleared at that moment. This closes the window where an attacker's pre-chosen password would otherwise remain valid on an account Google has now confirmed belongs to someone else. An already-verified account's password is left untouched. See `oauth2_service.py::login_or_create_user`'s docstring for the full walkthrough.
-- **System account is blocked from OAuth2 login entirely**: `role == UserRole.system` short-circuits before any user creation/update logic, forcing the reserved system account through password login only (`scripts/create_system_user.py`). See [System Superuser: Bootstrapping and Promotion](system-superuser.md) for why this script won't promote a Google-only account (no password at all) in place; it offers to delete and recreate it instead, and it promotes any other existing account by setting its `role` to `system` as part of the promotion, deliberately cutting off its own Google login going forward.
+- **System account is blocked from OAuth2 login entirely**: `role == UserRole.system` short-circuits before any user creation/update logic, forcing the reserved system account through password login only (`scripts/create_system_user.py`). See [System Superuser: Bootstrapping and Promotion](system-superuser/README.md) for why this script won't promote a Google-only account (no password at all) in place; it offers to delete and recreate it instead, and it promotes any other existing account by setting its `role` to `system` as part of the promotion, deliberately cutting off its own Google login going forward.
 - **`access_type`/`prompt` are intentionally omitted** from the Google authorization URL, since this app never stores or uses Google's own refresh token, so there's no reason to force an offline-access grant or a full re-consent prompt on every login.
-- Every rejection redirects back to `{FRONTEND_BASE_URL}/login?error=<CODE>` (`oauth2_login_handler.py`'s `_redirect_to_login_clearing_state`) rather than surfacing an API error, with a distinct `<CODE>` per failure reason - see "Edge cases / error handling" below. The frontend's `OAuth2LoginButton` reads that param, translates it via the same `errors:<code>` lookup every other backend error uses (see [Translations](../translations/overview.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts)), and strips it from the URL afterward so a refresh doesn't re-show it.
+- Every rejection redirects back to `{FRONTEND_BASE_URL}/login?error=<CODE>` (`oauth2_login_handler.py`'s `_redirect_to_login_clearing_state`) rather than surfacing an API error, with a distinct `<CODE>` per failure reason - see "Edge cases / error handling" below. The frontend's `OAuth2LoginButton` reads that param, translates it via the same `errors:<code>` lookup every other backend error uses (see [Translations](../translations/overview/ui-and-errors.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts)), and strips it from the URL afterward so a refresh doesn't re-show it.
 
 ---
 
@@ -108,7 +108,7 @@ See [Security Decisions: OAuth2 CSRF and account-hijacking protections](../secur
 
 ## Edge cases / error handling
 
-Each rejection redirects to `{FRONTEND_BASE_URL}/login?error=<CODE>` with a code the frontend translates via `errors.json` (see [Translations](../translations/overview.md)):
+Each rejection redirects to `{FRONTEND_BASE_URL}/login?error=<CODE>` with a code the frontend translates via `errors.json` (see [Translations](../translations/overview/README.md)):
 
 | Situation | Code | Notes |
 |---|---|---|
@@ -116,7 +116,7 @@ Each rejection redirects to `{FRONTEND_BASE_URL}/login?error=<CODE>` with a code
 | `state` missing, doesn't match the `oauth_state` cookie, or was already consumed/expired | `OAUTH_STATE_INVALID` | Logged at `warning`. |
 | Token exchange fails, userinfo fetch fails, or the final token pair is malformed | `OAUTH_LOGIN_FAILED` | Each external call is independently wrapped in `try/except` and logs its own failure; also the generic fallback for any other unexpected error, including the outer catch-all. |
 | Google's `email_verified` is falsy or missing | `OAUTH_EMAIL_NOT_VERIFIED` | An unverified email never reaches `login_or_create_user`. |
-| `login_or_create_user` raises `OAuth2LoginRejected` for a soft-deleted account (`deleted_at` set) | `ACCOUNT_DELETED` | Distinct from plain deactivation - see `deleted_at` vs. `is_active` in [Account Deletion and Purge](account-deletion.md). |
+| `login_or_create_user` raises `OAuth2LoginRejected` for a soft-deleted account (`deleted_at` set) | `ACCOUNT_DELETED` | Distinct from plain deactivation - see `deleted_at` vs. `is_active` in [Account Deletion and Purge](account-deletion/README.md). |
 | ...for a deactivated-but-not-deleted account, or the reserved system account | `ACCOUNT_DEACTIVATED` / `OAUTH_LOGIN_FAILED` | The system-account case deliberately reuses the generic code rather than a distinct one, so it can't be told apart from any other failure. |
 
 In every `OAuth2LoginRejected` case (and the plain `None`-returning failure paths), a `OAUTH2_LOGIN_SUCCESS` security-audit event is still written with `success=False`, so a blocked takeover attempt is reviewable.

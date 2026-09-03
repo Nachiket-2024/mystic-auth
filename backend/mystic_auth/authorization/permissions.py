@@ -4,22 +4,16 @@ import enum
 class Permission(str, enum.Enum):
     """
     The fixed vocabulary of action identifiers usable in a Policy's
-    `actions` list (see authorization/models/policy_model.py) and checked
-    via authorization.dependencies.authorization_dependency.require_authorization
-    or authorization.services.authorization_service.authorize/require.
+    `actions` list, checked via require_authorization or
+    AuthorizationService.authorize/require.
 
-    "Permissions represent possible actions only. ...
-    Access is granted only when a policy evaluation allows the action."
-    This enum is that action vocabulary : nothing more. It carries no
-    role -> action mapping (that concept has been removed entirely); the
-    only thing that ever grants an action to a user is an assigned,
-    active Policy whose `actions` include it (see
-    authorization/evaluators/policy_evaluator.py).
+    Represents possible actions only, no role -> action mapping: the only
+    thing that grants an action to a user is an assigned, active Policy
+    whose `actions` include it (see evaluators/policy_evaluator.py).
 
     Naming convention: "<resource>:<action>[_<scope>]", e.g.
-    USERS_UPDATE_OWN vs USERS_UPDATE_ANY distinguishes "can edit my own
-    profile" from "can edit anyone's profile" as genuinely different
-    actions, since a policy can plausibly grant one without the other.
+    USERS_UPDATE_OWN vs USERS_UPDATE_ANY are genuinely different actions
+    since a policy can grant one without the other.
     """
 
     # Self-service: reading/updating one's own profile

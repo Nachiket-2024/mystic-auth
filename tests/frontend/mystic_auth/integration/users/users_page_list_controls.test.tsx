@@ -11,9 +11,8 @@ import { useAuthStore } from '@/store/authStore';
 import UsersPage from '@/users/UsersPage';
 
 // Pagination, server-side search/filter/sort, and CSV export. Row actions
-// are covered in users_page.test.tsx, and the Policies dialog in
-// users_page_policies.test.tsx - split out of one file once it passed the
-// repo's own file-length guideline.
+// live in users_page.test.tsx, and the Policies dialog in
+// users_page_policies.test.tsx.
 
 const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();
@@ -136,10 +135,8 @@ describe('UsersPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    // StyledSelect now also renders a (visually hidden) Select.Label for
-    // the visible combobox button itself, so "Filter by role" alone
-    // matches both that button and this hidden native <select> - narrow to
-    // the actual <select> element, which is what selectOptions needs.
+    // "Filter by role" alone matches both the visible button and its hidden
+    // native <select>; narrow to the <select>, which selectOptions needs.
     await user.selectOptions(screen.getByLabelText('Filter by role', { selector: 'select' }), 'admin');
 
     await waitFor(() => expect(screen.queryByText('Regular User')).toBeNull());
@@ -205,9 +202,8 @@ describe('UsersPage list controls', () => {
   });
 
   it('exports the current filters as CSV and triggers a browser download', async () => {
-    // jsdom has no real createObjectURL/revokeObjectURL implementation
-    // (see useExportUsersMutation) - stand in with a minimal fake, scoped
-    // to this test only.
+    // jsdom has no real createObjectURL/revokeObjectURL (see
+    // useExportUsersMutation); fake them for this test only.
     const createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });

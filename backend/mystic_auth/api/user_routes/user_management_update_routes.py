@@ -35,12 +35,10 @@ from ...user.user_model import UserRole
 from ...user.user_schema import UserAdminUpdateResponse, UserRoleUpdate, UserUpdate
 from ..get_or_404.get_or_404 import get_or_404
 
-# Management field updates on another user's account. Split out of the
-# former user_management_routes.py alongside user_management_query_routes.py
-# (read-only views) and user_lifecycle_routes.py (account state transitions),
-# mirroring api/pbac_routes/'s existing split-by-operation-type precedent.
-# main.py registers this router after self-service routes so /{user_email}
-# cannot shadow /users/me or /users/stats.
+# Management field updates on another user's account, split out from
+# user_management_query_routes.py (read-only) and user_lifecycle_routes.py
+# (account state transitions). main.py registers this router after
+# self-service routes so /{user_email} cannot shadow /users/me or /users/stats.
 router = APIRouter(prefix="/users", tags=["Users"])
 
 logger = get_logger(__name__)

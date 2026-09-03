@@ -26,8 +26,8 @@ interface UserPermissionsDialogProps {
     userEmail: string | null;
     /** True when the target is the reserved system account: the backend
      * rejects every grant/revoke against it (SYSTEM_USER_CANNOT_BE_MODIFIED,
-     * see permission_assignment_routes.py), same reasoning as
-     * UserPoliciesDialog's own isSystemUser prop. */
+     * see permission_assignment_routes.py), same as UserPoliciesDialog's
+     * isSystemUser prop. */
     isSystemUser?: boolean;
     onClose: () => void;
 }
@@ -38,27 +38,22 @@ interface UserPermissionsDialogProps {
  * The granular counterpart to UserPoliciesDialog: grants/revokes a single
  * action directly to a user, bypassing Policy entirely (see backend's
  * authorization/models/user_permission_model.py for why this exists
- * alongside, not instead of, policy assignment). Deliberately its own
- * dialog rather than a tab inside UserPoliciesDialog: policies and direct
- * grants are two genuinely different concepts an admin chooses between,
- * not one replacing the other.
+ * alongside policy assignment, not instead of it). Deliberately its own
+ * dialog rather than a tab inside UserPoliciesDialog, since policies and
+ * direct grants are two different concepts an admin chooses between.
  *
  * The "already granted" exclusion below (effectiveGrantKeys, folded into
- * the action dropdown via isAlreadyEffectivelyGranted) needs BOTH this
- * user's current direct grants AND their assigned policies' actions - a
- * candidate the target already holds via a Policy alone must still be
- * excluded, or granting it directly just creates a redundant, duplicate
- * UserPermission row that adds nothing. When userEmail is the viewer's OWN
- * account (isSelf), the policies half of that switches to the self-service
- * GET /authorization/users/me/policies (no policies:read required) rather
- * than the management GET /authorization/users/{email}/policies (requires
- * it): without this, an admin holding permissions:grant but not
- * policies:read - a real, narrowly-scoped combination - who opened this
- * dialog for themselves would have the management fetch silently 403 and
- * the exclusion set fall back to direct-grants-only, letting them "grant"
- * themselves an action they already hold via a policy, which then showed
- * up as a spurious new entry in "Direct permissions" despite adding no new
- * access at all.
+ * the action dropdown via isAlreadyEffectivelyGranted) needs both this
+ * user's current direct grants and their assigned policies' actions: a
+ * candidate already held via a Policy alone must still be excluded, or
+ * granting it directly just creates a redundant UserPermission row. When
+ * userEmail is the viewer's own account (isSelf), the policies half
+ * switches to the self-service GET /authorization/users/me/policies (no
+ * policies:read required) instead of the management endpoint (which
+ * requires it). Without this, an admin holding permissions:grant but not
+ * policies:read who opened this dialog for themselves would have the
+ * management fetch silently 403, fall back to direct-grants-only, and let
+ * them "grant" themselves an action they already hold via a policy.
  */
 const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({ isOpen, userEmail, isSystemUser = false, onClose }) => {
     const { t } = useTranslation(["users", "ui_text"]);
@@ -69,7 +64,7 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({ isOpen, u
     const [revoking, setRevoking] = useState<{ action: string; resourceType: string } | null>(null);
 
     // Same "reset on open, adjusted during render" pattern as
-    // UserPoliciesDialog/PolicyFormDialog - see either's own comment.
+    // UserPoliciesDialog/PolicyFormDialog; see either's comment.
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     if (isOpen !== prevIsOpen) {
         setPrevIsOpen(isOpen);
@@ -86,9 +81,9 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({ isOpen, u
     // Same self-revoke lockout-avoidance reasoning as UserPoliciesDialog.
     const isSelf = !!userEmail && userEmail === currentUserEmail;
 
-    // Two query pairs, only one of which is ever enabled at a time - see
-    // this component's own docstring for why isSelf needs the self-service
-    // pair instead of the management (permission-gated) one.
+    // Two query pairs, only one enabled at a time; see this component's
+    // docstring for why isSelf needs the self-service pair instead of the
+    // management (permission-gated) one.
     const managementPermissionsQuery = useUserPermissionsQuery(userEmail ?? "", isOpen && !!userEmail && !isSelf);
     const managementPoliciesQuery = useUserPoliciesQuery(userEmail ?? "", isOpen && !!userEmail && !isSelf);
     const myPermissionsQuery = useMyPermissionsQuery(isOpen && isSelf);
@@ -96,19 +91,18 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({ isOpen, u
 
     const permissionsQuery = isSelf ? myPermissionsQuery : managementPermissionsQuery;
     // Fetched here too (UserPoliciesDialog already loads it for its own
-    // dialog) so the grant dropdown below can exclude actions the user
-    // already effectively has via an assigned Policy, not just via a prior
-    // direct grant - see effectiveGrants.ts's own docstring.
+    // dialog) so the grant dropdown can exclude actions the user already
+    // effectively has via an assigned Policy, not just via a prior direct
+    // grant; see effectiveGrants.ts.
     const userPoliciesQuery = isSelf ? myPoliciesQuery : managementPoliciesQuery;
     const catalogQuery = usePermissionCatalogQuery();
     const grantMutation = useGrantPermissionMutation();
     const revokeMutation = useRevokePermissionMutation();
 
-    // Selecting an action locks resourceType to that action's own, real
-    // resource_type (see authorization/permissions_catalog.py) - a single
-    // direct grant only ever makes sense against it, so there's no
-    // legitimate reason to let an admin diverge here and create a grant
-    // that no route will ever actually match.
+    // Selecting an action locks resourceType to that action's real
+    // resource_type (see authorization/permissions_catalog.py): a direct
+    // grant only ever makes sense against it, so letting an admin diverge
+    // here would just create a grant no route will ever match.
     const handleActionChange = (nextAction: string) => {
         setAction(nextAction);
         const entry = catalogQuery.data?.find((e) => e.action === nextAction);
@@ -176,11 +170,9 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({ isOpen, u
                         </Dialog.Header>
                         <Dialog.Body>
                             <Stack gap={4}>
-                                {/* fontSize="md", not "sm": matches ConfirmDialog's own
-                                    Dialog.Description sizing (the "delete user?" pop-up),
-                                    so this dialog's body copy reads at the same size as
-                                    every other dialog's, rather than one step smaller than
-                                    that baseline. */}
+                                {/* fontSize="md", not "sm": matches ConfirmDialog's
+                                    Dialog.Description sizing so this dialog's body copy
+                                    reads at the same size as every other dialog's. */}
                                 <Text fontSize="md" color="fg.muted">
                                     {t("users:permissionsDialog.explainer")}
                                 </Text>
@@ -248,8 +240,7 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({ isOpen, u
                                 {/* Granting to the reserved system account 403s the same way
                                     revoking from it does (SYSTEM_USER_CANNOT_BE_MODIFIED), so
                                     the whole grant control is withheld rather than left to fail
-                                    on submit - same reasoning as UserPoliciesDialog's assign
-                                    control. */}
+                                    on submit, same as UserPoliciesDialog's assign control. */}
                                 <IfCan action={PERMISSIONS.PERMISSIONS_GRANT}>
                                   {!isSystemUser && (
                                     <Stack gap={2}>

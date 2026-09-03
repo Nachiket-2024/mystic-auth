@@ -16,11 +16,10 @@ interface BuildPoliciesColumnsParams {
     onDeleteRequest: (policy: PolicyRead) => void;
 }
 
-/** Same "columns as a function of page state" shape as rateLimitsColumns.tsx's
- * buildRateLimitsColumns - the row actions need the page's own dialog-open
- * callbacks. Split out of PoliciesPage.tsx to keep that file under the
- * project's line-count budget, same reasoning as rateLimitsColumns.tsx and
- * usersColumns.tsx already living next to their own pages. */
+/** Same "columns as a function of page state" shape as
+ * rateLimitsColumns.tsx's buildRateLimitsColumns: row actions need the
+ * page's own dialog-open callbacks. Split out of PoliciesPage.tsx to keep
+ * that file under the project's line-count budget. */
 export function buildPoliciesColumns({
     t,
     onView,
@@ -32,9 +31,9 @@ export function buildPoliciesColumns({
             key: "name",
             header: t("policies:columns.name"),
             sortable: true,
-            // Narrowed from 13.75rem to fit the new View button in
-            // row_actions below without widening the table overall - same
-            // 12rem usersColumns.tsx already uses for its own Name column.
+            // Narrowed from 13.75rem to fit the View button in row_actions
+            // below without widening the table, same 12rem usersColumns.tsx
+            // uses for its Name column.
             width: "12rem",
             truncate: true,
             render: (p) => (
@@ -62,9 +61,9 @@ export function buildPoliciesColumns({
             // Explicit width, not left unset: table-layout:fixed only gives an
             // unset column "whatever's left" when every other column is also
             // unset/percentage. Mixed with this table's rem-sized columns, an
-            // unset column here collapsed to illegible px (same root cause as
-            // usersColumns.tsx's Name/Email fix). Badges wrap (Wrap below), so
-            // a fixed width just means more rows, not disappearing content.
+            // unset column here collapsed to illegible px (same fix as
+            // usersColumns.tsx's Name/Email columns). Badges wrap, so a fixed
+            // width just means more rows, not lost content.
             width: "20rem",
             render: (p) => (
                 <Wrap gap={1}>
@@ -81,11 +80,10 @@ export function buildPoliciesColumns({
             header: "",
             align: "end",
             // Icon-only buttons (tooltip + aria-label carry the text), same
-            // reasoning as usersColumns.tsx's row_actions: a fixed-width
-            // text column can't fit every locale's translation (Hindi/
-            // Marathi's "Edit"/"Delete" run noticeably longer than English),
-            // so a fixed-size icon is the only way to guarantee this stays
-            // on one line without wrapping or scrolling in every language.
+            // as usersColumns.tsx's row_actions: a fixed-width text column
+            // can't fit every locale's translation (Hindi/Marathi run
+            // longer than English), so icons are the only way to keep this
+            // on one line in every language.
             width: "8rem",
             render: (p) => (
                 <HStack justify="flex-end" gap={1.5} wrap="nowrap">

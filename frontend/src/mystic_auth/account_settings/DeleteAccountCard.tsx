@@ -19,21 +19,18 @@ interface DeleteAccountCardProps {
 /**
  * DeleteAccountCard
  * ----------------------------
- * Self-service counterpart to the admin "Delete user" action on UsersPage:
- * a ConfirmDialog step since this is destructive, gated by the same
- * current-password re-confirmation ChangePasswordCard uses when this
- * account has a password. Deliberately soft-delete only, never immediate:
- * the copy below and docs/mystic_auth/security/decisions.md both describe
- * the same recoverable-for-a-grace-period behavior DELETE /users/me
- * actually implements server-side, so this card never promises something
- * the backend doesn't do.
+ * Self-service counterpart to the admin "Delete user" action on UsersPage: a
+ * ConfirmDialog step since this is destructive, gated by the same
+ * current-password re-confirmation ChangePasswordCard uses when the account
+ * has a password. Deliberately soft-delete only, never immediate: the copy
+ * below matches the recoverable-for-a-grace-period behavior DELETE /users/me
+ * actually implements server-side (see docs/mystic_auth/security/decisions.md).
  *
  * An OAuth-only account (hasPassword=false) has no password to re-confirm
- * with, so it doesn't get deleted synchronously from this dialog at all:
- * DELETE /users/me instead sends a confirmation email
- * (confirmation_required=true in the response - see
- * useDeleteMyAccountMutation.ts), and this card shows "check your email"
- * messaging in place of the deleted-and-signed-out toast/redirect.
+ * with, so it isn't deleted synchronously from this dialog. DELETE /users/me
+ * instead sends a confirmation email (confirmation_required=true in the
+ * response, see useDeleteMyAccountMutation.ts), and this card shows "check
+ * your email" messaging instead of the deleted-and-signed-out toast/redirect.
  */
 const DeleteAccountCard: React.FC<DeleteAccountCardProps> = ({ hasPassword }) => {
     const { t } = useTranslation("account_settings");

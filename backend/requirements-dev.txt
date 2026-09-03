@@ -1,4 +1,4 @@
-# The runtime image (docker/backend.Dockerfile) installs requirements.txt,
+# The runtime image (docker/dockerfiles/backend.Dockerfile) installs requirements.txt,
 # not this file. This file is installed on top of it for the Dockerfile's
 # `test` stage (used only by docker-full-suite in CI) and for local dev.
 # Config for ruff/mypy/bandit lives in backend/pyproject.toml.

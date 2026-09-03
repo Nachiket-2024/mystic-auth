@@ -5,10 +5,8 @@ import { useTranslation } from "react-i18next";
 
 import { BRAND_SOLID_HOVER_PROPS } from "../sdk";
 
-// Side-effect import: registers this page's own "status_pages" i18next
-// namespace (translations/*.json, all app-owned - see that module's own
-// docstring) so useTranslation("status_pages") below has something to
-// resolve.
+// Side-effect import: registers the "status_pages" i18next namespace so
+// useTranslation("status_pages") below has something to resolve.
 import "./translations/registerStatusPagesTranslations";
 
 /**
@@ -16,9 +14,8 @@ import "./translations/registerStatusPagesTranslations";
  * ----------------------------
  * The 403 page: where ProtectedRoute redirects an authenticated user who
  * lacks a route's required permission (see mystic_auth/authorization/ProtectedRoute.tsx).
- * Deliberately a separate page from NotFoundPage: "you don't have
- * permission" and "this page doesn't exist" are different situations a
- * user shouldn't have to guess between.
+ * Deliberately separate from NotFoundPage: "no permission" and "doesn't
+ * exist" are different situations a user shouldn't have to guess between.
  */
 const NotAuthorizedPage: React.FC = () => {
     const { t } = useTranslation("status_pages");

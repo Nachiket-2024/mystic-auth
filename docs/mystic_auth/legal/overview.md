@@ -51,19 +51,19 @@ Both default to bracketed placeholder text (e.g. `[operator: replace with your s
 1. Replace `operatorContactPlaceholder` and `operatorEntityPlaceholder` (and any other bracketed placeholder) in every language's `legal.json`.
 2. Re-read both documents against what your actual deployment does: if you've disabled a feature (e.g. session geolocation, error monitoring) or added your own data collection, the shipped text will be wrong until you edit it to match.
 3. Update `lastUpdatedDate` when you materially change either document, the same convention the shipped copy already documents in its own "Changes to this policy"/"Changes to these terms" sections.
-4. Since `docs/mystic_auth/` is upstream template documentation (see the top-level [docs README](../README.md)), `legal.json` itself is the piece you actually edit for your own deployment, the same "app-owner-level default, edit directly" tier `frontend/src/app/theme.ts` uses; it is not something upstream sync should overwrite your own edits to. See [Staying in Sync with Upstream Template Updates](../template-usage/syncing-upstream.md) if you've diverged from the shipped copy.
+4. Since `docs/mystic_auth/` is upstream template documentation (see the top-level [docs README](../README.md)), `legal.json` itself is the piece you actually edit for your own deployment, the same "app-owner-level default, edit directly" tier `frontend/src/app/theme.ts` uses; it is not something upstream sync should overwrite your own edits to. See [Staying in Sync with Upstream Template Updates](../template-usage/syncing-upstream/README.md) if you've diverged from the shipped copy.
 
 ---
 
 ## Adding a language
 
-`legal.json` is one of the thirteen translation namespaces (see [Translations Overview](../translations/overview.md)); adding a new language means adding a `legal.json` for it, following the same `title`/`intro`/`sections` shape as the English version, alongside every other namespace file the [language tutorial](../translations/adding-a-language.md) walks through.
+`legal.json` is one of the thirteen translation namespaces (see [Translations Overview](../translations/overview/README.md)); adding a new language means adding a `legal.json` for it, following the same `title`/`intro`/`sections` shape as the English version, alongside every other namespace file the [language tutorial](../translations/adding-a-language.md) walks through.
 
 ---
 
 ## Where to go next
 
-- [Translations Overview](../translations/overview.md): how the `legal` namespace fits into the rest of the translation system.
+- [Translations Overview](../translations/overview/README.md): how the `legal` namespace fits into the rest of the translation system.
 - [Signup and Email Verification](../authentication/signup-and-verification.md): the rest of the signup flow this consent notice is part of.
 
 ---

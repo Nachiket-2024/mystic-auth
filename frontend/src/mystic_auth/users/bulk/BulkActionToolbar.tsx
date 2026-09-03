@@ -13,17 +13,17 @@ interface BulkActionToolbarProps {
     onBulkGrantPermission: () => void;
     onBulkSetRole: () => void;
     onClearSelection: () => void;
-    /** Whether clicking anywhere in a row toggles selection. Caller-owned,
-     * not always on, since always-on would fight double-click/drag-select
-     * of cell text. See DataTable's `rowClickSelects` doc. */
+    /** Whether clicking anywhere in a row toggles selection. Off by default
+     * because always-on would fight double-click/drag-select of cell text.
+     * See DataTable's `rowClickSelects` doc. */
     rowClickSelects: boolean;
     onToggleRowClickSelects: () => void;
 }
 
-/** Renders above the users table. Buttons are disabled, not hidden, while
+/** Renders above the users table. Buttons stay visible but disabled while
  * nothing is selected, so bulk actions are discoverable up front. Each
- * button opens the matching Bulk*Dialog, fanning one chosen
- * policy/permission/role out across every selected user. */
+ * button opens the matching Bulk*Dialog, applying one chosen
+ * policy/permission/role to every selected user. */
 const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
     selectedCount, onBulkAssignPolicy, onBulkGrantPermission, onBulkSetRole, onClearSelection,
     rowClickSelects, onToggleRowClickSelects,
@@ -41,11 +41,10 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
                     size="sm"
                     variant={rowClickSelects ? "solid" : "outline"}
                     colorPalette="brand"
-                    // Constant borderWidth in both states, or the button
-                    // visibly resizes on toggle since solid's default border
-                    // is 0. borderColor uses brand.fg (same token as the
-                    // text color) instead of BRAND_OUTLINE_HOVER_PROPS's
-                    // lighter default, so outline and label match.
+                    // Fixed borderWidth in both states, otherwise the
+                    // button resizes on toggle (solid's default border is
+                    // 0). borderColor uses brand.fg so the outline matches
+                    // the label color instead of the lighter default.
                     borderWidth="2px"
                     {...(rowClickSelects ? BRAND_SOLID_HOVER_PROPS : BRAND_OUTLINE_HOVER_PROPS)}
                     borderColor={rowClickSelects ? "brand.solid" : "brand.fg"}

@@ -120,7 +120,7 @@ The current date (UTC) must fall within `[start, end]`. Used for temporary/contr
 
 ## `network`
 
-The caller's IP (from the real request connection, see [Architecture: Context Builder](architecture.md#authorization-context-builder)) must match one of the listed single IPs or CIDR ranges.
+The caller's IP (from the real request connection, see [Architecture: Context Builder](architecture/component-responsibilities.md#authorization-context-builder)) must match one of the listed single IPs or CIDR ranges.
 
 ```json
 {
@@ -141,7 +141,7 @@ The caller's IP (from the real request connection, see [Architecture: Context Bu
 
 ## `security_context`
 
-Every listed key must match its expected value in `context["security_context"]`, the reserved sub-key every real request context carries (see [Architecture: Context Builder](architecture.md#authorization-context-builder)).
+Every listed key must match its expected value in `context["security_context"]`, the reserved sub-key every real request context carries (see [Architecture: Context Builder](architecture/component-responsibilities.md#authorization-context-builder)).
 
 ```json
 {

@@ -2,10 +2,7 @@
  * Same badge shape as public/favicon.svg, parameterized by fill color. This
  * is the one place "brand color -> logo/favicon color" is generated, so the
  * browser tab icon (applyFaviconAndMetaColor.ts) and the in-app logo badge
- * (Logo.tsx) are provably the same source rather than two things that
- * happen to match. Falls back to the static /favicon.svg file (via a null
- * hex) when no custom color is set, so the default case stays a plain,
- * cacheable static asset with zero runtime cost.
+ * (Logo.tsx) stay in sync.
  */
 export function getBrandIconDataUri(hex: string): string {
     const svg =

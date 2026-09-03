@@ -26,8 +26,7 @@ const OfflineBanner: React.FC = () => {
 
     // Adjust state during render (same pattern as ConfirmDialog.tsx), not an
     // effect, so a false->true reconnect right before unmount still
-    // registers. Only that actual transition sets showReconnected; flipping
-    // back offline clears it immediately in favor of the warning below.
+    // registers. Flipping back offline clears showReconnected immediately.
     if (isOnline !== lastSeenOnline) {
         setLastSeenOnline(isOnline);
         setShowReconnected(isOnline);

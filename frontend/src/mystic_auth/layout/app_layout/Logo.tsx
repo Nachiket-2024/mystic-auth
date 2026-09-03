@@ -6,9 +6,8 @@ import { useAppearanceStore } from "../../store/appearanceStore";
 import { getBrandIconDataUri } from "../../theme/brandIcon";
 
 interface LogoProps {
-    /** "sm": Sidebar's own compact header row. "md" (default): the brand
-     * mark inside an auth-page card, where it's the page's primary visual
-     * anchor rather than a corner detail. */
+    /** "sm": Sidebar's compact header row. "md" (default): the brand mark
+     * inside an auth-page card. */
     size?: "sm" | "md";
 }
 
@@ -18,18 +17,12 @@ const SIZES = {
 } as const;
 
 /**
- * Brand mark: the icon badge plus the wordmark. The badge image is
- * `/favicon.svg` (public/favicon.svg) by default - the same file the
- * browser tab icon comes from (see index.html's `<link rel="icon">`) - but
- * once a user has picked their own brand color (appearanceStore.ts), both
- * this badge and the tab icon instead render from `getBrandIconDataUri`
- * (theme/brandIcon.ts), the single place that SVG shape is generated from a
- * hex, so the two stay provably in sync rather than two files that happen
- * to match. Falls back to this built-in mark when VITE_APP_LOGO_URL is
- * unset, so a fresh fork gets a real logo instead of plain text on day one;
- * set that env var to swap in a full custom logo image instead (that
- * override only affects this in-app mark, not the browser tab icon -
- * replace public/favicon.svg for that).
+ * Brand mark: icon badge plus wordmark. Defaults to `/favicon.svg`, the same
+ * file the browser tab icon uses. Once a user picks a brand color
+ * (appearanceStore.ts), both this badge and the tab icon render from
+ * `getBrandIconDataUri` (theme/brandIcon.ts) instead, so they stay in sync.
+ * Set VITE_APP_LOGO_URL to swap in a full custom logo (affects this mark
+ * only, not the tab icon; replace public/favicon.svg for that).
  */
 const Logo: React.FC<LogoProps> = ({ size = "md" }) => {
     const s = SIZES[size];
@@ -40,10 +33,8 @@ const Logo: React.FC<LogoProps> = ({ size = "md" }) => {
     }
 
     return (
-        // justify="center": some callers (e.g. SignupPage's wide two-column
-        // form) stretch this component's flex-column parent to full width
-        // rather than centering it, so this centers itself either way
-        // instead of depending on every caller getting align="center" right.
+        // justify="center": self-centers regardless of whether the parent
+        // stretches to full width, so callers don't need align="center".
         <HStack gap={size === "sm" ? 2 : 3} justify="center">
             <Image
                 src={brandColor ? getBrandIconDataUri(brandColor) : "/favicon.svg"}

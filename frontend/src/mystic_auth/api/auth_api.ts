@@ -26,7 +26,7 @@ export const oauth2LoginGoogleApi = () =>
 export const oauth2CallbackGoogleApi = (code: string) =>
     api.get("/auth/oauth2/callback/google", { params: { code } });
 
-// refresh_token is read from its httponly cookie server-side, so nothing is sent explicitly here.
+// refresh_token comes from its httponly cookie server-side, nothing to send here.
 export const refreshTokenApi = () =>
     api.post("/auth/refresh/");
 
@@ -51,8 +51,7 @@ export const passwordResetConfirmApi = (payload: { token: string; new_password: 
 export const verificationEmailRequestApi = (payload: { email: string }) =>
     api.post("/auth/verify-account/request", payload);
 
-// email is accepted for callers' convenience but not sent: the backend only needs the token.
-// Sent as a POST body rather than a GET query param to avoid exposing the token in browser
-// history, server access logs, and Referer headers.
+// email is for callers' convenience only, not sent: the backend just needs the token.
+// Sent as a POST body (not a query param) to keep the token out of browser history and logs.
 export const verifyAccountApi = (token: string, _email: string) =>
     api.post("/auth/verify-account", { token });

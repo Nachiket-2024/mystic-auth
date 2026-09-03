@@ -30,12 +30,10 @@ interface DashboardIdentityCardProps {
  * DashboardIdentityCard
  * ----------------------------
  * The identity + stats + quick-actions banner at the top of DashboardPage,
- * split out purely to keep DashboardPage.tsx under this project's
- * line-count budget - every layout decision/comment below moved verbatim,
- * none of the behavior changed. See DashboardPage.tsx for how `user`/
- * `lastLoginAt` are sourced (the shared useCurrentUserQuery/useLastLoginQuery
- * caches) and how the logout-all/profile-dialog state this card's callbacks
- * drive is owned by the parent.
+ * split out to keep DashboardPage.tsx under this project's line-count
+ * budget (no behavior changed). See DashboardPage.tsx for how `user`/
+ * `lastLoginAt` are sourced and how the logout-all/profile-dialog state
+ * this card's callbacks drive is owned by the parent.
  */
 const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
     user,
@@ -78,81 +76,53 @@ const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
 
     return (
         <Stack gap={3}>
-            {/* Identity, stats, and the button column are three direct
-                siblings of this Flex (not identity+stats grouped behind
-                a shared flex="1 1 0%" wrapper) so justify="space-between"
-                spreads any free space into the two gaps between them
-                evenly - identity/stats/buttons end up evenly distanced
-                from each other and from both ends of the card the same
-                way at every width, instead of the wrapper absorbing all
-                the free space into itself and leaving the gap bunched
-                right before the button column. align="flex-start": name,
-                every stat's label, and the first button all start at the
-                exact same top line, regardless of which block ends up
-                taller below that line (Last login's value runs two
-                lines; the others don't). */}
-            {/* align="stretch" on the row so the bare <Separator>s
-                (no alignSelf override) stretch to match whichever
-                block is tallest - Last login's two-line value
-                usually makes that the stats block - instead of a
-                guessed fixed height that risks looking too short
-                next to it. Each actual content block overrides
-                back to alignSelf="flex-start" so name, every
-                stat's label, and the first button still all
-                start at the exact same top line regardless. */}
-            {/* direction switches at a fixed breakpoint instead of
-                wrap="wrap" letting the row fold the moment its own
-                content outgrows whatever width happens to be
-                available: content-driven wrap sits right at that
-                knife's-edge width, so the ~15-17px a classic
-                (non-overlay) scrollbar's disappearance/reappearance
-                takes from the viewport - e.g. opening ConfirmDialog
-                below, whose scroll-lock removes the page scrollbar -
-                was enough by itself to fold "Account Settings"/
+            {/* Identity, stats, and buttons are three direct siblings of
+                this Flex (not identity+stats grouped under a shared
+                wrapper) so justify="space-between" spreads free space
+                evenly between them, instead of a wrapper soaking it up
+                and bunching the gap right before the buttons.
+                align="flex-start" keeps the name, every stat's label, and
+                the first button on the same top line even though Last
+                login's value runs two lines and the others don't. */}
+            {/* align="stretch" on the row lets the bare <Separator>s
+                stretch to match whichever block is tallest (usually the
+                stats block, because of Last login's two-line value)
+                instead of a guessed fixed height. Each content block then
+                overrides back to alignSelf="flex-start" so everything
+                still lines up on the same top line. */}
+            {/* direction switches at a fixed breakpoint instead of using
+                wrap="wrap", because content-driven wrap sits right at the
+                width a classic scrollbar's disappearance/reappearance can
+                tip over (e.g. opening ConfirmDialog below removes the page
+                scrollbar), which was enough to fold "Account Settings"/
                 "Logout All" onto their own line and back on every
-                open/close. A breakpoint has tens to hundreds of
-                px of margin on either side, so the same shift
-                never lands on the boundary.
+                open/close. A fixed breakpoint has margin on both sides so
+                that never happens.
 
-                At "xl"+ this row no longer wraps at all: only the
-                identity block (flex="0 1 auto" below) is allowed to
-                shrink, so stats and the action buttons keep their
-                natural width and can never themselves be pushed
-                onto a second line - a long name/email/role now
-                truncates further inside the identity block
-                instead of (as a first attempt at this got wrong)
-                still blowing out the row's total width and
-                folding the whole button column below it. Threshold
-                bumped from "lg" to "xl" once Last login became a
-                third stat column: with three fixed-width stats
-                (was two) plus the two action buttons all
-                non-shrinking, "lg" (1024px) no longer left the
-                identity block enough room even at its own floor
-                (avatar + name/role's own minW's below), which
-                doesn't shrink away - it has to go SOMEWHERE, and
-                with no ancestor minW guarding it (see below) it
-                was overflowing past its own column and
-                overlapping the stats next to it, worst at a
-                larger root font-size (Settings > Size) where
-                every rem-based width here grows in lockstep. */}
+                At "xl"+ the row stops wrapping entirely: only the identity
+                block (flex="0 1 auto") is allowed to shrink, so stats and
+                buttons keep their natural width and never get pushed to a
+                second line; a long name/email/role truncates further
+                inside the identity block instead. The breakpoint moved
+                from "lg" to "xl" once Last login became a third stat
+                column: three fixed-width stats plus two buttons no longer
+                left the identity block room even at its own floor, so it
+                overflowed and overlapped the stats next to it (worse at
+                larger root font sizes, since every rem-based width here
+                grows together). */}
             <Flex align="stretch" justify="space-between" gap={6} direction={{ base: "column", xl: "row" }} wrap={{ base: "wrap", xl: "nowrap" }} rowGap={4}>
                 {/* Only the identity block scrolls internally
-                    (overflowX="auto") if its own floor still doesn't
-                    fit at "xl"+ (a genuinely long name/email at "large"
-                    text on a narrower "xl" viewport) - same fallback
-                    DataTable's own columns use (see usersColumns.tsx's
-                    matching comment) - while stats and
-                    "Account Settings"/"Logout All" stay fully visible
-                    outside it. flex="0 1 auto" (shrink but never grow)
-                    keeps this block from eating the row's free space the
-                    way the old flex="1 1 0%" wrapper did. */}
+                    (overflowX="auto") if it still doesn't fit at "xl"+
+                    (a long name/email at large text on a narrow "xl"
+                    viewport), same fallback as DataTable's own columns.
+                    Stats and the buttons stay fully visible outside it.
+                    flex="0 1 auto" keeps this block from eating the row's
+                    free space. */}
                 <HStack gap={4} alignSelf="flex-start" flex="0 1 auto" minW={0} overflowX="auto">
                     {/* The avatar itself is the View trigger (opens
                         ProfileDetailsDialog) instead of a separate Eye
-                        button down in the email row - one obvious click
-                        target instead of two, and it stays put right at
-                        the start of the identity block regardless of how
-                        short the name/email happen to be. */}
+                        button in the email row: one obvious click target,
+                        and it stays put regardless of name/email length. */}
                     <Tooltip.Root openDelay={300} closeDelay={100}>
                         <Tooltip.Trigger asChild>
                             <IconButton
@@ -178,25 +148,19 @@ const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
                     </Tooltip.Root>
 
                     <Box minW={0} flex="1 1 auto">
-                        {/* Ellipsis on both the name and the role badge (same
-                            convention as the truncated DataTable columns), not just
-                            the email below - a long enough name or a long custom
-                            role label grows this block just as unboundedly as the
-                            email does. maxW="100%" truncates to whatever width this
-                            Box is actually given (bounded above by the Badge's own
-                            10rem cap) rather than a guessed fixed rem value, so it
-                            keeps working whether it's next to two stats or three. */}
+                        {/* Ellipsis on the name and role badge too, not just the
+                            email below: a long name or custom role label can
+                            grow this block just as unboundedly. maxW="100%"
+                            truncates to whatever width this Box is actually
+                            given, so it keeps working next to two stats or
+                            three. */}
                         <HStack gap={2} minW={0}>
-                            {/* flex-grow left at 0: the name should hug its own
-                                width and sit right next to the role badge, not
-                                stretch to fill the row and shove the badge off to
-                                the far edge. minW="5rem" is still a shrink floor,
-                                not a target: the name is the single most important
-                                thing in this row, so once space runs short the role
-                                badge below (flexShrink allowed, no minW floor of
-                                its own beyond its own small one) gives way first -
-                                the name only shrinks past 5rem if there's truly no
-                                room left for either. */}
+                            {/* flex-grow left at 0: the name hugs its own width
+                                next to the role badge instead of stretching to
+                                fill the row. minW="5rem" is a shrink floor, not a
+                                target: the role badge gives way first when space
+                                runs short, so the name only shrinks past 5rem if
+                                there's truly no room for either. */}
                             <Heading as="h1" fontSize="xl" fontWeight="semibold" flex="0 1 auto" minW="8rem" maxW="100%" truncate title={user.name}>
                                 {user.name}
                             </Heading>
@@ -221,13 +185,11 @@ const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
                                 <Text as="span" truncate>{user.role ?? t("noRole")}</Text>
                             </Badge>
                         </HStack>
-                        {/* Same ellipsis treatment for the email - letting it grow
-                            without bound was the original report here. flex-grow
-                            left at 0 (not "1 1 auto"): the email should hug its own
-                            width same as the name above it, not stretch to fill the
-                            row. Clicking the avatar to the left (not a button here
-                            anymore) opens ProfileDetailsDialog, showing the
-                            untruncated name/email/role together. */}
+                        {/* Same ellipsis treatment for the email, which used to grow
+                            without bound. flex-grow left at 0: it hugs its own
+                            width like the name above it instead of stretching to
+                            fill the row. Clicking the avatar opens
+                            ProfileDetailsDialog with the untruncated values. */}
                         <HStack gap={2} color="fg.muted" mt={1} minW={0}>
                             <Mail size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
                             <Text fontSize="md" flex="0 1 auto" maxW="100%" truncate title={user.email}>
@@ -239,17 +201,11 @@ const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
 
                 <Separator orientation="vertical" display={{ base: "none", xl: "block" }} flexShrink={0} />
 
-                {/* wrap switches at the same "xl" breakpoint the outer
-                    Flex above uses, instead of content-driven wrap="wrap":
-                    on wide viewports this row sits comfortably within its
-                    available width, so a purely content-driven wrap left it
-                    sitting right at the knife's-edge where the ~15-17px a
-                    classic scrollbar's disappearance/reappearance takes
-                    from the viewport - e.g. opening ConfirmDialog, whose
-                    scroll-lock removes the page scrollbar - was enough by
-                    itself to fold "Active sessions" onto its own line and
-                    back on every open/close. See the outer Flex's matching
-                    comment above for the full explanation. */}
+                {/* wrap switches at the same "xl" breakpoint as the outer Flex
+                    above, not content-driven wrap="wrap", for the same
+                    scrollbar-width reason explained there (it was folding
+                    "Active sessions" onto its own line on every
+                    ConfirmDialog open/close). */}
                 <HStack gap={6} align="flex-start" alignSelf="flex-start" wrap={{ base: "wrap", xl: "nowrap" }} rowGap={4} flexShrink={0}>
                     <DashboardStatItem
                         icon={<CalendarDays size={15} aria-hidden="true" />}
@@ -261,12 +217,11 @@ const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
                         label={t("lastLogin")}
                         value={
                             lastLoginAt ? (
-                                // Date on one line, time on the next - the combined
+                                // Date on one line, time on the next: the combined
                                 // "Aug 1, 2026, 4:23 PM" string is the widest thing in
-                                // this row by far, and this stat sits in a fixed-width
-                                // column next to two much shorter ones, so splitting it
-                                // keeps that column no wider than "Member since"/
-                                // "Active sessions" instead of stretching the whole row.
+                                // this row, so splitting it keeps the column no wider
+                                // than "Member since"/"Active sessions" instead of
+                                // stretching the whole row.
                                 <Box lineHeight="1.3">
                                     <Text fontSize="md" fontWeight="semibold">{formatMemberSince(lastLoginAt, language)}</Text>
                                     <Text fontSize="md" fontWeight="medium" color="fg.muted">{formatTimeOnly(lastLoginAt, language)}</Text>

@@ -15,8 +15,7 @@ describe('prefetchRoute', () => {
   it('prefetches a known route and ignores a repeat call for the same path', async () => {
     const { prefetchRoute } = await import('@/layout/app_layout/routePrefetch');
 
-    // Second call must hit the `requested.has` early-return branch instead
-    // of re-triggering the import.
+    // Second call must hit the early-return branch, not re-trigger the import.
     prefetchRoute('/dashboard');
     prefetchRoute('/dashboard');
   });
@@ -29,8 +28,8 @@ describe('prefetchRoute', () => {
     const { prefetchRoute } = await import('@/layout/app_layout/routePrefetch');
 
     prefetchRoute('/dashboard');
-    // Lets the rejected import()'s .catch() handler run and delete the
-    // path from the in-flight `requested` set before retrying.
+    // Lets the rejected import's .catch() remove the path from the
+    // in-flight set before retrying.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     prefetchRoute('/dashboard');

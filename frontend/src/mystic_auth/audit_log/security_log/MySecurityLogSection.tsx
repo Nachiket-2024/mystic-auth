@@ -20,8 +20,8 @@ import { useLanguageStore } from "../../store/languageStore";
  * logout/lifecycle events, plus their own login-trend chart. */
 const MySecurityLogSection: React.FC = () => {
     const { t } = useTranslation("audit_log");
-    // See AllAuthorizationLogSection.tsx's matching comment: dates/month
-    // names use chromeLanguage, not pageLanguage.
+    // See AllAuthorizationLogSection.tsx's matching comment: dates use chromeLanguage, not
+    // pageLanguage.
     const language = useLanguageStore((s) => s.chromeLanguage);
     const { sort, toggleSort } = useSortState("created_at");
     const [eventType, setEventType] = useState(ALL_VALUE);

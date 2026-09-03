@@ -39,11 +39,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
             w="full"
             gap={4}
         >
-            {/* bg.canvas (not bg.surface, which matches this form's own Card
-                background) so fields read as recessed into the card instead
-                of just a thin outline floating on an identical fill;
-                colorPalette="brand" gives the focus ring the app's teal
-                instead of Chakra's default gray one. */}
+            {/* bg.canvas (not bg.surface, the card's own background) so fields read as
+                recessed into the card. colorPalette="brand" gives the focus ring the
+                app's teal instead of Chakra's default gray. */}
             <Input
                 type="email"
                 value={email}
@@ -72,10 +70,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 aria-describedby={loginMutation.isError ? "login-error" : undefined}
             />
 
-            {/* Solid variant's default hover is only colorPalette.solid at 90%
-                opacity - too subtle a shift to read as a hover state.
-                brand.700 (one step past brand.600's solid) gives a real,
-                visible contrast bump instead. */}
+            {/* Solid variant's default hover is only 90% opacity, too subtle. brand.700
+                gives a visible contrast bump instead. */}
             <Button
                 type="submit"
                 colorPalette="brand"

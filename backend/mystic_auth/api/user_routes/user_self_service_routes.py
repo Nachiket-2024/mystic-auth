@@ -143,19 +143,16 @@ async def delete_my_account(
     """
     Self-service soft delete: is_active=False + deleted_at=now, same
     mechanics as delete_any_user (user_lifecycle_routes.py), just acting on
-    current_user's own row instead of a path-parameterized user_email.
-    Deliberately does NOT purge: permanent removal only ever happens via the
-    scheduled grace-period job (procrastinate_tasks/account_purge_tasks.py) or an
-    admin's separate, more sensitive users:purge action, never synchronously
-    on a self-service request.
+    current_user's own row. Deliberately does NOT purge: permanent removal
+    only happens via the scheduled grace-period job
+    (procrastinate_tasks/account_purge_tasks.py) or an admin's separate
+    users:purge action, never synchronously here.
 
-    An account with a password re-authenticates and is deleted immediately,
-    synchronously, in this same request. An OAuth-only account
-    (hashed_password is None) has no password to re-confirm with, so it
-    can't get the same synchronous proof of intent from just an active
-    session cookie (a stolen access-token cookie would otherwise be enough
-    to delete the account outright) - see account_deletion_service.py for
-    its async, email-confirmed equivalent instead.
+    An account with a password re-authenticates and is deleted immediately
+    in this same request. An OAuth-only account (hashed_password is None)
+    has no password to re-confirm with, so a stolen access-token cookie
+    alone can't prove intent here; see account_deletion_service.py for its
+    async, email-confirmed equivalent instead.
     """
     email = current_user["email"]
     user = await get_or_404(user_crud.get_by_email(email, db), "User not found", code="USER_NOT_FOUND")

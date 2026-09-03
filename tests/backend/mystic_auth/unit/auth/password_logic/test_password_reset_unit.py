@@ -1,4 +1,3 @@
-# tests/backend/mystic_auth/unit/test_password_reset_unit.py
 from unittest.mock import AsyncMock
 
 import pytest
@@ -49,13 +48,12 @@ async def test_send_reset_email_returns_false_for_unknown_user(mocker):
 
 # ---------------------------- reset_password ----------------------------
 #
-# reset_password now consumes the Redis single-use entry atomically via
-# GETDEL (rather than a separate GET followed by a later DELETE) to close a
-# TOCTOU race where two concurrent requests with the same token could both
-# pass the check before either consumed it. A request that wins the GETDEL
-# but then fails a recoverable validation step restores the entry via
-# `redis_client.set` so the user can retry with the same link, see
-# password_reset_service.py's docstring for the full rationale.
+# reset_password consumes the Redis single-use entry atomically via GETDEL
+# (rather than a separate GET followed by a later DELETE) to close a
+# TOCTOU race where two concurrent requests with the same token could
+# both pass the check before either consumed it. A request that wins the
+# GETDEL but then fails a recoverable validation step restores the entry
+# via `redis_client.set` so the user can retry with the same link.
 
 FUTURE_EXP = 9999999999.0  # far-future JWT "exp" claim for restore-TTL math
 
@@ -91,11 +89,11 @@ async def test_reset_password_succeeds_and_consumes_token(mocker):
 
 @pytest.mark.asyncio
 async def test_reset_password_succeeds_but_flags_unrevoked_sessions_when_redis_is_unreachable(mocker):
-    # Regression guard for the "Redis outage failure modes are inconsistent"
-    # gap: the password write itself (Postgres, independent of Redis) must
-    # still succeed even if the account-version bump can't be confirmed, not
-    # get reported back as "invalid token or password" the way a swallowed
-    # TokenVersionUnavailableError used to make it look.
+    # Regression guard: the password write itself (Postgres, independent
+    # of Redis) must still succeed even if the account-version bump can't
+    # be confirmed, not get reported back as "invalid token or password"
+    # the way a swallowed TokenVersionUnavailableError used to make it
+    # look.
     mocker.patch(
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": FUTURE_EXP},

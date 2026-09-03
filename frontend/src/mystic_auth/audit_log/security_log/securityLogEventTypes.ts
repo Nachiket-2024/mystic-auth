@@ -1,15 +1,12 @@
 /**
- * Mirrors backend/mystic_auth/audit_log/audit_log_service.py's event_type
- * constants exactly, the same pattern authorization/permissions.ts already
- * uses for Permission: centralized here so the Security events filter
- * dropdown offers exactly the values the backend actually writes, instead
- * of a typed-in string that can never match a real row.
+ * Mirrors backend/mystic_auth/audit_log/audit_log_service.py's event_type constants exactly,
+ * same pattern as authorization/permissions.ts's Permission: keeps the filter dropdown
+ * offering only values the backend actually writes.
  */
-// "login" (not "login_success"/"login_failure" as two options): the Result
-// filter (Success/Failed) already narrows to one or the other, so listing
-// both here too let you pick an impossible combination (event=login_success
-// + Result=Failed). The backend still stores both literal values; "login" is
-// a UI-only alias that audit_log_repository.py's _apply_filters expands back.
+// "login", not "login_success"/"login_failure" as two options: the Result filter (Success/
+// Failed) already narrows to one, so two event options would allow an impossible combination
+// (event=login_success + Result=Failed). The backend still stores both literal values;
+// "login" is a UI-only alias that audit_log_repository.py's _apply_filters expands back.
 export const SECURITY_EVENT_TYPES = [
     "login",
     "logout",

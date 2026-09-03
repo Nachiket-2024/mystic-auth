@@ -25,13 +25,12 @@ async def bulk_update_role(
     db: AsyncSession = Depends(database.get_session),
 ):
     """
-    Sets the (display/grouping-only, non-PBAC) role metadata field for up
-    to 200 users in one request, best-effort per item. Re-applies, per
-    item, the exact same safeguards update_user_role
-    (user_management_update_routes.py) enforces: a `system`-role user's
-    role can never be changed, and assigning the `system` role itself
-    requires the separate users:assign_system_role action, checked per
-    item since the batch may mix system and non-system targets.
+    Sets the (display/grouping-only, non-PBAC) role field for up to 200
+    users in one request, best-effort per item. Re-applies the same
+    safeguards as update_user_role (user_management_update_routes.py) per
+    item: a `system`-role user's role can never be changed, and assigning
+    `system` itself requires the separate users:assign_system_role action,
+    since the batch may mix system and non-system targets.
     """
     users_by_email = await user_crud.get_by_emails([item.user_email for item in body.items], db)
     context = build_authorization_context(request)

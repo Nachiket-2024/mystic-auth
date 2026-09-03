@@ -13,20 +13,15 @@ from ..services.authorization_service import authorization_service
 def require_authorization(action: str, resource_type: str) -> Callable[..., Awaitable[dict]]:
     """
     Returns a FastAPI dependency usable as
-    `Depends(require_authorization("users:list_all", "users"))` that
+    `Depends(require_authorization("users:list_all", "users"))`: it
     authenticates the caller, builds the request's authorization context
-    (real connection/server clock only, never anything client-supplied,
-    see context/request_context_builder.py), and delegates the actual
-    decision entirely to AuthorizationService.require. On success it
-    returns the authenticated current_user dict for the route to use.
+    (server-side only, never client-supplied), and delegates the decision
+    to AuthorizationService.require. Returns the current_user dict on
+    success.
 
-    This is the PBAC replacement for the RBAC-era
-    authorization.permission_checker.require_permission (removed): routes
-    declare *what action on what resource* they need; the authorization
-    service and policy evaluation engine behind it decide *who currently
-    has that*, based entirely on assigned policies. No role ever enters
-    this decision, and this dependency itself never inspects
-    current_user["role"].
+    Routes declare what action on what resource they need; assigned
+    policies decide who has it. No role ever enters this decision, and
+    this dependency never inspects current_user["role"].
     """
     async def dependency(
         request: Request,
@@ -50,28 +45,20 @@ def require_authorization(action: str, resource_type: str) -> Callable[..., Awai
 
 def require_any_authorization(checks: list[tuple[str, str]]) -> Callable[..., Awaitable[dict]]:
     """
-    Returns a FastAPI dependency usable as
-    `Depends(require_any_authorization([("permissions:read", "permissions"),
-    ("policies:create", "policies")]))`: allows the request through if the
-    caller holds ANY ONE of the given (action, resource_type) pairs, not
-    all of them, rather than composing multiple require_authorization
-    dependencies (FastAPI's `Depends` has no built-in OR).
+    Returns a FastAPI dependency that allows the request through if the
+    caller holds ANY ONE of the given (action, resource_type) pairs
+    (FastAPI's `Depends` has no built-in OR, so this can't be composed
+    from multiple require_authorization calls).
 
-    For a route that's a genuine prerequisite of more than one otherwise-
-    independent action - e.g. GET /permissions/catalog is needed both by
-    the standalone Permissions page (permissions:read) and by the Policy
-    create/edit form (policies:create / policies:update), which has no
-    reason to also hold permissions:read - gating it behind a single action
-    would deny a caller who only holds one of the actions that legitimately
-    needs it. Each candidate is checked via the non-raising, non-logging
-    `authorize_detailed()` (not `authorize()`/`require()`): these are
-    hypothetical probes ("would this one candidate let the caller through"),
-    not real per-action decisions, so a caller holding only the last
-    candidate in the list must not get a "denied" audit row for every
-    earlier candidate they were never actually attempting. The one real
-    decision - whichever candidate actually let the caller through - is
-    logged via `authorize()` once a match is found, exactly as
-    require_authorization logs its single check.
+    For a route needed by more than one otherwise-independent action
+    (e.g. GET /permissions/catalog, needed by both the Permissions page
+    and the Policy form), gating behind a single action would wrongly
+    deny a caller who only holds one of them. Each candidate is checked
+    via the non-raising, non-logging `authorize_detailed()`: these are
+    hypothetical probes, so a caller who only holds the last candidate
+    doesn't get a "denied" audit row for the earlier ones they weren't
+    really attempting. The one real decision is logged via `authorize()`
+    once a match is found.
     """
     async def dependency(
         request: Request,

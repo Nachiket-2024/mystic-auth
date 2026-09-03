@@ -1,13 +1,10 @@
-# tests/backend/mystic_auth/unit/auth/security/test_client_ip_unit.py
-#
-# Regression guard for get_client_ip: this app was previously vulnerable to
-# IP spoofing via a caller-supplied X-Forwarded-For header, and later to
-# mistaking a second trusted proxy hop's own address for the real client
-# (see client_ip.py's own docstring for both). These tests pin the fixed
-# behavior: XFF is only trusted from a configured reverse proxy, and even
-# then the header is walked from the right, discarding any entry that is
-# itself a known trusted-proxy hop, until the first (real, non-forgeable)
-# entry that isn't.
+# Regression guard for get_client_ip: this app was previously vulnerable
+# to IP spoofing via a caller-supplied X-Forwarded-For header, and later
+# to mistaking a second trusted proxy hop's own address for the real
+# client. These tests pin the fixed behavior: XFF is only trusted from a
+# configured reverse proxy, and even then the header is walked from the
+# right, discarding any entry that is itself a known trusted-proxy hop,
+# until the first real, non-forgeable entry.
 from backend.mystic_auth.auth.security import client_ip as client_ip_module
 from backend.mystic_auth.auth.security.client_ip import get_client_ip
 
@@ -106,13 +103,13 @@ def test_returns_none_when_request_client_is_unavailable(mocker):
 def test_peels_multiple_trusted_hops_to_find_the_real_client(mocker):
     mocker.patch(f"{MODULE}._TRUSTED_PROXY_IPS", frozenset({"172.28.0.10", "172.28.0.11"}))
 
-    # Two trusted proxies in front of backend (e.g. cloudflared/Caddy, then
-    # frontend's nginx), each appending its own hop rather than overwriting:
-    # the request arrives at backend from frontend (172.28.0.10, the
-    # immediate TCP peer), having already picked up cloudflared/Caddy's own
-    # address (172.28.0.11) as an XFF entry along the way. Naively trusting
-    # only the right-most entry would return 172.28.0.11 - a proxy's own
-    # address, not the real client - which is the bug this regression guards.
+    # Two trusted proxies in front of backend (e.g. cloudflared/Caddy,
+    # then frontend's nginx), each appending its own hop rather than
+    # overwriting: the request arrives at backend from frontend
+    # (172.28.0.10, the immediate TCP peer), having already picked up
+    # cloudflared/Caddy's own address (172.28.0.11) as an XFF entry along
+    # the way. Naively trusting only the right-most entry would return
+    # 172.28.0.11, a proxy's own address, not the real client.
     request = _make_request(
         host="172.28.0.10",
         headers={"x-forwarded-for": "198.51.100.5, 172.28.0.11"},
@@ -147,7 +144,6 @@ def test_falls_back_to_peer_when_every_xff_entry_is_itself_a_trusted_hop(mocker)
 
 def test_trusted_proxy_ips_parses_the_configured_csv_setting():
     # Sanity check on the module-level constant itself (not mocked here):
-    # confirms the frozenset is actually built from settings.TRUSTED_PROXY_IPS
-    # at import time, trimmed and with blanks dropped, rather than some
-    # other source silently going stale.
+    # confirms the frozenset is built from settings.TRUSTED_PROXY_IPS at
+    # import time, trimmed and with blanks dropped.
     assert isinstance(client_ip_module._TRUSTED_PROXY_IPS, frozenset)

@@ -2,15 +2,14 @@
 #
 # End-to-end coverage for the persistent authorization audit log
 # (authorization/models/audit_log_model.py, .../repositories/audit_log_repository.py)
-# against the real ASGI app, real PostgreSQL, and real Redis. The PBAC audit
-# logging requirement item #1: "Authorization decisions must be auditable" :
-# every real authorize()/require() call (i.e. every hit on a PBAC-protected
-# route) must write a row automatically, with no route needing to opt in.
+# against the real ASGI app, real PostgreSQL, and real Redis. PBAC audit
+# logging requirement #1, "authorization decisions must be auditable":
+# every real authorize()/require() call must write a row automatically,
+# with no route needing to opt in.
 #
-# Split out of test_audit_log_integration.py once that file passed the
-# repo's own file-length guideline; this half covers only automatic logging
-# on real protected routes. See test_audit_log_query_api_integration.py for
-# the audit-log query API's own PBAC gating/search/sort/filter coverage.
+# Covers only automatic logging on real protected routes. See
+# test_audit_log_query_api_integration.py for the query API's own PBAC
+# gating/search/sort/filter coverage.
 import asyncio
 
 import pytest
@@ -32,9 +31,9 @@ PASSWORD = "StrongPass123!"
 
 # _cleanup_audit_log (imported above): pytest discovers autouse fixtures by
 # name in a test module's own namespace, so importing it here is what
-# actually activates it for this file's tests - see its docstring in
-# audit_log_test_accounts.py. Not referenced directly, hence unused-import
-# lint suppression.
+# activates it for this file's tests (see its docstring in
+# audit_log_test_accounts.py). Not referenced directly, hence the
+# unused-import lint suppression.
 __all__ = ["_cleanup_audit_log"]
 
 
@@ -101,7 +100,7 @@ async def test_a_denied_protected_action_is_logged_as_denied(client, created_ema
 @pytest.mark.asyncio
 async def test_inspection_endpoint_does_not_pollute_the_audit_log(client, created_emails):
     # authorization-check calls authorize_detailed directly (a hypothetical
-    # "what would happen if" query) : it must never itself write an audit
+    # "what would happen if" query): it must never itself write an audit
     # entry, only the real authorize()/require() calls that gate actual
     # routes do.
     target_email = unique_email("target")
@@ -116,8 +115,8 @@ async def test_inspection_endpoint_does_not_pollute_the_audit_log(client, create
     assert check_resp.status_code == 200
 
     # Give a (real, if wrongly present) queued job time to land before
-    # asserting absence, since writes are now async: an immediate check
-    # would pass even if this endpoint incorrectly queued an entry.
+    # asserting absence: an immediate check would pass even if this
+    # endpoint incorrectly queued an entry.
     await asyncio.sleep(1)
     log_resp = await client.get(f"/authorization/audit-log/users/{target_email}")
     assert log_resp.status_code == 200

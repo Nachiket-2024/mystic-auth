@@ -6,6 +6,9 @@ PostgreSQL, accessed via async SQLAlchemy (`backend/mystic_auth/database/`). Sch
 Relationships and key columns only - see each table's own section below for the full column list; keeping this diagram to PK/FK/UK markers (no descriptive comments) is deliberate, so wide entity boxes don't force the whole diagram to render tiny in a fixed-width doc viewer.
 
 ---
+
+## Entity-relationship diagram
+
 ```mermaid
 %%{init: {"er": {"fontSize": 18}, "themeVariables": {"lineColor": "#334155"}, "themeCSS": ".relationshipLine { stroke-width: 2px !important; }"} }%%
 erDiagram
@@ -62,6 +65,8 @@ erDiagram
 
 ## Tables
 
+---
+
 ### `users`
 
 The single, unified identity table: password and OAuth2 (Google) accounts share it, and there is no separate "oauth_accounts" table. See `backend/mystic_auth/user/user_model.py`.
@@ -82,7 +87,7 @@ The single, unified identity table: password and OAuth2 (Google) accounts share 
 
 ### `policies`
 
-The primary authorization unit; see [../authorization/architecture.md](../authorization/architecture.md) for how these are evaluated. `id`, `name` (unique), `description`, `actions` (`text[]`), `resource_type`, `conditions` (`jsonb`, nullable), `is_active`, `created_at`/`updated_at`, `created_by`.
+The primary authorization unit; see [../authorization/architecture/README.md](../authorization/architecture/README.md) for how these are evaluated. `id`, `name` (unique), `description`, `actions` (`text[]`), `resource_type`, `conditions` (`jsonb`, nullable), `is_active`, `created_at`/`updated_at`, `created_by`.
 
 ---
 
@@ -106,7 +111,7 @@ A direct, per-user grant of a single `(action, resource_type)` pair, bypassing `
 
 ### `authorization_audit_log`
 
-One row per `authorize()`/`authorize_with_decision()`/`authorize_batch()` call: every real access decision, allow or deny. `user_email` is a **plain string column, not a foreign key** to `users.id`. This is deliberate: the audit trail must remain intact and queryable even after a user row is purged (hard-deleted). See [../authorization/architecture.md](../authorization/architecture.md#audit-log) for the full column list.
+One row per `authorize()`/`authorize_with_decision()`/`authorize_batch()` call: every real access decision, allow or deny. `user_email` is a **plain string column, not a foreign key** to `users.id`. This is deliberate: the audit trail must remain intact and queryable even after a user row is purged (hard-deleted). See [../authorization/architecture/README.md](../authorization/architecture/component-responsibilities.md#audit-log) for the full column list.
 
 ---
 
@@ -118,7 +123,7 @@ Separate audit vocabulary from the table above: login/logout/signup/OAuth2/passw
 
 ### `user_sessions`
 
-One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Redis (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Redis-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management.md).
+One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Redis (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Redis-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management/README.md).
 
 ---
 
@@ -130,7 +135,7 @@ One row per login session, backing the "Manage Sessions" dashboard card. `curren
 
 ## Account lifecycle
 
-See [Account Deletion and Purge](../authentication/account-deletion.md) for the full flow end to
+See [Account Deletion and Purge](../authentication/account-deletion/README.md) for the full flow end to
 end, including the OAuth-only-account email-confirmation path and sequence diagrams. Summary below.
 
 Three operations, two permissions, deliberately separate:
@@ -167,7 +172,7 @@ The system account (`role=UserRole.system`) is excluded from all lifecycle opera
 
 ## Migrations
 
-Every schema change is an Alembic migration under `backend/alembic/versions/`, applied via the dedicated one-shot `alembic` service (`alembic upgrade head`). In the production-style Compose files, `backend` and `procrastinate_worker` wait for it to complete before starting (`depends_on: ... condition: service_completed_successfully`); the dev `docker-compose.yml` runs the `alembic` service alongside the others without gating startup on it. Data-only migrations (e.g. granting a new permission to a seeded policy, backfilling a default role) follow the same process as schema migrations; see [../authorization/adding-permissions.md](../authorization/adding-permissions.md) for the exact pattern.
+Every schema change is an Alembic migration under `backend/alembic/versions/`, applied via the dedicated one-shot `alembic` service (`alembic upgrade head`). In the production-style Compose files, `backend` and `procrastinate_worker` wait for it to complete before starting (`depends_on: ... condition: service_completed_successfully`); the dev `docker-compose.dev.yml` runs the `alembic` service alongside the others without gating startup on it. Data-only migrations (e.g. granting a new permission to a seeded policy, backfilling a default role) follow the same process as schema migrations; see [../authorization/adding-permissions.md](../authorization/adding-permissions.md) for the exact pattern.
 
 ---
 
@@ -179,12 +184,11 @@ Two Postgres roles, not one, since migration `b1e6a9f3c7d2_add_least_privilege_a
 %%{init: {"flowchart": {"fontSize": 18}, "themeVariables": {"lineColor": "#334155"}} }%%
 flowchart LR
     subgraph Roles["Postgres roles"]
-        superuser["postgres<br/> (superuser)"]
-        approle["mystic_auth_app<br/> (CRUD only, no DDL)"]
+        superuser["postgres\n (superuser)"]
+        approle["mystic_auth_app\n (CRUD only, no DDL)"]
     end
-
-    alembic["alembic service<br/> (DATABASE_URL)"] -->|schema changes,<br/> role/grant management| superuser
-    backend["backend + procrastinate_worker<br/> (APP_DATABASE_URL)"] -->|CRUD on<br/> application tables| approle
+    alembic["alembic service\n (DATABASE_URL)"] -->|schema changes,\n role/grant management| superuser
+    backend["backend + procrastinate_worker\n (APP_DATABASE_URL)"] -->|CRUD on\n application tables| approle
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
@@ -192,6 +196,6 @@ flowchart LR
 - **`DATABASE_URL`** (the `postgres` superuser) is what `alembic upgrade head` runs as. Migrations need to create/alter tables and, for this one migration, create and grant the other role - that requires superuser or equivalent, so this role stays superuser rather than being narrowed.
 - **`APP_DATABASE_URL`** (`mystic_auth_app`) is what the request-serving backend and the Procrastinate worker's task bodies connect as (`database/connection.py`: `settings.APP_DATABASE_URL or settings.DATABASE_URL`). It can read/write every application table but cannot run DDL, create roles, or touch other databases on the same Postgres server. Optional and backward-compatible: an unset `APP_DATABASE_URL` falls back to `DATABASE_URL` everywhere, so existing deployments are unaffected until they opt in.
 
-This is deliberately *not* Row-Level Security. The app is single-tenant (no `tenant_id`/`org_id` anywhere) and every authorization decision - including admin overrides - is already fully enforced in Python by the PBAC engine (see [../authorization/architecture.md](../authorization/architecture.md)) against already-fetched rows, not via SQL predicates. Re-deriving that logic as per-row Postgres policies would duplicate business logic in two places and risk drift, and without a real per-row ownership column to filter on, a row policy would just degenerate into `USING (true)` - no different from a plain table grant, but with the added footgun that a *future* table added without remembering to enable RLS on it is silently wide open rather than protected. What the role split buys instead: a compromised dependency, a bad ad hoc script, or a leaked runtime credential reusing the app's live DB connection can still read/write application data (that's unavoidable - the app needs that access to function), but can no longer drop/alter the schema, create a new role, or read another role's credentials. See [Security Decisions: Infrastructure](../security/decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser) for the full writeup, including what this does and does not protect against.
+This is deliberately *not* Row-Level Security. The app is single-tenant (no `tenant_id`/`org_id` anywhere) and every authorization decision - including admin overrides - is already fully enforced in Python by the PBAC engine (see [../authorization/architecture/README.md](../authorization/architecture/README.md)) against already-fetched rows, not via SQL predicates. Re-deriving that logic as per-row Postgres policies would duplicate business logic in two places and risk drift, and without a real per-row ownership column to filter on, a row policy would just degenerate into `USING (true)` - no different from a plain table grant, but with the added footgun that a *future* table added without remembering to enable RLS on it is silently wide open rather than protected. What the role split buys instead: a compromised dependency, a bad ad hoc script, or a leaked runtime credential reusing the app's live DB connection can still read/write application data (that's unavoidable - the app needs that access to function), but can no longer drop/alter the schema, create a new role, or read another role's credentials. See [Security Decisions: Infrastructure](../security/decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser) for the full writeup, including what this does and does not protect against.
 
 ---

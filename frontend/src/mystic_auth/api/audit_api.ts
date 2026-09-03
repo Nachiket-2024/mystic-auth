@@ -29,13 +29,11 @@ export interface SecurityAuditLogEntryRead {
 interface BaseListParams {
     limit?: number;
     offset?: number;
-    /** user_email substring match. Only meaningful for the "all users"
-     * endpoints below - each /me endpoint is already scoped to the
-     * caller's own single email. */
+    /** user_email substring match. Only meaningful on the "all users" endpoints below;
+     * each /me endpoint is already scoped to the caller's own email. */
     search?: string;
-    /** Column to sort by; must be one of the backend's own allowlisted
-     * sortable columns for that log type (see the two audit log
-     * repositories' `_SORTABLE_COLUMNS`) - any other value is ignored
+    /** Column to sort by. Must be one of the backend's allowlisted sortable columns
+     * (see the audit log repositories' `_SORTABLE_COLUMNS`); anything else is ignored
      * server-side and falls back to created_at. */
     sortBy?: string;
     sortDir?: "asc" | "desc";

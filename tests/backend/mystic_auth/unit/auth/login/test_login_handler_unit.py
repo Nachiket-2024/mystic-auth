@@ -1,4 +1,3 @@
-# tests/backend/mystic_auth/unit/test_login_unit.py
 import json
 
 import pytest
@@ -59,9 +58,8 @@ async def test_failed_login_is_recorded_towards_lockout(mocker):
     response = await login_handler.handle_login(email="test@example.com", password="wrong-password")
 
     assert response.status_code == 401
-    # The bug this guards against: a failed login must be recorded with
-    # success=False so it counts towards the lockout threshold, instead of
-    # being skipped entirely : for both the email and IP counters.
+    # A failed login must be recorded with success=False so it counts
+    # towards the lockout threshold, for both the email and IP counters.
     record_mock.assert_any_call("login_lock:email:test@example.com", success=False)
     record_mock.assert_any_call(
         "login_lock:ip:unknown",
@@ -73,9 +71,9 @@ async def test_failed_login_is_recorded_towards_lockout(mocker):
 
 @pytest.mark.asyncio
 async def test_locked_source_ip_is_rejected_before_authentication_even_if_email_is_not_locked(mocker):
-    # A different email tried from the same abusive IP must still be blocked
-    # by the IP-keyed counter even though that specific email has never
-    # failed before : this is the credential-stuffing/spraying gap the
+    # A different email tried from the same abusive IP must still be
+    # blocked by the IP-keyed counter even though that specific email has
+    # never failed before: this is the credential-stuffing gap an
     # email-only lockout could never see.
     def is_locked_side_effect(key, *args, **kwargs):
         return key.startswith("login_lock:ip:")
@@ -132,13 +130,12 @@ async def test_correct_password_is_still_rejected_once_locked(mocker):
 
 @pytest.mark.asyncio
 async def test_pre_check_and_post_check_lockout_responses_are_identical(mocker):
-    # Both lockout rejections (pre-auth pre-check and post-auth recheck) share
-    # a single response builder specifically so they can't drift apart.
+    # Both lockout rejections (pre-auth pre-check and post-auth recheck)
+    # share a single response builder so they can't drift apart.
     # get_remaining_seconds is pinned to the same value for both calls so
     # this test isolates "do the two paths build the same response", not
-    # "does the real lockout key happen to have the same TTL both times" -
-    # that's this file's own concern (test_locked_account_response_reports_correct_retry_time
-    # below), not this one's.
+    # whether the real lockout key has the same TTL both times (that's
+    # test_locked_account_response_reports_correct_retry_time below).
     mocker.patch(
         "backend.mystic_auth.auth.login.login_handler.login_protection_service.get_remaining_seconds",
         return_value=120,
@@ -169,10 +166,10 @@ async def test_pre_check_and_post_check_lockout_responses_are_identical(mocker):
 
 @pytest.mark.asyncio
 async def test_locked_account_response_reports_correct_retry_time(mocker):
-    # A locked-out caller needs to know how long to actually wait, not just
-    # that they're locked out - see _lockout_response's own docstring for
-    # why this is surfaced both ways (Retry-After header AND the body's
-    # params.minutes for the login form's translated message).
+    # A locked-out caller needs to know how long to wait, not just that
+    # they're locked out, so this is surfaced both ways (Retry-After
+    # header and the body's params.minutes for the login form's
+    # translated message).
     mocker.patch(
         "backend.mystic_auth.auth.login.login_handler.login_protection_service.is_locked",
         return_value=True,
@@ -191,9 +188,9 @@ async def test_locked_account_response_reports_correct_retry_time(mocker):
     assert response.headers["retry-after"] == "125"
     body = json.loads(response.body)
     assert body["code"] == "ACCOUNT_LOCKED"
-    # 125 seconds rounds UP to 3 minutes, never down: telling a caller "2
-    # minutes" when 2 minutes and 5 seconds actually remain would have them
-    # retry a beat too early.
+    # 125 seconds rounds up to 3 minutes, never down: telling a caller "2
+    # minutes" when 2 minutes 5 seconds actually remain would have them
+    # retry too early.
     assert body["params"]["minutes"] == 3
     login_mock.assert_not_called()
 
@@ -201,10 +198,9 @@ async def test_locked_account_response_reports_correct_retry_time(mocker):
 @pytest.mark.asyncio
 async def test_locked_account_retry_time_never_reports_zero_minutes(mocker):
     # A near-expired lockout (a handful of seconds left, or the TTL key
-    # having already expired between the caller's is_locked check and this
-    # one - get_remaining_seconds' own docstring on why that's a legitimate
-    # 0) must still tell the caller to wait at least a minute, not "try
-    # again in 0 minutes", which reads as "you're not actually locked out."
+    # already expired between the caller's is_locked check and this one)
+    # must still tell the caller to wait at least a minute, not "try again
+    # in 0 minutes", which reads as "you're not actually locked out."
     mocker.patch(
         "backend.mystic_auth.auth.login.login_handler.login_protection_service.is_locked",
         return_value=True,

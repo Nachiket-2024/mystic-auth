@@ -42,7 +42,7 @@ describe('authStore: profile/permissions capture', () => {
   });
 
   it('setProfile defaults permissions to an empty array when omitted', () => {
-    // @ts-expect-error - simulating a backend response that omits permissions
+    // @ts-expect-error - simulates a backend response omitting permissions
     useAuthStore.getState().setProfile({ name: 'Test User', email: 'test@example.com', role: 'user' });
 
     expect(useAuthStore.getState().permissions).toEqual([]);
@@ -68,7 +68,7 @@ describe('authStore: profile/permissions capture', () => {
 
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
-    expect(state.name).toBeNull(); // untouched, not fabricated
+    expect(state.name).toBeNull();
   });
 
   it('reset() clears the profile along with the auth flags', () => {

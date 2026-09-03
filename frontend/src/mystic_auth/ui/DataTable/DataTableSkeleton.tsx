@@ -20,9 +20,8 @@ interface DataTableSkeletonProps<T> {
 function DataTableSkeleton<T>({ columns, colgroup, showRowNumbers, skeletonRowCount, sort }: DataTableSkeletonProps<T>) {
     return (
         // fontSize here (not size="md"/"lg", which only changes cell
-        // padding, not text) cascades to every cell/header that doesn't
-        // set its own - one bump for every table's plain text at once,
-        // to match the row-action buttons' and status badges' own size.
+        // padding, not text) cascades to every cell/header that doesn't set
+        // its own, matching the row-action buttons' and badges' size.
         <Table.ScrollArea borderWidth="1px" borderColor="border.default" rounded="lg" css={SCROLL_SHADOW_CSS}>
             <Table.Root size="sm" css={{ tableLayout: "fixed", width: "100%", fontSize: "md" }}>
                 {colgroup}

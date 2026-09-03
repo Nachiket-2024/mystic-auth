@@ -13,8 +13,8 @@ interface Row {
 const columns: DataTableColumn<Row>[] = [
   { key: 'id', header: 'ID', render: (row) => row.id },
   { key: 'name', header: 'Name', render: (row) => row.name },
-  // A real interactive control inside a cell, same shape as UsersTable's
-  // Role <select> - row-click-to-select must not fire underneath it.
+  // A real interactive control inside a cell (like UsersTable's Role
+  // select); row-click-to-select must not fire underneath it.
   { key: 'action', header: 'Action', render: () => <button>Row action</button> },
 ];
 
@@ -73,12 +73,10 @@ describe('DataTable', () => {
     expect(screen.getAllByRole('row')).toHaveLength(3); // header + 2 rows
   });
 
-  // Row-click-to-select: opt-in via `rowClickSelects` (a caller-owned
-  // toggle, e.g. BulkActionToolbar's "Select mode" button) - while active,
-  // clicking anywhere in a selectable row toggles it, so a user doesn't
-  // have to land precisely on the checkbox; a click that starts on a real
-  // interactive control inside the row (another button, a select) must
-  // keep doing its own thing instead.
+  // Row-click-to-select: opt-in via `rowClickSelects` (e.g. BulkActionToolbar's
+  // "Select mode" button). While active, clicking anywhere in a selectable
+  // row toggles it, but a click on a real control inside the row (a button,
+  // a select) should keep doing its own thing instead.
   describe('row-click-to-select', () => {
     function renderSelectable(selectedKeys: ReadonlySet<number> = new Set(), rowClickSelects = true) {
       const onSelectionChange = vi.fn();
@@ -104,9 +102,8 @@ describe('DataTable', () => {
 
       await user.click(screen.getByText('Alice'));
 
-      // onSelectionChange is called with the FUNCTIONAL form (see
-      // DataTableSelection.ts's own doc on why: it must always compute the
-      // next set off the true latest state, not a render-time snapshot).
+      // onSelectionChange is called with the functional form, computing the
+      // next set off latest state rather than a render-time snapshot (see DataTableSelection.ts).
       expect(onSelectionChange).toHaveBeenCalledTimes(1);
       const updater = onSelectionChange.mock.calls[0][0] as (prev: ReadonlySet<number>) => Set<number>;
       expect(updater(new Set())).toEqual(new Set([1]));

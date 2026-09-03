@@ -27,10 +27,8 @@ const AllAuthorizationLogSection: React.FC<AllAuthorizationLogSectionProps> = ({
     extraResourceTypes, extraActions,
 }) => {
     const { t } = useTranslation("audit_log");
-    // chromeLanguage, not pageLanguage: this "when" column's dates/month
-    // names should read the same way navbar/sidebar chrome does - always
-    // English, except in a plain (non-mixed) hi/mr mode - not the
-    // page-content language, which is what's mixed in for "en+hi"/"en+mr".
+    // chromeLanguage, not pageLanguage: the "when" column's dates should read like navbar/sidebar
+    // chrome, not the mixed page-content language used for "en+hi"/"en+mr".
     // See languageStore.ts's LanguageMode docstring.
     const language = useLanguageStore((s) => s.chromeLanguage);
     const [search, setSearch] = useState("");

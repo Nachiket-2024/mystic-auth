@@ -16,11 +16,9 @@ from ..core.settings import settings
 class ExponentialBackoffWithJitter(BaseRetryStrategy):
     """Retries `max_attempts` times total, waiting `min(base_delay * 2**attempts,
     max_delay)` seconds plus a random `[0, jitter]` second offset before each
-    retry. Mirrors the shape of the taskiq `SmartRetryMiddleware` config this
-    replaces (`default_retry_count=3, default_delay=5, use_delay_exponent=True,
-    max_delay_exponent=60, use_jitter=True`): the jitter keeps many
-    simultaneously-failing jobs (e.g. an SMTP outage) from all retrying on the
-    exact same tick and re-hammering an already-struggling dependency at once.
+    retry. The jitter keeps many simultaneously-failing jobs (e.g. an SMTP
+    outage) from all retrying on the same tick and re-hammering an
+    already-struggling dependency at once.
     """
 
     def __init__(self, *, max_attempts: int, base_delay: float, max_delay: float, jitter: float):

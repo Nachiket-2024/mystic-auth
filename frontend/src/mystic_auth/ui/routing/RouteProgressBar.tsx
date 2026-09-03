@@ -14,9 +14,8 @@ const KEYFRAMES = `
 /**
  * Thin indeterminate progress bar pinned to the top of the viewport,
  * mounted once at the app root. Shown while a lazy route chunk is loading
- * (see trackedLazy.ts/routeLoadingStore.ts) - overlays whatever page is
- * currently on screen instead of the old full-screen Suspense fallback
- * that used to blank the app on every route-level code-split navigation.
+ * (trackedLazy.ts/routeLoadingStore.ts) - overlays the current page instead
+ * of a full-screen Suspense fallback blanking the app.
  */
 const RouteProgressBar: React.FC = () => {
     const isLoading = useRouteLoadingStore((s) => s.pendingCount > 0);
@@ -54,9 +53,8 @@ const RouteProgressBar: React.FC = () => {
                     boxShadow="0 0 8px 1px var(--chakra-colors-brand-solid)"
                     // Left un-tokenized on purpose: this is a continuous
                     // indeterminate-loading loop, not a UI response speed
-                    // like the durations.hover/fast/base tiers (theme/
-                    // system.ts) - retuning "how snappy the app feels"
-                    // shouldn't also change how fast this loop cycles.
+                    // like durations.hover/fast/base - retuning "how snappy
+                    // the app feels" shouldn't also change this loop's speed.
                     animation="mystic-route-progress-slide 1.1s ease-in-out infinite"
                 />
             </Box>

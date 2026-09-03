@@ -1,9 +1,8 @@
-# tests/backend/mystic_auth/integration/user_crud/test_user_export_integration.py
+# tests/backend/mystic_auth/integration/user/test_user_export_integration.py
 #
 # End-to-end coverage for GET /users/export (CSV export, backing the Users
-# page's "Export CSV" button) against the real ASGI app and real
-# PostgreSQL. Same permission (users:list_all) and account-setup helpers as
-# test_user_list_and_update_integration.py.
+# page's "Export CSV" button). Uses the same permission (users:list_all)
+# and account-setup helpers as test_user_list_and_update_integration.py.
 import csv
 import io
 
@@ -96,11 +95,10 @@ async def test_export_respects_status_filter_and_marks_deleted_users(client, cre
 
 @pytest.mark.asyncio
 async def test_export_neutralizes_csv_formula_injection_in_name(client, created_emails):
-    """`name` is free-form attacker-controlled text (see signup_schema.py -
-    max_length=100, no charset restriction). A name starting with a
-    formula-trigger character must come back prefixed with a leading `'`
-    in the export, or opening it in Excel/Sheets/LibreOffice would execute
-    it as a formula (OWASP CSV Injection) instead of displaying it as text."""
+    """`name` is free-form user input with no charset restriction. If it
+    starts with a formula-trigger character, the export must prefix it
+    with a leading `'`, or opening it in Excel/Sheets/LibreOffice would run
+    it as a formula instead of showing it as text (OWASP CSV Injection)."""
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
 
@@ -133,9 +131,8 @@ async def test_export_rejects_a_filtered_set_larger_than_the_configured_max(clie
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
 
-    # Below the real row count in a fresh test database (>= the admin
-    # account alone), so this exercises the cap without needing to actually
-    # create USER_EXPORT_MAX_ROWS+1 rows.
+    # Set below the real row count so this exercises the cap without
+    # needing to actually create that many rows.
     monkeypatch.setattr(settings, "USER_EXPORT_MAX_ROWS", 0)
 
     await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})

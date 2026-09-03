@@ -1,10 +1,6 @@
-# tests/backend/mystic_auth/unit/authorization/repositories/test_policy_repository_caching_unit.py
-#
 # Coverage for PolicyRepository's cache-aside wiring around
 # get_active_policies_for_user, and the invalidation hooks in
-# update/delete/assign/remove : the authorization performance
-# Layer: "invalidation triggers: policy updates, deletion, assignment,
-# revocation", "no stale data served".
+# update/delete/assign/remove: no stale policy data should ever be served.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

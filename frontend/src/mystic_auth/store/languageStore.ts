@@ -2,15 +2,11 @@ import { create } from "zustand";
 
 import translations, { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../translations/translations";
 
-/**
- * A "mode" is what the user actually picks from LanguageToggle. The plain
- * ones (en/hi/mr) mean "everything, including the navbar/sidebar, in this
- * language" - unchanged from before language mixing existed. The "en+hi"/
- * "en+mr" modes are the mixed ones: navbar/sidebar chrome stays English
- * while the rest of the app (page titles, forms, tables, messages) renders
- * in the paired language. See resolveLanguages() below for how each mode
- * maps to a (chrome, page) language pair.
- */
+// A "mode" is what the user picks from LanguageToggle. The plain ones (en/hi/mr) mean
+// everything, including navbar/sidebar, in that language. The "en+hi"/"en+mr" modes
+// are mixed: navbar/sidebar chrome stays English while the rest of the app renders in
+// the paired language. See resolveLanguages() below for how each mode maps to a
+// (chrome, page) language pair.
 export const LANGUAGE_MODES = ["en", "hi", "mr", "gu", "en+hi", "en+mr", "en+gu"] as const;
 export type LanguageMode = (typeof LANGUAGE_MODES)[number];
 
@@ -64,11 +60,10 @@ function isLanguageMode(value: string | null): value is LanguageMode {
 function getInitialMode(): LanguageMode {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (isLanguageMode(stored)) return stored;
-    // No stored preference yet: respect the browser's language once, on
-    // first visit only (never overrides an explicit later choice, since any
-    // toggle immediately writes to storage above). Only plain modes are
-    // derivable from a browser locale - there's no browser signal for "I
-    // want the mixed English+Hindi chrome/page split", that's opt-in only.
+    // No stored preference yet: respect the browser's language once, on first visit
+    // only (any toggle immediately writes to storage above, so this never overrides
+    // an explicit choice). Only plain modes are derivable from a browser locale; the
+    // mixed chrome/page split is opt-in only.
     const browserLang = window.navigator.language.slice(0, 2);
     if ((SUPPORTED_LANGUAGES as readonly string[]).includes(browserLang)) {
         return browserLang as SupportedLanguage;
@@ -82,16 +77,13 @@ function applyMode(mode: LanguageMode): void {
     document.documentElement.lang = pageLanguage;
 }
 
-// Apply immediately at module load. This module is imported eagerly at the
-// very top of main.tsx specifically so this runs before the first paint,
-// avoiding a flash of the wrong language on reload (mirrors themeStore.ts).
+// Apply immediately at module load, imported eagerly at the top of main.tsx so this
+// runs before first paint, avoiding a flash of the wrong language (mirrors themeStore.ts).
 const initialMode = getInitialMode();
 applyMode(initialMode);
 
-/**
- * Client-side UI preference (not server state), so it lives in Zustand
- * alongside authStore/themeStore rather than TanStack Query.
- */
+// Client-side preference, not server state, so it lives in Zustand alongside
+// authStore/themeStore rather than TanStack Query.
 export const useLanguageStore = create<LanguageState>((set) => ({
     mode: initialMode,
     ...resolveLanguages(initialMode),

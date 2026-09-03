@@ -2,9 +2,8 @@ import { describe, it, expect } from 'vitest';
 
 import { buildEffectiveGrantKeySet, dedupeAgainstWildcards, grantKey, isSubsumedByWildcard, policyAddsNothingNew } from '@/policies/logic/effectiveGrants';
 
-// buildEffectiveGrantKeySet/policyAddsNothingNew back the "hide a
-// policy/permission that adds nothing new" filtering in UserPoliciesDialog
-// and UserPermissionsDialog - see those files' own usage.
+// These back the "hide a policy/permission that adds nothing new" filtering
+// in UserPoliciesDialog and UserPermissionsDialog.
 
 describe('grantKey', () => {
   it('joins action and resource_type into one stable key', () => {

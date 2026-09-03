@@ -8,17 +8,11 @@ logger = get_logger(__name__)
 
 
 class ResourceAttributesCondition(ConditionHandler):
-    """
-    "resource_attributes": {field: expected_value, ...}: every listed
-    field must equal its expected value on the actual resource (e.g.
-    {"status": "published"} for a resource-state-scoped grant). An empty/
-    missing map imposes no restriction. Unsatisfiable if no resource was
-    supplied.
-
-    Fails safe (denies) if condition_value isn't a mapping (e.g. it
-    reached evaluation some way other than the validated management API,
-    per condition_validator.py's defense-in-depth note).
-    """
+    """{field: expected_value, ...}: every field must match the actual
+    resource (e.g. {"status": "published"}). Empty map means no
+    restriction; missing resource denies. Denies on a malformed
+    condition_value too (defense in depth against bypassing
+    condition_validator.py)."""
 
     def evaluate(self, condition_value, user_email, resource, context) -> bool:
         try:

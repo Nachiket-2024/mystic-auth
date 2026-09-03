@@ -34,12 +34,10 @@ from ...user_lifecycle.user_purge_service import purge_user_account
 from ..get_or_404.get_or_404 import get_or_404
 
 # Account state transitions (delete/purge/reactivate) on another user's
-# account. Split out of the former user_management_routes.py alongside
-# user_management_query_routes.py (read-only views) and
-# user_management_update_routes.py (field updates), mirroring
-# api/pbac_routes/'s existing split-by-operation-type precedent.
-# main.py registers this router after self-service routes so /{user_email}
-# cannot shadow /users/me or /users/stats.
+# account, split out from user_management_query_routes.py (read-only views)
+# and user_management_update_routes.py (field updates). main.py registers
+# this router after self-service routes so /{user_email} cannot shadow
+# /users/me or /users/stats.
 router = APIRouter(prefix="/users", tags=["Users"])
 
 logger = get_logger(__name__)

@@ -1,7 +1,7 @@
 import traceback
 
 # Server clock for a fail-closed batch-item decision's timestamp, never
-# anything caller-supplied (see context/request_context_builder.py)
+# caller-supplied.
 from datetime import UTC, datetime
 
 from fastapi import status
@@ -23,18 +23,13 @@ logger = get_logger(__name__)
 
 class AuthorizationService:
     """
-    The centralized authorization layer every protected route and business
-    service must go through:
-
-        Request -> Authentication -> Authorization Service
-                -> Policy Evaluation Engine -> Allow / Deny
-
-    Routes and services never decide authorization themselves; they call
-    authorize()/require() here with (user, action, resource, context), and
-    this service owns fetching the user's policies and asking the
-    evaluation engine for a decision. Nothing above this layer (routes,
-    other services) reads roles, permission-role mappings, or does its own
-    role/permission comparisons.
+    The centralized authorization layer every protected route and
+    business service must go through. Routes and services never decide
+    authorization themselves; they call authorize()/require() with
+    (user, action, resource, context), and this service fetches the
+    user's policies and asks the evaluation engine for a decision.
+    Nothing above this layer reads roles or does its own permission
+    comparisons.
     """
 
     @staticmethod
@@ -48,17 +43,14 @@ class AuthorizationService:
     ) -> bool:
         """
         True if `user_email` is authorized for `action` on `resource_type`
-        (optionally scoped to a specific `resource`/`context`), False
-        otherwise. `user_email` is the acting user's identity, never their
-        role; role must never drive an authorization decision here.
+        (optionally scoped to `resource`/`context`), False otherwise.
+        `user_email` is the acting user's identity; role never drives the
+        decision.
 
-        Delegates entirely to authorize_with_decision (computes the
-        decision and logs it) and returns just `.allowed`, a thin bool
-        wrapper, mirroring PolicyEvaluationEngine.evaluate being a thin
-        wrapper over evaluate_detailed. One compute-and-log code path, not
-        two: the batch endpoint's authorize_batch reuses this same path
-        per check (see below), so a single check and a batch-of-one check
-        always produce and log an identical decision.
+        Thin bool wrapper over authorize_with_decision (mirrors
+        PolicyEvaluationEngine.evaluate over evaluate_detailed): one
+        compute-and-log code path, so a single check and a batch-of-one
+        check always produce identical results.
         """
         decision = await AuthorizationService.authorize_with_decision(
             user_email, action, resource_type, db, resource=resource, context=context
@@ -76,21 +68,15 @@ class AuthorizationService:
     ) -> AuthorizationDecision:
         """
         Same inputs as authorize(), but returns the full
-        AuthorizationDecision instead of a bare bool, used wherever a real
-        (not hypothetical) authorization decision needs its explanation
-        too, e.g. the batch-check endpoint reporting a per-item
-        denial_reason. Unlike authorize_detailed (below), this always logs
-        an audit entry: it represents a real decision something is about
-        to act on, exactly like authorize() does, because authorize() is
-        now just `.allowed` off of this same call.
+        AuthorizationDecision instead of a bare bool, for callers that
+        need the explanation too (e.g. batch-check's per-item
+        denial_reason). Unlike authorize_detailed (below), this always
+        logs an audit entry since it's a real decision.
 
-        The decision is computed via authorize_detailed (fetches the user's
-        active, assigned policies and asks the evaluation engine), then
-        logged here rather than inside authorize_detailed itself, so the
-        authorization-check inspection endpoint (which calls
-        authorize_detailed directly for a hypothetical "what would happen
-        if" query) never pollutes the audit trail with decisions nothing
-        actually acted on.
+        Logging happens here rather than inside authorize_detailed so the
+        inspection endpoint, which calls authorize_detailed directly for
+        a hypothetical "what would happen if" query, never pollutes the
+        audit trail.
         """
         decision = await AuthorizationService.authorize_detailed(
             user_email, action, resource_type, db, resource=resource, context=context
@@ -109,15 +95,9 @@ class AuthorizationService:
         resource: dict | object | None = None,
         context: dict | None = None,
     ) -> AuthorizationDecision:
-        """
-        Same inputs as authorize(), but returns the full
-        AuthorizationDecision from PolicyEvaluationEngine.evaluate_detailed
-        rather than just a bool, used by the authorization-check
-        inspection endpoint (api/pbac_routes/authorization_check_routes.py)
-        and by authorization_audit_logger.log_decision's audit trail. See
-        evaluators/authorization_decision.py
-        for the decision shape.
-        """
+        """Same inputs as authorize(), but returns the full
+        AuthorizationDecision rather than a bool. Used by the inspection
+        endpoint and by log_decision's audit trail."""
         policies = await AuthorizationService._get_effective_policies(user_email, db)
 
         return policy_evaluation_engine.evaluate_detailed(
@@ -137,42 +117,25 @@ class AuthorizationService:
         context: dict | None = None,
     ) -> list[AuthorizationDecision]:
         """
-        Evaluates many `{"action", "resource_type", "resource"}` checks for
-        one caller's own effective authorization (there is no per-item
-        target user), sharing `context` (the one real request context, see
-        context/request_context_builder.py) across every check, since they
-        all describe the same single incoming request.
+        Evaluates many `{"action", "resource_type", "resource"}` checks
+        for one caller's own effective authorization, sharing `context`
+        across every check since they all describe the same request.
 
         Fetches the user's active, assigned policies exactly once and
-        reuses that list for every check below, avoiding repeated policy
-        database queries within one batch request. That's the only
-        difference from calling authorize_with_decision N times (which
-        would re-fetch on every call); the evaluation logic itself is the
-        identical PolicyEvaluationEngine.evaluate_detailed call
-        authorize_detailed also makes, so a batch-of-one check always
-        agrees with a single authorize() call for the same input. Each
-        check's decision is logged individually, same as
-        authorize_with_decision, just without re-fetching.
+        reuses that list for every check, avoiding repeated queries. The
+        evaluation logic itself is the same evaluate_detailed call
+        authorize_detailed makes, so a batch-of-one always agrees with a
+        single authorize() call.
 
-        Fails closed per item: if evaluating one check somehow raises (e.g.
-        a corrupt policy row), that item becomes a denied decision with
-        denial_reason "evaluation_error" rather than crashing the rest of
-        the batch or defaulting to allowed.
+        Fails closed per item: if evaluating one check raises (e.g. a
+        corrupt policy row), that item becomes a denied decision with
+        denial_reason "evaluation_error" rather than crashing the batch.
 
-        Returns one decision per input check, in the same order; the
-        route layer decides how much of each to expose (see
-        api/pbac_routes/authorization_check_routes.py, which deliberately surfaces only
-        allowed/denial_reason, never matched/rejected/failed_conditions,
-        for a batch response).
-
-        Every check's audit entry is written in one bulk insert after the
-        whole batch has been evaluated, rather than one commit per check:
-        a batch is 1-50 checks (BatchAuthorizationCheckRequest), and
-        committing after each one turned this endpoint into up to 50
-        sequential DB round trips for what the caller sees as a single
-        request. Evaluation itself is unaffected: each decision is still
-        computed independently and in order, only the persistence step is
-        batched.
+        Returns one decision per input check, in order. Every check's
+        audit entry is written in one bulk insert after the whole batch
+        is evaluated, rather than one commit per check, since a batch of
+        up to 50 checks would otherwise mean 50 sequential DB round trips
+        for a single request.
         """
         policies = await AuthorizationService._get_effective_policies(user_email, db)
 
@@ -214,10 +177,9 @@ class AuthorizationService:
         try:
             await audit_log_repository.create_entries(audit_entries, db)
         except Exception:
-            # Same "never break the real decision" guarantee as
-            # authorization_audit_logger.log_decision: the caller has
-            # already gotten every decision
-            # above regardless of whether the audit write succeeded.
+            # Same "never break the real decision" guarantee as log_decision:
+            # the caller already has every decision above regardless of
+            # whether the audit write succeeded.
             logger.warning("Failed to write batch authorization audit log entries:\n%s", traceback.format_exc())
 
         return decisions
@@ -226,20 +188,15 @@ class AuthorizationService:
     async def _get_effective_policies(user_email: str, db: AsyncSession) -> list[Policy]:
         """
         Everything the evaluation engine should treat as a grant for this
-        user: their assigned, active Policy rows PLUS their direct
-        UserPermission grants (authorization/models/user_permission_model.py),
-        normalized into transient, unpersisted Policy objects (never
-        db.add()-ed) so PolicyEvaluationEngine.evaluate_detailed needs zero
-        changes - it already only reads .name/.actions/.resource_type/
-        .conditions off each item (see policy_evaluator.py), which a
-        single-action synthetic Policy satisfies exactly. Named
-        "direct:{action}" so matched/rejected policy names in the resulting
-        AuthorizationDecision stay self-explanatory (distinguishable from a
-        real, named policy) with no schema change.
+        user: their assigned, active Policy rows plus their direct
+        UserPermission grants, normalized into transient, unpersisted
+        Policy objects (never db.add()-ed) so evaluate_detailed needs no
+        changes; it already only reads .name/.actions/.resource_type/
+        .conditions. Named "direct:{action}" so decision output stays
+        distinguishable from a real named policy.
 
-        Shared by authorize_detailed and authorize_batch: both need the
-        combined list before evaluating, and authorize_batch specifically
-        wants to fetch it once and reuse it across every check in the batch.
+        Shared by authorize_detailed and authorize_batch, which fetches
+        it once and reuses it across the whole batch.
         """
         policies = await policy_repository.get_active_policies_for_user(user_email, db)
         direct_grants = await user_permission_repository.get_active_permissions_for_user(user_email, db)
@@ -281,11 +238,8 @@ class AuthorizationService:
                 detail="Insufficient permissions",
             )
 
-    # Privilege-escalation guard for granting policies/actions. Kept as a
-    # module-level function in authorization_grant_guard.py (this class just
-    # re-exports it as a static method, preserving every existing
-    # `authorization_service.assert_authorized_to_grant(...)` call site) - see
-    # that module's own docstring for why this check exists and what it does.
+    # Privilege-escalation guard, defined in authorization_grant_guard.py;
+    # re-exported here so existing call sites keep working unchanged.
     assert_authorized_to_grant = staticmethod(assert_authorized_to_grant)
 
 

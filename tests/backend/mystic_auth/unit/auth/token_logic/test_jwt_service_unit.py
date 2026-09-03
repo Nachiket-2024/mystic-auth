@@ -1,10 +1,7 @@
-# tests/backend/mystic_auth/unit/test_jwt_unit.py
-#
 # Token creation, type-enforcement, and caller-wiring coverage for
 # jwt_service. Version-based revocation (account_ver/chain_ver) and
 # issuer/audience claim enforcement are covered separately in
-# test_jwt_service_revocation_unit.py, split out once this file passed the
-# repo's own file-length guideline.
+# test_jwt_service_revocation_unit.py.
 import time
 from unittest.mock import AsyncMock
 
@@ -121,12 +118,13 @@ async def test_verify_token_rejects_refresh_token_presented_as_access(mocker):
 @pytest.mark.asyncio
 async def test_verify_token_passes_algorithm_allowlist_as_a_list(mocker):
     # Regression guard: PyJWT's `algorithms` parameter is typed as
-    # Sequence[str], which a bare string technically satisfies (strings are
-    # sequences of characters), so passing settings.JWT_ALGORITHM directly
-    # instead of [settings.JWT_ALGORITHM] would make PyJWT's internal
-    # membership check an accidental substring match rather than an exact
-    # list check. Not currently exploitable given a fixed trusted algorithm
-    # setting, but the list form is the only one PyJWT's own docs endorse.
+    # Sequence[str], which a bare string technically satisfies (strings
+    # are sequences of characters), so passing settings.JWT_ALGORITHM
+    # directly instead of [settings.JWT_ALGORITHM] would make PyJWT's
+    # internal membership check an accidental substring match rather than
+    # an exact list check. Not currently exploitable given a fixed
+    # trusted algorithm setting, but the list form is the one PyJWT's own
+    # docs endorse.
     decode_mock = mocker.patch(
         f"{MODULE}.jwt.decode",
         return_value={"jti": None, "type": "access", "email": "user@example.com"},
