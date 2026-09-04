@@ -21,8 +21,25 @@ class RateLimiterService:
     MAX_REQUESTS_PER_WINDOW: int = settings.MAX_REQUESTS_PER_WINDOW
     REQUEST_WINDOW_SECONDS: int = settings.REQUEST_WINDOW_SECONDS
 
+    # endpoint_name -> (max_requests, window_seconds) for every endpoint
+    # that overrode the global default via rate_limited(...)'s max_requests/
+    # window_seconds. Populated once at import time, when each decorated
+    # route's module loads - read by RateLimitDashboardService so the admin
+    # dashboard reports the threshold actually enforced, not always the
+    # global one. An endpoint that never overrides is simply absent here.
+    ENDPOINT_OVERRIDES: dict[str, tuple[int, int]] = {}
+
     @staticmethod
-    async def record_request(key: str) -> bool:
+    async def record_request(
+        key: str, max_requests: int | None = None, window_seconds: int | None = None
+    ) -> bool:
+        """max_requests/window_seconds default to the global settings; pass
+        both explicitly for a caller (e.g. rate_limited(...)'s wrapper) that
+        enforces its own per-endpoint override instead."""
+        max_requests = max_requests if max_requests is not None else RateLimiterService.MAX_REQUESTS_PER_WINDOW
+        window_seconds = (
+            window_seconds if window_seconds is not None else RateLimiterService.REQUEST_WINDOW_SECONDS
+        )
         try:
             # INCR creates the key at 0 before incrementing if it doesn't
             # already exist, and is atomic: unlike a separate GET-then-SET,
@@ -31,9 +48,9 @@ class RateLimiterService:
             new_count = await redis_client.incr(key)
 
             if new_count == 1:
-                await redis_client.expire(key, RateLimiterService.REQUEST_WINDOW_SECONDS)
+                await redis_client.expire(key, window_seconds)
 
-            return new_count <= RateLimiterService.MAX_REQUESTS_PER_WINDOW
+            return new_count <= max_requests
 
         except Exception:
             logger.error("Error recording rate-limited request:\n%s", traceback.format_exc())
@@ -44,8 +61,17 @@ class RateLimiterService:
         endpoint_name: str,
         account_key_func: Callable[[dict], str | None | Awaitable[str | None]] | None = None,
         redirect_url: str | None = None,
+        max_requests: int | None = None,
+        window_seconds: int | None = None,
     ) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
         """
+        max_requests/window_seconds override the global
+        MAX_REQUESTS_PER_WINDOW/REQUEST_WINDOW_SECONDS defaults for this one
+        endpoint - e.g. a rarely-hit route like password-reset-request
+        wants a tighter limit than the high-traffic login route shares by
+        default. Give both together or neither; either given alone still
+        falls back to the global default for the other.
+
         account_key_func, if given, extracts an account identifier (e.g. email)
         from the endpoint's resolved keyword arguments, since FastAPI always calls the
         wrapped endpoint with its dependencies as kwargs, so this can pull
@@ -72,6 +98,11 @@ class RateLimiterService:
         which always return a RedirectResponse) - a raw JSON body has
         nowhere sensible to render there.
         """
+        effective_max = max_requests if max_requests is not None else self.MAX_REQUESTS_PER_WINDOW
+        effective_window = window_seconds if window_seconds is not None else self.REQUEST_WINDOW_SECONDS
+        if max_requests is not None or window_seconds is not None:
+            self.ENDPOINT_OVERRIDES[endpoint_name] = (effective_max, effective_window)
+
         def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
             def _limit_exceeded_response() -> JSONResponse | RedirectResponse:
                 if redirect_url:
@@ -101,7 +132,7 @@ class RateLimiterService:
 
                 ip_key = f"{endpoint_name}:ip:{ip_address}"
 
-                allowed = await self.record_request(ip_key)
+                allowed = await self.record_request(ip_key, effective_max, effective_window)
 
                 if not allowed:
                     return _limit_exceeded_response()
@@ -126,7 +157,7 @@ class RateLimiterService:
 
                     if account_value:
                         account_key = f"{endpoint_name}:account:{account_value}"
-                        account_allowed = await self.record_request(account_key)
+                        account_allowed = await self.record_request(account_key, effective_max, effective_window)
 
                         if not account_allowed:
                             return _limit_exceeded_response()

@@ -26,11 +26,15 @@ If this lists any files, save your work first: either commit it normally, or run
 
 ### Step 2: Run the sync script
 
-Do this from the main folder of your project (the repo you created from **Use this template**). If you're on Windows, use **Git Bash** or **WSL** to run it, not PowerShell or the regular Command Prompt: it's a bash script and won't run there.
+Do this from the main folder of your project (the repo you created from **Use this template**).
 
 ```bash
-./scripts/upstream-sync/sync-upstream.sh
+./scripts/upstream-sync/sync-upstream.sh        # Git Bash / WSL / Linux / macOS
+# .\scripts\upstream-sync\sync-upstream.ps1      # PowerShell
+# scripts\upstream-sync\sync-upstream.cmd        # Command Prompt
 ```
+
+The real logic only exists once, as the bash script: it's dense git plumbing with its own regression suite, and a second, independently-written PowerShell copy of that same logic would just be two places for the same subtle bug to hide. The `.ps1`/`.cmd` entry points instead locate the Git Bash that already ships with Git for Windows (the same `git` install this needs either way) and run the real script through it, so PowerShell/Command Prompt users still get one command, no manual "open Git Bash first" step.
 
 The very first time you run this, it also quietly sets up a second connection to the original template repo (git calls this a "remote", and this one's named `upstream`). That's just so the script knows where to download updates from. It does not touch your existing GitHub connection (`origin`) and does not push or upload anything anywhere. It only downloads.
 

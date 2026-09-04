@@ -17,6 +17,9 @@ Response headers, CORS, cookie flags, middleware ordering, and error handling: t
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` (production only: see below) | Forces HTTPS for a year, protecting the cookies from protocol downgrade |
 | `Referrer-Policy` | `no-referrer` | URLs here can carry sensitive query params (OAuth2 `state`/`code`) |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` | This is a JSON API with no page of its own that would ever invoke these browser features: denying them closes off a class of clickjacking-adjacent abuse at zero functional cost |
+| `Cross-Origin-Opener-Policy` | `same-origin` | No legitimate cross-origin window needs to reference this one |
+| `Cross-Origin-Resource-Policy` | `same-origin` | Blocks cross-origin scripts from reading these responses (Spectre-style side channels) |
+| `Cross-Origin-Embedder-Policy` | `require-corp` (skipped on `/docs` and the other doc paths, since jsdelivr/Google Fonts don't opt in via CORP/CORS) | Same rationale as COOP/CORP above |
 
 1. **HSTS is gated on `settings.ENVIRONMENT == "production"`** (checked fresh per request, not cached at import time). Sending it unconditionally would pin HSTS for a full year against real browser traffic even in a non-production deployment served over plain HTTP, with no way to turn it off short of a code change: browsers ignore the header over plain HTTP today, but that's not a reason to send a year-long pin somewhere it isn't intended to apply yet.
 
@@ -26,7 +29,9 @@ Response headers, CORS, cookie flags, middleware ordering, and error handling: t
    - The blanket `default-src 'none'` policy used to apply here too, and it didn't error or warn: the page returned 200 and rendered as silently blank, every asset blocked with nothing in the response to say why.
    - `security_headers_middleware.py`'s `_DOCS_PATHS`/`_DOCS_CSP` scope a permissive-but-specific policy (`cdn.jsdelivr.net`, `fonts.googleapis.com`/`fonts.gstatic.com`, `'unsafe-inline'`) to exactly those three paths; every other route keeps the strict policy above.
 
-3. No `Strict-Transport-Security` is set by the nginx layer serving the frontend static build (`docker/nginx.frontend.conf`): HSTS is only emitted by the backend API responses. See [Docker Overview](../docker/overview.md).
+3. No `Strict-Transport-Security` is set by the nginx layer serving the frontend static build (`docker/nginx.frontend.conf`): the real production TLS terminator, `docker/Caddyfile`, sends it instead (same value as the backend's own), since nginx itself only ever serves plain HTTP inside the container. See [Docker Overview](../docker/overview.md).
+
+4. `docker/nginx.frontend.conf` mirrors most of the backend's header set for the SPA response (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `Cross-Origin-Embedder-Policy`, plus its own less-strict CSP), and also disables `server_tokens` to stop the nginx version leaking in the `Server` response header.
 
 ---
 

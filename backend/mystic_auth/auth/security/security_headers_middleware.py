@@ -68,4 +68,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
         )
 
+        # COOP/CORP: this is a same-origin app with no legitimate cross-origin
+        # reader, so blocking cross-origin windows/tabs from referencing this
+        # one and cross-origin scripts from reading these responses closes off
+        # a Spectre-style side-channel at zero functional cost.
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+
+        # COEP is skipped on /docs and the other doc paths: it would also
+        # require jsdelivr's and Google Fonts' responses to opt in via
+        # CORP/CORS, which is out of this app's control.
+        if request.url.path not in _DOCS_PATHS:
+            response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+
         return response

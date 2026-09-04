@@ -30,7 +30,9 @@ async def bulk_update_role(
     safeguards as update_user_role (user_management_update_routes.py) per
     item: a `system`-role user's role can never be changed, and assigning
     `system` itself requires the separate users:assign_system_role action,
-    since the batch may mix system and non-system targets.
+    and the caller can never change their own role (holding users:assign_role
+    alone must not let someone self-promote), since the batch may mix
+    system, self, and other targets.
     """
     users_by_email = await user_crud.get_by_emails([item.user_email for item in body.items], db)
     context = build_authorization_context(request)
@@ -51,6 +53,10 @@ async def bulk_update_role(
 
         if user.role == UserRole.system:
             error_results.append(bulk_error(item.user_email, item.role, "SYSTEM_USER_ROLE_CANNOT_BE_CHANGED"))
+            continue
+
+        if item.user_email == current_user["email"]:
+            error_results.append(bulk_error(item.user_email, item.role, "CANNOT_CHANGE_OWN_ROLE"))
             continue
 
         if role == UserRole.system:

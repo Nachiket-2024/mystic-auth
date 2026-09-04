@@ -2,7 +2,7 @@
 # root (unlike `production` below): it npm installs into a bind-mounted
 # frontend/, and a non-root UID would fight host/container UID mismatches
 # on that mount.
-FROM node:22.22.0-bullseye AS dev
+FROM node:22.23.2-bookworm AS dev
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ CMD ["npm", "run", "dev", "--", "--host"]
 
 # Produces the static production bundle (frontend/dist). Only reached with
 # --target production; dev never builds this far.
-FROM node:22.22.0-bullseye AS builder
+FROM node:22.23.2-bookworm AS builder
 
 WORKDIR /app
 
@@ -54,14 +54,18 @@ RUN npm run build
 
 # Serves the static build via nginx: no Node.js, dev dependencies, or
 # source maps, just the compiled assets. Used via `build.target: production`.
-FROM nginx:1.27-alpine AS production
+FROM nginx:stable-alpine AS production
 
 COPY docker/nginx.frontend.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# `apk upgrade` pulls in any Alpine security patches released since this base
+# image tag was built, rather than waiting for the next `nginx:stable-alpine`
+# republish - re-run on every rebuild since it isn't pinned to a snapshot.
 # The stock image already ships an unprivileged "nginx" user and writable
 # runtime dirs for it.
-RUN chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/run \
+RUN apk upgrade --no-cache \
+    && chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/run \
     && touch /var/run/nginx.pid \
     && chown nginx:nginx /var/run/nginx.pid
 USER nginx

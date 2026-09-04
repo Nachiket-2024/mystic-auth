@@ -5,6 +5,7 @@ import { extractApiErrorMessage } from "../../api/apiError";
 import { queryClient } from "../../core/queryClient";
 import { useAuthStore } from "../../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "../../auth/current_user/useCurrentUserQuery";
+import { markSelfPermissionMutation } from "../../auth/session_lifecycle/selfPermissionMutationGuard";
 import { MY_PERMISSIONS_QUERY_KEY, userPermissionsQueryKey } from "./permissionQueries";
 
 /**
@@ -13,7 +14,8 @@ import { MY_PERMISSIONS_QUERY_KEY, userPermissionsQueryKey } from "./permissionQ
  * Direct (bypasses-Policy) grant/revoke, the granular counterpart to
  * useAssignPolicyMutation/useRevokePolicyMutation (policyMutations.ts).
  * Same invalidation shape, including the self-grant CURRENT_USER_QUERY_KEY
- * refresh (see that file's onSuccess comment for why).
+ * refresh and selfPermissionMutationGuard arming (see that file's onSuccess
+ * comment for why).
  */
 export function useGrantPermissionMutation() {
     return useMutation<unknown, Error, { userEmail: string } & PermissionAssignmentPayload>({
@@ -29,6 +31,7 @@ export function useGrantPermissionMutation() {
             queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
             if (userEmail === useAuthStore.getState().email) {
                 queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+                markSelfPermissionMutation();
             }
         },
     });
@@ -48,6 +51,7 @@ export function useRevokePermissionMutation() {
             queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
             if (userEmail === useAuthStore.getState().email) {
                 queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+                markSelfPermissionMutation();
             }
         },
     });

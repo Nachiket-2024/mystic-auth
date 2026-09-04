@@ -15,6 +15,7 @@ import { extractApiErrorMessage } from "../../api/apiError";
 import { queryClient } from "../../core/queryClient";
 import { useAuthStore } from "../../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "../../auth/current_user/useCurrentUserQuery";
+import { markSelfPermissionMutation } from "../../auth/session_lifecycle/selfPermissionMutationGuard";
 import { POLICIES_QUERY_KEY, userPoliciesQueryKey, MY_POLICIES_QUERY_KEY } from "./policyQueries";
 import { userPermissionsQueryKey, MY_PERMISSIONS_QUERY_KEY } from "./permissionQueries";
 
@@ -94,6 +95,11 @@ export function useAssignPolicyMutation() {
             // permissions the backend no longer grants.
             if (userEmail === useAuthStore.getState().email) {
                 queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+                // Arms selfPermissionMutationGuard so this tab's own
+                // "permissions_changed" SSE echo (see useSessionEventsStream.ts)
+                // doesn't get read as a live revoke before the invalidation
+                // above resolves.
+                markSelfPermissionMutation();
             }
         },
     });
@@ -114,6 +120,7 @@ export function useRevokePolicyMutation() {
             // See useAssignPolicyMutation's onSuccess above for why.
             if (userEmail === useAuthStore.getState().email) {
                 queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+                markSelfPermissionMutation();
             }
         },
     });
@@ -143,6 +150,7 @@ export function useRevokePolicyActionMutation() {
             queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
             if (userEmail === useAuthStore.getState().email) {
                 queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+                markSelfPermissionMutation();
             }
         },
     });

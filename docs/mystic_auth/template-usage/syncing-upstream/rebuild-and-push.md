@@ -29,6 +29,8 @@ Behind the scenes, the script keeps a small tracked file, `.mystic-auth-sync-sta
 
 `scripts/upstream-sync/sync-upstream.sh` itself is upstream-owned, same rule as [the rest of `mystic_auth/`](../overview.md#the-app--mystic_auth-split): don't hand-edit it. If you're contributing a change to the sync mechanism itself, `scripts/upstream-sync/test-sync-upstream.sh` regression-tests it end-to-end against throwaway fake repos, without touching this repo's own history. Run it after any change to `sync-upstream.sh`.
 
+`sync-upstream.ps1`/`sync-upstream.cmd` are thin platform entry points, not a second implementation: they locate Git Bash and run the real `sync-upstream.sh` through it, so there's no separate logic for `test-sync-upstream.sh` to cover and nothing to keep in sync by hand. They only need touching if the real script's invocation contract changes (its arguments, or what it expects on stdin for the `y/N` prompt).
+
 That test suite also asserts every `scripts/**/*.sh` is tracked as mode `755` in this repo's own git index. This repo runs with `core.filemode=false` (common on Windows), so a plain local `chmod +x` never shows up as a diff. If you add a script and forget to make it executable, fix it with `git update-index --chmod=+x path/to/script.sh` instead.
 
 **As a downstream user, you don't need to do anything about this.** A script under `scripts/**/*.sh` can occasionally land non-executable after a sync, for the same `core.filemode=false` reason. `sync-upstream.sh` checks for this and restores it automatically before deciding whether to commit; you'd only notice from a line in the sync output (`Restoring the executable bit on scripts that lost it during this sync:`), never from a script failing to run.

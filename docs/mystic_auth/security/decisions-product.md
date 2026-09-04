@@ -52,10 +52,9 @@ Any real deployment that needs MFA should treat it as a deliberate follow-up: ad
 Recorded in one place rather than scattered across code comments: each of these was a deliberate scope decision for this template, not something missed:
 
 - **MFA / device trust**: see above.
-- **Per-endpoint rate-limit overrides**: one global `MAX_REQUESTS_PER_WINDOW`/`REQUEST_WINDOW_SECONDS` applies to every rate-limited route; the login-specific brute-force lockout layers a second, endpoint-specific control on top of the highest-risk route instead. See [Concerns](../concerns/README.md).
 - **Email provider swapping beyond SMTP**: `emails/email_sender.py` now isolates the transport behind an `EmailSender` protocol, but only one implementation (`SMTPEmailSender`) exists; adding SES/SendGrid/Postmark support is a new class, not a framework change, and is left for whoever needs a specific provider.
 - **Deploy automation**: CI verifies both Dockerfiles build but never pushes to a registry or deploys anywhere; this template assumes no specific production host (see [Deployment Guide](../deployment/production-host.md)).
 
-See [Known Issues](../concerns/README.md) for the current backlog of accepted gaps and follow-ups (backups, rate-limit scoping, and others), tracked there as the single canonical list rather than duplicated here.
+See [Known Issues](../concerns/README.md) for the current backlog of accepted gaps and follow-ups (backups and others), tracked there as the single canonical list rather than duplicated here.
 
 ---

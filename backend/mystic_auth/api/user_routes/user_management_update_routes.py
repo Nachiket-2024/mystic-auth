@@ -115,6 +115,19 @@ async def update_user_role(
             detail="System user role cannot be changed"
         )
 
+    # users:assign_role only proves "may relabel accounts", not "may relabel
+    # itself" - without this, its holder could self-promote to "admin" with
+    # no further check. Harmless while role stays display-only, but becomes
+    # real the moment any downstream code adds an `if role == "admin"`
+    # shortcut. Blocks every target role, not just "system" (that case has
+    # its own guard below).
+    if user_email == current_user["email"]:
+        raise AppError(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="CANNOT_CHANGE_OWN_ROLE",
+            detail="You cannot change your own role",
+        )
+
     # Assigning the system role requires the separate, more sensitive
     # users:assign_system_role authorization. This can't be a static
     # per-route dependency like the others since it depends on *which* role is

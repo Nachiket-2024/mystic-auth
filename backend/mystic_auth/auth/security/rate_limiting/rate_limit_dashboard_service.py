@@ -18,18 +18,24 @@ class RateLimitDashboardService:
 
     @staticmethod
     def _effective_limit(endpoint_name: str, key_scope: str) -> int:
-        """The real threshold behind one listed counter. Every counter
-        RateLimiterService itself writes (record_request) shares one limit,
-        MAX_REQUESTS_PER_WINDOW - but list_active_limits also surfaces
-        login_protection_service's login_lock:{email|ip}:* counters (see its
-        own docstring), which enforce two different, unrelated thresholds."""
+        """The real threshold behind one listed counter. Most counters
+        RateLimiterService writes (record_request) share the global
+        MAX_REQUESTS_PER_WINDOW, but an endpoint that passed its own
+        max_requests/window_seconds to rate_limited(...) is tracked in
+        ENDPOINT_OVERRIDES and reported here instead - otherwise the
+        dashboard would show every such endpoint's counter against a
+        threshold it doesn't actually enforce. list_active_limits also
+        surfaces login_protection_service's login_lock:{email|ip}:*
+        counters (see its own docstring), which enforce two further,
+        unrelated thresholds."""
         if endpoint_name == "login_lock":
             return (
                 settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
                 if key_scope == "ip"
                 else settings.MAX_FAILED_LOGIN_ATTEMPTS
             )
-        return RateLimiterService.MAX_REQUESTS_PER_WINDOW
+        override = RateLimiterService.ENDPOINT_OVERRIDES.get(endpoint_name)
+        return override[0] if override else RateLimiterService.MAX_REQUESTS_PER_WINDOW
 
     @staticmethod
     async def reset_counter(key: str) -> None:

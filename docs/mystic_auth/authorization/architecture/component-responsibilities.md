@@ -66,6 +66,15 @@ The engine has **zero condition-specific logic**. It doesn't know what `"time"` 
 
 ---
 
+### Policy Action Revocation
+A policy assignment is otherwise all-or-nothing: revoking it drops every action the policy grants that user, even ones they should keep. `authorization/services/policy_action_revocation_service.py`'s `PolicyActionRevocationService.revoke_single_action` exists for "take exactly one action away from one user, leave the rest of that policy's grant intact" - editing the policy definition itself isn't an option, since that would affect every other holder of the same policy.
+
+Implementation: in one transaction, remove the user's `UserPolicy` assignment row entirely, then re-create (or reactivate) a direct `UserPermission` grant for each of the policy's *other* actions, carrying over the assignment's `conditions` so the user's effective access is unchanged except for the one revoked action. Raises `ActionNotInPolicyError` if the requested action isn't one of the policy's own `actions` - there is nothing to carve out.
+
+Exposed as `POST /authorization/users/{email}/policies/{name}/revoke-action` (`api/pbac_routes/policies/policy_assignment_routes.py`). Requires **both** `policies:revoke` (this ends the policy assignment) and `permissions:grant` (this creates the replacement direct grants) - a caller holding only one of the two could otherwise use this route to do half of what either dedicated route alone would refuse. The caller-holds-what-they-grant escalation guard (same as `remove_policy_from_user`) is checked against the policy's *full* action set, not just the actions being kept, and the `system_superuser` last-assignment lockout guard applies the same way it does to a plain revoke, since this still ends that one assignment row.
+
+---
+
 ### Audit Log
 `authorization/repositories/audit_log_repository.py` + the `authorization_audit_log` table. Every `authorize()`/`authorize_with_decision()`/`authorize_batch()` call writes one row: `allowed`, `candidate_policy_names`, `granting_policy_names`, `failed_conditions`, and the `context` it was evaluated against. Append-only; no update/delete API exists for it. Query via `GET /authorization/audit-log` (requires `policies:read`), `GET /authorization/audit-log/users/{email}` (requires `policies:read`), or `GET /authorization/audit-log/me` (any authenticated caller, their own entries only).
 

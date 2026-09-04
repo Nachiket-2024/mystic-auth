@@ -89,6 +89,12 @@ backups/
 # the .example templates alongside them stay tracked.
 local-scripts/**/system-user.env
 
+# ---------------------------- Security audit / pentest scratch output ----------------------------
+# Local, point-in-time scan dumps (Bandit/ZAP/Trivy/semgrep/gitleaks/pip-audit/npm audit) and manual
+# pentest notes. Regenerated on demand, not meant to live in git history; durable findings get
+# folded into docs/mystic_auth/security/ and docs/mystic_auth/concerns/README.md instead.
+security-audit-*/
+
 # ---------------------------- Local Development Tools ----------------------------
 .claude/
 # Git matching is case-sensitive on Linux CI, unlike Windows and macOS.

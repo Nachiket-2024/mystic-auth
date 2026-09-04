@@ -26,6 +26,7 @@ session geolocation, and real-time session events. See
 2. Listing is checked for its filters (role, verification status, active status, policy, permission) and sort behavior, and that the total-count response header reflects the filtered total, not just the current page's row count.
 3. **The reserved system user gets special protection**: an admin cannot modify, delete, purge, or change the role of the system user, and cannot assign the system role to any other account.
 4. Role changes are checked to actually apply (an admin can be promoted then demoted back) and to sit alongside direct permission grants correctly: two users with the identical role can still end up with different effective permissions if one holds extra direct grants or policies, and a roleless user assigned admin-level policies gets admin-level access despite having no role at all.
+5. **A caller can never change their own role**, through either the single-user or the bulk role endpoint, even holding `users:assign_role`: this is checked both as a standalone case and as one item inside a bulk batch that also targets other, valid users (where the self-targeted item errors out with `CANNOT_CHANGE_OWN_ROLE` but the rest of the batch still succeeds). See [`users.role` is display-only, and is guarded as if it weren't](../authorization/architecture/README.md#usersrole-is-display-only-and-is-guarded-as-if-it-werent) for why this guard exists even though `role` itself grants nothing.
 
 ---
 

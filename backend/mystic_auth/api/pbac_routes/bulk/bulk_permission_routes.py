@@ -7,6 +7,7 @@ from ....authorization.context.request_context_builder import build_authorizatio
 from ....authorization.dependencies.permission_route_dependencies import GRANT_DEPENDENCY, REVOKE_DEPENDENCY
 from ....authorization.repositories.user_permission_repository import user_permission_repository
 from ....authorization.schemas.bulk_schema import (
+    BulkItemResult,
     BulkPermissionRemoveRequest,
     BulkPermissionRequest,
     BulkResponse,
@@ -21,6 +22,31 @@ from ....user.user_crud_collector import user_crud
 from ....user.user_model import UserRole
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
+
+
+async def _resolve_and_authorize(
+    item, users_by_email: dict, current_user_email: str, db: AsyncSession, context, grant_cache: dict,
+    error_results: list[BulkItemResult],
+):
+    """Shared per-item validation for both assign and remove: user exists,
+    isn't system-role, and the caller actually holds the action being
+    granted/revoked. Returns the resolved User, or None with the failure
+    already appended to error_results."""
+    user = users_by_email.get(item.user_email)
+    if user is None:
+        error_results.append(bulk_error(item.user_email, item.action, "USER_NOT_FOUND"))
+        return None
+    if user.role == UserRole.system:
+        error_results.append(bulk_error(item.user_email, item.action, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
+        return None
+    try:
+        await authorization_service.assert_authorized_to_grant(
+            current_user_email, [item.action], item.resource_type, db, context=context, cache=grant_cache
+        )
+    except AppError:
+        error_results.append(bulk_error(item.user_email, item.action, "CANNOT_GRANT_UNHELD_ACTION"))
+        return None
+    return user
 
 
 @router.post("/bulk/permissions/assign", response_model=BulkResponse)
@@ -44,7 +70,7 @@ async def bulk_assign_permissions(
     context = build_authorization_context(request)
     grant_cache: dict[tuple[str, str], bool] = {}
     valid_items = []
-    error_results = []
+    error_results: list[BulkItemResult] = []
     for item in body.items:
         try:
             validate_conditions(item.conditions)
@@ -52,19 +78,10 @@ async def bulk_assign_permissions(
             error_results.append(bulk_error(item.user_email, item.action, "INVALID_CONDITIONS"))
             continue
 
-        user = users_by_email.get(item.user_email)
+        user = await _resolve_and_authorize(
+            item, users_by_email, current_user["email"], db, context, grant_cache, error_results
+        )
         if user is None:
-            error_results.append(bulk_error(item.user_email, item.action, "USER_NOT_FOUND"))
-            continue
-        if user.role == UserRole.system:
-            error_results.append(bulk_error(item.user_email, item.action, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
-            continue
-        try:
-            await authorization_service.assert_authorized_to_grant(
-                current_user["email"], [item.action], item.resource_type, db, context=context, cache=grant_cache
-            )
-        except AppError:
-            error_results.append(bulk_error(item.user_email, item.action, "CANNOT_GRANT_UNHELD_ACTION"))
             continue
         valid_items.append((user, item))
 
@@ -93,21 +110,12 @@ async def bulk_remove_permissions(
     context = build_authorization_context(request)
     grant_cache: dict[tuple[str, str], bool] = {}
     valid_items = []
-    error_results = []
+    error_results: list[BulkItemResult] = []
     for item in body.items:
-        user = users_by_email.get(item.user_email)
+        user = await _resolve_and_authorize(
+            item, users_by_email, current_user["email"], db, context, grant_cache, error_results
+        )
         if user is None:
-            error_results.append(bulk_error(item.user_email, item.action, "USER_NOT_FOUND"))
-            continue
-        if user.role == UserRole.system:
-            error_results.append(bulk_error(item.user_email, item.action, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
-            continue
-        try:
-            await authorization_service.assert_authorized_to_grant(
-                current_user["email"], [item.action], item.resource_type, db, context=context, cache=grant_cache
-            )
-        except AppError:
-            error_results.append(bulk_error(item.user_email, item.action, "CANNOT_GRANT_UNHELD_ACTION"))
             continue
         valid_items.append((user, item))
 

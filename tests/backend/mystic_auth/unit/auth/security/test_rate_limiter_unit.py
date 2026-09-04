@@ -204,3 +204,43 @@ async def test_rate_limited_skips_account_check_when_extractor_returns_none(mock
     assert result == "ok"
     # Only the IP key should have been checked; no ":account:" lookup at all
     assert all(":account:" not in call.args[0] for call in incr_mock.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_rate_limited_max_requests_override_replaces_the_global_default(mocker):
+    # A count that would pass the (much larger) global MAX_REQUESTS_PER_WINDOW
+    # must still be rejected once this endpoint overrides its own, tighter limit.
+    _patch_incr(mocker, return_value=2)
+    mocker.patch(f"{MODULE}.redis_client.expire", new_callable=AsyncMock)
+
+    @rate_limiter_service.rate_limited("test_endpoint_tight_override", max_requests=1, window_seconds=30)
+    async def handler(request):
+        return "ok"
+
+    response = await handler(request=_make_request())
+
+    assert response.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_rate_limited_registers_its_override_for_the_dashboard(mocker):
+    _patch_incr(mocker, return_value=1)
+    mocker.patch(f"{MODULE}.redis_client.expire", new_callable=AsyncMock)
+
+    @rate_limiter_service.rate_limited("test_endpoint_registered_override", max_requests=5, window_seconds=900)
+    async def handler(request):
+        return "ok"
+
+    assert rate_limiter_service.ENDPOINT_OVERRIDES["test_endpoint_registered_override"] == (5, 900)
+
+
+@pytest.mark.asyncio
+async def test_rate_limited_without_an_override_is_absent_from_the_dashboard_registry(mocker):
+    _patch_incr(mocker, return_value=1)
+    mocker.patch(f"{MODULE}.redis_client.expire", new_callable=AsyncMock)
+
+    @rate_limiter_service.rate_limited("test_endpoint_no_override")
+    async def handler(request):
+        return "ok"
+
+    assert "test_endpoint_no_override" not in rate_limiter_service.ENDPOINT_OVERRIDES

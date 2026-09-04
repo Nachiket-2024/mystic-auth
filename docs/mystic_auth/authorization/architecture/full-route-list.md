@@ -16,6 +16,7 @@
 | POST | `/authorization/policies/{name}/history/{id}/rollback` | `policies:update` |
 | POST | `/authorization/users/{email}/policies` | `policies:assign` |
 | DELETE | `/authorization/users/{email}/policies/{name}` | `policies:revoke` |
+| POST | `/authorization/users/{email}/policies/{name}/revoke-action` | `policies:revoke` and `permissions:grant` (see [Policy Action Revocation](component-responsibilities.md#policy-action-revocation)) |
 | GET | `/authorization/users/{email}/policies` | `policies:read` |
 | GET | `/authorization/users/me/policies` | any authenticated user (self-service) |
 | POST | `/authorization/users/{email}/authorization-check` | `policies:read` |
@@ -35,6 +36,8 @@
 | POST | `/authorization/bulk/users/role` | `users:assign_role` |
 
 Direct permission grants (`UserPermission`, bypassing `Policy` entirely) are covered in [Adding New Permissions: Direct grants vs. policies](../adding-permissions.md#direct-grants-vs-policies), including how `AuthorizationService._get_effective_policies` normalizes them into the same evaluation path as a real policy. The bulk endpoints above apply one operation (policy assign/remove, permission grant/remove, or role set) to many target users in a single request; each accepts a list of targets and returns one per-item success/error result rather than failing the whole batch on one bad target, all committed in a single transaction per batch.
+
+`/users/{email}/role` and `/authorization/bulk/users/role` additionally reject a target equal to the caller's own email, regardless of which role is requested; see [`users.role` is display-only, and is guarded as if it weren't](README.md#usersrole-is-display-only-and-is-guarded-as-if-it-werent).
 
 ---
 

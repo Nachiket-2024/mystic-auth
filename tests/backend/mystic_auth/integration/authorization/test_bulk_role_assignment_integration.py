@@ -89,6 +89,33 @@ async def test_bulk_update_role_blocks_system_target_but_still_applies_other_ite
 
 
 @pytest.mark.asyncio
+async def test_bulk_update_role_blocks_self_target_but_still_applies_other_items(client, created_emails):
+    """Same self-role-change guard as the single-item PATCH /{email}/role:
+    a caller can never relabel themselves through this endpoint, even
+    inside a batch that also targets other, valid users."""
+    system_email = unique_email("system")
+    ordinary_target = unique_email("bulk-role-other")
+    await create_system_user(client, created_emails, system_email)
+    await create_verified_user(client, created_emails, ordinary_target, [SELF_SERVICE_POLICY_NAME])
+
+    await client.post("/auth/login", json={"email": system_email, "password": PASSWORD})
+    resp = await client.post(
+        "/authorization/bulk/users/role",
+        json={"items": [
+            {"user_email": system_email, "role": "admin"},
+            {"user_email": ordinary_target, "role": "admin"},
+        ]},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success_count"] == 1
+    assert body["error_count"] == 1
+    statuses = {r["user_email"]: (r["status"], r["error"]) for r in body["results"]}
+    assert statuses[system_email] == ("error", "CANNOT_CHANGE_OWN_ROLE")
+    assert statuses[ordinary_target][0] == "success"
+
+
+@pytest.mark.asyncio
 async def test_bulk_update_role_reports_invalid_role_without_blocking_other_items(client, created_emails):
     system_email = unique_email("system")
     target_a = unique_email("bulk-invalid-role")

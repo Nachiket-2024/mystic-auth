@@ -72,7 +72,7 @@ git add backend/alembic/versions/
 git commit -m "Sync upstream template updates (mystic-auth@<sha>)"
 ```
 
-This check also runs standalone any time you want it, without syncing: `scripts/upstream-sync/check-alembic-heads.sh`.
+This check also runs standalone any time you want it, without syncing: `scripts/upstream-sync/check-alembic-heads.sh` (Git Bash/WSL/Linux/macOS), `.\scripts\upstream-sync\check-alembic-heads.ps1` (PowerShell), or `scripts\upstream-sync\check-alembic-heads.cmd` (Command Prompt) - same "locate Git Bash, run the real script" wrapper as `sync-upstream.ps1`/`.cmd`.
 
 ---
 

@@ -9,38 +9,19 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ---
 
-### Database backups are scheduled, but not production-grade
+### Database backups are scheduled and integrity-checked, but not shipped off-host or continuously archived
 
-**Description**: `docker-compose.prod.yml` and every `docker-compose.local-prod-*.yml` variant run a `db_backup` service by default: a loop that calls `pg_dump` on an interval (`BACKUP_INTERVAL_HOURS`) and writes a plain-text `.sql` dump to `./backups` on the same host, deleting dumps older than `BACKUP_RETENTION_DAYS`. This closes the original gap ("no scheduler exists at all") but the mechanism itself stops well short of what real production Postgres backup practice looks like.
+**Description**: `docker-compose.prod.yml` and every `docker-compose.local-prod-*.yml` variant run a `db_backup` service by default: a loop that calls `pg_dump --format=custom` on an interval (`BACKUP_INTERVAL_HOURS`), immediately verifies the dump with `pg_restore --list`, and writes it to `./backups` on the same host, deleting dumps older than `BACKUP_RETENTION_DAYS`. `scripts/db/db_backup.sh` (manual/on-demand backups) does the same. This closes the original gaps ("no scheduler exists at all", "plain-text dumps with no verification") but the mechanism still stops short of full production Postgres backup practice.
 
-**Impact**: Three concrete gaps against a real production setup:
+**Impact**: Two remaining gaps against a real production setup:
 - **Single point of failure**: dumps live on the same host/disk as the database they're backing up. If that host or disk fails, the backups are gone too - nothing ships them off-host automatically.
-- **No point-in-time recovery**: this is periodic full dumps only, so worst-case data loss is up to `BACKUP_INTERVAL_HOURS` of writes, not "up to the last transaction" the way WAL-based continuous archiving gives you.
-- **No failure alerting or dump verification**: a silently-failing backup (disk full, `pg_dump` erroring) only shows up in container logs someone has to be watching; the dump is never restore-tested, so a truncated/corrupt file wouldn't be caught until an actual restore is attempted.
+- **No point-in-time recovery**: this is periodic full dumps only, so worst-case data loss is up to `BACKUP_INTERVAL_HOURS` of writes, not "up to the last transaction" the way WAL-based continuous archiving gives you. A failed dump is visible (`set -e` restarts the container, `pg_restore --list` catches a corrupt file before it's trusted) but only through container logs/`docker compose ps` someone has to be watching - there's no active paging.
 
 **Why it's not fixed yet**: doing this properly means either integrating a real tool (`pgBackRest`, `WAL-G`) for WAL archiving + PITR, or adding an off-host upload step - and that step has to stay cloud-agnostic (no specific S3/GCS/host assumed by this template, same reasoning as "No deploy automation" below), which is more surface area than a straightforward fix. Deliberately deferred rather than rushed.
 
-**Possible fix**: In order of effort - (1) switch `pg_dump` to `--format=custom` (compressed, faster, restore-testable via `pg_restore --list` right after the dump) and add that integrity check to the loop; (2) add an optional operator-supplied shell hook (e.g. `BACKUP_UPLOAD_COMMAND`) that runs after a successful dump, so `aws s3 cp`/`rclone copy`/`rsync` can ship it off-host without this template hardcoding a provider; (3) wire a failure path into the Bugsink error-monitoring already in this stack, so a failed dump pages someone instead of sitting in logs; (4) for real uptime/RPO requirements, replace the whole mechanism with `pgBackRest`/`WAL-G` or a managed Postgres provider's own backup feature instead of extending this loop further.
+**Possible fix**: In order of effort - (1) add an optional operator-supplied shell hook (e.g. `BACKUP_UPLOAD_COMMAND`) that runs after a successful dump, so `aws s3 cp`/`rclone copy`/`rsync` can ship it off-host without this template hardcoding a provider; (2) wire a failure path into the Bugsink error-monitoring already in this stack, so a failed dump or failed `pg_restore --list` check pages someone instead of sitting in logs; (3) for real uptime/RPO requirements, replace the whole mechanism with `pgBackRest`/`WAL-G` or a managed Postgres provider's own backup feature instead of extending this loop further.
 
-**Priority**: Medium-High for any real production deployment holding data you can't afford to lose (this app stores password hashes, sessions, audit logs). Low/N/A for local development or a throwaway deployment.
-
----
-
-## Configuration
-
----
-
-### One global rate-limit threshold for every endpoint
-
-**Description**: `MAX_REQUESTS_PER_WINDOW`/`REQUEST_WINDOW_SECONDS` is one shared setting applied identically to every `@rate_limited(...)` endpoint, including signup, login, OAuth2, and password reset. `/auth/refresh/` is not rate-limited by this mechanism. There is no per-endpoint override.
-
-**Impact**: A threshold tuned for, say, login (a frequently-hit route) may be too permissive or too strict for a rarer route like password-reset-request.
-
-**Why it exists**: Simplicity: one setting to reason about. The login-specific brute-force lockout (`login_protection_service.py`) layers a second, endpoint-specific control on top for the one route that most needs it.
-
-**Possible fix**: Extend `rate_limited(...)` to accept optional per-call overrides, defaulting to the global setting.
-
-**Priority**: Low, since the current layering (generic global limit + login-specific lockout) covers the highest-risk route already.
+**Priority**: Medium for any real production deployment holding data you can't afford to lose (this app stores password hashes, sessions, audit logs) - lower than before now that dump corruption is caught automatically. Low/N/A for local development or a throwaway deployment.
 
 ---
 

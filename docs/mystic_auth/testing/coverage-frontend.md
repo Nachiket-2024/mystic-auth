@@ -14,11 +14,12 @@ Covers, roughly:
 1. Every API client function calls the right method, URL, and body, and rejects rather than swallows 401/403/422/429/500 responses.
 2. The auth session store and the `setupAuthInterceptor` axios interceptor (silent token refresh on 401, coordinating concurrent 401s behind one in-flight refresh).
 3. The authorization hooks and components (`useCan`, `useAuthorization`, `Authorized`, `ProtectedRoute`) that gate UI and routes on held permissions.
-4. Password rule evaluation and the strength meter.
-5. Theme, language, and network-status stores.
-6. The shared `DataTable`, `ConfirmDialog`, toaster, and error boundary components.
-7. The app shell (navbar, sidebar, command palette) including its `extraNavItems`/`extraItems` downstream-extension points.
-8. A repo-wide translation-key-parity check that all four supported languages expose the same set of keys as English.
+4. **The `useSessionEventsStream` SSE consumer** (see [Real-time session events](coverage-users-and-sessions.md#real-time-session-events) for the backend side): connects only once authenticated, closes cleanly on unmount, invalidates the current-user/sessions queries on a plain `revoked` push, and on `permissions_changed` synchronously zeroes the Zustand permissions store and calls `resetQueries()` (not `invalidateQueries()`) so no `keepPreviousData`-cached page can keep serving stale data through the refetch. A dedicated case checks the `permissions_changed` handler skips that synchronous zero-out for the one push right after this tab's own self-targeted grant/revoke (armed via `markSelfPermissionMutation()` in the policy/permission mutation hooks, consumed single-use by `wasSelfPermissionMutationRecent()`), and that a second push in the same window is still treated as a genuine change, not swallowed as the same echo twice.
+5. Password rule evaluation and the strength meter.
+6. Theme, language, and network-status stores.
+7. The shared `DataTable`, `ConfirmDialog`, toaster, and error boundary components.
+8. The app shell (navbar, sidebar, command palette) including its `extraNavItems`/`extraItems` downstream-extension points.
+9. A repo-wide translation-key-parity check that all four supported languages expose the same set of keys as English.
 
 ---
 

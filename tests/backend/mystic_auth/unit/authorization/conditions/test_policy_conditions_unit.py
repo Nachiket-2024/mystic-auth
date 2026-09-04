@@ -1,7 +1,9 @@
-# Unit coverage for the condition framework: Authorization Engine -> Condition
-# Evaluation Service -> Condition Handlers. Each handler is tested in isolation
-# (no DB, no evaluator), plus the service's dispatch/AND/fail-safe-on-unknown-key
-# behavior, plus the registry itself.
+# Unit coverage for SelfOnlyCondition, ResourceAttributesCondition, and
+# ContextAttributesCondition (each tested in isolation, no DB, no evaluator),
+# plus ConditionRegistry and ConditionEvaluationService's own dispatch/AND/
+# fail-safe-on-unknown-key behavior. TimeCondition/DateRangeCondition live in
+# test_policy_conditions_temporal_unit.py, NetworkCondition/
+# SecurityContextCondition in test_policy_conditions_network_security_unit.py.
 from backend.mystic_auth.authorization.conditions.condition_evaluation_service import (
     ConditionEvaluationService,
 )
@@ -12,23 +14,11 @@ from backend.mystic_auth.authorization.conditions.condition_registry import (
 from backend.mystic_auth.authorization.conditions.condition_types.context_attributes_condition import (
     ContextAttributesCondition,
 )
-from backend.mystic_auth.authorization.conditions.condition_types.date_range_condition import (
-    DateRangeCondition,
-)
-from backend.mystic_auth.authorization.conditions.condition_types.network_condition import (
-    NetworkCondition,
-)
 from backend.mystic_auth.authorization.conditions.condition_types.resource_attributes_condition import (
     ResourceAttributesCondition,
 )
-from backend.mystic_auth.authorization.conditions.condition_types.security_context_condition import (
-    SecurityContextCondition,
-)
 from backend.mystic_auth.authorization.conditions.condition_types.self_only_condition import (
     SelfOnlyCondition,
-)
-from backend.mystic_auth.authorization.conditions.condition_types.time_condition import (
-    TimeCondition,
 )
 
 # ==================================================================
@@ -113,205 +103,6 @@ def test_context_attributes_fails_safe_on_non_mapping_condition_value():
     handler = ContextAttributesCondition()
     assert handler.evaluate(["mfa_verified"], "u@example.com", None, {"mfa_verified": True}) is False
     assert handler.evaluate("mfa_verified", "u@example.com", None, {"mfa_verified": True}) is False
-
-
-# ==================================================================
-# TimeCondition
-# ==================================================================
-
-def test_time_allows_within_business_hours():
-    handler = TimeCondition()
-    condition = {"start": "09:00", "end": "17:00", "timezone": "UTC"}
-    context = {"current_time": "2026-07-13T12:00:00+00:00"}
-    assert handler.evaluate(condition, "u@example.com", None, context) is True
-
-
-def test_time_denies_outside_business_hours():
-    handler = TimeCondition()
-    condition = {"start": "09:00", "end": "17:00", "timezone": "UTC"}
-    context = {"current_time": "2026-07-13T20:00:00+00:00"}
-    assert handler.evaluate(condition, "u@example.com", None, context) is False
-
-
-def test_time_handles_overnight_range_wrapping_midnight():
-    handler = TimeCondition()
-    condition = {"start": "22:00", "end": "06:00", "timezone": "UTC"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-13T23:30:00+00:00"}) is True
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-14T03:00:00+00:00"}) is True
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-13T12:00:00+00:00"}) is False
-
-
-def test_time_respects_timezone_conversion():
-    handler = TimeCondition()
-    # 09:00 Sydney (UTC+10 in July) is 23:00 UTC the prior day
-    condition = {"start": "09:00", "end": "17:00", "timezone": "Australia/Sydney"}
-    context = {"current_time": "2026-07-13T23:30:00+00:00"}
-    assert handler.evaluate(condition, "u@example.com", None, context) is True
-
-
-def test_time_defaults_to_utc_when_timezone_omitted():
-    handler = TimeCondition()
-    condition = {"start": "09:00", "end": "17:00"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-13T12:00:00+00:00"}) is True
-
-
-def test_time_fails_safe_on_invalid_timezone():
-    handler = TimeCondition()
-    condition = {"start": "09:00", "end": "17:00", "timezone": "Not/A_Real_Zone"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-07-13T12:00:00+00:00"}) is False
-
-
-def test_time_fails_safe_on_missing_start_or_end():
-    handler = TimeCondition()
-    assert handler.evaluate({"end": "17:00"}, "u@example.com", None, {}) is False
-    assert handler.evaluate({"start": "09:00"}, "u@example.com", None, {}) is False
-
-
-def test_time_fails_safe_on_malformed_time_string():
-    handler = TimeCondition()
-    condition = {"start": "not-a-time", "end": "17:00"}
-    assert handler.evaluate(condition, "u@example.com", None, {}) is False
-
-
-# ==================================================================
-# DateRangeCondition
-# ==================================================================
-
-def test_date_range_allows_within_range():
-    handler = DateRangeCondition()
-    condition = {"start": "2026-01-01", "end": "2026-03-01"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-02-01T00:00:00+00:00"}) is True
-
-
-def test_date_range_denies_before_start():
-    handler = DateRangeCondition()
-    condition = {"start": "2026-01-01", "end": "2026-03-01"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2025-12-31T00:00:00+00:00"}) is False
-
-
-def test_date_range_denies_after_end():
-    handler = DateRangeCondition()
-    condition = {"start": "2026-01-01", "end": "2026-03-01"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-03-02T00:00:00+00:00"}) is False
-
-
-def test_date_range_allows_boundary_dates_inclusive():
-    handler = DateRangeCondition()
-    condition = {"start": "2026-01-01", "end": "2026-03-01"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-01-01T00:00:00+00:00"}) is True
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2026-03-01T23:59:00+00:00"}) is True
-
-
-def test_date_range_open_ended_start_only():
-    handler = DateRangeCondition()
-    condition = {"start": "2026-01-01"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2099-01-01T00:00:00+00:00"}) is True
-
-
-def test_date_range_open_ended_end_only():
-    handler = DateRangeCondition()
-    condition = {"end": "2026-03-01"}
-    assert handler.evaluate(condition, "u@example.com", None, {"current_time": "2000-01-01T00:00:00+00:00"}) is True
-
-
-def test_date_range_fails_safe_on_malformed_date():
-    handler = DateRangeCondition()
-    condition = {"start": "not-a-date"}
-    assert handler.evaluate(condition, "u@example.com", None, {}) is False
-
-
-def test_date_range_fails_safe_when_neither_bound_present():
-    """A date_range with no recognizable start/end must deny, never fall back to
-    unconstrained/always-allow. condition_validator.py blocks this at write time;
-    this pins the evaluator's own independent fail-safe."""
-    handler = DateRangeCondition()
-    assert handler.evaluate({}, "u@example.com", None, {}) is False
-    assert handler.evaluate(
-        {"start_date": "2026-01-01", "end_date": "2026-03-01"}, "u@example.com", None, {}
-    ) is False
-
-
-# ==================================================================
-# NetworkCondition
-# ==================================================================
-
-def test_network_allows_exact_ip_match():
-    handler = NetworkCondition()
-    condition = {"allowed_ips": ["203.0.113.7"]}
-    assert handler.evaluate(condition, "u@example.com", None, {"ip_address": "203.0.113.7"}) is True
-
-
-def test_network_allows_ip_within_cidr_range():
-    handler = NetworkCondition()
-    condition = {"allowed_ips": ["10.0.0.0/8"]}
-    assert handler.evaluate(condition, "u@example.com", None, {"ip_address": "10.1.2.3"}) is True
-
-
-def test_network_denies_ip_outside_allowed_ranges():
-    handler = NetworkCondition()
-    condition = {"allowed_ips": ["10.0.0.0/8"]}
-    assert handler.evaluate(condition, "u@example.com", None, {"ip_address": "192.168.1.1"}) is False
-
-
-def test_network_denies_when_context_has_no_ip():
-    handler = NetworkCondition()
-    condition = {"allowed_ips": ["10.0.0.0/8"]}
-    assert handler.evaluate(condition, "u@example.com", None, {}) is False
-    assert handler.evaluate(condition, "u@example.com", None, None) is False
-
-
-def test_network_fails_safe_on_invalid_ip_string():
-    handler = NetworkCondition()
-    condition = {"allowed_ips": ["10.0.0.0/8"]}
-    assert handler.evaluate(condition, "u@example.com", None, {"ip_address": "not-an-ip"}) is False
-
-
-def test_network_denies_when_allowed_ips_empty():
-    handler = NetworkCondition()
-    assert handler.evaluate({"allowed_ips": []}, "u@example.com", None, {"ip_address": "10.0.0.1"}) is False
-
-
-# ==================================================================
-# SecurityContextCondition
-# ==================================================================
-
-def test_security_context_allows_when_all_fields_match():
-    handler = SecurityContextCondition()
-    condition = {"device_trusted": True}
-    context = {"security_context": {"device_trusted": True}}
-    assert handler.evaluate(condition, "u@example.com", None, context) is True
-
-
-def test_security_context_denies_on_mismatch():
-    handler = SecurityContextCondition()
-    condition = {"assurance_level": "high"}
-    context = {"security_context": {"assurance_level": "low"}}
-    assert handler.evaluate(condition, "u@example.com", None, context) is False
-
-
-def test_security_context_denies_when_context_missing_entirely():
-    handler = SecurityContextCondition()
-    assert handler.evaluate({"device_trusted": True}, "u@example.com", None, None) is False
-
-
-def test_security_context_denies_when_security_context_subkey_missing():
-    handler = SecurityContextCondition()
-    assert handler.evaluate({"device_trusted": True}, "u@example.com", None, {"ip_address": "1.2.3.4"}) is False
-
-
-def test_security_context_denies_when_key_absent_from_security_context():
-    handler = SecurityContextCondition()
-    context = {"security_context": {"other_field": 1}}
-    assert handler.evaluate({"device_trusted": True}, "u@example.com", None, context) is False
-
-
-def test_security_context_fails_safe_on_non_mapping_condition_value():
-    """A malformed condition_value that bypassed the write-time validator must
-    deny rather than raise, even when the security_context sub-key is present."""
-    handler = SecurityContextCondition()
-    context = {"security_context": {"device_trusted": True}}
-    assert handler.evaluate(["device_trusted"], "u@example.com", None, context) is False
-    assert handler.evaluate(123, "u@example.com", None, context) is False
 
 
 # ==================================================================

@@ -90,7 +90,7 @@ Also add `"device_trust"` to `_SUPPORTED_KEYS` in the same file: an unrecognized
 
 ## 4. Test the new condition handler
 
-Three levels, mirroring how every existing condition is tested (see `tests/backend/mystic_auth/unit/authorization/conditions/test_policy_conditions_unit.py`):
+Three levels, mirroring how every existing condition is tested (see `tests/backend/mystic_auth/unit/authorization/conditions/test_policy_conditions_unit.py` for the pattern on simple handlers like `self_only`/`resource_attributes`/`context_attributes`, or the sibling `test_policy_conditions_temporal_unit.py`/`test_policy_conditions_network_security_unit.py` for handlers with more state, like `time`/`date_range`/`network`/`security_context`):
 
 **Unit test the handler in isolation** (no DB, no evaluator):
 

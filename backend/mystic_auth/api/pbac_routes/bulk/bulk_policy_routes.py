@@ -6,7 +6,7 @@ from ....authorization.context.request_context_builder import build_authorizatio
 from ....authorization.dependencies.policy_route_dependencies import ASSIGN_DEPENDENCY, REVOKE_DEPENDENCY
 from ....authorization.policies.default_policies import SYSTEM_SUPERUSER_POLICY_NAME
 from ....authorization.repositories.policy_repository import policy_repository
-from ....authorization.schemas.bulk_schema import BulkPolicyRequest, BulkResponse, bulk_error, summarize
+from ....authorization.schemas.bulk_schema import BulkItemResult, BulkPolicyRequest, BulkResponse, bulk_error, summarize
 from ....authorization.services.authorization_service import authorization_service
 from ....authorization.services.bulk_notification import log_and_notify_bulk_success
 from ....core.errors import AppError
@@ -15,6 +15,35 @@ from ....user.user_crud_collector import user_crud
 from ....user.user_model import UserRole
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
+
+
+async def _resolve_and_authorize(
+    item, users_by_email: dict, policies_by_name: dict, current_user_email: str, db: AsyncSession, context,
+    grant_cache: dict, error_results: list[BulkItemResult],
+):
+    """Shared per-item validation for both assign and remove: user and
+    policy exist, user isn't system-role, and the caller actually holds
+    every action the policy grants. Returns the resolved (User, Policy), or
+    None with the failure already appended to error_results."""
+    user = users_by_email.get(item.user_email)
+    policy = policies_by_name.get(item.policy_name)
+    if user is None:
+        error_results.append(bulk_error(item.user_email, item.policy_name, "USER_NOT_FOUND"))
+        return None
+    if policy is None:
+        error_results.append(bulk_error(item.user_email, item.policy_name, "POLICY_NOT_FOUND"))
+        return None
+    if user.role == UserRole.system:
+        error_results.append(bulk_error(item.user_email, item.policy_name, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
+        return None
+    try:
+        await authorization_service.assert_authorized_to_grant(
+            current_user_email, policy.actions, policy.resource_type, db, context=context, cache=grant_cache
+        )
+    except AppError:
+        error_results.append(bulk_error(item.user_email, item.policy_name, "CANNOT_GRANT_UNHELD_ACTION"))
+        return None
+    return user, policy
 
 
 @router.post("/bulk/policies/assign", response_model=BulkResponse)
@@ -42,27 +71,14 @@ async def bulk_assign_policies(
     context = build_authorization_context(request)
     grant_cache: dict[tuple[str, str], bool] = {}
     valid_items = []
-    error_results = []
+    error_results: list[BulkItemResult] = []
     for item in body.items:
-        user = users_by_email.get(item.user_email)
-        policy = policies_by_name.get(item.policy_name)
-        if user is None:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "USER_NOT_FOUND"))
+        resolved = await _resolve_and_authorize(
+            item, users_by_email, policies_by_name, current_user["email"], db, context, grant_cache, error_results
+        )
+        if resolved is None:
             continue
-        if policy is None:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "POLICY_NOT_FOUND"))
-            continue
-        if user.role == UserRole.system:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
-            continue
-        try:
-            await authorization_service.assert_authorized_to_grant(
-                current_user["email"], policy.actions, policy.resource_type, db, context=context, cache=grant_cache
-            )
-        except AppError:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "CANNOT_GRANT_UNHELD_ACTION"))
-            continue
-        valid_items.append((user, policy))
+        valid_items.append(resolved)
 
     repo_results = await policy_repository.bulk_assign_policies(valid_items, db, assigned_by=current_user["email"])
 
@@ -109,26 +125,14 @@ async def bulk_remove_policies(
     context = build_authorization_context(request)
     grant_cache: dict[tuple[str, str], bool] = {}
     valid_items = []
-    error_results = []
+    error_results: list[BulkItemResult] = []
     for item in body.items:
-        user = users_by_email.get(item.user_email)
-        policy = policies_by_name.get(item.policy_name)
-        if user is None:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "USER_NOT_FOUND"))
+        resolved = await _resolve_and_authorize(
+            item, users_by_email, policies_by_name, current_user["email"], db, context, grant_cache, error_results
+        )
+        if resolved is None:
             continue
-        if policy is None:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "POLICY_NOT_FOUND"))
-            continue
-        if user.role == UserRole.system:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
-            continue
-        try:
-            await authorization_service.assert_authorized_to_grant(
-                current_user["email"], policy.actions, policy.resource_type, db, context=context, cache=grant_cache
-            )
-        except AppError:
-            error_results.append(bulk_error(item.user_email, item.policy_name, "CANNOT_GRANT_UNHELD_ACTION"))
-            continue
+        user, policy = resolved
         # Only an item that actually holds the policy counts against the
         # lockout - a no-op removal for a non-holder must not inflate the
         # staged count (see the comment above superuser_holder_emails).

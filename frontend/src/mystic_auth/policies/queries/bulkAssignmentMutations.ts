@@ -12,6 +12,7 @@ import { extractApiErrorMessage } from "../../api/apiError";
 import { queryClient } from "../../core/queryClient";
 import { useAuthStore } from "../../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "../../auth/current_user/useCurrentUserQuery";
+import { markSelfPermissionMutation } from "../../auth/session_lifecycle/selfPermissionMutationGuard";
 import { MY_POLICIES_QUERY_KEY, userPoliciesQueryKey } from "./policyQueries";
 import { MY_PERMISSIONS_QUERY_KEY, userPermissionsQueryKey } from "./permissionQueries";
 import { USERS_QUERY_KEY } from "../../users/queries/userQueries";
@@ -25,9 +26,19 @@ function distinctEmails(data: BulkResponse): string[] {
     return [...new Set(data.results.map((r) => r.user_email))];
 }
 
-function invalidateSelfIfIncluded(emails: string[]) {
-    if (emails.includes(useAuthStore.getState().email ?? "")) {
-        queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+/**
+ * `marksPermissionChange` also arms selfPermissionMutationGuard, so this
+ * tab's own "permissions_changed" SSE echo (see useSessionEventsStream.ts)
+ * isn't read as a live revoke before the invalidation above resolves. Only
+ * pass it for a bulk mutation that can actually emit that event for the
+ * caller themselves - not the role mutation below, whose targets can never
+ * include the caller (the backend rejects a self-targeted role change).
+ */
+function invalidateSelfIfIncluded(emails: string[], options?: { marksPermissionChange?: boolean }) {
+    if (!emails.includes(useAuthStore.getState().email ?? "")) return;
+    queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+    if (options?.marksPermissionChange) {
+        markSelfPermissionMutation();
     }
 }
 
@@ -50,7 +61,7 @@ export function useBulkAssignPoliciesMutation() {
             const emails = distinctEmails(data);
             emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(email) }));
             queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
-            invalidateSelfIfIncluded(emails);
+            invalidateSelfIfIncluded(emails, { marksPermissionChange: true });
         },
     });
 }
@@ -68,7 +79,7 @@ export function useBulkRemovePoliciesMutation() {
             const emails = distinctEmails(data);
             emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(email) }));
             queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
-            invalidateSelfIfIncluded(emails);
+            invalidateSelfIfIncluded(emails, { marksPermissionChange: true });
         },
     });
 }
@@ -90,7 +101,7 @@ export function useBulkAssignPermissionsMutation() {
             const emails = distinctEmails(data);
             emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPermissionsQueryKey(email) }));
             queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
-            invalidateSelfIfIncluded(emails);
+            invalidateSelfIfIncluded(emails, { marksPermissionChange: true });
         },
     });
 }
@@ -108,7 +119,7 @@ export function useBulkRemovePermissionsMutation() {
             const emails = distinctEmails(data);
             emails.forEach((email) => queryClient.invalidateQueries({ queryKey: userPermissionsQueryKey(email) }));
             queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
-            invalidateSelfIfIncluded(emails);
+            invalidateSelfIfIncluded(emails, { marksPermissionChange: true });
         },
     });
 }

@@ -111,7 +111,7 @@ frontend/
 
 Grouping code around business flows, instead of forcing every feature across separate technical layers, made changes easier: everything needed for a feature lived close together. Changing login behavior meant working mostly inside the authentication area, not hunting across unrelated controller, service, and model folders.
 
-This wasn't chosen because it's the only "correct" architecture. It was chosen because, for this project's size and workflow, it made the system easier to understand, debug, and extend. That decision mattered even more later, when a single commit on 14 July, 2026 moved the project from role-based access to PBAC, the biggest change the codebase went through: see [How It Evolved](timeline/2026.md#14-july-2026) for that commit and everything after it, day by day.
+This wasn't chosen because it's the only "correct" architecture. It was chosen because, for this project's size and workflow, it made the system easier to understand, debug, and extend. That decision mattered even more later, when a single commit on 14 July, 2026 moved the project from role-based access to PBAC, the biggest change the codebase went through: see [How It Evolved](timeline/2026-feb-jul.md#commit-44-14-july-2026) for that commit and everything after it, day by day.
 
 ---
 
