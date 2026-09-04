@@ -5,6 +5,8 @@ Documentation for this full-stack authentication and PBAC template, organized by
 
 This is the template's own reference documentation, belonging to upstream and not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/upstream-sync/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage/overview.md#the-app--mystic_auth-split) for the full reasoning.
 
+New to a term you see in these docs? Check the [Glossary](glossary/README.md) first.
+
 Read the docs in this order if you are new to the repository:
 
 1. [System Overview](architecture/system-overview.md)

@@ -1,6 +1,8 @@
 # Testing Overview
 ---
 
+*New to a term here? See the [Testing Glossary](../glossary/testing.md).*
+
 ## Backend: pytest
 
 1. Config lives in `pytest.ini` at the repo root. It sets `testpaths = tests/backend` and collects coverage for `backend/app` and `backend/mystic_auth`.
@@ -40,8 +42,8 @@
 
 These are two different kinds of "load" and only one of them lives in this suite:
 
-- **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory — e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_admin_management_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/` — add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
-- **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. If you need this, reach for an external tool (`k6`, `Locust`, `hey`) run by hand against a local-prod/staging stack before a release, not a `pytest` file — there is currently no such script in this repo.
+- **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory — e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race, concurrent-identical-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_login_lockout_race_integration.py` (failed-login lockout counter under a concurrent burst), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_admin_management_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/` — add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
+- **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. `scripts/load-test/load_test.py` is a small `httpx`-based script for this, run by hand against a local-prod/staging stack before a release, not on every push — see its own header comment for usage and the per-IP rate-limit budget it needs to stay under to measure real capacity rather than the rate limiter.
 
 ---
 

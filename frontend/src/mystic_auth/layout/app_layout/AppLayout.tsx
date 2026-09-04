@@ -12,7 +12,7 @@ interface AppLayoutProps {
      * Extra sidebar links for feature routes, appended after the built-in
      * NAV_ITEMS. Pass the same array on every route so the sidebar doesn't
      * reshape as the user navigates. See
-     * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+     * docs/mystic_auth/template-usage/frontend-customization.md#shared-chrome-extension-points.
      */
     extraNavItems?: NavItem[];
     /**

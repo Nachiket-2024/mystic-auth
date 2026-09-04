@@ -1,6 +1,8 @@
 # Security Hardening: HTTP Layer
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md) or [Authentication Glossary](../glossary/authentication.md).*
+
 Response headers, CORS, cookie flags, middleware ordering, and error handling: the mechanisms that shape what the HTTP layer itself exposes to a client. See [Security Hardening](hardening.md) for the full index.
 
 ---
@@ -29,9 +31,11 @@ Response headers, CORS, cookie flags, middleware ordering, and error handling: t
    - The blanket `default-src 'none'` policy used to apply here too, and it didn't error or warn: the page returned 200 and rendered as silently blank, every asset blocked with nothing in the response to say why.
    - `security_headers_middleware.py`'s `_DOCS_PATHS`/`_DOCS_CSP` scope a permissive-but-specific policy (`cdn.jsdelivr.net`, `fonts.googleapis.com`/`fonts.gstatic.com`, `'unsafe-inline'`) to exactly those three paths; every other route keeps the strict policy above.
 
-3. No `Strict-Transport-Security` is set by the nginx layer serving the frontend static build (`docker/nginx.frontend.conf`): the real production TLS terminator, `docker/Caddyfile`, sends it instead (same value as the backend's own), since nginx itself only ever serves plain HTTP inside the container. See [Docker Overview](../docker/overview.md).
+3. `Strict-Transport-Security` on the frontend static build is set by nginx itself (`docker/nginx.frontend.conf`), unconditionally rather than gated on `ENVIRONMENT` like the backend's copy: the frontend production image only ever ships in a production-shaped deployment, and needs to send it itself since the local-prod-ngrok/cloudflare/tailscale tunnel modes have no other layer in front of it that would. `docker/Caddyfile` (the real prod TLS terminator) deliberately does *not* also set it: nginx already covers every response reaching Caddy, backend and frontend alike, so Caddy adding it too would just duplicate the header. See [Docker Overview](../docker/overview.md).
 
 4. `docker/nginx.frontend.conf` mirrors most of the backend's header set for the SPA response (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `Cross-Origin-Embedder-Policy`, plus its own less-strict CSP), and also disables `server_tokens` to stop the nginx version leaking in the `Server` response header.
+
+5. The frontend's `style-src` has no `'unsafe-inline'`: Chakra UI's `@emotion/react` runtime inserts a small, fixed number of `<style data-emotion="...">` tags once at startup and mutates their rules afterward via the CSSOM, never by rewriting `textContent` - so their hashed content stays constant across this app's own CSS, theme, brand color, and dark-mode state (verified with Playwright across public pages, an authenticated session, and a dark-mode toggle: same three `sha256-...` violations with `'unsafe-inline'` removed, zero with the hashes allow-listed instead). See the comment above `style-src` in `docker/nginx.frontend.conf` for how to regenerate the three hashes if an Emotion/Chakra upgrade changes this insertion strategy.
 
 ---
 

@@ -53,7 +53,7 @@ picks a per-user brand color. See [Appearance: Brand Color and Logo](../appearan
 
 ## gate component (`IfCan`, `ProtectedRoute`, `Authorized`)
 
-A frontend React component that conditionally renders its children (or redirects) based on the current user's permissions, mirroring the backend's PBAC checks so the UI never shows a control the user isn't actually allowed to use. This is a UI convenience only; the server still independently enforces every action. See [Frontend Architecture: Module tour](../architecture/frontend.md#module-tour).
+A frontend React component that conditionally renders its children (or redirects) based on the current user's permissions, mirroring the backend's PBAC checks so the UI never shows a control the user isn't actually allowed to use. This is a UI convenience only; the server still independently enforces every action. See [Frontend Architecture: Module tour](../architecture/frontend.md#module-layout).
 
 ---
 

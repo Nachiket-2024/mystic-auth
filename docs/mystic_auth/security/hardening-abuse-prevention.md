@@ -1,6 +1,8 @@
 # Security Hardening: Abuse Prevention
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md) or [Authentication Glossary](../glossary/authentication.md).*
+
 Rate limiting, brute-force lockout, and timing-attack resistance: the mechanisms that push back on high-volume or automated abuse at the request layer. See [Security Hardening](hardening.md) for the full index, and [Security Decisions](decisions.md) for the *why* behind non-obvious choices here.
 
 ---
@@ -68,7 +70,7 @@ flowchart TD
 
 - Per-account: `MAX_FAILED_LOGIN_ATTEMPTS` failures within `LOGIN_LOCKOUT_TIME` seconds locks that email out (`login_lock:email:{email}`).
 - Per-IP: `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` failures within `LOGIN_LOCKOUT_TIME_PER_IP` seconds locks that IP out across *any* account it targets (`login_lock:ip:{client_ip}`).
-- `check_and_record_action` double-checks `is_locked` both before and after the expensive password-hash comparison, closing a race where a concurrent request crosses the threshold mid-check.
+- `check_and_record_action`'s failure path is a single atomic Redis `INCR`, not a separate `is_locked`-then-record pair: `login_handler.py`'s own `is_locked` check beforehand is just an optimization to skip password hashing for an already-locked account, not the source of truth. An earlier check-then-increment version let concurrent failures against the same key both read "not yet locked" before either incremented, letting more than `max_attempts` through as `401` under a real burst; the atomic `INCR` closes that race (`test_login_lockout_race_integration.py`).
 - Both counters use `INCR`/`EXPIRE`-on-first-failure (not sliding), so the lockout window is fixed from the *first* failure, not extended by each subsequent one.
 - Both keys are visible and resettable from the [Rate Limit Dashboard](#rate-limit-dashboard-get-rate-limits) above, under endpoint `login_lock` - there's no separate lockout-specific admin view.
 - The `429` a lockout returns tells the caller how long to actually wait, read straight from the tripped key's remaining Redis TTL (`get_remaining_seconds`): a standard `Retry-After` header (RFC 9110) plus `params.minutes` (rounded up) in the JSON body for the login form's own translated message. See [Login](../authentication/login.md) for the full response shape.

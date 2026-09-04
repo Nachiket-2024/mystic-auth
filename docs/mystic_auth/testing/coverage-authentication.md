@@ -1,6 +1,8 @@
 # What the Authentication Tests Cover
 ---
 
+*New to a term here? See the [Testing Glossary](../glossary/testing.md).*
+
 This page walks through what the test suite actually checks for signup,
 login, logout, password reset, OAuth2, refresh tokens, and rate limiting. It
 does not list file names or counts; see [Testing Overview](overview.md) for

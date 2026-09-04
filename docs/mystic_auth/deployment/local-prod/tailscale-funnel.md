@@ -127,12 +127,20 @@ once `tailscale` registers. Then set, in `env/.env.local-prod-tailscale`:
 ```
 GOOGLE_REDIRECT_URI=https://mystic-auth.<tailnet>.ts.net/auth/oauth2/callback/google
 FRONTEND_BASE_URL=https://mystic-auth.<tailnet>.ts.net
+JWT_ISSUER=https://mystic-auth.<tailnet>.ts.net
+JWT_AUDIENCE=https://mystic-auth.<tailnet>.ts.net
 ```
 
 `FRONTEND_BASE_URL` is baked into verification/password-reset email links
 and the CORS allow-list too, so it matters even if you never enable Google
 login. `BACKEND_BASE_URL` must be *set* for the app to boot, but nothing
-reads it at runtime, so it can stay the same value.
+reads it at runtime, so it can stay the same value. `JWT_ISSUER`/
+`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for tokens to work
+(they're only checked against themselves, see
+[Authentication Overview](../../authentication/overview.md)), but leaving
+them at the placeholder default means every deployment that copies this
+tutorial mints tokens with the same `iss`/`aud`, so update them to this
+deployment's real domain too.
 
 ---
 

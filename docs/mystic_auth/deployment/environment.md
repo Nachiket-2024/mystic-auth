@@ -1,5 +1,8 @@
 # Environment and Runtime Configuration
 ---
+
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 Deployment modes use separate environment files so dev, local-prod tunnel variants, and prod can hold real values at the same time without overwriting one another.
 
 ---
@@ -56,7 +59,8 @@ Use the helper scripts when possible because they always pass the matching env f
 
 | Setting group | Read time | Examples |
 |---|---|---|
-| Backend runtime settings | Container or process startup | `DATABASE_URL`, `APP_DATABASE_URL`, `SECRET_KEY`, `GOOGLE_REDIRECT_URI`, SMTP settings, rate-limit settings, `SENTRY_DSN` |
+| Backend runtime settings | Container or process startup | `DATABASE_URL`, `APP_DATABASE_URL`, `SECRET_KEY`, `GOOGLE_REDIRECT_URI`, SMTP settings, rate-limit settings, `DB_POOL_SIZE`/`DB_MAX_OVERFLOW`, `SENTRY_DSN` |
+| Compose-only scaling setting | Compose command evaluation, not read by the app itself | `UVICORN_WORKERS` |
 | Frontend build settings | Image build time | `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_BRAND_COLOR`, `VITE_SUPPORT_EMAIL`, `VITE_SENTRY_DSN`, `VITE_SENTRY_ENVIRONMENT` |
 | Compose interpolation settings | Compose command evaluation | Tunnel tokens, public domains, frontend build args, image names, exposed ports |
 
@@ -81,13 +85,41 @@ Review these settings before sharing a production-shaped deployment:
 10. Configure `SENTRY_DSN` and `VITE_SENTRY_DSN` only when error monitoring is enabled.
 11. Configure `GEOIP_DB_PATH` and `GEOIPUPDATE_*` only when enabling the `geoip` Compose profile.
 12. Keep `USER_EXPORT_MAX_ROWS` sized for the largest safe CSV export your deployment can handle.
+13. Size `UVICORN_WORKERS`, `DB_POOL_SIZE`, and `DB_MAX_OVERFLOW` for the traffic you expect - see [§7 below](#7-scaling-and-load-capacity).
 
 ---
 
-## 6. Related docs
+## 7. Scaling and load capacity
 ---
 
-1. [Configuration Reference](../configuration/environment.md)
+`UVICORN_WORKERS` (prod-shaped deployments only; `dev` uses `--reload`, which
+forces a single process) sets how many uvicorn worker processes the
+`backend` service runs, each with its own DB connection pool sized by
+`DB_POOL_SIZE`/`DB_MAX_OVERFLOW`. Keep
+`UVICORN_WORKERS * (DB_POOL_SIZE + DB_MAX_OVERFLOW)` under Postgres's own
+`max_connections` (100 by default), leaving headroom for
+`alembic`/`procrastinate_worker`/`db_backup`'s own connections.
+
+Measured against a real local-prod-ngrok stack (`scripts/load-test/load_test.py`);
+the `backend` service is capped at 2 CPUs there (`docker-compose.local-prod-ngrok.yml`'s
+own `deploy.resources.limits.cpus`):
+
+| Config | `GET /auth/me` throughput | Notes |
+|---|---|---|
+| `UVICORN_WORKERS=1` (default) | ~250-270 req/s, flat from 50 to 1,000 concurrent requests | Never errors, just queues - latency climbs past 1s p50 well before that |
+| `UVICORN_WORKERS=4`, `DB_POOL_SIZE=10` | ~345-375 req/s | ~40% higher on this machine; real headroom scales with host CPU cores |
+
+`POST /auth/login` is the outlier: capped around 15-20 req/s regardless of
+worker count, since Argon2 password verification is deliberately
+CPU-expensive per request (see `password_service.py`) - more workers help
+concurrency, not this per-request cost.
+
+---
+
+## 8. Related docs
+---
+
+1. [Configuration Reference](../environment/README.md)
 2. [Deployment Guide](guide.md)
 3. [Local-Prod Deployment](local-prod/README.md)
 4. [Error Monitoring](../error-monitoring/overview.md)

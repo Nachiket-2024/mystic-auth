@@ -14,6 +14,9 @@
 import asyncio
 
 import pytest
+from sqlalchemy import text
+
+from backend.mystic_auth.database.connection import database
 
 from .auth_test_accounts import PASSWORD, unique_email
 
@@ -67,3 +70,26 @@ async def test_concurrent_signup_verify_chains_never_reject_a_fresh_token(client
         *(_signup_and_verify(client, created_emails) for _ in range(30))
     )
     assert all(results)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_identical_signups_create_exactly_one_user(client, created_emails):
+    # signup_service's check-then-insert (get_by_email, then create) has no
+    # locking between the two steps; the users.email unique constraint is
+    # what actually stops a duplicate row under real concurrency.
+    email = unique_email()
+    created_emails.append(email)
+
+    responses = await asyncio.gather(
+        *(
+            client.post("/auth/signup", json={"name": "Race Test", "email": email, "password": PASSWORD})
+            for _ in range(10)
+        )
+    )
+    # Always 200 regardless of outcome (anti-enumeration), so the row count
+    # below is what actually proves no duplicate landed.
+    assert all(resp.status_code == 200 for resp in responses)
+
+    async with database.async_session() as session:
+        result = await session.execute(text("SELECT count(*) FROM users WHERE email = :email"), {"email": email})
+        assert result.scalar_one() == 1

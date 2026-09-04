@@ -1,5 +1,8 @@
 # Frontend and Backend Routing
 ---
+
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 Production-shaped deployments use a single public origin by default. The frontend nginx container serves the SPA and proxies API prefixes to the backend service.
 
 ---

@@ -1,6 +1,8 @@
 # Dev Deployment
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 Local development: hot reload on both backend and frontend, source
 bind-mounted from the host, no TLS. This is the mode you use day to day
 while writing code. Start here if you're new to the repo.

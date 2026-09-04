@@ -1,6 +1,8 @@
 # Adding New Condition Handlers
 ---
 
+*New to a term here? See the [Authorization Glossary](../glossary/authorization.md).*
+
 The condition framework is modular by design:
 
 ```mermaid

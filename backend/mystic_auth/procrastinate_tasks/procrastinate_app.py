@@ -4,6 +4,7 @@ decorator runs. `email_tasks.py` and `account_purge_tasks.py` both import
 `app` from here rather than from each other, avoiding the circular import a
 single shared module would otherwise create between them.
 """
+import logging
 import random
 
 from procrastinate import App, PsycopgConnector
@@ -11,6 +12,11 @@ from procrastinate.jobs import Job
 from procrastinate.retry import BaseRetryStrategy, RetryDecision
 
 from ..core.settings import settings
+
+# Procrastinate logs each job's full call args at INFO - for send_email_task
+# that's the rendered body, which embeds a raw token. WARNING keeps failure
+# visibility (still ERROR) while dropping that from stdout.
+logging.getLogger("procrastinate").setLevel(logging.WARNING)
 
 
 class ExponentialBackoffWithJitter(BaseRetryStrategy):

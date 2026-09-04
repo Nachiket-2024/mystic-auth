@@ -41,7 +41,7 @@ export interface NavItem {
  *
  * Downstream apps add their own links via AppLayout's `extraNavItems` prop
  * rather than editing this array directly. See
- * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+ * docs/mystic_auth/template-usage/frontend-customization.md#shared-chrome-extension-points.
  */
 export const NAV_ITEMS: NavItem[] = [
     { label: "layout:nav.dashboard", to: "/dashboard", order: 10, icon: LayoutDashboard },

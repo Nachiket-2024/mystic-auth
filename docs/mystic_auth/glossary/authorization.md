@@ -97,13 +97,13 @@ An optional narrowing rule on a policy, keyed by condition type inside its `cond
 
 ## self_only condition
 
-A specific condition type that restricts a policy so it only grants access to a resource whose `email` field matches the acting user's own email, i.e. "your own records only." See [Condition Schema Reference: self_only](../authorization/condition-schema-reference.md#self-only).
+A specific condition type that restricts a policy so it only grants access to a resource whose `email` field matches the acting user's own email, i.e. "your own records only." See [Condition Schema Reference: self_only](../authorization/condition-schema-reference.md#self_only).
 
 ---
 
 ## resource_attributes condition
 
-A specific condition type that requires listed fields on the resource being acted on to equal expected values (e.g. only grant access when `status` is `"draft"`). See [Condition Schema Reference: resource_attributes](../authorization/condition-schema-reference.md#resource-attributes).
+A specific condition type that requires listed fields on the resource being acted on to equal expected values (e.g. only grant access when `status` is `"draft"`). See [Condition Schema Reference: resource_attributes](../authorization/condition-schema-reference.md#resource_attributes).
 
 ---
 

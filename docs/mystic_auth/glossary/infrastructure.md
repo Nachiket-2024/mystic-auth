@@ -178,7 +178,7 @@ The scheduled, automatic custom-format dump of both the app's and Bugsink's Post
 A named setting supplied to a process by the shell or Docker Compose. The
 backend reads its declared settings through `core/settings.py`; the frontend
 reads `VITE_*` values at Vite build/start time; some Compose services read
-additional variables directly. See [Environment Configuration](../configuration/environment.md).
+additional variables directly. See [Environment Configuration](../environment/README.md).
 
 ---
 

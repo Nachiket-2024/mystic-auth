@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 ## Day-to-day: dev-up helpers
 
 `docker compose up` (no `-d`) attaches to and interleaves *every* service's

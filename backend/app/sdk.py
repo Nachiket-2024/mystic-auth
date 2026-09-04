@@ -82,7 +82,7 @@ rate_limit_router = _m("api.rate_limit_routes.rate_limit_routes").router
 health_router = _m("api.health_routes.health_routes").router
 
 # Display/grouping metadata only, never a gating decision, see
-# docs/mystic_auth/security/decisions.md#role-is-never-used-to-decide-access
+# docs/mystic_auth/security/decisions-auth.md#role-is-never-used-to-decide-access
 User = _m("user.user_model").User
 UserRole = _m("user.user_model").UserRole
 UserCreate = _m("user.user_schema").UserCreate

@@ -54,4 +54,12 @@ for DB in "$POSTGRES_DB" bugsink; do
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
     pg_restore --list < "$BACKUP_FILE" >/dev/null
   echo "Backup written to $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+
+  # Same optional off-host upload hook as the db_backup Compose service
+  # (docker-compose.prod.yml and the local-prod-* variants), so a manual
+  # backup ships off-host the same way a scheduled one does.
+  if [ -n "${BACKUP_UPLOAD_COMMAND:-}" ]; then
+    echo "Running BACKUP_UPLOAD_COMMAND for $BACKUP_FILE..."
+    DUMP_FILE="$BACKUP_FILE" sh -c "$BACKUP_UPLOAD_COMMAND"
+  fi
 done

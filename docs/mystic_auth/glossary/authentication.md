@@ -13,7 +13,7 @@ Short for JSON Web Token. A signed, tamper-evident string that carries a small s
 
 ## claim
 
-One field inside a JWT's payload, such as `email`, `type`, `exp` (expiry), or `chain` (see [chain / chain_id](#chain-chainid) below). A claim is only as trustworthy as the token's signature; this app deliberately keeps sensitive facts like `role` out of claims and re-checks them against the database instead. See [Authentication Overview: Tokens and cookies](../authentication/overview.md#tokens-and-cookies).
+One field inside a JWT's payload, such as `email`, `type`, `exp` (expiry), or `chain` (see [chain / chain_id](#chain--chain_id) below). A claim is only as trustworthy as the token's signature; this app deliberately keeps sensitive facts like `role` out of claims and re-checks them against the database instead. See [Authentication Overview: Tokens and cookies](../authentication/overview.md#tokens-and-cookies).
 
 ---
 

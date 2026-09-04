@@ -1,6 +1,8 @@
 # Writing and Testing Policies
 ---
 
+*New to a term here? See the [Authorization Glossary](../glossary/authorization.md).*
+
 ## Policy creation workflow
 
 ```mermaid

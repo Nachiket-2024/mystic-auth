@@ -1,6 +1,8 @@
 # Logout and Logout-All
 ---
 
+*New to a term here? See the [Authentication & Sessions Glossary](../glossary/authentication.md).*
+
 Split out of [Authentication Flows](overview.md). Both endpoints end sessions by bumping a Redis
 version counter, not by deleting or blacklisting tokens; see
 [Session Management: source of truth](session-management/README.md#source-of-truth) for why that scheme

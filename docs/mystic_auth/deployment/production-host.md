@@ -1,5 +1,8 @@
 # Production Host Requirements
 ---
+
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 Host-level requirements and runtime behavior shared by production-shaped deployments.
 
 ---

@@ -1,6 +1,8 @@
 # API Reference
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 Full route inventory, grouped by `APIRouter` module under `backend/mystic_auth/api/`. All routers are mounted in `backend/app/main.py`. Interactive docs (`/docs`, `/redoc`, `/openapi.json`) are available whenever `ENVIRONMENT != "production"`; see [Backend Architecture](../architecture/backend.md#request-pipeline).
 
 Every request/response body is a Pydantic schema (`*_schema.py` beside each feature); FastAPI validates the body and returns `422` with a field-by-field error list on a bad payload, so no route does its own manual validation.

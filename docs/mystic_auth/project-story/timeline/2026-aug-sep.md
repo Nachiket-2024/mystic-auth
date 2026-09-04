@@ -239,6 +239,8 @@ The largest single commit in the project's history by line count.
 
 ### Commit 71: 4 September, 2026
 
+`5aff4be`: "Blocked self-role privilege escalation, patched security headers and Docker images"
+
 Security hardening driven by a manual adversarial pentest by Claude Code and an automated audit scan (Bandit/ZAP/testssl.sh/pip-audit/npm audit) against the local-prod-ngrok stack, both checked into the repo for reference.
 
 1. **The pentest's one real finding, fixed:** a caller holding only `users:assign_role` could relabel *themselves* to `admin` via `PATCH /users/{email}/role` or its bulk counterpart. Not exploitable today (nothing branches on `role == "admin"`), but a real escalation path waiting for the first downstream shortcut that does. Now rejected outright (`403 CANNOT_CHANGE_OWN_ROLE`) on both endpoints, with regression tests, re-verified live against the running stack.
@@ -251,7 +253,32 @@ Security hardening driven by a manual adversarial pentest by Claude Code and an 
 8. `selfPermissionMutationGuardArming.test.tsx`'s four `expect(markSpy).not.toHaveBeenCalled()` calls rewritten as `expect(markSpy).toHaveBeenCalledTimes(0)`, matching this repo's existing `.not` chaining convention (documented in `docs/mystic_auth/testing/overview.md`) after a clean CI install caught what a stale local `node_modules` had been quietly tolerating.
 9. Docs updated throughout to match every change above.
 
-*56 files changed*
+*56 files changed · +2,340/-2,002 lines*
+
+---
+
+### Commit 72: 5 September, 2026
+
+"Ran security audit, migrated backend to Alpine, fixed entrypoint and token leak"
+
+A live security audit (Bandit, Semgrep, Trivy, gitleaks, pip-audit, npm audit, a full OWASP ZAP active scan, plus a manual adversarial pentest and a real-browser pass) against a running local-prod-ngrok deployment, re-run clean against a completely fresh rebuild of the stack, followed by fixing what it turned up.
+
+1. CSP's `style-src` dropped `'unsafe-inline'` for three static `sha256-` hashes covering Chakra/Emotion's fixed style tags.
+2. Backend base image migrated Debian to Alpine, taking Trivy from 57 High/Critical to 0 on the runtime image.
+3. A real login-lockout race fixed: one atomic Redis `INCR` instead of a check-then-increment pair that let extra failed attempts through under a burst.
+4. Production scaling made configurable (`UVICORN_WORKERS`, `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`), measured live at roughly 260 to 360 req/s on `GET /auth/me` going from 1 to 4 workers.
+5. The real Caddy production TLS path tested for the first time, catching and fixing a duplicate `Strict-Transport-Security` header, which also closed a gap where the ngrok/cloudflare/tailscale tunnel modes never sent HSTS on the frontend's own pages at all.
+6. Docs swept for staleness against the above, and a glossary cross-link added wherever a doc used a term the glossary already defined.
+7. A self-healing Docker entrypoint (`docker/dockerfiles/backend-entrypoint.sh`) replaced the manual "remember to `docker volume rm`" step left over from the Alpine migration: it fixes `backend_logs` ownership on a stale volume, then drops to `app` via `su-exec`.
+8. An optional `BACKUP_UPLOAD_COMMAND` hook added to `db_backup` (all four prod-shaped Compose files) and `scripts/db/db_backup.sh`, so an operator can ship dumps off-host with one env var.
+9. A real token leak caught in manual review: Procrastinate's own job-lifecycle logging was echoing each job's full arguments to stdout, including the raw verification/reset token embedded in `send_email_task`'s email body. Fixed by raising the `procrastinate` logger to `WARNING`.
+10. Bandit, Semgrep, pip-audit, npm audit, Gitleaks, and Trivy re-run clean against the rebuilt images; a full ZAP active scan came back 141 PASS/0 FAIL, up from the prior baseline scan's 138.
+11. A fresh manual pentest with two new accounts: IDOR, self-escalation, forged/tampered JWTs, SQL/XSS injection, OAuth open-redirect, rate limiting, and enumeration, all 17 attempts blocked; a real-browser pass confirmed stored XSS renders inert and every admin route 403s for a non-admin.
+12. A load test against the real built image found the deployment's actual ceiling: throughput plateaus around 520&ndash;560 req/s past 500 concurrent, with `/health/ready` tail latency ballooning under 1,000 from Postgres pool saturation.
+13. Stale local audit-report folders deleted; all gitignored, so this touched no tracked files.
+14. Every CI job re-run locally against the pending changes before commit: a real percent-format lint error fixed in `test_invalid_condition_payload_security.py`, then ruff/mypy/bandit/pip-audit, all 27 migrations, 823 backend unit + 272 integration + 36 security (93.44% coverage) + 7 performance tests, 544 frontend tests across 86 files, a full 89-commit Gitleaks history scan, both Docker images, and the 58-test Playwright E2E suite, all clean.
+
+*111 files changed*
 
 ---
 

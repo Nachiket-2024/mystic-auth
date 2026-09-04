@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Authentication & Sessions Glossary](../../glossary/authentication.md).*
+
 ## List sessions
 
 `GET /auth/sessions` requires a valid caller session. The handler lists only active rows for the current user and returns `SessionRead` rows:

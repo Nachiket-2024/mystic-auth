@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Authentication & Sessions Glossary](../../glossary/authentication.md).*
+
 This doc covers the Manage Sessions feature across backend, frontend, database, and tests. It is split out of the main authentication overview so that login, refresh, and logout remain readable while the session-display edge cases stay documented in one place.
 
 ---

@@ -1,6 +1,8 @@
 # Database Design
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 PostgreSQL, accessed via async SQLAlchemy (`backend/mystic_auth/database/`). Schema managed entirely through Alembic migrations (`backend/alembic/versions/`); there is no `create_all()` in application startup.
 
 Relationships and key columns only - see each table's own section below for the full column list; keeping this diagram to PK/FK/UK markers (no descriptive comments) is deliberate, so wide entity boxes don't force the whole diagram to render tiny in a fixed-width doc viewer.

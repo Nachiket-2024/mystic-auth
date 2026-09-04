@@ -80,6 +80,13 @@ frontend and backend share one public origin behind the tunnel, and nginx
 (`docker/nginx.frontend.conf`) proxies API prefixes to `backend`
 same-origin, so the browser never needs a separate API URL.
 
+Also set `JWT_ISSUER` and `JWT_AUDIENCE` to `https://your-hostname`. They
+don't have to match `FRONTEND_BASE_URL` for tokens to work (they're only
+checked against themselves, see
+[Authentication Overview](../../authentication/overview.md)), but leaving
+them at the placeholder default means every deployment that copies this
+tutorial mints tokens with the same `iss`/`aud`.
+
 ---
 
 **Step 5: Register the hostname with Google and enable Google login.**

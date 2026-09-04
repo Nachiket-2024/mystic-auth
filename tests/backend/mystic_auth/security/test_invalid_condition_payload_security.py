@@ -54,19 +54,22 @@ async def test_pathologically_deep_nesting_in_resource_attributes_is_rejected_no
     await create_system_user(client, created_emails, system_email)
     policy_name = unique_policy_name()
 
-    nested: object = "leaf"
-    for _ in range(5000):
-        nested = {"a": nested}
+    # Raw JSON string, not a Python dict via client.post's `json=` - that
+    # makes httpx's own recursive json.dumps encode all 5000 levels before
+    # the request is even sent, which can RecursionError on a smaller
+    # default thread stack (e.g. musl/Alpine), unrelated to the server.
+    # A real attacker sends raw bytes anyway, so this is truer to the attack.
+    nested_json = ('{"a":' * 5000) + '"leaf"' + ('}' * 5000)
+    payload = (
+        f'{{"name":"{policy_name}","actions":["sectest:view"],"resource_type":"sectest_resource",'
+        f'"conditions":{{"resource_attributes":{{"field":{nested_json}}}}}}}'
+    )
 
     start = time.perf_counter()
     resp = await client.post(
         "/authorization/policies",
-        json={
-            "name": policy_name,
-            "actions": ["sectest:view"],
-            "resource_type": "sectest_resource",
-            "conditions": {"resource_attributes": {"field": nested}},
-        },
+        content=payload,
+        headers={"Content-Type": "application/json"},
     )
     elapsed = time.perf_counter() - start
 

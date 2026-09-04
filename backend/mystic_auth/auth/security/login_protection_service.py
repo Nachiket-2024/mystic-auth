@@ -91,28 +91,30 @@ class LoginProtectionService:
         lockout_time: int = LOGIN_LOCKOUT_TIME,
     ) -> bool:
         """
-        The is_locked check here vs. a caller's own pre-check (e.g.
-        login_handler.py checks is_locked itself before attempting
-        authentication, to skip the password hash comparison entirely for an
-        already-locked account) are not redundant despite calling the same
-        function. The caller's pre-check answers "should we even try?" before
-        any expensive work; this one answers "is the account still unlocked
-        right now, after that work finished?", closing the race where a
-        concurrent request locks the account in between. Removing either one
-        changes behavior: dropping the caller's pre-check means every attempt
-        against a locked account still pays for a full password hash
-        comparison, and dropping this one lets a login that happens to finish
-        just after a concurrent failure crosses the threshold slip through anyway.
+        Callers' own is_locked pre-check (e.g. login_handler.py) is just an
+        optimization to skip password hashing for an already-locked
+        account - not the source of truth. The failure path here is: a
+        single atomic Redis INCR, not a separate is_locked-then-record
+        pair, so concurrent failures against the same key can't both read
+        "not yet locked" before either increments (that gap let more than
+        max_attempts through as 401 under a real burst - see
+        test_login_lockout_race_integration.py).
         """
-        if await LoginProtectionService.is_locked(key, max_attempts):
+        if success:
+            if await LoginProtectionService.is_locked(key, max_attempts):
+                return False
+            await LoginProtectionService.reset_failed_attempts(key)
+            return True
+
+        try:
+            new_count = await redis_client.incr(key)
+            if new_count == 1:
+                await redis_client.expire(key, lockout_time)
+        except Exception:
+            logger.error("Error recording failed login attempt:\n%s", traceback.format_exc())
             return False
 
-        if success:
-            await LoginProtectionService.reset_failed_attempts(key)
-        else:
-            await LoginProtectionService.record_failed_attempt(key, lockout_time)
-
-        return True
+        return new_count <= max_attempts
 
 
 login_protection_service = LoginProtectionService()

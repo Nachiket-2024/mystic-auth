@@ -100,7 +100,7 @@ class CurrentUserHandler:
             # can't list live sessions. Only computed when include_active_sessions
             # is True (i.e. for GET /auth/me), since every other protected route
             # via get_current_user never reads this field. See
-            # docs/mystic_auth/authentication/session-management/api.md#active-session-count-on-authme.
+            # docs/mystic_auth/authentication/session-management/list-and-revoke-sessions.md#active-session-count-on-authme.
             active_sessions = (
                 await session_service.count_active_sessions(db, user.email) if include_active_sessions else 0
             )

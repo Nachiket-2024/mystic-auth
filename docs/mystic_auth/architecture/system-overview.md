@@ -1,6 +1,8 @@
 # System Architecture
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md) or [Frontend Glossary](../glossary/frontend.md).*
+
 High-level overview of the whole stack. For the PBAC authorization pipeline specifically, see [../authorization/architecture/README.md](../authorization/architecture/README.md); for deployment/runtime topology, see [../deployment/guide.md](../deployment/guide.md).
 
 ---

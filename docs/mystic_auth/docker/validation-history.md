@@ -1,6 +1,8 @@
 # Docker Validation History
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 A log of past live-verification passes against the running Docker stack: what was actually run, what it found, and what got fixed as a result. Each entry describes what was true *at the time of that pass*; it's a historical record, not current-state reference material (for that, see [Docker Overview](overview.md)). Test/file counts below are frozen at whatever they were during that specific pass, not kept in sync with the current suite.
 
 ---
@@ -39,7 +41,7 @@ On July 29, 2026, verified the dev helper log-tail update against the running Do
 
 Ran `docker compose up -d --build` (dev compose) from the repo root and verified the stack end-to-end (template-preparation pass):
 
-- All five core services (`postgres`, `redis`, `backend`, `taskiq_worker`, `frontend`) reached a running state; `postgres`, `redis`, `backend`, `taskiq_worker` all reported `healthy` on their respective healthchecks (`frontend` dev has none, by design: see [Docker Overview: Healthchecks](overview.md#healthchecks)).
+- All five core services (`postgres`, `redis`, `backend`, `taskiq_worker`, `frontend`) reached a running state; `postgres`, `redis`, `backend`, `taskiq_worker` all reported `healthy` on their respective healthchecks (`frontend` dev has none, by design: see [Docker Healthchecks](healthchecks.md#service-healthchecks)).
 - `alembic` ran the full migration chain successfully.
 - `GET /health/ready` returned `{"status":"ok","checks":{"database":"ok","redis":"ok"}}`; `GET /` returned the `APP_NAME`-driven welcome message, confirming the env-driven app name reaches the running container.
 - Frontend dev server responded `200` on `http://localhost:5173/`, and its `<title>` correctly resolved from `VITE_APP_NAME` via Vite's `%VITE_APP_NAME%` `index.html` substitution.
@@ -106,6 +108,6 @@ A later pass re-ran the full live verification against the running stack (`docke
 
 ## Sidebar ordering, multi-origin CORS, and the `/app/logs`/`.coverage` permission bugs
 
-This round of changes (see the project story's Jul 27 entry) was verified against real container behavior far more directly than most: the sidebar `extraNavItems`/`order` prop was tested via `docker compose exec` running the actual frontend test suite inside the container; multi-origin CORS was confirmed live with `curl` requests carrying different `Origin` headers against a running backend, not just unit-tested; and the `/app/logs` and `.coverage` `PermissionError`s were root-caused by pulling real failed-run logs from GitHub Actions via `gh api`, not guessed at: see [Docker Overview: why `/app/logs` is a named volume](overview.md#why-applogs-is-a-named-volume-not-part-of-the-backendapp-bind-mount) and [running a one-off command inside a container](overview.md#running-a-one-off-command-inside-a-container) for the fixes those produced. `create_system_user.py`'s promotion/deletion paths were similarly verified against a real running Postgres: inserting a genuine Google-only row (`hashed_password IS NULL`), running the actual interactive script against it, and confirming the resulting row (and its policy assignments) directly via SQL rather than trusting the script's own printed output alone.
+This round of changes (see the project story's Jul 27 entry) was verified against real container behavior far more directly than most: the sidebar `extraNavItems`/`order` prop was tested via `docker compose exec` running the actual frontend test suite inside the container; multi-origin CORS was confirmed live with `curl` requests carrying different `Origin` headers against a running backend, not just unit-tested; and the `/app/logs` and `.coverage` `PermissionError`s were root-caused by pulling real failed-run logs from GitHub Actions via `gh api`, not guessed at: see [Docker Dev Workflow: why `/app/logs` is a named volume](dev-workflow.md#why-applogs-is-a-named-volume-not-part-of-the-backendapp-bind-mount) and [running a one-off command inside a container](dev-workflow.md#running-a-one-off-command-inside-a-container) for the fixes those produced. `create_system_user.py`'s promotion/deletion paths were similarly verified against a real running Postgres: inserting a genuine Google-only row (`hashed_password IS NULL`), running the actual interactive script against it, and confirming the resulting row (and its policy assignments) directly via SQL rather than trusting the script's own printed output alone.
 
 ---

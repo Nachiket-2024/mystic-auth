@@ -64,6 +64,9 @@ jobs:
       APP_DB_PASSWORD: ci-test-app-db-password
       APP_DATABASE_URL: postgresql+asyncpg://mystic_auth_app:ci-test-app-db-password@localhost:5432/mystic_auth_ci
 
+      DB_POOL_SIZE: "5"
+      DB_MAX_OVERFLOW: "10"
+
       SECRET_KEY: ci-test-secret-key-not-for-production-use-only
 
       ACCESS_TOKEN_EXPIRE_MINUTES: "15"
@@ -385,7 +388,7 @@ jobs:
       # the whole-repo bind mount.
       - name: Run the full backend suite inside the backend container
         run: |
-          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T --user root backend bash -c '
+          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T --user root backend sh -c '
             export PATH=/opt/venv/bin:$PATH &&
             cd /repo &&
             python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q &&

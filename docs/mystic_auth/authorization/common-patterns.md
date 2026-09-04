@@ -1,6 +1,8 @@
 # Common Authorization Patterns
 ---
 
+*New to a term here? See the [Authorization Glossary](../glossary/authorization.md).*
+
 Unlike [Policy JSON Examples](policy-examples.md) (what a condition type's JSON looks like) or [Condition Schema Reference](condition-schema-reference.md) (the exact fields each condition type accepts), this page is about **modeling choices on your own resource tables** to get a common real-world access shape out of PBAC's existing, deliberately small set of condition types. Nothing here requires a new condition type or any change to `mystic_auth/`: every pattern below is achievable with what already ships.
 
 ---

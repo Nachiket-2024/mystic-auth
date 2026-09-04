@@ -1,6 +1,8 @@
 # Prod Deployment
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 Self-hosted deployment for your own server. This can be a virtual private
 server, cloud instance, bare-metal server, or any host with a public IP. The
 Compose stack owns the public HTTP/HTTPS entrypoint through Caddy, which

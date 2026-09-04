@@ -1,5 +1,8 @@
 # Migrations and Backups
 ---
+
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 Deployment operations for Alembic migrations, database dumps, restore commands, and backup limitations.
 
 ---
@@ -52,9 +55,12 @@ The restore target is inferred from the dump filename. A `bugsink-*.sql` file re
 |---|---|
 | `BACKUP_INTERVAL_HOURS` | Hours between scheduled dumps. |
 | `BACKUP_RETENTION_DAYS` | Local retention window for old dump files. |
+| `BACKUP_UPLOAD_COMMAND` | Optional shell command run after each verified dump, with `DUMP_FILE` exported to it, to ship the dump off-host. Blank (off) by default. |
 | `./backups` | Host directory where dumps are written. |
 
-This is a periodic `pg_dump` loop. It is a baseline, not a production-grade backup system.
+This is a periodic `pg_dump` loop. It is a baseline, not a production-grade backup system. `scripts/db/db_backup.sh` (manual/on-demand backups) honors the same `BACKUP_UPLOAD_COMMAND` for parity.
+
+Example: `BACKUP_UPLOAD_COMMAND=aws s3 cp "$DUMP_FILE" s3://my-bucket/` (the `postgres:15` image has no `aws-cli`/`rclone` preinstalled - use a command already on `PATH`, or bind-mount one in via a custom `db_backup` image).
 
 ---
 
@@ -63,13 +69,13 @@ This is a periodic `pg_dump` loop. It is a baseline, not a production-grade back
 
 Known limitations:
 
-1. Dumps live on the same host by default.
-2. There is no point-in-time recovery.
-3. There is no automatic off-host upload.
-4. There is no built-in restore verification.
-5. There is no alert when scheduled backup fails.
+1. Dumps live on the same host by default, unless `BACKUP_UPLOAD_COMMAND` is set.
+2. There is no point-in-time recovery - periodic full dumps only, so worst-case data loss is up to `BACKUP_INTERVAL_HOURS` of writes.
+3. There is no alert when a scheduled backup or upload fails; a failure is visible only in `docker compose ps`/container logs (`set -e` restarts the container rather than skipping silently).
 
-For production data, copy backups off the host and periodically restore the latest dump into a scratch database. See [Known Issues](../concerns/README.md#database-backups-are-scheduled-but-not-production-grade).
+Each dump is already verified with `pg_restore --list` immediately after writing, so a corrupt dump is caught before it's trusted, not after a restore is attempted.
+
+For production data, periodically restore the latest dump into a scratch database to confirm the whole pipeline works end to end. See [Known Issues](../concerns/README.md#database-backups-are-scheduled-and-integrity-checked-but-not-shipped-off-host-or-continuously-archived).
 
 ---
 

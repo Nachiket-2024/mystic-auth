@@ -1,6 +1,8 @@
 # Background Email Delivery
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 ## Purpose
 
 Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. Also runs the daily scheduled hard-purge of soft-deleted accounts past their grace period (see [Account Deletion](../authentication/account-deletion/README.md)).
@@ -81,6 +83,8 @@ await send_email_task.defer_async(
 `.defer_async()` returns as soon as the job row is inserted, so the signup or password-reset request handler does not wait for SMTP delivery.
 
 `send_email_task` logs `Sending email to {to_email}` right before handing off to `email_sender.send`, then `Email sent successfully to {to_email}` once it succeeds, both at INFO level, before returning `True`. It uses `logging_config.py::get_worker_logger()` rather than the usual `get_logger()`, so both lines are terminal-visible (`docker compose logs procrastinate_worker`) instead of file-only. Background tasks have no HTTP access-log line marking when they start or finish, so these lifecycle logs make live sends visible while still writing to `logs/access.log`.
+
+Procrastinate's own job-lifecycle logging (distinct from the app's `send_email_task` lines above) would otherwise log each job's full call arguments at INFO - `Starting job ...(body='<the rendered email HTML>', ...)` - and `send_email_task`'s `body` argument is exactly where a raw verification/password-reset/account-deletion token lives, since it's already embedded in the rendered HTML before the job is enqueued. `procrastinate_tasks/procrastinate_app.py` raises the `procrastinate` logger to `WARNING` at import time specifically to stop that, so a token never lands in plaintext in `docker compose logs`. Failure visibility isn't lost: Procrastinate still logs a failed job at `ERROR` (above `WARNING`), and `send_email_task`'s own `except` block separately logs the traceback either way. This doesn't touch the `procrastinate_jobs` table itself - a job's args are still written there in plaintext for the row's lifetime, same as any Postgres-backed job queue; that's accepted as inherent to the architecture (DB access is already a full compromise) rather than something to route around.
 
 `purge_expired_soft_deleted_accounts` is registered via `@app.periodic(cron="0 3 * * *")` stacked over `@app.task`; Procrastinate's periodic-task API requires the decorated function to accept the scheduled cron tick (epoch seconds) as its first positional argument (`timestamp: int`), unused here since the actual cutoff is computed from the current time, not the tick time.
 

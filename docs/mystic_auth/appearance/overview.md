@@ -1,6 +1,8 @@
 # Appearance: Per-User Brand Color
 ---
 
+*New to a term here? See the [Frontend Glossary](../glossary/frontend.md).*
+
 Lets a signed-in user pick their own brand accent color from Account Settings, re-skinning buttons, focus rings, the page-background gradient, the in-app logo badge, and the browser-tab favicon for themselves, on any device they sign into. This is separate from the app-wide default brand color (`BRAND_COLOR`/`VITE_BRAND_COLOR`, see below), which is what every user starts from. A user's own pick, once saved, overrides that default client-side, only for them; it never changes what anyone else sees.
 
 ---

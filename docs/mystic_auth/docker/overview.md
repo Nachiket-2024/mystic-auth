@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 This stack runs as several Docker Compose services. This page lists them
 and links to the detail pages for images, compose modes, healthchecks, and
 day-to-day workflow.

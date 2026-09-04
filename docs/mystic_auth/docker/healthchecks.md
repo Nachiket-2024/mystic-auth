@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 ## Service healthchecks
 
 | Service | Check | Notes |

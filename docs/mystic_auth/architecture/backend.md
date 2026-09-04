@@ -1,6 +1,8 @@
 # Backend Architecture
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md) or [Frontend Glossary](../glossary/frontend.md).*
+
 ## Purpose
 
 FastAPI application (`backend/mystic_auth/`, with the entry point and extension surface, namely `main.py`, `sdk.py`, `app_sdk.py`, in the sibling `backend/app/`; see [Using This Repository as a Template: the `app/` + `mystic_auth/` split](../template-usage/overview.md#the-app--mystic_auth-split)), async throughout: SQLAlchemy async engine, async Redis client, async SMTP. One codebase, three container roles (`backend`, `procrastinate_worker`, `alembic`) built from the same image with different `command:` overrides. See [Docker Overview](../docker/overview.md).

@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Authentication & Sessions Glossary](../../glossary/authentication.md).*
+
 ## Real-time push
 
 Server-side revocation always takes effect immediately (the next request from an affected session gets `401`, see [Authentication overview](../overview.md#current-session-lookups-get-authme)), but a browser tab that isn't actively making requests has no way to notice that on its own.

@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Authentication & Sessions Glossary](../../glossary/authentication.md).*
+
 ## Frontend behavior
 
 1. **Ownership.** `ManageSessionsCard.tsx` lives in `frontend/src/mystic_auth/dashboard/manage_sessions/`, alongside the page that's its only consumer, rather than a separate top-level folder: it owns its own API query and mutation, but nothing else in the app renders it. Device labels come from `parseUserAgent.ts`; failure and empty states are rendered locally by the card.

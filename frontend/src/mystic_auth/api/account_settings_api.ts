@@ -16,7 +16,7 @@ export interface DeleteMyAccountResponse {
 }
 
 // Self-service soft delete, reversible for ACCOUNT_PURGE_GRACE_DAYS (see
-// docs/mystic_auth/security/decisions.md#account-lifecycle-soft-delete-by-default).
+// docs/mystic_auth/security/decisions-product.md#account-lifecycle-soft-delete-by-default).
 // A password-holding account is deleted immediately. An OAuth-only account instead
 // gets a confirmation email and stays untouched until POST /users/me/confirm-delete.
 export const deleteMyAccountApi = (payload: DeleteMyAccountPayload) =>

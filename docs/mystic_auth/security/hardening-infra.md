@@ -1,6 +1,8 @@
 # Security Hardening: Infrastructure
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md) or [Authentication Glossary](../glossary/authentication.md).*
+
 Redis authentication, secret strength, reverse-proxy IP trust, session geolocation, and the current accepted-gaps list. See [Security Hardening](hardening.md) for the full index.
 
 ---
@@ -31,7 +33,7 @@ Resolves each login's city/country from its IP via a local MaxMind GeoLite2-City
 
 ## Known accepted gaps
 
-1. See [Concerns](../concerns/README.md) for the current open list (automated backup scheduling, the single global rate-limit threshold, no deploy automation): everything else previously tracked there has since been resolved and folded into this document.
+1. See [Concerns](../concerns/README.md) for the current open list (off-host backup shipping, no deploy automation): everything else previously tracked there, including automated backup scheduling and the single global rate-limit threshold, has since been resolved and folded into this document.
 2. `pytest` no longer ships in the production backend image: `docker/dockerfiles/backend.Dockerfile`'s multi-stage build has a `runtime` target (no test tooling, the default and the only target `backend`/`procrastinate_worker`/`alembic` actually run) and a separate `test` target that layers `requirements-dev.txt` on top of it, selected via the backend service's `target: ${BACKEND_BUILD_TARGET:-runtime}` in `docker-compose.dev.yml`.
 3. Error monitoring is available (opt-in) rather than a tracked gap now: see [Error Monitoring](../error-monitoring/overview.md).
 

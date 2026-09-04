@@ -16,6 +16,9 @@ class Settings(BaseSettings):
 
     APP_DATABASE_URL: str = ""                      # Optional least-privilege DB URL (CRUD only, no DDL) for the request-serving app and background jobs. Empty (default) falls back to DATABASE_URL
 
+    DB_POOL_SIZE: int                               # Per-process SQLAlchemy pool size. UVICORN_WORKERS * (DB_POOL_SIZE + DB_MAX_OVERFLOW) must stay under Postgres max_connections - see docs/mystic_auth/deployment/environment.md
+    DB_MAX_OVERFLOW: int                            # Extra connections opened beyond DB_POOL_SIZE under burst load, closed again once idle
+
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     REFRESH_TOKEN_EXPIRE_MINUTES: int

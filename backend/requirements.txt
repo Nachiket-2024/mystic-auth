@@ -12,6 +12,10 @@ uvicorn[standard]==0.52.4
 SQLAlchemy==2.0.52
 asyncpg==0.31.0
 alembic==1.19.1
+# Transitive dep of alembic/procrastinate, pinned explicitly with [binary]:
+# plain psycopg's libpq loader doesn't work on musl/Alpine, [binary] bundles
+# its own libpq so it works on both glibc and musl.
+psycopg[binary]==3.3.5
 
 python-dotenv==1.2.3
 pydantic-settings==2.15.0

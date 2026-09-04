@@ -1,6 +1,8 @@
 # Authentication Flows
 ---
 
+*New to a term here? See the [Authentication & Sessions Glossary](../glossary/authentication.md).*
+
 Covers the JWT/cookie mechanics shared by every flow, refresh-token rotation, and current-session
 lookups. Each user-facing flow has its own doc, split out so every flow gets its own diagram
 instead of competing for space in one long page:

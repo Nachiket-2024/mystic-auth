@@ -2,6 +2,8 @@
 
 ---
 
+*New to a term here? See the [Authentication & Sessions Glossary](../../glossary/authentication.md).*
+
 ## Rotation chains and reuse detection
 
 Every refresh token carries a `chain` claim. It is a random id minted once at login and carried forward, unchanged, across every rotation of that login. See `jwt_service.create_refresh_token`, `login_service.py`, `oauth2_service.py`, and `refresh_token_service.refresh_tokens`.

@@ -130,7 +130,7 @@ async def rollback_policy(
     update_policy, it can silently re-grant or strip access for every
     current holder, so it fans out the same publish_permissions_changed
     nudge (see policy_crud_routes.py and
-    docs/mystic_auth/authorization/architecture/realtime.md#real-time-push).
+    docs/mystic_auth/authorization/architecture/real-time-push.md).
 
     Goes through the same guards as PUT /policies/{policy_name}: malformed
     conditions are rejected, baseline policies can't be renamed/deactivated,

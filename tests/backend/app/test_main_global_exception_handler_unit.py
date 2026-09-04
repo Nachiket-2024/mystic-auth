@@ -22,5 +22,5 @@ async def test_global_exception_handler_reports_to_error_monitoring_and_returns_
 
     capture_mock.assert_awaited_once_with(exc, request=request)
     assert response.status_code == 500
-    # Clients never see exception internals: docs/mystic_auth/security/hardening.md#error-handling
+    # Clients never see exception internals: docs/mystic_auth/security/hardening-http.md#error-handling
     assert b"something broke" not in response.body

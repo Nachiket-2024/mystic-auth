@@ -45,7 +45,7 @@ export interface SearchItem {
  * Single source of truth for the palette's built-in content-search results.
  * Downstream apps add their own via CommandPalette's `extraSearchItems`
  * prop rather than editing this array directly. See
- * docs/mystic_auth/template-usage/overview.md#shared-chrome-extension-points.
+ * docs/mystic_auth/template-usage/frontend-customization.md#shared-chrome-extension-points.
  */
 export const SEARCH_ITEMS: SearchItem[] = [
     {

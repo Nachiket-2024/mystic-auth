@@ -1,6 +1,8 @@
 # Condition Schema Reference
 ---
 
+*New to a term here? See the [Authorization Glossary](../glossary/authorization.md).*
+
 A policy's `conditions` field is a JSON object where each key is a condition type. All present keys are AND'ed: every one must pass for the policy to grant access on a given check. `conditions: null` (or omitted) means an unconditional grant.
 
 Every condition type has **exactly one** canonical field-name shape, enforced identically by two independent layers:

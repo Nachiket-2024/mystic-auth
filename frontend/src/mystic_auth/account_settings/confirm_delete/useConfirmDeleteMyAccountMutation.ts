@@ -13,7 +13,7 @@ import { clearMyAccountSessionCaches } from "../../auth/session_lifecycle/clearM
  * ----------------------------
  * POST /users/me/confirm-delete: redeems an OAuth-only account's
  * email-confirmation token (see useDeleteMyAccountMutation.ts and
- * docs/mystic_auth/security/decisions.md#account-lifecycle) and performs the
+ * docs/mystic_auth/security/decisions-product.md#account-lifecycle-soft-delete-by-default) and performs the
  * deletion. Unauthenticated on the wire, the token is the proof. But if this
  * browser still holds the now-revoked session for the deleted account (the
  * link may be opened on a different device), the same cache cleanup as

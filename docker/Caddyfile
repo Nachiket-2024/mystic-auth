@@ -5,10 +5,11 @@
 {$PUBLIC_DOMAIN} {
 	tls {$ACME_EMAIL}
 
-	# Caddy doesn't send HSTS on its own. This is the actual TLS
-	# terminator, so it's the only layer that can say "always HTTPS" -
-	# matches the backend's own HSTS value (security_headers_middleware.py).
-	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	# HSTS itself comes from the backend (security_headers_middleware.py,
+	# gated on ENVIRONMENT=production so it also covers the local-prod-*
+	# tunnels, which have no Caddy in front). Don't set it here too - the
+	# frontend's static pages proxy through here to that same backend
+	# response path, so adding it again just duplicates the header.
 
 	# frontend's nginx already same-origin-proxies /auth, /audit, /users,
 	# /authorization, /health to the backend (docker/nginx.frontend.conf),

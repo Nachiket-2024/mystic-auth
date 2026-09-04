@@ -1,6 +1,8 @@
 # RBAC Quickstart: Role-Shaped Policies Without Conditions
 ---
 
+*New to a term here? See the [Authorization Glossary](../glossary/authorization.md).*
+
 [Common Patterns](common-patterns.md) covers modeling *hierarchies* on top of PBAC. This page is for the opposite, simpler need: your access model really is just "everyone with role X gets exactly these actions, no per-resource scoping", i.e. plain RBAC, and PBAC's full generality (conditions, `resource_attributes`, time/network/date-range checks) is more machinery than you need for it.
 
 You don't need a different mechanism for this. This template doesn't ship a separate RBAC engine alongside PBAC, and it doesn't need to: a **policy with no `conditions` at all is already RBAC**. This template's own three seeded baseline policies (`self_service`, `user_administration`, `system_superuser`, see [Policy JSON Examples](policy-examples.md)) are exactly that shape already: one unconditioned policy per "role", each just an action list. Building your own roles this way costs nothing extra: same tables, same evaluator, same audit log, same `require_authorization(...)` on every route.

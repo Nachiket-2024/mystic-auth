@@ -1,6 +1,8 @@
 # What the Security Tests Cover
 ---
 
+*New to a term here? See the [Testing Glossary](../glossary/testing.md).*
+
 This page walks through the dedicated `tests/backend/mystic_auth/security/`
 suite, plus other security-relevant behavior tested elsewhere in the
 codebase (spoofing, forged tokens, IDOR-style access checks). These tests

@@ -1,6 +1,8 @@
 # CI/CD Overview
 ---
 
+*New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
+
 ## Workflow
 
 `.github/workflows/ci.yml` triggers on every push and pull request targeting

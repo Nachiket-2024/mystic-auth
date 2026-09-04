@@ -107,7 +107,7 @@ services:
           sleep 0.5
         done
       fi
-      exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"
+      exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --workers ${UVICORN_WORKERS:-1}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -273,6 +273,14 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      # Optional: shell command run after each verified dump, with DUMP_FILE
+      # exported to it, to ship the dump off-host (see Known Issues: backups
+      # are single-point-of-failure without this). Unset by default - dumps
+      # stay local-only until an operator opts in. Example:
+      # BACKUP_UPLOAD_COMMAND=aws s3 cp "$DUMP_FILE" s3://my-bucket/
+      # The postgres:15 image has no aws-cli/rclone preinstalled; use a
+      # command already on PATH or bind-mount one in.
+      BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:-}
     volumes:
       - ../../backups:/backups
     depends_on:
@@ -290,6 +298,10 @@ services:
           pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$DUMP_FILE" "$$DB"
           pg_restore --list "$$DUMP_FILE" >/dev/null
           echo "[db_backup] Wrote $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
+          if [ -n "$$BACKUP_UPLOAD_COMMAND" ]; then
+            echo "[db_backup] Running BACKUP_UPLOAD_COMMAND for $${DUMP_FILE}"
+            DUMP_FILE="$$DUMP_FILE" sh -c "$$BACKUP_UPLOAD_COMMAND"
+          fi
           find /backups -maxdepth 1 \( -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
         done
         sleep "$$((BACKUP_INTERVAL_HOURS * 3600))"
@@ -315,6 +327,15 @@ services:
       # Unlike dev, this file assumes a reverse proxy/TLS terminator in front.
       BEHIND_HTTPS_PROXY: "true"
       BASE_URL: ${BUGSINK_BASE_URL}
+      # Bugsink (Django) reads its own EMAIL_* names, so this reuses
+      # SMTP_HOST/FROM_EMAIL/GMAIL_APP_PASSWORD rather than a second mail
+      # account. See docs/mystic_auth/error-monitoring/overview.md.
+      EMAIL_HOST: ${SMTP_HOST}
+      EMAIL_PORT: ${SMTP_PORT}
+      EMAIL_HOST_USER: ${FROM_EMAIL}
+      EMAIL_HOST_PASSWORD: ${GMAIL_APP_PASSWORD}
+      EMAIL_USE_TLS: "true"
+      DEFAULT_FROM_EMAIL: ${FROM_EMAIL}
     # Bound to localhost only: ngrok tunnels the frontend, not Bugsink,
     # which should not be internet-facing. Reach it via localhost:8111 or an
     # SSH tunnel. Non-default port so this can run alongside dev's (8010).

@@ -140,12 +140,19 @@ In `env/.env.local-prod-cloudflare`, set:
 ```
 GOOGLE_REDIRECT_URI=<that URL>/auth/oauth2/callback/google
 FRONTEND_BASE_URL=<that URL>
+JWT_ISSUER=<that URL>
+JWT_AUDIENCE=<that URL>
 ```
 
 (`FRONTEND_BASE_URL` is also baked into verification/password-reset email
 links and the CORS allow-list, so keeping it current matters even beyond
 Google login. `BACKEND_BASE_URL` must be *set* for the app to boot, but
-nothing reads it at runtime, so it never needs to track the tunnel URL.)
+nothing reads it at runtime, so it never needs to track the tunnel URL.
+`JWT_ISSUER`/`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for
+tokens to work — they're only checked against themselves, see
+[Authentication Overview](../../authentication/overview.md) — but a Quick
+Tunnel URL changes on every restart, so if you'd rather not re-set these
+every time, leave them at a stable placeholder instead.)
 
 ---
 
