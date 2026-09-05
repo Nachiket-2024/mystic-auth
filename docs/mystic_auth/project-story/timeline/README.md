@@ -14,9 +14,9 @@ first commit was on 18 August, 2025, and there's a 4-month gap between October 2
 Each entry below follows the same convention:
 
 - Its own `### Commit N: <date>` heading, numbered sequentially across the whole history in commit
-  order regardless of which of the four pages it lands on. No grouping by date range, and no
+  order regardless of which of the five pages it lands on. No grouping by date range, and no
   relying on the date alone as a heading, since several days carry more than one commit. The
-  numbering is split across four pages (see [Pages](#pages) below) purely to keep each file a
+  numbering is split across five pages (see [Pages](#pages) below) purely to keep each file a
   readable size; it isn't a second, competing grouping.
 - Opens with that commit's actual message in quotes.
 - Then a bulleted (or numbered, for a longer commit with a natural sequence) list of what it
@@ -65,7 +65,7 @@ timeline
                    : Playwright E2E tests, pg_dump backups
                    : Self-role escalation fix, patched security headers and Docker images
                    : Live security audit, Alpine base image, login-lockout race fix, prod scaling
-                   : Entrypoint hardening, backup upload hook, token-leak fix, fresh audit re-verify
+                   : Fixed i18n namespace mutation, multi-fork Docker collision avoidance, sync-upstream guidance
 ```
 
 ---
@@ -75,7 +75,8 @@ timeline
 - [August 2025](2025-aug.md): commits 1-16, 18 August, 2025 to 31 August, 2025.
 - [September-October 2025](2025-sep-oct.md): commits 17-36, 1 September, 2025 to 14 October, 2025.
 - [February-July 2026](2026-feb-jul.md): commits 37-53, 21 February, 2026 to 29 July, 2026.
-- [August-September 2026](2026-aug-sep.md): commits 54-72, 2 August, 2026 to 5 September, 2026.
+- [August 2026](2026-aug.md): commits 54-69, 2 August, 2026 to 29 August, 2026.
+- [September 2026](2026-sep.md): commits 70-73, 4 September, 2026 to 6 September, 2026.
 
 ---
 

@@ -57,7 +57,8 @@ cp env/.env.local-prod-ngrok.example env/.env.local-prod-ngrok
 `env/.env.local-prod-ngrok.example` is the local-prod template for
 `docker/compose/docker-compose.local-prod-ngrok.yml`. It preconfigures
 same-origin API routing (`VITE_API_BASE_URL` empty) and the fixed frontend
-nginx proxy IP (`TRUSTED_PROXY_IPS=172.30.0.10,172.30.0.11`). Do not start
+nginx proxy IP (`TRUSTED_PROXY_IPS`, derived automatically from
+`FRONTEND_STATIC_IP`/`NGROK_STATIC_IP`). Do not start
 this stack from `env/.env.example` or `env/.env.local-prod-cloudflare.example`;
 those are dev's and Cloudflare's files respectively. See
 [Choosing the right env template](../environment.md#1-choosing-the-right-env-template)

@@ -135,6 +135,29 @@ else
     if [ -n "$(git ls-files -u)" ]; then
       CONFLICT=1
     else
+      # A hard failure with no conflict markers usually means upstream
+      # relocated or deleted a file this app customized (e.g. a whole-file
+      # rename like docker-compose*.yml -> docker/compose/*.yml): the patch's
+      # delete/create hunk has no matching content on either side to
+      # 3-way-merge against, so `git apply` just refuses the whole file
+      # instead of leaving something to resolve. Same underlying problem as
+      # the "silent partial apply" case below (one file's hunk breaks the
+      # apply), but caught here instead because this one fails loudly rather
+      # than silently -- so it gets the same "exclude and re-diff" recipe.
+      FAILED_PATHS="$(grep -E '^error: ' "$SYNC_LOG" | sed -E 's/^error: ([^:]+):.*/\1/' | sort -u)"
+      if [ -n "$FAILED_PATHS" ]; then
+        EXCLUDE_ARGS=""
+        while IFS= read -r p; do
+          EXCLUDE_ARGS="$EXCLUDE_ARGS ':!$p'"
+        done <<<"$FAILED_PATHS"
+        echo ""
+        echo "ERROR: git apply failed outright (no conflict markers) on:"
+        echo "$FAILED_PATHS" | sed 's/^/  /'
+        echo ""
+        echo "This usually means upstream moved or deleted one of these paths (e.g. renamed a file you've customized) and there's nothing on either side for a 3-way merge to reconcile. Nothing has been committed."
+        echo "Work around it by re-diffing with the listed path(s) excluded, applying that, then handling the excluded file(s) by hand (diff upstream's old and new location yourself and reapply your customization at the new path):"
+        echo "  git diff --binary ${LAST_SYNCED_SHA:-HEAD} upstream/${UPSTREAM_BRANCH} -- .$EXCLUDE_ARGS | git apply --3way --index -"
+      fi
       exit 1
     fi
   else

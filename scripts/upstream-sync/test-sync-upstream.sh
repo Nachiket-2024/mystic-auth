@@ -343,4 +343,58 @@ git ls-files -s -- 'scripts/**/*.sh' | awk '$1 != "100755" { print; found=1 } EN
 pass "mode self-heal: sync-upstream.sh restored the executable bit on the newly-synced script"
 
 echo ""
+echo "=== Relocated-file guard: upstream moving a file the consumer customized should give actionable guidance, not a raw git-apply dump ==="
+cd "$BASE"
+mkdir move-upstream && cd move-upstream
+git init -q -b main
+git config user.email up@test.com; git config user.name Upstream
+mkdir -p mystic_auth app old-location
+echo "core v1" > mystic_auth/core.py
+echo "compose v1" > old-location/compose.yml
+git add -A && git commit -q -m "move-upstream base"
+cd "$BASE"
+mkdir move-consumer && cd move-consumer
+git init -q -b main
+git config user.email me@test.com; git config user.name Consumer
+cp -r "$BASE/move-upstream/mystic_auth" .
+cp -r "$BASE/move-upstream/app" .
+cp -r "$BASE/move-upstream/old-location" .
+git add -A && git commit -q -m "Initial commit from template"
+install_script "$BASE/move-consumer"
+git add -A && git commit -q -m "Add sync script"
+yes | ./scripts/upstream-sync/sync-upstream.sh "$BASE/move-upstream" >/dev/null 2>&1 || true
+
+# Consumer customizes the file at its old path...
+echo "compose v1 -- my own tweak" > old-location/compose.yml
+git add -A && git commit -q -m "my own customization of compose.yml"
+
+# ...while upstream, independently, relocates that same file to a new
+# directory (delete old-location/compose.yml, add new-location/compose.yml).
+# Neither side has matching content to 3-way-merge the delete hunk against,
+# so `git apply --3way` hard-fails outright instead of leaving conflict
+# markers -- the case this guard is for.
+cd "$BASE/move-upstream"
+git rm -q old-location/compose.yml
+mkdir -p new-location
+echo "compose v2 -- restructured" > new-location/compose.yml
+git add -A && git commit -q -m "upstream: move compose.yml to new-location/"
+cd "$BASE/move-consumer"
+
+set +e
+yes | ./scripts/upstream-sync/sync-upstream.sh "$BASE/move-upstream" >/tmp/move-sync.log 2>&1
+MOVE_SYNC_EXIT=$?
+set -e
+
+grep -q "moved or deleted" /tmp/move-sync.log || fail "relocated-file guard: didn't detect the hard-failed apply on the moved file"
+pass "relocated-file guard: detected the hard-failed apply on the moved file"
+grep -q "old-location/compose.yml" /tmp/move-sync.log || fail "relocated-file guard: didn't name the specific path that failed"
+pass "relocated-file guard: names the specific path that failed"
+grep -q -- "--3way --index -" /tmp/move-sync.log || fail "relocated-file guard: didn't suggest the re-diff-and-exclude recipe"
+pass "relocated-file guard: suggests the re-diff-and-exclude recipe"
+[ "$MOVE_SYNC_EXIT" -ne 0 ] || fail "relocated-file guard: sync should have exited non-zero"
+pass "relocated-file guard: sync exits non-zero"
+[ -z "$(git diff --cached --name-only)" ] || fail "relocated-file guard: something got staged despite the hard failure"
+pass "relocated-file guard: nothing staged/committed despite the hard failure"
+
+echo ""
 echo "=== ALL CHECKS PASSED ==="

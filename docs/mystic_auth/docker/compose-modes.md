@@ -58,6 +58,39 @@ or removed manually once you've confirmed you don't need them.
 
 ---
 
+## Two forks of this template collide with each other too
+
+The isolation above only covers the five compose files *within one checkout*.
+It does not cover two separate downstream projects that each independently
+started from mystic-auth via "Use this template": both inherit the exact
+same literal `name:` defaults above, the exact same host ports (`5433`,
+`6380`, `8000`, `5173`, `8010` for dev; `8001`/`8080`, `8101`/`8180`,
+`8201`/`8280` for the local-prod tunnel variants), and the exact same Docker
+network subnets (`172.27-31.0.0/24`, one per file). If both forks ever run
+on the same machine, they collide on all three fronts exactly like the
+same-checkout case described above - one fork's `docker compose` commands,
+or its containers on the host network, can silently target the other
+fork's stack. This isn't hypothetical: it happened during this fix's own
+verification, between two real forks on one machine.
+
+Every `name:`, host port, and network subnet/static-IP in
+`docker/compose/*.yml` reads from an env var with no fallback
+(`${COMPOSE_PROJECT_NAME}`, `${POSTGRES_HOST_PORT}`, `${DOCKER_SUBNET}`,
+`${FRONTEND_STATIC_IP}`, etc.), set in the matching `env/.env*.example` to
+the same literal value the compose file used to hardcode. A fork that needs
+to coexist with another on one machine changes `COMPOSE_PROJECT_NAME`, the
+relevant `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the `*_STATIC_IP` vars in
+its own `env/.env*` file - see the top of each `env/.env*.example`. The
+production/local-prod variants also derive `TRUSTED_PROXY_IPS` (a
+security-relevant anti-spoofing setting - see
+[get_client_ip()](../../../backend/mystic_auth/core/client_ip.py)) straight
+from those same static-IP vars in the compose file itself, rather than
+setting it independently in the env file, so the two can never drift out of
+sync (see [get_client_ip()](../../../backend/mystic_auth/auth/security/client_ip.py)).
+This is also called out in [overview.md](overview.md)'s fork checklist.
+
+---
+
 See [Docker Overview](overview.md) for the full service list, or
 [Dockerfiles](dockerfiles.md) for image build details.
 

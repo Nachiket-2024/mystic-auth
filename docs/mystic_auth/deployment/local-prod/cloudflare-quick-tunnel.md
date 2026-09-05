@@ -42,7 +42,7 @@ cp env/.env.local-prod-cloudflare.example env/.env.local-prod-cloudflare
 `env/.env.local-prod-cloudflare.example` is the local-prod template for
 `docker/compose/docker-compose.local-prod-cloudflare.yml`. It is preconfigured for Quick Tunnel:
 `VITE_API_BASE_URL` is empty for same-origin API calls, and
-`TRUSTED_PROXY_IPS=172.28.0.10,172.28.0.11` matches the fixed frontend nginx address.
+`TRUSTED_PROXY_IPS` (derived automatically from `FRONTEND_STATIC_IP`/`CLOUDFLARED_STATIC_IP`) matches the fixed frontend nginx address.
 You can boot before filling in Google or SMTP credentials. The CLI-created
 system superuser can still sign in and view the dashboard because the script
 marks it verified. Regular users need one verification path: SMTP for password

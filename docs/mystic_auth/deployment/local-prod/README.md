@@ -170,13 +170,17 @@ for example on your own server.
 
 ## Running more than one tunnel variant at once
 
-Each of the three Compose files sets its own `name:`, network subnet
-(`172.28.0.0/24` Cloudflare, `172.30.0.0/24` ngrok, `172.31.0.0/24`
-Tailscale), and host port range (backend/frontend/Bugsink: 8001/8080/8011
-Cloudflare, 8101/8180/8111 ngrok, 8201/8280/8211 Tailscale), so all three -
-plus dev and prod - can run on the same Docker host at once with zero
-container, network, volume, or port collision. Useful for comparing tunnel
-options side by side, or just because a stray container from one variant
-is still up while you start another.
+Each of the three Compose files sets its own `name:` (`COMPOSE_PROJECT_NAME`),
+network subnet (`DOCKER_SUBNET`: `172.28.0.0/24` Cloudflare, `172.30.0.0/24`
+ngrok, `172.31.0.0/24` Tailscale by default), and host port range
+(`*_HOST_PORT`: backend/frontend 8001/8080 Cloudflare, 8101/8180 ngrok,
+8201/8280 Tailscale by default), so all three - plus dev and prod - can run
+on the same Docker host at once with zero container, network, volume, or
+port collision. Useful for comparing tunnel options side by side, or just
+because a stray container from one variant is still up while you start
+another. These are all env vars with no built-in fallback, set in each
+`env/.env*.example` - see
+[Docker: Compose Modes](../../docker/compose-modes.md#two-forks-of-this-template-collide-with-each-other-too)
+for why.
 
 ---

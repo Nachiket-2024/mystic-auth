@@ -227,7 +227,7 @@ After a 3-month gap, the biggest single change in the project's history: 364 fil
 
 ---
 
-See [August-September 2026](2026-aug-sep.md) for the rest, [2025](2025-sep-oct.md) for the year
+See [August 2026](2026-aug.md) for the rest, [2025](2025-sep-oct.md) for the year
 before, or [How It Evolved](README.md) for the milestones overview.
 
 ---

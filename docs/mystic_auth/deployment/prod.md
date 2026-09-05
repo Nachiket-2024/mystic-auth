@@ -36,9 +36,11 @@ cp env/.env.prod.example env/.env.prod
 ```
 
 `env/.env.prod.example` is the prod template for `docker/compose/docker-compose.prod.yml`.
-`ENVIRONMENT=production`, empty `VITE_API_BASE_URL`, and
-`TRUSTED_PROXY_IPS=172.29.0.10,172.29.0.11` are already set correctly for the bundled
-Caddy to frontend nginx to backend route.
+`ENVIRONMENT=production` and empty `VITE_API_BASE_URL` are already set correctly for
+the bundled Caddy to frontend nginx to backend route. `TRUSTED_PROXY_IPS` isn't set
+directly there - `docker-compose.prod.yml` derives it from `FRONTEND_STATIC_IP`/
+`CADDY_STATIC_IP` (also in that file), so it can't drift out of sync with the actual
+pinned addresses.
 
 Before starting, replace every `<your-domain>` placeholder in the copied
 `env/.env.prod` with your real domain:
@@ -112,8 +114,10 @@ request, so the very first load may take a few extra seconds.
 
 The frontend container's nginx (`docker/nginx.frontend.conf`) proxies API
 route prefixes (`/auth`, `/audit`, `/users`, `/authorization`, `/health`,
-`/rate-limits`) to `backend`. It's pinned to `172.29.0.10` so the backend can
-trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS=172.29.0.10`.
+`/rate-limits`) to `backend`. It's pinned to `FRONTEND_STATIC_IP` so the
+backend can trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS`
+(derived from `FRONTEND_STATIC_IP`/`CADDY_STATIC_IP`, see
+[Routing: Trusted proxy IPs](routing.md#2-trusted-proxy-ips)).
 
 ---
 

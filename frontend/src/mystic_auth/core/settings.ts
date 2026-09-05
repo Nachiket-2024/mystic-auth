@@ -7,6 +7,12 @@ export const APP_NAME = import.meta.env.VITE_APP_NAME;
 // default, so forks keep working with the text wordmark until VITE_APP_LOGO_URL is set.
 export const APP_LOGO_URL = import.meta.env.VITE_APP_LOGO_URL || undefined;
 
+// Optional browser tab favicon (bundled asset, absolute path, or remote URL). Kept
+// separate from APP_LOGO_URL since a wide logo mark rarely scales down cleanly to a
+// 16x16 tab icon. Unset by default, so the generated brand-color icon (brandIcon.ts)
+// is used instead - see applyFaviconAndMetaColor.ts.
+export const APP_FAVICON_URL = import.meta.env.VITE_APP_FAVICON_URL || undefined;
+
 // Contact address shown on the Terms of Service / Privacy Policy pages. Unset by
 // default, in which case those pages show a "replace this" placeholder instead of a
 // blank or fabricated address.

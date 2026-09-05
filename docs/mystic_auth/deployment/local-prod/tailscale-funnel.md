@@ -76,7 +76,8 @@ cp env/.env.local-prod-tailscale.example env/.env.local-prod-tailscale
 `env/.env.local-prod-tailscale.example` is the local-prod template for
 `docker/compose/docker-compose.local-prod-tailscale.yml`. It preconfigures
 same-origin API routing (`VITE_API_BASE_URL` empty) and the fixed frontend
-nginx proxy IP (`TRUSTED_PROXY_IPS=172.31.0.10,172.31.0.11`). Do not start
+nginx proxy IP (`TRUSTED_PROXY_IPS`, derived automatically from
+`FRONTEND_STATIC_IP`/`TAILSCALE_STATIC_IP`). Do not start
 this stack from `env/.env.example` or either of the other two local-prod
 example files. See
 [Choosing the right env template](../environment.md#1-choosing-the-right-env-template)

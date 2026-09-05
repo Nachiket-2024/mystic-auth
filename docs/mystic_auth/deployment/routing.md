@@ -26,14 +26,16 @@ This works when `VITE_API_BASE_URL` is empty. The browser calls the same origin 
 ## 2. Trusted proxy IPs
 ---
 
-Each production-shaped Compose file pins frontend and tunnel proxy containers to fixed addresses so the backend can safely trust `X-Forwarded-For` from those hops.
+Each production-shaped Compose file pins frontend and tunnel proxy containers to fixed addresses (`FRONTEND_STATIC_IP` and a tunnel-specific `*_STATIC_IP` var, both set in the matching `env/.env*` file) so the backend can safely trust `X-Forwarded-For` from those hops. Each compose file derives `TRUSTED_PROXY_IPS` for the backend service directly from those same two vars, rather than setting it independently in the env file, so it can never drift out of sync with the actual pinned addresses.
 
-| Compose file | Frontend IP | Tunnel/proxy IP | Env value |
-|---|---|---|---|
-| `docker-compose.local-prod-cloudflare.yml` | `172.28.0.10` | `172.28.0.11` | `TRUSTED_PROXY_IPS=172.28.0.10,172.28.0.11` |
-| `docker-compose.local-prod-ngrok.yml` | `172.30.0.10` | `172.30.0.11` | `TRUSTED_PROXY_IPS=172.30.0.10,172.30.0.11` |
-| `docker-compose.local-prod-tailscale.yml` | `172.31.0.10` | `172.31.0.11` | `TRUSTED_PROXY_IPS=172.31.0.10,172.31.0.11` |
-| `docker-compose.prod.yml` | `172.29.0.10` | `172.29.0.11` | `TRUSTED_PROXY_IPS=172.29.0.10,172.29.0.11` |
+| Compose file | Frontend IP var | Tunnel/proxy IP var |
+|---|---|---|
+| `docker-compose.local-prod-cloudflare.yml` | `FRONTEND_STATIC_IP` | `CLOUDFLARED_STATIC_IP` |
+| `docker-compose.local-prod-ngrok.yml` | `FRONTEND_STATIC_IP` | `NGROK_STATIC_IP` |
+| `docker-compose.local-prod-tailscale.yml` | `FRONTEND_STATIC_IP` | `TAILSCALE_STATIC_IP` |
+| `docker-compose.prod.yml` | `FRONTEND_STATIC_IP` | `CADDY_STATIC_IP` |
+
+Both vars must stay inside that file's `DOCKER_SUBNET`. See [Docker: Compose Modes](../docker/compose-modes.md#two-forks-of-this-template-collide-with-each-other-too) for why these are env vars rather than hardcoded, and each `env/.env*.example` for the actual default addresses.
 
 `proxy_add_x_forwarded_for` appends instead of overwriting, preserving the client IP chain.
 

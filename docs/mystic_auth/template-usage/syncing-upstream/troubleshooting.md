@@ -64,13 +64,16 @@ Not committing -- resolve the alembic branch above first, then:
   git commit -m "Sync upstream template updates (mystic-auth@<sha>)"
 ```
 
-Fix it the same way you'd fix any two-heads alembic history, with a merge migration:
+Fix it the same way you'd fix any two-heads alembic history, with a merge migration. `backend-exec.sh` wraps `docker compose exec`, which needs the `backend` container already up and healthy - bring the stack up first if you haven't already (e.g. right after a fresh sync, before anything's running):
 
 ```bash
+docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build
 scripts/docker/dev/backend-exec.sh alembic merge heads -m "merge migration branches"
 git add backend/alembic/versions/
 git commit -m "Sync upstream template updates (mystic-auth@<sha>)"
 ```
+
+`docker compose run` looks like the natural alternative when the stack isn't up yet, but don't use it here: the backend image's entrypoint drops root privilege via `su-exec` regardless of `--user root` on `run` (only `exec` against an already-running container respects it), so `alembic merge heads` fails trying to write the new migration file under the bind-mounted, host-owned `backend/alembic/versions/`.
 
 This check also runs standalone any time you want it, without syncing: `scripts/upstream-sync/check-alembic-heads.sh` (Git Bash/WSL/Linux/macOS), `.\scripts\upstream-sync\check-alembic-heads.ps1` (PowerShell), or `scripts\upstream-sync\check-alembic-heads.cmd` (Command Prompt) - same "locate Git Bash, run the real script" wrapper as `sync-upstream.ps1`/`.cmd`.
 

@@ -14,7 +14,8 @@
 # Explicit project name: without one, every compose file here defaults to
 # the same name (the directory name) and shares containers/network/volumes
 # with the others, so a command meant for one stack could wipe another's data.
-name: mystic-auth-prod
+# Set in env/.env.prod - see docs/mystic_auth/docker/compose-modes.md.
+name: ${COMPOSE_PROJECT_NAME}
 
 services:
 
@@ -64,6 +65,11 @@ services:
     restart: unless-stopped
     env_file:
       - ../../env/.env.prod
+    # Overrides env/.env.prod's own TRUSTED_PROXY_IPS: derived here from
+    # FRONTEND_STATIC_IP/CADDY_STATIC_IP so it can never drift out of sync
+    # with the actual pinned addresses below.
+    environment:
+      TRUSTED_PROXY_IPS: ${FRONTEND_STATIC_IP},${CADDY_STATIC_IP}
     command: |
       sh -c "if [ -n \"$$BUGSINK_SUPERUSER_EMAIL\" ]; then
         for i in $$(seq 1 20); do
@@ -99,9 +105,10 @@ services:
           memory: 512M
 
   frontend:
-    # Distinct image name so building this doesn't overwrite dev's or any
-    # local-prod variant's frontend image.
-    image: mystic-auth-prod-frontend
+    # Distinct image name (derived from COMPOSE_PROJECT_NAME) so building
+    # this doesn't overwrite dev's or any local-prod variant's frontend
+    # image, or another mystic-auth fork's.
+    image: ${COMPOSE_PROJECT_NAME}-frontend
     pull_policy: build
     build:
       context: ../..
@@ -115,6 +122,7 @@ services:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
         VITE_APP_NAME: ${APP_NAME}
         VITE_APP_LOGO_URL: ${VITE_APP_LOGO_URL}
+        VITE_APP_FAVICON_URL: ${VITE_APP_FAVICON_URL}
         VITE_SUPPORT_EMAIL: ${SUPPORT_EMAIL}
         VITE_BRAND_COLOR: ${BRAND_COLOR}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
@@ -124,7 +132,7 @@ services:
     # X-Forwarded-For.
     networks:
       default:
-        ipv4_address: 172.29.0.10
+        ipv4_address: ${FRONTEND_STATIC_IP}
     restart: unless-stopped
     # No host port published; Caddy is the only public entrypoint.
     depends_on:
@@ -159,7 +167,7 @@ services:
     # Pinned address, see the frontend service's TRUSTED_PROXY_IPS comment.
     networks:
       default:
-        ipv4_address: 172.29.0.11
+        ipv4_address: ${CADDY_STATIC_IP}
     ports:
       - "80:80"
       - "443:443"
@@ -402,9 +410,9 @@ services:
       User = get_user_model()
       user = User.objects.get(username=os.environ['BUGSINK_SUPERUSER_EMAIL'])
 
-      team, _ = Team.objects.get_or_create(name='MysticAuth')
+      team, _ = Team.objects.get_or_create(name=os.environ['APP_NAME'])
       TeamMembership.objects.get_or_create(team=team, user=user, defaults={'role': TeamRole.ADMIN, 'accepted': True})
-      project, _ = Project.objects.get_or_create(team=team, name='MysticAuth')
+      project, _ = Project.objects.get_or_create(team=team, name=os.environ['APP_NAME'])
 
       key = project.sentry_key.hex
       os.makedirs('/shared/bugsink-dsn', exist_ok=True)
@@ -425,9 +433,11 @@ volumes:
   geoip_data:
 
 networks:
-  # Distinct subnet from the local-prod variants' 172.28-31.0.0/24 so any
-  # can run alongside this one without a pool collision.
+  # Distinct subnet so any local-prod variant can run alongside this one
+  # without a pool collision. Set in env/.env.prod - change it if another
+  # mystic-auth fork's stack on this machine uses the same subnet. See
+  # docs/mystic_auth/docker/compose-modes.md.
   default:
     ipam:
       config:
-        - subnet: 172.29.0.0/24
+        - subnet: ${DOCKER_SUBNET}

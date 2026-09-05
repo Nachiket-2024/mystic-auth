@@ -143,7 +143,10 @@ translations.use(initReactI18next).init({
     },
     lng: "en",
     fallbackLng: "en",
-    ns: NAMESPACES,
+    // i18next mutates options.ns in place when a downstream app registers a new
+    // namespace via addResourceBundle. Pass a copy so that mutation can't leak
+    // back into our exported NAMESPACES const.
+    ns: [...NAMESPACES],
     defaultNS: "ui_text",
     interpolation: {
         escapeValue: false,

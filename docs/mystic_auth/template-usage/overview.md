@@ -50,6 +50,18 @@ To rename the app: set `APP_NAME` in `env/.env`, then `docker compose -f docker/
 
 To change the default brand color: set `BRAND_COLOR` in `env/.env` the same way, aliased to `VITE_BRAND_COLOR`. See [Appearance: Per-User Brand Color](../appearance/overview.md#default-brand-color).
 
+If you'll ever run this fork on the same machine as another mystic-auth
+fork (another "Use this template" project, yours or someone else's), also
+set `COMPOSE_PROJECT_NAME`, the `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the
+`*_STATIC_IP` vars in `env/.env` (and in whichever other `env/.env.*` files
+you use) to something unique to this fork - every fork otherwise defaults
+to the exact same Compose project name, host ports, and Docker network
+subnet, and the two collide. The built frontend image name derives
+from `COMPOSE_PROJECT_NAME` automatically, and the Bugsink team/project
+label derives from `APP_NAME` automatically - neither needs a separate
+setting. See
+[Docker: Compose Modes](../docker/compose-modes.md#two-forks-of-this-template-collide-with-each-other-too).
+
 ---
 
 ## The `app/` + `mystic_auth/` split
