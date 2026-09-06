@@ -14,8 +14,8 @@ stable-URL Cloudflare Named Tunnel walkthrough, start to finish.
 | `docker/compose/docker-compose.local-prod-cloudflare.yml` | Runs the same local-prod stack as Quick Tunnel, but with the `cloudflared` command changed to Named Tunnel mode. |
 | `env/.env.local-prod-cloudflare.example` | Source template for Cloudflare local-prod settings, including `TUNNEL_TOKEN`. |
 | `env/.env.local-prod-cloudflare` | Your local, gitignored copy with the tunnel token, public hostname, Google callback, and secrets. |
-| `scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Compose helpers that always pass the Cloudflare env file. |
-| `local-scripts/local-prod-cloudflare/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
+| `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Compose helpers that always pass the Cloudflare env file. |
+| `local-scripts/mystic_auth/local-prod-cloudflare/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
 
 ---
 
@@ -116,7 +116,7 @@ command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
 
 ```bash
 docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare up -d --build
-# or: ./scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh
+# or: ./scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh
 ```
 
 Open `https://your-hostname` in a browser: that's your app, live at a

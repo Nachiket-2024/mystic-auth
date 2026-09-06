@@ -83,11 +83,18 @@ relevant `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the `*_STATIC_IP` vars in
 its own `env/.env*` file - see the top of each `env/.env*.example`. The
 production/local-prod variants also derive `TRUSTED_PROXY_IPS` (a
 security-relevant anti-spoofing setting - see
-[get_client_ip()](../../../backend/mystic_auth/core/client_ip.py)) straight
+[get_client_ip()](../../../backend/mystic_auth/auth/security/client_ip.py)) straight
 from those same static-IP vars in the compose file itself, rather than
 setting it independently in the env file, so the two can never drift out of
 sync (see [get_client_ip()](../../../backend/mystic_auth/auth/security/client_ip.py)).
 This is also called out in [overview.md](overview.md)'s fork checklist.
+
+None of this is specific to mystic-auth: a bound host port or an overlapping
+Docker bridge subnet is a generic Docker-level conflict. Any other
+container or Compose project already using one of these host ports or
+subnets triggers the exact same "port is already allocated" or
+subnet-overlap failure, and needs the same fix - change the colliding
+value in your `env/.env*` file.
 
 ---
 

@@ -7,13 +7,13 @@ The helper scripts that wrap Docker Compose and other repetitive setup steps for
 
 ## dev-up helper
 
-`scripts/docker/dev/dev-up.{sh,ps1,cmd}`: starts the dev stack detached, waits for every service's healthcheck, then tails just `backend`/`frontend`/`procrastinate_worker` logs instead of interleaving every container's full boot output (Postgres, Alembic, Bugsink's 100+ migrations, its repeating healthcheck hits, and so on). Plain `docker compose up` still works and is better when you actually need to debug one of those noisier services directly. See [Docker Overview: Day-to-day dev-up helpers](../docker/dev-workflow.md#day-to-day-dev-up-helpers).
+`scripts/mystic_auth/docker/dev/dev-up.{sh,ps1,cmd}`: starts the dev stack detached, waits for every service's healthcheck, then tails just `backend`/`frontend`/`procrastinate_worker` logs instead of interleaving every container's full boot output (Postgres, Alembic, Bugsink's 100+ migrations, its repeating healthcheck hits, and so on). Plain `docker compose up` still works and is better when you actually need to debug one of those noisier services directly. See [Docker Overview: Day-to-day dev-up helpers](../docker/dev-workflow.md#day-to-day-dev-up-helpers).
 
 ---
 
 ## backend-exec helper
 
-`scripts/docker/dev/backend-exec.sh` (and `.ps1`/`.cmd`): runs a one-off command (like `pytest`) inside the running `backend` container, wrapping the `--user root` and path-conversion workarounds that running such a command directly through `docker compose exec` needs on some shells. See [Docker Overview: Running a one-off command inside a container](../docker/dev-workflow.md#running-a-one-off-command-inside-a-container).
+`scripts/mystic_auth/docker/dev/backend-exec.sh` (and `.ps1`/`.cmd`): runs a one-off command (like `pytest`) inside the running `backend` container, wrapping the `--user root` and path-conversion workarounds that running such a command directly through `docker compose exec` needs on some shells. See [Docker Overview: Running a one-off command inside a container](../docker/dev-workflow.md#running-a-one-off-command-inside-a-container).
 
 ---
 

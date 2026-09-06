@@ -4,10 +4,13 @@ from pydantic import ValidationError
 
 from backend.mystic_auth.core.settings import Settings
 
-# Every Settings field is required, no Python-level defaults: .env (or the
-# process environment) is the single source of truth, in dev and prod alike.
-# This fixture is a complete, valid payload; the tests below poke at
-# deviations from it.
+# Every Settings field is required, no Python-level defaults, with one
+# exception: TRUSTED_PROXY_IPS defaults to "" (see the dedicated test below)
+# since only the backend service needs a real value, while alembic and
+# procrastinate_worker read the same env file directly and never use it.
+# .env (or the process environment) is the single source of truth for every
+# other field, in dev and prod alike. This fixture is a complete, valid
+# payload; the tests below poke at deviations from it.
 _ALL_FIELDS = {
     "BACKEND_BASE_URL": "http://localhost:8000",
     "FRONTEND_BASE_URL": "http://localhost:5173",
@@ -60,19 +63,35 @@ def test_settings_construction_succeeds_with_only_declared_fields():
     Settings(_env_file=None, **_ALL_FIELDS)
 
 
-@pytest.mark.parametrize("missing_field", sorted(_ALL_FIELDS))
+@pytest.mark.parametrize(
+    "missing_field", sorted(set(_ALL_FIELDS) - {"TRUSTED_PROXY_IPS"})
+)
 def test_settings_construction_fails_when_any_field_is_missing(missing_field, monkeypatch):
-    # Every field is required: a silent fallback could let a real deployment
-    # start up misconfigured with no error. monkeypatch.delenv is needed
-    # alongside omitting the kwarg: _env_file=None only disables reading a
-    # dotenv file, pydantic-settings still falls back to the real process
-    # environment (set here by docker-compose's env_file:), which this suite
-    # runs inside.
+    # Every field except TRUSTED_PROXY_IPS is required: a silent fallback
+    # could let a real deployment start up misconfigured with no error.
+    # monkeypatch.delenv is needed alongside omitting the kwarg: _env_file=None
+    # only disables reading a dotenv file, pydantic-settings still falls back
+    # to the real process environment (set here by docker-compose's env_file:),
+    # which this suite runs inside.
     monkeypatch.delenv(missing_field, raising=False)
     payload = {key: value for key, value in _ALL_FIELDS.items() if key != missing_field}
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None, **payload)
+
+
+def test_trusted_proxy_ips_defaults_to_empty_when_missing(monkeypatch):
+    # The one exception to "every field is required": alembic and
+    # procrastinate_worker read the same env file as the backend but never
+    # call get_client_ip(), so they shouldn't need a value here at all. Only
+    # the backend service actually needs a real value, injected via each
+    # prod/local-prod-* Compose file's own environment: override.
+    monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
+    payload = {key: value for key, value in _ALL_FIELDS.items() if key != "TRUSTED_PROXY_IPS"}
+
+    settings = Settings(_env_file=None, **payload)
+
+    assert settings.TRUSTED_PROXY_IPS == ""
 
 
 def test_settings_ignores_env_vars_that_are_not_declared_fields():

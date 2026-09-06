@@ -7,7 +7,7 @@
  * conflict with app-specific additions.
  *
  * Ships empty on purpose in every template release, so it never conflicts
- * on a `scripts/upstream-sync/sync-upstream.sh` sync. If a sync ever shows an upstream
+ * on a `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync. If a sync ever shows an upstream
  * change here, keep YOUR version: upstream's is only ever the empty
  * starting point.
  *

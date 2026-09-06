@@ -28,7 +28,7 @@ troubleshooting.
 | URL stability | Random, changes every restart | Stable | Stable | Stable |
 | Compose file | `docker-compose.local-prod-cloudflare.yml` | Same, command swapped | `docker-compose.local-prod-ngrok.yml` | `docker-compose.local-prod-tailscale.yml` |
 | Env file | `env/.env.local-prod-cloudflare` | `env/.env.local-prod-cloudflare` | `env/.env.local-prod-ngrok` | `env/.env.local-prod-tailscale` |
-| Helper script | `scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Same | `scripts/docker/local-prod-ngrok/local-prod-ngrok-up.sh` | `scripts/docker/local-prod-tailscale/local-prod-tailscale-up.sh` |
+| Helper script | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Same | `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh` | `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh` |
 | Walkthrough | [Quick Tunnel](cloudflare-quick-tunnel.md) | [Named Tunnel](cloudflare-named-tunnel.md) | [ngrok Tunnel](ngrok-tunnel.md) | [Tailscale Funnel](tailscale-funnel.md) |
 
 - **Cloudflare Quick Tunnel**: zero account, zero domain, up in under a
@@ -90,9 +90,9 @@ Deployment Guide.
 | `env/.env.local-prod-cloudflare.example` | Cloudflare local-prod environment template. |
 | `env/.env.local-prod-ngrok.example` | ngrok local-prod environment template. |
 | `env/.env.local-prod-tailscale.example` | Tailscale local-prod environment template. |
-| `scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Cloudflare env file. |
-| `scripts/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the ngrok env file. |
-| `scripts/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Tailscale env file. |
+| `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Cloudflare env file. |
+| `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the ngrok env file. |
+| `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Tailscale env file. |
 | `local-scripts/local-prod-*/create-system-user.*` | Non-interactive system-superuser bootstrap helpers for each local-prod tunnel variant. |
 
 ---
@@ -109,11 +109,20 @@ in at once without one overwriting another:
 | ngrok | `env/.env.local-prod-ngrok.example` | `env/.env.local-prod-ngrok` |
 | Tailscale | `env/.env.local-prod-tailscale.example` | `env/.env.local-prod-tailscale` |
 
+`scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) does all of these copies
+(plus dev and prod) in one pass, generating a distinct random secret per
+password field, instead of copying and rotating each by hand.
+
 Each is preconfigured for same-origin API routing and that Compose file's
 own fixed frontend nginx proxy IP. Rotate the secrets in the copied file
-before real use. Review `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`,
-`GOOGLE_REDIRECT_URI`, SMTP, rate-limit, Redis, and error-monitoring values
-before sharing the service.
+before real use - `scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh` handles
+`SECRET_KEY`/`BUGSINK_SECRET_KEY` in place; the rest
+(`POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `BUGSINK_SUPERUSER_PASSWORD`,
+`REDIS_PASSWORD`) need a live-service step too, see its own header. Run
+`scripts/mystic_auth/env-tools/check-env/check-env.sh <file>` before starting the stack to catch
+a leftover placeholder secret or an already-bound host port. Review
+`FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP,
+rate-limit, Redis, and error-monitoring values before sharing the service.
 
 Build-time values must be final before you run `--build`:
 
@@ -142,7 +151,7 @@ and `VITE_SENTRY_ENVIRONMENT` are baked in at image build time, not read at
 container runtime. Set them (or their aliased `APP_NAME`/`SUPPORT_EMAIL`
 source vars) in your chosen tunnel's env file before `--build`, not after.
 Always run Compose with `--env-file` pointed at that same file (or the
-matching `scripts/docker/local-prod-*/local-prod-*-up.sh` / `.ps1` / `.cmd`
+matching `scripts/mystic_auth/docker/local-prod-*/local-prod-*-up.sh` / `.ps1` / `.cmd`
 helper, which does this for you) - without it, `${VAR}` build-arg
 substitution silently falls back to whatever's in `env/.env` instead. See
 [Deployment Guide: required production environment variables](../environment.md#5-required-production-review)

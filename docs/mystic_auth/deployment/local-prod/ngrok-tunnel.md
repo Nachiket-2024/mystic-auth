@@ -15,8 +15,8 @@ walkthrough, start to finish.
 | `docker/compose/docker-compose.local-prod-ngrok.yml` | Runs the local-prod stack and the `ngrok` tunnel container. |
 | `env/.env.local-prod-ngrok.example` | Source template for ngrok local-prod settings. |
 | `env/.env.local-prod-ngrok` | Your local, gitignored copy with `NGROK_AUTHTOKEN`, `NGROK_DOMAIN`, public URLs, Google callback, and secrets. |
-| `scripts/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Compose helpers that always pass the ngrok env file. |
-| `local-scripts/local-prod-ngrok/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
+| `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Compose helpers that always pass the ngrok env file. |
+| `local-scripts/mystic_auth/local-prod-ngrok/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
 
 ---
 
@@ -118,7 +118,7 @@ byte-for-byte, or login fails with `redirect_uri_mismatch`.
 
 ```bash
 docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok up -d --build
-# or: ./scripts/docker/local-prod-ngrok/local-prod-ngrok-up.sh
+# or: ./scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh
 ```
 
 Open `https://<your-app>.ngrok-free.app` in a browser: that's your app,

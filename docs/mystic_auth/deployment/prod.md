@@ -35,6 +35,11 @@ Deployment Guide.
 cp env/.env.prod.example env/.env.prod
 ```
 
+Or run `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) instead: it does
+this copy (and every other mode's) in one pass, generating a distinct
+random secret per password field, so most of "Also rotate ..." below is
+already done for a freshly created file.
+
 `env/.env.prod.example` is the prod template for `docker/compose/docker-compose.prod.yml`.
 `ENVIRONMENT=production` and empty `VITE_API_BASE_URL` are already set correctly for
 the bundled Caddy to frontend nginx to backend route. `TRUSTED_PROXY_IPS` isn't set
@@ -54,17 +59,21 @@ Before starting, replace every `<your-domain>` placeholder in the copied
 - `GOOGLE_REDIRECT_URI`, if Google login is enabled
 - `BUGSINK_BASE_URL`, if Bugsink is publicly routed
 
-Also rotate `SECRET_KEY`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`,
-`BUGSINK_SECRET_KEY`, and `BUGSINK_SUPERUSER_PASSWORD`. Rotate
-`APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s if you keep the
-least-privilege app role enabled (the default; see
+Also rotate `SECRET_KEY`, `POSTGRES_PASSWORD`, `BUGSINK_SECRET_KEY`, and
+`BUGSINK_SUPERUSER_PASSWORD`. `REDIS_PASSWORD` is optional (blank ships as a
+working default since Redis has no host port exposed in this mode); set one
+only if you want it, and rewrite `REDIS_URL` to embed it too, since setting
+`REDIS_PASSWORD` alone does nothing - see
+[Redis authentication](../security/hardening-infra.md#redis-authentication).
+Rotate `APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s if you keep
+the least-privilege app role enabled (the default; see
 [Deployment Guide: Database migrations](migrations-and-backups.md#1-database-migrations)).
 Configure SMTP before
 opening password signup to users, because unverified password accounts cannot
 log in. Configure Google OAuth2 before showing Google login. The CLI-created
 system superuser can sign in without Google or SMTP because the script marks it
 verified. See [System Superuser](../authentication/system-superuser/README.md) for
-the interactive command, or `local-scripts/prod/create-system-user.*` for a
+the interactive command, or `local-scripts/mystic_auth/prod/create-system-user.*` for a
 non-interactive version (fill in real production credentials, not the dev
 placeholder). See also
 [Environment variables](#environment-variables) below for the runtime rules and
@@ -74,6 +83,12 @@ for the mode comparison.
 ---
 
 **Step 3: Start the stack.**
+
+Run `scripts/mystic_auth/env-tools/check-env/check-env.sh env/.env.prod` (`.ps1`/`.cmd`) first.
+It fails if a secret in that file still equals the shipped placeholder
+while `ENVIRONMENT=production`, and warns on any remaining `<your_...>`
+placeholder or a host port already in use, before you spend a `--build`
+finding out the hard way.
 
 ```bash
 docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod up -d --build
@@ -169,7 +184,7 @@ TLS terminator.
 
 These are the same across every Compose file. See
 [Deployment Guide](migrations-and-backups.md#1-database-migrations) for migrations, backups
-(`scripts/db/db_backup.sh docker-compose.prod.yml`), graceful shutdown, and
+(`scripts/mystic_auth/db/db_backup.sh docker-compose.prod.yml`), graceful shutdown, and
 known limitations of this deployment approach.
 
 ---

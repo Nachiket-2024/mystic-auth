@@ -30,8 +30,8 @@ and an auth key are required before the tunnel comes up.
 | `docker/tailscale-serve-config.json` | Programmatic Serve/Funnel config mounted into the Tailscale container through `TS_SERVE_CONFIG`. |
 | `env/.env.local-prod-tailscale.example` | Source template for Tailscale local-prod settings. |
 | `env/.env.local-prod-tailscale` | Your local, gitignored copy with `TS_AUTHKEY`, `TS_HOSTNAME`, public URLs, Google callback, and secrets. |
-| `scripts/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Compose helpers that always pass the Tailscale env file. |
-| `local-scripts/local-prod-tailscale/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
+| `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Compose helpers that always pass the Tailscale env file. |
+| `local-scripts/mystic_auth/local-prod-tailscale/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
 
 ---
 
@@ -161,7 +161,7 @@ under **Authorized JavaScript origins**. It must match
 
 ```bash
 docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale up -d --build
-# or: ./scripts/docker/local-prod-tailscale/local-prod-tailscale-up.sh
+# or: ./scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh
 ```
 
 Open `https://mystic-auth.<tailnet>.ts.net` in a browser: that's your app,

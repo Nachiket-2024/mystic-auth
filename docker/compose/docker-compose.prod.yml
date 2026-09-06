@@ -1,6 +1,6 @@
 # Real internet-facing deployment (e.g. a VPS). Run from the repo root with:
 #   docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod up -d --build
-# (or scripts/docker/prod/prod-up.sh/.ps1/.cmd). For a local production-style test
+# (or scripts/mystic_auth/docker/prod/prod-up.sh/.ps1/.cmd). For a local production-style test
 # without deploying anywhere, use one of the docker-compose.local-prod-*.yml
 # files instead (cloudflare/ngrok/tailscale, see
 # docs/mystic_auth/deployment/local-prod/README.md).
@@ -258,7 +258,7 @@ services:
   # POSTGRES_DB (the app) and bugsink (error monitoring), since they're
   # separate databases on the same server. Dumps still need copying off this
   # host manually, see docs/mystic_auth/deployment/migrations-and-backups.md. Talks
-  # to postgres:5432 directly instead of reusing scripts/db/db_backup.sh,
+  # to postgres:5432 directly instead of reusing scripts/mystic_auth/db/db_backup.sh,
   # which shells out to `docker compose exec` and has no access to the host
   # from in here.
   db_backup:
@@ -283,7 +283,7 @@ services:
       BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:-}
     volumes:
       # Bind-mounted (not a named volume) so it's the same ./backups
-      # directory scripts/db/db_backup.sh and db_restore.sh use.
+      # directory scripts/mystic_auth/db/db_backup.sh and db_restore.sh use.
       - ../../backups:/backups
     depends_on:
       postgres:

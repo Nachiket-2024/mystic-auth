@@ -12,7 +12,7 @@ Everything below is a straight re-export; see the original module's
 docstring for the "why" behind any given piece.
 
 DO NOT hand-edit this file. It's a drop-in from upstream and the one file a
-`scripts/upstream-sync/sync-upstream.sh` sync is expected to touch, so local edits here
+`scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync is expected to touch, so local edits here
 turn a clean sync into a manual conflict. Add your own re-exports to
 app_sdk.py instead: it's kept empty by upstream for exactly this purpose.
 """

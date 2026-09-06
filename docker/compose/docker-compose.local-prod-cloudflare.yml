@@ -1,7 +1,7 @@
 # Production-style build for a local machine or self-hosted server, exposed
 # to the internet through a Cloudflare Tunnel. Run from the repo root with:
 #   docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare up -d --build
-# (or scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh/.ps1/.cmd).
+# (or scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh/.ps1/.cmd).
 #
 # One of three local-prod variants, differing only in which tunnel exposes
 # `frontend` to the internet - see docker-compose.local-prod-ngrok.yml and

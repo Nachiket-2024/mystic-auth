@@ -47,7 +47,7 @@ loads them from process environment or `env/.env`.
 | `REQUEST_WINDOW_SECONDS` | integer seconds | yes | Shared fixed-window length for the generic auth route rate limiter. |
 | `LOG_LEVEL` | string | yes | Application logger level. Used by `logging_config.py`. |
 | `ENVIRONMENT` | string | yes | `production` disables `/docs`, `/redoc`, and `/openapi.json`; also changes logging format and HSTS behavior. |
-| `TRUSTED_PROXY_IPS` | comma-separated IPs | yes, can be empty | Immediate proxy IPs allowed to supply `X-Forwarded-For`. Empty means never trust that header. |
+| `TRUSTED_PROXY_IPS` | comma-separated IPs | no, defaults empty | Immediate proxy IPs allowed to supply `X-Forwarded-For`. Empty means never trust that header. Only the `backend` service needs a real value (Compose derives and overrides it there); `alembic`/`procrastinate_worker` don't use it and can rely on the default. |
 | `GEOIP_DB_PATH` | filesystem path | yes, can be empty | MaxMind GeoLite2-City `.mmdb` path. Empty disables session geolocation and shows "Unknown". |
 | `SENTRY_DSN` | DSN string | yes, can be empty | Backend Sentry-protocol DSN. Empty disables backend error monitoring. |
 | `SENTRY_ENVIRONMENT` | string | yes, can be empty | Backend error-monitoring environment tag. Empty falls back to `ENVIRONMENT`. |

@@ -16,7 +16,7 @@
 
 1. Outside CI, `tests/backend/conftest.py` redirects `DATABASE_URL`/`APP_DATABASE_URL` to a `mystic_auth_test` database on the same Postgres server, instead of the real `mystic_auth` database a running dev session's own `backend`/`procrastinate_worker` containers use.
 2. The first run that needs it creates the database, then applies `alembic upgrade head` (which also creates Procrastinate's own queue tables, via migration `a4c1e8f2b6d3`); every run after that is a fast no-op check.
-3. Nothing to configure: this happens automatically, whether you run pytest from the host or via `scripts/docker/dev/backend-exec.sh`.
+3. Nothing to configure: this happens automatically, whether you run pytest from the host or via `scripts/mystic_auth/docker/dev/backend-exec.sh`.
 
 **Why this exists**: a shared database was a real, reproducible bug.
 
@@ -43,7 +43,7 @@
 These are two different kinds of "load" and only one of them lives in this suite:
 
 - **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory — e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race, concurrent-identical-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_login_lockout_race_integration.py` (failed-login lockout counter under a concurrent burst), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_admin_management_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/` — add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
-- **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. `scripts/load-test/load_test.py` is a small `httpx`-based script for this, run by hand against a local-prod/staging stack before a release, not on every push — see its own header comment for usage and the per-IP rate-limit budget it needs to stay under to measure real capacity rather than the rate limiter.
+- **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. `scripts/mystic_auth/load-test/load_test.py` is a small `httpx`-based script for this, run by hand against a local-prod/staging stack before a release, not on every push — see its own header comment for usage and the per-IP rate-limit budget it needs to stay under to measure real capacity rather than the rate limiter.
 
 ---
 
@@ -58,10 +58,10 @@ python -m pytest tests/backend/mystic_auth/security -q
 python -m pytest tests/backend/mystic_auth/performance -q
 
 # Inside the Docker network. This avoids host/container Postgres port conflicts.
-# scripts/docker/dev/backend-exec.sh (or .ps1/.cmd) wraps the --user root and
+# scripts/mystic_auth/docker/dev/backend-exec.sh (or .ps1/.cmd) wraps the --user root and
 # MSYS_NO_PATHCONV workarounds this needs. See
 # docs/mystic_auth/docker/dev-workflow.md#running-a-one-off-command-inside-a-container.
-scripts/docker/dev/backend-exec.sh python -m pytest tests/backend/
+scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/
 ```
 
 CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and

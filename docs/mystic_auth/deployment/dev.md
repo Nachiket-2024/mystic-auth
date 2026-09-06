@@ -15,11 +15,22 @@ Deployment Guide.
 
 ## Getting started
 
+Want the whole thing in one command instead of the steps below? Run
+`scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`): it does step 1 below
+automatically if `env/.env` doesn't exist yet, brings the stack up, offers
+to create the system superuser, then tails logs. See
+[Template Usage: Quickstart](../template-usage/overview.md#quickstart).
+
 **Step 1: Copy the env file.**
 
 ```bash
 cp env/.env.example env/.env
 ```
+
+Or run `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) instead of a plain
+`cp`: it does this copy (and every other mode's) in one pass, generating a
+distinct random secret per password field and applying one app name/brand
+color choice everywhere.
 
 `env/.env.example` is the dev template for `docker/compose/docker-compose.dev.yml`. Its defaults
 are enough to boot the stack as-is. It uses localhost URLs, development mode,
@@ -54,7 +65,7 @@ The CLI-created system superuser is separate from those normal-user paths. It
 is marked verified by the script and can sign in with its password without
 Google or SMTP. Regular password signups still need email delivery. See
 [System Superuser](../authentication/system-superuser/README.md) for the interactive
-command, or `local-scripts/dev/create-system-user.*` for a non-interactive
+command, or `local-scripts/mystic_auth/dev/create-system-user.*` for a non-interactive
 version.
 
 See [Environment variables](#environment-variables) below for the runtime
@@ -66,15 +77,15 @@ full first-run walkthrough (cloning, `env/.env`, first `docker compose up`).
 **Step 3: Start the stack.**
 
 ```bash
-./scripts/docker/dev/dev-up.sh      # Git Bash, WSL, Linux, macOS
+./scripts/mystic_auth/docker/dev/dev-up.sh      # Git Bash, WSL, Linux, macOS
 ```
 
 ```powershell
-.\scripts\docker\dev\dev-up.ps1     # PowerShell
+.\scripts\mystic_auth\docker\dev\dev-up.ps1     # PowerShell
 ```
 
 ```bat
-scripts\docker\dev\dev-up.cmd       # Command Prompt
+scripts\mystic_auth\docker\dev\dev-up.cmd       # Command Prompt
 ```
 
 The helper starts the stack detached, restarts `backend` and

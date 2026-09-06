@@ -1,0 +1,91 @@
+# Copies every KEY=VALUE from OldFile into NewFile, for keys present in
+# both, skipping a fixed list of fields setup-env.ps1 generates fresh
+# (secrets, plus the DB URLs that embed them) and the app name/brand color
+# it just prompted for.
+#
+# Never prints a value, only key names: every line this script writes to
+# stdout is safe to appear in an AI coding agent's own tool output/context,
+# since the actual secret literals never pass through it. See
+# docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md.
+#
+# Usage: .\copy-env-values.ps1 OldFile NewFile
+param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [string]$OldFile,
+    [Parameter(Mandatory = $true, Position = 1)]
+    [string]$NewFile
+)
+
+$ErrorActionPreference = "Stop"
+Set-Location (Join-Path $PSScriptRoot "../../../..")
+
+if (-not (Test-Path $OldFile)) { Write-Error "Not found: $OldFile"; exit 1 }
+if (-not (Test-Path $NewFile)) { Write-Error "Not found: $NewFile"; exit 1 }
+
+$ExcludedKeys = @(
+    "SECRET_KEY", "BUGSINK_SECRET_KEY", "POSTGRES_PASSWORD", "APP_DB_PASSWORD",
+    "BUGSINK_SUPERUSER_PASSWORD", "DATABASE_URL", "APP_DATABASE_URL",
+    "APP_NAME", "BRAND_COLOR", "VITE_APP_NAME", "VITE_BRAND_COLOR"
+)
+
+$newContent = Get-Content $NewFile -Raw
+$copied = @()
+$notInNew = @()
+
+foreach ($line in Get-Content $OldFile) {
+    $trimmed = $line.Trim()
+    if ($trimmed -eq "" -or $trimmed.StartsWith("#") -or -not $trimmed.Contains("=")) {
+        continue
+    }
+    $idx = $trimmed.IndexOf("=")
+    $key = $trimmed.Substring(0, $idx)
+    $value = $trimmed.Substring($idx + 1)
+
+    if ($ExcludedKeys -contains $key) { continue }
+
+    $pattern = "(?m)^$([regex]::Escape($key))=.*"
+    if ($newContent -match $pattern) {
+        $safeValue = $value -replace '\$', '$$$$'
+        $newContent = [regex]::Replace($newContent, $pattern, "$key=$safeValue")
+        $copied += $key
+    } else {
+        $notInNew += $key
+    }
+}
+
+Set-Content -Path $NewFile -Value $newContent -NoNewline
+
+$allFields = @($copied) + @($notInNew)
+
+Write-Host "Copied from $OldFile into $NewFile (values not shown):"
+Write-Host ""
+
+if ($allFields.Count -eq 0) {
+    Write-Host "(nothing to copy)"
+} else {
+    $fieldWidth = 5
+    foreach ($key in $allFields) {
+        if ($key.Length -gt $fieldWidth) { $fieldWidth = $key.Length }
+    }
+    $noWidth = [Math]::Max(3, "$($allFields.Count)".Length)
+
+    "{0,-$noWidth}  {1,-$fieldWidth}  Copied" -f "No.", "Field" | Write-Host
+    $n = 0
+    foreach ($key in $copied) {
+        $n++
+        "{0,-$noWidth}  {1,-$fieldWidth}  Yes" -f $n, $key | Write-Host
+    }
+    foreach ($key in $notInNew) {
+        $n++
+        "{0,-$noWidth}  {1,-$fieldWidth}  No" -f $n, $key | Write-Host
+    }
+
+    Write-Host ""
+    Write-Host "$($copied.Count) of $($allFields.Count) field(s) copied."
+    if ($notInNew.Count -gt 0) {
+        Write-Host "`"No`" means present in $OldFile but not in $NewFile - upstream may have dropped or renamed it, review by hand."
+    }
+}
+
+Write-Host ""
+Write-Host "Not copied on purpose (freshly generated/prompted by setup-env): $($ExcludedKeys -join ' ')"

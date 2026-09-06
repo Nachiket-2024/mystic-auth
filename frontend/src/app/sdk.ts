@@ -10,7 +10,7 @@
  * "why" behind any given piece.
  *
  * DO NOT hand-edit this file. It's a drop-in from upstream, and this is the
- * one file a `scripts/upstream-sync/sync-upstream.sh` sync is expected to touch, so local
+ * one file a `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync is expected to touch, so local
  * edits here turn a clean sync into a manual conflict. For your own
  * re-exports, use app_sdk.ts instead: it's the counterpart file upstream
  * keeps empty for exactly this purpose.

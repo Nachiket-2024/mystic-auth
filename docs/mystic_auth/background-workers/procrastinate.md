@@ -131,7 +131,7 @@ That's the dead-letter queue this template has: no separate infrastructure, no a
 
 ## Troubleshooting
 
-- **Worker not picking up tasks**: confirm `procrastinate_worker` can reach the same Postgres instance the `backend` container uses (`docker compose logs procrastinate_worker`). `./scripts/docker/dev/dev-up.sh`, `.\scripts\docker\dev\dev-up.ps1`, and `scripts\docker\dev\dev-up.cmd` include `procrastinate_worker` in their live log tail.
+- **Worker not picking up tasks**: confirm `procrastinate_worker` can reach the same Postgres instance the `backend` container uses (`docker compose logs procrastinate_worker`). `./scripts/mystic_auth/docker/dev/dev-up.sh`, `.\scripts\mystic_auth\docker\dev\dev-up.ps1`, and `scripts\mystic_auth\docker\dev\dev-up.cmd` include `procrastinate_worker` in their live log tail.
 - **A job never retries / seems stuck**: query `procrastinate_jobs` directly for its `status` and `scheduled_at`; unlike taskiq there's no separate scheduler process to check the health of.
 - **A permanently-failed email**: query `procrastinate_jobs WHERE status = 'failed'` (see above) rather than searching logs for it.
 - **Emails not arriving**: check `GMAIL_APP_PASSWORD` is a valid App Password (not the account password) and that "Less secure app access" / App Passwords are enabled on the sending Google account; check the dev-up log tail or `docker compose logs procrastinate_worker` for the logged traceback (`send_email_task` logs every failure with `logger.error`).

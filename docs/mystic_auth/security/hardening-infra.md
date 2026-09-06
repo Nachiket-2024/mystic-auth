@@ -21,7 +21,7 @@ Redis authentication, secret strength, reverse-proxy IP trust, session geolocati
 
 ## Reverse-proxy IP trust
 
-`auth/security/client_ip.py::get_client_ip` only trusts `X-Forwarded-For` when the literal TCP peer is listed in `TRUSTED_PROXY_IPS` (empty/untrusted by default): every rate-limit, lockout, audit-log, and PBAC context call site goes through it. Deploying behind a reverse proxy only requires setting `TRUSTED_PROXY_IPS` to that proxy's address, no code change needed. In the prod/local-prod-* Compose files, that value is derived automatically from `FRONTEND_STATIC_IP`/the tunnel's `*_STATIC_IP` var (see [Routing: Trusted proxy IPs](../deployment/routing.md#2-trusted-proxy-ips)) rather than set directly in `.env`.
+`auth/security/client_ip.py::get_client_ip` only trusts `X-Forwarded-For` when the literal TCP peer is listed in `TRUSTED_PROXY_IPS` (empty/untrusted by default): every rate-limit, lockout, audit-log, and PBAC context call site goes through it. Deploying behind a reverse proxy only requires setting `TRUSTED_PROXY_IPS` to that proxy's address, no code change needed. In the prod/local-prod-* Compose files, that value is derived automatically from `FRONTEND_STATIC_IP`/the tunnel's `*_STATIC_IP` var (see [Routing: Trusted proxy IPs](../deployment/routing.md#2-trusted-proxy-ips)) rather than set directly in `.env`. `Settings.TRUSTED_PROXY_IPS` defaults to `""` so it doesn't need to be present in the env file at all: only the `backend` service gets the derived value (via that Compose `environment:` override); `alembic` and `procrastinate_worker` read the same env file directly, never use this setting, and fall back to the default instead of failing to start.
 
 ---
 

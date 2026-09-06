@@ -15,7 +15,7 @@ import type { SystemConfig } from "@chakra-ui/react";
  * that doesn't fit the generator's lightness ladder, other token overrides
  * (fonts, radii, recipes), or global CSS. Counterpart to app_sdk.ts:
  * mystic_auth/theme/system.ts is upstream-owned, so hand-editing it directly
- * would conflict on every `scripts/upstream-sync/sync-upstream.sh` sync.
+ * would conflict on every `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync.
  * This file merges on top of it instead (system.ts's own
  * `createSystem(defaultConfig, config, brandDefault, appThemeOverrides)`
  * call), the same "yours, upstream never touches it again" pattern

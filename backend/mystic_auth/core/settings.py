@@ -57,7 +57,7 @@ class Settings(BaseSettings):
 
     ENVIRONMENT: str                                # "development" or "production"; gates docs/redoc exposure in main.py
 
-    TRUSTED_PROXY_IPS: str                          # Comma-separated reverse proxy IPs to trust X-Forwarded-For from. Empty = never trust it, use request.client.host as-is
+    TRUSTED_PROXY_IPS: str = ""                     # Comma-separated reverse proxy IPs to trust X-Forwarded-For from. Empty = never trust it, use request.client.host as-is. Only the backend service uses this; defaulted so alembic/procrastinate_worker don't need it in their env file
 
     GEOIP_DB_PATH: str                              # Path to a local MaxMind GeoLite2-City .mmdb file, used to resolve login IPs to city/country for Manage Sessions' Location column. Empty = geolocation disabled, Location shows "Unknown". Requires a free MaxMind account and license key; the file can't ship in this repo (MaxMind's license forbids redistribution)
 

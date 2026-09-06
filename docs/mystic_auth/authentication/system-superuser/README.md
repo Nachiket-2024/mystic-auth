@@ -15,12 +15,12 @@ Run it after the stack is started and migrations have completed. Pick the comman
 To use one:
 
 ```bash
-cp local-scripts/dev/system-user.env.example local-scripts/dev/system-user.env
-# edit local-scripts/dev/system-user.env with real values
-local-scripts/dev/create-system-user.sh        # or .ps1 / .bat
+cp local-scripts/mystic_auth/dev/system-user.env.example local-scripts/mystic_auth/dev/system-user.env
+# edit local-scripts/mystic_auth/dev/system-user.env with real values
+local-scripts/mystic_auth/dev/create-system-user.sh        # or .ps1 / .bat
 ```
 
-Same shape for `local-scripts/local-prod-{cloudflare,ngrok,tailscale}/` (against the matching `docker-compose.local-prod-*.yml`) and `local-scripts/prod/` (against `docker-compose.prod.yml`, real production credentials). Each `system-user.env` is ignored by both `.gitignore` and `.dockerignore`, only the `.example` templates are tracked, so filling one in never risks committing real credentials.
+Same shape for `local-scripts/local-prod-{cloudflare,ngrok,tailscale}/` (against the matching `docker-compose.local-prod-*.yml`) and `local-scripts/mystic_auth/prod/` (against `docker-compose.prod.yml`, real production credentials). Each `system-user.env` is ignored by both `.gitignore` and `.dockerignore`, only the `.example` templates are tracked, so filling one in never risks committing real credentials.
 
 ---
 
@@ -28,11 +28,11 @@ Same shape for `local-scripts/local-prod-{cloudflare,ngrok,tailscale}/` (against
 
 | Mode | Non-interactive helper | Interactive command | Env file | Compose file |
 |---|---|---|---|---|
-| Dev Docker | `local-scripts/dev/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.dev.yml exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.example` | `docker/compose/docker-compose.dev.yml` |
-| Local-prod Docker, Cloudflare tunnel | `local-scripts/local-prod-cloudflare/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.local-prod-cloudflare` | `docker/compose/docker-compose.local-prod-cloudflare.yml` |
-| Local-prod Docker, ngrok tunnel | `local-scripts/local-prod-ngrok/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.local-prod-ngrok` | `docker/compose/docker-compose.local-prod-ngrok.yml` |
-| Local-prod Docker, Tailscale funnel | `local-scripts/local-prod-tailscale/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.local-prod-tailscale` | `docker/compose/docker-compose.local-prod-tailscale.yml` |
-| Prod Docker | `local-scripts/prod/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.prod` | `docker/compose/docker-compose.prod.yml` |
+| Dev Docker | `local-scripts/mystic_auth/dev/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.dev.yml exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.example` | `docker/compose/docker-compose.dev.yml` |
+| Local-prod Docker, Cloudflare tunnel | `local-scripts/mystic_auth/local-prod-cloudflare/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.local-prod-cloudflare` | `docker/compose/docker-compose.local-prod-cloudflare.yml` |
+| Local-prod Docker, ngrok tunnel | `local-scripts/mystic_auth/local-prod-ngrok/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.local-prod-ngrok` | `docker/compose/docker-compose.local-prod-ngrok.yml` |
+| Local-prod Docker, Tailscale funnel | `local-scripts/mystic_auth/local-prod-tailscale/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.local-prod-tailscale` | `docker/compose/docker-compose.local-prod-tailscale.yml` |
+| Prod Docker | `local-scripts/mystic_auth/prod/create-system-user.sh` / `.ps1` / `.bat` | `docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod exec -it backend python -m mystic_auth.scripts.create_system_user` | `env/.env.prod` | `docker/compose/docker-compose.prod.yml` |
 | Local backend without Docker | none | `PYTHONPATH=backend python -m mystic_auth.scripts.create_system_user` | n/a | n/a |
 
 The helper scripts only cover the fresh-account path. If you need to promote an existing account, use the interactive command for that mode.
@@ -44,7 +44,7 @@ The helper scripts only cover the fresh-account path. If you need to promote an 
 Git tracks each file's executable bit as part of its mode (`100755` vs `100644`), separate from `chmod` on your local checkout. If the `.sh` was ever added to the repo without `+x` set at the time (e.g. authored with a plain editor rather than `chmod +x` beforehand), git stores it non-executable, and every clone/pull/checkout resets it back to `-rw-r--r--` even after you locally `chmod +x` it and it works once. Fix it in the index, not just on disk, so it stays fixed for everyone:
 
 ```bash
-git update-index --chmod=+x local-scripts/dev/create-system-user.sh
+git update-index --chmod=+x local-scripts/mystic_auth/dev/create-system-user.sh
 ```
 
 Repeat per affected file, then commit the mode change. If you're adding a new `.sh` script to this repo, `chmod +x` it before your first `git add` so this never happens in the first place.

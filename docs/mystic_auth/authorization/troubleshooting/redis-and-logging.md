@@ -37,7 +37,7 @@ docker compose exec redis redis-cli FLUSHDB   # nuclear option: clears everythin
 **Verifying it end-to-end** (useful after any change to the caching layer):
 
 ```bash
-scripts/docker/dev/backend-exec.sh python -c "
+scripts/mystic_auth/docker/dev/backend-exec.sh python -c "
 import asyncio
 from backend.mystic_auth.authorization.caching.authorization_cache_service import authorization_cache_service
 from backend.mystic_auth.authorization.models.policy_model import Policy

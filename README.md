@@ -174,48 +174,34 @@ See [Auth Flow](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_aut
 This section assumes Docker is installed. The dev Compose stack starts the backend, frontend, PostgreSQL, Redis, Procrastinate worker, Alembic migration runner, and Bugsink.
 
 1. On GitHub, click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)**. This creates a brand new repository under your own account that starts as a copy of this one, with no shared commit history and no "fork" relationship back to this repo. It's the standard way to start a new project from a template on GitHub.
-2. Clone *your* new repository and set up its local config:
+2. Clone *your* new repository and run the quickstart script:
 
    ```bash
    git clone https://github.com/<your-username>/<your-repo>.git
    cd <your-repo>
-   cp env/.env.example env/.env
+   ./scripts/mystic_auth/env-tools/quickstart/quickstart.sh                  # Git Bash / WSL / Linux / macOS
+   # .\scripts\mystic_auth\env-tools\quickstart\quickstart.ps1     # PowerShell
+   # scripts\mystic_auth\env-tools\quickstart\quickstart.cmd       # Command Prompt
    ```
 ---
 
-   `env/.env` holds runtime settings and local credentials. `env/.env.example` ships with development placeholders. Replace secrets and public URLs before local-prod or prod deployment. See [Security Decisions](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/security/decisions).
+   This is the whole setup in one command: it generates every `env/.env*` file (plus `frontend/.env`) from its `.example` if `env/.env` doesn't exist yet (distinct random secret per password field, one app name/brand color prompt applied everywhere), brings the dev stack up and waits for it to be healthy, offers to create the system superuser right there, then tails logs. Safe to re-run any time. Prefer to see and run each step yourself? See [Using This Repository as a Template: Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart) for the same steps run individually (`setup-env`, `dev-up`, `create_system_user`), and for what each remaining field (Google OAuth, SMTP, a real domain, tunnel tokens) means.
 
-3. Start everything with the dev helper script for your shell:
-
-   ```bash
-   ./scripts/docker/dev/dev-up.sh        # Git Bash / WSL / Linux / macOS
-   # .\scripts\docker\dev\dev-up.ps1     # PowerShell
-   # scripts\docker\dev\dev-up.cmd       # Command Prompt
-   ```
----
-
-4. Once it's up, open:
+3. Once it's up, open:
 
    - **Frontend:** http://localhost:5173
    - **Backend / API docs:** http://localhost:8000/docs
    - **Bugsink (error monitoring):** http://localhost:8010
 
-5. Create the one reserved "system superuser" account. This is a special account meant for the person operating the deployment, separate from any regular user. Interactively:
-
-   ```bash
-   docker compose -f docker/compose/docker-compose.dev.yml exec -it backend python -m mystic_auth.scripts.create_system_user
-   ```
----
-
-   Or non-interactively (handy if you reset your local stack often), using `local-scripts/dev/create-system-user.{sh,ps1,bat}`: copy `system-user.env.example` next to the script, fill in the values, and run it. That filled-in copy is gitignored (excluded from version control), so real credentials never get committed.
-
-For running without Docker, the local-prod and prod modes, and a full list of environment variables, see [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview), [Deployment Guide](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/guide), and [System Superuser: Bootstrapping and Promotion](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser).
+For running without Docker, the local-prod and prod modes, keeping secrets rotated (`scripts/mystic_auth/env-tools/check-env/`, `scripts/mystic_auth/env-tools/rotate-secrets/`), and a full list of environment variables, see [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview), [Deployment Guide](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/guide), and [System Superuser: Bootstrapping and Promotion](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser).
 
 ---
 
 ## Using this as a template
 
 See [Using This Repository as a Template](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview) for pulling in future upstream updates, and the `app/` vs `mystic_auth/` code split so your own code never conflicts with a `sync-upstream.sh` run.
+
+Prefer to hand setup or syncing to an AI coding agent instead of following the docs by hand? [`agent-prompts/`](agent-prompts/mystic_auth/README.md) has ready-to-paste starting prompts for both.
 
 ---
 

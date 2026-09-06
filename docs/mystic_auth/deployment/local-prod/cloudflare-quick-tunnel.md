@@ -14,10 +14,10 @@ zero-setup Cloudflare Quick Tunnel walkthrough, start to finish.
 | `docker/compose/docker-compose.local-prod-cloudflare.yml` | Runs the local-prod stack and the `cloudflared` Quick Tunnel container. |
 | `env/.env.local-prod-cloudflare.example` | Source template for the Cloudflare local-prod runtime and build settings. |
 | `env/.env.local-prod-cloudflare` | Your local, gitignored copy with secrets and public URLs. |
-| `scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Linux/macOS/Git Bash helper that wraps the full Compose command. |
-| `scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.ps1` | PowerShell helper. |
-| `scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.cmd` | Command Prompt helper. |
-| `local-scripts/local-prod-cloudflare/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
+| `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Linux/macOS/Git Bash helper that wraps the full Compose command. |
+| `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.ps1` | PowerShell helper. |
+| `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.cmd` | Command Prompt helper. |
+| `local-scripts/mystic_auth/local-prod-cloudflare/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
 
 ---
 
@@ -48,7 +48,7 @@ system superuser can still sign in and view the dashboard because the script
 marks it verified. Regular users need one verification path: SMTP for password
 signup, email verification, and password reset, or Google OAuth2 login. See
 [System Superuser](../../authentication/system-superuser/README.md) for the interactive
-command, or `local-scripts/local-prod-cloudflare/create-system-user.*` for a
+command, or `local-scripts/mystic_auth/local-prod-cloudflare/create-system-user.*` for a
 non-interactive version.
 
 Do not start local-prod from `env/.env.example`. That file points the frontend at
@@ -62,7 +62,7 @@ for the mode comparison.
 
 ```bash
 docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare up -d --build
-# or: ./scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh
+# or: ./scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh
 ```
 
 ---

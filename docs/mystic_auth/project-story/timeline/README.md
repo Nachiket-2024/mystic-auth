@@ -63,9 +63,10 @@ timeline
                 : PBAC granularity, live security testing, backup scheduling
     September 2026: Local-prod tunnel modes added for ngrok, Tailscale Funnel
                    : Playwright E2E tests, pg_dump backups
-                   : Self-role escalation fix, patched security headers and Docker images
-                   : Live security audit, Alpine base image, login-lockout race fix, prod scaling
-                   : Fixed i18n namespace mutation, multi-fork Docker collision avoidance, sync-upstream guidance
+                   : Self-role escalation fix, patched security headers, Docker images
+                   : Live security audit, Alpine base image, login-lockout race fix
+                   : Fixed i18n namespace mutation, multi-fork Docker collision avoidance
+                   : Env-file bootstrap/sync tooling, AI agent setup prompts
 ```
 
 ---
@@ -76,7 +77,7 @@ timeline
 - [September-October 2025](2025-sep-oct.md): commits 17-36, 1 September, 2025 to 14 October, 2025.
 - [February-July 2026](2026-feb-jul.md): commits 37-53, 21 February, 2026 to 29 July, 2026.
 - [August 2026](2026-aug.md): commits 54-69, 2 August, 2026 to 29 August, 2026.
-- [September 2026](2026-sep.md): commits 70-73, 4 September, 2026 to 6 September, 2026.
+- [September 2026](2026-sep.md): commits 70-74, 4 September, 2026 to 6 September, 2026.
 
 ---
 

@@ -31,7 +31,7 @@ Both trees list only files and folders that are actually committed to the reposi
   upstream-owned package a template update can safely overwrite. See
   [Using This Repository as a Template](../../template-usage/overview.md) for the ownership model
   and [Syncing with Upstream](../../template-usage/syncing-upstream/README.md) for how updates flow through
-  `scripts/upstream-sync/sync-upstream.sh`.
+  `scripts/mystic_auth/upstream-sync/sync-upstream.sh`.
 - **Role-based access became policy-based.** `authorization/` is a new top-level module: policies,
   conditions, an evaluator, caching, and its own audit log. `role` is now descriptive metadata, not
   the thing access decisions are made from. See [PBAC Architecture](../../authorization/architecture/README.md).
@@ -56,6 +56,19 @@ Both trees list only files and folders that are actually committed to the reposi
   system-user bootstrap, upstream sync) are also new; none of this existed when everything ran
   from a single `docker-compose.yml` with two Dockerfiles.
 - **`demo_assets/` became `screenshots/`.**
+- **Env tooling and load testing grew into their own scripts.** `scripts/mystic_auth/env-tools/` (quickstart,
+  setup-env, check-env, set-env-field, copy-env-values, rotate-secrets, plus its own test suite)
+  and `scripts/mystic_auth/load-test/` are new, alongside the existing `scripts/mystic_auth/db/`, `scripts/mystic_auth/docker/`, and
+  `scripts/mystic_auth/upstream-sync/`.
+- **Agent prompts and more docs sections appeared.** Top-level `agent-prompts/` holds reusable
+  prompts for setting up a new project from this template and syncing with upstream. `docs/mystic_auth/`
+  gained `environment/` (env file and tooling docs) and `glossary/` (per-area terms glossary), and
+  `docker/` gained `tailscale-serve-config.json` and `docker/dockerfiles/backend-entrypoint.sh`.
+- **Frontend tests gained an `e2e/` suite** alongside `unit/` and `integration/`, matching the
+  Playwright E2E setup added for both `tests/frontend/app/` and `tests/frontend/mystic_auth/`.
+- **`scripts/`, `agent-prompts/`, and `local-scripts/` gained the `app/`/`mystic_auth/` split too**,
+  matching `backend/`, `frontend/`, `tests/`, `docs/`, and `screenshots/`: your own scripts and
+  prompts go under each `app/`, template ones under each `mystic_auth/`.
 
 ---
 

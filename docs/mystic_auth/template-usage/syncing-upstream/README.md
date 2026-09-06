@@ -8,6 +8,8 @@
 
 If you've never pulled updates from a "template" repo into your own project before, that's fine. It's not a common everyday git workflow. Nothing below requires git knowledge beyond `git add` and `git commit`. Just follow the steps in order.
 
+Prefer to hand this whole process to an AI coding agent (Claude Code, Codex, or similar) instead? See [`agent-prompts/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) at the repo root for a ready-to-paste prompt.
+
 ---
 
 ## Step by step
@@ -29,9 +31,9 @@ If this lists any files, save your work first: either commit it normally, or run
 Do this from the main folder of your project (the repo you created from **Use this template**).
 
 ```bash
-./scripts/upstream-sync/sync-upstream.sh        # Git Bash / WSL / Linux / macOS
-# .\scripts\upstream-sync\sync-upstream.ps1      # PowerShell
-# scripts\upstream-sync\sync-upstream.cmd        # Command Prompt
+./scripts/mystic_auth/upstream-sync/sync-upstream.sh        # Git Bash / WSL / Linux / macOS
+# .\scripts\mystic_auth\upstream-sync\sync-upstream.ps1      # PowerShell
+# scripts\mystic_auth\upstream-sync\sync-upstream.cmd        # Command Prompt
 ```
 
 The real logic only exists once, as the bash script: it's dense git plumbing with its own regression suite, and a second, independently-written PowerShell copy of that same logic would just be two places for the same subtle bug to hide. The `.ps1`/`.cmd` entry points instead locate the Git Bash that already ships with Git for Windows (the same `git` install this needs either way) and run the real script through it, so PowerShell/Command Prompt users still get one command, no manual "open Git Bash first" step.
@@ -79,5 +81,6 @@ You'll see normal `git commit` output on screen, ending with a message confirmin
 
 - [Rebuild, Push, and Reference](rebuild-and-push.md): rebuilding and testing, pushing, how the sync stays fast across many syncs, and a worked conflict-resolution example.
 - [Troubleshooting](troubleshooting.md): a silent partial apply, a merge conflict, or multiple alembic heads.
+- [Syncing with an AI Coding Agent](agent-prompt.md): a copy-paste starting prompt for handing this whole process to an agentic coding tool instead of following the steps above by hand.
 
 ---

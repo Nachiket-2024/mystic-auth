@@ -46,6 +46,7 @@ frontend/node_modules/
 frontend/dist/
 frontend/build/
 frontend/.env
+frontend/.env.bak
 frontend/.DS_Store
 frontend/.cache/
 frontend/coverage/
@@ -85,9 +86,10 @@ logs/
 backups/
 
 # ---------------------------- Local scripts (system user bootstrap) ----------------------------
-# Real credentials for local-scripts/{dev,local-prod-*,prod}/create-system-user.*;
+# Real credentials for local-scripts/mystic_auth/{dev,local-prod-*,prod}/create-system-user.*;
 # the .example templates alongside them stay tracked.
 local-scripts/**/system-user.env
+scripts/mystic_auth/env-tools/set-env-field/shared-values.env
 
 # ---------------------------- Security audit / pentest scratch output ----------------------------
 # Local, point-in-time scan dumps (Bandit/ZAP/Trivy/semgrep/gitleaks/pip-audit/npm audit) and manual

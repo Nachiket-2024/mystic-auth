@@ -93,8 +93,9 @@ mystic-auth/
     mystic_auth/                  # upstream docs: api, appearance, architecture,
                                    # authentication, authorization, background-workers,
                                    # cicd, concerns, database, deployment, docker,
-                                   # error-monitoring, geolocation, legal, project-story,
-                                   # security, template-usage, testing, translations
+                                   # environment, error-monitoring, geolocation, glossary,
+                                   # legal, project-story, security, template-usage,
+                                   # testing, translations
   tests/
     backend/
       app/
@@ -105,22 +106,36 @@ mystic-auth/
         performance/
     frontend/
       app/
+        e2e/
       mystic_auth/
         unit/
         integration/
+        e2e/
+  agent-prompts/
+    app/                         # project-owned prompts
+    mystic_auth/                 # upstream prompts
+      new-project-setup.md
+      sync-with-upstream.md
   scripts/
-    db/
-    docker/
-    upstream-sync/
+    app/                         # project-owned scripts
+    mystic_auth/                 # upstream scripts
+      db/
+      docker/
+      env-tools/
+      load-test/
+      upstream-sync/
   local-scripts/
-    dev/
-    local-prod-cloudflare/
-    local-prod-ngrok/
-    local-prod-tailscale/
-    prod/
+    app/                         # project-owned local scripts
+    mystic_auth/                 # upstream local scripts
+      dev/
+      local-prod-cloudflare/
+      local-prod-ngrok/
+      local-prod-tailscale/
+      prod/
   docker/
     Caddyfile
     nginx.frontend.conf
+    tailscale-serve-config.json
     compose/
       docker-compose.dev.yml
       docker-compose.local-prod-cloudflare.yml
@@ -129,6 +144,7 @@ mystic-auth/
       docker-compose.prod.yml
     dockerfiles/
       backend.Dockerfile
+      backend-entrypoint.sh
       frontend.Dockerfile
     postgres-init/
   screenshots/

@@ -7,7 +7,7 @@ template adds its own re-exports for its own domain code, so template
 updates never conflict with app-specific additions here.
 
 Ships empty upstream on purpose, so it never conflicts on a
-`scripts/upstream-sync/sync-upstream.sh` sync. If a sync ever shows a change to this file
+`scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync. If a sync ever shows a change to this file
 coming from upstream anyway, keep YOUR version: upstream's is only ever the
 empty starting point.
 

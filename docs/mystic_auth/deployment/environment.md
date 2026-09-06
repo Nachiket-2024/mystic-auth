@@ -46,11 +46,11 @@ The `--env-file` flag matters for local-prod and prod. Compose only auto-loads a
 
 Use the helper scripts when possible because they always pass the matching env file:
 
-1. `scripts/docker/dev/dev-up.*`
-2. `scripts/docker/local-prod-cloudflare/local-prod-cloudflare-up.*`
-3. `scripts/docker/local-prod-ngrok/local-prod-ngrok-up.*`
-4. `scripts/docker/local-prod-tailscale/local-prod-tailscale-up.*`
-5. `scripts/docker/prod/prod-up.*`
+1. `scripts/mystic_auth/docker/dev/dev-up.*`
+2. `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.*`
+3. `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*`
+4. `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*`
+5. `scripts/mystic_auth/docker/prod/prod-up.*`
 
 ---
 
@@ -70,6 +70,12 @@ Production-shaped frontend values are baked into the static bundle by `docker/do
 
 ## 5. Required production review
 ---
+
+`scripts/mystic_auth/env-tools/check-env/check-env.sh <file>` (`.ps1`/`.cmd`) automates the part
+of this review a script can check: it fails if `ENVIRONMENT=production` but
+a secret still equals the shipped placeholder, and warns on remaining
+`<your_...>` placeholders or a host port already bound by something else.
+Run it before `up`, then review the rest of this list by hand:
 
 Review these settings before sharing a production-shaped deployment:
 
@@ -100,7 +106,7 @@ forces a single process) sets how many uvicorn worker processes the
 `max_connections` (100 by default), leaving headroom for
 `alembic`/`procrastinate_worker`/`db_backup`'s own connections.
 
-Measured against a real local-prod-ngrok stack (`scripts/load-test/load_test.py`);
+Measured against a real local-prod-ngrok stack (`scripts/mystic_auth/load-test/load_test.py`);
 the `backend` service is capped at 2 CPUs there (`docker-compose.local-prod-ngrok.yml`'s
 own `deploy.resources.limits.cpus`):
 

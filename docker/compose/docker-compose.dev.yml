@@ -72,7 +72,7 @@ services:
       BACKEND_BASE_URL: http://localhost:8000
       FRONTEND_BASE_URL: http://localhost:5173
       ENVIRONMENT: development
-      # Needed so scripts/docker/dev/backend-exec.sh, which runs with -w /repo
+      # Needed so scripts/mystic_auth/docker/dev/backend-exec.sh, which runs with -w /repo
       # instead of /app, can still resolve the bare `mystic_auth`/`app`
       # imports the app code uses.
       PYTHONPATH: /app

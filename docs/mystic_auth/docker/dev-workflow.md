@@ -6,6 +6,13 @@
 
 ## Day-to-day: dev-up helpers
 
+First time in this repo, on a fresh clone with no `env/.env` yet?
+`scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`) chains env setup, this
+helper, and system superuser creation into one command - see
+[Template Usage: Quickstart](../template-usage/overview.md#quickstart). The
+rest of this section covers `dev-up` on its own, which is what you'll use
+day to day once the stack already exists.
+
 `docker compose up` (no `-d`) attaches to and interleaves *every* service's
 full stdout/stderr into one stream: Postgres's own boot log, Alembic's
 migration list, Bugsink's 100+ Django migrations, and (worst of it)
@@ -17,17 +24,33 @@ Use the helper for your shell:
 
 ```bash
 # Git Bash, WSL, Linux, macOS
-./scripts/docker/dev/dev-up.sh
+./scripts/mystic_auth/docker/dev/dev-up.sh
 ```
 
 ```powershell
 # PowerShell
-.\scripts\docker\dev\dev-up.ps1
+.\scripts\mystic_auth\docker\dev\dev-up.ps1
 ```
 
 ```bat
 rem Command Prompt
-scripts\docker\dev\dev-up.cmd
+scripts\mystic_auth\docker\dev\dev-up.cmd
+```
+
+---
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Up["docker compose up -d\n --quiet-pull"] --> Restart["Restart backend +\n procrastinate_worker\n (fresh startup banners)"]
+    Restart --> Poll{"Poll each\n service's status"}
+    Poll -- "still starting" --> Poll
+    Poll -- "one exited/restarting" --> Fail["Print status table,\n exit non-zero"]
+    Poll -- "all healthy" --> Status["Print status table"]
+    Status --> TailCheck{"DEV_UP_TAIL=0?"}
+    TailCheck -- "no (default)" --> Tail["Tail backend/frontend/\n procrastinate_worker logs"]
+    TailCheck -- "yes" --> Return["Print manual tail command,\n return (used by quickstart)"]
+    linkStyle default stroke:#334155,stroke-width:2px
 ```
 
 ---
@@ -66,9 +89,18 @@ debugging Postgres/Bugsink/Alembic startup itself rather than the app.
 
 ---
 
+Setting `DEV_UP_TAIL=0` before calling the helper skips the final log tail:
+it prints the manual tail command and returns instead of blocking, which is
+what `scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`) uses so it can run
+system superuser creation after the stack is confirmed healthy, then tail
+logs itself as its own last step. Day-to-day use doesn't need this - just
+run `dev-up` directly and let it tail.
+
+---
+
 ## Running a one-off command inside a container
 
-**Shortcut: `scripts/docker/dev/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\docker\dev\backend-exec.ps1 <command>` (PowerShell), or `scripts\docker\dev\backend-exec.cmd <command>` (Command Prompt)** run this section's recommended invocation. Both workarounds below are built in and are harmless no-ops on platforms that do not need them. Use these day to day. The raw command is spelled out below for cases the wrapper does not cover.
+**Shortcut: `scripts/mystic_auth/docker/dev/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\mystic_auth\docker\dev\backend-exec.ps1 <command>` (PowerShell), or `scripts\mystic_auth\docker\dev\backend-exec.cmd <command>` (Command Prompt)** run this section's recommended invocation. Both workarounds below are built in and are harmless no-ops on platforms that do not need them. Use these day to day. The raw command is spelled out below for cases the wrapper does not cover.
 
 `docker compose exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see `docker/compose/docker-compose.dev.yml`'s `backend` service).
 

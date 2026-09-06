@@ -7,7 +7,7 @@ same way product-specific code belongs in `backend/app/` and
 
 `docs/mystic_auth/` holds the template reference docs for architecture,
 authentication, authorization, and infrastructure. Treat that folder as
-upstream-owned so future `scripts/upstream-sync/sync-upstream.sh` runs can merge cleanly.
+upstream-owned so future `scripts/mystic_auth/upstream-sync/sync-upstream.sh` runs can merge cleanly.
 Anything about your product, domains, or decisions belongs in this folder.
 
 See [Using This Repository as a Template](../mystic_auth/template-usage/overview.md)

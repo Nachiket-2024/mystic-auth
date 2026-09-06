@@ -3,7 +3,7 @@
 
 Documentation for this full-stack authentication and PBAC template, organized by feature and runtime ownership. The structure mirrors the code layout under `backend/mystic_auth/<domain>/` and `frontend/src/mystic_auth/<domain>/`.
 
-This is the template's own reference documentation, belonging to upstream and not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/upstream-sync/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage/overview.md#the-app--mystic_auth-split) for the full reasoning.
+This is the template's own reference documentation, belonging to upstream and not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/mystic_auth/upstream-sync/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage/overview.md#the-app--mystic_auth-split) for the full reasoning.
 
 New to a term you see in these docs? Check the [Glossary](glossary/README.md) first.
 

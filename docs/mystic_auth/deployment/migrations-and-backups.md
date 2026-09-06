@@ -26,20 +26,20 @@ Migrations run with `DATABASE_URL`, normally the Postgres superuser. Runtime app
 ## 2. Backup scripts
 ---
 
-`scripts/db/db_backup.sh` and `scripts/db/db_restore.sh` wrap Docker Compose, `pg_dump`, and `psql`.
+`scripts/mystic_auth/db/db_backup.sh` and `scripts/mystic_auth/db/db_restore.sh` wrap Docker Compose, `pg_dump`, and `psql`.
 
 ```bash
 # Dump the dev database and Bugsink database, if enabled
-scripts/db/db_backup.sh
+scripts/mystic_auth/db/db_backup.sh
 
 # Dump a production-shaped stack
-scripts/db/db_backup.sh docker-compose.local-prod-ngrok.yml
+scripts/mystic_auth/db/db_backup.sh docker-compose.local-prod-ngrok.yml
 
 # Restore a dump, with confirmation
-scripts/db/db_restore.sh backups/mystic_auth-20260717-120000.sql
+scripts/mystic_auth/db/db_restore.sh backups/mystic_auth-20260717-120000.sql
 
 # Restore without confirmation
-scripts/db/db_restore.sh -y backups/mystic_auth-20260717-120000.sql
+scripts/mystic_auth/db/db_restore.sh -y backups/mystic_auth-20260717-120000.sql
 ```
 
 The restore target is inferred from the dump filename. A `bugsink-*.sql` file restores into the `bugsink` database.
@@ -58,7 +58,7 @@ The restore target is inferred from the dump filename. A `bugsink-*.sql` file re
 | `BACKUP_UPLOAD_COMMAND` | Optional shell command run after each verified dump, with `DUMP_FILE` exported to it, to ship the dump off-host. Blank (off) by default. |
 | `./backups` | Host directory where dumps are written. |
 
-This is a periodic `pg_dump` loop. It is a baseline, not a production-grade backup system. `scripts/db/db_backup.sh` (manual/on-demand backups) honors the same `BACKUP_UPLOAD_COMMAND` for parity.
+This is a periodic `pg_dump` loop. It is a baseline, not a production-grade backup system. `scripts/mystic_auth/db/db_backup.sh` (manual/on-demand backups) honors the same `BACKUP_UPLOAD_COMMAND` for parity.
 
 Example: `BACKUP_UPLOAD_COMMAND=aws s3 cp "$DUMP_FILE" s3://my-bucket/` (the `postgres:15` image has no `aws-cli`/`rclone` preinstalled - use a command already on `PATH`, or bind-mount one in via a custom `db_backup` image).
 
