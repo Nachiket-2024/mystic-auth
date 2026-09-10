@@ -40,9 +40,36 @@ This started as a reusable authentication foundation for projects that needed ac
 
 ---
 
+## Architecture
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Browser["Browser (SPA)"]
+    Browser -- "HTTPS\n TLS terminated in front\n see deployment guide" --> Nginx
+    Browser -- HTTPS --> Backend
+    Nginx["nginx\n (static frontend build)"]
+    Backend["FastAPI backend\n (uvicorn)"]
+    Backend --> Postgres[("PostgreSQL\n users, policies,\n audit logs")]
+    Backend --> Redis[("Redis\n rate limits, account/chain\n version counters, reset/verify\n tokens")]
+    Backend --> Bugsink["Bugsink\n self-hosted error monitoring\n own DB on same Postgres server"]
+    Browser -. "unhandled errors" .-> Bugsink
+    Backend --> Procrastinate["Procrastinate worker\n (async email sending,\n same Postgres as job queue)"]
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+One backend image (`docker/mystic_auth/dockerfiles/backend.Dockerfile`) runs as three containers with different commands: `backend` (the API), `procrastinate_worker` (async email + the daily account-purge job), and `alembic` (migrations only, exits after running). PostgreSQL is the only system of record; Redis holds nothing that needs to survive a restart. See [System Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/architecture/system-overview) for the full component breakdown, the PBAC authorization pipeline, and a request-lifecycle sequence diagram.
+
+---
+
 ## Screenshots
 
 The screenshots below follow the path a user or administrator would normally take through the app: sign in, review their own dashboard, try the command palette, then move into account settings, appearance, user and policy management (including bulk actions and direct permission grants), the permission catalog, and audit review.
+
+![Dashboard](screenshots/mystic_auth/dashboard.png)
+
+<details>
+<summary><strong>See all 19 screenshots</strong> (landing page through audit logs)</summary>
 
 ---
 
@@ -141,6 +168,10 @@ The screenshots below follow the path a user or administrator would normally tak
 
 ---
 
+</details>
+
+---
+
 ## Stack
 
 - **Backend:** FastAPI, SQLAlchemy 2.0 async ORM with `asyncpg`, Alembic migrations, Pydantic settings and schemas.
@@ -150,9 +181,9 @@ The screenshots below follow the path a user or administrator would normally tak
 - **i18n:** English, Hindi, Marathi, and Gujarati via `react-i18next`. See [Translations](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/translations/overview).
 - **Data/Infra:** PostgreSQL for durable state, Redis for derived state and token/rate-limit counters, Procrastinate for PostgreSQL-backed background jobs.
 - **Error Monitoring:** Self-hosted Bugsink using the Sentry SDK protocol for backend and frontend exception reporting.
-- **Backups:** Scheduled `pg_dump` sidecar in local-prod and prod. See [Known Issues](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) for remaining backup gaps.
+- **Backups:** Scheduled `pg_dump` sidecar in local-prod and prod, plus a restore drill that dumps, restores into a scratch database, and smoke-checks the result, run in CI on every push. See [Known Issues](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) for remaining backup gaps.
 - **Deployment:** Docker dev mode, local-prod tunnel mode through Cloudflare/ngrok/Tailscale, and server-hosted prod mode behind Caddy-managed TLS.
-- **Browser E2E:** Playwright tests cover the app and MysticAuth UI split under `tests/frontend/app/e2e/` and `tests/frontend/mystic_auth/e2e/`, including auth, dashboard, account settings, admin pages, responsive layouts, and no-email stubbed flows. See [Browser E2E Tests](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/testing/browser-e2e)
+- **Browser E2E:** Playwright tests cover the app and MysticAuth UI split under `tests/frontend/app/e2e/` and `tests/frontend/mystic_auth/e2e/`, including auth, dashboard, account settings, admin pages, responsive layouts, no-email stubbed flows, a WCAG 2.1 AA accessibility scan (`@axe-core/playwright`) across every major page, and an opt-in live-deployment smoke test that makes real requests against an already-running deployment. See [Browser E2E Tests](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/testing/browser-e2e)
 
 See [Auth Flow](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/overview) and [Security Hardening](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/security/hardening) for the full feature list.
 
@@ -173,6 +204,12 @@ See [Auth Flow](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_aut
 
 This section assumes Docker is installed. The dev Compose stack starts the backend, frontend, PostgreSQL, Redis, Procrastinate worker, Alembic migration runner, and Bugsink.
 
+**Setting up with an AI coding agent (Claude Code, Codex, or similar)?**
+
+Skip the steps below. After cloning your new repo, hand your agent [`agent-prompts/mystic_auth/new-project-setup.md`](agent-prompts/mystic_auth/new-project-setup.md) directly (e.g. "read this file and follow it"). It runs the same `quickstart.sh` script, asks you for your app name/brand color instead of guessing, and never puts real secrets in its own context. See [Agent Prompts](agent-prompts/mystic_auth/README.md) for how and why.
+
+---
+
 1. On GitHub, click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)**. This creates a brand new repository under your own account that starts as a copy of this one, with no shared commit history and no "fork" relationship back to this repo. It's the standard way to start a new project from a template on GitHub.
 2. Clone *your* new repository and run the quickstart script:
 
@@ -185,7 +222,7 @@ This section assumes Docker is installed. The dev Compose stack starts the backe
    ```
 ---
 
-   This is the whole setup in one command: it generates every `env/.env*` file (plus `frontend/.env`) from its `.example` if `env/.env` doesn't exist yet (distinct random secret per password field, one app name/brand color prompt applied everywhere), brings the dev stack up and waits for it to be healthy, offers to create the system superuser right there, then tails logs. Safe to re-run any time. Prefer to see and run each step yourself? See [Using This Repository as a Template: Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart) for the same steps run individually (`setup-env`, `dev-up`, `create_system_user`), and for what each remaining field (Google OAuth, SMTP, a real domain, tunnel tokens) means.
+   This is the whole setup in one command: it generates every `env/mystic_auth/.env*` file (plus `frontend/.env`) from its `.example` if `env/mystic_auth/.env` doesn't exist yet (distinct random secret per password field, one app name/brand color prompt applied everywhere), brings the dev stack up and waits for it to be healthy, offers to create the system superuser right there, then tails logs. Safe to re-run any time. Prefer to see and run each step yourself? See [Using This Repository as a Template: Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart) for the same steps run individually (`setup-env`, `dev-up`, `create_system_user`), and for what each remaining field (Google OAuth, SMTP, a real domain, tunnel tokens) means.
 
 3. Once it's up, open:
 
@@ -213,7 +250,7 @@ Documentation site: **[nachiket-2024.github.io/mystic-auth-docs](https://nachike
 
 ## Getting Help & Contributing
 
-Issues and pull requests are welcome. Check [Known Issues & Concerns](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) and [PBAC Troubleshooting](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/troubleshooting) first, then search [existing issues](https://github.com/Nachiket-2024/mystic-auth/issues) before opening a new one. **Found a security vulnerability?** Don't open a public issue. See [SECURITY.md](SECURITY.md) for private reporting.
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, code style, and what CI checks before you open a PR. Check [Known Issues & Concerns](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) and [PBAC Troubleshooting](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/troubleshooting) first, then search [existing issues](https://github.com/Nachiket-2024/mystic-auth/issues) before opening a new one. **Found a security vulnerability?** Don't open a public issue. See [SECURITY.md](SECURITY.md) for private reporting.
 
 ---
 

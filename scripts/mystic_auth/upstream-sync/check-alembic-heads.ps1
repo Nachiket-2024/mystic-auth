@@ -39,7 +39,7 @@ $BashExe = Find-GitBash
 if (-not $BashExe) {
     Write-Host "Couldn't find bash.exe (Git Bash, normally bundled with Git for Windows: https://git-scm.com/download/win)."
     Write-Host "Install Git for Windows, or run this script directly from an existing Git Bash / WSL prompt instead:"
-    Write-Host "  ./scripts/upstream-sync/check-alembic-heads.sh"
+    Write-Host "  ./scripts/mystic_auth/upstream-sync/check-alembic-heads.sh"
     exit 1
 }
 

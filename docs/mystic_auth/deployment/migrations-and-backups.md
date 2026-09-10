@@ -46,7 +46,40 @@ The restore target is inferred from the dump filename. A `bugsink-*.sql` file re
 
 ---
 
-## 3. Scheduled backup sidecar
+## 3. Restore drill
+---
+
+A backup nobody has tried to restore is a hope, not a guarantee.
+`scripts/mystic_auth/db/db_restore_drill.sh` proves the whole path actually
+works: it dumps the running app database, restores that dump into a
+disposable scratch database on the same Postgres server (never touching the
+real one), runs a smoke check against it (the schema migrated and the
+`users` table exists), then drops the scratch database.
+
+```bash
+# Prove the dev stack's own database is restorable
+scripts/mystic_auth/db/db_restore_drill.sh
+
+# Same, against a production-shaped stack
+scripts/mystic_auth/db/db_restore_drill.sh docker-compose.local-prod-ngrok.yml
+```
+
+Exits non-zero on any failure (dump, restore, or a missing/empty schema in
+the result), so a broken backup path fails loudly here instead of only
+being discovered mid-incident. `tests/scripts/mystic_auth/db/test-restore-drill.sh`
+runs this as a regression test in CI's `docker-build` job, against the dev
+stack's own database, on every push.
+
+This is how a real bug was found and fixed while building this drill:
+`pg_dump --format=custom --file=-` silently wrote a 0-byte dump on this
+image's `pg_dump` build instead of writing to stdout, and `db_backup.sh`
+used exactly that pattern. Both scripts now omit `--file` and rely on
+stdout redirection instead, which works portably regardless of that
+behavior. See the fixed line's own comment in either script for the detail.
+
+---
+
+## 4. Scheduled backup sidecar
 ---
 
 `docker-compose.prod.yml` and every `docker-compose.local-prod-*.yml` variant run a `db_backup` service by default.
@@ -64,7 +97,7 @@ Example: `BACKUP_UPLOAD_COMMAND=aws s3 cp "$DUMP_FILE" s3://my-bucket/` (the `po
 
 ---
 
-## 4. Backup limitations
+## 5. Backup limitations
 ---
 
 Known limitations:
@@ -73,13 +106,11 @@ Known limitations:
 2. There is no point-in-time recovery - periodic full dumps only, so worst-case data loss is up to `BACKUP_INTERVAL_HOURS` of writes.
 3. There is no alert when a scheduled backup or upload fails; a failure is visible only in `docker compose ps`/container logs (`set -e` restarts the container rather than skipping silently).
 
-Each dump is already verified with `pg_restore --list` immediately after writing, so a corrupt dump is caught before it's trusted, not after a restore is attempted.
-
-For production data, periodically restore the latest dump into a scratch database to confirm the whole pipeline works end to end. See [Known Issues](../concerns/README.md#database-backups-are-scheduled-and-integrity-checked-but-not-shipped-off-host-or-continuously-archived).
+Each dump is already verified with `pg_restore --list` immediately after writing, so a corrupt dump is caught before it's trusted, not after a restore is attempted. Beyond that structural check, run [the restore drill](#3-restore-drill) periodically against production data to confirm the whole pipeline, not just the dump file, works end to end.
 
 ---
 
-## 5. Off-host copy without a cloud account
+## 6. Off-host copy without a cloud account
 ---
 
 If there is no cloud account and no second server, use encrypted removable media as the minimum off-host path.
@@ -102,6 +133,6 @@ restic -r sftp:USER@REMOTE_HOST:/backups/mystic-auth init
 restic -r sftp:USER@REMOTE_HOST:/backups/mystic-auth backup ./backups
 ```
 
-Also keep a recoverable copy of the relevant env file, such as `env/.env.prod` or `env/.env.local-prod-ngrok`. A database dump without `SECRET_KEY`, database passwords, and provider secrets is not enough to recover the application.
+Also keep a recoverable copy of the relevant env file, such as `env/mystic_auth/.env.prod` or `env/mystic_auth/.env.local-prod-ngrok`. A database dump without `SECRET_KEY`, database passwords, and provider secrets is not enough to recover the application.
 
 ---

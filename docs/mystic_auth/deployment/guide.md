@@ -13,7 +13,7 @@ Shared deployment index for dev, local-prod, and prod. Use this page to choose a
 | | Dev | Local-prod | Prod |
 |---|---|---|---|
 | Tutorial | [Dev Deployment](dev.md) | [Local-Prod Deployment](local-prod/README.md) | [Prod Deployment](prod.md) |
-| Compose file | `docker/compose/docker-compose.dev.yml` | `docker/compose/docker-compose.local-prod-{cloudflare,ngrok,tailscale}.yml` | `docker/compose/docker-compose.prod.yml` |
+| Compose file | `docker/mystic_auth/compose/docker-compose.dev.yml` | `docker/mystic_auth/compose/docker-compose.local-prod-{cloudflare,ngrok,tailscale}.yml` | `docker/mystic_auth/compose/docker-compose.prod.yml` |
 | Frontend | Vite dev server with HMR | nginx static build | nginx static build |
 | Source code | Bind-mounted from host | Baked into images | Baked into images |
 | Backend reload | `--reload` | Off | Off |

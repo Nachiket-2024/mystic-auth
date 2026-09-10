@@ -28,7 +28,7 @@ flowchart TD
 ---
 
 - **Frontend**: React + TypeScript + Chakra UI + Zustand (client state) + TanStack Query (server state). Built as a static SPA, served by nginx in production-style Compose files or Vite's dev server locally (`docker-compose.dev.yml`).
-- **Backend**: FastAPI, async throughout (SQLAlchemy async engine, async Redis client). One process type (`backend/app/main.py`), shared by the `backend`, `procrastinate_worker`, and `alembic` containers via the same Docker image (`docker/dockerfiles/backend.Dockerfile`) with different `command:` overrides.
+- **Backend**: FastAPI, async throughout (SQLAlchemy async engine, async Redis client). One process type (`backend/app/main.py`), shared by the `backend`, `procrastinate_worker`, and `alembic` containers via the same Docker image (`docker/mystic_auth/dockerfiles/backend.Dockerfile`) with different `command:` overrides.
 - **PostgreSQL**: system of record: users, policies, policy history, both audit log tables (authorization decisions and security events), and the Procrastinate job queue (`procrastinate_jobs`).
 - **Redis**: ephemeral/derived state only, never the source of truth for anything that must survive a flush: rate-limit/lockout counters, the account/chain token-version counters (logout-all and single-session revocation), single-use refresh-token rotation claims, single-use password-reset/email-verification/OAuth2-state tokens (all with TTLs matching their expiry).
 - **Email queue**: uses Procrastinate, backed by the same Postgres instance as everything else (no Redis broker). Auth flows enqueue email jobs with `send_email_task.defer_async(...)`, and the `procrastinate_worker` sends them through the configured SMTP sender. Failed sends are retried with exponential backoff, tracked directly on the job's own row; the worker's internal periodic-task deferrer also drives the daily scheduled account-purge job, so no separate scheduler process exists.
@@ -40,7 +40,7 @@ flowchart TD
 
 - **Redis vs. Postgres**: everything in Redis is either a cache, a rate/lockout counter, or a single-use token: losing it on a restart degrades gracefully (a user re-requests a password reset; a rate limit resets) rather than corrupting state. Nothing that needs to survive indefinitely (users, policies, audit history, or the background job queue) lives there.
 - **Queued email**: email delivery is the one slow, failure-prone I/O call in the auth flows. Queuing it means signup and password-reset requests are not held open waiting on SMTP. Procrastinate fits this stack because Postgres (already the system of record here) is also its job queue: no separate broker infrastructure. See [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate).
-- **One backend image, three roles**: `backend`, `procrastinate_worker`, and `alembic` all run from `docker/dockerfiles/backend.Dockerfile` with different commands, rather than three separate images: keeps dependency versions/code identical across all three by construction, at the cost of the worker/alembic containers also containing an unused `uvicorn` entrypoint they never run.
+- **One backend image, three roles**: `backend`, `procrastinate_worker`, and `alembic` all run from `docker/mystic_auth/dockerfiles/backend.Dockerfile` with different commands, rather than three separate images: keeps dependency versions/code identical across all three by construction, at the cost of the worker/alembic containers also containing an unused `uvicorn` entrypoint they never run.
 
 ---
 

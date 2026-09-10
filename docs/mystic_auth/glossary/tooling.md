@@ -37,6 +37,6 @@ A file-mode flag (`100755` vs `100644`) that git tracks as part of a file itself
 
 ## env file (per-mode)
 
-Each deployment mode (dev, each local-prod tunnel variant, prod) has its own dedicated env template under `env/` (e.g. `env/.env.example`, `env/.env.local-prod-ngrok.example`), copied to its real, git-ignored counterpart before first use. This lets every mode hold real values at once without one overwriting another. See [Deployment Guide: Choosing the right env template](../deployment/environment.md#1-choosing-the-right-env-template).
+Each deployment mode (dev, each local-prod tunnel variant, prod) has its own dedicated env template under `env/` (e.g. `env/mystic_auth/.env.example`, `env/mystic_auth/.env.local-prod-ngrok.example`), copied to its real, git-ignored counterpart before first use. This lets every mode hold real values at once without one overwriting another. See [Deployment Guide: Choosing the right env template](../deployment/environment.md#1-choosing-the-right-env-template).
 
 ---

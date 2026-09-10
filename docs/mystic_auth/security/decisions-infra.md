@@ -25,7 +25,7 @@ Two real, verified bugs found during a pre-release image-contents audit, both ab
    - Verified by building the image both before and after the fix and listing its actual contents each time.
    - Fixed by using explicit `**/`-prefixed recursive patterns (`**/__pycache__/`, `**/*.pyc`, `**/.pytest_cache/`) instead of relying on bare patterns to recurse on their own.
 
-3. **Not affected**: the actual production frontend image (`docker/dockerfiles/frontend.Dockerfile`'s `production` target), verified separately, since it only ever copies `--from=builder /app/dist` (the compiled static bundle) into the final `nginx` stage, never the intermediate `builder`/`dev` stages' full source tree where a stray `frontend/coverage/` (also newly excluded, though harmless content, not a leak) would have mattered.
+3. **Not affected**: the actual production frontend image (`docker/mystic_auth/dockerfiles/frontend.Dockerfile`'s `production` target), verified separately, since it only ever copies `--from=builder /app/dist` (the compiled static bundle) into the final `nginx` stage, never the intermediate `builder`/`dev` stages' full source tree where a stray `frontend/coverage/` (also newly excluded, though harmless content, not a leak) would have mattered.
 
 CI now has a regression guard for the `backend/logs/` case specifically; see [CI/CD Overview](../cicd/overview.md). See `.dockerignore` for the full current exclusion list.
 
@@ -34,18 +34,18 @@ CI now has a regression guard for the `backend/logs/` case specifically; see [CI
 ## `Settings` ignores env vars it doesn't declare, because `.env` is shared with Docker Compose
 
 1. `backend/mystic_auth/core/settings.py`'s `Settings.Config` sets `extra = "ignore"`, overriding pydantic-settings' own default of `extra = "forbid"`.
-2. **Reason**: `env/.env` isn't exclusively this app's config file. Compose `env_file:` directives also hand the whole file to infra-only services that have no corresponding `Settings` field (`REDIS_PASSWORD` for `redis-server --requirepass`; `BUGSINK_*` for the optional self-hosted error-monitoring service, see [Error Monitoring](../error-monitoring/overview.md)).
+2. **Reason**: `env/mystic_auth/.env` isn't exclusively this app's config file. Compose `env_file:` directives also hand the whole file to infra-only services that have no corresponding `Settings` field (`REDIS_PASSWORD` for `redis-server --requirepass`; `BUGSINK_*` for the optional self-hosted error-monitoring service, see [Error Monitoring](../error-monitoring/overview.md)).
 3. **Why this was a confusing bug to track down**: with the default `"forbid"`, any such var crashed `Settings()` construction outright, but only sometimes.
-   - `Settings.env_file = "env/.env"` is a *relative* path, so it only resolves to a real file (triggering pydantic-settings' own direct file parse, which builds a dict of literally every key in the file, not just ones it recognizes) when the process's working directory is the repo root.
-   - The running app (`WORKDIR /app` in the Docker image) never hits this, since a relative `env/.env` there resolves to nothing and pydantic-settings falls back to reading only its declared fields from `os.environ`.
-   - Running the test suite with `-w /repo` (required so tests can import `backend.app...`/`backend.mystic_auth...`, per [Testing Overview](../testing/overview.md)) does hit it, since `/repo/env/.env` genuinely exists there: so the exact same `env/.env` silently worked for the running app while crashing every test collection.
+   - `Settings.env_file = "env/mystic_auth/.env"` is a *relative* path, so it only resolves to a real file (triggering pydantic-settings' own direct file parse, which builds a dict of literally every key in the file, not just ones it recognizes) when the process's working directory is the repo root.
+   - The running app (`WORKDIR /app` in the Docker image) never hits this, since a relative `env/mystic_auth/.env` there resolves to nothing and pydantic-settings falls back to reading only its declared fields from `os.environ`.
+   - Running the test suite with `-w /repo` (required so tests can import `backend.app...`/`backend.mystic_auth...`, per [Testing Overview](../testing/overview.md)) does hit it, since `/repo/env/mystic_auth/.env` genuinely exists there: so the exact same `env/mystic_auth/.env` silently worked for the running app while crashing every test collection.
    - `extra = "ignore"` makes both paths behave identically instead. See `tests/backend/mystic_auth/unit/core/test_settings_unit.py`.
 
 **Known trade-off, accepted deliberately**:
 
 1. `"ignore"` also means a genuine typo in a variable this app *does* care about (`SENTRY_DSNN` instead of `SENTRY_DSN`, say) is silently dropped rather than raising a loud, easy-to-spot error: you'd only notice because the feature it configures quietly stays off, not because `Settings()` complained.
 2. `SECRET_KEY` and every other field this app treats as load-bearing are still fully validated on their own terms regardless (see `_secret_key_minimum_strength` below, and each field's required-vs-defaulted status in `Settings` itself): `extra = "ignore"` only affects keys the model was never going to look at anyway.
-3. Given `env/.env.example` documents every real field inline, this was judged the better trade against a shared `env/.env` file crashing the app outright over a var another service in the same compose stack legitimately needs.
+3. Given `env/mystic_auth/.env.example` documents every real field inline, this was judged the better trade against a shared `env/mystic_auth/.env` file crashing the app outright over a var another service in the same compose stack legitimately needs.
 
 ---
 
@@ -111,7 +111,7 @@ Taskiq (see above) was later replaced in full with [Procrastinate](https://procr
 
 1. Every service previously connected to Postgres as the same `postgres` superuser (`DATABASE_URL`), including the request-serving backend and the Procrastinate worker's task bodies.
 2. Migration `b1e6a9f3c7d2_add_least_privilege_app_role.py` adds a second role, `mystic_auth_app`, with only `SELECT`/`INSERT`/`UPDATE`/`DELETE` on application tables: no `CREATE`/`ALTER`/`DROP`/`TRUNCATE`, no `CREATEROLE`/`CREATEDB`, no superuser.
-3. `database/connection.py` prefers the new `APP_DATABASE_URL` setting when it's set, falling back to `DATABASE_URL` otherwise, so this is opt-in and backward-compatible; `env/.env.example` ships it enabled by default for fresh setups.
+3. `database/connection.py` prefers the new `APP_DATABASE_URL` setting when it's set, falling back to `DATABASE_URL` otherwise, so this is opt-in and backward-compatible; `env/mystic_auth/.env.example` ships it enabled by default for fresh setups.
 4. Migrations (`alembic upgrade head`) still run as the `postgres` superuser, since DDL and role management require it. See [Database Design: Database roles](../database/design.md#database-roles) for the diagram and full mechanics.
 
 **Why this is worth doing even though PBAC already governs access**:

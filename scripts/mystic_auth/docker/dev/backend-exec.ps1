@@ -8,16 +8,21 @@ $ErrorActionPreference = "Continue"
 # docs/mystic_auth/docker/dev-workflow.md#running-a-one-off-command-inside-a-container),
 # so there's no MSYS_NO_PATHCONV equivalent needed here.
 #
-# Usage: .\scripts\mystic_auth\docker\backend-exec.ps1 python -m pytest tests/backend/mystic_auth/unit
-#        .\scripts\mystic_auth\docker\backend-exec.ps1 alembic heads
+# Usage: .\scripts\mystic_auth\docker\dev\backend-exec.ps1 python -m pytest tests/backend/mystic_auth/unit
+#        .\scripts\mystic_auth\docker\dev\backend-exec.ps1 alembic heads
 
 if ($args.Count -eq 0) {
-    Write-Error "Usage: scripts\mystic_auth\docker\backend-exec.ps1 <command> [args...]"
+    Write-Error "Usage: scripts\mystic_auth\docker\dev\backend-exec.ps1 <command> [args...]"
     exit 1
 }
 
 $RepoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
 Set-Location $RepoRoot
 
-docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec --user root -w /repo backend @args
+docker compose `
+  -f docker/mystic_auth/compose/docker-compose.dev.yml `
+  -f docker/app/compose/docker-compose.dev.yml `
+  --env-file env/mystic_auth/.env `
+  --env-file env/app/.env `
+  exec --user root -w /repo backend @args
 exit $LASTEXITCODE

@@ -6,8 +6,8 @@ following the docs by hand.
 
 | File | Use when | Assumes |
 |---|---|---|
-| [`new-project-setup.md`](new-project-setup.md) | You just clicked "Use this template" and cloned your new repo for the first time. See [Template Usage: Quickstart](../../docs/mystic_auth/template-usage/overview.md#quickstart) for what each step does. | Docker installed, agent has a shell in the repo root. Tell it your app name/brand color when you hand it the file, or it'll ask. |
-| [`sync-with-upstream.md`](sync-with-upstream.md) | Your project already exists and you want to pull in the latest mystic-auth template fixes/features. See [Staying in Sync with Upstream Template Updates](../../docs/mystic_auth/template-usage/syncing-upstream/README.md) for the manual version this automates, and [agent-prompt.md](../../docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md) for the reasoning behind it. | Nothing - it derives your project's own naming from env/.env itself. |
+| [`new-project-setup.md`](new-project-setup.md) | You just clicked "Use this template" and cloned your new repo for the first time. See [Template Usage: Quickstart](../../docs/mystic_auth/template-usage/quickstart.md) for what each step does. | Docker installed, agent has a shell in the repo root. Tell it your app name/brand color when you hand it the file, or it'll ask. |
+| [`sync-with-upstream.md`](sync-with-upstream.md) | Your project already exists and you want to pull in the latest mystic-auth template fixes/features. See [Staying in Sync with Upstream Template Updates](../../docs/mystic_auth/template-usage/syncing-upstream/README.md) for the manual version this automates, and [agent-prompt.md](../../docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md) for the reasoning behind it. | Nothing - it derives your project's own naming from env/mystic_auth/.env itself. |
 
 Each file is nothing but the prompt itself: hand the whole file to your
 agent (e.g. "read new-project-setup.md and follow it") and it needs

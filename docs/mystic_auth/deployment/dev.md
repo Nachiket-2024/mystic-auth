@@ -17,14 +17,14 @@ Deployment Guide.
 
 Want the whole thing in one command instead of the steps below? Run
 `scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`): it does step 1 below
-automatically if `env/.env` doesn't exist yet, brings the stack up, offers
+automatically if `env/mystic_auth/.env` doesn't exist yet, brings the stack up, offers
 to create the system superuser, then tails logs. See
-[Template Usage: Quickstart](../template-usage/overview.md#quickstart).
+[Template Usage: Quickstart](../template-usage/quickstart.md).
 
 **Step 1: Copy the env file.**
 
 ```bash
-cp env/.env.example env/.env
+cp env/mystic_auth/.env.example env/mystic_auth/.env
 ```
 
 Or run `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) instead of a plain
@@ -32,17 +32,17 @@ Or run `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) in
 distinct random secret per password field and applying one app name/brand
 color choice everywhere.
 
-`env/.env.example` is the dev template for `docker/compose/docker-compose.dev.yml`. Its defaults
+`env/mystic_auth/.env.example` is the dev template for `docker/mystic_auth/compose/docker-compose.dev.yml`. Its defaults
 are enough to boot the stack as-is. It uses localhost URLs, development mode,
 Docker service names for internal database and Redis access, and placeholder
 third-party credentials.
 
 Use a different template if you are not running dev:
 
-- Local-prod: copy one of `env/.env.local-prod-{cloudflare,ngrok,tailscale}.example`
+- Local-prod: copy one of `env/mystic_auth/.env.local-prod-{cloudflare,ngrok,tailscale}.example`
   and use the matching `docker-compose.local-prod-*.yml`. See
   [Local-Prod: which tunnel do I want?](local-prod/README.md#which-tunnel-do-i-want).
-- Prod: copy `env/.env.prod.example` and use `docker-compose.prod.yml`.
+- Prod: copy `env/mystic_auth/.env.prod.example` and use `docker-compose.prod.yml`.
 
 See [Choosing the right env template](environment.md#1-choosing-the-right-env-template)
 for the quick comparison.
@@ -70,7 +70,7 @@ version.
 
 See [Environment variables](#environment-variables) below for the runtime
 rules, or the [Template Usage Guide](../template-usage/overview.md) for the
-full first-run walkthrough (cloning, `env/.env`, first `docker compose up`).
+full first-run walkthrough (cloning, `env/mystic_auth/.env`, first `docker compose up`).
 
 ---
 
@@ -109,12 +109,12 @@ API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## Environment variables
 
-`env/.env.example` is the source of truth for dev values. It includes localhost
+`env/mystic_auth/.env.example` is the source of truth for dev values. It includes localhost
 URLs, Docker service names, development mode, and placeholders for Google,
 SMTP, and Bugsink.
 
 Dev values are read at container startup. If you change backend, database,
-Redis, Google, SMTP, or rate-limit values in `env/.env`, restart the affected
+Redis, Google, SMTP, or rate-limit values in `env/mystic_auth/.env`, restart the affected
 containers. If you change `VITE_*` values for the Docker frontend dev server,
 restart `frontend` so Vite reads the new values.
 
@@ -155,7 +155,7 @@ for the full service-by-service comparison across all three Compose files.
 ## Stopping
 
 ```bash
-docker compose -f docker/compose/docker-compose.dev.yml down
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml down
 ```
 
 Add `-v` to also drop the Postgres/Redis volumes (wipes local data).

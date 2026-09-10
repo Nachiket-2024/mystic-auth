@@ -1,7 +1,10 @@
 # Copies every KEY=VALUE from OldFile into NewFile, for keys present in
 # both, skipping a fixed list of fields setup-env.ps1 generates fresh
 # (secrets, plus the DB URLs that embed them) and the app name/brand color
-# it just prompted for.
+# it just prompted for. Also skips any field you listed in
+# scripts/app/env-tools/rotate-secrets/fields.env, since a field safe to
+# rotate by editing the file is exactly a field that shouldn't be copied
+# forward from an old one either - see that file's own header.
 #
 # Never prints a value, only key names: every line this script writes to
 # stdout is safe to appear in an AI coding agent's own tool output/context,
@@ -27,6 +30,16 @@ $ExcludedKeys = @(
     "BUGSINK_SUPERUSER_PASSWORD", "DATABASE_URL", "APP_DATABASE_URL",
     "APP_NAME", "BRAND_COLOR", "VITE_APP_NAME", "VITE_BRAND_COLOR"
 )
+
+$AppFieldsFile = "scripts/app/env-tools/rotate-secrets/fields.env"
+if (Test-Path $AppFieldsFile) {
+    foreach ($line in Get-Content $AppFieldsFile) {
+        if ($line -eq "" -or $line.StartsWith("#") -or -not $line.Contains("=")) {
+            continue
+        }
+        $ExcludedKeys += $line.Substring(0, $line.IndexOf("="))
+    }
+}
 
 $newContent = Get-Content $NewFile -Raw
 $copied = @()

@@ -3,13 +3,20 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-env/.env
-env/.env.*
-!env/.env.example
-!env/.env.local-prod-cloudflare.example
-!env/.env.local-prod-ngrok.example
-!env/.env.local-prod-tailscale.example
-!env/.env.prod.example
+env/mystic_auth/.env
+env/mystic_auth/.env.*
+!env/mystic_auth/.env.example
+!env/mystic_auth/.env.local-prod-cloudflare.example
+!env/mystic_auth/.env.local-prod-ngrok.example
+!env/mystic_auth/.env.local-prod-tailscale.example
+!env/mystic_auth/.env.prod.example
+env/app/.env
+env/app/.env.*
+!env/app/.env.example
+!env/app/.env.local-prod-cloudflare.example
+!env/app/.env.local-prod-ngrok.example
+!env/app/.env.local-prod-tailscale.example
+!env/app/.env.prod.example
 *.venv/
 venv/
 .envrc
@@ -90,12 +97,19 @@ backups/
 # the .example templates alongside them stay tracked.
 local-scripts/**/system-user.env
 scripts/mystic_auth/env-tools/set-env-field/shared-values.env
+scripts/app/env-tools/set-env-field/shared-values.env
+scripts/app/env-tools/rotate-secrets/fields.env
 
 # ---------------------------- Security audit / pentest scratch output ----------------------------
 # Local, point-in-time scan dumps (Bandit/ZAP/Trivy/semgrep/gitleaks/pip-audit/npm audit) and manual
 # pentest notes. Regenerated on demand, not meant to live in git history; durable findings get
 # folded into docs/mystic_auth/security/ and docs/mystic_auth/concerns/README.md instead.
 security-audit-*/
+
+# ---------------------------- Personal notes ----------------------------
+# Point-in-time ratings/reviews/scratch to-do notes, not meant to live in git history; durable
+# findings get folded into docs/mystic_auth/concerns/README.md or the project-story timeline instead.
+TODO.md
 
 # ---------------------------- Local Development Tools ----------------------------
 .claude/

@@ -30,7 +30,7 @@ _BACKEND_DIR = Path(__file__).resolve().parents[5] / "backend"
 
 @pytest.fixture(scope="session", autouse=True)
 def _run_procrastinate_worker(tmp_path_factory: pytest.TempPathFactory):
-    # Same command docker/compose/docker-compose.dev.yml's procrastinate_worker service runs,
+    # Same command docker/mystic_auth/compose/docker-compose.dev.yml's procrastinate_worker service runs,
     # with the same cwd (`backend/`, so `mystic_auth...` resolves like it
     # does inside the container's /app), just as a host process against
     # this session's Postgres.
@@ -56,7 +56,7 @@ def _run_procrastinate_worker(tmp_path_factory: pytest.TempPathFactory):
     )
     # No readiness signal on stdout to wait on, so instead of guessing a
     # fixed sleep, poll the same `procrastinate ... healthchecks` command
-    # docker/compose/docker-compose.dev.yml's own healthcheck uses (confirms the DB connection
+    # docker/mystic_auth/compose/docker-compose.dev.yml's own healthcheck uses (confirms the DB connection
     # and procrastinate_jobs table are reachable), up to
     # READINESS_TIMEOUT_SECONDS. A fixed 1s sleep here previously raced the
     # first tests in a full run: cold module imports for this subprocess

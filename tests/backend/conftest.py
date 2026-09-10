@@ -20,8 +20,8 @@ from pathlib import Path
 # If DATABASE_URL / REDIS_URL are already set (e.g. inside the docker-compose
 # network, pointed at the "postgres"/"redis" service hostnames), leave them
 # alone. Otherwise, running from the host, derive a localhost equivalent from
-# env/.env.
-_ENV_PATH = Path(__file__).resolve().parents[2] / "env" / ".env"
+# env/mystic_auth/.env.
+_ENV_PATH = Path(__file__).resolve().parents[2] / "env" / "mystic_auth" / ".env"
 
 
 def _read_env_value(key: str) -> str | None:
@@ -34,7 +34,7 @@ def _read_env_value(key: str) -> str | None:
     return None
 
 
-# docker/compose/docker-compose.dev.yml maps these to non-default host ports (5433, 6380) to
+# docker/mystic_auth/compose/docker-compose.dev.yml maps these to non-default host ports (5433, 6380) to
 # avoid colliding with a developer's own local Postgres/Redis. Swapping only
 # the hostname (postgres -> localhost) and keeping the container's port would
 # silently connect to whatever else is listening on the real default port,

@@ -1,8 +1,11 @@
-# Bootstraps every env/.env* file (plus frontend/.env) from its .example,
+# Bootstraps every env/mystic_auth/.env* and env/app/.env* file (plus
+# frontend/.env) from its .example,
 # generating a distinct random value for every secret/password field and
-# applying one app name / brand color across all of them. Never touches a
-# file that already exists - safe to re-run after filling in your own
-# per-mode fields (OAuth, SMTP, domain, tunnel tokens) by hand.
+# applying one app name / brand color across all of them, plus Google
+# OAuth / Gmail sending credentials if you answer those two optional
+# prompts. Never touches a file that already exists - safe to re-run
+# after filling in your own per-mode fields (domain, tunnel tokens) by
+# hand.
 #
 # See docs/mystic_auth/template-usage/overview.md for what's still yours to
 # fill in after this runs.
@@ -21,14 +24,38 @@ if ([string]::IsNullOrWhiteSpace($AppName)) { $AppName = "MysticAuth" }
 $BrandColor = Read-Host "Brand color hex [#d97706]"
 if ([string]::IsNullOrWhiteSpace($BrandColor)) { $BrandColor = "#d97706" }
 
+# Optional: the two things nothing else in this script can generate for
+# you. Skippable (default No) since it's fine to fill these in later by
+# hand, or never, if you don't need Google login/outgoing email locally -
+# see docs/mystic_auth/template-usage/quickstart.md.
+$GoogleClientId = ""
+$GoogleClientSecret = ""
+$SetupOAuth = Read-Host "Set up Google OAuth now? [y/N]"
+if ($SetupOAuth -match '^[Yy]') {
+    $GoogleClientId = Read-Host "  GOOGLE_CLIENT_ID"
+    $GoogleClientSecret = Read-Host "  GOOGLE_CLIENT_SECRET"
+}
+
+$FromEmail = ""
+$GmailAppPassword = ""
+$SetupEmail = Read-Host "Set up email sending now (Gmail)? [y/N]"
+if ($SetupEmail -match '^[Yy]') {
+    $FromEmail = Read-Host "  FROM_EMAIL (Gmail address)"
+    $GmailAppPassword = Read-Host "  GMAIL_APP_PASSWORD (from https://myaccount.google.com/apppasswords)"
+}
+
+# Auto-discovered by globbing every env/{mystic_auth,app}/.env*.example
+# rather than a fixed list, so a fork's own new mode (e.g. a hand-added
+# env/app/.env.staging.example) gets bootstrapped too, with no edit to this
+# upstream-owned script ever required.
 $Pairs = @(
-    @{ Src = "env/.env.example"; Dst = "env/.env" }
-    @{ Src = "env/.env.prod.example"; Dst = "env/.env.prod" }
-    @{ Src = "env/.env.local-prod-cloudflare.example"; Dst = "env/.env.local-prod-cloudflare" }
-    @{ Src = "env/.env.local-prod-ngrok.example"; Dst = "env/.env.local-prod-ngrok" }
-    @{ Src = "env/.env.local-prod-tailscale.example"; Dst = "env/.env.local-prod-tailscale" }
-    @{ Src = "frontend/.env.example"; Dst = "frontend/.env" }
+    Get-ChildItem -Path "env/mystic_auth", "env/app" -Filter ".env*.example" -File -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            $src = $_.FullName.Substring((Get-Location).Path.Length + 1) -replace '\\', '/'
+            @{ Src = $src; Dst = $src.Substring(0, $src.Length - ".example".Length) }
+        }
 )
+$Pairs += @{ Src = "frontend/.env.example"; Dst = "frontend/.env" }
 
 $StillNeeded = @()
 
@@ -50,6 +77,22 @@ foreach ($pair in $Pairs) {
     $content = $content -replace '(?m)^BRAND_COLOR=.*', "BRAND_COLOR=$BrandColor"
     $content = $content -replace '(?m)^VITE_APP_NAME=.*', "VITE_APP_NAME=$AppName"
     $content = $content -replace '(?m)^VITE_BRAND_COLOR=.*', "VITE_BRAND_COLOR=$BrandColor"
+
+    # Only if you answered the OAuth/email prompts above - never
+    # overwrites with a blank, so an unanswered prompt leaves the shipped
+    # placeholder in place for you to fill in by hand later.
+    if ($GoogleClientId -and $content -match '(?m)^GOOGLE_CLIENT_ID=') {
+        $content = $content -replace '(?m)^GOOGLE_CLIENT_ID=.*', "GOOGLE_CLIENT_ID=$GoogleClientId"
+    }
+    if ($GoogleClientSecret -and $content -match '(?m)^GOOGLE_CLIENT_SECRET=') {
+        $content = $content -replace '(?m)^GOOGLE_CLIENT_SECRET=.*', "GOOGLE_CLIENT_SECRET=$GoogleClientSecret"
+    }
+    if ($FromEmail -and $content -match '(?m)^FROM_EMAIL=') {
+        $content = $content -replace '(?m)^FROM_EMAIL=.*', "FROM_EMAIL=$FromEmail"
+    }
+    if ($GmailAppPassword -and $content -match '(?m)^GMAIL_APP_PASSWORD=') {
+        $content = $content -replace '(?m)^GMAIL_APP_PASSWORD=.*', "GMAIL_APP_PASSWORD=$GmailAppPassword"
+    }
 
     # Distinct generated secrets, only for fields that ship a shared
     # "change_me_in_production..." placeholder. Each variable and each file

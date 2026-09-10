@@ -137,7 +137,8 @@ else
     else
       # A hard failure with no conflict markers usually means upstream
       # relocated or deleted a file this app customized (e.g. a whole-file
-      # rename like docker-compose*.yml -> docker/compose/*.yml): the patch's
+      # rename like docker-compose*.yml -> docker/mystic_auth/compose/*.yml):
+      # the patch's
       # delete/create hunk has no matching content on either side to
       # 3-way-merge against, so `git apply` just refuses the whole file
       # instead of leaving something to resolve. Same underlying problem as
@@ -252,7 +253,7 @@ Your history stays yours -- no upstream commits were imported.
 Before trusting this, rebuild and rerun the test suite -- a sync can change
 behavior underneath you even when every file merged automatically:
 
-  docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build
+  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build
   scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security
   # frontend: see docs/mystic_auth/testing/overview.md for the equivalent commands
   # scripts/mystic_auth/docker/dev/backend-exec.sh wraps the two Windows/Git Bash and native-Linux

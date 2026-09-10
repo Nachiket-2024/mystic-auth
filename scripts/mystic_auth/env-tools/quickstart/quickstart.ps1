@@ -1,25 +1,25 @@
 # One command from a fresh clone to a running dev stack with a login you can
-# use: runs setup-env if env/.env doesn't exist yet, brings the stack up and
+# use: runs setup-env if env/mystic_auth/.env doesn't exist yet, brings the stack up and
 # waits for it to be healthy, offers to create the system superuser, then
 # tails logs like dev-up.ps1 normally does.
 #
-# Safe to re-run: setup-env is skipped once env/.env exists, `docker compose
+# Safe to re-run: setup-env is skipped once env/mystic_auth/.env exists, `docker compose
 # up` is idempotent, and system superuser creation is opt-in each time.
 $ErrorActionPreference = "Continue"
 $RepoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
 Set-Location $RepoRoot
 
-if (-not (Test-Path "env/.env")) {
-    Write-Host "No env/.env found: running first-time setup."
+if (-not (Test-Path "env/mystic_auth/.env")) {
+    Write-Host "No env/mystic_auth/.env found: running first-time setup."
     Write-Host ""
-    & "./scripts/env-tools/setup-env/setup-env.ps1"
+    & "./scripts/mystic_auth/env-tools/setup-env/setup-env.ps1"
     Write-Host ""
 }
 
 Write-Host "Starting the dev stack..."
 Write-Host ""
 $env:DEV_UP_TAIL = "0"
-& "./scripts/docker/dev/dev-up.ps1"
+& "./scripts/mystic_auth/docker/dev/dev-up.ps1"
 $status = $LASTEXITCODE
 Remove-Item Env:\DEV_UP_TAIL -ErrorAction SilentlyContinue
 if ($status -ne 0) {
@@ -28,7 +28,12 @@ if ($status -ne 0) {
     exit $status
 }
 
-$DC = @("-f", "docker/compose/docker-compose.dev.yml", "--env-file", "env/.env")
+$DC = @(
+    "-f", "docker/mystic_auth/compose/docker-compose.dev.yml",
+    "-f", "docker/app/compose/docker-compose.dev.yml",
+    "--env-file", "env/mystic_auth/.env",
+    "--env-file", "env/app/.env"
+)
 
 Write-Host ""
 $createSu = Read-Host "Create the system superuser now? [Y/n]"

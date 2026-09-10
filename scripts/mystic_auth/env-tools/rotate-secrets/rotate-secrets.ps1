@@ -1,5 +1,9 @@
 # Rotates SECRET_KEY and/or BUGSINK_SECRET_KEY in place in one or more real
-# env/.env* files, generating a fresh random value for each.
+# env/mystic_auth/.env* files, generating a fresh random value for each.
+# Also rotates any of your own env/app/ secret fields declared in
+# scripts/app/env-tools/rotate-secrets/fields.env - see that file's own
+# header. Ships empty, so by default this script only ever touches the two
+# mystic_auth fields below.
 #
 # Scope is deliberately narrow: these two fields are the only secrets safe
 # to rotate by just editing the file and restarting. Every other secret
@@ -10,13 +14,17 @@
 # DATABASE_URL; Bugsink's admin password lives in its own database, not
 # this file. Rotating those safely means changing them at the live service
 # (ALTER ROLE, Bugsink's own admin tools) first, not something this script
-# attempts.
+# attempts. The same reasoning applies to whatever you list in
+# fields.env - only list a field there if editing the file and restarting
+# is genuinely enough to rotate it.
 #
 # Usage:
-#   .\rotate-secrets.ps1 [-Field SECRET_KEY|BUGSINK_SECRET_KEY] [file ...]
+#   .\rotate-secrets.ps1 [-Field NAME] [file ...]
 #
-# With no file arguments, rotates every env/.env* file that actually exists.
-# With no -Field, rotates both fields wherever present in a given file.
+# With no file arguments, rotates every env/mystic_auth/.env* file, plus
+# every env/app/.env* file if fields.env declares at least one field.
+# With no -Field, rotates every applicable field wherever present in a
+# given file.
 param(
     [string]$Field = "",
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -33,24 +41,44 @@ function New-Secret([int]$Length) {
     return $raw.Substring(0, [Math]::Min($Length, $raw.Length))
 }
 
-if ($Field -and $Field -ne "SECRET_KEY" -and $Field -ne "BUGSINK_SECRET_KEY") {
-    Write-Error "Unknown -Field '$Field'. Only SECRET_KEY and BUGSINK_SECRET_KEY are safe to rotate this way."
+# mystic_auth's own fields (fixed lengths, always in scope) plus whatever
+# a fork declared in its own fields.env (name=length pairs).
+$FieldLengths = [ordered]@{
+    SECRET_KEY = 40
+    BUGSINK_SECRET_KEY = 60
+}
+
+$AppFieldsFile = "scripts/app/env-tools/rotate-secrets/fields.env"
+if (Test-Path $AppFieldsFile) {
+    foreach ($line in Get-Content $AppFieldsFile) {
+        if ($line -eq "" -or $line.StartsWith("#") -or -not $line.Contains("=")) {
+            continue
+        }
+        $idx = $line.IndexOf("=")
+        $key = $line.Substring(0, $idx)
+        $length = $line.Substring($idx + 1)
+        if ($length -eq "") { $length = 40 }
+        $FieldLengths[$key] = [int]$length
+    }
+}
+
+if ($Field -and -not $FieldLengths.Contains($Field)) {
+    Write-Error "Unknown -Field '$Field'. Known fields: $($FieldLengths.Keys -join ', '). Add your own to scripts/app/env-tools/rotate-secrets/fields.env to extend this."
     exit 1
 }
 
 if ($Files.Count -eq 0) {
-    $candidates = @(
-        "env/.env",
-        "env/.env.prod",
-        "env/.env.local-prod-cloudflare",
-        "env/.env.local-prod-ngrok",
-        "env/.env.local-prod-tailscale"
-    )
-    $Files = $candidates | Where-Object { Test-Path $_ }
+    # Globs rather than a fixed list, so a fork's own new mode (e.g. a
+    # hand-added env/mystic_auth/.env.staging) is rotated too.
+    $globDirs = @("env/mystic_auth")
+    if (Test-Path $AppFieldsFile) { $globDirs += "env/app" }
+    $Files = Get-ChildItem -Path $globDirs -Filter ".env*" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notmatch '\.(example|bak|ci-created)$' } |
+        ForEach-Object { $_.FullName.Substring((Get-Location).Path.Length + 1) -replace '\\', '/' }
 }
 
 if ($Files.Count -eq 0) {
-    Write-Error "No env files found to rotate. Run scripts/env-tools/setup-env/setup-env.ps1 first."
+    Write-Error "No env files found to rotate. Run scripts/mystic_auth/env-tools/setup-env/setup-env.ps1 first."
     exit 1
 }
 
@@ -65,14 +93,11 @@ foreach ($f in $Files) {
     $content = Get-Content $f -Raw
     $rotatedHere = @()
 
-    if (($Field -eq "" -or $Field -eq "SECRET_KEY") -and $content -match '(?m)^SECRET_KEY=') {
-        $content = $content -replace '(?m)^SECRET_KEY=.*', "SECRET_KEY=$(New-Secret 40)"
-        $rotatedHere += "SECRET_KEY"
-    }
-
-    if (($Field -eq "" -or $Field -eq "BUGSINK_SECRET_KEY") -and $content -match '(?m)^BUGSINK_SECRET_KEY=') {
-        $content = $content -replace '(?m)^BUGSINK_SECRET_KEY=.*', "BUGSINK_SECRET_KEY=$(New-Secret 60)"
-        $rotatedHere += "BUGSINK_SECRET_KEY"
+    foreach ($key in $FieldLengths.Keys) {
+        if (($Field -eq "" -or $Field -eq $key) -and $content -match "(?m)^$key=") {
+            $content = $content -replace "(?m)^$key=.*", "$key=$(New-Secret $FieldLengths[$key])"
+            $rotatedHere += $key
+        }
     }
 
     if ($rotatedHere.Count -gt 0) {

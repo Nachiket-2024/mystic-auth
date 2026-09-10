@@ -18,13 +18,13 @@ Then handle the excluded file(s) by hand (e.g. copy the file straight from upstr
 
 Nothing is committed when this fires, run the suggested command to apply everything except the problem file(s), then copy the excluded file(s) over by hand (e.g. `git show upstream/main:screenshots/mystic_auth/dashboard.png > screenshots/mystic_auth/dashboard.png`) before committing. Once resolved, run the sync script again to pick up where you left off.
 
-Note: this template's own screenshots live under `screenshots/mystic_auth/`, following the same `app/`/`mystic_auth/` ownership split used everywhere else in the repo (see [overview.md](../overview.md#the-app--mystic_auth-split)). Put your own project's screenshots in `screenshots/app/` instead: since upstream never touches that folder, a sync can never collide with anything you put there, which is what causes this failure mode in the first place.
+Note: this template's own screenshots live under `screenshots/mystic_auth/`, following the same `app/`/`mystic_auth/` ownership split used everywhere else in the repo (see [overview.md](../ownership-split.md)). Put your own project's screenshots in `screenshots/app/` instead: since upstream never touches that folder, a sync can never collide with anything you put there, which is what causes this failure mode in the first place.
 
 ---
 
 ## Step 6: Conflict: resolve it
 
-A "conflict" just means: you had made your own edit to a line, and upstream also changed that same line, so git can't automatically decide which version should win and needs a human (you) to pick. This is most likely in `backend/app/main.py` or `frontend/src/app/App.tsx`, since those are the two files you're expected to routinely edit (registering your own routers/routes), and only if you genuinely edited the exact same lines upstream did. It can also happen, less often, in a shared config file neither side "owns" outright: `frontend/package.json`, `backend/requirements.txt`, `docker/compose/docker-compose.dev.yml`, `env/.env.example`, if you've edited the exact same line upstream touched (e.g. you'd already bumped the same dependency's version, or added your own dependency on the same line upstream reformatted). For most syncs, none of this happens at all. You'll see something like:
+A "conflict" just means: you had made your own edit to a line, and upstream also changed that same line, so git can't automatically decide which version should win and needs a human (you) to pick. This is most likely in `backend/app/main.py` or `frontend/src/app/App.tsx`, since those are the two files you're expected to routinely edit (registering your own routers/routes), and only if you genuinely edited the exact same lines upstream did. It can also happen, less often, in a shared config file neither side "owns" outright: `frontend/package.json`, `backend/requirements.txt`, `docker/mystic_auth/compose/docker-compose.dev.yml`, `env/mystic_auth/.env.example`, if you've edited the exact same line upstream touched (e.g. you'd already bumped the same dependency's version, or added your own dependency on the same line upstream reformatted). For most syncs, none of this happens at all. You'll see something like:
 
 ```
 Conflicts staged above -- resolve them in your working tree, then:
@@ -67,7 +67,7 @@ Not committing -- resolve the alembic branch above first, then:
 Fix it the same way you'd fix any two-heads alembic history, with a merge migration. `backend-exec.sh` wraps `docker compose exec`, which needs the `backend` container already up and healthy - bring the stack up first if you haven't already (e.g. right after a fresh sync, before anything's running):
 
 ```bash
-docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env up -d --build
 scripts/mystic_auth/docker/dev/backend-exec.sh alembic merge heads -m "merge migration branches"
 git add backend/alembic/versions/
 git commit -m "Sync upstream template updates (mystic-auth@<sha>)"

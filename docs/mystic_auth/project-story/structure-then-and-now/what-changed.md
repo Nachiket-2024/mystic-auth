@@ -50,8 +50,9 @@ Both trees list only files and folders that are actually committed to the reposi
   `unit/integration/security/performance` suites), and `.github/workflows/ci.yml` are all new. See
   [Testing Overview](../../testing/overview.md).
 - **Deployment grew from one Compose file to separate mode files.** Dev, each local-prod tunnel
-  variant, and prod now live under `docker/compose/`, with Dockerfiles under
-  `docker/dockerfiles/`, plus `docker/Caddyfile` and `docker/nginx.frontend.conf`.
+  variant, and prod now live under `docker/mystic_auth/compose/` (each with an empty
+  `docker/app/compose/` override for a fork's own additions), with Dockerfiles under
+  `docker/mystic_auth/dockerfiles/`, plus `docker/mystic_auth/Caddyfile`/`docker/app/caddy/`, and `docker/mystic_auth/nginx.frontend.conf`/`docker/app/nginx/`.
   `scripts/` and `local-scripts/` (startup, backup/restore,
   system-user bootstrap, upstream sync) are also new; none of this existed when everything ran
   from a single `docker-compose.yml` with two Dockerfiles.
@@ -63,12 +64,20 @@ Both trees list only files and folders that are actually committed to the reposi
 - **Agent prompts and more docs sections appeared.** Top-level `agent-prompts/` holds reusable
   prompts for setting up a new project from this template and syncing with upstream. `docs/mystic_auth/`
   gained `environment/` (env file and tooling docs) and `glossary/` (per-area terms glossary), and
-  `docker/` gained `tailscale-serve-config.json` and `docker/dockerfiles/backend-entrypoint.sh`.
+  `docker/` gained `tailscale-serve-config.json` and `docker/mystic_auth/dockerfiles/backend-entrypoint.sh`.
 - **Frontend tests gained an `e2e/` suite** alongside `unit/` and `integration/`, matching the
   Playwright E2E setup added for both `tests/frontend/app/` and `tests/frontend/mystic_auth/`.
 - **`scripts/`, `agent-prompts/`, and `local-scripts/` gained the `app/`/`mystic_auth/` split too**,
   matching `backend/`, `frontend/`, `tests/`, `docs/`, and `screenshots/`: your own scripts and
   prompts go under each `app/`, template ones under each `mystic_auth/`.
+- **`docker/` and `env/` gained the split last**, the two domains that hadn't. `docker/compose/`,
+  `dockerfiles/`, `postgres-init/`, `Caddyfile`, and `nginx.frontend.conf` moved under
+  `docker/mystic_auth/`, mirrored by an empty `docker/app/`; `env/` split the same way into
+  `env/mystic_auth/` + `env/app/`. See [The `app/` + `mystic_auth/` Split](../../template-usage/ownership-split.md).
+- **A root `Makefile`/`make.ps1` appeared, then got the split too.** Both are now two-line entry
+  points that `include` (Make) or dot-source (PowerShell) the real targets from
+  `makefiles/mystic_auth/` + `makefiles/app/`, so adding your own `make` target never conflicts
+  with a future upstream one.
 
 ---
 

@@ -4,8 +4,8 @@ import type { SystemConfig } from "@chakra-ui/react";
  * App-owned theme overrides (see docs/mystic_auth/template-usage/overview.md).
  *
  * For the common case, just changing the brand color, you don't need this
- * file: set VITE_BRAND_COLOR (root .env's BRAND_COLOR, aliased like
- * APP_NAME) to any hex and rebuild. mystic_auth/theme/system.ts generates the
+ * file: set VITE_BRAND_COLOR (env/mystic_auth/.env's BRAND_COLOR, aliased
+ * like APP_NAME) to any hex and rebuild. mystic_auth/theme/system.ts generates the
  * whole 50-900 brand scale plus the canvas-gradient tint from that value
  * (mystic_auth/theme/generateBrandScale.ts), the same generator a signed-in
  * user's own Appearance pick uses. See

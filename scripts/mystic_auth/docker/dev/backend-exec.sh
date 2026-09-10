@@ -12,17 +12,22 @@
 #
 # Both are no-ops where they don't apply, so this is safe on every platform.
 #
-# Usage: scripts/docker/dev/backend-exec.sh <command> [args...]
-#   scripts/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit
-#   scripts/docker/dev/backend-exec.sh alembic heads
+# Usage: scripts/mystic_auth/docker/dev/backend-exec.sh <command> [args...]
+#   scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit
+#   scripts/mystic_auth/docker/dev/backend-exec.sh alembic heads
 set -euo pipefail
 
 if [ "$#" -eq 0 ]; then
-  echo "Usage: scripts/docker/dev/backend-exec.sh <command> [args...]" >&2
+  echo "Usage: scripts/mystic_auth/docker/dev/backend-exec.sh <command> [args...]" >&2
   exit 1
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$REPO_ROOT"
 
-MSYS_NO_PATHCONV=1 exec docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec --user root -w /repo backend "$@"
+MSYS_NO_PATHCONV=1 exec docker compose \
+  -f docker/mystic_auth/compose/docker-compose.dev.yml \
+  -f docker/app/compose/docker-compose.dev.yml \
+  --env-file env/mystic_auth/.env \
+  --env-file env/app/.env \
+  exec --user root -w /repo backend "$@"

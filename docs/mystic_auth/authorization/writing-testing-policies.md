@@ -98,7 +98,7 @@ def test_my_new_policy_shape_grants_the_right_action():
     assert decision.allowed is True
 ```
 
-**Against a real database** (via `scripts/mystic_auth/docker/dev/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting/README.md): or from the host once `docker compose -f docker/compose/docker-compose.dev.yml up -d postgres redis`): create a real user, assign the real policy, log in, and hit a real protected route:
+**Against a real database** (via `scripts/mystic_auth/docker/dev/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting/README.md): or from the host once `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up -d postgres redis`): create a real user, assign the real policy, log in, and hit a real protected route:
 
 ```python
 @pytest.mark.asyncio

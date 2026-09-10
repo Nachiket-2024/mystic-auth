@@ -11,7 +11,12 @@
 #   (next to this script) to shared-values.env, fill in whichever fields
 #   you want set everywhere with a normal text editor, then run:
 #
-#     scripts/env-tools/set-env-field/set-env-field.sh
+#     scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh
+#
+#   For a field you added yourself (one only env/app/ declares), use the
+#   parallel scripts/app/env-tools/set-env-field/shared-values.env.example
+#   instead - same copy/fill/run steps, ships empty, upstream never edits
+#   it. Both files are read in this mode; the app one wins on overlap.
 #
 #   Nothing here ever puts a value on the command line or asks you to
 #   type it into a chat with an AI agent - shared-values.env is gitignored
@@ -20,15 +25,16 @@
 #
 #   Direct (one-line, scriptable - what docs/agent prompts use):
 #
-#     scripts/env-tools/set-env-field/set-env-field.sh KEY1=VALUE1 [KEY2=VALUE2 ...] [file ...]
+#     scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh KEY1=VALUE1 [KEY2=VALUE2 ...] [file ...]
 #
 #   Any argument containing "=" is a field assignment (only the first "="
 #   splits key from value, so a value can itself contain "="). Any
 #   argument without "=" is a target file - so file arguments can appear
 #   anywhere, not just at the end.
 #
-# With no file arguments (either form), targets every env/.env* file plus
-# frontend/.env that actually exists. A file missing a given KEY= line is
+# With no file arguments (either form), targets every env/mystic_auth/.env*
+# and env/app/.env* file plus frontend/.env that actually exists. A file
+# missing a given KEY= line is
 # skipped for that field, not created or appended to - this only ever
 # changes a value that's already there.
 #
@@ -45,30 +51,38 @@ FILES=()
 
 if [ "$#" -eq 0 ]; then
   VALUES_FILE="$SCRIPT_DIR/shared-values.env"
-  if [ ! -f "$VALUES_FILE" ]; then
+  APP_VALUES_FILE="scripts/app/env-tools/set-env-field/shared-values.env"
+  if [ ! -f "$VALUES_FILE" ] && [ ! -f "$APP_VALUES_FILE" ]; then
     echo "No shared-values.env found." >&2
-    echo "Copy scripts/env-tools/set-env-field/shared-values.env.example to" >&2
-    echo "scripts/env-tools/set-env-field/shared-values.env, fill in the fields you" >&2
-    echo "want set everywhere, then run this again." >&2
+    echo "Copy scripts/mystic_auth/env-tools/set-env-field/shared-values.env.example to" >&2
+    echo "scripts/mystic_auth/env-tools/set-env-field/shared-values.env (template fields)" >&2
+    echo "and/or scripts/app/env-tools/set-env-field/shared-values.env.example to" >&2
+    echo "scripts/app/env-tools/set-env-field/shared-values.env (your own fields)," >&2
+    echo "fill in the fields you want set everywhere, then run this again." >&2
     exit 1
   fi
 
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      ''|'#'*) continue ;;
-    esac
-    [[ "$line" == *=* ]] || continue
-    key="${line%%=*}"
-    value="${line#*=}"
-    [ -n "$value" ] || continue
-    if [ -z "${ASSIGNMENTS[$key]+set}" ]; then
-      KEY_ORDER+=("$key")
-    fi
-    ASSIGNMENTS["$key"]="$value"
-  done < "$VALUES_FILE"
+  # Read mystic_auth's file first, then app's - app wins on overlap, same
+  # convention as env_file ordering elsewhere in this template.
+  for values_file in "$VALUES_FILE" "$APP_VALUES_FILE"; do
+    [ -f "$values_file" ] || continue
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        ''|'#'*) continue ;;
+      esac
+      [[ "$line" == *=* ]] || continue
+      key="${line%%=*}"
+      value="${line#*=}"
+      [ -n "$value" ] || continue
+      if [ -z "${ASSIGNMENTS[$key]+set}" ]; then
+        KEY_ORDER+=("$key")
+      fi
+      ASSIGNMENTS["$key"]="$value"
+    done < "$values_file"
+  done
 
   if [ "${#KEY_ORDER[@]}" -eq 0 ]; then
-    echo "shared-values.env has no fields filled in. Edit it, then run this again." >&2
+    echo "Neither shared-values.env has any fields filled in. Edit one, then run this again." >&2
     exit 1
   fi
 else
@@ -96,13 +110,19 @@ else
 fi
 
 if [ "${#FILES[@]}" -eq 0 ]; then
-  for candidate in env/.env env/.env.prod env/.env.local-prod-cloudflare env/.env.local-prod-ngrok env/.env.local-prod-tailscale frontend/.env; do
+  # Globs rather than a fixed list, so a fork's own new mode (e.g. a
+  # hand-added env/app/.env.staging) is targeted too, with no edit to this
+  # upstream-owned script ever required.
+  for candidate in env/mystic_auth/.env* env/app/.env* frontend/.env; do
+    case "$candidate" in
+      *.example|*.bak|*.ci-created) continue ;;
+    esac
     [ -f "$candidate" ] && FILES+=("$candidate")
   done
 fi
 
 if [ "${#FILES[@]}" -eq 0 ]; then
-  echo "No env files found. Run scripts/env-tools/setup-env/setup-env.sh first." >&2
+  echo "No env files found. Run scripts/mystic_auth/env-tools/setup-env/setup-env.sh first." >&2
   exit 1
 fi
 

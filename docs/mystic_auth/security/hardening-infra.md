@@ -9,7 +9,7 @@ Redis authentication, secret strength, reverse-proxy IP trust, session geolocati
 
 ## Redis authentication
 
-`REDIS_PASSWORD` (`env/.env`/`env/.env.example`) is passed to `redis-server --requirepass` in every compose file (empty value = no-op, so local dev is unaffected by default); both healthchecks authenticate with it. Since `redis-py` (`redis/client.py`) authenticates via the connection URL rather than a separate kwarg, the same password must also be embedded in `REDIS_URL` (`redis://:<REDIS_PASSWORD>@redis:6379/0`): documented inline in `env/.env.example`. (Background jobs no longer use Redis at all: `procrastinate_tasks/` runs on the same Postgres instance as everything else, see [Background Email Delivery](../background-workers/procrastinate.md).)
+`REDIS_PASSWORD` (`env/mystic_auth/.env`/`env/mystic_auth/.env.example`) is passed to `redis-server --requirepass` in every compose file (empty value = no-op, so local dev is unaffected by default); both healthchecks authenticate with it. Since `redis-py` (`redis/client.py`) authenticates via the connection URL rather than a separate kwarg, the same password must also be embedded in `REDIS_URL` (`redis://:<REDIS_PASSWORD>@redis:6379/0`): documented inline in `env/mystic_auth/.env.example`. (Background jobs no longer use Redis at all: `procrastinate_tasks/` runs on the same Postgres instance as everything else, see [Background Email Delivery](../background-workers/procrastinate.md).)
 
 ---
 
@@ -34,7 +34,7 @@ Resolves each login's city/country from its IP via a local MaxMind GeoLite2-City
 ## Known accepted gaps
 
 1. See [Concerns](../concerns/README.md) for the current open list (off-host backup shipping, no deploy automation): everything else previously tracked there, including automated backup scheduling and the single global rate-limit threshold, has since been resolved and folded into this document.
-2. `pytest` no longer ships in the production backend image: `docker/dockerfiles/backend.Dockerfile`'s multi-stage build has a `runtime` target (no test tooling, the default and the only target `backend`/`procrastinate_worker`/`alembic` actually run) and a separate `test` target that layers `requirements-dev.txt` on top of it, selected via the backend service's `target: ${BACKEND_BUILD_TARGET:-runtime}` in `docker-compose.dev.yml`.
+2. `pytest` no longer ships in the production backend image: `docker/mystic_auth/dockerfiles/backend.Dockerfile`'s multi-stage build has a `runtime` target (no test tooling, the default and the only target `backend`/`procrastinate_worker`/`alembic` actually run) and a separate `test` target that layers `requirements-dev.txt` on top of it, selected via the backend service's `target: ${BACKEND_BUILD_TARGET:-runtime}` in `docker-compose.dev.yml`.
 3. Error monitoring is available (opt-in) rather than a tracked gap now: see [Error Monitoring](../error-monitoring/overview.md).
 
 ---

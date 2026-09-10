@@ -1,7 +1,7 @@
 Sync this app with the latest mystic-auth template
 (https://github.com/Nachiket-2024/mystic-auth) and do the full integration:
 
-1. Read only the COMPOSE_PROJECT_NAME line from env/.env (or whichever
+1. Read only the COMPOSE_PROJECT_NAME line from env/mystic_auth/.env (or whichever
    env file exists) to get this project's own name/image prefix - use
    that value anywhere below that needs it, don't ask me for it. Don't
    read, print, or otherwise touch any other field in that file.
@@ -26,12 +26,12 @@ Sync this app with the latest mystic-auth template
    now-renamed mystic_auth internal module, and fix those.
 6. Regenerate every real env file without reading any of its old secret
    values yourself:
-   a. Rename each one aside with a .bak suffix (env/.env to
-      env/.env.bak, etc.) - never delete.
+   a. Rename each one aside with a .bak suffix (env/mystic_auth/.env to
+      env/mystic_auth/.env.bak, etc.) - never delete.
    b. Run scripts/mystic_auth/env-tools/setup-env/setup-env.sh to generate fresh files with
       newly generated secrets and this sync's latest fields.
    c. For each pair, run
-      scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh env/.env.bak env/.env
+      scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh env/mystic_auth/.env.bak env/mystic_auth/.env
       (matching the other renamed files) to copy every field that isn't
       a freshly generated secret back from the old file into the new one.
       Its own output only prints field names, never values - don't read

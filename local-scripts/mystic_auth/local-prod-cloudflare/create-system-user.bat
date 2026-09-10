@@ -1,11 +1,11 @@
 @echo off
 REM Non-interactively bootstraps the system superuser against the local-prod
-REM stack (docker/compose/docker-compose.local-prod-cloudflare.yml). Fill in
+REM stack (docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml). Fill in
 REM local-scripts\mystic_auth\local-prod-cloudflare\system-user.env first. Assumes a fresh account
 REM (no existing user with that email): this pipes a fixed 3-line stdin
 REM (email, name, password) matching create_system_user.py's "brand new
 REM account" prompt sequence. If the account already exists, run
-REM `docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare exec backend python -m mystic_auth.scripts.create_system_user`
+REM `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare exec backend python -m mystic_auth.scripts.create_system_user`
 REM by hand instead, since that branch asks different questions.
 setlocal enabledelayedexpansion
 set "SCRIPT_DIR=%~dp0"
@@ -20,6 +20,6 @@ cd /d "%SCRIPT_DIR%..\..\.."
   echo %SYSTEM_USER_EMAIL%
   echo %SYSTEM_USER_NAME%
   echo %SYSTEM_USER_PASSWORD%
-) | docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare exec -T backend python -m mystic_auth.scripts.create_system_user
+) | docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare exec -T backend python -m mystic_auth.scripts.create_system_user
 
 endlocal

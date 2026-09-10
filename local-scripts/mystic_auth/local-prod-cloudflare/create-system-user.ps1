@@ -1,10 +1,10 @@
 # Non-interactively bootstraps the system superuser against the local-prod
-# stack (docker/compose/docker-compose.local-prod-cloudflare.yml). Fill in
+# stack (docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml). Fill in
 # local-scripts/local-prod-cloudflare/system-user.env first. Assumes a fresh account (no
 # existing user with that email) : this pipes a fixed 3-line stdin (email,
 # name, password) matching create_system_user.py's "brand new account" prompt
 # sequence. If the account already exists, run
-# `docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare exec backend python -m mystic_auth.scripts.create_system_user`
+# `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare exec backend python -m mystic_auth.scripts.create_system_user`
 # by hand instead, since that branch asks different questions.
 $ErrorActionPreference = "Stop"
 $repoRoot = Join-Path $PSScriptRoot "../../.."
@@ -30,7 +30,7 @@ $stdin = "$($envValues['SYSTEM_USER_EMAIL'])`n$($envValues['SYSTEM_USER_NAME'])`
 $tempFile = [System.IO.Path]::GetTempFileName()
 try {
     [System.IO.File]::WriteAllText($tempFile, $stdin, (New-Object System.Text.UTF8Encoding $false))
-    cmd /c "docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare exec -T backend python -m mystic_auth.scripts.create_system_user < ""$tempFile"""
+    cmd /c "docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare exec -T backend python -m mystic_auth.scripts.create_system_user < ""$tempFile"""
 } finally {
     Remove-Item $tempFile -ErrorAction SilentlyContinue
 }

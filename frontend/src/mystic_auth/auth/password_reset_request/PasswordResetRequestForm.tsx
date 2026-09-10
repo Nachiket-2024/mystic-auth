@@ -56,7 +56,7 @@ const PasswordResetRequestForm: React.FC = () => {
                 loading={resetRequestMutation.isPending}
                 disabled={cooldown > 0 || resetRequestMutation.isPending}
                 loadingText={t("passwordResetRequest.sending")}
-                _hover={{ bg: "brand.700" }}
+                _hover={{ bg: "brand.800" }}
                 transition={FAST_HOVER_TRANSITION}
             >
                 {cooldown > 0 ? t("passwordResetRequest.tryAgainIn", { seconds: formatNumber(cooldown, language) }) : t("passwordResetRequest.submitButton")}

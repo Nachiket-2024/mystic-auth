@@ -54,13 +54,10 @@ assistive tech cares most about the page's actual content.
 
 ## 4. The toggle itself: `frontend/src/mystic_auth/layout/controls/LanguageToggle.tsx`
 
-A plain click-to-open dropdown (Chakra's `Select`, the same component `StyledSelect.tsx` wraps
-elsewhere in the app), styled to match `ThemeToggle`'s icon-button look (same border/background/
-hover colors, see `ui/styles/buttonStyles.ts`'s `ICON_BUTTON_PROPS`) via its own `Select.Trigger`
-overrides rather than a typeable search box. With only seven options, a search box isn't earning
-its keep the way it would past a few dozen languages - this matches how most real-world language
-switchers (GitHub, Wikipedia, Google) work at this scale. Click to open, click an option, closes;
-the current selection stays visible on the trigger at rest either way.
+- A plain click-to-open dropdown (Chakra's `Select`, the same component `StyledSelect.tsx` wraps elsewhere in the app), not a typeable search box.
+- Styled to match `ThemeToggle`'s icon-button look (same border/background/hover colors, see `ui/styles/buttonStyles.ts`'s `ICON_BUTTON_PROPS`) via its own `Select.Trigger` overrides.
+- With only seven options, a search box isn't earning its keep the way it would past a few dozen languages - this matches how most real-world language switchers (GitHub, Wikipedia, Google) work at this scale.
+- Click to open, click an option, closes; the current selection stays visible on the trigger at rest either way.
 
 ---
 
@@ -93,15 +90,12 @@ The other caller is `OAuth2LoginButton.tsx`: the OAuth2 flow is a full-page redi
 so it calls `translateErrorCode` directly on that query param instead of going through
 `extractApiErrorMessage`.
 
-Case 2's "code exists but no translation" branch is the one to watch: it degrades gracefully for
-the *user* (still a real English sentence, not a blank toast), but that same graceful degradation
-means a missing `errors.json` entry looks identical to "working as intended" at a glance - nothing
-crashes, nothing looks obviously wrong. So in addition to the fallback, that branch also logs a
-`console.error` naming the missing code, but only when `import.meta.env.DEV` is true: loud enough
-to catch the gap the first time you exercise that code path in development, without affecting real
-users or shipping a console.error into production. If you add a new machine-readable code - a new
-`AppError(code="...")` call site, or a new OAuth2 redirect code - add the matching `errors:<code>` key to all four `errors.json` files
-in the same change, or expect to see that warning the first time your route returns it locally.
+Case 2's "code exists but no translation" branch is the one to watch:
+
+- It degrades gracefully for the *user* (still a real English sentence, not a blank toast).
+- That same graceful degradation means a missing `errors.json` entry looks identical to "working as intended" at a glance - nothing crashes, nothing looks obviously wrong.
+- So in addition to the fallback, that branch also logs a `console.error` naming the missing code, but only when `import.meta.env.DEV` is true: loud enough to catch the gap the first time you exercise that code path in development, without affecting real users or shipping a console.error into production.
+- If you add a new machine-readable code - a new `AppError(code="...")` call site, or a new OAuth2 redirect code - add the matching `errors:<code>` key to all four `errors.json` files in the same change, or expect to see that warning the first time your route returns it locally.
 
 ---
 

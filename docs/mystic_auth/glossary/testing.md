@@ -49,7 +49,7 @@ Pytest's special file for fixtures and setup shared across a test directory. Thi
 
 ## coverage / coverage gate
 
-Coverage measures what percentage of the codebase's lines actually ran during the test suite. A coverage gate fails the build if that percentage drops below a set threshold (85% here), calculated cumulatively across the unit, integration, and security suites via `--cov-append`. See [Testing Overview](../testing/overview.md).
+Coverage measures what percentage of the codebase's lines actually ran during the test suite. A coverage gate fails the build if that percentage drops below a set threshold (90% here), calculated cumulatively across the unit, integration, and security suites via `--cov-append`. See [Testing Overview](../testing/overview.md).
 
 ---
 

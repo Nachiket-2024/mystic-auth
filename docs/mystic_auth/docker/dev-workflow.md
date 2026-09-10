@@ -6,10 +6,10 @@
 
 ## Day-to-day: dev-up helpers
 
-First time in this repo, on a fresh clone with no `env/.env` yet?
+First time in this repo, on a fresh clone with no `env/mystic_auth/.env` yet?
 `scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`) chains env setup, this
 helper, and system superuser creation into one command - see
-[Template Usage: Quickstart](../template-usage/overview.md#quickstart). The
+[Template Usage: Quickstart](../template-usage/quickstart.md). The
 rest of this section covers `dev-up` on its own, which is what you'll use
 day to day once the stack already exists.
 
@@ -89,6 +89,21 @@ debugging Postgres/Bugsink/Alembic startup itself rather than the app.
 
 ---
 
+### "dependency bugsink failed to start"
+
+`backend`, `alembic`, and `frontend` all `depends_on` `bugsink` being
+healthy, so a crash-looping Bugsink takes the whole stack down with it, not
+just error monitoring. The single most common cause: a blank or malformed
+`BUGSINK_SUPERUSER_EMAIL` in `env/mystic_auth/.env` - Bugsink's own
+prestart hook rejects it outright and crash-loops (`docker logs
+mystic-auth-dev-bugsink-1` shows `ValueError: CREATE_SUPERUSER email
+should be a valid email address`). Run
+`scripts/mystic_auth/env-tools/check-env/check-env.sh` before `dev-up` to
+catch this ahead of time; it doesn't need to be a real inbox for local
+dev, just a plausible-looking address like `admin@example.com`.
+
+---
+
 Setting `DEV_UP_TAIL=0` before calling the helper skips the final log tail:
 it prints the manual tail command and returns instead of blocking, which is
 what `scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`) uses so it can run
@@ -102,7 +117,7 @@ run `dev-up` directly and let it tail.
 
 **Shortcut: `scripts/mystic_auth/docker/dev/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\mystic_auth\docker\dev\backend-exec.ps1 <command>` (PowerShell), or `scripts\mystic_auth\docker\dev\backend-exec.cmd <command>` (Command Prompt)** run this section's recommended invocation. Both workarounds below are built in and are harmless no-ops on platforms that do not need them. Use these day to day. The raw command is spelled out below for cases the wrapper does not cover.
 
-`docker compose exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see `docker/compose/docker-compose.dev.yml`'s `backend` service).
+`docker compose exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see `docker/mystic_auth/compose/docker-compose.dev.yml`'s `backend` service).
 
 ---
 
@@ -144,15 +159,14 @@ it inside the host-owned bind mount. `os.makedirs()` then raises
 `PermissionError` at import time before the app starts serving. This broke CI
 the first time a job booted the dev Compose stack on a Linux runner.
 
-The fix has two parts. `docker/dockerfiles/backend.Dockerfile` creates `/app/logs` and
-`chown`s it to the `app` user at build time. `docker/compose/docker-compose.dev.yml` mounts a
-Docker-managed volume, `backend_logs:/app/logs`, on top of that path for both
-`backend` and `procrastinate_worker`. Docker initializes a fresh named volume from the
-image path, including ownership, so the app always writes to a directory owned
-by the container user. The tradeoff is that `backend/logs/access.log` is no
-longer directly readable from the host in dev. Use
-`docker compose exec backend tail -f logs/access.log`, or
-`docker compose logs backend` for WARNING and above.
+The fix has two parts:
+
+- `docker/mystic_auth/dockerfiles/backend.Dockerfile` creates `/app/logs` and `chown`s it to the `app` user at build time.
+- `docker/mystic_auth/compose/docker-compose.dev.yml` mounts a Docker-managed volume, `backend_logs:/app/logs`, on top of that path for both `backend` and `procrastinate_worker`. Docker initializes a fresh named volume from the image path, including ownership, so the app always writes to a directory owned by the container user.
+
+The tradeoff is that `backend/logs/access.log` is no longer directly readable from the host in
+dev. Use `docker compose exec backend tail -f logs/access.log`, or `docker compose logs backend`
+for WARNING and above.
 
 ---
 

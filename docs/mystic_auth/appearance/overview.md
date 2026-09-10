@@ -9,7 +9,7 @@ Lets a signed-in user pick their own brand accent color from Account Settings, r
 
 ## Default brand color
 
-The app-wide default is one env var, not a code edit: `BRAND_COLOR` in the root `.env` (aliased to `VITE_BRAND_COLOR` for the frontend build, the same pattern `APP_NAME` uses, see [Using This Repository as a Template: Environment configuration](../template-usage/overview.md#environment-configuration)). Ships as amber. `frontend/src/mystic_auth/core/settings.ts` reads it (falling back to that same amber if unset), and `frontend/src/mystic_auth/theme/system.ts` feeds it through `generateBrandScale`, the same generator described below, to build the whole `brand` token scale plus the canvas-gradient tint, merged into the base theme before `frontend/src/app/theme.ts`'s own overrides (empty by default) and before a signed-in user's own pick.
+The app-wide default is one env var, not a code edit: `BRAND_COLOR` in the root `.env` (aliased to `VITE_BRAND_COLOR` for the frontend build, the same pattern `APP_NAME` uses, see [Using This Repository as a Template: Environment configuration](../template-usage/quickstart.md#environment-configuration)). Ships as amber. `frontend/src/mystic_auth/core/settings.ts` reads it (falling back to that same amber if unset), and `frontend/src/mystic_auth/theme/system.ts` feeds it through `generateBrandScale`, the same generator described below, to build the whole `brand` token scale plus the canvas-gradient tint, merged into the base theme before `frontend/src/app/theme.ts`'s own overrides (empty by default) and before a signed-in user's own pick.
 
 Need more than a single color, for example a hand-authored scale that doesn't fit the generator's lightness ladder? `frontend/src/app/theme.ts` still exists for that; see [Frontend Customization: Theme](../template-usage/frontend-customization.md#frontend-customization).
 
@@ -46,7 +46,7 @@ The page background gradient's start color (`bg.canvasFrom`, the semantic token 
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
-flowchart LR
+flowchart TD
     Hex["User picks a hex color\n (native color input or typed hex)"] --> Scale["generateBrandScale(hex)\n 50-900 Chakra scale"]
     Scale --> Overrides["buildAppearanceThemeOverrides()\n brand.* tokens + bg.canvasFrom"]
     Scale --> Icon["getBrandIconDataUri(hex)\n brandIcon.ts"]

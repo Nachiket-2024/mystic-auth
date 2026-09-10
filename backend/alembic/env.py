@@ -2,7 +2,7 @@ import os
 import sys
 from logging.config import fileConfig
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -21,7 +21,19 @@ from mystic_auth.database.base import Base
 from mystic_auth.user.user_model import User  # noqa: F401
 from mystic_auth.user_session.session_model import UserSession  # noqa: F401
 
-load_dotenv()
+# Relative to repo root: alembic runs with cwd=backend/ from CI/conftest,
+# so a bare load_dotenv() (which looks for ./.env) silently finds nothing.
+# Only fills in values not already in the environment (Docker/CI always
+# wins), and among the two files, app's value wins on overlap, matching
+# every docker-compose invocation in this template's own scripts.
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+_env_file_values = {
+    **dotenv_values(os.path.join(_REPO_ROOT, 'env', 'mystic_auth', '.env')),
+    **dotenv_values(os.path.join(_REPO_ROOT, 'env', 'app', '.env')),
+}
+for _key, _value in _env_file_values.items():
+    if _value is not None:
+        os.environ.setdefault(_key, _value)
 DATABASE_URL = os.environ["DATABASE_URL"]
 
 config = context.config

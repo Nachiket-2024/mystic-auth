@@ -6,6 +6,19 @@
 
 ## Rotation chains and reuse detection
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Login["Login"] --> Mint["Mint chain id\n + refresh token jti-1"]
+    Mint --> Use["Client presents\n refresh token"]
+    Use --> Check{"jti already\n claimed?"}
+    Check -->|"No: fresh"| Rotate["Rotate: claim this jti,\n issue jti-2, same chain"]
+    Rotate --> Use
+    Check -->|"Yes: reuse"| Bump["Bump chain_ver\n for this chain only"]
+    Bump --> Dead["Reused token AND\n any rotated descendant\n now invalid"]
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 Every refresh token carries a `chain` claim. It is a random id minted once at login and carried forward, unchanged, across every rotation of that login. See `jwt_service.create_refresh_token`, `login_service.py`, `oauth2_service.py`, and `refresh_token_service.refresh_tokens`.
 
 When a refresh token is presented whose `jti` was already claimed (see [Source of truth](README.md#source-of-truth)), that is reuse. The cause could be a stale retry, two concurrent requests racing, or a stolen token replayed after the real client already rotated past it. The claim alone cannot distinguish those cases. The response bumps only that reused token's own `chain_ver` (`refresh_token_service.revoke_chain_for_user`). That kills both the reused token and any legitimate-looking rotated descendant sharing its chain, since there is no way to tell which copy belongs to the attacker. Every other chain on the account is unaffected because each chain uses a separate Redis key.

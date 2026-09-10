@@ -70,8 +70,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 aria-describedby={loginMutation.isError ? "login-error" : undefined}
             />
 
-            {/* Solid variant's default hover is only 90% opacity, too subtle. brand.700
-                gives a visible contrast bump instead. */}
+            {/* Solid variant's default hover is only 90% opacity, too subtle. brand.800
+                gives a visible contrast bump instead (one step darker than brand.solid's
+                brand.700, so hover doesn't collide with the resting color). */}
             <Button
                 type="submit"
                 colorPalette="brand"
@@ -81,7 +82,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                 w="full"
                 loading={loginMutation.isPending}
                 loadingText={t("login.loggingIn")}
-                _hover={{ bg: "brand.700" }}
+                _hover={{ bg: "brand.800" }}
                 transition={FAST_HOVER_TRANSITION}
             >
                 {t("login.submitButton")}

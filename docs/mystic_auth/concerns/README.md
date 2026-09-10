@@ -26,6 +26,38 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ---
 
+### Secrets rotation is only half-automated
+
+**Description**: `scripts/mystic_auth/env-tools/rotate-secrets/` rotates `SECRET_KEY` and `BUGSINK_SECRET_KEY` cleanly, since both are pure env-file values with no live-database counterpart to update. `POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, and `BUGSINK_SUPERUSER_PASSWORD` are documented in that script's own header as needing a manual live-database step (`ALTER USER ... PASSWORD`, then restarting the dependent services) instead, since rotating those requires touching a running Postgres role, not just a file.
+
+**Impact**: An operator rotating credentials has to know, separately from the tool, which three fields need that extra manual step. Skipping it (assuming the rotate script alone was enough) leaves the env file and the live database role out of sync, and the affected service fails to authenticate on its next restart.
+
+**Why it exists**: The rotate script only ever touches env files, deliberately, so it never needs live database credentials or a running stack to work. Extending it to also run the `ALTER USER` step means giving it DB connectivity and admin rights it doesn't otherwise need, a real increase in what the script can do and what could go wrong if run against the wrong target.
+
+**Possible fix**: A guided companion script (or an extra flag on the existing one) that, for these three fields only, connects to the live database with the current credentials, runs the `ALTER USER` statement, writes the new value to the env file, and restarts the dependent service, all as one confirmed step instead of a manual runbook.
+
+**Priority**: Low. The manual step is documented at the point of use, and the failure mode (a service failing to authenticate) is loud and immediate, not silent.
+
+---
+
+## Dependencies
+
+---
+
+### Dependency updates are manual, not automated
+
+**Description**: No Dependabot or Renovate config exists. `pip-audit`/`npm audit` in CI catch known CVEs in whatever versions are currently pinned, but nothing proactively opens a PR when a newer version ships.
+
+**Why it exists**: This repo ran Dependabot earlier and turned it off. Its PRs updated packages independently of each other (for example bumping TypeScript without ESLint's TypeScript-parsing plugins in the same PR), which produced breakage from version skew between packages that need to move together, not from the updates themselves. Manual, batched updates (bumping a related group together, then running the full test suite once) avoid that failure mode, at the cost of updates happening less often.
+
+**Impact**: A dependency with a known fix available won't get flagged until the next manual review, beyond whatever `pip-audit`/`npm audit` already catches for known CVEs specifically.
+
+**Possible fix**: Revisit a bot-based approach only if grouped-update support (bumping a set of interdependent packages together in one PR, e.g. Dependabot's `groups` config) closes the version-skew problem that caused it to be turned off the first time; otherwise, keep this manual and batched.
+
+**Priority**: Low. Known-CVE coverage already exists via `pip-audit`/`npm audit`; this gap is specifically about staying current on non-CVE releases.
+
+---
+
 ## CI/CD
 
 ---

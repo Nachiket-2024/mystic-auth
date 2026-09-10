@@ -7,4 +7,4 @@ a `scripts/mystic_auth/upstream-sync/sync-upstream.sh` run.
 
 Template scripts (env setup, Docker up/down, DB backup/restore, upstream
 sync) live in `scripts/mystic_auth/` instead: see
-[Using This Repository as a Template](../../docs/mystic_auth/template-usage/overview.md#the-app--mystic_auth-split).
+[Using This Repository as a Template](../../docs/mystic_auth/template-usage/ownership-split.md).

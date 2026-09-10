@@ -22,7 +22,7 @@ Run the Docker dev stack with email delivery disabled before running tests that
 use the real login endpoint:
 
 ```bash
-EMAIL_ENABLED=false docker compose --env-file env/.env -f docker/compose/docker-compose.dev.yml up -d postgres redis alembic backend frontend procrastinate_worker
+EMAIL_ENABLED=false docker compose --env-file env/mystic_auth/.env -f docker/mystic_auth/compose/docker-compose.dev.yml up -d postgres redis alembic backend frontend procrastinate_worker
 ```
 
 ---
@@ -108,5 +108,62 @@ The browser suite covers these UI areas:
 
 Destructive flows are limited to dialog open/cancel and local validation unless
 the data is a disposable Playwright account created by the test.
+
+---
+
+## Accessibility scan
+
+`tests/frontend/mystic_auth/e2e/accessibility/accessibility_browser.spec.ts` runs
+an automated [axe-core](https://github.com/dequelabs/axe-core) scan
+(`@axe-core/playwright`) against every major page, both pre-auth (login,
+signup) and authenticated (dashboard, users, policies, permissions, rate
+limits, audit log, account settings). A test fails if axe finds any WCAG 2.1
+AA violation (`tests/frontend/mystic_auth/e2e/support/axeCheck.ts`'s
+`WCAG_AA_TAGS`), printing the rule id, impact, and every affected element so a
+failure is actionable without opening a trace.
+
+This catches markup/ARIA/contrast issues, not data correctness, which is what
+the rest of this suite covers. It runs as part of `npm run test:browser`
+already, no separate command needed. A first pass with this test found four
+real color-contrast bugs in the shipped default theme (`brand.solid`,
+`brand.fg`, two hard-coded icon/nav-link colors all measuring under the
+4.5:1 WCAG AA minimum against their paired background), all fixed in
+`frontend/src/mystic_auth/theme/themeSemanticTokens.ts`,
+`frontend/src/mystic_auth/ui/styles/buttonStyles.ts`, and
+`frontend/src/mystic_auth/layout/app_layout/Sidebar.tsx`.
+
+---
+
+## Live deployment smoke test
+
+Every suite above stubs the backend (`page.route()` interception) and runs
+against the local Vite dev server. `tests/frontend/mystic_auth/e2e/live/live_deployment_smoke.spec.ts`
+is different: it makes real requests, no stubs, against an already-running
+deployment of your choice (any `local-prod-*` mode or `prod`) - a fast way
+to sanity-check a real deployment after standing it up, not a replacement
+for the suite above.
+
+It's opt-in: skipped entirely unless both `LIVE_BASE_URL` (the deployment's
+public URL) and `LIVE_POSTGRES_CONTAINER` (the running Postgres container's
+name, for verifying its own throwaway account directly rather than
+depending on real email delivery) are set, so it never runs as part of
+`npm run test:browser` or CI.
+
+```bash
+LIVE_BASE_URL=https://your-tunnel-domain \
+LIVE_POSTGRES_CONTAINER=mystic-auth-local-prod-ngrok-postgres-1 \
+  npx playwright test tests/frontend/mystic_auth/e2e/live/live_deployment_smoke.spec.ts --project=chromium-desktop
+```
+
+It checks, against the real deployment:
+
+1. Signup, database verification, and login reach an authenticated page.
+1. A stored XSS payload set as the display name renders inert (no
+   `alert()`/script execution) on the dashboard and settings pages.
+1. Every admin-only route redirects a non-admin visitor to `/not-authorized`.
+1. The dashboard has no horizontal overflow at a 390px mobile width.
+
+The throwaway account it creates is deleted in `afterAll`, whether the run
+passed or failed.
 
 ---

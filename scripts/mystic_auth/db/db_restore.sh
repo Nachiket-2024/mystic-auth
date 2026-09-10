@@ -6,9 +6,10 @@
 # e.g. "bugsink-20260901-020000.dump" restores into "bugsink"), falling back to
 # POSTGRES_DB for files that don't follow that naming convention.
 #
-# Usage: scripts/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]
+# Usage: scripts/mystic_auth/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]
 #   compose-file defaults to docker-compose.dev.yml, and can be given as
-#   just a basename (looked up under docker/compose/) or a full path.
+#   just a basename (looked up under docker/mystic_auth/compose/) or a full
+#   path.
 
 set -euo pipefail
 
@@ -34,7 +35,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$BACKUP_FILE" ]; then
-  echo "Usage: scripts/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]" >&2
+  echo "Usage: scripts/mystic_auth/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]" >&2
   exit 1
 fi
 
@@ -45,30 +46,42 @@ fi
 
 COMPOSE_BASENAME="$(basename "$COMPOSE_ARG")"
 case "$COMPOSE_ARG" in
-  */*) COMPOSE_FILE="$COMPOSE_ARG" ;;
-  *) COMPOSE_FILE="docker/compose/$COMPOSE_BASENAME" ;;
+  */*) COMPOSE_FILES=("$COMPOSE_ARG") ;;
+  *) COMPOSE_FILES=("docker/mystic_auth/compose/$COMPOSE_BASENAME" "docker/app/compose/$COMPOSE_BASENAME") ;;
 esac
 
-case "$COMPOSE_BASENAME" in
-  docker-compose.local-prod-cloudflare.yml) ENV_FILE="env/.env.local-prod-cloudflare" ;;
-  docker-compose.local-prod-ngrok.yml) ENV_FILE="env/.env.local-prod-ngrok" ;;
-  docker-compose.local-prod-tailscale.yml) ENV_FILE="env/.env.local-prod-tailscale" ;;
-  docker-compose.prod.yml) ENV_FILE="env/.env.prod" ;;
-  *) ENV_FILE="env/.env" ;;
-esac
+# Derived from the filename rather than a fixed list, so a fork's own new
+# mode (e.g. docker-compose.staging.yml) resolves to the right env file
+# too: "dev" is the one mode with no suffix by convention, every other
+# mode's suffix is ".<mode>".
+MODE="${COMPOSE_BASENAME#docker-compose.}"
+MODE="${MODE%.yml}"
+if [ "$MODE" = "dev" ]; then
+  ENV_SUFFIX=""
+else
+  ENV_SUFFIX=".${MODE}"
+fi
+ENV_FILE="env/mystic_auth/.env${ENV_SUFFIX}"
+APP_ENV_FILE="env/app/.env${ENV_SUFFIX}"
+ENV_FILES=("$ENV_FILE" "$APP_ENV_FILE")
 
 # Pull just these two vars by name rather than sourcing the whole file:
 # some values (e.g. GMAIL_APP_PASSWORD) have unquoted spaces that break
-# `source` but are fine for python-dotenv/pydantic.
-if [ -z "${POSTGRES_USER:-}" ] && [ -f "$ENV_FILE" ]; then
-  POSTGRES_USER="$(grep -m1 '^POSTGRES_USER=' "$ENV_FILE" | cut -d= -f2-)"
+# `source` but are fine for python-dotenv/pydantic. Checked in app/ then
+# mystic_auth/ so a fork's override wins.
+if [ -z "${POSTGRES_USER:-}" ]; then
+  POSTGRES_USER="$(grep -hm1 '^POSTGRES_USER=' "$APP_ENV_FILE" "$ENV_FILE" 2>/dev/null | head -n1 | cut -d= -f2-)"
 fi
-if [ -z "${POSTGRES_DB:-}" ] && [ -f "$ENV_FILE" ]; then
-  POSTGRES_DB="$(grep -m1 '^POSTGRES_DB=' "$ENV_FILE" | cut -d= -f2-)"
+if [ -z "${POSTGRES_DB:-}" ]; then
+  POSTGRES_DB="$(grep -hm1 '^POSTGRES_DB=' "$APP_ENV_FILE" "$ENV_FILE" 2>/dev/null | head -n1 | cut -d= -f2-)"
 fi
 
 : "${POSTGRES_USER:?POSTGRES_USER must be set (check $ENV_FILE)}"
 : "${POSTGRES_DB:?POSTGRES_DB must be set (check $ENV_FILE)}"
+
+DC_ARGS=()
+for f in "${COMPOSE_FILES[@]}"; do DC_ARGS+=(-f "$f"); done
+for f in "${ENV_FILES[@]}"; do DC_ARGS+=(--env-file "$f"); done
 
 # Derive the target database from the dump's own filename so a
 # "bugsink-*.dump" or legacy "bugsink-*.sql" restores into "bugsink" rather than always landing
@@ -88,14 +101,14 @@ if [ "$ASSUME_YES" != true ]; then
   esac
 fi
 
-echo "Restoring '${TARGET_DB}' from ${BACKUP_FILE} via ${COMPOSE_FILE}..."
+echo "Restoring '${TARGET_DB}' from ${BACKUP_FILE} via ${COMPOSE_FILES[*]}..."
 case "$BACKUP_FILE" in
   *.dump)
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
+    docker compose "${DC_ARGS[@]}" exec -T postgres \
       pg_restore -U "$POSTGRES_USER" --clean --if-exists --dbname "$TARGET_DB" < "$BACKUP_FILE"
     ;;
   *)
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \
+    docker compose "${DC_ARGS[@]}" exec -T postgres \
       psql -U "$POSTGRES_USER" "$TARGET_DB" < "$BACKUP_FILE"
     ;;
 esac

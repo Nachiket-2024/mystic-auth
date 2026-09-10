@@ -62,6 +62,9 @@ mystic-auth/
     pyproject.toml
     alembic.ini
   frontend/
+    e2e/                          # thin re-export wrappers (@playwright/test, @axe-core/playwright):
+                                   # tests/frontend/ specs live outside frontend/'s own module
+                                   # resolution scope, so a direct import fails there
     src/
       app/                       # thin, project-owned shell
         landing_page/
@@ -133,32 +136,63 @@ mystic-auth/
       local-prod-tailscale/
       prod/
   docker/
-    Caddyfile
-    nginx.frontend.conf
-    tailscale-serve-config.json
-    compose/
-      docker-compose.dev.yml
-      docker-compose.local-prod-cloudflare.yml
-      docker-compose.local-prod-ngrok.yml
-      docker-compose.local-prod-tailscale.yml
-      docker-compose.prod.yml
-    dockerfiles/
-      backend.Dockerfile
-      backend-entrypoint.sh
-      frontend.Dockerfile
-    postgres-init/
+    tailscale-serve-config.json  # single JSON, no include mechanism, stays Shared tier
+    app/                         # project-owned Compose overrides, Dockerfiles, proxy config; ships empty
+      compose/
+        docker-compose.dev.yml
+        docker-compose.local-prod-cloudflare.yml
+        docker-compose.local-prod-ngrok.yml
+        docker-compose.local-prod-tailscale.yml
+        docker-compose.prod.yml
+      dockerfiles/                 # your own extra services, e.g. your-service.Dockerfile
+      caddy/                       # your own .caddy site blocks, picked up by an `import` glob
+      nginx/                       # your own nginx include files, same glob pattern
+      postgres-init/                # your own bootstrap scripts, mounted per-file in your compose override
+    mystic_auth/                 # upstream Compose files, Dockerfiles, Caddyfile, nginx config, postgres-init
+      Caddyfile
+      nginx.frontend.conf
+      compose/
+        docker-compose.dev.yml
+        docker-compose.local-prod-cloudflare.yml
+        docker-compose.local-prod-ngrok.yml
+        docker-compose.local-prod-tailscale.yml
+        docker-compose.prod.yml
+      dockerfiles/
+        backend.Dockerfile
+        backend-entrypoint.sh
+        frontend.Dockerfile
+      postgres-init/
+        init-bugsink-db.sh
   screenshots/
   .github/
     workflows/
       ci.yml
+    PULL_REQUEST_TEMPLATE.md
+  makefiles/
+    app/                         # project-owned make/make.ps1 targets, ships empty
+      Makefile
+      make.ps1
+    mystic_auth/                 # upstream make/make.ps1 targets
+      Makefile
+      make.ps1
   env/
-    .env.example
-    .env.local-prod-cloudflare.example
-    .env.local-prod-ngrok.example
-    .env.local-prod-tailscale.example
-    .env.prod.example
+    app/                         # project-owned env fields, ships empty
+      .env.example
+      .env.local-prod-cloudflare.example
+      .env.local-prod-ngrok.example
+      .env.local-prod-tailscale.example
+      .env.prod.example
+    mystic_auth/                 # upstream env fields
+      .env.example
+      .env.local-prod-cloudflare.example
+      .env.local-prod-ngrok.example
+      .env.local-prod-tailscale.example
+      .env.prod.example
   README.md
   SECURITY.md
+  CONTRIBUTING.md
+  Makefile
+  make.ps1
   pytest.ini
 ```
 

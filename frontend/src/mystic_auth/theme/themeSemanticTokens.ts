@@ -8,11 +8,17 @@ export const semanticTokens = {
     colors: {
         // Primary brand action color (buttons, links, active states)
         brand: {
-            solid: { value: "{colors.brand.600}" },
+            // brand.600 (the shipped default's literal hex) against white
+            // text measures 3.18:1, under WCAG AA's 4.5:1 for normal-size
+            // button/link text. brand.700 clears it at 5.02:1.
+            solid: { value: "{colors.brand.700}" },
             contrast: { value: "white" },
-            // Dark-mode aware unlike `muted`: brand.600 text is too close in
+            // brand.600 text against a white/bg.surface background measured
+            // 3.18:1, under WCAG AA's 4.5:1 (same issue as brand.solid
+            // above). brand.700 clears it at 5.02:1.
+            // Dark-mode aware unlike `muted`: brand text is too close in
             // brightness to `subtle`'s dark surface, so dark mode lightens it.
-            fg: { value: { _light: "{colors.brand.600}", _dark: "{colors.brand.300}" } },
+            fg: { value: { _light: "{colors.brand.700}", _dark: "{colors.brand.300}" } },
             muted: { value: "{colors.brand.100}" },
             // Low-emphasis brand surface for large areas. Dark mode uses a
             // low-brightness tint instead of the light one, which would read

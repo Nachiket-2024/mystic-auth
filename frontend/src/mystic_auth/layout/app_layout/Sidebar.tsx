@@ -49,10 +49,10 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, ico
     const hoverBg = isDark ? "var(--chakra-colors-brand-900)" : "var(--chakra-colors-brand-100)";
     const activeBg = isDark ? "var(--chakra-colors-brand-800)" : "var(--chakra-colors-brand-200)";
     // brand.fg only clears WCAG AA contrast against the lighter brand.50/100
-    // surfaces; against light mode's activeBg (brand.200) it falls under
-    // 4.5:1, so light mode uses brand.700 instead. Dark mode's pairing
-    // already passes.
-    const activeColor = isDark ? "var(--chakra-colors-brand-fg)" : "var(--chakra-colors-brand-700)";
+    // surfaces; against light mode's activeBg (brand.200), brand.700 still
+    // measures 4.03:1 (under 4.5:1). brand.800 clears it at 5.69:1. Dark
+    // mode's pairing already passes.
+    const activeColor = isDark ? "var(--chakra-colors-brand-fg)" : "var(--chakra-colors-brand-800)";
 
     return (
         <NavLink

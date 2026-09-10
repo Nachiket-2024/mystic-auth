@@ -8,7 +8,7 @@
 1. Config lives in `pytest.ini` at the repo root. It sets `testpaths = tests/backend` and collects coverage for `backend/app` and `backend/mystic_auth`.
 2. An HTML report is generated in `htmlcov/` on every run.
 3. `--cov-fail-under` is not set in `pytest.ini` because it would also apply to partial local runs.
-4. CI enforces the 85% cumulative coverage gate after unit, integration, and security tests append to the same coverage data.
+4. CI enforces the 90% cumulative coverage gate after unit, integration, and security tests append to the same coverage data.
 
 ---
 
@@ -31,8 +31,8 @@
 | Suite | Path | Covers |
 |---|---|---|
 | App wrapper | `tests/backend/app/` (1 file) | The thin `backend/app/` wrapper itself: the global exception handler wired up in `app/main.py` |
-| Unit | `tests/backend/mystic_auth/unit/` (93 files, feature subfolders mirror `backend/mystic_auth/`) | Auth flows, authorization service/evaluator/cache, condition validation, policy/direct-permission routes/history/repository caching, rate limiting, lockout, middleware, security headers, route helpers, logging config, email tasks, user CRUD, ORM/schema coverage, database and Redis singletons, error monitoring, session events, account deletion/purge, and `Settings` behavior |
-| Integration | `tests/backend/mystic_auth/integration/` (43 files across feature subfolders, plus shared account helpers) | Audit log, policy CRUD, policy assignment, policy list/filter/sort, authorization checks, auth flows, health, manage sessions, OAuth, security headers, rate limit dashboard, session geolocation, user export, user self-service, user admin listing, user admin management, and account lifecycle against real DB/Redis and a real HTTP client |
+| Unit | `tests/backend/mystic_auth/unit/` (94 files, feature subfolders mirror `backend/mystic_auth/`) | Auth flows, authorization service/evaluator/cache, condition validation, policy/direct-permission routes/history/repository caching, rate limiting, lockout, middleware, security headers, route helpers, logging config, email tasks, user CRUD, ORM/schema coverage, database and Redis singletons, error monitoring, session events, account deletion/purge, and `Settings` behavior |
+| Integration | `tests/backend/mystic_auth/integration/` (44 files across feature subfolders, plus shared account helpers) | Audit log, policy CRUD, policy assignment, policy list/filter/sort, authorization checks, auth flows, health, manage sessions, OAuth, security headers, rate limit dashboard, session geolocation, user export, user self-service, user admin listing, user admin management, and account lifecycle against real DB/Redis and a real HTTP client |
 | Security | `tests/backend/mystic_auth/security/` (7 files) | Batch authorization abuse, context spoofing, invalid condition payload, policy tampering, permission-grant escalation, privilege escalation, least-privilege DB role (opt-in, skipped unless `APP_DATABASE_URL` is set) |
 | Performance | `tests/backend/mystic_auth/performance/` (2 files) | Authorization performance, login/audit-log performance |
 
@@ -42,15 +42,15 @@
 
 These are two different kinds of "load" and only one of them lives in this suite:
 
-- **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory — e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race, concurrent-identical-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_login_lockout_race_integration.py` (failed-login lockout counter under a concurrent burst), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_admin_management_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/` — add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
-- **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. `scripts/mystic_auth/load-test/load_test.py` is a small `httpx`-based script for this, run by hand against a local-prod/staging stack before a release, not on every push — see its own header comment for usage and the per-IP rate-limit budget it needs to stay under to measure real capacity rather than the rate limiter.
+- **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory: e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race, concurrent-identical-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_login_lockout_race_integration.py` (failed-login lockout counter under a concurrent burst), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_admin_management_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/`. Add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
+- **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. `scripts/mystic_auth/load-test/load_test.py` is a small `httpx`-based script for this, run by hand against a local-prod/staging stack before a release, not on every push. See its own header comment for usage and the per-IP rate-limit budget it needs to stay under to measure real capacity rather than the rate limiter.
 
 ---
 
 **Running:**
 
 ```bash
-# From repo root, against local Postgres/Redis (see env/.env)
+# From repo root, against local Postgres/Redis (see env/mystic_auth/.env)
 python -m pytest tests/backend/app -q
 python -m pytest tests/backend/mystic_auth/unit -q
 python -m pytest tests/backend/mystic_auth/integration -q
@@ -68,7 +68,7 @@ CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and
 security suites against GitHub Actions service containers (Postgres 15, Redis 7)
 on every push and pull request to `main`. App-wrapper and unit tests create the
 first coverage base. Integration and security tests pass `--cov-append`, so the
-security step can enforce the cumulative `--cov-fail-under=85` gate. Performance
+security step can enforce the cumulative `--cov-fail-under=90` gate. Performance
 tests also run as non-blocking informational checks because timing is noisy on
 shared runners.
 
@@ -86,7 +86,7 @@ enforced only by `vitest run --coverage`, so CI runs `test:coverage`.
 | Suite | Path | Covers |
 |---|---|---|
 | App wrapper | `tests/frontend/app/` (1 file) | Routing declared in `frontend/src/app/App.tsx` |
-| Unit | `tests/frontend/mystic_auth/unit/` (61 files) | API clients, refresh interceptor, auth/session hooks, SSE invalidation, authorization components and hooks, password rules, user-agent parsing, unsaved-change handling, theme/language stores, command palette, route-loading UX, shared UI components, error boundary reporting, optional error monitoring, translation key parity across languages, and mobile-overflow regressions |
+| Unit | `tests/frontend/mystic_auth/unit/` (63 files) | API clients, refresh interceptor, auth/session hooks, SSE invalidation, authorization components and hooks, password rules, user-agent parsing, unsaved-change handling, theme/language stores, command palette, route-loading UX, shared UI components, error boundary reporting, optional error monitoring, translation key parity across languages, and mobile-overflow regressions |
 | Integration | `tests/frontend/mystic_auth/integration/` (22 files) | Audit log page, auth flow, dashboard, login, Manage Sessions, password policy consistency, PBAC authorization flow, policies page, rate limits page, users page, and account settings |
 
 ---

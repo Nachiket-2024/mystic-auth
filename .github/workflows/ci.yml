@@ -166,7 +166,7 @@ jobs:
 
       # Regression gate. See docs/mystic_auth/testing/overview.md for coverage state.
       - name: Run backend security tests
-        run: python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=85
+        run: python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=90
 
       # Non-blocking because timing can be noisy on shared runners.
       - name: Run backend performance tests (non-blocking)
@@ -189,7 +189,7 @@ jobs:
 
       # There is no checked-in frontend/.env; use the fork-configurable
       # defaults from frontend/.env.example so CI reflects whatever a fork
-      # has set there, same as the docker-build job does for env/.env.
+      # has set there, same as the docker-build job does for env/mystic_auth/.env.
       - name: Set up frontend .env
         working-directory: frontend
         run: cp .env.example .env
@@ -234,6 +234,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  tooling-tests:
+    name: Tooling regression tests (env-tools, upstream-sync, script/split paths)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check every scripts/local-scripts path reference resolves
+        run: tests/scripts/mystic_auth/lint/check-script-paths.sh
+
+      - name: Check for stale pre-split docker/env/scripts path references
+        run: tests/scripts/mystic_auth/lint/check-split-paths.sh
+
+      - name: Run env-tools regression suite
+        run: tests/scripts/mystic_auth/env-tools/test-env-tooling.sh
+
+      - name: Run sync-upstream regression suite
+        run: tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh
+
   docker-build:
     name: Docker image build verification
     runs-on: ubuntu-latest
@@ -260,11 +279,12 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # Uses the *.example files only to satisfy each compose file's own
-      # env_file reference (env/.env, env/.env.local-prod-*, env/.env.prod
-      # respectively) and --env-file for build-arg interpolation.
+      # env_file reference (env/mystic_auth/.env + env/app/.env, and the
+      # local-prod-*/prod equivalents) and --env-file for build-arg
+      # interpolation.
       - name: Validate docker-compose configs
         run: |
-          created_env_files="env/.env env/.env.local-prod-cloudflare env/.env.local-prod-ngrok env/.env.local-prod-tailscale env/.env.prod"
+          created_env_files="env/mystic_auth/.env env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale env/mystic_auth/.env.prod env/app/.env env/app/.env.local-prod-cloudflare env/app/.env.local-prod-ngrok env/app/.env.local-prod-tailscale env/app/.env.prod"
           for env_file in $created_env_files; do
             if [ -e "$env_file" ]; then
               echo "::error::Refusing to overwrite existing $env_file"
@@ -272,22 +292,27 @@ jobs:
             fi
           done
           trap 'rm -f $created_env_files' EXIT
-          cp env/.env.example env/.env
-          cp env/.env.local-prod-cloudflare.example env/.env.local-prod-cloudflare
-          cp env/.env.local-prod-ngrok.example env/.env.local-prod-ngrok
-          cp env/.env.local-prod-tailscale.example env/.env.local-prod-tailscale
-          cp env/.env.prod.example env/.env.prod
-          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env config > /dev/null
-          docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare config > /dev/null
-          docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok config > /dev/null
-          docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale config > /dev/null
-          docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod config > /dev/null
+          cp env/mystic_auth/.env.example env/mystic_auth/.env
+          cp env/mystic_auth/.env.local-prod-cloudflare.example env/mystic_auth/.env.local-prod-cloudflare
+          cp env/mystic_auth/.env.local-prod-ngrok.example env/mystic_auth/.env.local-prod-ngrok
+          cp env/mystic_auth/.env.local-prod-tailscale.example env/mystic_auth/.env.local-prod-tailscale
+          cp env/mystic_auth/.env.prod.example env/mystic_auth/.env.prod
+          cp env/app/.env.example env/app/.env
+          cp env/app/.env.local-prod-cloudflare.example env/app/.env.local-prod-cloudflare
+          cp env/app/.env.local-prod-ngrok.example env/app/.env.local-prod-ngrok
+          cp env/app/.env.local-prod-tailscale.example env/app/.env.local-prod-tailscale
+          cp env/app/.env.prod.example env/app/.env.prod
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env config > /dev/null
+          docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare config > /dev/null
+          docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok config > /dev/null
+          docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml -f docker/app/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --env-file env/app/.env.local-prod-tailscale config > /dev/null
+          docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod config > /dev/null
 
       - name: Build backend image
-        run: docker build --target runtime -f docker/dockerfiles/backend.Dockerfile -t backend:ci .
+        run: docker build --target runtime -f docker/mystic_auth/dockerfiles/backend.Dockerfile -t backend:ci .
 
       - name: Build frontend production image
-        run: docker build --target production -f docker/dockerfiles/frontend.Dockerfile -t frontend:ci .
+        run: docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dockerfile -t frontend:ci .
 
       # Regression guard for local request logs leaking into the image. /app/logs
       # should exist but be empty.
@@ -302,15 +327,16 @@ jobs:
       # bounded DSN wait in the backend startup command.
       - name: Boot the dev stack
         run: |
-          if [ -e env/.env ]; then
-            echo "::error::Refusing to overwrite existing env/.env"
+          if [ -e env/mystic_auth/.env ] || [ -e env/app/.env ]; then
+            echo "::error::Refusing to overwrite existing env/mystic_auth/.env or env/app/.env"
             exit 1
           fi
-          cp env/.env.example env/.env
-          touch env/.env.ci-created
-          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/.env
-          sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/.env
-          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build postgres redis alembic backend frontend procrastinate_worker
+          cp env/mystic_auth/.env.example env/mystic_auth/.env
+          cp env/app/.env.example env/app/.env
+          touch env/mystic_auth/.env.ci-created
+          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env
+          sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/mystic_auth/.env
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres redis alembic backend frontend procrastinate_worker
 
       - name: Wait for backend to report healthy
         run: timeout 150 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'
@@ -325,6 +351,9 @@ jobs:
           curl -sf http://localhost:5173 | grep -qi '<div id="root">' \
             && echo "OK: frontend dev server serves the app shell through the actual image"
 
+      - name: "Restore-drill: prove the backup path actually restores"
+        run: tests/scripts/mystic_auth/db/test-restore-drill.sh
+
       - name: Run browser E2E tests
         env:
           EMAIL_ENABLED: "false"
@@ -333,14 +362,14 @@ jobs:
       # Prints container logs only when a previous step failed.
       - name: Show container logs (only runs on failure)
         if: failure()
-        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env logs --no-color
+        run: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env logs --no-color
 
       - name: Tear down the dev stack
         if: always()
         run: |
-          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env down -v
-          if [ -f env/.env.ci-created ]; then
-            rm -f env/.env env/.env.ci-created
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env down -v
+          if [ -f env/mystic_auth/.env.ci-created ]; then
+            rm -f env/mystic_auth/.env env/app/.env env/mystic_auth/.env.ci-created
           fi
 
   # Re-runs the full suites through the actual Compose stack. This catches
@@ -363,15 +392,16 @@ jobs:
         env:
           BACKEND_BUILD_TARGET: test
         run: |
-          if [ -e env/.env ]; then
-            echo "::error::Refusing to overwrite existing env/.env"
+          if [ -e env/mystic_auth/.env ] || [ -e env/app/.env ]; then
+            echo "::error::Refusing to overwrite existing env/mystic_auth/.env or env/app/.env"
             exit 1
           fi
-          cp env/.env.example env/.env
-          touch env/.env.ci-created
-          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/.env
-          sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/.env
-          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build postgres redis alembic backend procrastinate_worker
+          cp env/mystic_auth/.env.example env/mystic_auth/.env
+          cp env/app/.env.example env/app/.env
+          touch env/mystic_auth/.env.ci-created
+          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env
+          sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/mystic_auth/.env
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres redis alembic backend procrastinate_worker
 
       - name: Wait for backend to report healthy
         run: timeout 180 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'
@@ -381,36 +411,36 @@ jobs:
       # integration suite polls for them (see its own _poll_for_entries), but
       # only succeeds if a worker is actually running to process the queue.
       - name: Wait for procrastinate_worker to report healthy
-        run: timeout 60 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" $(docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env ps -q procrastinate_worker))" = "healthy" ]; do sleep 3; done'
+        run: timeout 60 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" $(docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env ps -q procrastinate_worker))" = "healthy" ]; do sleep 3; done'
 
       # Same tiers and flags as the native backend job, but inside the backend
       # container. --user root lets pytest-cov write coverage output to /repo,
       # the whole-repo bind mount.
       - name: Run the full backend suite inside the backend container
         run: |
-          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T --user root backend sh -c '
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env exec -T --user root backend sh -c '
             export PATH=/opt/venv/bin:$PATH &&
             cd /repo &&
             python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q &&
             python -m pytest tests/backend/mystic_auth/integration -q --cov-append &&
-            python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=85
+            python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=90
           '
 
       - name: Boot the frontend
-        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env up -d --build frontend
+        run: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build frontend
 
       - name: Run the full frontend suite inside the frontend container
-        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env exec -T frontend sh -c "npm run test -- --run"
+        run: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env exec -T frontend sh -c "npm run test -- --run"
 
       # Prints container logs only when a previous step failed.
       - name: Show container logs (only runs on failure)
         if: failure()
-        run: docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env logs --no-color
+        run: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env logs --no-color
 
       - name: Tear down
         if: always()
         run: |
-          docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env down -v
-          if [ -f env/.env.ci-created ]; then
-            rm -f env/.env env/.env.ci-created
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env down -v
+          if [ -f env/mystic_auth/.env.ci-created ]; then
+            rm -f env/mystic_auth/.env env/app/.env env/mystic_auth/.env.ci-created
           fi

@@ -26,10 +26,10 @@ and an auth key are required before the tunnel comes up.
 
 | File | Why it matters |
 |---|---|
-| `docker/compose/docker-compose.local-prod-tailscale.yml` | Runs the local-prod stack and the `tailscale/tailscale` container. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` | Runs the local-prod stack and the `tailscale/tailscale` container. |
 | `docker/tailscale-serve-config.json` | Programmatic Serve/Funnel config mounted into the Tailscale container through `TS_SERVE_CONFIG`. |
-| `env/.env.local-prod-tailscale.example` | Source template for Tailscale local-prod settings. |
-| `env/.env.local-prod-tailscale` | Your local, gitignored copy with `TS_AUTHKEY`, `TS_HOSTNAME`, public URLs, Google callback, and secrets. |
+| `env/mystic_auth/.env.local-prod-tailscale.example` | Source template for Tailscale local-prod settings. |
+| `env/mystic_auth/.env.local-prod-tailscale` | Your local, gitignored copy with `TS_AUTHKEY`, `TS_HOSTNAME`, public URLs, Google callback, and secrets. |
 | `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Compose helpers that always pass the Tailscale env file. |
 | `local-scripts/mystic_auth/local-prod-tailscale/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
 
@@ -70,15 +70,15 @@ traffic never reaches `frontend`.
 **Step 4: Copy the env file.**
 
 ```bash
-cp env/.env.local-prod-tailscale.example env/.env.local-prod-tailscale
+cp env/mystic_auth/.env.local-prod-tailscale.example env/mystic_auth/.env.local-prod-tailscale
 ```
 
-`env/.env.local-prod-tailscale.example` is the local-prod template for
-`docker/compose/docker-compose.local-prod-tailscale.yml`. It preconfigures
+`env/mystic_auth/.env.local-prod-tailscale.example` is the local-prod template for
+`docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml`. It preconfigures
 same-origin API routing (`VITE_API_BASE_URL` empty) and the fixed frontend
 nginx proxy IP (`TRUSTED_PROXY_IPS`, derived automatically from
 `FRONTEND_STATIC_IP`/`TAILSCALE_STATIC_IP`). Do not start
-this stack from `env/.env.example` or either of the other two local-prod
+this stack from `env/mystic_auth/.env.example` or either of the other two local-prod
 example files. See
 [Choosing the right env template](../environment.md#1-choosing-the-right-env-template)
 for the full comparison.
@@ -87,7 +87,7 @@ for the full comparison.
 
 **Step 5: Fill in your auth key and hostname.**
 
-In the copied `env/.env.local-prod-tailscale`, set:
+In the copied `env/mystic_auth/.env.local-prod-tailscale`, set:
 
 ```
 TS_AUTHKEY=<the auth key from Step 2>
@@ -123,7 +123,7 @@ troubleshooting section below.
 You need the exact `.ts.net` domain before this step: start the stack once
 first (Step 8), check `docker compose ... logs tailscale` for the assigned
 name, or read it from the admin console's device list under **Machines**
-once `tailscale` registers. Then set, in `env/.env.local-prod-tailscale`:
+once `tailscale` registers. Then set, in `env/mystic_auth/.env.local-prod-tailscale`:
 
 ```
 GOOGLE_REDIRECT_URI=https://mystic-auth.<tailnet>.ts.net/auth/oauth2/callback/google
@@ -132,16 +132,9 @@ JWT_ISSUER=https://mystic-auth.<tailnet>.ts.net
 JWT_AUDIENCE=https://mystic-auth.<tailnet>.ts.net
 ```
 
-`FRONTEND_BASE_URL` is baked into verification/password-reset email links
-and the CORS allow-list too, so it matters even if you never enable Google
-login. `BACKEND_BASE_URL` must be *set* for the app to boot, but nothing
-reads it at runtime, so it can stay the same value. `JWT_ISSUER`/
-`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for tokens to work
-(they're only checked against themselves, see
-[Authentication Overview](../../authentication/overview.md)), but leaving
-them at the placeholder default means every deployment that copies this
-tutorial mints tokens with the same `iss`/`aud`, so update them to this
-deployment's real domain too.
+- `FRONTEND_BASE_URL` is baked into verification/password-reset email links and the CORS allow-list too, so it matters even if you never enable Google login.
+- `BACKEND_BASE_URL` must be *set* for the app to boot, but nothing reads it at runtime, so it can stay the same value.
+- `JWT_ISSUER`/`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for tokens to work (they're only checked against themselves, see [Authentication Overview](../../authentication/overview.md)), but leaving them at the placeholder default means every deployment that copies this tutorial mints tokens with the same `iss`/`aud`, so update them to this deployment's real domain too.
 
 ---
 
@@ -160,7 +153,7 @@ under **Authorized JavaScript origins**. It must match
 **Step 8: Start (or restart) the stack.**
 
 ```bash
-docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale up -d --build
 # or: ./scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh
 ```
 
@@ -178,13 +171,13 @@ ports.
 **Step 8b (Optional): Enable session geolocation.**
 
 Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
-`env/.env.local-prod-tailscale` alone does nothing: the `geoipupdate`
+`env/mystic_auth/.env.local-prod-tailscale` alone does nothing: the `geoipupdate`
 service that downloads the `.mmdb` file is gated behind the `geoip`
 Compose profile, skipped by Step 8's command as written. Re-run Step 8 with
 the profile added instead:
 
 ```bash
-docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale --profile geoip up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with
@@ -233,7 +226,7 @@ host itself.
 | Machine appears in Tailscale but public URL does not resolve | DNS and certificate registration have not finished, or MagicDNS/HTTPS Certificates/Funnel is disabled. | Wait a few minutes, then verify MagicDNS, HTTPS Certificates, and Funnel are enabled in the admin console. |
 | `.ts.net` names do not resolve on your device | Local DNS resolver is not using the Tailscale DNS configuration correctly. | In the Tailscale admin console DNS settings, add global nameservers such as `8.8.8.8`, `8.8.4.4`, `1.1.1.1`, or `1.0.0.1`, then enable the override option if that matches your tailnet policy. Disconnect and reconnect the affected client. |
 | Public URL loads a TLS or certificate error | HTTPS Certificates are disabled or the certificate has not been provisioned yet. | Enable HTTPS Certificates under Tailscale DNS settings and wait for provisioning. |
-| Public URL resolves but returns no app | `docker/tailscale-serve-config.json` is not loaded or `frontend` is unhealthy. | Check `docker compose -f docker/compose/docker-compose.local-prod-tailscale.yml --env-file env/.env.local-prod-tailscale logs tailscale frontend backend`. |
+| Public URL resolves but returns no app | `docker/tailscale-serve-config.json` is not loaded or `frontend` is unhealthy. | Check `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale logs tailscale frontend backend`. |
 | Google login returns `redirect_uri_mismatch` | Google Cloud Console callback does not match `GOOGLE_REDIRECT_URI`. | Register `https://mystic-auth.<tailnet>.ts.net/auth/oauth2/callback/google` exactly. |
 | Bugsink is not public | This is expected. Funnel exposes `frontend:80` only. | Use `http://localhost:8211` on the host or access Bugsink privately over the tailnet. |
 

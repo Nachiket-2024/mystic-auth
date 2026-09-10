@@ -46,7 +46,7 @@ flowchart TD
    sliding-window limit (`rate_limiter_service.py`) run before any credential check, alongside a
    separate [brute-force lockout](../glossary/authentication.md#brute-force-lockout)
    (`login_protection_service.py`) keyed by `MAX_FAILED_LOGIN_ATTEMPTS` per email and
-   `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` per IP (`env/.env.example`).
+   `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` per IP (`env/mystic_auth/.env.example`).
 2. **[Timing-attack-resistant](../glossary/authentication.md#timing-attack-resistance) comparison.**
    `login_service.py` always runs the [Argon2](../glossary/authentication.md#argon2) comparison,
    against the real `hashed_password` if the account exists and has one, or a fixed `DUMMY_HASH`

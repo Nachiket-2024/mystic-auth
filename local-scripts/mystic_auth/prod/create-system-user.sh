@@ -5,7 +5,7 @@
 # Assumes a fresh account: pipes a fixed 3-line stdin (email, name, password)
 # matching create_system_user.py's "brand new account" prompt. If the account
 # already exists, run this by hand instead (it asks different questions):
-# `docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod exec backend python -m mystic_auth.scripts.create_system_user`
+# `docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod exec backend python -m mystic_auth.scripts.create_system_user`
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/../../.."
@@ -27,4 +27,4 @@ SYSTEM_USER_PASSWORD="$(read_env_value SYSTEM_USER_PASSWORD "$ENV_FILE")"
 : "${SYSTEM_USER_PASSWORD:?SYSTEM_USER_PASSWORD must be set in $ENV_FILE}"
 
 printf '%s\n%s\n%s\n' "$SYSTEM_USER_EMAIL" "$SYSTEM_USER_NAME" "$SYSTEM_USER_PASSWORD" \
-  | docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod exec -T backend python -m mystic_auth.scripts.create_system_user
+  | docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod exec -T backend python -m mystic_auth.scripts.create_system_user

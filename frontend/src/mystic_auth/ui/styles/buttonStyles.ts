@@ -3,9 +3,12 @@
 import { FAST_HOVER_TRANSITION } from "../../theme/system";
 
 // Solid variant's default hover (90% opacity) is too subtle to read as a
-// hover state. Shared by every colorPalette="brand" solid button.
+// hover state. Shared by every colorPalette="brand" solid button. One step
+// darker than brand.solid (brand.700, moved there for its own WCAG AA
+// contrast fix, see themeSemanticTokens.ts), so hover still reads as darker
+// than resting instead of colliding with it.
 export const BRAND_SOLID_HOVER_PROPS = {
-    _hover: { bg: "brand.700" },
+    _hover: { bg: "brand.800" },
     transition: FAST_HOVER_TRANSITION,
 };
 
@@ -84,7 +87,9 @@ export const BRAND_ICON_BUTTON_PROPS = {
     // gradient starts at brand.100 in light mode, so a brand.100 button
     // there had almost no contrast against the page behind it.
     bg: "brand.200",
-    color: "brand.700",
+    // brand.700 here measured 4.03:1 against brand.200, under WCAG AA's
+    // 4.5:1. brand.800 clears it at 5.69:1.
+    color: "brand.800",
     _hover: { bg: "brand.300", borderColor: "brand.600", color: "brand.800" },
     _dark: { borderColor: "brand.700", bg: "brand.900", color: "brand.200", _hover: { bg: "brand.800", borderColor: "brand.600", color: "brand.100" } },
     transition: FAST_HOVER_TRANSITION,
@@ -100,7 +105,9 @@ export const BRAND_SUBTLE_BUTTON_PROPS = {
     borderColor: "brand.400",
     borderRadius: "density.control",
     bg: "brand.100",
-    color: "brand.700",
+    // brand.700 here measured exactly 4.5:1 against brand.100, WCAG AA's
+    // minimum with no margin. brand.800 gives real headroom (6.36:1).
+    color: "brand.800",
     _hover: { bg: "brand.200", borderColor: "brand.500" },
     _dark: { borderColor: "brand.600", bg: "brand.800", color: "brand.100", _hover: { bg: "brand.900", borderColor: "brand.700" } },
     transition: FAST_HOVER_TRANSITION,

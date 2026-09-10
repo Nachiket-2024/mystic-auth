@@ -11,9 +11,9 @@ zero-setup Cloudflare Quick Tunnel walkthrough, start to finish.
 
 | File | Why it matters |
 |---|---|
-| `docker/compose/docker-compose.local-prod-cloudflare.yml` | Runs the local-prod stack and the `cloudflared` Quick Tunnel container. |
-| `env/.env.local-prod-cloudflare.example` | Source template for the Cloudflare local-prod runtime and build settings. |
-| `env/.env.local-prod-cloudflare` | Your local, gitignored copy with secrets and public URLs. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` | Runs the local-prod stack and the `cloudflared` Quick Tunnel container. |
+| `env/mystic_auth/.env.local-prod-cloudflare.example` | Source template for the Cloudflare local-prod runtime and build settings. |
+| `env/mystic_auth/.env.local-prod-cloudflare` | Your local, gitignored copy with secrets and public URLs. |
 | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Linux/macOS/Git Bash helper that wraps the full Compose command. |
 | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.ps1` | PowerShell helper. |
 | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.cmd` | Command Prompt helper. |
@@ -36,22 +36,18 @@ Cloudflare allocates a temporary `https://<random-words>.trycloudflare.com` URL 
 **Step 1: Copy the env file.**
 
 ```bash
-cp env/.env.local-prod-cloudflare.example env/.env.local-prod-cloudflare
+cp env/mystic_auth/.env.local-prod-cloudflare.example env/mystic_auth/.env.local-prod-cloudflare
 ```
 
-`env/.env.local-prod-cloudflare.example` is the local-prod template for
-`docker/compose/docker-compose.local-prod-cloudflare.yml`. It is preconfigured for Quick Tunnel:
-`VITE_API_BASE_URL` is empty for same-origin API calls, and
-`TRUSTED_PROXY_IPS` (derived automatically from `FRONTEND_STATIC_IP`/`CLOUDFLARED_STATIC_IP`) matches the fixed frontend nginx address.
-You can boot before filling in Google or SMTP credentials. The CLI-created
-system superuser can still sign in and view the dashboard because the script
-marks it verified. Regular users need one verification path: SMTP for password
-signup, email verification, and password reset, or Google OAuth2 login. See
-[System Superuser](../../authentication/system-superuser/README.md) for the interactive
-command, or `local-scripts/mystic_auth/local-prod-cloudflare/create-system-user.*` for a
-non-interactive version.
+`env/mystic_auth/.env.local-prod-cloudflare.example` is the local-prod template for
+`docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml`. It is preconfigured for Quick Tunnel:
 
-Do not start local-prod from `env/.env.example`. That file points the frontend at
+- `VITE_API_BASE_URL` is empty for same-origin API calls.
+- `TRUSTED_PROXY_IPS` (derived automatically from `FRONTEND_STATIC_IP`/`CLOUDFLARED_STATIC_IP`) matches the fixed frontend nginx address.
+- You can boot before filling in Google or SMTP credentials. The CLI-created system superuser can still sign in and view the dashboard because the script marks it verified.
+- Regular users need one verification path: SMTP for password signup, email verification, and password reset, or Google OAuth2 login. See [System Superuser](../../authentication/system-superuser/README.md) for the interactive command, or `local-scripts/mystic_auth/local-prod-cloudflare/create-system-user.*` for a non-interactive version.
+
+Do not start local-prod from `env/mystic_auth/.env.example`. That file points the frontend at
 localhost dev ports and leaves production routing values unset. See
 [Choosing the right env template](../environment.md#1-choosing-the-right-env-template)
 for the mode comparison.
@@ -61,7 +57,7 @@ for the mode comparison.
 **Step 2: Start the stack.**
 
 ```bash
-docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare up -d --build
 # or: ./scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh
 ```
 
@@ -70,12 +66,12 @@ docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-
 **Step 2b (Optional): Enable session geolocation.**
 
 Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
-`env/.env.local-prod-cloudflare` alone does nothing. The `geoipupdate` service that downloads the
+`env/mystic_auth/.env.local-prod-cloudflare` alone does nothing. The `geoipupdate` service that downloads the
 `.mmdb` file is gated behind the `geoip` Compose profile, skipped by Step 2's
 command as written. Re-run Step 2 with the profile added instead:
 
 ```bash
-docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare --profile geoip up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with
@@ -88,7 +84,7 @@ for the MaxMind account/license-key setup this depends on.
 **Step 3: Get your public URL.**
 
 ```bash
-docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare logs -f cloudflared
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare logs -f cloudflared
 ```
 
 Within a few seconds, this prints a `https://<random-words>.trycloudflare.com`
@@ -110,7 +106,7 @@ URL: continue below to enable it.
 **Step 4: Copy the URL for Google.**
 
 Copy the URL from Step 3's logs (or re-run
-`docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare logs cloudflared | grep trycloudflare.com`).
+`docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare logs cloudflared | grep trycloudflare.com`).
 You'll paste it into two places in the next two steps.
 
 Unlike every other flow, the OAuth2 callback (`oauth2_login_handler.py`)
@@ -119,7 +115,7 @@ setting the auth cookies on the tunnel host. If `FRONTEND_BASE_URL` is
 stale (e.g. left at `http://localhost`), the browser gets sent to a
 different origin than the one holding the cookies, `/auth/me` comes back
 401, and the user is bounced to `/login`, even though the account was
-created/verified successfully server-side. That's what Steps 5–6 prevent.
+created/verified successfully server-side. That's what Steps 5-6 prevent.
 
 ---
 
@@ -135,7 +131,7 @@ past restarts can be removed, or left there (Google allows multiple).
 
 **Step 6: Point the app at that URL.**
 
-In `env/.env.local-prod-cloudflare`, set:
+In `env/mystic_auth/.env.local-prod-cloudflare`, set:
 
 ```
 GOOGLE_REDIRECT_URI=<that URL>/auth/oauth2/callback/google
@@ -149,8 +145,8 @@ links and the CORS allow-list, so keeping it current matters even beyond
 Google login. `BACKEND_BASE_URL` must be *set* for the app to boot, but
 nothing reads it at runtime, so it never needs to track the tunnel URL.
 `JWT_ISSUER`/`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for
-tokens to work — they're only checked against themselves, see
-[Authentication Overview](../../authentication/overview.md) — but a Quick
+tokens to work (they're only checked against themselves, see
+[Authentication Overview](../../authentication/overview.md)), but a Quick
 Tunnel URL changes on every restart, so if you'd rather not re-set these
 every time, leave them at a stable placeholder instead.)
 
@@ -158,28 +154,21 @@ every time, leave them at a stable placeholder instead.)
 
 **Step 7: Apply it.**
 
-`env/.env.local-prod-cloudflare` values here are read at container runtime, not baked into the
-image, so a plain restart is enough (**no `--build`**). Restart `backend` and
-`frontend` together, not just `backend` alone, and use `--force-recreate` on
-both: `frontend`'s nginx resolves the `backend` hostname to a Docker-internal
-IP once, when nginx starts, and keeps using it, so a `backend`-only restart
-leaves nginx proxying to the old, now-dead IP once `backend` comes back on a
-new one - a Cloudflare 502 on every API call, including plain password
-login, not just Google's, with `docker logs <frontend container>` showing
-`connect() failed (111: Connection refused) while connecting to upstream`.
-Plain `up -d backend frontend` isn't enough on its own either: Compose only
-recreates a container whose *own* config changed, and frontend's config
-didn't - only backend's env did - so frontend would silently keep running
-unchanged, DNS cache and all. `--force-recreate` makes both actually
-restart regardless, sidestepping the whole problem in one command:
+`env/mystic_auth/.env.local-prod-cloudflare` values here are read at container runtime, not baked into the
+image, so a plain restart is enough (**no `--build`**). Restart `backend` and `frontend` together, not
+just `backend` alone, and use `--force-recreate` on both:
+
+- `frontend`'s nginx resolves the `backend` hostname to a Docker-internal IP once, when nginx starts, and keeps using it. A `backend`-only restart leaves nginx proxying to the old, now-dead IP once `backend` comes back on a new one - a Cloudflare 502 on every API call, including plain password login, not just Google's, with `docker logs <frontend container>` showing `connect() failed (111: Connection refused) while connecting to upstream`.
+- Plain `up -d backend frontend` isn't enough on its own either: Compose only recreates a container whose *own* config changed, and frontend's config didn't - only backend's env did - so frontend would silently keep running unchanged, DNS cache and all.
+- `--force-recreate` makes both actually restart regardless, sidestepping the whole problem in one command:
 
 ```bash
-docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare up -d --force-recreate backend frontend
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare up -d --force-recreate backend frontend
 ```
 ---
 
 **The Quick Tunnel URL changes on every restart**, so if you stop and start
-the stack again, repeat Steps 4–7 to keep Google login working. If that's
+the stack again, repeat Steps 4-7 to keep Google login working. If that's
 more friction than it's worth, either test Google login against the dev
 stack instead (`http://localhost:5173`,
 `GOOGLE_REDIRECT_URI=http://localhost:8000/auth/oauth2/callback/google`), or
@@ -193,7 +182,7 @@ also free and also give you a stable URL.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `cloudflared` logs do not show a `trycloudflare.com` URL | Tunnel container has not started or cannot reach Cloudflare. | Run `docker compose -f docker/compose/docker-compose.local-prod-cloudflare.yml --env-file env/.env.local-prod-cloudflare logs -f cloudflared` and check network access from the host. |
+| `cloudflared` logs do not show a `trycloudflare.com` URL | Tunnel container has not started or cannot reach Cloudflare. | Run `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare logs -f cloudflared` and check network access from the host. |
 | Public URL shows Cloudflare 502 | `cloudflared` can reach the tunnel edge but cannot reach `frontend:80`. | Check `docker compose ... ps`, then `docker compose ... logs frontend backend`. Recreate `frontend` and `backend` together if backend was restarted. |
 | Password login works locally but not through the tunnel | `FRONTEND_BASE_URL`, CORS, or cookie origin settings are stale. | Set `FRONTEND_BASE_URL` to the active Quick Tunnel URL and recreate `backend` and `frontend`. |
 | Google login returns `redirect_uri_mismatch` | Google has a different callback URL than `GOOGLE_REDIRECT_URI`. | Register the current `<quick-url>/auth/oauth2/callback/google` in Google Cloud Console and update `GOOGLE_REDIRECT_URI`. |

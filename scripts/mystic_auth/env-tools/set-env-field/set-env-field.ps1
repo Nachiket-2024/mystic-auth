@@ -12,15 +12,20 @@
 #
 #     .\set-env-field.ps1
 #
+#   For a field you added yourself (one only env/app/ declares), use the
+#   parallel scripts/app/env-tools/set-env-field/shared-values.env.example
+#   instead - same copy/fill/run steps, ships empty, upstream never edits
+#   it. Both files are read in this mode; the app one wins on overlap.
+#
 #   Direct (one-line, scriptable - what docs/agent prompts use):
 #
 #     .\set-env-field.ps1 KEY1=VALUE1 [KEY2=VALUE2 ...] [file ...]
 #
 # Any argument containing "=" is a field assignment (only the first "="
 # splits key from value). Any argument without "=" is a target file. With
-# no file arguments, targets every env/.env* file plus frontend/.env that
-# actually exists. A file missing a given key is skipped for that field,
-# not created or appended to.
+# no file arguments, targets every env/mystic_auth/.env* and env/app/.env*
+# file plus frontend/.env that actually exists. A file missing a given key
+# is skipped for that field, not created or appended to.
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Args = @()
@@ -34,24 +39,30 @@ $Files = @()
 
 if ($Args.Count -eq 0) {
     $ValuesFile = Join-Path $PSScriptRoot "shared-values.env"
-    if (-not (Test-Path $ValuesFile)) {
-        Write-Error "No shared-values.env found. Copy scripts/env-tools/set-env-field/shared-values.env.example to scripts/env-tools/set-env-field/shared-values.env, fill in the fields you want set everywhere, then run this again."
+    $AppValuesFile = "scripts/app/env-tools/set-env-field/shared-values.env"
+    if (-not (Test-Path $ValuesFile) -and -not (Test-Path $AppValuesFile)) {
+        Write-Error "No shared-values.env found. Copy scripts/mystic_auth/env-tools/set-env-field/shared-values.env.example to scripts/mystic_auth/env-tools/set-env-field/shared-values.env (template fields) and/or scripts/app/env-tools/set-env-field/shared-values.env.example to scripts/app/env-tools/set-env-field/shared-values.env (your own fields), fill in the fields you want set everywhere, then run this again."
         exit 1
     }
 
-    foreach ($line in Get-Content $ValuesFile) {
-        if ($line -eq "" -or $line.StartsWith("#") -or -not $line.Contains("=")) {
-            continue
+    # Read mystic_auth's file first, then app's - app wins on overlap, same
+    # convention as env_file ordering elsewhere in this template.
+    foreach ($valuesFile in @($ValuesFile, $AppValuesFile)) {
+        if (-not (Test-Path $valuesFile)) { continue }
+        foreach ($line in Get-Content $valuesFile) {
+            if ($line -eq "" -or $line.StartsWith("#") -or -not $line.Contains("=")) {
+                continue
+            }
+            $idx = $line.IndexOf("=")
+            $key = $line.Substring(0, $idx)
+            $value = $line.Substring($idx + 1)
+            if ($value -eq "") { continue }
+            $Assignments[$key] = $value
         }
-        $idx = $line.IndexOf("=")
-        $key = $line.Substring(0, $idx)
-        $value = $line.Substring($idx + 1)
-        if ($value -eq "") { continue }
-        $Assignments[$key] = $value
     }
 
     if ($Assignments.Count -eq 0) {
-        Write-Error "shared-values.env has no fields filled in. Edit it, then run this again."
+        Write-Error "Neither shared-values.env has any fields filled in. Edit one, then run this again."
         exit 1
     }
 } else {
@@ -77,19 +88,17 @@ if ($Args.Count -eq 0) {
 }
 
 if ($Files.Count -eq 0) {
-    $candidates = @(
-        "env/.env",
-        "env/.env.prod",
-        "env/.env.local-prod-cloudflare",
-        "env/.env.local-prod-ngrok",
-        "env/.env.local-prod-tailscale",
-        "frontend/.env"
-    )
-    $Files = $candidates | Where-Object { Test-Path $_ }
+    # Globs rather than a fixed list, so a fork's own new mode (e.g. a
+    # hand-added env/app/.env.staging) is targeted too, with no edit to this
+    # upstream-owned script ever required.
+    $Files = Get-ChildItem -Path "env/mystic_auth", "env/app" -Filter ".env*" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notmatch '\.(example|bak|ci-created)$' } |
+        ForEach-Object { $_.FullName.Substring((Get-Location).Path.Length + 1) -replace '\\', '/' }
+    if (Test-Path "frontend/.env") { $Files += "frontend/.env" }
 }
 
 if ($Files.Count -eq 0) {
-    Write-Error "No env files found. Run scripts/env-tools/setup-env/setup-env.ps1 first."
+    Write-Error "No env files found. Run scripts/mystic_auth/env-tools/setup-env/setup-env.ps1 first."
     exit 1
 }
 

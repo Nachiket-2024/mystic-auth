@@ -14,9 +14,15 @@ $ErrorActionPreference = "Continue"
 $RepoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
 Set-Location $RepoRoot
 
-# Compose file/env file moved under docker/compose and env/, so every
-# invocation below needs both flags explicitly.
-$DC = @("-f", "docker/compose/docker-compose.dev.yml", "--env-file", "env/.env")
+# Compose files/env files live under docker/ and env/, so every invocation
+# below needs the flags explicitly. Two -f/--env-file pairs: mystic_auth
+# (the template) plus app (yours, ships empty).
+$DC = @(
+    "-f", "docker/mystic_auth/compose/docker-compose.dev.yml",
+    "-f", "docker/app/compose/docker-compose.dev.yml",
+    "--env-file", "env/mystic_auth/.env",
+    "--env-file", "env/app/.env"
+)
 
 $LongRunningServices = @(
     "postgres",
@@ -111,18 +117,18 @@ Write-Host ""
 
 if ($failedService -ne "") {
     Write-Host "--- '$failedService' failed to start ---"
-    Write-Host "Check its logs: docker compose -f docker/compose/docker-compose.dev.yml logs $failedService"
+    Write-Host "Check its logs: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml logs $failedService"
     exit 1
 }
 if ($notReady -ne 0) {
     Write-Host "--- Timed out after ${TimeoutSeconds}s waiting for services to become healthy ---"
-    Write-Host "Check whichever service above isn't healthy: docker compose -f docker/compose/docker-compose.dev.yml logs <service>"
+    Write-Host "Check whichever service above isn't healthy: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml logs <service>"
     exit 1
 }
 
 if ($env:DEV_UP_TAIL -eq "0") {
     Write-Host "Stack is up (DEV_UP_TAIL=0, skipping log tail). Tail manually with:"
-    Write-Host "  docker compose -f docker/compose/docker-compose.dev.yml logs -f backend frontend procrastinate_worker"
+    Write-Host "  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml logs -f backend frontend procrastinate_worker"
     exit 0
 }
 

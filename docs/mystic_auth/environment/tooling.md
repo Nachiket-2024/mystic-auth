@@ -27,13 +27,13 @@ flowchart TD
 
 ## 1. First-time setup
 
-1. **`setup-env/setup-env.sh`**: bootstraps every `env/.env*` file (plus `frontend/.env`) from its `.example` in one run.
+1. **`setup-env/setup-env.sh`**: bootstraps every `env/mystic_auth/.env*` file (plus `frontend/.env`) from its `.example` in one run.
    - Skips any file that already exists - safe to re-run.
    - Generates a distinct random secret per password field, per file (a leaked dev secret never compromises prod).
    - Keeps `DATABASE_URL`/`APP_DATABASE_URL` in sync with the freshly generated password.
    - Prompts once for an app name and brand color, applies both everywhere.
    - Deliberately leaves `REDIS_PASSWORD` blank - see [Redis authentication](../security/hardening-infra.md#redis-authentication) for why that one needs a manual step.
-2. **`quickstart/quickstart.sh`**: the fastest path for a brand-new clone. Runs `setup-env` only if `env/.env` is missing, brings the dev stack up (reusing `dev-up`'s own readiness wait via a `DEV_UP_TAIL=0` toggle), offers to create the system superuser inline, then tails logs. See [Template Usage: Quickstart](../template-usage/overview.md#quickstart).
+2. **`quickstart/quickstart.sh`**: the fastest path for a brand-new clone. Runs `setup-env` only if `env/mystic_auth/.env` is missing, brings the dev stack up (reusing `dev-up`'s own readiness wait via a `DEV_UP_TAIL=0` toggle), offers to create the system superuser inline, then tails logs. See [Template Usage: Quickstart](../template-usage/quickstart.md).
 
 ---
 
@@ -62,15 +62,15 @@ flowchart TD
 
 ### What happens to the `.bak` files afterward
 
-Nothing here deletes them automatically - that's deliberate, not an oversight. The workflow is: rename `env/.env` to `env/.env.bak` (never delete), let `setup-env` regenerate `env/.env` fresh, then `copy-env-values` reads `env/.env.bak` and writes into `env/.env`. Once you've confirmed the result is correct, **you delete the `.bak` files yourself** - see [Syncing with an AI Coding Agent](../template-usage/syncing-upstream/agent-prompt.md).
+Nothing here deletes them automatically - that's deliberate, not an oversight. The workflow is: rename `env/mystic_auth/.env` to `env/mystic_auth/.env.bak` (never delete), let `setup-env` regenerate `env/mystic_auth/.env` fresh, then `copy-env-values` reads `env/mystic_auth/.env.bak` and writes into `env/mystic_auth/.env`. Once you've confirmed the result is correct, **you delete the `.bak` files yourself** - see [Syncing with an AI Coding Agent](../template-usage/syncing-upstream/agent-prompt.md).
 
-Until you do, a `.bak` file is a second plaintext copy of everything that was in the old file, secrets included. It won't get committed (`.gitignore` covers `env/.env.*` and `frontend/.env.bak`), but it does sit on disk indefinitely if you forget the cleanup step. `check-env/check-env.sh` warns if it finds one next to the file it's checking, as a nudge - see [Environment Configuration: Edge Cases](README.md#edge-cases).
+Until you do, a `.bak` file is a second plaintext copy of everything that was in the old file, secrets included. It won't get committed (`.gitignore` covers `env/mystic_auth/.env.*` and `frontend/.env.bak`), but it does sit on disk indefinitely if you forget the cleanup step. `check-env/check-env.sh` warns if it finds one next to the file it's checking, as a nudge - see [Environment Configuration: Edge Cases](README.md#edge-cases).
 
 ---
 
 ## 4. Regression tests
 
-**`test-env-tooling/test-env-tooling.sh`**: regression suite for all five scripts above, run against a throwaway copy of `env/` under a temp dir - never touches this repo's own real env files. Run it after touching any of them, the same way [`scripts/mystic_auth/upstream-sync/test-sync-upstream.sh`](../template-usage/syncing-upstream/README.md) guards the sync script.
+**`tests/scripts/mystic_auth/env-tools/test-env-tooling.sh`**: regression suite for all five scripts above, run against a throwaway copy of `env/` under a temp dir - never touches this repo's own real env files. Run it after touching any of them, the same way [`tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh`](../template-usage/syncing-upstream/README.md) guards the sync script.
 
 ---
 

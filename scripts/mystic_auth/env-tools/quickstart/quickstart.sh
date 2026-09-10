@@ -1,29 +1,30 @@
 #!/usr/bin/env bash
 # One command from a fresh clone to a running dev stack with a login you can
-# use: runs setup-env if env/.env doesn't exist yet, brings the stack up and
-# waits for it to be healthy, offers to create the system superuser, then
-# tails logs like dev-up.sh normally does.
+# use: runs setup-env if env/mystic_auth/.env doesn't exist yet, brings the
+# stack up and waits for it to be healthy, offers to create the system
+# superuser, then tails logs like dev-up.sh normally does.
 #
-# Safe to re-run: setup-env is skipped once env/.env exists, `docker compose
-# up` is idempotent, and system superuser creation is opt-in each time.
+# Safe to re-run: setup-env is skipped once env/mystic_auth/.env exists,
+# `docker compose up` is idempotent, and system superuser creation is
+# opt-in each time.
 #
-# Usage: ./scripts/env-tools/quickstart/quickstart.sh   (Git Bash / WSL / Linux / macOS)
-# PowerShell: .\scripts\quickstart\quickstart.ps1
-# Command Prompt: scripts\quickstart\quickstart.bat
+# Usage: ./scripts/mystic_auth/env-tools/quickstart/quickstart.sh   (Git Bash / WSL / Linux / macOS)
+# PowerShell: .\scripts\mystic_auth\env-tools\quickstart\quickstart.ps1
+# Command Prompt: scripts\mystic_auth\env-tools\quickstart\quickstart.cmd
 set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$REPO_ROOT"
 
-if [ ! -f env/.env ]; then
-  echo "No env/.env found: running first-time setup."
+if [ ! -f env/mystic_auth/.env ]; then
+  echo "No env/mystic_auth/.env found: running first-time setup."
   echo
-  ./scripts/env-tools/setup-env/setup-env.sh
+  ./scripts/mystic_auth/env-tools/setup-env/setup-env.sh
   echo
 fi
 
 echo "Starting the dev stack..."
 echo
-DEV_UP_TAIL=0 ./scripts/docker/dev/dev-up.sh
+DEV_UP_TAIL=0 ./scripts/mystic_auth/docker/dev/dev-up.sh
 status=$?
 if [ "$status" -ne 0 ]; then
   echo
@@ -31,7 +32,11 @@ if [ "$status" -ne 0 ]; then
   exit "$status"
 fi
 
-DC=(docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env)
+DC=(docker compose \
+  -f docker/mystic_auth/compose/docker-compose.dev.yml \
+  -f docker/app/compose/docker-compose.dev.yml \
+  --env-file env/mystic_auth/.env \
+  --env-file env/app/.env)
 
 echo
 read -rp "Create the system superuser now? [Y/n] " create_su

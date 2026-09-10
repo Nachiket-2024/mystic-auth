@@ -82,20 +82,11 @@ action from a *different* resource type than that policy's own
 entirely, so `IfCan`/`ProtectedRoute` correctly hide the UI for it, and no
 403-after-the-fact confusion happens.
 
-This guard exists precisely because a real incident hit it before the guard
-was added: `policies:read`, `rate_limits:read`, `security_audit:read`,
-`users:purge`, `users:reactivate`, etc. were pasted onto the built-in
-`user_administration` policy (`resource_type: "users"`), instead of onto a
-policy scoped to each action's own resource type. At the time,
-`/auth/me` flattened every policy's `actions` into one set with no
-`resource_type` filtering, so those actions showed up as "granted" and lit
-up the Policies/Rate Limits/Security Audit UI, but every real request
-still 403'd, because `policy_evaluator.py` correctly enforces
-`resource_type` matching. If you see this symptom again after further code
-changes (UI renders a control, but the request behind it 403s), the
-filtering logic in `current_user_handler.py` is the first place to check.
-It may have regressed, or a new call site may be constructing its own
-permission set without going through it.
+This guard exists precisely because a real incident hit it before the guard was added:
+
+- `policies:read`, `rate_limits:read`, `security_audit:read`, `users:purge`, `users:reactivate`, etc. were pasted onto the built-in `user_administration` policy (`resource_type: "users"`), instead of onto a policy scoped to each action's own resource type.
+- At the time, `/auth/me` flattened every policy's `actions` into one set with no `resource_type` filtering, so those actions showed up as "granted" and lit up the Policies/Rate Limits/Security Audit UI, but every real request still 403'd, because `policy_evaluator.py` correctly enforces `resource_type` matching.
+- If you see this symptom again after further code changes (UI renders a control, but the request behind it 403s), the filtering logic in `current_user_handler.py` is the first place to check. It may have regressed, or a new call site may be constructing its own permission set without going through it.
 
 **The actual fix for the account, not the display bug**: don't add actions
 from other resource types to an existing single-resource-type policy at all
@@ -113,17 +104,10 @@ for `"*"` on a new policy instead of scoping it properly.
 ### A caller with `policies:delete`/`update`/`revoke` gets 403 "Cannot grant action ... you do not hold it yourself"
 
 Same guard as above (`assert_authorized_to_grant`), applied symmetrically:
-`update_policy`, `delete_policy`, and `remove_policy_from_user` (revoke) all
-require the caller to already hold **every action the target policy
-currently grants**, not just for the grant-side operations
-(create/assign). Without this, holding bare `policies:delete`/`update`/
-`revoke` (without holding what the policy actually grants) would let a
-caller strip, narrow, or repurpose an equally- or more-privileged peer's
-access (including revoking `system_superuser` off someone else) with no
-escalation check at all. If you hold `policies:delete` but not, say,
-`rate_limits:read`/`rate_limits:reset`, you cannot delete a policy that
-grants those, even though you can delete other policies scoped to actions
-you do hold.
+
+- `update_policy`, `delete_policy`, and `remove_policy_from_user` (revoke) all require the caller to already hold **every action the target policy currently grants**, not just for the grant-side operations (create/assign).
+- Without this, holding bare `policies:delete`/`update`/`revoke` (without holding what the policy actually grants) would let a caller strip, narrow, or repurpose an equally- or more-privileged peer's access (including revoking `system_superuser` off someone else) with no escalation check at all.
+- If you hold `policies:delete` but not, say, `rate_limits:read`/`rate_limits:reset`, you cannot delete a policy that grants those, even though you can delete other policies scoped to actions you do hold.
 
 ---
 

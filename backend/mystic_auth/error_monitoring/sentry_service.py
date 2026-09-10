@@ -15,7 +15,7 @@ from ..logging.logging_config import get_startup_logger
 # INFO logging elsewhere in this app.
 startup_logger = get_startup_logger(__name__)
 
-# Same path docker/compose/docker-compose.dev.yml's backend service reads at boot, written once
+# Same path docker/mystic_auth/compose/docker-compose.dev.yml's backend service reads at boot, written once
 # by bugsink-seed. Hardcoded rather than a Settings field since it's an
 # internal compose-wiring detail, not something a downstream project would
 # change on its own.
@@ -75,7 +75,7 @@ async def watch_for_late_dsn(poll_interval: float = 2.0, timeout_seconds: float 
     unset. Started from main.py's lifespan as fire-and-forget, never
     awaited on the request path, so it can't delay or block the app.
 
-    docker/compose/docker-compose.dev.yml's backend already waits ~10s at the shell level for
+    docker/mystic_auth/compose/docker-compose.dev.yml's backend already waits ~10s at the shell level for
     bugsink-seed to write the DSN file before uvicorn starts. That's fine
     for a warm restart, but not a cold boot, where Bugsink's own first-run
     migrations can take 20+ seconds, past that window. Without this,

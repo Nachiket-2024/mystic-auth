@@ -16,7 +16,7 @@ A real sync can hit several things that don't show up in a first-time read of th
 
 Regenerating env files is part of a full sync (fresh secrets, upstream's latest fields), but an agent reading your real `GOOGLE_CLIENT_SECRET`, `GMAIL_APP_PASSWORD`, or `DATABASE_URL` to "carry them forward" puts those values into its context and transcript for no real reason. The prompt routes around this with two scripts, neither of which ever prints a secret value to its own output, only field *names*:
 
-1. The agent **renames** each real env file aside (`env/.env` to `env/.env.bak`, and so on) - never deletes - so nothing is lost.
+1. The agent **renames** each real env file aside (`env/mystic_auth/.env` to `env/mystic_auth/.env.bak`, and so on) - never deletes - so nothing is lost.
 2. The agent runs `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Since the real files no longer exist under their normal names, it generates fresh ones from the current `.example` files, with newly generated secrets and this sync's latest fields.
 3. The agent runs `scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW` (`.ps1`/`.cmd`) for each pair. It copies every field from the old file into the new one, except the handful setup-env just generated fresh (secrets, and the DB URLs that embed them) - reporting only which field *names* it moved, never their values, and flagging any field that existed in the old file but not the new one (upstream may have dropped or renamed it) for you to decide on by hand.
 4. Once you've confirmed the new files are correct, the agent tells you to delete the `.bak` files yourself.

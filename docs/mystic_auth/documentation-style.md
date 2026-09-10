@@ -11,7 +11,9 @@ per page. Not enforced by tooling; kept consistent by review.
 ## Page structure
 
 1. `# Title` on the first line, then a bare `---` divider, then (where the term glossary applies to
-   that topic) an italic `*New to a term here? See the [X Glossary](path/to/glossary.md).*` line.
+   that topic) an italic "New to a term here? See the X Glossary" line, linking the real glossary
+   path for that page (e.g. `../glossary/infrastructure.md`) - see this file's own line 4 above for
+   a real example.
 2. Sections use `## Heading`, each preceded and followed by a bare `---` divider line. A short intro
    paragraph comes before the first section, explaining what the page covers and why it was split out
    from wherever it lives in the doc tree.
@@ -21,6 +23,15 @@ per page. Not enforced by tooling; kept consistent by review.
    `part1.md`/`misc.md`.
 4. Ends with a `## See also` (or equivalent) section linking sibling docs, when the topic connects to
    others readers are likely to want next.
+
+---
+
+## Breaking up long paragraphs
+
+- A paragraph covering more than 3-4 distinct points reads like a wall of text. Split it into a
+  numbered list (steps/order matters) or a bulleted list (independent facts), per the rule below.
+- Keep a short lead-in sentence before the list explaining what it covers, then let the list carry
+  the detail instead of run-on prose.
 
 ---
 

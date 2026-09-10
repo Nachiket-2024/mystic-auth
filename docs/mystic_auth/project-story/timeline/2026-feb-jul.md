@@ -94,13 +94,13 @@
 
 After a 3-month gap, the biggest single change in the project's history: 364 files touched.
 
-1. **RBAC → PBAC.** Authorization decisions moved off a role column onto assigned policies, allowed actions, resources, and optional conditions; roles became descriptive metadata rather than the source of truth for permissions. Not part of the original design: RBAC was built first, before the frontend existed, then replaced for clearer and more granular permissions. Since the RBAC UI wasn't done yet and the backend RBAC work was minimal, switching didn't break much, and it was worth doing early rather than retrofitting later.
-2. Audit logging added.
-3. Security hardening, headers and middleware, and cookie/security handling strengthened.
-4. CI/CD pipelines set up.
-5. Extensive backend and frontend testing added.
-6. Broad documentation written.
-7. Frontend state management redesigned: Redux replaced with Zustand (client state) and TanStack Query (server state).
+- **RBAC → PBAC.** Authorization decisions moved off a role column onto assigned policies, allowed actions, resources, and optional conditions; roles became descriptive metadata rather than the source of truth for permissions. Not part of the original design: RBAC was built first, before the frontend existed, then replaced for clearer and more granular permissions. Since the RBAC UI wasn't done yet and the backend RBAC work was minimal, switching didn't break much, and it was worth doing early rather than retrofitting later.
+- Audit logging added.
+- Security hardening, headers and middleware, and cookie/security handling strengthened.
+- CI/CD pipelines set up.
+- Extensive backend and frontend testing added.
+- Broad documentation written.
+- Frontend state management redesigned: Redux replaced with Zustand (client state) and TanStack Query (server state).
 
 *364 files changed · +27,663/-8,184 lines*
 

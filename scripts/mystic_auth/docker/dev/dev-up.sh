@@ -8,7 +8,7 @@
 # Recommended day-to-day command, see README.md. Use plain `docker compose
 # up` when you want every service's full logs in one stream.
 #
-# Usage: ./scripts/docker/dev/dev-up.sh   (Git Bash or WSL on Windows)
+# Usage: ./scripts/mystic_auth/docker/dev/dev-up.sh   (Git Bash or WSL on Windows)
 # PowerShell: .\scripts\mystic_auth\docker\dev\dev-up.ps1
 # Command Prompt: scripts\mystic_auth\docker\dev\dev-up.cmd
 set -uo pipefail
@@ -16,10 +16,15 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$REPO_ROOT"
 
-# Compose file/env file moved under docker/compose and env/, so every
-# invocation below needs both flags explicitly (Compose's bare-invocation
-# defaults only look in the current directory).
-DC=(docker compose -f docker/compose/docker-compose.dev.yml --env-file env/.env)
+# Compose files/env files live under docker/ and env/, so every invocation
+# below needs the flags explicitly (Compose's bare-invocation defaults only
+# look in the current directory). Two -f/--env-file pairs: mystic_auth (the
+# template) plus app (yours, ships empty).
+DC=(docker compose \
+  -f docker/mystic_auth/compose/docker-compose.dev.yml \
+  -f docker/app/compose/docker-compose.dev.yml \
+  --env-file env/mystic_auth/.env \
+  --env-file env/app/.env)
 
 # frontend has no healthcheck in docker-compose.dev.yml, so "Up" is as
 # ready as it gets. Every other long-running service does have one.
@@ -84,17 +89,17 @@ echo
 
 if [ -n "$failed_service" ]; then
     echo "--- '$failed_service' failed to start ---"
-    echo "Check its logs: docker compose -f docker/compose/docker-compose.dev.yml logs $failed_service"
+    echo "Check its logs: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml logs $failed_service"
     exit 1
 elif [ "$not_ready" -ne 0 ]; then
     echo "--- Timed out after ${TIMEOUT_SECONDS}s waiting for services to become healthy ---"
-    echo "Check whichever service above isn't healthy: docker compose -f docker/compose/docker-compose.dev.yml logs <service>"
+    echo "Check whichever service above isn't healthy: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml logs <service>"
     exit 1
 fi
 
 if [ "${DEV_UP_TAIL:-1}" = "0" ]; then
     echo "Stack is up (DEV_UP_TAIL=0, skipping log tail). Tail manually with:"
-    echo "  docker compose -f docker/compose/docker-compose.dev.yml logs -f backend frontend procrastinate_worker"
+    echo "  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml logs -f backend frontend procrastinate_worker"
     exit 0
 fi
 

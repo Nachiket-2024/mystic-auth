@@ -60,7 +60,7 @@ That's the list of what's new upstream since you last synced (or ever, if this i
 
 ### Step 4: The script copies upstream's changes into your files
 
-This step is fully automatic: you don't type or decide anything here. For almost every file, this just quietly works: your code and upstream's code are kept in separate files/folders by design (see [overview.md](../overview.md#the-app--mystic_auth-split)'s ownership table), so there's usually nothing to fight over. When it's done, one of four things will have happened, checked automatically in this order:
+This step is fully automatic: you don't type or decide anything here. For almost every file, this just quietly works: your code and upstream's code are kept in separate files/folders by design (see [overview.md](../ownership-split.md)'s ownership table), so there's usually nothing to fight over. When it's done, one of four things will have happened, checked automatically in this order:
 
 1. **Something silently failed to apply** (rare): go to [If it reports a silent partial apply](troubleshooting.md#if-it-reports-a-silent-partial-apply).
 2. **It hit what's called a "conflict"**: go to [Step 6](troubleshooting.md#step-6-conflict-resolve-it).

@@ -117,8 +117,13 @@ const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
                     viewport), same fallback as DataTable's own columns.
                     Stats and the buttons stay fully visible outside it.
                     flex="0 1 auto" keeps this block from eating the row's
-                    free space. */}
-                <HStack gap={4} alignSelf="flex-start" flex="0 1 auto" minW={0} overflowX="auto">
+                    free space. overflowY="hidden" alongside overflowX="auto"
+                    is required, not cosmetic: per the CSS overflow spec, one
+                    axis set to a non-visible value makes the browser compute
+                    the other axis as auto too, which otherwise shows a stray
+                    vertical scrollbar even though nothing here overflows
+                    vertically. */}
+                <HStack gap={4} alignSelf="flex-start" flex="0 1 auto" minW={0} overflowX="auto" overflowY="hidden">
                     {/* The avatar itself is the View trigger (opens
                         ProfileDetailsDialog) instead of a separate Eye
                         button in the email row: one obvious click target,

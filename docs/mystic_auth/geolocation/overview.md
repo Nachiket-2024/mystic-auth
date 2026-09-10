@@ -35,30 +35,30 @@ It's gated behind the `geoip` Compose profile, so it never starts (and never res
 
 ---
 
-4. In `env/.env.prod` (or your mode's `env/.env.local-prod-*`, whichever you're running), set `GEOIPUPDATE_ACCOUNT_ID` and `GEOIPUPDATE_LICENSE_KEY` to those two values, and set `GEOIP_DB_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb` (the path `geoipupdate` writes to inside the shared volume).
+4. In `env/mystic_auth/.env.prod` (or your mode's `env/mystic_auth/.env.local-prod-*`, whichever you're running), set `GEOIPUPDATE_ACCOUNT_ID` and `GEOIPUPDATE_LICENSE_KEY` to those two values, and set `GEOIP_DB_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb` (the path `geoipupdate` writes to inside the shared volume).
 
 ---
 
 5. Start (or restart) the stack **with the profile enabled**. This is the step it's easy to miss, since nothing about steps 1-4 warns you it's still required:
 
    ```bash
-   docker compose -f docker/compose/docker-compose.prod.yml --env-file env/.env.prod --profile geoip up -d --build
+   docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --profile geoip up -d --build
    ```
 
-   (swap in your tunnel's `docker-compose.local-prod-*.yml` and matching `env/.env.local-prod-*` for local-prod). Without `--profile geoip`, `geoipupdate` is skipped entirely and `backend` just mounts an empty volume, harmless, same as `GEOIP_DB_PATH` being unset, but silently so: nothing logs a warning that you configured credentials for a service that never started.
+   (swap in your tunnel's `docker-compose.local-prod-*.yml` and matching `env/mystic_auth/.env.local-prod-*` for local-prod). Without `--profile geoip`, `geoipupdate` is skipped entirely and `backend` just mounts an empty volume, harmless, same as `GEOIP_DB_PATH` being unset, but silently so: nothing logs a warning that you configured credentials for a service that never started.
 
 ---
 
 6. `geoipupdate` needs one successful run before the file exists; `backend`'s Location column shows "Unknown" until then, same as any other missing-database state. Check it landed:
 
    ```bash
-   docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok exec geoipupdate ls -la /usr/share/GeoIP/
+   docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok exec geoipupdate ls -la /usr/share/GeoIP/
    ```
 
    and expect a ~60MB `GeoLite2-City.mmdb`. If `backend` was already running when the file appeared, restart it: it only checks for the file at startup, not on every request:
 
    ```bash
-   docker compose -f docker/compose/docker-compose.local-prod-ngrok.yml --env-file env/.env.local-prod-ngrok restart backend
+   docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok restart backend
    ```
 
 See [Docker Overview: services](../docker/overview.md#services) for where `geoipupdate` fits among the rest of the stack, and the deployment walkthroughs ([Prod](../deployment/prod.md), and local-prod's [Quick Tunnel](../deployment/local-prod/cloudflare-quick-tunnel.md), [Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](../deployment/local-prod/ngrok-tunnel.md), [Tailscale Funnel](../deployment/local-prod/tailscale-funnel.md)) for this as a step in context.
@@ -67,7 +67,7 @@ See [Docker Overview: services](../docker/overview.md#services) for where `geoip
 
 ## Enabling it outside Docker
 
-1. Create a MaxMind account and license key the same way as steps 1–3 above.
+1. Create a MaxMind account and license key the same way as steps 1-3 above.
 2. Download `GeoLite2-City.mmdb` yourself (MaxMind's license does not permit redistributing the file itself, so it can't ship in this repo), and set `GEOIP_DB_PATH` to that file's path.
 3. Keep it current yourself. MaxMind publishes updates roughly weekly; run their [`geoipupdate`](https://github.com/maxmind/geoipupdate) CLI tool on a periodic schedule (e.g. a system cron job) rather than the Docker service above.
 

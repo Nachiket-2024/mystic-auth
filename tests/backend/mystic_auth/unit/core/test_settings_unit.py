@@ -95,18 +95,14 @@ def test_trusted_proxy_ips_defaults_to_empty_when_missing(monkeypatch):
 
 
 def test_settings_ignores_env_vars_that_are_not_declared_fields():
-    # Regression guard: the root .env is shared with docker/compose/docker-compose.dev.yml's
+    # Regression guard: env/mystic_auth/.env is shared with docker-compose.dev.yml's
     # `env_file:` directive, which also passes it to infra-only services.
     # REDIS_PASSWORD (redis-server's own auth) and BUGSINK_* (the optional
     # self-hosted error-monitoring service, see
     # docs/mystic_auth/error-monitoring/overview.md) have no corresponding
     # Settings field. pydantic-settings defaults to extra="forbid", which
-    # crashed Settings() construction whenever such a var was present. This
-    # only surfaced when Settings' own env_file resolved to a real file
-    # (true when cwd=/repo, e.g. running tests) rather than the app's own
-    # cwd=/app, where a relative ".env" never resolves to anything, so the
-    # same .env silently worked for the running app while crashing every
-    # test collection. Settings.Config now sets extra="ignore".
+    # crashed Settings() construction whenever such a var was present.
+    # Settings.Config now sets extra="ignore".
     payload = {
         **_ALL_FIELDS,
         "REDIS_PASSWORD": "redis-password",

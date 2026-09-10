@@ -87,8 +87,13 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                     as BulkActionToolbar.tsx on the Users page). overflowX="auto"
                     plus flexShrink={0}/whiteSpace="nowrap" on each trigger turns
                     this into a horizontally scrollable strip instead. -mx/px cancel
-                    out so the strip still lines up with PageContainer's edges. */}
-                <Tabs.List overflowX="auto" flexWrap="nowrap" mx={-4} px={4}>
+                    out so the strip still lines up with PageContainer's edges.
+                    overflowY="hidden" is required alongside overflowX="auto", not
+                    cosmetic: per the CSS overflow spec, setting only one axis to a
+                    non-visible value makes the browser compute the other axis as
+                    auto too, which showed up as a stray vertical scrollbar next to
+                    the tabs even though nothing here overflows vertically. */}
+                <Tabs.List overflowX="auto" overflowY="hidden" flexWrap="nowrap" mx={-4} px={4}>
                     <Tabs.Trigger value="profile" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.profile")}</Tabs.Trigger>
                     <Tabs.Trigger value="password" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.password")}</Tabs.Trigger>
                     <Tabs.Trigger value="status" fontSize="md" flexShrink={0} whiteSpace="nowrap">{t("tabs.status")}</Tabs.Trigger>

@@ -3,17 +3,18 @@
 
 Documentation for this full-stack authentication and PBAC template, organized by feature and runtime ownership. The structure mirrors the code layout under `backend/mystic_auth/<domain>/` and `frontend/src/mystic_auth/<domain>/`.
 
-This is the template's own reference documentation, belonging to upstream and not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/mystic_auth/upstream-sync/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage/overview.md#the-app--mystic_auth-split) for the full reasoning.
+This is the template's own reference documentation, belonging to upstream and not yours to edit. Your own project's docs go in [`docs/app/`](../app/README.md) instead, so they never conflict with a future `scripts/mystic_auth/upstream-sync/sync-upstream.sh` run. See [Using This Repository as a Template: the `app/` + `mystic_auth/` split](template-usage/ownership-split.md) for the full reasoning.
 
 New to a term you see in these docs? Check the [Glossary](glossary/README.md) first.
 
 Read the docs in this order if you are new to the repository:
 
-1. [System Overview](architecture/system-overview.md)
-2. [Authentication Overview](authentication/overview.md)
-3. [Authorization Architecture](authorization/architecture/README.md)
-4. [Deployment Guide](deployment/guide.md)
-5. [Testing Overview](testing/overview.md)
+1. [Quickstart](template-usage/quickstart.md): get it running first, one command, before reading anything else
+2. [System Overview](architecture/system-overview.md)
+3. [Authentication Overview](authentication/overview.md)
+4. [Authorization Architecture](authorization/architecture/README.md)
+5. [Deployment Guide](deployment/guide.md)
+6. [Testing Overview](testing/overview.md)
 
 ---
 
@@ -166,7 +167,11 @@ Read the docs in this order if you are new to the repository:
 
 ## Using This as a Template
 
-- [Template Usage Guide](template-usage/overview.md): for anyone cloning this repo as a starting point for their own auth+PBAC project, covering quickstart, environment configuration, renaming the app, backend customization, OAuth/email setup, adding permissions and protecting routes, replacing the frontend, deployment
+- [Template Usage Guide](template-usage/overview.md): for anyone cloning this repo as a starting point for their own auth+PBAC project, an index into quickstart, the ownership split, building on the template, and deployment
+- [Quickstart](template-usage/quickstart.md): the one-command path from `git clone` to a working login, each step by hand instead, keeping env files honest over time, renaming the app, OAuth/email setup
+- [Command Cheat Sheet](template-usage/cheatsheet.md): one-line "when to run this" for every script in the template, plus the `make` target shortcuts
+- [The `app/` + `mystic_auth/` Split](template-usage/ownership-split.md): the file-ownership tiering table and diagram that keeps a `sync-upstream.sh` run low-conflict
+- [Building On This Template](template-usage/customization.md): new domain/resource, database changes, adding permissions and protecting routes with PBAC, replacing the frontend
 - [Frontend Customization](template-usage/frontend-customization.md): theme, pages, routing, state, and the shared-chrome extension points (nav items, navbar content, command palette search, audit log filters)
 - [Worked Example: Adding a New Domain, End to End](template-usage/worked-example.md): a copy-and-rename starting point, covering model, schema, router, migration, policy, frontend page, route, and nav link, wired together for one fake domain
 - [Staying in Sync with Upstream Template Updates](template-usage/syncing-upstream/README.md): pulling fixes/features from the original template into your own diverged project, step by step, plus a worked conflict-resolution example

@@ -7,21 +7,54 @@ Every environment variable this repository currently ships in `env/*.example`, g
 that reads it and split across four pages so each stays a readable size. Use it with the
 deployment walkthroughs:
 
-1. Dev: copy `env/.env.example` to `env/.env`.
-1. Local-prod Cloudflare: copy `env/.env.local-prod-cloudflare.example` to
-  `env/.env.local-prod-cloudflare`.
-1. Local-prod ngrok: copy `env/.env.local-prod-ngrok.example` to
-  `env/.env.local-prod-ngrok`.
-1. Local-prod Tailscale: copy `env/.env.local-prod-tailscale.example` to
-  `env/.env.local-prod-tailscale`.
-1. Prod: copy `env/.env.prod.example` to `env/.env.prod`.
+1. Dev: copy `env/mystic_auth/.env.example` to `env/mystic_auth/.env`.
+1. Local-prod Cloudflare: copy `env/mystic_auth/.env.local-prod-cloudflare.example` to
+  `env/mystic_auth/.env.local-prod-cloudflare`.
+1. Local-prod ngrok: copy `env/mystic_auth/.env.local-prod-ngrok.example` to
+  `env/mystic_auth/.env.local-prod-ngrok`.
+1. Local-prod Tailscale: copy `env/mystic_auth/.env.local-prod-tailscale.example` to
+  `env/mystic_auth/.env.local-prod-tailscale`.
+1. Prod: copy `env/mystic_auth/.env.prod.example` to `env/mystic_auth/.env.prod`.
 
 `scripts/mystic_auth/env-tools/` has a full set of scripts for all of this: bootstrapping every file at once with fresh generated secrets, keeping a file honest over time, and syncing values from an old file without ever reading its secrets. See [Environment Tooling](tooling.md) for what each one does.
 
-`backend/app/main.py` loads `env/.env` before importing `app.sdk` in dev. In
+`backend/app/main.py` loads `env/mystic_auth/.env` before importing `app.sdk` in dev. In
 local-prod and prod, Compose passes the mode-specific env file into each
 service through `env_file:` and also needs `--env-file` for `${VAR}` build
 argument substitution.
+
+---
+
+## The `mystic_auth` / `app` split
+
+Every `env/*.example` file above actually comes in a pair, following the
+same `mystic_auth`/`app` split used everywhere else in this template (see
+[the tiering table](../template-usage/ownership-split.md)):
+
+- `env/mystic_auth/.env<mode-suffix>` - upstream-owned, every field this
+  template itself defines. A sync merge always applies cleanly here.
+- `env/app/.env<mode-suffix>` - yours, ships empty. Add your own fork's
+  extra variables here; upstream never edits this file again.
+
+Both files feed the same running stack: each Compose service lists both in
+`env_file:` (mystic_auth's, then app's, so an app-declared value wins on
+overlap), and every `docker compose` invocation in this template's own
+scripts passes both as `--env-file` too, for `${VAR}` build-argument
+substitution. `setup-env.sh` bootstraps both from their `.example` files in
+one pass; `check-env.sh` and `set-env-field.sh` check/touch both by default.
+See [Docker: Compose Modes](../docker/compose-modes.md#two-files-per-mode-mystic_auth--app)
+for the Compose side of this.
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    MA["env/mystic_auth/.env<mode>\nupstream-owned"]
+    APP["env/app/.env<mode>\nyours, ships empty"]
+    SVC["Compose service\nenv_file: [MA, APP]"]
+    MA --> SVC
+    APP --> SVC
+    linkStyle default stroke:#334155,stroke-width:2px
+```
 
 ---
 
@@ -65,7 +98,7 @@ argument substitution.
   [Redis authentication](../security/hardening-infra.md#redis-authentication).
 1. `tests/backend/mystic_auth/unit/core/test_env_examples_parity_unit.py`
   checks every required `Settings` field against each backend-consuming
-  `env/.env*.example` file, so a field that's required but missing from a
+  `env/mystic_auth/.env*.example` file, so a field that's required but missing from a
   shipped example (or the reverse: given a default it no longer needs)
   fails CI instead of surfacing later as a runtime crash for whoever
   deploys that mode first.

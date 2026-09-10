@@ -9,7 +9,7 @@
 # catches this at deploy time ("Multiple head revisions are present"); this
 # catches it right after a sync instead.
 #
-# Usage: scripts/upstream-sync/check-alembic-heads.sh
+# Usage: scripts/mystic_auth/upstream-sync/check-alembic-heads.sh
 # Exit 0: single head (or no migrations yet). Exit 1: 2+ heads, details printed.
 set -euo pipefail
 

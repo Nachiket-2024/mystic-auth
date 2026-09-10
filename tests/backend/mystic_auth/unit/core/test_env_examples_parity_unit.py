@@ -2,11 +2,12 @@
 #
 # Regression guard for the class of bug found in TRUSTED_PROXY_IPS: a
 # Settings field with no default silently required a value in every env
-# file, including env/.env.*.example files that never actually shipped one
-# and services (alembic, procrastinate_worker) that never needed it. This
-# only ever surfaced as a runtime crash for whoever hit it first. Comparing
-# Settings' own required fields against what each shipped .env.*.example
-# actually declares catches that mismatch at test time instead.
+# file, including env/mystic_auth/.env*.example files that never actually
+# shipped one and services (alembic, procrastinate_worker) that never
+# needed it. This only ever surfaced as a runtime crash for whoever hit it
+# first. Comparing Settings' own required fields against what each shipped
+# .env*.example actually declares catches that mismatch at test time
+# instead.
 from pathlib import Path
 
 import pytest
@@ -16,14 +17,13 @@ from backend.mystic_auth.core.settings import Settings
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 
 # frontend/.env.example is VITE_*-only and never read by Settings, so it's
-# excluded here on purpose.
-_BACKEND_ENV_EXAMPLES = [
-    "env/.env.example",
-    "env/.env.prod.example",
-    "env/.env.local-prod-cloudflare.example",
-    "env/.env.local-prod-ngrok.example",
-    "env/.env.local-prod-tailscale.example",
-]
+# excluded here on purpose. env/app/ ships empty by design, so it's
+# excluded too - this checks each mystic_auth file is complete on its own.
+# Globbed rather than a fixed list, so a fork's own new mode is checked too.
+_BACKEND_ENV_EXAMPLES = sorted(
+    str(p.relative_to(_REPO_ROOT))
+    for p in (_REPO_ROOT / "env" / "mystic_auth").glob(".env*.example")
+)
 
 
 def _declared_keys(example_path: Path) -> set[str]:

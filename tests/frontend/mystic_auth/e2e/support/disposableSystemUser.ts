@@ -2,7 +2,13 @@ import { execFileSync } from "node:child_process";
 
 export const SEEDED_PASSWORD = "PlaywrightPass123!";
 
-const composeArgs = ["compose", "--env-file", "env/.env", "-f", "docker/compose/docker-compose.dev.yml"];
+const composeArgs = [
+  "compose",
+  "-f", "docker/mystic_auth/compose/docker-compose.dev.yml",
+  "-f", "docker/app/compose/docker-compose.dev.yml",
+  "--env-file", "env/mystic_auth/.env",
+  "--env-file", "env/app/.env",
+];
 
 export function seededSystemEmail(projectName: string) {
   const suffix = projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "default";

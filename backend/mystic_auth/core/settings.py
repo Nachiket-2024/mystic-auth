@@ -1,5 +1,12 @@
+from pathlib import Path
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Absolute, not relative to whatever the process's CWD happens to be (a
+# relative path here breaks the moment something runs alembic/pytest with
+# cwd=backend/ instead of the repo root).
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
@@ -70,11 +77,19 @@ class Settings(BaseSettings):
 
     USER_EXPORT_MAX_ROWS: int                       # Hard ceiling on GET /users/export's row count (that endpoint has no offset/limit). A request matching more rows is rejected instead of loaded into memory in one query
 
-    # env/.env is also passed by docker-compose to infra-only services
-    # (REDIS_PASSWORD, BUGSINK_*, etc.) that have no matching Settings
-    # field. extra="ignore" lets those pass through instead of pydantic
-    # rejecting them as undeclared.
-    model_config = SettingsConfigDict(env_file="env/.env", env_file_encoding="utf-8", extra="ignore")
+    # For running the backend locally instead of in Docker (Docker itself
+    # injects these via docker-compose's --env-file, not this fallback).
+    # Both files are read in order so an env/app/ value wins on overlap,
+    # matching every docker-compose invocation in this template's own
+    # scripts (see docs/mystic_auth/template-usage/ownership-split.md).
+    # Also picks up infra-only vars (REDIS_PASSWORD, BUGSINK_*, etc.) that
+    # have no matching Settings field below; extra="ignore" lets those pass
+    # through instead of pydantic rejecting them as undeclared.
+    model_config = SettingsConfigDict(
+        env_file=(_REPO_ROOT / "env" / "mystic_auth" / ".env", _REPO_ROOT / "env" / "app" / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     @field_validator("SECRET_KEY")
     @classmethod

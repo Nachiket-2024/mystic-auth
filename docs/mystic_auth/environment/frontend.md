@@ -5,7 +5,7 @@
 
 These are read through `import.meta.env` in the browser code. In production
 style Docker modes they are baked into the static bundle during
-`docker/dockerfiles/frontend.Dockerfile`'s `builder` stage. Changing one means
+`docker/mystic_auth/dockerfiles/frontend.Dockerfile`'s `builder` stage. Changing one means
 rebuilding the frontend image.
 
 | Variable | Reader | Actual use |

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Bootstraps every env/.env* file (plus frontend/.env) from its .example,
+# Bootstraps every env/mystic_auth/.env* and env/app/.env* file (plus
+# frontend/.env) from its .example,
 # generating a distinct random value for every secret/password field and
-# applying one app name / brand color across all of them. Never touches a
-# file that already exists - safe to re-run after filling in your own
-# per-mode fields (OAuth, SMTP, domain, tunnel tokens) by hand.
+# applying one app name / brand color across all of them, plus Google
+# OAuth / Gmail sending credentials if you answer those two optional
+# prompts. Never touches a file that already exists - safe to re-run
+# after filling in your own per-mode fields (domain, tunnel tokens) by
+# hand.
 #
 # See docs/mystic_auth/template-usage/overview.md for what's still yours to
 # fill in after this runs.
@@ -25,26 +28,47 @@ sed_inplace() {
   # Portable `sed -i` across GNU and BSD sed, via a temp file rather than
   # `-i.bak`: that flag's fixed ".bak" suffix would collide with (and
   # delete) a same-named backup a caller made on purpose, e.g. the
-  # env/.env.bak convention scripts/env-tools/copy-env-values/ expects.
+  # env/mystic_auth/.env.bak convention scripts/mystic_auth/env-tools/copy-env-values/ expects.
   local tmp
   tmp="$(mktemp)"
   sed "$1" "$2" > "$tmp" && mv "$tmp" "$2"
 }
 
-read -rp "App name [MysticAuth]: " APP_NAME_INPUT
+read -rp "App name [MysticAuth]: " APP_NAME_INPUT || true
 APP_NAME_INPUT="${APP_NAME_INPUT:-MysticAuth}"
-read -rp "Brand color hex [#d97706]: " BRAND_COLOR_INPUT
+read -rp "Brand color hex [#d97706]: " BRAND_COLOR_INPUT || true
 BRAND_COLOR_INPUT="${BRAND_COLOR_INPUT:-#d97706}"
 
-# src:dst pairs. Order doesn't matter; each is handled independently.
-PAIRS=(
-  "env/.env.example:env/.env"
-  "env/.env.prod.example:env/.env.prod"
-  "env/.env.local-prod-cloudflare.example:env/.env.local-prod-cloudflare"
-  "env/.env.local-prod-ngrok.example:env/.env.local-prod-ngrok"
-  "env/.env.local-prod-tailscale.example:env/.env.local-prod-tailscale"
-  "frontend/.env.example:frontend/.env"
-)
+# Optional: the two things nothing else in this script can generate for
+# you. Skippable (default No) since it's fine to fill these in later by
+# hand, or never, if you don't need Google login/outgoing email locally -
+# see docs/mystic_auth/template-usage/quickstart.md.
+GOOGLE_CLIENT_ID_INPUT=""
+GOOGLE_CLIENT_SECRET_INPUT=""
+read -rp "Set up Google OAuth now? [y/N]: " SETUP_OAUTH || true
+if [[ "$SETUP_OAUTH" =~ ^[Yy] ]]; then
+  read -rp "  GOOGLE_CLIENT_ID: " GOOGLE_CLIENT_ID_INPUT || true
+  read -rp "  GOOGLE_CLIENT_SECRET: " GOOGLE_CLIENT_SECRET_INPUT || true
+fi
+
+FROM_EMAIL_INPUT=""
+GMAIL_APP_PASSWORD_INPUT=""
+read -rp "Set up email sending now (Gmail)? [y/N]: " SETUP_EMAIL || true
+if [[ "$SETUP_EMAIL" =~ ^[Yy] ]]; then
+  read -rp "  FROM_EMAIL (Gmail address): " FROM_EMAIL_INPUT || true
+  read -rp "  GMAIL_APP_PASSWORD (from https://myaccount.google.com/apppasswords): " GMAIL_APP_PASSWORD_INPUT || true
+fi
+
+# src:dst pairs, auto-discovered by globbing every env/{mystic_auth,app}/.env*.example
+# rather than a fixed list, so a fork's own new mode (e.g. a hand-added
+# env/app/.env.staging.example) gets bootstrapped too, with no edit to this
+# upstream-owned script ever required.
+PAIRS=()
+for src in env/mystic_auth/.env*.example env/app/.env*.example; do
+  [ -f "$src" ] || continue
+  PAIRS+=("$src:${src%.example}")
+done
+PAIRS+=("frontend/.env.example:frontend/.env")
 
 STILL_NEEDED=()
 
@@ -66,6 +90,22 @@ for pair in "${PAIRS[@]}"; do
   sed_inplace "s|^BRAND_COLOR=.*|BRAND_COLOR=${BRAND_COLOR_INPUT}|" "$dst"
   sed_inplace "s|^VITE_APP_NAME=.*|VITE_APP_NAME=${APP_NAME_INPUT}|" "$dst"
   sed_inplace "s|^VITE_BRAND_COLOR=.*|VITE_BRAND_COLOR=${BRAND_COLOR_INPUT}|" "$dst"
+
+  # Only if you answered the OAuth/email prompts above - never overwrites
+  # with a blank, so an unanswered prompt leaves the shipped placeholder
+  # in place for you to fill in by hand later.
+  if [ -n "$GOOGLE_CLIENT_ID_INPUT" ] && grep -q '^GOOGLE_CLIENT_ID=' "$dst"; then
+    sed_inplace "s|^GOOGLE_CLIENT_ID=.*|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID_INPUT}|" "$dst"
+  fi
+  if [ -n "$GOOGLE_CLIENT_SECRET_INPUT" ] && grep -q '^GOOGLE_CLIENT_SECRET=' "$dst"; then
+    sed_inplace "s|^GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET_INPUT}|" "$dst"
+  fi
+  if [ -n "$FROM_EMAIL_INPUT" ] && grep -q '^FROM_EMAIL=' "$dst"; then
+    sed_inplace "s|^FROM_EMAIL=.*|FROM_EMAIL=${FROM_EMAIL_INPUT}|" "$dst"
+  fi
+  if [ -n "$GMAIL_APP_PASSWORD_INPUT" ] && grep -q '^GMAIL_APP_PASSWORD=' "$dst"; then
+    sed_inplace "s|^GMAIL_APP_PASSWORD=.*|GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD_INPUT}|" "$dst"
+  fi
 
   # Distinct generated secrets, only for fields that ship a shared
   # "change_me_in_production..." placeholder. Each variable and each file

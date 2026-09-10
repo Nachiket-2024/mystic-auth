@@ -27,7 +27,7 @@ troubleshooting.
 | Setup time | Under a minute | 5-15 minutes, plus domain DNS if new | 5-10 minutes | 5-15 minutes, plus certificate/DNS registration |
 | URL stability | Random, changes every restart | Stable | Stable | Stable |
 | Compose file | `docker-compose.local-prod-cloudflare.yml` | Same, command swapped | `docker-compose.local-prod-ngrok.yml` | `docker-compose.local-prod-tailscale.yml` |
-| Env file | `env/.env.local-prod-cloudflare` | `env/.env.local-prod-cloudflare` | `env/.env.local-prod-ngrok` | `env/.env.local-prod-tailscale` |
+| Env file | `env/mystic_auth/.env.local-prod-cloudflare` | `env/mystic_auth/.env.local-prod-cloudflare` | `env/mystic_auth/.env.local-prod-ngrok` | `env/mystic_auth/.env.local-prod-tailscale` |
 | Helper script | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Same | `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh` | `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh` |
 | Walkthrough | [Quick Tunnel](cloudflare-quick-tunnel.md) | [Named Tunnel](cloudflare-named-tunnel.md) | [ngrok Tunnel](ngrok-tunnel.md) | [Tailscale Funnel](tailscale-funnel.md) |
 
@@ -84,12 +84,12 @@ Deployment Guide.
 
 | File | Purpose |
 |---|---|
-| `docker/compose/docker-compose.local-prod-cloudflare.yml` | Production-shaped stack exposed by Cloudflare Quick Tunnel by default. The same file can run Cloudflare Named Tunnel after changing the `cloudflared` command. |
-| `docker/compose/docker-compose.local-prod-ngrok.yml` | Production-shaped stack exposed by the `ngrok` service and `NGROK_DOMAIN`. |
-| `docker/compose/docker-compose.local-prod-tailscale.yml` | Production-shaped stack exposed by the `tailscale` service and `docker/tailscale-serve-config.json`. |
-| `env/.env.local-prod-cloudflare.example` | Cloudflare local-prod environment template. |
-| `env/.env.local-prod-ngrok.example` | ngrok local-prod environment template. |
-| `env/.env.local-prod-tailscale.example` | Tailscale local-prod environment template. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` | Production-shaped stack exposed by Cloudflare Quick Tunnel by default. The same file can run Cloudflare Named Tunnel after changing the `cloudflared` command. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml` | Production-shaped stack exposed by the `ngrok` service and `NGROK_DOMAIN`. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` | Production-shaped stack exposed by the `tailscale` service and `docker/tailscale-serve-config.json`. |
+| `env/mystic_auth/.env.local-prod-cloudflare.example` | Cloudflare local-prod environment template. |
+| `env/mystic_auth/.env.local-prod-ngrok.example` | ngrok local-prod environment template. |
+| `env/mystic_auth/.env.local-prod-tailscale.example` | Tailscale local-prod environment template. |
 | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Cloudflare env file. |
 | `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the ngrok env file. |
 | `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Tailscale env file. |
@@ -105,9 +105,9 @@ in at once without one overwriting another:
 
 | Tunnel | Copy this file | To this file |
 |---|---|---|
-| Cloudflare | `env/.env.local-prod-cloudflare.example` | `env/.env.local-prod-cloudflare` |
-| ngrok | `env/.env.local-prod-ngrok.example` | `env/.env.local-prod-ngrok` |
-| Tailscale | `env/.env.local-prod-tailscale.example` | `env/.env.local-prod-tailscale` |
+| Cloudflare | `env/mystic_auth/.env.local-prod-cloudflare.example` | `env/mystic_auth/.env.local-prod-cloudflare` |
+| ngrok | `env/mystic_auth/.env.local-prod-ngrok.example` | `env/mystic_auth/.env.local-prod-ngrok` |
+| Tailscale | `env/mystic_auth/.env.local-prod-tailscale.example` | `env/mystic_auth/.env.local-prod-tailscale` |
 
 `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) does all of these copies
 (plus dev and prod) in one pass, generating a distinct random secret per
@@ -153,7 +153,7 @@ source vars) in your chosen tunnel's env file before `--build`, not after.
 Always run Compose with `--env-file` pointed at that same file (or the
 matching `scripts/mystic_auth/docker/local-prod-*/local-prod-*-up.sh` / `.ps1` / `.cmd`
 helper, which does this for you) - without it, `${VAR}` build-arg
-substitution silently falls back to whatever's in `env/.env` instead. See
+substitution silently falls back to whatever's in `env/mystic_auth/.env` instead. See
 [Deployment Guide: required production environment variables](../environment.md#5-required-production-review)
 for the full explanation of each.
 
@@ -179,16 +179,16 @@ for example on your own server.
 
 ## Running more than one tunnel variant at once
 
-Each of the three Compose files sets its own `name:` (`COMPOSE_PROJECT_NAME`),
-network subnet (`DOCKER_SUBNET`: `172.28.0.0/24` Cloudflare, `172.30.0.0/24`
-ngrok, `172.31.0.0/24` Tailscale by default), and host port range
-(`*_HOST_PORT`: backend/frontend 8001/8080 Cloudflare, 8101/8180 ngrok,
-8201/8280 Tailscale by default), so all three - plus dev and prod - can run
-on the same Docker host at once with zero container, network, volume, or
-port collision. Useful for comparing tunnel options side by side, or just
-because a stray container from one variant is still up while you start
-another. These are all env vars with no built-in fallback, set in each
-`env/.env*.example` - see
+Each of the three Compose files sets its own:
+
+- `name:` (`COMPOSE_PROJECT_NAME`)
+- network subnet (`DOCKER_SUBNET`: `172.28.0.0/24` Cloudflare, `172.30.0.0/24` ngrok, `172.31.0.0/24` Tailscale by default)
+- host port range (`*_HOST_PORT`: backend/frontend 8001/8080 Cloudflare, 8101/8180 ngrok, 8201/8280 Tailscale by default)
+
+so all three - plus dev and prod - can run on the same Docker host at once with zero container,
+network, volume, or port collision. Useful for comparing tunnel options side by side, or just
+because a stray container from one variant is still up while you start another. These are all
+env vars with no built-in fallback, set in each `env/mystic_auth/.env*.example` - see
 [Docker: Compose Modes](../../docker/compose-modes.md#two-forks-of-this-template-collide-with-each-other-too)
 for why.
 

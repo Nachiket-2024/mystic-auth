@@ -2,7 +2,10 @@
 # Copies every KEY=VALUE from OLD_FILE into NEW_FILE, for keys present in
 # both, skipping a fixed list of fields setup-env.sh generates fresh
 # (secrets, plus the DB URLs that embed them) and the app name/brand color
-# it just prompted for.
+# it just prompted for. Also skips any field you listed in
+# scripts/app/env-tools/rotate-secrets/fields.env, since a field safe to
+# rotate by editing the file is exactly a field that shouldn't be copied
+# forward from an old one either - see that file's own header.
 #
 # Never prints a value, only key names: every line this script writes to
 # stdout is safe to appear in an AI coding agent's own tool output/context,
@@ -12,7 +15,7 @@
 # into a freshly regenerated one without an agent ever reading them - see
 # docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md.
 #
-# Usage: scripts/env-tools/copy-env-values/copy-env-values.sh OLD_FILE NEW_FILE
+# Usage: scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD_FILE NEW_FILE
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/../../../.."
@@ -41,6 +44,17 @@ EXCLUDED_KEYS=(
   VITE_APP_NAME
   VITE_BRAND_COLOR
 )
+
+APP_FIELDS_FILE="scripts/app/env-tools/rotate-secrets/fields.env"
+if [ -f "$APP_FIELDS_FILE" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue ;;
+    esac
+    [[ "$line" == *=* ]] || continue
+    EXCLUDED_KEYS+=("${line%%=*}")
+  done < "$APP_FIELDS_FILE"
+fi
 
 is_excluded() {
   local k="$1"

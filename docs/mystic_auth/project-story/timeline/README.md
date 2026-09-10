@@ -19,11 +19,11 @@ Each entry below follows the same convention:
   numbering is split across five pages (see [Pages](#pages) below) purely to keep each file a
   readable size; it isn't a second, competing grouping.
 - Opens with that commit's actual message in quotes.
-- Then a bulleted (or numbered, for a longer commit with a natural sequence) list of what it
-  actually did, checked against the real diff (`git show --stat` plus a real read of the changed
-  files), not just the commit message: a terse or incomplete commit message doesn't excuse a terse
-  or incomplete entry. Every entry stays bulleted rather than mixing in prose paragraphs, so the
-  format stays uniform across a one-line fix and a 591-file rewrite alike.
+- Then a bulleted list of what it actually did, checked against the real diff (`git show --stat`
+  plus a real read of the changed files), not just the commit message: a terse or incomplete
+  commit message doesn't excuse a terse or incomplete entry. Always `-` bullets, never numbered
+  (the points are parallel facts about the commit, not ordered steps) and never prose paragraphs,
+  so the format stays uniform across a one-line fix and a 591-file rewrite alike.
 - Closes with its exact files-changed count (and, once the commit actually exists, its
   lines-changed count too) from `git show --shortstat`: a short entry is a small commit, a long one
   is a large or architecturally significant commit, not an editorial choice about how interesting
@@ -67,6 +67,7 @@ timeline
                    : Live security audit, Alpine base image, login-lockout race fix
                    : Fixed i18n namespace mutation, multi-fork Docker collision avoidance
                    : Env-file bootstrap/sync tooling, AI agent setup prompts
+                   : docker/env split into app/mystic_auth, Makefile
 ```
 
 ---
@@ -77,7 +78,7 @@ timeline
 - [September-October 2025](2025-sep-oct.md): commits 17-36, 1 September, 2025 to 14 October, 2025.
 - [February-July 2026](2026-feb-jul.md): commits 37-53, 21 February, 2026 to 29 July, 2026.
 - [August 2026](2026-aug.md): commits 54-69, 2 August, 2026 to 29 August, 2026.
-- [September 2026](2026-sep.md): commits 70-74, 4 September, 2026 to 6 September, 2026.
+- [September 2026](2026-sep.md): commits 70-75, 4 September, 2026 to 11 September, 2026.
 
 ---
 

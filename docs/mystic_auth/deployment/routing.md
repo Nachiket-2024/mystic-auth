@@ -10,7 +10,17 @@ Production-shaped deployments use a single public origin by default. The fronten
 ## 1. Same-origin API proxy
 ---
 
-`docker/nginx.frontend.conf` forwards these prefixes to `backend:8000`:
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Browser["Browser request"] --> Nginx["nginx\n (frontend container)"]
+    Nginx --> Check{"Path starts with\n /auth, /audit, /users,\n /authorization, /health,\n or /rate-limits?"}
+    Check -->|"Yes"| Backend["Proxy to backend:8000"]
+    Check -->|"No"| Static["Serve static SPA build\n (index.html for unknown paths)"]
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+`docker/mystic_auth/nginx.frontend.conf` forwards these prefixes to `backend:8000`:
 
 1. `/auth`
 2. `/audit`
@@ -26,7 +36,7 @@ This works when `VITE_API_BASE_URL` is empty. The browser calls the same origin 
 ## 2. Trusted proxy IPs
 ---
 
-Each production-shaped Compose file pins frontend and tunnel proxy containers to fixed addresses (`FRONTEND_STATIC_IP` and a tunnel-specific `*_STATIC_IP` var, both set in the matching `env/.env*` file) so the backend can safely trust `X-Forwarded-For` from those hops. Each compose file derives `TRUSTED_PROXY_IPS` for the backend service directly from those same two vars, rather than setting it independently in the env file, so it can never drift out of sync with the actual pinned addresses.
+Each production-shaped Compose file pins frontend and tunnel proxy containers to fixed addresses (`FRONTEND_STATIC_IP` and a tunnel-specific `*_STATIC_IP` var, both set in the matching `env/mystic_auth/.env*` file) so the backend can safely trust `X-Forwarded-For` from those hops. Each compose file derives `TRUSTED_PROXY_IPS` for the backend service directly from those same two vars, rather than setting it independently in the env file, so it can never drift out of sync with the actual pinned addresses.
 
 | Compose file | Frontend IP var | Tunnel/proxy IP var |
 |---|---|---|
@@ -35,7 +45,7 @@ Each production-shaped Compose file pins frontend and tunnel proxy containers to
 | `docker-compose.local-prod-tailscale.yml` | `FRONTEND_STATIC_IP` | `TAILSCALE_STATIC_IP` |
 | `docker-compose.prod.yml` | `FRONTEND_STATIC_IP` | `CADDY_STATIC_IP` |
 
-Both vars must stay inside that file's `DOCKER_SUBNET`. See [Docker: Compose Modes](../docker/compose-modes.md#two-forks-of-this-template-collide-with-each-other-too) for why these are env vars rather than hardcoded, and each `env/.env*.example` for the actual default addresses.
+Both vars must stay inside that file's `DOCKER_SUBNET`. See [Docker: Compose Modes](../docker/compose-modes.md#two-forks-of-this-template-collide-with-each-other-too) for why these are env vars rather than hardcoded, and each `env/mystic_auth/.env*.example` for the actual default addresses.
 
 `proxy_add_x_forwarded_for` appends instead of overwriting, preserving the client IP chain.
 
@@ -48,7 +58,7 @@ The SPA and API share one origin, so a top-level SPA route can collide with an A
 
 Client-side navigation does not hit nginx, but hard refreshes and bookmarks do. Without exact-match overrides, nginx can return backend JSON instead of `index.html`.
 
-`docker/nginx.frontend.conf` fixes those two collisions with exact-match locations:
+`docker/mystic_auth/nginx.frontend.conf` fixes those two collisions with exact-match locations:
 
 ```nginx
 location = /users {
