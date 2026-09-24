@@ -1,0 +1,4 @@
+# Keep source and test files normalized across editors and operating systems.
+*.py   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf

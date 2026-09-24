@@ -1,11 +1,9 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 
-import ConfirmDialog from "../../ui/ConfirmDialog";
+import ConfirmDialog from "../../ui/feedback/ConfirmDialog";
 import type { ManagedUserRead } from "../../api/users_api";
-import UserPoliciesDialog from "./UserPoliciesDialog";
-import UserPermissionsDialog from "./UserPermissionsDialog";
-import UserDetailsDialog from "./UserDetailsDialog";
+import UserAccessDialog from "./UserAccessDialog";
 import { capitalize } from "../usersColumns";
 
 interface PendingRoleChange {
@@ -14,12 +12,9 @@ interface PendingRoleChange {
 }
 
 interface UsersPageDialogsProps {
-    policiesUser: ManagedUserRead | null;
-    onClosePolicies: () => void;
-    permissionsUser: ManagedUserRead | null;
-    onClosePermissions: () => void;
-    viewingUser: ManagedUserRead | null;
-    onCloseView: () => void;
+    accessUser: ManagedUserRead | null;
+    accessTab: "details" | "policies" | "permissions";
+    onCloseAccess: () => void;
     deletingUser: ManagedUserRead | null;
     isDeletePending: boolean;
     onConfirmDelete: () => void;
@@ -39,12 +34,9 @@ interface UsersPageDialogsProps {
  * UsersPage.tsx, which still owns all the state (which user, which
  * mutation) - this component just renders it. */
 const UsersPageDialogs: React.FC<UsersPageDialogsProps> = ({
-    policiesUser,
-    onClosePolicies,
-    permissionsUser,
-    onClosePermissions,
-    viewingUser,
-    onCloseView,
+    accessUser,
+    accessTab,
+    onCloseAccess,
     deletingUser,
     isDeletePending,
     onConfirmDelete,
@@ -62,27 +54,19 @@ const UsersPageDialogs: React.FC<UsersPageDialogsProps> = ({
 
     return (
         <>
-            <UserPoliciesDialog
-                isOpen={!!policiesUser}
-                userEmail={policiesUser?.email ?? null}
-                isSystemUser={policiesUser?.role === "system"}
-                onClose={onClosePolicies}
+            <UserAccessDialog
+                isOpen={!!accessUser}
+                user={accessUser}
+                initialTab={accessTab}
+                isSystemUser={accessUser?.role === "system"}
+                onClose={onCloseAccess}
             />
-
-            <UserPermissionsDialog
-                isOpen={!!permissionsUser}
-                userEmail={permissionsUser?.email ?? null}
-                isSystemUser={permissionsUser?.role === "system"}
-                onClose={onClosePermissions}
-            />
-
-            <UserDetailsDialog isOpen={!!viewingUser} user={viewingUser} onClose={onCloseView} />
 
             <ConfirmDialog
                 isOpen={!!deletingUser}
-                title={t("users:page.deleteDialogTitle")}
-                description={t("users:page.deleteDialogDescription", { email: deletingUser?.email })}
-                confirmLabel={t("ui_text:delete")}
+                title={t("users:page.deactivateDialogTitle")}
+                description={t("users:page.deactivateDialogDescription", { email: deletingUser?.email })}
+                confirmLabel={t("users:columns.deactivate")}
                 isLoading={isDeletePending}
                 onConfirm={onConfirmDelete}
                 onCancel={onCancelDelete}
@@ -90,9 +74,9 @@ const UsersPageDialogs: React.FC<UsersPageDialogsProps> = ({
 
             <ConfirmDialog
                 isOpen={!!purgingUser}
-                title={t("users:page.purgeDialogTitle")}
-                description={t("users:page.purgeDialogDescription", { email: purgingUser?.email })}
-                confirmLabel={t("users:page.purgeConfirmLabel")}
+                title={t("users:page.deleteDialogTitle")}
+                description={t("users:page.deleteDialogDescription", { email: purgingUser?.email })}
+                confirmLabel={t("ui_text:delete")}
                 isLoading={isPurgePending}
                 onConfirm={onConfirmPurge}
                 onCancel={onCancelPurge}

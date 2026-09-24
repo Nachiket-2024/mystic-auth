@@ -1,5 +1,4 @@
 import React from "react";
-import { HStack, Heading, Image } from "@chakra-ui/react";
 
 import { APP_LOGO_URL, APP_NAME } from "../../core/settings";
 import { useAppearanceStore } from "../../store/appearanceStore";
@@ -12,8 +11,8 @@ interface LogoProps {
 }
 
 const SIZES = {
-    sm: { badge: "8", icon: 18, radius: "md", text: "xl" },
-    md: { badge: "11", icon: 22, radius: "lg", text: "2xl" },
+    sm: { badgeHeight: "h-8", badge: "w-8 h-8", icon: 18, text: "text-xl" },
+    md: { badgeHeight: "h-11", badge: "w-11 h-11", icon: 22, text: "text-2xl" },
 } as const;
 
 /**
@@ -29,23 +28,25 @@ const Logo: React.FC<LogoProps> = ({ size = "md" }) => {
     const brandColor = useAppearanceStore((state) => state.brandColor);
 
     if (APP_LOGO_URL) {
-        return <Image src={APP_LOGO_URL} alt={APP_NAME} h={s.badge} />;
+        // Height only (matches the original h={s.badge}, not boxSize): a
+        // custom logo's own width should follow its natural aspect ratio,
+        // not get forced square like the generated icon badge below.
+        return <img src={APP_LOGO_URL} alt={APP_NAME} className={s.badgeHeight} />;
     }
 
     return (
-        // justify="center": self-centers regardless of whether the parent
-        // stretches to full width, so callers don't need align="center".
-        <HStack gap={size === "sm" ? 2 : 3} justify="center">
-            <Image
+        // justify-center: self-centers regardless of whether the parent
+        // stretches to full width, so callers don't need items-center.
+        <div className={`flex items-center justify-center ${size === "sm" ? "gap-2" : "gap-3"}`}>
+            <img
                 src={brandColor ? getBrandIconDataUri(brandColor) : "/favicon.svg"}
                 alt=""
-                boxSize={s.badge}
-                flexShrink={0}
+                className={`shrink-0 ${s.badge}`}
             />
-            <Heading as="span" fontSize={s.text} fontWeight="bold" color="brand.fg" letterSpacing="tight">
+            <span className={`${s.text} font-bold text-brand-fg tracking-tight`}>
                 {APP_NAME}
-            </Heading>
-        </HStack>
+            </span>
+        </div>
     );
 };
 

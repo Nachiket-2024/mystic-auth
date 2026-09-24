@@ -1,8 +1,8 @@
 # tests/backend/mystic_auth/integration/audit_log/test_audit_log_automatic_logging_integration.py
 #
 # End-to-end coverage for the persistent authorization audit log
-# (authorization/models/audit_log_model.py, .../repositories/audit_log_repository.py)
-# against the real ASGI app, real PostgreSQL, and real Redis. PBAC audit
+# (authorization/models/authorization_audit_log_model.py, .../repositories/authorization_audit_log_repository.py)
+# against the real ASGI app, real PostgreSQL, and real Valkey. PBAC audit
 # logging requirement #1, "authorization decisions must be auditable":
 # every real authorize()/require() call must write a row automatically,
 # with no route needing to opt in.
@@ -110,7 +110,7 @@ async def test_inspection_endpoint_does_not_pollute_the_audit_log(client, create
 
     check_resp = await client.post(
         f"/authorization/users/{target_email}/authorization-check",
-        json={"action": "users:purge", "resource_type": "users"},
+        json={"action": "users:delete_any", "resource_type": "users"},
     )
     assert check_resp.status_code == 200
 
@@ -122,4 +122,4 @@ async def test_inspection_endpoint_does_not_pollute_the_audit_log(client, create
     assert log_resp.status_code == 200
     entries = log_resp.json()
 
-    assert all(e["action"] != "users:purge" for e in entries)
+    assert all(e["action"] != "users:delete_any" for e in entries)

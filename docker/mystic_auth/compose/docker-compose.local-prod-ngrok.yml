@@ -76,13 +76,13 @@ services:
           cpus: "2"
           memory: 2G
 
-  redis:
-    image: redis:7
+  valkey:
+    image: valkey/valkey:9.1.2-alpine
     restart: unless-stopped
-    # REDIS_PASSWORD should always be set in production.
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-}"]
+    # VALKEY_PASSWORD should always be set in production.
+    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:-}"]
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:-}\" --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -128,7 +128,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
       alembic:
         condition: service_completed_successfully   # don't serve traffic on an unmigrated schema

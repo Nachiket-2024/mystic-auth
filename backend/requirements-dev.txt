@@ -2,7 +2,7 @@
 # not this file. This file is installed on top of it for the Dockerfile's
 # `test` stage (used only by docker-full-suite in CI) and for local dev.
 # Config for ruff/mypy/bandit lives in backend/pyproject.toml.
-ruff==0.16.5
+ruff==0.16.8
 mypy==2.3.1
 bandit==1.9.4
 

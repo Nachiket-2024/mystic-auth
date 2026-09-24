@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -22,9 +21,7 @@ function renderWithProviders(ui: ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>{ui}</MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -48,13 +45,13 @@ describe('LoginPage stays on the login form throughout a login attempt', () => {
 
     renderWithProviders(<LoginPage />);
 
-    await userEvent.type(screen.getByPlaceholderText('Email'), 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('Password'), 'StrongPass123!');
-    await userEvent.click(screen.getByRole('button', { name: 'Login' }));
+    await userEvent.type(screen.getByLabelText('Email'), 'user@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), 'StrongPass123!');
+    await userEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
     // Mid-flight: inputs must still be in the DOM, not replaced by a spinner.
-    expect(screen.getByPlaceholderText('Email')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.queryByText('Signing you in...')).toBeNull();
 
     await waitFor(() => {
@@ -69,17 +66,17 @@ describe('LoginPage stays on the login form throughout a login attempt', () => {
 
     renderWithProviders(<LoginPage />);
 
-    const emailInput = screen.getByPlaceholderText('Email') as HTMLInputElement;
+    const emailInput = screen.getByLabelText('Email') as HTMLInputElement;
     await userEvent.type(emailInput, 'user@example.com');
-    await userEvent.type(screen.getByPlaceholderText('Password'), 'StrongPass123!');
-    await userEvent.click(screen.getByRole('button', { name: 'Login' }));
+    await userEvent.type(screen.getByLabelText('Password'), 'StrongPass123!');
+    await userEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
     await waitFor(() => {
       expect(screen.queryByText(/not authenticated|failed|invalid|error/i)).toBeInTheDocument();
     });
 
     // Unmounting LoginForm would reset its typed-in state; it shouldn't unmount here.
-    expect((screen.getByPlaceholderText('Email') as HTMLInputElement).value).toBe(
+    expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe(
       'user@example.com'
     );
   });

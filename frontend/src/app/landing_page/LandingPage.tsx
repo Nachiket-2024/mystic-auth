@@ -1,28 +1,23 @@
 import React from "react";
 import { Navigate, Link as RouterLink } from "react-router";
-import { Box, Button, Flex, Grid, Heading, HStack, Icon, Text } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 import { ShieldCheck, KeyRound, ScrollText, Globe } from "lucide-react";
 
 // Everything below comes from the public extension surface (../sdk), not
-// internal mystic_auth/* paths. This page is the reference example for "a
-// page outside the authenticated app shell (no Sidebar/Navbar) that still
-// wants the app's theme tokens and session state" - see
-// docs/mystic_auth/template-usage/overview.md and worked-example.md#6-a-pre-auth-landing-page.
+// internal mystic_auth/* paths. This page is the reference example for an
+// app-owned public page outside the authenticated shell.
 import {
     useAuthStore,
     APP_NAME,
+    SUPPORT_EMAIL,
     Card,
     Logo,
     ControlCluster,
     AuthInlineLink,
-    BRAND_SOLID_HOVER_PROPS,
-    BRAND_OUTLINE_HOVER_PROPS,
+    Button,
 } from "../sdk";
 
-// Side-effect import: registers the "landing" i18next namespace so
-// useTranslation("landing") below has something to resolve.
-import "./translations/registerLandingTranslations";
+import "../translations/registerLandingTranslations";
 
 const HIGHLIGHTS = [
     { icon: KeyRound, key: "authentication" },
@@ -32,15 +27,9 @@ const HIGHLIGHTS = [
 ] as const;
 
 /**
- * LandingPage
- * ----------------------------
- * Minimal pre-auth marketing page: hero, feature-highlight grid, and CTAs
- * into signup/login. It's a worked example of the "outside the auth shell"
- * pattern (no AppLayout, no ProtectedRoute), not meant to ship as-is.
- *
- * Redirects a signed-in visitor to /dashboard instead of showing marketing
- * copy for a product they're already in, using the same `isAuthenticated`
- * check LoginPage/SignupPage use.
+ * Public template landing page. Consuming applications should replace or
+ * restyle this app-owned page while retaining its session redirect and the
+ * public sdk import boundary.
  */
 const LandingPage: React.FC = () => {
     const { t } = useTranslation("landing");
@@ -49,109 +38,90 @@ const LandingPage: React.FC = () => {
     if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
     return (
-        <Flex
-            direction="column"
-            minH="100vh"
-            overflowY="auto"
-            bg="bg.canvas"
-            bgGradient="to-b"
-            gradientFrom="bg.canvasFrom"
-            gradientTo="bg.canvasTo"
-        >
-            <Flex
-                as="header"
-                align="center"
-                justify="space-between"
-                wrap="wrap"
-                rowGap={2}
-                px={{ base: 4, md: 8 }}
-                py={{ base: 3, md: 4 }}
+        <div className="flex min-h-screen flex-col overflow-y-auto bg-bg-canvas bg-linear-to-b from-(--bg-canvas-from) to-(--bg-canvas-to)">
+            <a
+                href="#main-content"
+                className="sr-only z-50 rounded-md bg-bg-surface px-3 py-2 text-sm font-semibold text-fg-default shadow-card focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
             >
-                <Logo size="sm" />
-                <HStack gap={3} wrap="wrap" justify="flex-end">
+                {t("skipToContent")}
+            </a>
+
+            <header className="flex flex-wrap items-center justify-between gap-y-2 px-4 py-3 md:px-8 md:py-4">
+                <RouterLink
+                    to="/"
+                    aria-label={t("brandHome", { appName: APP_NAME })}
+                    className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                >
+                    <Logo size="sm" />
+                </RouterLink>
+                <nav aria-label={t("primaryNavigation")} className="flex flex-wrap items-center justify-end gap-3">
                     <ControlCluster />
-                    <Button
-                        asChild
-                        variant="outline"
-                        colorPalette="brand"
-                        size="sm"
-                        borderWidth="2px"
-                        {...BRAND_OUTLINE_HOVER_PROPS}
-                        // Matches BRAND_OUTLINE_HOVER_PROPS's text color; a border in a
-                        // different color than the label would look like a mismatch.
-                        borderColor="brand.fg"
-                    >
+                    <Button asChild variant="brand-outline" size="sm" className="border-2">
                         <RouterLink to="/login">{t("logIn")}</RouterLink>
                     </Button>
-                    <Button asChild colorPalette="brand" size="sm" {...BRAND_SOLID_HOVER_PROPS}>
+                    <Button asChild variant="brand" size="sm">
                         <RouterLink to="/signup">{t("signUp")}</RouterLink>
                     </Button>
-                </HStack>
-            </Flex>
+                </nav>
+            </header>
 
-            {/* flex="1" + centered content (same pattern as AuthLayout) fills the
-                remaining viewport height instead of pushing the footer below
-                the fold, so there's no page scroll at typical viewport heights. */}
-            <Flex flex="1" direction="column" align="center" justify="center" px={4} minH={0}>
-                <Box maxW="2xl" mx="auto" textAlign="center">
-                    <Heading as="h1" size="4xl" letterSpacing="-0.02em" mb={3}>
+            <main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 focus:outline-none">
+                <section aria-labelledby="landing-hero-title" className="mx-auto max-w-2xl text-center">
+                    <h1 id="landing-hero-title" className="mb-3 text-4xl font-semibold leading-[2.75rem] tracking-[-0.02em]">
                         {t("hero.title")}
-                    </Heading>
-                    <Text fontSize="lg" color="fg.muted" mb={5}>
+                    </h1>
+                    <p className="mb-5 text-lg text-fg-muted">
                         {t("hero.subtitle", { appName: APP_NAME })}
-                    </Text>
-                    <HStack gap={3} justify="center">
-                        <Button asChild colorPalette="brand" size="lg" {...BRAND_SOLID_HOVER_PROPS}>
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                        <Button asChild variant="brand" size="lg">
                             <RouterLink to="/signup">{t("hero.getStarted")}</RouterLink>
                         </Button>
-                        {/* borderWidth="2px" (Chakra's outline default is 1px): next to the
-                            solid "Get started" button, a 1px outline read as barely visible. */}
-                        <Button
-                            asChild
-                            variant="outline"
-                            colorPalette="brand"
-                            size="lg"
-                            borderWidth="2px"
-                            {...BRAND_OUTLINE_HOVER_PROPS}
-                            // Same reasoning as the header Login button's borderColor above.
-                            borderColor="brand.fg"
-                        >
+                        <Button asChild variant="brand-outline" size="lg" className="border-2">
                             <RouterLink to="/login">{t("logIn")}</RouterLink>
                         </Button>
-                    </HStack>
-                </Box>
+                    </div>
+                </section>
 
-                <Grid
-                    mt={{ base: 6, md: 10 }}
-                    maxW="5xl"
-                    w="full"
-                    templateColumns={{ base: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" }}
-                    gap={3}
-                >
-                    {HIGHLIGHTS.map(({ icon, key }) => (
-                        <Card key={key} textAlign="left" p={4}>
-                            <Icon as={icon} boxSize={5} color="brand.solid" mb={2} />
-                            <Text fontWeight="semibold" mb={1}>
-                                {t(`highlights.${key}.title`)}
-                            </Text>
-                            <Text fontSize="sm" color="fg.muted">
-                                {t(`highlights.${key}.description`)}
-                            </Text>
-                        </Card>
-                    ))}
-                </Grid>
-            </Flex>
+                <section aria-labelledby="landing-highlights-title" className="mt-6 w-full max-w-5xl md:mt-10">
+                        <h2 id="landing-highlights-title" className="mb-3 text-center text-lg font-semibold">
+                            {t("highlights.heading")}
+                    </h2>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {HIGHLIGHTS.map(({ icon: HighlightIcon, key }) => (
+                            <Card as="article" key={key} className="p-4 text-left">
+                                <HighlightIcon size={20} className="mb-2 text-brand-solid" aria-hidden="true" />
+                                <h3 className="mb-1 font-semibold">
+                                    {t(`highlights.${key}.title`)}
+                                </h3>
+                                <p className="text-sm text-fg-muted">
+                                    {t(`highlights.${key}.description`)}
+                                </p>
+                            </Card>
+                        ))}
+                    </div>
+                </section>
+            </main>
 
-            {/* AuthInlineLink (not a plain RouterLink) gives the same underline/darken
-                hover treatment as LoginPage/SignupForm's Privacy/Terms footnote. */}
-            <Flex as="footer" justify="center" py={{ base: 3, md: 4 }} px={4}>
-                <HStack gap={4} fontSize="sm" color="fg.muted">
+            <footer className="flex justify-center px-4 py-3 md:py-4">
+                <nav aria-label={t("footerNavigation")} className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-fg-muted">
                     <AuthInlineLink to="/privacy">{t("footer.privacyPolicy")}</AuthInlineLink>
-                    <Text as="span">·</Text>
+                    <span aria-hidden="true">·</span>
                     <AuthInlineLink to="/terms">{t("footer.termsOfService")}</AuthInlineLink>
-                </HStack>
-            </Flex>
-        </Flex>
+                    {SUPPORT_EMAIL && (
+                        <>
+                            <span aria-hidden="true">·</span>
+                            <a
+                                className="font-semibold text-brand-fg no-underline hover:text-[var(--brand-600)] hover:underline"
+                                href={`mailto:${SUPPORT_EMAIL}`}
+                            >
+                                {t("footer.support")}
+                            </a>
+                        </>
+                    )}
+                </nav>
+            </footer>
+        </div>
     );
 };
 

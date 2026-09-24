@@ -1,10 +1,11 @@
 import React from "react";
-import { Box, Skeleton, Stack, VisuallyHidden } from "@chakra-ui/react";
+
+import { Skeleton } from "../shadcn/skeleton";
 
 // Same non-default fill reasoning as DashboardIdentityCardSkeleton's own
-// SKELETON_PROPS: Skeleton's stock "bg.emphasized" fill is indistinguishable
-// from Card's "bg.surface" background in dark mode.
-const SKELETON_PROPS = { bg: "bg.muted" };
+// SKELETON_CLASSNAME: Skeleton's stock fill is indistinguishable from
+// Card's "bg-bg-surface" background in dark mode.
+const SKELETON_CLASSNAME = "bg-bg-muted";
 
 /**
  * Suspense fallback for App.tsx's route-level code splitting, shown only for
@@ -13,14 +14,16 @@ const SKELETON_PROPS = { bg: "bg.muted" };
  * route that does suspend reads as "arriving," not a hard blank cut.
  */
 const RouteSkeleton: React.FC = () => (
-    <Box maxW="container.xl" mx="auto" w="full" py={2}>
-        <VisuallyHidden role="status">Loading page...</VisuallyHidden>
-        <Skeleton height="8" width="48" mb="density.sectionGap" {...SKELETON_PROPS} />
-        <Stack gap={4}>
-            <Skeleton height="32" rounded="density.card" {...SKELETON_PROPS} />
-            <Skeleton height="32" rounded="density.card" {...SKELETON_PROPS} />
-        </Stack>
-    </Box>
+    <div className="max-w-(--size-page-content) w-full py-2">
+        <span role="status" className="sr-only">Loading page...</span>
+        {/* density.sectionGap -> --spacing-6 (themeTokens.ts), same value
+            PageContainer's own mb-(--spacing-section-gap) resolves to. */}
+        <Skeleton className={`h-8 w-48 mb-(--spacing-section-gap) ${SKELETON_CLASSNAME}`} />
+        <div className="flex flex-col gap-4">
+            <Skeleton className={`h-32 rounded-card ${SKELETON_CLASSNAME}`} />
+            <Skeleton className={`h-32 rounded-card ${SKELETON_CLASSNAME}`} />
+        </div>
+    </div>
 );
 
 export default RouteSkeleton;

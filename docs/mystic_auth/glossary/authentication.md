@@ -61,7 +61,7 @@ A single reserved account (`role == system`) with full access, created only via 
 
 ## soft delete
 
-Marking a row as deleted (setting a `deleted_at` timestamp) instead of actually removing it from the database. A soft-deleted account can still be inspected or reactivated by an admin during its grace period, unlike a hard delete (purge), which is irreversible. See [Account Deletion and Purge](../authentication/account-deletion/README.md) and [Database Design](../database/design.md).
+Marking a row as deleted (setting a `deleted_at` timestamp) instead of actually removing it from the database. A soft-deleted account can still be inspected or reactivated by a caller with the required permission during its grace period, unlike a hard delete (purge), which is irreversible. See [Account Deletion and Purge](../authentication/account-deletion/README.md) and [Database Design](../database/design.md).
 
 ---
 
@@ -121,25 +121,25 @@ A one-time token emailed to a new account at signup, redeemed via `POST /auth/ve
 
 ## reactivate
 
-Restoring a soft-deleted or deactivated account back to normal, either by an admin (for a soft-deleted account still inside its grace period) or by the same account holder in some flows. Distinct from a purge, which is permanent and cannot be undone. See [Account Deletion and Purge](../authentication/account-deletion/README.md).
+Restoring a soft-deleted or deactivated account back to normal, either by a caller with the required permission (for a soft-deleted account still inside its grace period) or by the same account holder in some flows. Distinct from a purge, which is permanent and cannot be undone. See [Account Deletion and Purge](../authentication/account-deletion/README.md).
 
 ---
 
 ## purge
 
-The irreversible hard delete of an account and its data from the database, run either by an admin directly or by the scheduled background job once a soft-deleted account's grace period has passed. See [Account Deletion and Purge](../authentication/account-deletion/README.md).
+The irreversible hard delete of an account and its data from the database, run either by a caller with the required permission or by the scheduled background job once a soft-deleted account's grace period has passed. See [Account Deletion and Purge](../authentication/account-deletion/README.md).
 
 ---
 
 ## jti
 
-Short for JWT ID: a unique identifier embedded in every refresh token, used to enforce that each one can be redeemed exactly once (`claim_jti_for_rotation`, an atomic Redis `SET ... NX`). Two requests racing to redeem the same refresh token can never both win. See [Authentication Overview: Refresh token rotation](../authentication/overview.md#refresh-token-rotation).
+Short for JWT ID: a unique identifier embedded in every refresh token, used to enforce that each one can be redeemed exactly once (`claim_jti_for_rotation`, an atomic Valkey `SET ... NX`). Two requests racing to redeem the same refresh token can never both win. See [Authentication Overview: Refresh token rotation](../authentication/overview.md#refresh-token-rotation).
 
 ---
 
 ## token revocation
 
-Ending a session's validity before its JWT would naturally expire. This app does it by version, not by blacklist: bumping a Redis counter (`account_ver` or `chain_ver`) instantly invalidates every token that embedded an older version, with nothing to look up per token. See [Session Management: Source of truth](../authentication/session-management/README.md#source-of-truth).
+Ending a session's validity before its JWT would naturally expire. This app does it by version, not by blacklist: bumping a Valkey counter (`account_ver` or `chain_ver`) instantly invalidates every token that embedded an older version, with nothing to look up per token. See [Session Management: Source of truth](../authentication/session-management/README.md#source-of-truth).
 
 ---
 

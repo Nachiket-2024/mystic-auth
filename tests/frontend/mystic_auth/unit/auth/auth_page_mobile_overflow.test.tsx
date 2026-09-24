@@ -1,11 +1,11 @@
 // Regression: these auth pages' Cards used to render with a fixed pixel `w`
 // (e.g. w="400px"), which overflowed a 375px viewport. The fix switched to
-// w="full" maxW="<n>px" so the card shrinks to fit and only caps on wide
-// screens. These tests pin that a fixed-pixel `w` doesn't come back.
+// a fluid width (Tailwind's w-full + a max-w-* cap) so the card shrinks to
+// fit and only caps on wide screens. These tests pin that a fixed-pixel
+// width doesn't come back.
 import type { ReactElement } from 'react';
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 
@@ -19,21 +19,24 @@ function renderPage(ui: ReactElement, initialEntries: string[] = ['/']) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
 
-// A token width like w="full" resolves to var(--chakra-sizes-full); a fixed
-// pixel width resolves to a literal "<n>px" string. Asserting against that
-// shape catches a regression back to a hardcoded pixel width.
+// Card.tsx's base className always includes "rounded-card" (theme/tailwind.css's
+// --radius-card token), a stable marker for the card root regardless of what
+// width/padding utilities a caller layers on via its own className prop.
+// jsdom can't parse Tailwind v4's @theme/@import syntax (hence no
+// getComputedStyle-based width check here), so this asserts against the
+// className directly: w-full/max-w-* (fluid + capped) is fine, a literal
+// pixel width utility (w-[400px]) or inline style width is the regression.
 function expectNonFixedPixelWidth(container: HTMLElement) {
-  const card = container.querySelector('.chakra-card__root') as HTMLElement | null;
+  const card = container.querySelector('.rounded-card') as HTMLElement | null;
   expect(card).toBeInstanceOf(HTMLElement);
-  const width = getComputedStyle(card!).width;
-  expect(/^\d+px$/.test(width)).toBe(false);
+  expect(card!.className).toMatch(/\bw-full\b/);
+  expect(card!.className).not.toMatch(/\bw-\[\d+px\]/);
+  expect(card!.style.width).toBe('');
 }
 
 describe('auth page Cards no longer use a fixed pixel width (mobile-overflow regression)', () => {
@@ -47,13 +50,12 @@ describe('auth page Cards no longer use a fixed pixel width (mobile-overflow reg
     expectNonFixedPixelWidth(container);
   });
 
-  it('SignupPage stacks the Name/Email row as a single column at the base (mobile) breakpoint', () => {
-    // Was a fixed-direction HStack, forcing the wide Card; direction={{
-    // base: "column", sm: "row" }} lets a narrow Card fit the fields.
+  it('SignupPage stacks Name and Email as separate full-width fields (S1: one shared card width, no side-by-side row)', () => {
     const { container } = renderPage(<SignupPage />);
-    const nameInput = container.querySelector('input[placeholder="Enter your name"]') as HTMLElement;
-    const row = nameInput.closest('.chakra-stack') as HTMLElement;
-    expect(getComputedStyle(row).flexDirection).toBe('column');
+    const nameInput = container.querySelector('input[placeholder="e.g. Asha Kapoor"]') as HTMLElement;
+    const emailInput = container.querySelector('input[placeholder="name@company.com"]') as HTMLElement;
+    expect(nameInput).toBeInstanceOf(HTMLElement);
+    expect(emailInput).toBeInstanceOf(HTMLElement);
   });
 
   it('PasswordResetRequestPage', () => {

@@ -1,25 +1,20 @@
-import { Text } from "@chakra-ui/react";
+import { RotateCcw } from "lucide-react";
+import { cn } from "../ui/styles/classNames";
 import type { TFunction } from "i18next";
 
-import Badge from "../ui/Badge";
 import type { DataTableColumn } from "../ui/DataTable/DataTable";
 import TableActionButton from "../ui/table_actions/TableActionButton";
-import { formatDateTime } from "../ui/dateFormat";
+import { formatDateTime } from "../ui/dates/dateFormatters";
 import type { SupportedLanguage } from "../translations/translations";
 import type { RateLimitEntry } from "../api/rate_limits_api";
 import { IfCan } from "../authorization/IfCan";
 import { PERMISSIONS } from "../authorization/permissions";
-
-const SCOPE_COLOR_PALETTE: Record<RateLimitEntry["scope"], string> = {
-    ip: "brand",
-    account: "purple",
-    email: "orange",
-};
+import { DESTRUCTIVE_TABLE_ACTION_CLASSNAME } from "../ui/table_actions/tableActionPalettes";
 
 interface BuildRateLimitsColumnsParams {
     t: TFunction<"rate_limits">;
     language: SupportedLanguage;
-    onResetRequest: (entry: RateLimitEntry) => void;
+    onResetRequest: (entry: RateLimitEntry, trigger: HTMLElement) => void;
     resettingKey: string | undefined;
 }
 
@@ -29,7 +24,7 @@ interface BuildRateLimitsColumnsParams {
  *
  * Every data column is sortable, but unlike audit_log this is a client-side
  * sort over only the loaded page (see RateLimitsPage.tsx): the backend is a
- * Redis SCAN cursor, not a SQL table, so sorting the whole live keyspace
+ * Valkey SCAN cursor, not a SQL table, so sorting the whole live keyspace
  * would mean materializing it, which list_active_limits avoids. */
 export function buildRateLimitsColumns({
     t,
@@ -43,11 +38,7 @@ export function buildRateLimitsColumns({
             key: "scope",
             header: t("page.scopeColumn"),
             width: "10rem",
-            render: (e) => (
-                <Badge colorPalette={SCOPE_COLOR_PALETTE[e.scope]} variant="subtle" textTransform="uppercase">
-                    {e.scope === "ip" ? t("page.scopeIp") : e.scope === "account" ? t("page.scopeAccount") : t("page.scopeEmail")}
-                </Badge>
-            ),
+            render: (e) => <span className="text-sm">{e.scope === "ip" ? t("page.scopeIp") : e.scope === "account" ? t("page.scopeAccount") : t("page.scopeEmail")}</span>,
             sortable: true,
         },
         {
@@ -66,21 +57,23 @@ export function buildRateLimitsColumns({
             header: t("page.requestsColumn"),
             width: "8rem",
             render: (e) => (
-                <Text color={e.count >= e.limit ? "fg.error" : undefined} fontWeight={e.count >= e.limit ? "medium" : undefined}>
+                <span className={cn(e.count >= e.limit && "text-fg-error font-medium")}>
                     {e.count} / {e.limit}
-                </Text>
+                </span>
             ),
             sortable: true,
         },
         {
             key: "resets_at",
             header: t("page.resetsAtColumn"),
-            width: "11.875rem",
+            // See ActiveSessionsCard's matching column for why this is wider
+            // than a plain ellipsis-truncated text column.
+            width: "13.5rem",
             truncate: true,
             render: (e) => {
                 if (e.resets_in_seconds == null) return t("page.noExpiry");
                 const resetsAt = new Date(Date.now() + e.resets_in_seconds * 1000).toISOString();
-                return <Text fontSize="md">{formatDateTime(resetsAt, language)}</Text>;
+                return <span className="text-sm">{formatDateTime(resetsAt, language)}</span>;
             },
             sortable: true,
         },
@@ -91,7 +84,8 @@ export function buildRateLimitsColumns({
             width: "7rem",
             render: (e) => (
                 <IfCan action={PERMISSIONS.RATE_LIMITS_RESET}>
-                    <TableActionButton colorPalette="red" onClick={() => onResetRequest(e)} loading={resettingKey === e.key}>
+                    <TableActionButton colorPalette="red" className={DESTRUCTIVE_TABLE_ACTION_CLASSNAME} onClick={(event) => onResetRequest(e, event.currentTarget)} loading={resettingKey === e.key}>
+                        <RotateCcw size={14} aria-hidden="true" />
                         {t("page.reset")}
                     </TableActionButton>
                 </IfCan>

@@ -38,6 +38,19 @@ class SignupService:
                 logger.info("Signup attempt with existing email: %s", email)
                 return False
 
+            # The baseline policy is the actual source of a new account's
+            # access. Do not create an account that cannot receive it: a
+            # role value is display metadata only and must never become a
+            # fallback authorization path.
+            self_service_policy = await policy_repository.get_by_name(SELF_SERVICE_POLICY_NAME, db)
+            if not self_service_policy:
+                logger.error(
+                    "Default policy '%s' is missing; refusing to create signup account %s",
+                    SELF_SERVICE_POLICY_NAME,
+                    email,
+                )
+                return False
+
             user_data = {
                 "name": name,
                 "email": email,
@@ -51,20 +64,28 @@ class SignupService:
 
             # Assign the baseline self-service policy: the actual source of
             # this account's access, per PBAC.
-            self_service_policy = await policy_repository.get_by_name(SELF_SERVICE_POLICY_NAME, db)
-            if self_service_policy:
+            try:
                 await policy_repository.assign_policy_to_user(
                     user_id=new_user.id, policy_id=self_service_policy.id, db=db, assigned_by="system"
                 )
-            else:
-                # Should never happen once the seeding migration has run.
-                # logged loudly rather than failing signup outright, since a
-                # missing baseline policy is an operational/migration issue, not
-                # something this particular signup request caused.
+            except Exception:
+                # The CRUD helpers commit independently, so use a
+                # compensating delete if assignment fails after the user row
+                # has committed. This keeps an account with no baseline PBAC
+                # access from surviving a partial signup.
                 logger.error(
-                    "Default policy '%s' not found, new user %s created with no assigned policies",
+                    "Default policy '%s' could not be assigned; rolling back signup account %s",
                     SELF_SERVICE_POLICY_NAME, email,
                 )
+                try:
+                    await user_crud.delete(new_user, db)
+                except Exception:
+                    logger.critical(
+                        "Signup rollback failed for %s after default policy assignment failed",
+                        email,
+                        exc_info=True,
+                    )
+                return False
 
             return True
 

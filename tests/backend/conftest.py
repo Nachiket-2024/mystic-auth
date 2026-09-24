@@ -1,8 +1,8 @@
 # tests/backend/conftest.py
 #
 # Shared fixtures for every real-DB suite under tests/backend/: a real
-# PostgreSQL and Redis, not mocks, since mocking either would hide the kind
-# of bug (a Redis type mismatch, a missed session-revocation call) these
+# PostgreSQL and Valkey, not mocks, since mocking either would hide the kind
+# of bug (a Valkey type mismatch, a missed session-revocation call) these
 # tests exist to catch.
 #
 # Lives here rather than per-subdirectory because pytest always collects the
@@ -14,11 +14,11 @@ from pathlib import Path
 
 # ---------------------------- Environment Setup ----------------------------
 # Must run before any `backend.mystic_auth...` import: settings and the
-# database/Redis singletons read the process environment once, at import
+# database/Valkey singletons read the process environment once, at import
 # time, and cache it.
 #
-# If DATABASE_URL / REDIS_URL are already set (e.g. inside the docker-compose
-# network, pointed at the "postgres"/"redis" service hostnames), leave them
+# If DATABASE_URL / VALKEY_URL are already set (e.g. inside the docker-compose
+# network, pointed at the "postgres"/"valkey" service hostnames), leave them
 # alone. Otherwise, running from the host, derive a localhost equivalent from
 # env/mystic_auth/.env.
 _ENV_PATH = Path(__file__).resolve().parents[2] / "env" / "mystic_auth" / ".env"
@@ -35,12 +35,12 @@ def _read_env_value(key: str) -> str | None:
 
 
 # docker/mystic_auth/compose/docker-compose.dev.yml maps these to non-default host ports (5433, 6380) to
-# avoid colliding with a developer's own local Postgres/Redis. Swapping only
+# avoid colliding with a developer's own local Postgres/Valkey. Swapping only
 # the hostname (postgres -> localhost) and keeping the container's port would
 # silently connect to whatever else is listening on the real default port,
 # instead of failing loudly.
 _LOCAL_POSTGRES_PORT = "5433"
-_LOCAL_REDIS_PORT = "6380"
+_LOCAL_VALKEY_PORT = "6380"
 
 if "DATABASE_URL" not in os.environ:
     _docker_db_url = _read_env_value("DATABASE_URL")
@@ -64,13 +64,13 @@ if "APP_DATABASE_URL" not in os.environ:
             r"@postgres:\d+", f"@localhost:{_LOCAL_POSTGRES_PORT}", _docker_app_db_url
         )
 
-if "REDIS_URL" not in os.environ:
-    _docker_redis_url = _read_env_value("REDIS_URL")
-    if _docker_redis_url:
-        # Use a dedicated logical Redis DB (15) so test runs never collide
+if "VALKEY_URL" not in os.environ:
+    _docker_valkey_url = _read_env_value("VALKEY_URL")
+    if _docker_valkey_url:
+        # Use a dedicated logical Valkey DB (15) so test runs never collide
         # with whatever a developer has cached in db 0.
-        os.environ["REDIS_URL"] = re.sub(
-            r"redis://redis:\d+/\d+", f"redis://localhost:{_LOCAL_REDIS_PORT}/15", _docker_redis_url
+        os.environ["VALKEY_URL"] = re.sub(
+            r"redis://valkey:\d+/\d+", f"redis://localhost:{_LOCAL_VALKEY_PORT}/15", _docker_valkey_url
         )
 
 # ---------------------------- Dedicated test database ----------------------------
@@ -145,7 +145,7 @@ if not os.environ.get("CI"):
 # still guards the one remaining path a real email could go out: this
 # suite's own worker processing a genuinely-deferred send_email_task from a
 # signup/password-reset/account-deletion flow. Overrides .env unconditionally
-# (unlike DATABASE_URL/REDIS_URL above, which only fill in a missing value)
+# (unlike DATABASE_URL/VALKEY_URL above, which only fill in a missing value)
 # - an explicit `EMAIL_ENABLED=true` already in the environment when pytest
 # is invoked still wins.
 if "EMAIL_ENABLED" not in os.environ:
@@ -164,7 +164,7 @@ from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.procrastinate_tasks.procrastinate_app import (
     app as procrastinate_app,
 )
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 # pytest-asyncio hands each test function its own event loop, but
 # `database.engine`'s connection pool is a module-level singleton shared
@@ -177,25 +177,25 @@ database.engine = create_async_engine(database.database_url, echo=False, poolcla
 database.async_session = sessionmaker(bind=database.engine, class_=AsyncSession, expire_on_commit=False)
 
 
-# ---------------------------- Redis isolation ----------------------------
+# ---------------------------- Valkey isolation ----------------------------
 @pytest_asyncio.fixture(autouse=True)
-async def _flush_redis_test_db():
-    """Every test starts and ends with an empty Redis logical DB, so state
+async def _flush_valkey_test_db():
+    """Every test starts and ends with an empty Valkey logical DB, so state
     (rate-limit counters, lockouts, single-use tokens) never leaks between
     tests."""
-    await redis_client.flushdb()
+    await valkey_client.flushdb()
     yield
-    await redis_client.flushdb()
+    await valkey_client.flushdb()
     # Same cross-event-loop hazard as the Postgres pool above: drop pooled
     # connections so the next test (a different loop) opens fresh ones.
-    await redis_client.connection_pool.disconnect()
+    await valkey_client.connection_pool.disconnect()
 
 
 # ---------------------------- Procrastinate connector lifecycle ----------------------------
 @pytest_asyncio.fixture(autouse=True)
 async def _procrastinate_app_lifecycle():
     """procrastinate_app's PsycopgConnector opens an asyncio-bound connection
-    pool: the same per-event-loop hazard as the Postgres/Redis pools above,
+    pool: the same per-event-loop hazard as the Postgres/Valkey pools above,
     since a pool opened by one test isn't safe to reuse from another test's
     loop. Opening and closing the connector fresh around every test avoids
     that "Future attached to a different loop" failure.

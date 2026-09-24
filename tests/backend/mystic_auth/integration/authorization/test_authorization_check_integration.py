@@ -1,5 +1,5 @@
 # End-to-end coverage for authorization_check_routes.py against the real
-# ASGI app, PostgreSQL, and Redis.
+# ASGI app, PostgreSQL, and Valkey.
 import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (

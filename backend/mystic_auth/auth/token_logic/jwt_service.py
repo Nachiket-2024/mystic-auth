@@ -7,7 +7,7 @@ import jwt
 
 from ...core.settings import settings
 from ...logging.logging_config import get_logger
-from ...redis.client import redis_client
+from ...valkey.client import valkey_client
 from .token_version_store import token_version_store
 
 logger = get_logger(__name__)
@@ -18,7 +18,7 @@ class JWTService:
     Creates, verifies, and revokes access/refresh JWTs.
 
     Revocation is version-based, not identity-based: a token is valid only
-    if its own embedded account_ver and chain_ver still match Redis's
+    if its own embedded account_ver and chain_ver still match Valkey's
     current values (see ACCOUNT_VERSION_KEY/CHAIN_VERSION_KEY above).
     Rotation replay protection (a refresh token must only ever be redeemed
     once) is a separate, narrower concern - see claim_jti_for_rotation -
@@ -97,14 +97,14 @@ class JWTService:
         verify-account endpoint only: every protected route requires
         expected_type="access" via verify_token, so a verification token is
         rejected everywhere else in the app even if it leaks (e.g. via an
-        email log or forward). Single-use is enforced by its own Redis key
+        email log or forward). Single-use is enforced by its own Valkey key
         (account_verification_service's "verify:{token}"), not by anything
         in this class - it carries no account_ver/chain_ver/jti of its own.
 
-        expires_minutes must match the caller's own single-use Redis key TTL
+        expires_minutes must match the caller's own single-use Valkey key TTL
         and the expiry stated in the verification email. Previously this
         was hardcoded to ACCESS_TOKEN_EXPIRE_MINUTES (15min default) while
-        account_verification_service set the Redis key TTL and emailed
+        account_verification_service set the Valkey key TTL and emailed
         wording using RESET_TOKEN_EXPIRE_MINUTES (60min default), so a user
         clicking the link between 15-60 minutes in got a confusing
         invalid/expired error despite the email promising it should still
@@ -184,8 +184,8 @@ class JWTService:
         skipping the revocation check performed by verify_token.
 
         Exists for reuse-detection: when a refresh token is presented that
-        Redis already shows as revoked, we still need to know which user it
-        belonged to in order to revoke their other active sessions. verify_token
+        Valkey already shows as revoked, we still need to know which user it
+        belonged to so we can revoke their other active sessions. verify_token
         can't be used for that because it would correctly refuse to return a
         payload for a revoked token.
         """
@@ -206,7 +206,35 @@ class JWTService:
         except jwt.PyJWTError:
             return None
 
-    async def claim_jti_for_rotation(self, jti: str, exp: int | float | None, email: str | None = None) -> bool:
+    async def is_benign_duplicate_rotation(self, jti: str, client_ip: str | None) -> bool:
+        """True when jti was claimed moments ago by the same client IP.
+
+        The claim marker stores "<unix time>|<ip>". A second use inside
+        REFRESH_TOKEN_REUSE_GRACE_SECONDS from that same IP is an honest
+        duplicate (two tabs racing, or the first response lost to a reload),
+        not theft. Anything else (older, different IP, unreadable or legacy
+        marker, Valkey error) is False, so the caller falls back to strict
+        reuse detection.
+        """
+        grace = settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS
+        if grace <= 0:
+            return False
+        try:
+            value = await valkey_client.get(f"revoked:{jti}")
+            if isinstance(value, bytes):
+                value = value.decode()
+            if not isinstance(value, str) or "|" not in value:
+                return False
+            claimed_at, claimed_ip = value.split("|", 1)
+            age = datetime.now(UTC).timestamp() - float(claimed_at)
+            return 0 <= age <= grace and claimed_ip == (client_ip or "")
+        except Exception:
+            logger.warning("Failed to read rotation marker for jti %s:\n%s", jti, traceback.format_exc())
+            return False
+
+    async def claim_jti_for_rotation(
+        self, jti: str, exp: int | float | None, email: str | None = None, client_ip: str | None = None
+    ) -> bool:
         """
         Atomically marks jti as redeemed, only if it wasn't already -
         refresh tokens are single-use, so this is what actually stops the
@@ -218,7 +246,7 @@ class JWTService:
         only for the call that actually claimed it (safe to proceed with
         rotation), False if it was already claimed.
 
-        SET...NX makes the check-and-claim one atomic Redis operation:
+        SET...NX makes the check-and-claim one atomic Valkey operation:
         a separate is_token_revoked_by_jti-then-mark pair would leave a
         real gap where two concurrent requests presenting the identical
         refresh token could both observe "not yet claimed" and both
@@ -232,7 +260,8 @@ class JWTService:
             if exp is not None:
                 ttl = max(1, int(exp - datetime.now(UTC).timestamp()))
 
-            claimed = await redis_client.set(f"revoked:{jti}", "true", nx=True, ex=ttl)
+            marker = f"{datetime.now(UTC).timestamp()}|{client_ip or ''}"
+            claimed = await valkey_client.set(f"revoked:{jti}", marker, nx=True, ex=ttl)
 
             return bool(claimed)
 
@@ -247,7 +276,7 @@ class JWTService:
         if not jti:
             return False
 
-        return await redis_client.exists(f"revoked:{jti}") == 1
+        return await valkey_client.exists(f"revoked:{jti}") == 1
 
     def has_valid_issuer_and_audience(self, payload: dict) -> bool:
         """False (reject) only when "iss"/"aud" is present and wrong; True
@@ -271,7 +300,7 @@ class JWTService:
         return aud is None or aud == settings.JWT_AUDIENCE
 
     # Account/chain version reads and bumps live in token_version_store.py
-    # (Redis-backed revocation bookkeeping), re-exported here as bound
+    # (Valkey-backed revocation bookkeeping), re-exported here as bound
     # methods so every existing `jwt_service.get_account_version(...)`-style
     # call site keeps working unchanged.
     get_account_version = token_version_store.get_account_version
@@ -281,7 +310,7 @@ class JWTService:
 
     async def is_current_version(self, payload: dict) -> bool:
         """False (revoked) if either the token's embedded account_ver or
-        chain_ver has fallen behind Redis's current value. True (including
+        chain_ver has fallen behind Valkey's current value. True (including
         for a token minted before this feature shipped, carrying neither
         claim) whenever there's nothing to compare - same "nothing to check
         against, so don't reject" reasoning as the jti-less early return in

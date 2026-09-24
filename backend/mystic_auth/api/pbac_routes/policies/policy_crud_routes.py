@@ -60,7 +60,7 @@ async def create_policy(
     # arbitrarily powerful policy.
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], policy_data.actions, policy_data.resource_type, db,
-        context=build_authorization_context(request),
+        context=build_authorization_context(request), conditions=policy_data.conditions,
     )
 
     data = policy_data.model_dump()
@@ -80,6 +80,12 @@ async def list_policies(
     ),
     resource_type: str | None = Query(default=None, description="Exact match on resource_type"),
     is_active: bool | None = Query(default=None, description="Exact match on is_active"),
+    contains_action: str | None = Query(
+        default=None, description="Only policies whose actions array contains this exact action"
+    ),
+    destructive_only: bool = Query(
+        default=False, description="Only policies containing a catalog-defined destructive action"
+    ),
     sort_by: str | None = Query(
         default=None,
         description="Column to sort by: name, resource_type, is_active, created_at, or updated_at. "
@@ -98,7 +104,10 @@ async def list_policies(
     returned (e.g. UserPoliciesDialog's "assign a policy" dropdown, which
     wants the full list)."""
     response.headers["X-Total-Count"] = str(
-        await policy_repository.count(db, search=search, resource_type=resource_type, is_active=is_active)
+        await policy_repository.count(
+            db, search=search, resource_type=resource_type, is_active=is_active,
+            contains_action=contains_action, destructive_only=destructive_only,
+        )
     )
     return await policy_repository.get_all_as_read_schemas(
         db,
@@ -109,6 +118,8 @@ async def list_policies(
         is_active=is_active,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        contains_action=contains_action,
+        destructive_only=destructive_only,
     )
 
 
@@ -148,13 +159,14 @@ async def update_policy(
     re-grant an existing, possibly widely-assigned policy new actions the
     caller doesn't have.
 
-    Symmetrically, changing actions/resource_type or deactivating requires
+    Symmetrically, changing actions/resource_type/conditions or deactivating requires
     the caller to already hold every action the policy *currently* grants
     (checked pre-update), not just the post-update grant-side check above.
     Otherwise policies:update alone could narrow, retarget, or deactivate a
     policy a more-privileged peer depends on, stripping their access. A
-    pure description/conditions edit, or reactivating (is_active=True),
-    doesn't change what the policy grants or to whom, so it's left ungated.
+    A pure description edit, or reactivating (is_active=True), doesn't change
+    what the policy grants. Changing conditions is a grant-scope change and
+    is checked against the caller's own matching grants.
     See delete_policy and remove_policy_from_user (policy_assignment_routes.py)
     for the same guard applied to delete and revoke, where removal is
     always a downgrade.
@@ -205,16 +217,19 @@ async def update_policy(
 
     context = build_authorization_context(request)
 
-    if "actions" in fields or "resource_type" in fields or fields.get("is_active") is False:
+    if "actions" in fields or "resource_type" in fields or "conditions" in fields or fields.get("is_active") is False:
         await authorization_service.assert_authorized_to_grant(
-            current_user["email"], policy.actions, policy.resource_type, db, context=context
+            current_user["email"], policy.actions, policy.resource_type, db,
+            context=context, conditions=policy.conditions,
         )
 
-    if "actions" in fields or "resource_type" in fields:
+    if "actions" in fields or "resource_type" in fields or "conditions" in fields:
         target_actions = fields.get("actions", policy.actions)
         target_resource_type = fields.get("resource_type", policy.resource_type)
+        target_conditions = fields.get("conditions", policy.conditions)
         await authorization_service.assert_authorized_to_grant(
-            current_user["email"], target_actions, target_resource_type, db, context=context
+            current_user["email"], target_actions, target_resource_type, db,
+            context=context, conditions=target_conditions,
         )
 
     # A pure description/conditions edit (or reactivating via is_active=True)
@@ -277,9 +292,21 @@ async def delete_policy(
             params={"policyName": policy_name},
         )
 
+    # Deactivation is the reversible safety step before a destructive delete.
+    # Keep this invariant in the authoritative API as well as the Policies
+    # page, so direct API callers cannot bypass the operator workflow and
+    # immediately remove a policy that is still actively granting access.
+    if policy.is_active:
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="POLICY_MUST_BE_INACTIVE_TO_DELETE",
+            detail=f"Policy '{policy_name}' must be inactive before it can be deleted",
+            params={"policyName": policy_name},
+        )
+
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], policy.actions, policy.resource_type, db,
-        context=build_authorization_context(request),
+        context=build_authorization_context(request), conditions=policy.conditions,
     )
 
     # Fetched before delete(), which cascades UserPolicy rows away along

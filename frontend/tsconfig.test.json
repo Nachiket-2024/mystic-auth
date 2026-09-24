@@ -8,6 +8,7 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
     "types": ["node", "vitest/globals"],
+    "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/mystic_auth/*"],
       "@app/*": ["./src/app/*"],

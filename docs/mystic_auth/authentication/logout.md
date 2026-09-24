@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Authentication & Sessions Glossary](../glossary/authentication.md).*
 
-Split out of [Authentication Flows](overview.md). Both endpoints end sessions by bumping a Redis
+Split out of [Authentication Flows](overview.md). Both endpoints end sessions by bumping a Valkey
 version counter, not by deleting or blacklisting tokens; see
 [Session Management: source of truth](session-management/README.md#source-of-truth) for why that scheme
 exists. This doc covers the two endpoints themselves and the idempotency behavior that makes them
@@ -30,7 +30,7 @@ flowchart TD
     L1["Decode refresh token claims\n (decode_payload, not verify_token)"] --> L2["Bump chain_ver\n for this chain_id"]
     L2 -->|confirmed| L3["Mark matching\n user_sessions row revoked"]
     L3 ~~~ L3b
-    L2 -->|Redis unreachable| L3b["session_revoked: false\n in response body"]
+    L2 -->|Valkey unreachable| L3b["session_revoked: false\n in response body"]
     L3 --> L4["Clear access_token +\n refresh_token cookies"]
     L3b --> L4
     L4 --> L5["200\n (always, either way)"]
@@ -47,7 +47,7 @@ flowchart TD
     A2 -->|confirmed| A3["Clear cookies"]
     A3 --> A4["200"]
     A3 ~~~ A5
-    A2 -->|Redis unreachable| A5["Clear cookies"]
+    A2 -->|Valkey unreachable| A5["Clear cookies"]
     A5 --> A6["503\n SESSION_REVOCATION_UNAVAILABLE"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
@@ -63,11 +63,11 @@ flowchart TD
    marks the matching `user_sessions` row revoked (`session_service.revoke_session_on_logout`,
    functionally the same operation as a targeted Manage Sessions revoke, just triggered by the
    device ending its own session). This always returns `200` and clears cookies, even if the bump
-   itself couldn't be confirmed (Redis unreachable): the caller's own browser session is gone
+   itself couldn't be confirmed (Valkey unreachable): the caller's own browser session is gone
    regardless, so that isn't treated as a failure, but the response body carries
    `session_revoked: false` instead of silently pretending the leaked token was actually revoked.
    See [Bump failure handling](session-management/token-lifecycle.md#bump-failure-handling).
-3. **`POST /auth/logout/all` bumps `account_ver` instead.** One Redis `INCR` ends every device
+3. **`POST /auth/logout/all` bumps `account_ver` instead.** One Valkey `INCR` ends every device
    immediately. The same mechanism backs refresh-token reuse detection for a pre-chain token and
    account soft-delete/purge. Unlike plain logout, revoking every other session *is* this
    endpoint's whole purpose, so an unconfirmed bump is not treated as a quiet success: cookies are
@@ -83,8 +83,8 @@ Neither endpoint treats "the presented refresh token is already revoked/expired/
 error: the caller's goal (no valid session left in this browser) is already true either way, so
 both still clear cookies (`POST /auth/logout` also still reports `200`; see
 [Bump failure handling](session-management/token-lifecycle.md#bump-failure-handling) for logout-all's own,
-separate `503` case above, which is about an *unconfirmed* Redis bump, not a stale token). This matters concretely right after a self- or
-admin-initiated password change, which bumps `account_ver` and revokes every session for the
+separate `503` case above, which is about an *unconfirmed* Valkey bump, not a stale token). This matters concretely right after a self- or
+permission-protected password change, which bumps `account_ver` and revokes every session for the
 account, including the one the current browser is still holding. Clicking Logout immediately
 afterward presents that now-stale token; it must still log the browser out cleanly rather than
 surfacing an "invalid or already revoked" error while leaving stale cookies (and an
@@ -108,7 +108,7 @@ browser tab. See [Session Management: frontend behavior](session-management/fron
 `tests/backend/mystic_auth/unit/auth/logout_all/test_logout_all_handler_unit.py` cover both
 handlers, including the already-dead-token idempotency case;
 `tests/backend/mystic_auth/integration/auth/test_logout_integration.py` and the
-session-management integration suite exercise both against real Postgres/Redis. See
+session-management integration suite exercise both against real Postgres/Valkey. See
 [Testing Overview](../testing/overview.md).
 
 ---

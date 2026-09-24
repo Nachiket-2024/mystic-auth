@@ -11,7 +11,7 @@ from ...audit_log.audit_log_service import (
 # uses, reused here so a soft-deleted/purged account's existing refresh tokens
 # can't be used to mint a fresh access token even though
 # refresh_token_service.refresh_tokens() itself doesn't check the database
-# (it's Redis/JWT-only by design, see its own docstring).
+# (it's Valkey/JWT-only by design, see its own docstring).
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
 from ...auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ...authorization.dependencies.authorization_dependency import require_authorization
@@ -49,7 +49,7 @@ _RESOURCE_TYPE = "users"
 async def delete_any_user(
     user_email: str,
     request: Request,
-    current_user: dict = Depends(require_authorization(Permission.USERS_DELETE_ANY.value, _RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_DEACTIVATE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     """
@@ -70,7 +70,7 @@ async def delete_any_user(
 
     # The frontend disables this action against the caller's own row, but
     # that's UI-only: without a server-side check here, anyone holding
-    # users:delete_any could soft-delete themselves, revoking their own
+    # users:deactivate_any could soft-delete themselves, revoking their own
     # sessions immediately and, for a sole admin, with no other admin left
     # to reactivate the account.
     if user_email == current_user["email"]:
@@ -83,7 +83,7 @@ async def delete_any_user(
     await user_crud.soft_delete(db_obj=user, db=db)
 
     # is_active=False already blocks login, but refresh_tokens() is
-    # Redis/JWT-only and doesn't check the database, so a still-valid
+    # Valkey/JWT-only and doesn't check the database, so a still-valid
     # refresh token could keep minting access tokens without this.
     #
     # The soft-delete above already succeeded, so a failed revoke here must
@@ -97,7 +97,7 @@ async def delete_any_user(
         sessions_revoked_confirmed = False
         logger.critical(
             "User %s was deleted by %s, but session revocation could not be confirmed "
-            "(Redis unavailable) - existing sessions may remain valid until Redis recovers",
+            "(Valkey unavailable) - existing sessions may remain valid until Valkey recovers",
             user_email, current_user["email"],
         )
 
@@ -121,11 +121,11 @@ async def delete_any_user(
 async def purge_user(
     user_email: str,
     request: Request,
-    current_user: dict = Depends(require_authorization(Permission.USERS_PURGE.value, _RESOURCE_TYPE)),
+    current_user: dict = Depends(require_authorization(Permission.USERS_DELETE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
     """
-    Deliberately a separate, more sensitive action from users:delete_any (see
+    Deliberately a separate, more sensitive action from users:deactivate_any (see
     permissions.py) since this is irreversible and cascades: policy
     assignments are removed via users.id -> policy_model.py's ON DELETE
     CASCADE, while audit log rows reference user_email as a snapshot string

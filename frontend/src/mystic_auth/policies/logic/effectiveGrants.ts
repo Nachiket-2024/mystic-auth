@@ -2,7 +2,7 @@ import type { PolicyRead } from "../../api/policies_api";
 
 // Mirrors backend's policy_evaluator.py: a resource_type of "*" matches any
 // resource type, not the literal string "*" (see policy_model.py).
-const WILDCARD_RESOURCE_TYPE = "*";
+export const WILDCARD_RESOURCE_TYPE = "*";
 
 /** A single (action, resource_type) pair: the unit a Policy's `actions`
  * (fanned out against its `resource_type`) and a direct UserPermission
@@ -129,6 +129,54 @@ export function isSubsumedByWildcard(
     return source.some(
         (g) => g.action === target.action && g.resource_type === WILDCARD_RESOURCE_TYPE
     );
+}
+
+/** One (action, resource_type) pair a user effectively holds, plus which
+ * policy name(s) and/or a direct grant contributed it - the same pair can
+ * come from more than one policy, or from both a policy and a direct grant
+ * at once. Powers UserDetailsDialog's grouped-by-resource-type view: a flat
+ * badge list can show WHAT a user holds, but not WHY, which is the question
+ * "why does this account have this?" actually needs answered. */
+export interface EffectiveGrantWithSource {
+    action: string;
+    resource_type: string;
+    policyNames: string[];
+    direct: boolean;
+}
+
+export function buildEffectiveGrantsWithSource(
+    assignedPolicies: Pick<PolicyRead, "name" | "actions" | "resource_type">[],
+    directGrants: { action: string; resource_type: string }[]
+): EffectiveGrantWithSource[] {
+    const byKey = new Map<string, EffectiveGrantWithSource>();
+    for (const policy of assignedPolicies) {
+        for (const action of policy.actions) {
+            const key = grantKey(action, policy.resource_type);
+            const existing = byKey.get(key);
+            if (existing) existing.policyNames.push(policy.name);
+            else byKey.set(key, { action, resource_type: policy.resource_type, policyNames: [policy.name], direct: false });
+        }
+    }
+    for (const grant of directGrants) {
+        const key = grantKey(grant.action, grant.resource_type);
+        const existing = byKey.get(key);
+        if (existing) existing.direct = true;
+        else byKey.set(key, { action: grant.action, resource_type: grant.resource_type, policyNames: [], direct: true });
+    }
+    return [...byKey.values()];
+}
+
+/** Groups any resource_type-bearing list into a Map keyed by resource_type,
+ * insertion order preserved - the shared grouping step behind every
+ * "resource cards" display (UserDetailsDialog, PermissionsPage). */
+export function groupByResourceType<T extends { resource_type: string }>(items: T[]): Map<string, T[]> {
+    const groups = new Map<string, T[]>();
+    for (const item of items) {
+        const group = groups.get(item.resource_type);
+        if (group) group.push(item);
+        else groups.set(item.resource_type, [item]);
+    }
+    return groups;
 }
 
 /** Same "already effectively held" check as policyAddsNothingNew, for a

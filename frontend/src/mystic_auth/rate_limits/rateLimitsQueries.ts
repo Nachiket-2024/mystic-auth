@@ -1,4 +1,4 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import { listRateLimitsApi } from "../api/rate_limits_api";
 
@@ -8,6 +8,9 @@ export interface RateLimitsFilters {
     scope?: "ip" | "account" | "email";
     endpoint?: string;
     identifier?: string;
+    kind?: "at_limit" | "login_lockouts";
+    sortBy?: "endpoint" | "scope" | "identifier" | "count" | "resets_at";
+    sortDir?: "asc" | "desc";
 }
 
 // Matches rate_limiter_service.py's _SCAN_SNAPSHOT_TTL_SECONDS: polling
@@ -17,7 +20,7 @@ const POLL_INTERVAL_MS = 5000;
 
 /**
  * Numbered-page pagination, same shape as the audit log's queries: the
- * backend walks the matching Redis keyspace to compute a real total and
+ * backend walks the matching Valkey keyspace to compute a real total and
  * slice out one page, instead of a Prev/Next-only cursor.
  *
  * keepPreviousData: without it, switching pages briefly flashes the loading
@@ -37,7 +40,6 @@ export function useRateLimitsQuery(page: number, pageSize: number, filters: Rate
             const res = await listRateLimitsApi({ page, pageSize, ...filters });
             return res.data;
         },
-        placeholderData: keepPreviousData,
         refetchInterval: POLL_INTERVAL_MS,
     });
 }

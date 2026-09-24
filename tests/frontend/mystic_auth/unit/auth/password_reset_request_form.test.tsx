@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
 import api from '@/api/axiosInstance';
@@ -14,16 +14,16 @@ function renderForm() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
-        <PasswordResetRequestForm />
-      </ChakraProvider>
+        <MemoryRouter>
+          <PasswordResetRequestForm />
+        </MemoryRouter>
     </QueryClientProvider>
   );
 }
 
 async function submit(user: ReturnType<typeof userEvent.setup>, email = 'user@example.com') {
   await user.type(screen.getByLabelText(/email/i), email);
-  await user.click(screen.getByRole('button', { name: 'Request Password Reset' }));
+  await user.click(screen.getByRole('button', { name: 'Send reset link' }));
 }
 
 describe('PasswordResetRequestForm', () => {
@@ -69,10 +69,32 @@ describe('PasswordResetRequestForm', () => {
 
     expect(mock.history.post).toHaveLength(1);
 
-    // Button shows a "try again in Ns" countdown; clicking during cooldown must not re-fire.
-    const button = screen.getByRole('button');
+    // F2: success swaps the form for a result panel; its own resend button
+    // shows a "Didn't get it? Resend in Ns" countdown, disabled until it
+    // elapses, so clicking it during cooldown must not re-fire.
+    const button = screen.getByRole('button', { name: /resend in/i });
     expect(button).toBeDisabled();
     await user.click(button);
     expect(mock.history.post).toHaveLength(1);
+  });
+
+  // Regression: the cooldown used to start on click, before the server
+  // answered, so a 429 showed "Try again in 60s" on the button at the same
+  // time the alert said "Please try again later" - the two contradicted
+  // each other. The cooldown must follow the response, not the click.
+  it('does not start a cooldown when the request fails', async () => {
+    mock.onPost('/auth/password-reset/request').reply(429, { error: 'Please try again later' });
+
+    renderForm();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await submit(user);
+
+    expect(await screen.findByText('Please try again later')).toBeInTheDocument();
+
+    const button = screen.getByRole('button', { name: 'Send reset link' }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+
+    await user.click(button);
+    expect(mock.history.post).toHaveLength(2);
   });
 });

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import and_, asc, desc, func, or_
@@ -11,13 +12,21 @@ from ...emails.email_normalization import normalize_email
 from ..user_model import UserRole
 
 UserStatus = Literal["active", "inactive", "deleted"]
+PermissionSource = Literal["policy", "direct"]
+
+# Relative-bucket presets for the "last login" filter, matching how Okta/
+# Auth0/Workspace admin consoles filter this field: quick relative buckets
+# first, a custom {from, to} range only when none fit (see
+# design/users.html's lastLoginOpts).
+LastLoginBucket = Literal["today", "7d", "30d", "90d", "never"]
+_LAST_LOGIN_BUCKET_DAYS: dict[str, int] = {"today": 1, "7d": 7, "30d": 30, "90d": 90}
 
 # Allowlisted sort keys, same reasoning as the audit log repositories'
 # _SORTABLE_COLUMNS: never let a caller-supplied column name reach the query
 # directly. "status" is excluded on purpose: it's a UI-level composite of
 # is_active + deleted_at, not one column, so it has no single sensible sort
 # order the way the others do.
-_SORTABLE_COLUMN_NAMES = {"name", "email", "role", "created_at", "is_verified"}
+_SORTABLE_COLUMN_NAMES = {"name", "email", "role", "created_at", "is_verified", "last_login_at"}
 
 
 class UserBaseCRUD:
@@ -57,6 +66,26 @@ class UserBaseCRUD:
             return (self.model.is_active.is_(True)) & (self.model.deleted_at.is_(None))
         return None
 
+    def _last_login_filter(
+        self, last_login: LastLoginBucket | None, last_login_from: datetime | None, last_login_to: datetime | None
+    ):
+        if last_login == "never":
+            return self.model.last_login_at.is_(None)
+        bucket_days = _LAST_LOGIN_BUCKET_DAYS.get(last_login) if last_login else None
+        if bucket_days is not None:
+            cutoff = datetime.now(UTC) - timedelta(days=bucket_days)
+            return self.model.last_login_at.isnot(None) & (self.model.last_login_at >= cutoff)
+        # Custom range: either bound alone is enough to filter, same as most
+        # date-range pickers (an open-ended "from X" or "up to Y").
+        if last_login_from is not None or last_login_to is not None:
+            conditions = [self.model.last_login_at.isnot(None)]
+            if last_login_from is not None:
+                conditions.append(self.model.last_login_at >= last_login_from)
+            if last_login_to is not None:
+                conditions.append(self.model.last_login_at <= last_login_to)
+            return and_(*conditions)
+        return None
+
     def _apply_filters(
         self,
         stmt,
@@ -66,6 +95,10 @@ class UserBaseCRUD:
         status: UserStatus | None,
         policy: str | None = None,
         permission: str | None = None,
+        permission_source: PermissionSource | None = None,
+        last_login: LastLoginBucket | None = None,
+        last_login_from: datetime | None = None,
+        last_login_to: datetime | None = None,
     ):
         search_condition = self._search_filter(search)
         if search_condition is not None:
@@ -75,8 +108,18 @@ class UserBaseCRUD:
         if is_verified is not None:
             stmt = stmt.where(self.model.is_verified == is_verified)
         status_condition = self._status_filter(status)
+        # Verification is an account-state filter in the management UI. When
+        # no explicit status is requested, do not let soft-deleted accounts
+        # leak into a verified/unverified result; an admin can still combine
+        # verification with status="deleted" when intentionally inspecting
+        # deactivated accounts.
+        if is_verified is not None and status is None:
+            status_condition = self._status_filter("active")
         if status_condition is not None:
             stmt = stmt.where(status_condition)
+        last_login_condition = self._last_login_filter(last_login, last_login_from, last_login_to)
+        if last_login_condition is not None:
+            stmt = stmt.where(last_login_condition)
         if policy is not None:
             # A user can hold the matching policy+permission combination via
             # more than one assignment, so the join can multiply rows.
@@ -89,6 +132,28 @@ class UserBaseCRUD:
             )
             if permission is not None:
                 stmt = stmt.where(Policy.actions.contains([permission]))
+        elif permission is not None and permission_source == "policy":
+            stmt = stmt.where(
+                select(UserPolicy.id)
+                .join(Policy, Policy.id == UserPolicy.policy_id)
+                .where(
+                    UserPolicy.user_id == self.model.id,
+                    Policy.actions.contains([permission]),
+                )
+                .exists()
+            )
+        elif permission is not None and permission_source == "direct":
+            stmt = stmt.where(
+                select(UserPermission.id)
+                .where(
+                    and_(
+                        UserPermission.user_id == self.model.id,
+                        UserPermission.action == permission,
+                        UserPermission.is_active.is_(True),
+                    )
+                )
+                .exists()
+            )
         elif permission is not None:
             # No policy filter: a user can hold this action via a policy or a
             # direct UserPermission grant (both effective per
@@ -122,9 +187,18 @@ class UserBaseCRUD:
         if column is None:
             column = self.model.id
         direction = asc if sort_dir == "asc" else desc
+        primary = direction(column)
+        # Postgres defaults NULLs to sort first on DESC, which would put
+        # every never-logged-in user ahead of real, more-recent timestamps
+        # on a "most recent login first" sort - the opposite of what an
+        # admin sorting this column would expect. Pin last_login_at's NULLs
+        # to the bottom regardless of direction; every other sortable column
+        # here is NOT NULL, so this never bites them.
+        if sort_by == "last_login_at":
+            primary = primary.nullslast()
         # id rides along as a secondary key for stable ordering (e.g. many
         # rows sharing the same role), same as the audit log repositories.
-        return [direction(column), direction(self.model.id)]
+        return [primary, direction(self.model.id)]
 
     async def get_all(
         self,
@@ -139,11 +213,18 @@ class UserBaseCRUD:
         sort_dir: str = "asc",
         policy: str | None = None,
         permission: str | None = None,
+        permission_source: PermissionSource | None = None,
+        last_login: LastLoginBucket | None = None,
+        last_login_from: datetime | None = None,
+        last_login_to: datetime | None = None,
     ):
         # Capped, same as every other list endpoint in the app (audit log,
         # policy history); this one previously read the whole table
         # unconditionally.
-        stmt = self._apply_filters(select(self.model), search, role, is_verified, status, policy, permission)
+        stmt = self._apply_filters(
+            select(self.model), search, role, is_verified, status, policy, permission, permission_source,
+            last_login, last_login_from, last_login_to,
+        )
         stmt = stmt.order_by(*self._order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
         return result.scalars().all()
@@ -157,6 +238,10 @@ class UserBaseCRUD:
         status: UserStatus | None = None,
         policy: str | None = None,
         permission: str | None = None,
+        permission_source: PermissionSource | None = None,
+        last_login: LastLoginBucket | None = None,
+        last_login_from: datetime | None = None,
+        last_login_to: datetime | None = None,
     ) -> int:
         """Total matching rows, ignoring limit/offset. Lets a caller compute
         how many pages exist (see list_all_users' X-Total-Count header).
@@ -165,7 +250,8 @@ class UserBaseCRUD:
         _apply_filters)."""
         stmt = self._apply_filters(
             select(func.count(func.distinct(self.model.id))).select_from(self.model),
-            search, role, is_verified, status, policy, permission,
+            search, role, is_verified, status, policy, permission, permission_source,
+            last_login, last_login_from, last_login_to,
         )
         result = await db.execute(stmt)
         return result.scalar_one()

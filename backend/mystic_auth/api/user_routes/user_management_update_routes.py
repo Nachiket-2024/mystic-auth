@@ -8,7 +8,7 @@ from ...auth.password_logic.password_service import password_service
 # uses, reused here so a soft-deleted/purged account's existing refresh tokens
 # can't be used to mint a fresh access token even though
 # refresh_token_service.refresh_tokens() itself doesn't check the database
-# (it's Redis/JWT-only by design, see its own docstring).
+# (it's Valkey/JWT-only by design, see its own docstring).
 from ...auth.refresh_token_logic.refresh_token_service import refresh_token_service
 from ...auth.token_logic.token_version_store import TokenVersionUnavailableError
 

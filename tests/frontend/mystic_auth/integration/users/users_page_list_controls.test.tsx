@@ -2,13 +2,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
 import api from '@/api/axiosInstance';
 import { useAuthStore } from '@/store/authStore';
 import UsersPage from '@/users/UsersPage';
+import { formatPolicyActionLabel } from '@/policies/policyCardHelpers';
 
 // Pagination, server-side search/filter/sort, and CSV export. Row actions
 // live in users_page.test.tsx, and the Policies dialog in
@@ -32,15 +32,13 @@ function seed(permissions: string[], email = 'admin@example.com') {
   });
 }
 
-function renderPage() {
+function renderPage(initialEntries = ['/users']) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>
           <UsersPage />
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -73,6 +71,20 @@ describe('UsersPage list controls', () => {
     mock.reset();
   });
 
+  it('keeps filter controls hidden until the Filters button is selected', async () => {
+    seed(['users:list_all']);
+    mock.onGet('/users/').reply(200, SAMPLE_USERS, { 'x-total-count': '2' });
+
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByText('Regular User');
+    expect(screen.queryByLabelText('Filter by role', { selector: 'select' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    expect(screen.getByLabelText('Filter by role', { selector: 'select' })).toBeInTheDocument();
+  });
+
   it('shows numbered pages (from X-Total-Count) and fetches the next page on click', async () => {
     seed(['users:list_all']);
     mock.onGet('/users/').reply((config) => {
@@ -98,6 +110,26 @@ describe('UsersPage list controls', () => {
     expect(getRequests[getRequests.length - 1].params).toMatchObject({ offset: 25 });
   });
 
+  it('hydrates the policy filter from a URL deep link', async () => {
+    seed(['users:list_all']);
+    mock.onGet('/authorization/policies').reply(200, [
+      { id: 1, name: 'report_viewer', description: null, actions: ['reports:read'], resource_type: 'reports', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
+    ]);
+    mock.onGet('/users/').reply((config) => {
+      if (config.params?.policy === 'report_viewer') {
+        return [200, [SAMPLE_USERS[0]], { 'x-total-count': '1' }];
+      }
+      return [200, SAMPLE_USERS, { 'x-total-count': '2' }];
+    });
+
+    renderPage(['/users?policy=report_viewer']);
+
+    expect(await screen.findByText('Admin User')).toBeInTheDocument();
+    expect(screen.queryByText('Regular User')).toBeNull();
+    expect(mock.history.get.filter((request) => request.url === '/users/').at(-1)?.params)
+      .toMatchObject({ policy: 'report_viewer' });
+  });
+
   it('searches server-side (debounced) and resets to page 1', async () => {
     seed(['users:list_all']);
     mock.onGet('/users/').reply((config) => {
@@ -116,7 +148,7 @@ describe('UsersPage list controls', () => {
     // Debounced: the filtered result (and the admin row disappearing)
     // shouldn't show up until after the debounce window.
     await waitFor(() => expect(screen.queryByText('Admin User')).toBeNull(), { timeout: 2000 });
-    expect(screen.getByText('Regular User')).toBeInTheDocument();
+    expect(await screen.findByText('Regular User')).toBeInTheDocument();
 
     const lastRequest = mock.history.get[mock.history.get.length - 1];
     expect(lastRequest.params).toMatchObject({ search: 'regular' });
@@ -135,6 +167,7 @@ describe('UsersPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
     // "Filter by role" alone matches both the visible button and its hidden
     // native <select>; narrow to the <select>, which selectOptions needs.
     await user.selectOptions(screen.getByLabelText('Filter by role', { selector: 'select' }), 'admin');
@@ -163,10 +196,9 @@ describe('UsersPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    await user.selectOptions(
-      screen.getByLabelText('Filter by policy', { selector: 'select' }),
-      'user_administration'
-    );
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    await user.click(screen.getByRole('button', { name: 'Filter by policy' }));
+    await user.click(screen.getByRole('button', { name: 'user_administration' }));
 
     await waitFor(() => expect(screen.queryByText('Regular User')).toBeNull());
     expect(screen.getByText('Admin User')).toBeInTheDocument();
@@ -175,7 +207,34 @@ describe('UsersPage list controls', () => {
     expect(lastRequest?.params).toMatchObject({ policy: 'user_administration' });
   });
 
-  it('filters by permission via the Permission select and resets to page 1', async () => {
+  it('keeps policy and verification filters conjunctive', async () => {
+    seed(['users:list_all']);
+    mock.onGet('/authorization/policies').reply(200, [
+      { id: 1, name: 'self_service', description: null, actions: ['users:read_own'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
+    ]);
+    mock.onGet('/users/').reply((config) => {
+      if (config.params?.policy === 'self_service' && config.params?.is_verified === true) {
+        return [200, [SAMPLE_USERS[0]], { 'x-total-count': '1' }];
+      }
+      return [200, SAMPLE_USERS, { 'x-total-count': '2' }];
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByText('Regular User');
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    await user.click(screen.getByRole('button', { name: 'Filter by policy' }));
+    await user.click(screen.getByRole('button', { name: 'self_service' }));
+    await user.selectOptions(screen.getByLabelText('Filter by verified status', { selector: 'select' }), 'true');
+
+    await waitFor(() => expect(screen.queryByText('Regular User')).toBeNull());
+    expect(screen.getByText('Admin User')).toBeInTheDocument();
+    const lastRequest = mock.history.get.filter((r) => r.url === '/users/').at(-1);
+    expect(lastRequest?.params).toMatchObject({ policy: 'self_service', is_verified: true });
+  });
+
+  it('filters by permission via the Permission picker and resets to page 1', async () => {
     seed(['users:list_all']);
     mock.onGet('/authorization/policies').reply(200, []);
     mock.onGet('/users/').reply((config) => {
@@ -189,10 +248,9 @@ describe('UsersPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    await user.selectOptions(
-      screen.getByLabelText('Filter by permission', { selector: 'select' }),
-      'users:list_all'
-    );
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    await user.click(screen.getByRole('button', { name: 'Filter by permission' }));
+    await user.click(await screen.findByRole('button', { name: formatPolicyActionLabel('users:list_all') }));
 
     await waitFor(() => expect(screen.queryByText('Regular User')).toBeNull());
     expect(screen.getByText('Admin User')).toBeInTheDocument();
@@ -246,14 +304,14 @@ describe('UsersPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    await user.click(screen.getByText('Name'));
+    await user.click(screen.getByText('Name / Email'));
 
     await waitFor(() => {
       const lastRequest = mock.history.get[mock.history.get.length - 1];
       expect(lastRequest.params).toMatchObject({ sort_by: 'name', sort_dir: 'asc' });
     });
 
-    await user.click(screen.getByText('Name'));
+    await user.click(screen.getByText('Name / Email'));
 
     await waitFor(() => {
       const lastRequest = mock.history.get[mock.history.get.length - 1];

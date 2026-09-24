@@ -45,6 +45,28 @@ that hostname to the named tunnel, and `cloudflared` forwards it to
 
 ---
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["1. Copy\nenv.local-prod-cloudflare.example"]
+    S2["2. Create the tunnel\nin Cloudflare"]
+    S3["3. Point the tunnel\nat your app"]
+    S4["4. Point the app at\nthat hostname\nFRONTEND_BASE_URL, JWT_ISSUER/AUDIENCE"]
+    S5["5. Register the hostname\nwith Google OAuth"]
+    S6["6. Switch compose file\nto Named Tunnel mode"]
+    S7["7. Start (or restart)\nthe stack"]
+    S7b["7b (optional): enable\nsession geolocation"]
+    Live["Public https://<your-domain>"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S7b --> Live
+
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Live terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+---
+
 **Step 1: Copy the env file.**
 
 ```bash

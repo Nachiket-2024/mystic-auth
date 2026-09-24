@@ -3,13 +3,13 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md) or [Authentication Glossary](../glossary/authentication.md).*
 
-Redis authentication, secret strength, reverse-proxy IP trust, session geolocation, and the current accepted-gaps list. See [Security Hardening](hardening.md) for the full index.
+Valkey authentication, secret strength, reverse-proxy IP trust, session geolocation, and the current accepted-gaps list. See [Security Hardening](hardening.md) for the full index.
 
 ---
 
-## Redis authentication
+## Valkey authentication
 
-`REDIS_PASSWORD` (`env/mystic_auth/.env`/`env/mystic_auth/.env.example`) is passed to `redis-server --requirepass` in every compose file (empty value = no-op, so local dev is unaffected by default); both healthchecks authenticate with it. Since `redis-py` (`redis/client.py`) authenticates via the connection URL rather than a separate kwarg, the same password must also be embedded in `REDIS_URL` (`redis://:<REDIS_PASSWORD>@redis:6379/0`): documented inline in `env/mystic_auth/.env.example`. (Background jobs no longer use Redis at all: `procrastinate_tasks/` runs on the same Postgres instance as everything else, see [Background Email Delivery](../background-workers/procrastinate.md).)
+`VALKEY_PASSWORD` (`env/mystic_auth/.env`/`env/mystic_auth/.env.example`) is passed to `valkey-server --requirepass` in every compose file (empty value = no-op, so local dev is unaffected by default); both healthchecks authenticate with it. Since `valkey-py` (`valkey/client.py`) authenticates via the connection URL rather than a separate kwarg, the same password must also be embedded in `VALKEY_URL` (`redis://:<VALKEY_PASSWORD>@valkey:6379/0`): documented inline in `env/mystic_auth/.env.example`. (Background jobs no longer use Valkey at all: `procrastinate_tasks/` runs on the same Postgres instance as everything else, see [Background Email Delivery](../background-workers/procrastinate.md).)
 
 ---
 

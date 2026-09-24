@@ -5,8 +5,8 @@
 # signup -> create a verification token -> immediately verify it, for many
 # accounts in quick succession, was once observed to occasionally reject a
 # token as "Invalid, expired, or already used" even though the token had
-# just been issued and nothing else writes to the "verify:*" Redis
-# keyspace. Two rounds of focused Redis-level tracing (redis-cli MONITOR,
+# just been issued and nothing else writes to the "verify:*" Valkey
+# keyspace. Two rounds of focused Valkey-level tracing (valkey-cli MONITOR,
 # sequential and concurrent, well over 1000 chains total) never reproduced
 # it, so no fix was made. This test exists so that if the underlying
 # condition recurs, CI catches it instead of relying on another manual
@@ -22,7 +22,7 @@ from .auth_test_accounts import PASSWORD, unique_email
 
 
 async def _signup_and_verify(client, created_emails) -> bool:
-    """One full chain against the real ASGI app and real Redis: signup
+    """One full chain against the real ASGI app and real Valkey: signup
     (which sends its own verification email/token internally), then
     immediately verify with that same token. Returns True if verification
     succeeded."""
@@ -37,14 +37,14 @@ async def _signup_and_verify(client, created_emails) -> bool:
     from backend.mystic_auth.auth.verify_account.account_verification_service import (
         account_verification_service,
     )
-    from backend.mystic_auth.redis.client import redis_client
+    from backend.mystic_auth.valkey.client import valkey_client
 
     # Mirrors signup_verify_login's approach in auth_test_accounts.py: mint
     # a real single-use token the same way the app does internally, rather
     # than depending on the email worker, so this test controls exactly how
     # many chains fire and how quickly.
     token = await account_verification_service.create_verification_token(email)
-    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
 
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     return verify_resp.status_code == 200

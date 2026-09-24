@@ -35,9 +35,9 @@ from .sdk import (  # noqa: E402, must follow load_dotenv() above, since sdk.py 
     policy_assignment_router,
     policy_crud_router,
     policy_history_router,
+    policy_self_router,
     procrastinate_app,
     rate_limit_router,
-    redis_client,
     refresh_token_router,
     security_audit_router,
     settings,
@@ -46,6 +46,7 @@ from .sdk import (  # noqa: E402, must follow load_dotenv() above, since sdk.py 
     user_management_query_router,
     user_management_update_router,
     user_self_service_router,
+    valkey_client,
     watch_for_late_dsn,
 )
 
@@ -102,7 +103,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     isn't healthy yet on a cold start). Never awaited, so it can't delay
     startup or block a request; cancelled on shutdown.
 
-    On shutdown, explicitly dispose the DB pool and close the Redis client
+    On shutdown, explicitly dispose the DB pool and close the Valkey client
     rather than relying on the OS to reclaim the sockets. Session-events
     streams are already told to stop by
     _relay_shutdown_signal_to_session_events() before this runs.
@@ -115,7 +116,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     yield
     dsn_watcher.cancel()
     await database.engine.dispose()
-    await redis_client.aclose()
+    await valkey_client.aclose()
     await procrastinate_app.close_async()
 
 
@@ -214,6 +215,7 @@ app.include_router(user_lifecycle_router)
 # cross-router ordering constraint exists.
 app.include_router(policy_crud_router)
 app.include_router(policy_history_router)
+app.include_router(policy_self_router)
 app.include_router(policy_assignment_router)
 app.include_router(permission_assignment_router)
 app.include_router(permission_catalog_router)

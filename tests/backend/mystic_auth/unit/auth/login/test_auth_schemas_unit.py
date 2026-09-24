@@ -1,6 +1,6 @@
 # Regression guard: name/password/token fields across the auth request
 # schemas previously accepted unbounded-length strings, which then get fed
-# straight into Argon2 hashing (password/name) or Redis/JWT operations
+# straight into Argon2 hashing (password/name) or Valkey/JWT operations
 # (tokens). These are pure schema-level tests since handlers take plain
 # str arguments and bypass FastAPI's request-parsing layer entirely: only
 # a Pydantic model instantiation (or a real HTTP request, covered in

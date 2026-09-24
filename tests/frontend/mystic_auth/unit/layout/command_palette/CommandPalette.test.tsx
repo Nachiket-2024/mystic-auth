@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -40,11 +39,9 @@ function renderPalette(onClose = vi.fn()) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <CommandPalette isOpen onClose={onClose} />
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
   return { ...utils, onClose };
@@ -56,6 +53,46 @@ describe('CommandPalette', () => {
     mock.reset();
     mock.onGet('/users/').reply(200, []);
     seed([]);
+  });
+
+  it('does not expose or request policy records without policies:read', async () => {
+    renderPalette();
+
+    await userEvent.type(screen.getByRole('textbox'), 'report');
+    await waitFor(() => expect(screen.getByText('No matching results')).toBeInTheDocument());
+
+    expect(mock.history.get.some((request) => request.url === '/authorization/policies')).toBe(false);
+    expect(screen.queryByText('report_viewer')).toBeNull();
+  });
+
+  it('searches policy records for an authorized caller and navigates with a policy filter', async () => {
+    seed(['policies:read']);
+    mock.onGet('/authorization/policies').reply((config) => {
+      expect(config.params).toMatchObject({
+        limit: 5,
+        offset: 0,
+        search: 'report',
+        sort_by: 'name',
+        sort_dir: 'asc',
+      });
+      return [200, [{
+        name: 'report_viewer',
+        description: 'Read-only reporting policy',
+        resource_type: 'report',
+        actions: ['read'],
+        is_active: true,
+        is_system: false,
+      }], { 'x-total-count': '1' }];
+    });
+
+    const { onClose } = renderPalette();
+    await userEvent.type(screen.getByRole('textbox'), 'report');
+
+    await waitFor(() => expect(screen.getByText('report_viewer')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('report_viewer'));
+    expect(navigateMock).toHaveBeenCalledWith('/policies?search=report_viewer');
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('lists only nav items requiring no permission for a caller with none', () => {
@@ -146,12 +183,12 @@ describe('CommandPalette', () => {
   it('surfaces every matching piece of page copy, not just titles, under a "Matching text" group', async () => {
     renderPalette();
 
-    // "sessions" isn't a nav label, but real copy on the Dashboard's
-    // "Manage Sessions" section.
+    // "sessions" isn't a nav label, but real copy on the Dashboard's Active
+    // Sessions card (ActiveSessionsCard).
     await userEvent.type(screen.getByRole('textbox'), 'sessions');
 
     await waitFor(() => expect(screen.getByText('Matching text')).toBeInTheDocument());
-    expect(screen.getAllByText('Manage Sessions').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Active Sessions').length).toBeGreaterThan(0);
   });
 
   it('shows one row per distinct matching string, not one collapsed row per page', async () => {
@@ -169,8 +206,8 @@ describe('CommandPalette', () => {
     const { onClose } = renderPalette();
 
     await userEvent.type(screen.getByRole('textbox'), 'sessions');
-    await waitFor(() => expect(screen.getAllByText('Manage Sessions').length).toBeGreaterThan(0));
-    const [firstMatch] = screen.getAllByText('Manage Sessions');
+    await waitFor(() => expect(screen.getAllByText('Active Sessions').length).toBeGreaterThan(0));
+    const [firstMatch] = screen.getAllByText('Active Sessions');
     await userEvent.click(firstMatch);
 
     expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));

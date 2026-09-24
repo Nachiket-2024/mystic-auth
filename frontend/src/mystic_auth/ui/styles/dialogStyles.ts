@@ -1,28 +1,29 @@
-// Chakra's default boxShadow:"lg", no border, wasn't enough separation from
-// a mostly white page, so this adds a border, stronger shadow, and a
-// blurred/darker backdrop.
-// pointerEvents:"auto" is required, not cosmetic: the dialog machine sets
-// `document.body { pointer-events: none }` while open, which the backdrop
-// would otherwise inherit, silently breaking "click background to close".
-// animationDuration matches "fast"/"faster": the stock recipe timed the
-// backdrop slower than the panel, so it visibly trailed behind it.
-export const DIALOG_BACKDROP_PROPS = {
-    bg: "blackAlpha.600",
-    backdropFilter: "blur(2px)",
-    pointerEvents: "auto",
-    _open: { animationDuration: "fast" },
-    _closed: { animationDuration: "faster" },
-};
+export const DIALOG_PANEL_CLASSNAME =
+    "border-brand-border rounded-card bg-bg-canvas p-0 shadow-dialog ring-1 ring-black/5 dark:ring-white/5 overflow-hidden";
 
-// Chakra's default `my` (4rem above and below) eats over a fifth of a 600px
-// laptop viewport before a field even renders, forcing modestly tall forms
-// to scroll; overridden down to reclaim that space.
-// overflow:"hidden" clips content to its borderRadius, or Dialog.Body's
-// native scrollbar corner renders as a stray square past the rounded corner.
-export const DIALOG_CONTENT_PROPS = {
-    borderWidth: "1px",
-    borderColor: "border.default",
-    boxShadow: "2xl",
-    my: { base: "3", md: "4" },
-    overflow: "hidden",
-};
+export const DIALOG_HEADER_CLASSNAME =
+    "px-5 py-4 sm:px-6 border-b border-brand-border bg-bg-canvas";
+
+export const DIALOG_BODY_CLASSNAME =
+    "min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6 bg-bg-canvas";
+
+export const DIALOG_FOOTER_CLASSNAME =
+    "px-5 py-3.5 pb-0 sm:px-6 border-t border-brand-border bg-bg-canvas";
+
+export const DIALOG_COMPACT_CONTENT_CLASSNAME =
+    "px-5 py-4 sm:px-6 bg-bg-canvas";
+
+export const DIALOG_FORM_SECTION_CLASSNAME =
+    "rounded-lg border border-border-card bg-bg-surface p-3.5 shadow-card";
+
+export const DIALOG_RESULT_SECTION_CLASSNAME =
+    "rounded-lg border border-border-card bg-bg-surface-raised p-3.5";
+
+export const DIALOG_SECTION_CLASSNAME =
+    "rounded-card border border-border-card bg-bg-surface p-4 shadow-card";
+
+export const DIALOG_DETAIL_LABEL_CLASSNAME =
+    "text-xs font-semibold uppercase tracking-wide text-fg-muted";
+
+export const DIALOG_DETAIL_VALUE_CLASSNAME =
+    "text-sm break-words text-fg-default";

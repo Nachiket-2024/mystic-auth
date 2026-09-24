@@ -7,7 +7,7 @@
 
 Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. Also runs the daily scheduled hard-purge of soft-deleted accounts past their grace period (see [Account Deletion](../authentication/account-deletion/README.md)).
 
-Replaced [Taskiq](https://taskiq-python.github.io/) (Redis Streams) with [Procrastinate](https://procrastinate.readthedocs.io/) (Postgres-native) in full: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why.
+Replaced [Taskiq](https://taskiq-python.github.io/) (Valkey Streams) with [Procrastinate](https://procrastinate.readthedocs.io/) (Postgres-native) in full: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why.
 
 ---
 
@@ -35,7 +35,7 @@ app = App(
 
 `settings.procrastinate_database_url` (`core/settings.py`) translates `DATABASE_URL`'s SQLAlchemy `postgresql+asyncpg://` dialect prefix into the bare `postgresql://` DSN Procrastinate's `PsycopgConnector` expects. The connector opens its own psycopg connection pool, entirely separate from the SQLAlchemy engine `database.py` builds: two independent pools onto the same database, not a shared one.
 
-The FastAPI process itself needs this connector open too, since request handlers call `.defer_async(...)` directly: `backend/app/main.py`'s lifespan opens it (`await procrastinate_app.open_async()`) before serving traffic and closes it on shutdown, the same pattern as the Redis client and the SQLAlchemy engine.
+The FastAPI process itself needs this connector open too, since request handlers call `.defer_async(...)` directly: `backend/app/main.py`'s lifespan opens it (`await procrastinate_app.open_async()`) before serving traffic and closes it on shutdown, the same pattern as the Valkey client and the SQLAlchemy engine.
 
 ```python
 @app.task(retry=EMAIL_RETRY)
@@ -57,7 +57,7 @@ flowchart TD
 ```
 ---
 
-Unlike taskiq's `RedisStreamBroker` + separate `TaskiqScheduler` process, there's a single container role here: `procrastinate_worker` runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker`, which both executes jobs *and* runs the periodic-task deferrer (`@app.periodic`-registered tasks) as an internal asyncio task of the same worker process. No second scheduler container exists, and none is needed: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why that used to be a single point of failure and structurally can't be one now.
+Unlike taskiq's `ValkeyStreamBroker` + separate `TaskiqScheduler` process, there's a single container role here: `procrastinate_worker` runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker`, which both executes jobs *and* runs the periodic-task deferrer (`@app.periodic`-registered tasks) as an internal asyncio task of the same worker process. No second scheduler container exists, and none is needed: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why that used to be a single point of failure and structurally can't be one now.
 
 ---
 
@@ -115,9 +115,9 @@ FROM procrastinate_jobs
 WHERE status = 'failed';
 ```
 
-That's the dead-letter queue this template has: no separate infrastructure, no admin UI, just a queryable table. An operator (or a monitoring query against this same Postgres instance) can watch it directly; nothing pages anyone automatically today, which is left as a deployment-specific follow-up, same as before.
+That's the dead-letter queue this template has: no separate infrastructure or UI, just a queryable table. An operator (or a monitoring query against this same Postgres instance) can watch it directly; nothing pages anyone automatically today, which is left as a deployment-specific follow-up, same as before.
 
-**Why no separate scheduler process is needed anymore**: taskiq's `SmartRetryMiddleware` wrote each retry's due-time to a Redis-backed `schedule_source`, and only a separate `TaskiqScheduler` process polled that store back out and re-enqueued due retries: if that process was down, the first attempt's failure still logged, but the scheduled retry silently never fired. Procrastinate has no equivalent split: a retry's `scheduled_at` is written directly onto the same `procrastinate_jobs` row, and the worker's own job-fetch query (`WHERE status = 'todo' AND scheduled_at <= now()`) picks it up the moment it's due, in the same process that runs everything else. There's nothing to poll and nothing separate to be down.
+**Why no separate scheduler process is needed anymore**: taskiq's `SmartRetryMiddleware` wrote each retry's due-time to a Valkey-backed `schedule_source`, and only a separate `TaskiqScheduler` process polled that store back out and re-enqueued due retries: if that process was down, the first attempt's failure still logged, but the scheduled retry silently never fired. Procrastinate has no equivalent split: a retry's `scheduled_at` is written directly onto the same `procrastinate_jobs` row, and the worker's own job-fetch query (`WHERE status = 'todo' AND scheduled_at <= now()`) picks it up the moment it's due, in the same process that runs everything else. There's nothing to poll and nothing separate to be down.
 
 ---
 
@@ -125,7 +125,7 @@ That's the dead-letter queue this template has: no separate infrastructure, no a
 
 `tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly (the success path, the failure-raises-for-retry path) and `EMAIL_RETRY` directly (the exponential-backoff-plus-jitter formula, the 3-attempt cap). `tests/backend/mystic_auth/unit/procrastinate_tasks/test_account_purge_tasks_unit.py` covers the periodic task's cron registration and its CRUD/service wiring with mocked collaborators; `tests/backend/mystic_auth/integration/user/test_account_purge_task_integration.py` covers the same job end-to-end against real Postgres. The call sites (`account_verification_service.py`, `password_reset_service.py`, `account_deletion_service.py`) are separately tested with `send_email_task.defer_async` mocked/patched. See [Testing Overview](../testing/overview.md).
 
-`tests/backend/conftest.py`'s `_procrastinate_app_lifecycle` fixture opens and closes `procrastinate_app`'s connector fresh around every test, the same per-event-loop reasoning as the Postgres/Redis pool fixtures beside it: pytest-asyncio hands each test its own event loop, and a psycopg connection pool opened in one test's loop isn't safe to reuse from another's. That same file also points tests at a dedicated `mystic_auth_test` database rather than the real one a running dev stack's own `procrastinate_worker` container reads from - see [Testing Overview: Dedicated test database](../testing/overview.md#dedicated-test-database) for why.
+`tests/backend/conftest.py`'s `_procrastinate_app_lifecycle` fixture opens and closes `procrastinate_app`'s connector fresh around every test, the same per-event-loop reasoning as the Postgres/Valkey pool fixtures beside it: pytest-asyncio hands each test its own event loop, and a psycopg connection pool opened in one test's loop isn't safe to reuse from another's. That same file also points tests at a dedicated `mystic_auth_test` database rather than the real one a running dev stack's own `procrastinate_worker` container reads from - see [Testing Overview: Dedicated test database](../testing/overview.md#dedicated-test-database) for why.
 
 ---
 

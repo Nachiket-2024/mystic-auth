@@ -209,34 +209,34 @@ def test_resource_attributes_and_self_only_can_be_combined():
 
 def test_context_attributes_condition_allows_when_context_matches():
     policies = [_policy(
-        ["users:delete_any"],
+        ["users:deactivate_any"],
         conditions={"context_attributes": {"mfa_verified": True}},
     )]
 
     assert PolicyEvaluationEngine.evaluate(
-        policies, "users:delete_any", "users", "admin@example.com", context={"mfa_verified": True}
+        policies, "users:deactivate_any", "users", "admin@example.com", context={"mfa_verified": True}
     ) is True
 
 
 def test_context_attributes_condition_denies_when_context_mismatches():
     policies = [_policy(
-        ["users:delete_any"],
+        ["users:deactivate_any"],
         conditions={"context_attributes": {"mfa_verified": True}},
     )]
 
     assert PolicyEvaluationEngine.evaluate(
-        policies, "users:delete_any", "users", "admin@example.com", context={"mfa_verified": False}
+        policies, "users:deactivate_any", "users", "admin@example.com", context={"mfa_verified": False}
     ) is False
 
 
 def test_context_attributes_condition_denies_when_no_context_is_supplied():
     policies = [_policy(
-        ["users:delete_any"],
+        ["users:deactivate_any"],
         conditions={"context_attributes": {"mfa_verified": True}},
     )]
 
     assert PolicyEvaluationEngine.evaluate(
-        policies, "users:delete_any", "users", "admin@example.com", context=None
+        policies, "users:deactivate_any", "users", "admin@example.com", context=None
     ) is False
 
 

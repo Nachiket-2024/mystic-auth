@@ -1,15 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 import { useRouteLoadingStore, startRouteLoad, finishRouteLoad } from '@/store/routeLoadingStore';
 import RouteProgressBar from '@/ui/routing/RouteProgressBar';
 
 function renderBar() {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <RouteProgressBar />
-    </ChakraProvider>
   );
 }
 

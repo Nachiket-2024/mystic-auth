@@ -4,8 +4,10 @@ import { useLocation } from "react-router";
 /**
  * Scrolls the element whose `id` matches the current URL's `#hash` into
  * view once it exists in the DOM. Mounted once in AppLayout so every page
- * gets this for free - CommandPalette's content search relies on it to land
- * on a specific in-page section (e.g. `/dashboard#manage-sessions`).
+ * gets this for free - CommandPalette's content search can use it to land
+ * on a specific in-page section via an extraSearchItems entry's `#hash`
+ * destination (none of the built-in SEARCH_ITEMS need it right now; every
+ * built-in destination is a whole tab/page instead).
  *
  * Retries briefly instead of running once: the target can still be mounting
  * (a lazy-loaded route chunk, a loading skeleton) when this effect first

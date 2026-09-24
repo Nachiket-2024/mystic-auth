@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy.sql.elements import UnaryExpression
 
 from ...core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
-from ..models.policy_model import Policy
+from ..models.policy_model import Policy, UserPolicy
 from ..schemas.policy_schema import PolicyRead
 
 # Allowlisted sort keys, same rationale as user_base_crud.py's and the audit
@@ -25,7 +25,14 @@ def _search_filter(search: str | None):
     )
 
 
-def _apply_filters(stmt, search: str | None, resource_type: str | None, is_active: bool | None):
+def _apply_filters(
+    stmt,
+    search: str | None,
+    resource_type: str | None,
+    is_active: bool | None,
+    contains_action: str | None = None,
+    destructive_only: bool = False,
+):
     """Shared by get_all (row fetch) and count (X-Total-Count), so a
     filtered page's total always matches what's actually being paged
     through."""
@@ -36,6 +43,23 @@ def _apply_filters(stmt, search: str | None, resource_type: str | None, is_activ
         stmt = stmt.where(Policy.resource_type == resource_type)
     if is_active is not None:
         stmt = stmt.where(Policy.is_active == is_active)
+    if contains_action:
+        # Policy.actions is a Postgres ARRAY(String); .any() emits
+        # `... = ANY(actions)`, an exact-value membership test against the
+        # array - "which policies grant invoices:void" not a substring match.
+        stmt = stmt.where(Policy.actions.any(contains_action))  # type: ignore[arg-type]
+    if destructive_only:
+        # Keep this explicit and catalog-scoped. Custom application actions
+        # remain outside MysticAuth's catalog and are not classified here.
+        stmt = stmt.where(Policy.actions.overlap([
+            "users:deactivate_any",
+            "users:delete_any",
+            "users:assign_system_role",
+            "policies:delete",
+            "policies:revoke",
+            "permissions:revoke",
+            "rate_limits:reset",
+        ]))
     return stmt
 
 
@@ -84,13 +108,15 @@ class PolicyQueryRepository:
         is_active: bool | None = None,
         sort_by: str | None = None,
         sort_dir: str = "asc",
+        contains_action: str | None = None,
+        destructive_only: bool = False,
     ) -> list[Policy]:
         # Capped: every other list endpoint in the app (audit log, policy
         # history) bounds its query the same way; this one previously read
         # the whole table unconditionally. `search` is a case-insensitive
-        # substring match on name/description; `resource_type`/`is_active`
-        # are exact matches.
-        stmt = _apply_filters(select(Policy), search, resource_type, is_active)
+        # substring match on name/description; `resource_type`/`is_active`/
+        # `contains_action` are exact matches.
+        stmt = _apply_filters(select(Policy), search, resource_type, is_active, contains_action, destructive_only)
         stmt = stmt.order_by(*_order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
         return list(result.scalars().all())
@@ -105,6 +131,8 @@ class PolicyQueryRepository:
         is_active: bool | None = None,
         sort_by: str | None = None,
         sort_dir: str = "asc",
+        contains_action: str | None = None,
+        destructive_only: bool = False,
     ) -> list[PolicyRead]:
         """Same query as get_all, but returns PolicyRead instances built one
         row at a time instead of raw ORM rows.
@@ -120,17 +148,15 @@ class PolicyQueryRepository:
         trips it. No other list route in this codebase touches a model
         with relationship(), so this pattern is scoped to policies only.
         """
-        rows = await PolicyQueryRepository.get_all(
-            db,
-            limit=limit,
-            offset=offset,
-            search=search,
-            resource_type=resource_type,
-            is_active=is_active,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-        )
-        return [PolicyRead.model_validate(row) for row in rows]
+        holder_count = func.count(UserPolicy.id).label("holder_count")
+        stmt = select(Policy, holder_count).outerjoin(UserPolicy, UserPolicy.policy_id == Policy.id)
+        stmt = _apply_filters(stmt, search, resource_type, is_active, contains_action, destructive_only)
+        stmt = stmt.group_by(Policy.id).order_by(*_order_by(sort_by, sort_dir)).limit(limit).offset(offset)
+        result = await db.execute(stmt)
+        return [
+            PolicyRead.model_validate(row).model_copy(update={"holder_count": int(count)})
+            for row, count in result.all()
+        ]
 
     @staticmethod
     async def count(
@@ -138,11 +164,15 @@ class PolicyQueryRepository:
         search: str | None = None,
         resource_type: str | None = None,
         is_active: bool | None = None,
+        contains_action: str | None = None,
+        destructive_only: bool = False,
     ) -> int:
         """Total matching rows, ignoring limit/offset - lets a caller
         compute how many pages exist (see list_policies' X-Total-Count
         header)."""
-        stmt = _apply_filters(select(func.count()).select_from(Policy), search, resource_type, is_active)
+        stmt = _apply_filters(
+            select(func.count()).select_from(Policy), search, resource_type, is_active, contains_action, destructive_only
+        )
         result = await db.execute(stmt)
         return result.scalar_one()
 

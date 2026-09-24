@@ -19,6 +19,32 @@ Deployment Guide.
 
 ## Getting started
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["Step 1: Confirm prerequisites\npublic IP, DNS already pointed,\nSMTP access, OAuth creds if used"]
+    S2["Step 2: Copy env.prod.example,\nfill in domain vars,\nrotate secrets"]
+    Check["check-env.sh env/mystic_auth/.env.prod\ncatches placeholder secrets,\nport conflicts"]
+    S3["Step 3: docker compose\n-f docker-compose.prod.yml up -d --build"]
+    Geo{"Session geolocation\nwanted?"}
+    S3b["Step 3b: re-run with\n--profile geoip"]
+    S4["Step 4: open https://PUBLIC_DOMAIN\nCaddy issues the TLS cert\non first request"]
+
+    S1 --> S2 --> Check --> S3 --> Geo
+    Geo -- "yes" --> S3b --> S4
+    Geo -- "no" --> S4
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Geo decision
+    class Check caution
+    class S4 terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+---
+
 **Step 1: Confirm prerequisites.**
 
 - A host that can run Docker Compose continuously, with a public IP.
@@ -62,14 +88,14 @@ Before starting, replace every `<your-domain>` placeholder in the copied
 Also rotate before starting:
 
 - `SECRET_KEY`, `POSTGRES_PASSWORD`, `BUGSINK_SECRET_KEY`, and `BUGSINK_SUPERUSER_PASSWORD`.
-- `REDIS_PASSWORD` is optional (blank ships as a working default since Redis has no host port exposed in this mode); set one only if you want it, and rewrite `REDIS_URL` to embed it too, since setting `REDIS_PASSWORD` alone does nothing - see [Redis authentication](../security/hardening-infra.md#redis-authentication).
+- `VALKEY_PASSWORD` is optional (blank ships as a working default since Valkey has no host port exposed in this mode); set one only if you want it, and rewrite `VALKEY_URL` to embed it too, since setting `VALKEY_PASSWORD` alone does nothing - see [Valkey authentication](../security/hardening-infra.md#valkey-authentication).
 - `APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s, if you keep the least-privilege app role enabled (the default; see [Deployment Guide: Database migrations](migrations-and-backups.md#1-database-migrations)).
 
 Also configure before opening the app to real users:
 
 - SMTP before opening password signup to users, because unverified password accounts cannot log in.
 - Google OAuth2 before showing Google login.
-- The CLI-created system superuser can sign in without Google or SMTP because the script marks it verified. See [System Superuser](../authentication/system-superuser/README.md) for the interactive command, or `local-scripts/mystic_auth/prod/create-system-user.*` for a non-interactive version (fill in real production credentials, not the dev placeholder).
+- The CLI-created system superuser can sign in without Google or SMTP because the script marks it verified. See [System Superuser](../authentication/system-superuser/README.md) for the interactive command, or `local-scripts/mystic_auth/prod/create-system-user.*` for a non-interactive version (fill in non-dev credentials, not the dev placeholder).
 
 See also
 [Environment variables](#environment-variables) below for the runtime rules and
@@ -90,7 +116,7 @@ finding out the hard way.
 docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod up -d --build
 ```
 
-Only Caddy (ports 80/443) is published to the host. `postgres`, `redis`,
+Only Caddy (ports 80/443) is published to the host. `postgres`, `valkey`,
 `backend`, and `frontend` stay reachable container-to-container by service
 name. Nothing outside the Docker network can reach them directly.
 
@@ -140,7 +166,7 @@ frontend nginx proxy IP.
 
 Rotate the secrets in the copied `env/mystic_auth/.env.prod` before real use. Review
 `PUBLIC_DOMAIN`, `ACME_EMAIL`, `BUGSINK_PUBLIC_DOMAIN`, `FRONTEND_BASE_URL`,
-`BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP, rate-limit, Redis, and
+`BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP, rate-limit, Valkey, and
 error-monitoring values before opening the service.
 
 Build-time values must be final before you run `--build`:
@@ -153,8 +179,8 @@ Build-time values must be final before you run `--build`:
 Runtime values can be changed with a container restart:
 
 - `PUBLIC_DOMAIN`, `ACME_EMAIL`, and `BUGSINK_PUBLIC_DOMAIN`
-- `SECRET_KEY`, `DATABASE_URL`, `POSTGRES_*`, `REDIS_URL`, and
-  `REDIS_PASSWORD`
+- `SECRET_KEY`, `DATABASE_URL`, `POSTGRES_*`, `VALKEY_URL`, and
+  `VALKEY_PASSWORD`
 - `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`
 - SMTP settings, rate-limit settings, and backend `SENTRY_DSN`
 

@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 class LogoutHandler:
     """Ends exactly the caller's own current session (bumps its chain's
-    Redis version - see session_service.revoke_session_on_logout), clears
+    Valkey version - see session_service.revoke_session_on_logout), clears
     auth cookies, and returns the logout response."""
 
     async def handle_logout(
@@ -52,7 +52,7 @@ class LogoutHandler:
             # revoke: the caller's actual goal (no valid session left) is
             # met either way, and erroring here would leave the frontend
             # stuck "logged in" with a dead cookie. session_revoked=False
-            # (Redis unreachable) still returns 200, but is carried in the
+            # (Valkey unreachable) still returns 200, but is carried in the
             # body so the risk isn't silently dropped.
             resp = JSONResponse(
                 content={"message": "Logged out successfully", "session_revoked": session_revoked},

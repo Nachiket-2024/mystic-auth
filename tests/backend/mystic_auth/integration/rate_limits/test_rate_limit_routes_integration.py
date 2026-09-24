@@ -1,5 +1,5 @@
 # End-to-end tests for GET /rate-limits/ and DELETE /rate-limits/{key} (the
-# admin Rate Limit Dashboard) against the real app and Redis. Permission
+# admin Rate Limit Dashboard) against the real app and Valkey. Permission
 # setup mirrors authorization_test_accounts.create_user_with_custom_policy_actions,
 # but grants rate_limits:read/rate_limits:reset instead of a policies:*
 # action, and checks the two are enforced independently, same pattern as
@@ -18,7 +18,7 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
 )
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 from ..authorization.authorization_test_accounts import (
     cleanup_test_policies,
@@ -107,7 +107,25 @@ async def test_authorized_user_can_list_a_tripped_limiter_and_see_its_count(clie
         assert entry["limit"] == rate_limiter_service.MAX_REQUESTS_PER_WINDOW
         assert entry["resets_in_seconds"] is not None and entry["resets_in_seconds"] > 0
     finally:
-        await redis_client.delete(key)
+        await valkey_client.delete(key)
+
+
+@pytest.mark.asyncio
+async def test_read_authorized_user_can_get_rate_limit_summary(client, created_emails):
+    await _create_user_with_rate_limits_read(client, created_emails)
+
+    endpoint = f"test_dashboard_summary_{uuid.uuid4().hex}"
+    key = f"{endpoint}:ip:203.0.113.30"
+    try:
+        await rate_limiter_service.record_request(key)
+        resp = await client.get("/rate-limits/summary")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] >= 1
+        assert body["by_endpoint"][endpoint] == 1
+        assert body["by_scope"]["ip"] >= 1
+    finally:
+        await valkey_client.delete(key)
 
 
 @pytest.mark.asyncio
@@ -127,8 +145,8 @@ async def test_scope_filter_excludes_the_other_scope(client, created_emails):
         account_only = (await client.get("/rate-limits/", params={"endpoint": endpoint, "scope": "account"})).json()
         assert [e["key"] for e in account_only["entries"]] == [account_key]
     finally:
-        await redis_client.delete(ip_key)
-        await redis_client.delete(account_key)
+        await valkey_client.delete(ip_key)
+        await valkey_client.delete(account_key)
 
 
 @pytest.mark.asyncio
@@ -147,7 +165,7 @@ async def test_scope_filter_accepts_email_scope(client, created_emails):
         assert resp.status_code == 200
         assert [e["key"] for e in resp.json()["entries"]] == [email_key]
     finally:
-        await redis_client.delete(email_key)
+        await valkey_client.delete(email_key)
 
 
 @pytest.mark.asyncio
@@ -160,9 +178,9 @@ async def test_rate_limits_read_only_cannot_reset(client, created_emails):
     try:
         resp = await client.delete(f"/rate-limits/{key}")
         assert resp.status_code == 403
-        assert await redis_client.get(key) is not None
+        assert await valkey_client.get(key) is not None
     finally:
-        await redis_client.delete(key)
+        await valkey_client.delete(key)
 
 
 @pytest.mark.asyncio
@@ -180,11 +198,11 @@ async def test_authorized_user_can_reset_a_tripped_limiter(client, created_email
     endpoint = f"test_dashboard_reset_{uuid.uuid4().hex}"
     key = f"{endpoint}:ip:203.0.113.20"
     await rate_limiter_service.record_request(key)
-    assert await redis_client.get(key) is not None
+    assert await valkey_client.get(key) is not None
 
     resp = await client.delete(f"/rate-limits/{key}")
     assert resp.status_code == 204
-    assert await redis_client.get(key) is None
+    assert await valkey_client.get(key) is None
 
 
 @pytest.mark.asyncio
@@ -210,4 +228,4 @@ async def test_user_with_both_actions_can_list_and_reset(client, created_emails)
         delete_resp = await client.delete(f"/rate-limits/{key}")
         assert delete_resp.status_code == 204
     finally:
-        await redis_client.delete(key)
+        await valkey_client.delete(key)

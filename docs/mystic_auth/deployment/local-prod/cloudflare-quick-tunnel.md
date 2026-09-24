@@ -33,6 +33,36 @@ Cloudflare allocates a temporary `https://<random-words>.trycloudflare.com` URL 
 
 ---
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["1. Copy\nenv.local-prod-cloudflare.example"]
+    S2["2. Start the stack"]
+    S2b["2b (optional): enable\nsession geolocation"]
+    Basic["Signup/password login\nalready work\n(same-origin proxy)"]
+    S3["3. Get the public URL\nfrom cloudflared logs\n(random, changes every restart)"]
+    Google{"Google login\nwanted?"}
+    S4["4. Copy that URL"]
+    S5["5. Register it\nwith Google OAuth"]
+    S6["6. Point the app\nat that URL"]
+    S7["7. Apply it\n--force-recreate backend frontend"]
+    Live["Live, Google login working"]
+
+    S1 --> S2 --> S2b --> S3 --> Basic
+    S3 --> Google
+    Google -- "no" --> Basic
+    Google -- "yes" --> S4 --> S5 --> S6 --> S7 --> Live
+    Live -.->|"stack restarted:\nURL changed, repeat 3-7"| S3
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Google decision
+    class Basic,Live terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+---
+
 **Step 1: Copy the env file.**
 
 ```bash

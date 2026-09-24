@@ -13,11 +13,12 @@
     },
     "mainNavigation": "મુખ્ય નેવિગેશન",
     "commandPalette": {
-        "placeholder": "પૃષ્ઠો અને વપરાશકર્તાઓ શોધો...",
+        "placeholder": "પૃષ્ઠો, નીતિઓ અને વપરાશકર્તાઓ શોધો...",
         "noResults": "કોઈ મેળ ખાતું પરિણામ મળ્યું નથી",
         "pagesGroup": "પૃષ્ઠો",
         "featuresGroup": "સુવિધાઓ",
         "matchesGroup": "મેળ ખાતું લખાણ",
+        "policiesGroup": "નીતિઓ",
         "usersGroup": "વપરાશકર્તાઓ",
         "trigger": "શોધો...",
         "triggerLabel": "શોધ ખોલો (Ctrl+K)"

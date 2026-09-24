@@ -1,15 +1,17 @@
 {
     "pageTitle": "Account Settings",
-    "pageDescription": "Update your name and password.",
+    "pageDescription": "Manage your profile, sign-in security, permissions, appearance, and account access.",
     "tabs": {
+        "ariaLabel": "Account settings sections",
         "profile": "Profile",
         "password": "Password",
         "status": "Permissions",
         "appearance": "Appearance",
-        "danger": "Danger Zone",
+        "danger": "Delete account",
         "legal": "Legal"
     },
     "profileName": {
+        "description": "Keep your account name up to date.",
         "nameLabel": "Name",
         "noChanges": "No changes to save",
         "updatedToast": "Profile updated",
@@ -47,12 +49,15 @@
         "directPermissions": "Direct permissions",
         "loadingDirectPermissions": "Loading your direct permissions...",
         "failedLoadDirectPermissions": "Failed to load your direct permissions",
-        "noDirectPermissions": "No direct permissions granted."
+        "noDirectPermissions": "No direct permissions granted.",
+        "directSourceLabel": "Direct"
     },
     "appearance": {
         "title": "Appearance",
         "description": "Pick a custom brand color for your account. It's saved to your account and applies to buttons, links, and your logo everywhere you sign in.",
         "brandColorLabel": "Brand color",
+        "suggestedColorsLabel": "Suggested (all readable)",
+        "suggestedColorName": "Suggested color {{hex}}",
         "previewLight": "Light mode preview",
         "previewDark": "Dark mode preview",
         "previewButton": "Sample button",
@@ -73,19 +78,32 @@
         "confirmTitle": "Delete your account?",
         "confirmDescription": "This deactivates your account and signs you out everywhere right away. It can still be recovered by an administrator during the grace period, but after that it's permanently deleted and cannot be undone.",
         "confirmButton": "Yes, delete my account",
-        "oauthOnlyConfirmDescription": "We'll email you a confirmation link. Your account isn't deleted until you click it - clicking it deactivates your account and signs you out everywhere right away. It can still be recovered by an administrator during the grace period, but after that it's permanently deleted and cannot be undone.",
+        "oauthOnlyConfirmDescription": "We'll email you a confirmation link. Your account is not deleted until you click it. Clicking the link deactivates your account and signs you out everywhere right away. An administrator can recover it during the grace period. After that, it is permanently deleted and cannot be undone.",
         "oauthOnlyConfirmButton": "Send confirmation email",
         "deletedToast": "Your account has been deleted",
         "confirmationEmailSent": "Check your email for a link to confirm deleting your account. The link will expire after a while, so confirm soon if you want to proceed."
     },
     "confirmDeletePage": {
-        "heading": "Confirm Account Deletion",
-        "subtitle": "Click the button below to permanently confirm you want to delete your account.",
-        "linkExpired": "Link expired or already used?",
-        "backToAccountSettings": "Back to Account Settings"
+        "heading": "Delete your account",
+        "subtitle": "Confirm you want to permanently delete this account.",
+        "warnDeactivatedTitle": "Deactivated right away",
+        "warnDeactivatedSub": "You're signed out of every device immediately.",
+        "warnDeletedTitle": "Deleted after 30 days",
+        "warnDeletedSub": "Everything is permanently removed once the grace period ends.",
+        "warnChangedMindTitle": "Changed your mind?",
+        "warnChangedMindSub": "It can be restored within 30 days by anyone with access to do so.",
+        "cancelKeepAccount": "Cancel, keep my account",
+        "noTokenHint": "Open the link from your email to confirm.",
+        "linkExpiredTitle": "This link has expired",
+        "linkExpiredDescription": "Delete confirmation links are only valid for a short time. Go to Account Settings to start again.",
+        "backToLogin": "Back to log in",
+        "agreeToTermsPrefix": "By continuing, you agree to the",
+        "and": "and",
+        "termsOfService": "Terms of Service",
+        "privacyPolicy": "Privacy Policy"
     },
     "confirmDeleteButton": {
         "confirming": "Deleting your account...",
-        "submitButton": "Confirm Account Deletion"
+        "submitButton": "Delete my account"
     }
 }

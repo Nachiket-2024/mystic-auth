@@ -134,6 +134,10 @@ class UserRead(UserBase):
     # (or restored via reactivation, which clears it).
     deleted_at: datetime | None = None
 
+    # Set on every successful sign-in; None means the account has never
+    # signed in (e.g. created by an admin but not yet used).
+    last_login_at: datetime | None = None
+
     # Pulled from the ORM object (from_attributes) only to derive
     # has_password below; excluded from the response so the hash itself is
     # never serialized.
@@ -157,7 +161,7 @@ class UserSelfUpdateResponse(UserRead):
     change's other-session revocation was actually confirmed.
 
     None for any update that wasn't a password change. False means the
-    password was changed but Redis was unreachable, so other sessions were
+    password was changed but Valkey was unreachable, so other sessions were
     NOT revoked and remain valid; see user_self_service_routes.py's
     update_my_profile."""
 

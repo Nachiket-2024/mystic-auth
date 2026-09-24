@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str
     GOOGLE_REDIRECT_URI: str
 
-    REDIS_URL: str
-    CACHE_DEFAULT_TTL: int                          # Default TTL for Redis cache keys, in seconds
+    VALKEY_URL: str
+    CACHE_DEFAULT_TTL: int                          # Default TTL for Valkey cache keys, in seconds
 
     FROM_EMAIL: str                                 # Sender address for verification/password-reset emails
     GMAIL_APP_PASSWORD: str                         # Gmail App password for the FROM_EMAIL account
@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     MAX_FAILED_LOGIN_ATTEMPTS: int
     LOGIN_LOCKOUT_TIME_PER_IP: int                  # Lockout duration for an IP after too many failed logins across accounts
     MAX_FAILED_LOGIN_ATTEMPTS_PER_IP: int           # Failed attempts from one IP, across any accounts, before that IP is locked out
+    ACTION_RESERVATION_TIME: int = 60               # Valkey reservation lifetime for concurrent one-time auth actions, in seconds
     MAX_REQUESTS_PER_WINDOW: int                    # Rate limit: max requests per window
     REQUEST_WINDOW_SECONDS: int                     # Rate limit window size, in seconds
 
@@ -75,6 +76,9 @@ class Settings(BaseSettings):
 
     ACCOUNT_PURGE_GRACE_DAYS: int                   # Days a soft-deleted account is kept before the daily purge job hard-deletes it
 
+    REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = 10     # A refresh token presented again within this many seconds of its first use, from the same client IP, is treated as a benign duplicate (two tabs, or a response lost to a reload) and gets a fresh pair instead of a chain revoke. 0 disables. Defaulted, not in .env*
+    SESSION_ROW_RETENTION_HOURS: int = 1           # Hours past expires_at a user_sessions row is kept before the daily sweep (session_cleanup_tasks.py) hard-deletes it. Buffer, not a deployment knob (defaulted, not in .env*): revoked sessions delete immediately on revoke, this only covers ones that lapsed without an explicit revoke
+
     USER_EXPORT_MAX_ROWS: int                       # Hard ceiling on GET /users/export's row count (that endpoint has no offset/limit). A request matching more rows is rejected instead of loaded into memory in one query
 
     # For running the backend locally instead of in Docker (Docker itself
@@ -82,7 +86,7 @@ class Settings(BaseSettings):
     # Both files are read in order so an env/app/ value wins on overlap,
     # matching every docker-compose invocation in this template's own
     # scripts (see docs/mystic_auth/template-usage/ownership-split.md).
-    # Also picks up infra-only vars (REDIS_PASSWORD, BUGSINK_*, etc.) that
+    # Also picks up infra-only vars (VALKEY_PASSWORD, BUGSINK_*, etc.) that
     # have no matching Settings field below; extra="ignore" lets those pass
     # through instead of pydantic rejecting them as undeclared.
     model_config = SettingsConfigDict(
@@ -112,6 +116,11 @@ class Settings(BaseSettings):
         # dict.fromkeys, not set(): keeps a deterministic order for logging;
         # CORS matching itself doesn't care about order.
         return list(dict.fromkeys([self.FRONTEND_BASE_URL, *(o for o in extra if o)]))
+
+    @property
+    def secure_cookies(self) -> bool:
+        """Use Secure cookies everywhere except the plain-HTTP dev stack."""
+        return self.ENVIRONMENT.lower() != "development"
 
     @property
     def procrastinate_database_url(self) -> str:

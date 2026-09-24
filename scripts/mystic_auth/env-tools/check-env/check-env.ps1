@@ -113,7 +113,7 @@ foreach ($f in $Files) {
         }
     }
 
-    foreach ($portVar in @("POSTGRES_HOST_PORT", "REDIS_HOST_PORT", "BACKEND_HOST_PORT", "FRONTEND_HOST_PORT", "BUGSINK_HOST_PORT")) {
+    foreach ($portVar in @("POSTGRES_HOST_PORT", "VALKEY_HOST_PORT", "BACKEND_HOST_PORT", "FRONTEND_HOST_PORT", "BUGSINK_HOST_PORT")) {
         if ($content -match "(?m)^$portVar=(\d+)") {
             $port = [int]$Matches[1]
             if (Test-PortInUse $port) {

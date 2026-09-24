@@ -11,7 +11,7 @@ test.describe("status pages browser behavior", () => {
 
     await page.goto("/missing-page");
     await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
-    await expect(page.getByText(/page not found/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /page not found/i })).toBeVisible();
     await expectNoHorizontalOverflow(page);
   });
 });

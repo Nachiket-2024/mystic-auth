@@ -31,9 +31,11 @@ export interface SearchItem {
      * Password tab, and stays correct as that copy changes. Combine with
      * `matchKeys` for one-off terms in a different namespace. */
     scope?: { namespace: Namespace; paths: string[] };
-    /** Destination, e.g. "/account-settings?tab=password" or
-     * "/dashboard#manage-sessions" - a query param a page reads on mount to
-     * select a tab, or a `#hash` AppLayout's useScrollToHash scrolls to. */
+    /** Destination, e.g. "/account-settings?tab=password" (a query param a
+     * page reads on mount to select a tab) or a `#hash` AppLayout's
+     * useScrollToHash scrolls to, for a page section rather than a whole
+     * tab - none of the built-ins below need the latter right now, but an
+     * app's own extraSearchItems can still use it. */
     to: string;
     /** Omit for items every authenticated user should see. An array means
      * "any of" - see useAuthorization's `can` and NavItem.permission. */
@@ -90,10 +92,10 @@ export const SEARCH_ITEMS: SearchItem[] = [
         icon: Trash2,
     },
     {
-        label: "dashboard:manageSessions.heading",
+        label: "dashboard:activeSessionsCard.heading",
         group: "layout:nav.dashboard",
-        scope: { namespace: "dashboard", paths: ["manageSessions", "logoutAllButton", "parseUserAgent"] },
-        to: "/dashboard#manage-sessions",
+        scope: { namespace: "dashboard", paths: ["activeSessionsCard", "parseUserAgent"] },
+        to: "/dashboard",
         icon: Laptop,
     },
     {

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -41,12 +40,10 @@ function renderPage({ withToaster = false } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <UsersPage />
           {withToaster && <Toaster />}
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -138,7 +135,7 @@ describe('UsersPage bulk actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Set role' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Select a role to set', { selector: 'select' }), 'admin');
+    await user.click(within(dialog).getByRole('switch', { name: 'Admin' }));
     await user.click(within(dialog).getByRole('button', { name: 'Set role for selected' }));
 
     await waitFor(() => expect(mock.history.post.length).toBe(1));
@@ -148,7 +145,12 @@ describe('UsersPage bulk actions', () => {
         { user_email: 'user@example.com', role: 'admin' },
       ],
     });
-    expect(await within(dialog).findByText('2 succeeded, 0 failed')).toBeInTheDocument();
+    expect(await screen.findByText('2 succeeded, 0 failed')).toBeInTheDocument();
+    const resultDialog = screen.getAllByRole('dialog').find((candidate) =>
+      within(candidate).queryByText('Set role: admin'),
+    );
+    expect(resultDialog).toBeDefined();
+    expect(within(resultDialog!).getAllByText('admin')).toHaveLength(2);
   });
 
   it('only selects rows by clicking their content once "Select mode" is turned on', async () => {

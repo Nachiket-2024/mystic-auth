@@ -1,273 +1,212 @@
 import React from "react";
-import { Box, Heading, Text, Separator, EmptyState, HStack, Stack, Flex, IconButton, Tooltip } from "@chakra-ui/react";
-import { CalendarDays, Clock, LogOut, Mail, Monitor, Pencil, ShieldCheck, User, UserX } from "lucide-react";
+import { CalendarDays, Clock, KeyRound, Mail, Monitor, ShieldCheck, Sun, UserX } from "lucide-react";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 
-import { formatMemberSince, formatTimeOnly } from "../ui/dateFormat";
-import { FAST_HOVER_TRANSITION } from "../theme/system";
-import Badge from "../ui/Badge";
+import AppTooltip from "../ui/feedback/AppTooltip";
+import Badge from "../ui/badges/Badge";
+import { Button } from "../ui/buttons/Button";
+import { cn } from "../ui/styles/classNames";
+import { initialsFor } from "../layout/app_layout/initialsFor";
 import DashboardIdentityCardSkeleton from "./DashboardIdentityCardSkeleton";
 import DashboardStatItem from "./DashboardStatItem";
-import FormAlert from "../ui/FormAlert";
-import TableActionButton from "../ui/table_actions/TableActionButton";
+import FormAlert from "../ui/feedback/FormAlert";
+import { formatMemberSince, formatTimeOnly } from "../ui/dates/dateFormatters";
+import { parseUserAgent } from "../active_sessions/parseUserAgent";
 import type { SupportedLanguage } from "../translations/translations";
 import type { CurrentUserProfile } from "../auth/current_user/current_user_types";
+import type { PreviousLogin } from "./usePreviousLoginQuery";
+
+/** Rest state matches design/dashboard.html's `.btn-ghost`: a neutral
+ * bg.surface/border.strong/fg.muted button, not brand-tinted at rest - only
+ * turning brand-colored (bg.brand-subtle/border.brand-solid/fg.brand) on
+ * hover. TableActionButton's "brand" palette (tried first) is tinted even at
+ * rest, which read as too prominent for what are secondary shortcuts next to
+ * the page's real primary actions. border.strong (not border.default,
+ * used before): `.btn-ghost{border-color:var(--border-strong)}` in the
+ * mockup - border.default is a darker, differently-toned gray tuned for
+ * form-input visibility instead. */
+const NEUTRAL_HOVER_BRAND_BUTTON_CLASSNAME =
+    "font-medium bg-bg-surface border-border-strong text-fg-muted hover:bg-brand-subtle hover:border-brand-solid hover:text-brand-fg";
+
+// Layout follows the card's own width (Tailwind v4 named container
+// queries), not the window's, so it stays correct wherever the card is
+// placed, including next to the sidebar in a narrow window. Thresholds are
+// arbitrary rem values so they move with the font size toggle, same as the
+// old CSS-in-JS "@container identity (min-width: Xrem)" queries this
+// replaces.
+const ROOT_CLASSNAME = "relative @container/identity";
+
+/** Identity block and shortcut buttons: one row when the card is wide enough
+ * for both, otherwise buttons wrap below the identity block. */
+const HEADER_CLASSNAME =
+    "flex flex-col items-stretch gap-4 @min-[50rem]/identity:flex-row @min-[50rem]/identity:items-center @min-[50rem]/identity:justify-between @min-[50rem]/identity:gap-5";
+
+const BUTTONS_CLASSNAME = "flex flex-wrap gap-2 @min-[50rem]/identity:flex-nowrap @min-[50rem]/identity:shrink-0";
+
+/** Three stats spread evenly with divider lines between them
+ * (design/dashboard.html's .stat-strip) when there's room; stacked without
+ * dividers otherwise, where a left border would read as a stray line. */
+const STATS_CLASSNAME = "flex flex-col gap-4 @min-[36rem]/identity:flex-row @min-[36rem]/identity:gap-0";
+const STAT_ITEM_CLASSNAME = "flex-1 min-w-0";
+/** Applied to every stat item after the first, once the row layout kicks in
+ * (see STATS_CLASSNAME) - border-s (not border-l), same logical-property
+ * reasoning as the original borderInlineStartWidth, so the divider stays on
+ * the correct side in an RTL layout. */
+const STAT_DIVIDER_CLASSNAME = "@min-[36rem]/identity:ps-5 @min-[36rem]/identity:border-s @min-[36rem]/identity:border-border-card";
 
 interface DashboardIdentityCardProps {
     user: CurrentUserProfile | undefined;
     isLoading: boolean;
     isError: boolean;
-    lastLoginAt: string | undefined;
+    /** undefined while loading, null when there's no login before this one. */
+    previousLogin: PreviousLogin | null | undefined;
     language: SupportedLanguage;
-    logoutAllPending: boolean;
-    logoutAllErrorMessage: string | undefined;
-    onOpenProfileDialog: () => void;
-    onNavigateToAccountSettings: () => void;
-    onRequestLogoutAll: () => void;
+    onActiveSessionsClick: () => void;
 }
 
 /**
  * DashboardIdentityCard
  * ----------------------------
- * The identity + stats + quick-actions banner at the top of DashboardPage,
- * split out to keep DashboardPage.tsx under this project's line-count
- * budget (no behavior changed). See DashboardPage.tsx for how `user`/
- * `lastLoginAt` are sourced and how the logout-all/profile-dialog state
- * this card's callbacks drive is owned by the parent.
+ * The identity strip at the top of DashboardPage: avatar/name/role/email plus
+ * two shortcut buttons (Change Password, Appearance), then
+ * three stats (Member Since/Previous Login/Active Sessions) below a divider.
+ * Active Sessions jumps to ActiveSessionsCard further down the page.
+ *
+ * No Logout All button here: it lives on ActiveSessionsCard next to the
+ * rest of session management. See DashboardPage.tsx for how
+ * `user`/`previousLogin` are sourced.
  */
 const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
     user,
     isLoading,
     isError,
-    lastLoginAt,
+    previousLogin,
     language,
-    logoutAllPending,
-    logoutAllErrorMessage,
-    onOpenProfileDialog,
-    onNavigateToAccountSettings,
-    onRequestLogoutAll,
+    onActiveSessionsClick,
 }) => {
     const { t } = useTranslation("dashboard");
+    const navigate = useNavigate();
 
     if (isLoading) return <DashboardIdentityCardSkeleton loadingLabel={t("loadingDetails")} />;
-    if (isError) return <Box><FormAlert status="error">{t("unableToFetch")}</FormAlert></Box>;
+    if (isError) return <div><FormAlert status="error">{t("unableToFetch")}</FormAlert></div>;
     if (!user) {
+        // Plain divs, not Chakra's EmptyState.Root/Content/Indicator/Title
+        // compound component: this is just an icon-badge + title layout, not
+        // an interactive primitive needing its own Radix migration (unlike
+        // Tabs/Select/Dialog).
         return (
-            <EmptyState.Root size="md">
-                <EmptyState.Content>
-                    <EmptyState.Indicator
-                        bg="accent.subtle"
-                        color="accent.fg"
-                        borderWidth="1px"
-                        borderColor="accent.border"
-                        rounded="full"
-                        boxSize="16"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                    >
-                        <UserX size={32} aria-hidden="true" />
-                    </EmptyState.Indicator>
-                    <EmptyState.Title>{t("noUserData")}</EmptyState.Title>
-                </EmptyState.Content>
-            </EmptyState.Root>
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+                <div className="w-16 h-16 flex items-center justify-center rounded-full bg-accent-subtle text-accent-fg border border-accent-border">
+                    <UserX size={32} aria-hidden="true" />
+                </div>
+                <p className="text-lg font-semibold">{t("noUserData")}</p>
+            </div>
+        );
+    }
+
+    let previousLoginValue: React.ReactNode = "-";
+    if (previousLogin === null) {
+        previousLoginValue = (
+            <span className="font-medium text-fg-muted">
+                {t("noPreviousLogin")}
+            </span>
+        );
+    } else if (previousLogin) {
+        const device = parseUserAgent(previousLogin.user_agent);
+        // The device shows as a second line (not hover-only), since it's the
+        // detail that makes someone notice a login that wasn't theirs. The
+        // IP stays in the tooltip to keep the stat compact.
+        previousLoginValue = (
+            <AppTooltip content={previousLogin.ip_address ? `${device} · ${previousLogin.ip_address}` : device}>
+                <div className="min-w-0">
+                    <div>
+                        {formatMemberSince(previousLogin.created_at, language)}
+                        <span className="font-medium text-fg-muted">
+                            {" "}
+                            {formatTimeOnly(previousLogin.created_at, language)}
+                        </span>
+                    </div>
+                    <p className="text-xs font-normal text-fg-muted truncate">
+                        {device}
+                    </p>
+                </div>
+            </AppTooltip>
         );
     }
 
     return (
-        <Stack gap={3}>
-            {/* Identity, stats, and buttons are three direct siblings of
-                this Flex (not identity+stats grouped under a shared
-                wrapper) so justify="space-between" spreads free space
-                evenly between them, instead of a wrapper soaking it up
-                and bunching the gap right before the buttons.
-                align="flex-start" keeps the name, every stat's label, and
-                the first button on the same top line even though Last
-                login's value runs two lines and the others don't. */}
-            {/* align="stretch" on the row lets the bare <Separator>s
-                stretch to match whichever block is tallest (usually the
-                stats block, because of Last login's two-line value)
-                instead of a guessed fixed height. Each content block then
-                overrides back to alignSelf="flex-start" so everything
-                still lines up on the same top line. */}
-            {/* direction switches at a fixed breakpoint instead of using
-                wrap="wrap", because content-driven wrap sits right at the
-                width a classic scrollbar's disappearance/reappearance can
-                tip over (e.g. opening ConfirmDialog below removes the page
-                scrollbar), which was enough to fold "Account Settings"/
-                "Logout All" onto their own line and back on every
-                open/close. A fixed breakpoint has margin on both sides so
-                that never happens.
+        <div className={ROOT_CLASSNAME}>
+            <div className={HEADER_CLASSNAME}>
+                <div className="flex items-center gap-4 flex-[0_1_auto] min-w-0">
+                    <div className="w-14 h-14 shrink-0 rounded-2xl bg-brand-solid flex items-center justify-center text-brand-contrast text-lg font-bold">
+                        {initialsFor(user.name, user.email)}
+                    </div>
 
-                At "xl"+ the row stops wrapping entirely: only the identity
-                block (flex="0 1 auto") is allowed to shrink, so stats and
-                buttons keep their natural width and never get pushed to a
-                second line; a long name/email/role truncates further
-                inside the identity block instead. The breakpoint moved
-                from "lg" to "xl" once Last login became a third stat
-                column: three fixed-width stats plus two buttons no longer
-                left the identity block room even at its own floor, so it
-                overflowed and overlapped the stats next to it (worse at
-                larger root font sizes, since every rem-based width here
-                grows together). */}
-            <Flex align="stretch" justify="space-between" gap={6} direction={{ base: "column", xl: "row" }} wrap={{ base: "wrap", xl: "nowrap" }} rowGap={4}>
-                {/* Only the identity block scrolls internally
-                    (overflowX="auto") if it still doesn't fit at "xl"+
-                    (a long name/email at large text on a narrow "xl"
-                    viewport), same fallback as DataTable's own columns.
-                    Stats and the buttons stay fully visible outside it.
-                    flex="0 1 auto" keeps this block from eating the row's
-                    free space. overflowY="hidden" alongside overflowX="auto"
-                    is required, not cosmetic: per the CSS overflow spec, one
-                    axis set to a non-visible value makes the browser compute
-                    the other axis as auto too, which otherwise shows a stray
-                    vertical scrollbar even though nothing here overflows
-                    vertically. */}
-                <HStack gap={4} alignSelf="flex-start" flex="0 1 auto" minW={0} overflowX="auto" overflowY="hidden">
-                    {/* The avatar itself is the View trigger (opens
-                        ProfileDetailsDialog) instead of a separate Eye
-                        button in the email row: one obvious click target,
-                        and it stays put regardless of name/email length. */}
-                    <Tooltip.Root openDelay={300} closeDelay={100}>
-                        <Tooltip.Trigger asChild>
-                            <IconButton
-                                aria-label={t("identityDetailsDialog.viewButton")}
-                                onClick={onOpenProfileDialog}
-                                variant="plain"
-                                boxSize="14"
-                                flexShrink={0}
-                                borderRadius="full"
-                                borderWidth="1px"
-                                borderColor="brand.border"
-                                bg="brand.subtle"
-                                color="brand.fg"
-                                transition={FAST_HOVER_TRANSITION}
-                                _hover={{ bg: "brand.selected" }}
-                            >
-                                <User size={28} aria-hidden="true" />
-                            </IconButton>
-                        </Tooltip.Trigger>
-                        <Tooltip.Positioner>
-                            <Tooltip.Content>{t("identityDetailsDialog.viewButton")}</Tooltip.Content>
-                        </Tooltip.Positioner>
-                    </Tooltip.Root>
-
-                    <Box minW={0} flex="1 1 auto">
-                        {/* Ellipsis on the name and role badge too, not just the
-                            email below: a long name or custom role label can
-                            grow this block just as unboundedly. maxW="100%"
-                            truncates to whatever width this Box is actually
-                            given, so it keeps working next to two stats or
-                            three. */}
-                        <HStack gap={2} minW={0}>
-                            {/* flex-grow left at 0: the name hugs its own width
-                                next to the role badge instead of stretching to
-                                fill the row. minW="5rem" is a shrink floor, not a
-                                target: the role badge gives way first when space
-                                runs short, so the name only shrinks past 5rem if
-                                there's truly no room for either. */}
-                            <Heading as="h1" fontSize="xl" fontWeight="semibold" flex="0 1 auto" minW="8rem" maxW="100%" truncate title={user.name}>
-                                {user.name}
-                            </Heading>
-                            <Badge
-                                colorPalette={user.role ? "brand" : "gray"}
-                                variant="subtle"
-                                px={2.5}
-                                py={1}
-                                fontSize="md"
-                                borderRadius="full"
-                                textTransform="capitalize"
-                                display="inline-flex"
-                                alignItems="center"
-                                gap={1}
-                                flexShrink={1}
-                                maxW="9rem"
-                                minW="3rem"
-                                overflow="hidden"
-                                title={user.role ?? t("noRole")}
-                            >
-                                <ShieldCheck size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
-                                <Text as="span" truncate>{user.role ?? t("noRole")}</Text>
-                            </Badge>
-                        </HStack>
-                        {/* Same ellipsis treatment for the email, which used to grow
-                            without bound. flex-grow left at 0: it hugs its own
-                            width like the name above it instead of stretching to
-                            fill the row. Clicking the avatar opens
-                            ProfileDetailsDialog with the untruncated values. */}
-                        <HStack gap={2} color="fg.muted" mt={1} minW={0}>
+                    <div className="min-w-0 flex-1">
+                        {/* Name and role badge both truncate, so a long name
+                            or custom role label can't grow the block past the
+                            card. The role badge gives way first. */}
+                        <div className="flex items-center gap-2 min-w-0">
+                            <AppTooltip content={user.name}>
+                                <h2 className="text-xl font-bold flex-[0_1_auto] min-w-20 max-w-full truncate">
+                                    {user.name}
+                                </h2>
+                            </AppTooltip>
+                            <AppTooltip content={user.role ?? t("noRole")}>
+                                <Badge
+                                    colorPalette={user.role ? "brand" : "gray"}
+                                    variant="subtle"
+                                    className="px-2 py-0.5 text-xs font-bold rounded-full capitalize inline-flex items-center gap-1 shrink max-w-36 min-w-12 overflow-hidden"
+                                >
+                                    <ShieldCheck size={12} aria-hidden="true" style={{ flexShrink: 0 }} />
+                                    <span className="truncate">{user.role ?? t("noRole")}</span>
+                                </Badge>
+                            </AppTooltip>
+                        </div>
+                        <div className="flex items-center gap-2 text-fg-muted mt-1 min-w-0">
                             <Mail size={16} aria-hidden="true" style={{ flexShrink: 0 }} />
-                            <Text fontSize="md" flex="0 1 auto" maxW="100%" truncate title={user.email}>
-                                {user.email}
-                            </Text>
-                        </HStack>
-                    </Box>
-                </HStack>
+                            <AppTooltip content={user.email}>
+                                <p className="text-sm flex-[0_1_auto] min-w-0 max-w-full truncate">
+                                    {user.email}
+                                </p>
+                            </AppTooltip>
+                        </div>
+                    </div>
+                </div>
 
-                <Separator orientation="vertical" display={{ base: "none", xl: "block" }} flexShrink={0} />
+                <div className={BUTTONS_CLASSNAME}>
+                    <Button size="sm" variant="outline" className={`text-sm ${NEUTRAL_HOVER_BRAND_BUTTON_CLASSNAME}`} onClick={() => navigate("/account-settings?tab=password")}>
+                        <KeyRound size={13} aria-hidden="true" /> {t("quickLinks.changePassword")}
+                    </Button>
+                    <Button size="sm" variant="outline" className={`text-sm ${NEUTRAL_HOVER_BRAND_BUTTON_CLASSNAME}`} onClick={() => navigate("/account-settings?tab=appearance")}>
+                        <Sun size={13} aria-hidden="true" /> {t("quickLinks.appearance")}
+                    </Button>
+                </div>
+            </div>
 
-                {/* wrap switches at the same "xl" breakpoint as the outer Flex
-                    above, not content-driven wrap="wrap", for the same
-                    scrollbar-width reason explained there (it was folding
-                    "Active sessions" onto its own line on every
-                    ConfirmDialog open/close). */}
-                <HStack gap={6} align="flex-start" alignSelf="flex-start" wrap={{ base: "wrap", xl: "nowrap" }} rowGap={4} flexShrink={0}>
+            <div className={cn(STATS_CLASSNAME, "mt-5 pt-5 border-t border-border-card")}>
+                <div className={STAT_ITEM_CLASSNAME}>
                     <DashboardStatItem
-                        icon={<CalendarDays size={15} aria-hidden="true" />}
+                        icon={<CalendarDays size={20} aria-hidden="true" />}
                         label={t("memberSince")}
-                        value={<Text fontSize="md" fontWeight="semibold">{formatMemberSince(user.created_at, language)}</Text>}
+                        value={formatMemberSince(user.created_at, language)}
                     />
+                </div>
+                <div className={cn(STAT_ITEM_CLASSNAME, STAT_DIVIDER_CLASSNAME)}>
+                    <DashboardStatItem icon={<Clock size={20} aria-hidden="true" />} label={t("previousLogin")} value={previousLoginValue} />
+                </div>
+                <div className={cn(STAT_ITEM_CLASSNAME, STAT_DIVIDER_CLASSNAME)}>
                     <DashboardStatItem
-                        icon={<Clock size={15} aria-hidden="true" />}
-                        label={t("lastLogin")}
-                        value={
-                            lastLoginAt ? (
-                                // Date on one line, time on the next: the combined
-                                // "Aug 1, 2026, 4:23 PM" string is the widest thing in
-                                // this row, so splitting it keeps the column no wider
-                                // than "Member since"/"Active sessions" instead of
-                                // stretching the whole row.
-                                <Box lineHeight="1.3">
-                                    <Text fontSize="md" fontWeight="semibold">{formatMemberSince(lastLoginAt, language)}</Text>
-                                    <Text fontSize="md" fontWeight="medium" color="fg.muted">{formatTimeOnly(lastLoginAt, language)}</Text>
-                                </Box>
-                            ) : (
-                                <Text fontSize="md" fontWeight="semibold">-</Text>
-                            )
-                        }
-                    />
-                    <DashboardStatItem
-                        icon={<Monitor size={15} aria-hidden="true" />}
+                        icon={<Monitor size={20} aria-hidden="true" />}
                         label={user.active_sessions === 1 ? t("activeSession") : t("activeSessions")}
-                        value={<Text fontSize="md" fontWeight="semibold">{user.active_sessions}</Text>}
+                        value={user.active_sessions}
+                        onClick={onActiveSessionsClick}
+                        actionLabel={t("goToActiveSessions", { count: user.active_sessions })}
                     />
-                </HStack>
-
-                <Separator orientation="vertical" display={{ base: "none", xl: "block" }} flexShrink={0} />
-
-                <Stack gap={4} flexShrink={0} alignSelf="flex-start">
-                    <TableActionButton
-                        size="sm"
-                        fontSize="md"
-                        colorPalette="orange"
-                        onClick={onNavigateToAccountSettings}
-                    >
-                        <Pencil size={16} aria-hidden="true" /> {t("accountSettingsButton")}
-                    </TableActionButton>
-                    <TableActionButton
-                        size="sm"
-                        fontSize="md"
-                        colorPalette="red"
-                        loading={logoutAllPending}
-                        onClick={onRequestLogoutAll}
-                    >
-                        <LogOut size={16} aria-hidden="true" /> {t("logoutAllButton")}
-                    </TableActionButton>
-                </Stack>
-            </Flex>
-
-            {logoutAllErrorMessage && <FormAlert status="error">{logoutAllErrorMessage}</FormAlert>}
-        </Stack>
+                </div>
+            </div>
+        </div>
     );
 };
 

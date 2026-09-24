@@ -11,27 +11,27 @@ The relational database that is this app's actual system of record: user account
 
 ---
 
-## Redis
+## Valkey
 
 An in-memory data store used here for anything that needs to be fast and short-lived: the PBAC policy cache, rate-limit counters, session version counters (`account_ver`/`chain_ver`), OAuth2 state/PKCE storage, and Pub/Sub events. It is not the system of record; Postgres is.
 
 ---
 
-## Redis Pub/Sub
+## Valkey Pub/Sub
 
-A Redis feature where one process publishes a message on a named channel and every other process subscribed to that channel receives it instantly. This app uses it to fan out session and permission-change events to every open SSE connection for an account. See [Session Management: Real-time push](../authentication/session-management/real-time-push.md#real-time-push).
+A Valkey feature where one process publishes a message on a named channel and every other process subscribed to that channel receives it instantly. This app uses it to fan out session and permission-change events to every open SSE connection for an account. See [Session Management: Real-time push](../authentication/session-management/real-time-push.md#real-time-push).
 
 ---
 
 ## cache-aside
 
-A caching pattern where the application asks the cache first, falls back to the durable source of truth on a miss, then writes the fresh value back into the cache for the next request. In this app, PBAC policy reads use Redis as a cache-aside layer over Postgres. Redis can be empty or unavailable and Postgres still remains the source of truth.
+A caching pattern where the application asks the cache first, falls back to the durable source of truth on a miss, then writes the fresh value back into the cache for the next request. In this app, PBAC policy reads use Valkey as a cache-aside layer over Postgres. Valkey can be empty or unavailable and Postgres still remains the source of truth.
 
 ---
 
 ## TTL
 
-Short for Time To Live: how long a cached or stored value is allowed to live before it's treated as expired and either refreshed or discarded. Used throughout this app for the Redis policy cache, OAuth2 state, and session-chain version keys.
+Short for Time To Live: how long a cached or stored value is allowed to live before it's treated as expired and either refreshed or discarded. Used throughout this app for the Valkey policy cache, OAuth2 state, and session-chain version keys.
 
 ---
 
@@ -79,7 +79,7 @@ A task Procrastinate runs automatically on a recurring schedule (e.g. daily), ra
 
 ## Docker Compose
 
-The tool used to define and run this app's multiple containers (Postgres, Redis, backend, frontend, worker, and more) together as one stack, with a different Compose file per deployment mode (dev, local-prod, prod). See [Docker Overview](../docker/overview.md).
+The tool used to define and run this app's multiple containers (Postgres, Valkey, backend, frontend, worker, and more) together as one stack, with a different Compose file per deployment mode (dev, local-prod, prod). See [Docker Overview](../docker/overview.md).
 
 ---
 
@@ -184,7 +184,7 @@ additional variables directly. See [Environment Configuration](../environment/RE
 
 ## healthcheck
 
-A Docker Compose mechanism where a container reports whether it's actually ready to serve traffic, not just running. This app uses healthchecks to sequence startup correctly, e.g. making `backend` wait until `postgres` and `redis` are healthy before it starts.
+A Docker Compose mechanism where a container reports whether it's actually ready to serve traffic, not just running. This app uses healthchecks to sequence startup correctly, e.g. making `backend` wait until `postgres` and `valkey` are healthy before it starts.
 
 ---
 

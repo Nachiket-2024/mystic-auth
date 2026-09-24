@@ -1,15 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
-import LoadingState from '@/ui/LoadingState';
+import LoadingState from '@/ui/feedback/LoadingState';
 
 describe('LoadingState', () => {
   it('renders the given message', () => {
     render(
-      <ChakraProvider value={defaultSystem}>
         <LoadingState message="Loading users..." />
-      </ChakraProvider>
     );
 
     expect(screen.getByText('Loading users...')).toBeInTheDocument();
@@ -19,14 +16,10 @@ describe('LoadingState', () => {
     // Chakra v3 resolves style props to atomic CSS classes, not inline
     // styles, so className is the only observable signal fullScreen changed anything.
     const { container: fullScreenContainer } = render(
-      <ChakraProvider value={defaultSystem}>
         <LoadingState message="Loading..." fullScreen />
-      </ChakraProvider>
     );
     const { container: containerSized } = render(
-      <ChakraProvider value={defaultSystem}>
         <LoadingState message="Loading..." />
-      </ChakraProvider>
     );
 
     const fullScreenFlex = fullScreenContainer.firstElementChild as HTMLElement;

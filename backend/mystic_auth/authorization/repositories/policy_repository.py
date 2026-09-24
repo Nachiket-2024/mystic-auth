@@ -2,7 +2,7 @@ from fastapi import status
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Centralized Redis cache for authorization data (see its own docstring
+# Centralized Valkey cache for authorization data (see its own docstring
 # for what's cached and why). Every mutation below invalidates whatever
 # it could have made stale.
 from ...core.errors import AppError
@@ -206,6 +206,7 @@ class PolicyRepository:
     get_active_policies_for_user = staticmethod(policy_assignment_repository.get_active_policies_for_user)
     get_policies_for_user = staticmethod(policy_assignment_repository.get_policies_for_user)
     get_holder_emails = staticmethod(policy_assignment_repository.get_holder_emails)
+    get_holders = staticmethod(policy_assignment_repository.get_holders)
     get_holder_emails_for_update = staticmethod(policy_assignment_repository.get_holder_emails_for_update)
     count_assignments = staticmethod(policy_assignment_repository.count_assignments)
     user_holds_policy = staticmethod(policy_assignment_repository.user_holds_policy)

@@ -2,7 +2,6 @@ import type { ComponentProps } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 
@@ -14,7 +13,6 @@ const initialAuthState = useAuthStore.getState();
 function renderLayout(extraNavItems?: ComponentProps<typeof AppLayout>['extraNavItems']) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <ChakraProvider value={defaultSystem}>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
           <AppLayout extraNavItems={extraNavItems}>
@@ -22,7 +20,6 @@ function renderLayout(extraNavItems?: ComponentProps<typeof AppLayout>['extraNav
           </AppLayout>
         </MemoryRouter>
       </QueryClientProvider>
-    </ChakraProvider>
   );
 }
 

@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -39,6 +40,13 @@ class PolicyHistoryRepository:
     async def get_by_id(history_id: int, db: AsyncSession) -> PolicyHistory | None:
         result = await db.execute(select(PolicyHistory).where(PolicyHistory.id == history_id))
         return result.scalar_one_or_none()
+
+    @staticmethod
+    async def count_for_policy(policy_name: str, db: AsyncSession) -> int:
+        result = await db.execute(
+            select(func.count()).select_from(PolicyHistory).where(PolicyHistory.policy_name == policy_name)
+        )
+        return int(result.scalar_one())
 
 
 policy_history_repository = PolicyHistoryRepository()

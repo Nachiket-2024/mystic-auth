@@ -7,13 +7,13 @@ Test suites, tooling, and terminology used across the backend (pytest) and front
 
 ## unit test
 
-A test that exercises one small piece of code in isolation (a function, a service method) without a real database, Redis, or HTTP server behind it, typically using mocks/stubs for anything external. The largest suite on both backend and frontend. See [Testing Overview](../testing/overview.md).
+A test that exercises one small piece of code in isolation (a function, a service method) without a real database, Valkey, or HTTP server behind it, typically using mocks/stubs for anything external. The largest suite on both backend and frontend. See [Testing Overview](../testing/overview.md).
 
 ---
 
 ## integration test
 
-A test that exercises a real flow end to end against real dependencies (a real Postgres database, real Redis, a real HTTP test client), rather than mocking them out. This is what catches bugs that only show up when the pieces actually talk to each other. See [Testing Overview](../testing/overview.md).
+A test that exercises a real flow end to end against real dependencies (a real Postgres database, real Valkey, a real HTTP test client), rather than mocking them out. This is what catches bugs that only show up when the pieces actually talk to each other. See [Testing Overview](../testing/overview.md).
 
 ---
 

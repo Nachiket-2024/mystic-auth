@@ -1,26 +1,15 @@
 import React from "react";
-import { Flex, HStack, IconButton, Kbd, Text } from "@chakra-ui/react";
 import { Menu, Search } from "lucide-react";
 
 import { useAuthStore } from "../../store/authStore";
 import { useLanguageStore } from "../../store/languageStore";
+import AppTooltip from "../../ui/feedback/AppTooltip";
 import translations from "../../translations/translations";
 import LogoutButton from "../../auth/logout/LogoutButton";
 import ControlCluster from "../controls/ControlCluster";
-import { ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
-import { FAST_HOVER_TRANSITION } from "../../theme/system";
-
-/** Initials from `name` (e.g. "Ada Lovelace" -> "AL"), falling back to the
- * first letter of `email` when `name` is empty. */
-function initialsFor(name: string | null, email: string | null): string {
-    const source = name?.trim() ? name.trim() : email?.split("@")[0] ?? "";
-    if (!source) return "";
-    return source
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase() ?? "")
-        .join("");
-}
+import { Button } from "../../ui/buttons/Button";
+import { cn } from "../../ui/styles/classNames";
+import { initialsFor } from "./initialsFor";
 
 interface NavbarProps {
     onToggleSidebar: () => void;
@@ -50,119 +39,114 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
     const initials = initialsFor(name, email);
 
     return (
-        <Flex
-            as="header"
-            align="center"
-            justify="space-between"
-            // Below md, the action cluster doesn't fit next to the menu
-            // toggle/greeting in one row, so wrap to a second line instead of
-            // forcing horizontal scroll. md+ stays a single fixed-height row,
-            // lined up with Sidebar's border-bottom.
-            wrap={{ base: "wrap", md: "nowrap" }}
-            rowGap={2}
-            px={{ base: 4, md: 6 }}
-            py={{ base: 2, md: 0 }}
-            h={{ base: "auto", md: "16" }}
-            minH="16"
-            flexShrink={0}
-            bg="bg.surface"
-            borderBottom="1px solid"
-            borderColor="border.default"
-            position="sticky"
-            top={0}
-            zIndex="sticky"
+        <header
+            className={cn(
+                "flex items-center justify-between gap-y-2 px-4 md:px-6 py-2 md:py-0 h-auto md:h-16 min-h-16 shrink-0",
+                // Below md, the action cluster doesn't fit next to the menu
+                // toggle/greeting in one row, so wrap to a second line instead of
+                // forcing horizontal scroll. md+ stays a single fixed-height row,
+                // lined up with Sidebar's border-bottom.
+                "flex-wrap md:flex-nowrap",
+                // bg-bg-sidebar, not bg-bg-surface: matches Sidebar.tsx's panel
+                // tone (design/dashboard.html's --bg-chrome, a faint warm tint -
+                // not flat white/near-black) so the two chrome surfaces read as
+                // one cohesive frame around the page, rather than the navbar
+                // looking like just another card.
+                "bg-bg-sidebar border-b border-border-strong sticky top-0 z-[1100]"
+            )}
         >
-            <Flex align="center" gap={3} minW={0}>
-                <IconButton
+            <div className="flex items-center gap-3 min-w-0">
+                <Button
                     aria-label={t("toggleNavigationMenu")}
                     onClick={onToggleSidebar}
-                    display={{ base: "inline-flex", md: "none" }}
-                    size="sm"
-                    {...ICON_BUTTON_PROPS}
+                    className="inline-flex md:hidden"
+                    variant="icon"
+                    size="icon-sm"
                 >
                     <Menu size={16} aria-hidden="true" />
-                </IconButton>
+                </Button>
                 {name && (
-                    <Flex align="center" gap={2.5} minW={0}>
-                        <Flex
-                            boxSize="8"
-                            flexShrink={0}
-                            borderRadius="full"
-                            borderWidth="1px"
-                            borderColor="border.default"
-                            bg="brand.solid"
-                            color="brand.contrast"
-                            align="center"
-                            justify="center"
-                            fontSize="sm"
-                            fontWeight="semibold"
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        {/* design/dashboard.html's `.avatar-sm`: a soft
+                            brand-tinted badge (brand-100/brand-600 light,
+                            translucent brand wash/#e8926f dark), not a solid
+                            brand.solid fill - that's DashboardIdentityCard's
+                            bigger `.avatar-lg`, a deliberately different,
+                            fully-filled gradient treatment. This smaller
+                            navbar avatar previously reused the solid
+                            treatment, reading noticeably bolder/heavier than
+                            the mockup's subtle topbar badge. */}
+                        <div
+                            className="w-8 h-8 shrink-0 rounded-full border border-[var(--brand-400)] bg-brand-subtle text-brand-fg flex items-center justify-center text-sm font-semibold"
                             aria-hidden="true"
                         >
                             {initials}
-                        </Flex>
+                        </div>
                         {/* Flex row (not inline text) so the name is the one item
                             that shrinks/truncates against however much space the
                             flex ancestors give it. "Signed in as" never shrinks or
                             wraps, since a wrapped line would overflow the
                             fixed-height (md+) navbar. */}
-                        <HStack gap={1} minW={0}>
-                            <Text fontSize="md" color="fg.muted" flexShrink={0} whiteSpace="nowrap">
+                        <div className="flex items-center gap-1 min-w-0">
+                            {/* "sm", matching design/dashboard.html's
+                                .topbar-left (14px, tightened from 16px). */}
+                            <p className="text-sm text-fg-muted shrink-0 whitespace-nowrap">
                                 {t("signedInAs")}
-                            </Text>
-                            <Text fontSize="md" fontWeight="semibold" color="fg.default" flex="1 1 auto" minW={0} maxW="100%" truncate title={name}>
-                                {name}
-                            </Text>
-                        </HStack>
-                    </Flex>
+                            </p>
+                            <AppTooltip content={name}>
+                                <p className="text-sm font-semibold text-fg-default flex-[1_1_auto] min-w-0 max-w-full truncate">
+                                    {name}
+                                </p>
+                            </AppTooltip>
+                        </div>
+                    </div>
                 )}
-            </Flex>
+            </div>
 
-            {/* flexShrink={1} (CSS default, Chakra doesn't set it) plus
-                minW={0} (overrides flex's default min-width:auto) let this
-                box actually shrink below its 556px natural width, so
-                wrap="wrap" below has room to wrap its children onto a second
-                line instead of forcing horizontal overflow. No visible effect
-                on desktop, where it all fits on one line anyway. */}
-            <Flex align="center" gap={3} wrap="wrap" justify="flex-end" rowGap={2} flexShrink={1} minW={0}>
+            {/* shrink (CSS default) plus min-w-0 (overrides flex's default
+                min-width:auto) let this box actually shrink below its 556px
+                natural width, so flex-wrap below has room to wrap its
+                children onto a second line instead of forcing horizontal
+                overflow. No visible effect on desktop, where it all fits on
+                one line anyway. */}
+            <div className="flex items-center gap-3 flex-wrap justify-end gap-y-2 shrink min-w-0">
                 {extraContent}
                 {onOpenCommandPalette && (
                     // A button styled like a search field, not a real Input:
                     // typing here does nothing, it just opens the dialog.
                     // Hidden below md; the keyboard shortcut still works there.
-                    <HStack
-                        as="button"
+                    <button
+                        type="button"
                         onClick={onOpenCommandPalette}
                         aria-label={t("commandPalette.triggerLabel")}
-                        display={{ base: "none", md: "flex" }}
-                        w="56"
-                        h="9"
-                        px={3}
-                        gap={2}
-                        rounded="density.control"
-                        borderWidth="1px"
-                        borderColor="gray.500"
-                        bg="bg.canvas"
-                        color="fg.muted"
-                        cursor="pointer"
-                        // Same border weight as the icon-button cluster
-                        // (ICON_BUTTON_PROPS) for a coherent group, but
-                        // bg.canvas instead of their solid fill so this still
-                        // reads as an input field.
-                        _hover={{ borderColor: "gray.700" }}
-                        _dark={{ borderColor: "gray.500", _hover: { borderColor: "gray.300" } }}
-                        transition={FAST_HOVER_TRANSITION}
+                        className={cn(
+                            "hidden md:flex items-center gap-2 w-56 h-9 px-3 rounded-control border border-border-strong bg-bg-canvas text-fg-muted cursor-pointer",
+                            "transition-[background-color,border-color,color] duration-[var(--duration-hover)] ease-[var(--easing-hover)]",
+                            // Matches design/dashboard.html's own
+                            // `.search-box:hover` (brand-tinted border+fill),
+                            // same brand-bold treatment Button's "icon" variant
+                            // uses - a previous neutral-gray-only hover here read
+                            // as a barely-there cue next to the icon-button
+                            // cluster right beside it.
+                            "hover:border-[var(--brand-500)] hover:bg-[var(--brand-100)] hover:text-[var(--brand-700)]",
+                            "dark:hover:border-[var(--brand-400)] dark:hover:bg-[color-mix(in_srgb,var(--brand-solid)_16%,transparent)] dark:hover:text-brand-fg"
+                        )}
                     >
                         <Search size={15} aria-hidden="true" />
-                        <Text flex="1" textAlign="left" fontSize="sm">
+                        <span className="flex-1 text-left text-sm">
                             {t("commandPalette.trigger")}
-                        </Text>
-                        <Kbd flexShrink={0} size="sm">⌘K</Kbd>
-                    </HStack>
+                        </span>
+                        {/* Former Chakra Kbd recipe, size="sm" (textStyle xs,
+                            height 4.5=1.125rem) subtle/gray variant (default):
+                            confirmed via theme/recipes/kbd.js rather than
+                            guessed. */}
+                        <kbd className="inline-flex items-center shrink-0 whitespace-nowrap select-none font-medium text-xs h-[1.125rem] px-1 rounded-md bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200">⌘K</kbd>
+                    </button>
                 )}
                 <ControlCluster />
                 <LogoutButton />
-            </Flex>
-        </Flex>
+            </div>
+        </header>
     );
 };
 

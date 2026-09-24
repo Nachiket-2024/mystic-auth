@@ -3,7 +3,7 @@
 # End-to-end coverage for the "Manage Sessions" feature (GET /auth/sessions,
 # DELETE /auth/sessions/{id}, backed by user_session/session_service.py and
 # auth/manage_sessions/*) against the real ASGI app, real PostgreSQL, and
-# real Redis. Mirrors test_audit_log_integration.py's fixture/cleanup style.
+# real Valkey. Mirrors test_audit_log_integration.py's fixture/cleanup style.
 import json
 import uuid
 
@@ -17,7 +17,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
     account_verification_service,
 )
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 PASSWORD = "StrongPass123!"
 
@@ -42,7 +42,7 @@ async def _signup_and_verify(client, created_emails, email):
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 
@@ -150,11 +150,11 @@ async def test_revoking_another_devices_session_ends_it_and_writes_an_audit_even
 async def test_revoking_another_devices_session_publishes_a_real_time_event(client, created_emails):
     """The revoked device, not the caller, needs to find out right away
     (see user_session/session_events.py). This subscribes directly via
-    redis-py's Pub/Sub client on the same channel GET /auth/session-events
+    valkey-py's Pub/Sub client on the same channel GET /auth/session-events
     streams from, instead of using that endpoint's httpx streaming
     response: the ASGITransport test harness doesn't reliably support a
     held-open streaming GET racing another request, so this checks the
-    Redis side effect directly. See test_session_events_unit.py for the
+    Valkey side effect directly. See test_session_events_unit.py for the
     endpoint/generator's own behavior."""
     email = _unique_email()
     await _signup_and_verify(client, created_emails, email)
@@ -164,7 +164,7 @@ async def test_revoking_another_devices_session_publishes_a_real_time_event(clie
     try:
         await other_device.post("/auth/login", json={"email": email, "password": PASSWORD})
 
-        pubsub = redis_client.pubsub()
+        pubsub = valkey_client.pubsub()
         await pubsub.subscribe(f"session_events:{email}")
         try:
             # Drains the subscription-confirmation message so the next one
@@ -224,7 +224,7 @@ async def test_reusing_a_revoked_sessions_refresh_token_stays_scoped_to_that_ses
 
 @pytest.mark.asyncio
 async def test_revoking_a_session_returns_503_when_chain_version_bump_is_unconfirmed(client, created_emails, mocker):
-    # Regression guard for the "Redis outage failure modes are inconsistent"
+    # Regression guard for the "Valkey outage failure modes are inconsistent"
     # gap: ending one specific session is this endpoint's entire purpose, so
     # unlike logout it must not report a false "Session revoked" when the
     # underlying chain-version bump couldn't be confirmed.

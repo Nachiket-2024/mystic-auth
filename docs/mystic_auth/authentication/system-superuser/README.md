@@ -20,7 +20,7 @@ cp local-scripts/mystic_auth/dev/system-user.env.example local-scripts/mystic_au
 local-scripts/mystic_auth/dev/create-system-user.sh        # or .ps1 / .bat
 ```
 
-Same shape for `local-scripts/local-prod-{cloudflare,ngrok,tailscale}/` (against the matching `docker-compose.local-prod-*.yml`) and `local-scripts/mystic_auth/prod/` (against `docker-compose.prod.yml`, real production credentials). Each `system-user.env` is ignored by both `.gitignore` and `.dockerignore`, only the `.example` templates are tracked, so filling one in never risks committing real credentials.
+Same shape for `local-scripts/local-prod-{cloudflare,ngrok,tailscale}/` (against the matching `docker-compose.local-prod-*.yml`) and `local-scripts/mystic_auth/prod/` (against `docker-compose.prod.yml`, non-dev credentials). Each `system-user.env` is ignored by both `.gitignore` and `.dockerignore`, only the `.example` templates are tracked, so filling one in never risks committing real credentials.
 
 ---
 

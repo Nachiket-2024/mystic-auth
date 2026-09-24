@@ -1,7 +1,7 @@
 # Frontend
 ---
 
-React 19 + TypeScript SPA built with Vite, Chakra UI v3, Zustand, and TanStack Query.
+React 19 + TypeScript SPA built with Vite, Tailwind v4 + shadcn/ui (Radix primitives), Zustand, and TanStack Query.
 
 This README stays short on purpose. The full frontend documentation lives under `docs/mystic_auth/`, beside the backend and operations docs, so code folders do not accumulate separate long references.
 

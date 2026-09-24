@@ -1,5 +1,4 @@
 import React from "react";
-import { HStack } from "@chakra-ui/react";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 import type { DataTableColumn } from "./DataTable";
@@ -12,14 +11,14 @@ import type { SortState } from "../hooks/useSortState";
 
 function sortableHeaderLabel(label: string, active: boolean, direction: "asc" | "desc") {
     return (
-        <HStack gap={1} cursor="pointer" userSelect="none" _hover={{ color: "brand.fg" }} role="button" tabIndex={0}>
+        <span className="flex items-center gap-1 cursor-pointer select-none hover:text-brand-fg" role="button" tabIndex={0}>
             <span>{label}</span>
             {active ? (
                 direction === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />
             ) : (
-                <ArrowUpDown size={14} opacity={0.4} />
+                <ArrowUpDown size={14} className="opacity-40" />
             )}
-        </HStack>
+        </span>
     );
 }
 

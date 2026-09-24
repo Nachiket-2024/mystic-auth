@@ -11,7 +11,7 @@ Consolidates the concrete hardening mechanisms in the codebase: rate limiting, l
 
 See [Security Hardening: Abuse Prevention](hardening-abuse-prevention.md) for the full entries.
 
-- [Rate limiting](hardening-abuse-prevention.md#rate-limiting): generic per-IP/per-account limiter, fails closed on Redis error, the Rate Limit Dashboard.
+- [Rate limiting](hardening-abuse-prevention.md#rate-limiting): generic per-IP/per-account limiter, fails closed on Valkey error, the Rate Limit Dashboard.
 - [Brute-force lockout](hardening-abuse-prevention.md#brute-force-lockout): per-account and per-IP failed-login lockout, layered on top of rate limiting.
 - [Timing-attack resistance](hardening-abuse-prevention.md#timing-attack-resistance): dummy-hash comparison, unconditional hashing, identical generic responses.
 
@@ -33,7 +33,7 @@ See [Security Hardening: HTTP Layer](hardening-http.md) for the full entries.
 
 See [Security Hardening: Infrastructure](hardening-infra.md) for the full entries.
 
-- [Redis authentication](hardening-infra.md#redis-authentication): `REDIS_PASSWORD`, embedded in `REDIS_URL`.
+- [Valkey authentication](hardening-infra.md#valkey-authentication): `VALKEY_PASSWORD`, embedded in `VALKEY_URL`.
 - [`SECRET_KEY` strength enforcement](hardening-infra.md#secret_key-strength-enforcement): rejects weak keys under 32 characters at import time.
 - [Reverse-proxy IP trust](hardening-infra.md#reverse-proxy-ip-trust): `TRUSTED_PROXY_IPS` gates `X-Forwarded-For` trust.
 - [Session geolocation](hardening-infra.md#session-geolocation-manage-sessions-location-column): MaxMind GeoLite2-City, off by default.

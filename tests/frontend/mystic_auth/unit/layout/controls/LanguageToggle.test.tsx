@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 import { useLanguageStore } from '@/store/languageStore';
 import LanguageToggle from '@/layout/controls/LanguageToggle';
@@ -10,9 +9,7 @@ const initialLanguageState = useLanguageStore.getState();
 
 function renderToggle() {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <LanguageToggle />
-    </ChakraProvider>
   );
 }
 

@@ -2,7 +2,7 @@
 // only "set/change password" PUT /users/me, see useUpdateMyAccountMutation.ts) is in
 // flight.
 //
-// Why: that endpoint bumps the account's Redis version (invalidating every existing
+// Why: that endpoint bumps the account's Valkey version (invalidating every existing
 // token, including this device's own) before minting and returning fresh cookies.
 // Between those two moments, any *other* request already in flight with the old
 // cookies can 401 and then fail its silent refresh too, since the old refresh

@@ -28,7 +28,8 @@
 | DELETE | `/authorization/users/{email}/permissions/{action}` | `permissions:revoke` |
 | GET | `/authorization/users/{email}/permissions` | `permissions:read` |
 | GET | `/authorization/users/me/permissions` | any authenticated user (self-service) |
-| GET | `/authorization/permissions/catalog` | `permissions:read` |
+| GET | `/authorization/permissions/catalog` | any of `permissions:read`, `policies:create`, `policies:update`, `permissions:grant` (the create/edit policy form and the direct-grant form need this list too, without needing `permissions:read` itself) |
+| GET | `/authorization/permissions/catalog/usage` | `permissions:read` (narrower than the catalog above: this discloses who actually holds each action, which a policy/grant form doesn't need) |
 | POST | `/authorization/bulk/policies/assign` | `policies:assign` |
 | POST | `/authorization/bulk/policies/remove` | `policies:revoke` |
 | POST | `/authorization/bulk/permissions/assign` | `permissions:grant` |

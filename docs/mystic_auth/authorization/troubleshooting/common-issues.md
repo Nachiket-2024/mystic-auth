@@ -25,7 +25,7 @@ Check, in order:
 2. **Does `resource_type` actually match** (or is it `"*"`)? A typo here (`"user"` vs `"users"`) silently produces zero candidates.
 3. **Is the exact action string present** in `actions`? `"users:update_own"` and `"users:update_any"` are different actions on purpose.
 4. **Do the conditions actually pass for this specific request?** Use the inspection endpoint with the real `resource`/`context` you expect: `candidate_policies` non-empty but `authorized: false` means a policy matched but a condition rejected it; check `failed_conditions` (batch-check) or compare `candidate_policies` vs `granting_policies` (single-check inspection).
-5. **Redis cache serving a stale policy list?** See [Redis Cache Management](redis-and-logging.md#redis-cache-management).
+5. **Valkey cache serving a stale policy list?** See [Valkey Cache Management](valkey-and-logging.md#valkey-cache-management).
 
 ---
 ```mermaid
@@ -36,12 +36,12 @@ flowchart TD
     ResType{"Does resource_type\n match (or '*')?"}
     Action{"Is the exact\n action string\n in actions?"}
     Cond{"Do the conditions\n pass for this\n request?"}
-    Cache{"Recently changed\n a policy: could\n Redis be stale?"}
+    Cache{"Recently changed\n a policy: could\n Valkey be stale?"}
     Fix1["Reactivate\n the policy"]
     Fix2["Fix the\n resource_type\n typo/mismatch"]
     Fix3["Grant the\n correct action\n string"]
     Fix4["Fix failed_conditions\n (see inspection\n endpoint)"]
-    Fix5["See Redis cache\n management below"]
+    Fix5["See Valkey cache\n management below"]
     Allowed(["Should be allowed:\n re-check with the\n inspection endpoint"])
     Start --> Active
     Active -- "no" --> Fix1
@@ -84,7 +84,7 @@ entirely, so `IfCan`/`ProtectedRoute` correctly hide the UI for it, and no
 
 This guard exists precisely because a real incident hit it before the guard was added:
 
-- `policies:read`, `rate_limits:read`, `security_audit:read`, `users:purge`, `users:reactivate`, etc. were pasted onto the built-in `user_administration` policy (`resource_type: "users"`), instead of onto a policy scoped to each action's own resource type.
+- `policies:read`, `rate_limits:read`, `security_audit:read`, `users:delete_any`, `users:reactivate`, etc. were pasted onto the built-in `user_administration` policy (`resource_type: "users"`), instead of onto a policy scoped to each action's own resource type.
 - At the time, `/auth/me` flattened every policy's `actions` into one set with no `resource_type` filtering, so those actions showed up as "granted" and lit up the Policies/Rate Limits/Security Audit UI, but every real request still 403'd, because `policy_evaluator.py` correctly enforces `resource_type` matching.
 - If you see this symptom again after further code changes (UI renders a control, but the request behind it 403s), the filtering logic in `current_user_handler.py` is the first place to check. It may have regressed, or a new call site may be constructing its own permission set without going through it.
 

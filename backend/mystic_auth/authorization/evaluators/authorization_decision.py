@@ -20,6 +20,10 @@ class AuthorizationDecision:
             whether or not it matched action/resource_type.
         matched_policies: Subset that matched AND passed conditions,
             i.e. what actually granted access. Non-empty iff allowed.
+        matched_policy_conditions: Conditions attached to each granting
+            policy. Internal delegation checks use this to prevent a
+            conditional grant from being widened without exposing it in API
+            responses.
         rejected_policies: Subset that matched but failed conditions
             ("almost, but no"), useful for diagnosing a non-trivial deny.
         failed_conditions: {policy_name: [condition_key, ...]} for each
@@ -37,6 +41,7 @@ class AuthorizationDecision:
     user: str
     evaluated_policies: list[str] = field(default_factory=list)
     matched_policies: list[str] = field(default_factory=list)
+    matched_policy_conditions: dict[str, dict | None] = field(default_factory=dict, repr=False)
     rejected_policies: list[str] = field(default_factory=list)
     failed_conditions: dict[str, list[str]] = field(default_factory=dict)
     denial_reason: str | None = None

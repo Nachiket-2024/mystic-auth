@@ -1,15 +1,17 @@
 import React, { useMemo } from "react";
-import { Flex, Portal, Select, createListCollection, visuallyHiddenStyle } from "@chakra-ui/react";
+import { Select as SelectPrimitive } from "radix-ui";
+import { Check, ALargeSmall } from "lucide-react";
 
 import { FONT_SIZES, useFontSizeStore, type FontSize } from "../../store/fontSizeStore";
 import translations from "../../translations/translations";
 import { useLanguageStore } from "../../store/languageStore";
-import { BRAND_ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
+import { buttonVariants } from "../../ui/buttons/button-variants";
+import { cn } from "../../ui/styles/classNames";
 
 /**
  * Global text-size control, backed by store/fontSizeStore.ts. A Select
- * dropdown, same pattern as LanguageToggle. The trigger stays a fixed
- * "Size" label, not the current value, so it reads as a settings control.
+ * dropdown, same pattern as LanguageToggle. The trigger stays a fixed icon,
+ * not the current value, so it reads as a settings control.
  *
  * Uses chromeLanguage, not the page-wide translation language, since this is
  * Navbar chrome (same reasoning as ThemeToggle/LanguageToggle).
@@ -24,95 +26,80 @@ const FontSizeControl: React.FC = () => {
         () => FONT_SIZES.map((size) => ({ value: size, label: t(`fontSize.${size}`) })),
         [t]
     );
-    const collection = useMemo(() => createListCollection({ items: options }), [options]);
 
     return (
-        <Select.Root
-            collection={collection}
-            value={[fontSize]}
-            onValueChange={(details) => {
-                const next = details.value[0] as FontSize | undefined;
-                if (next) setFontSize(next);
-            }}
-            size="sm"
-            width="fit-content"
+        <SelectPrimitive.Root
+            value={fontSize}
+            onValueChange={(next) => setFontSize(next as FontSize)}
         >
-            <Select.HiddenSelect aria-label={t("fontSize.label")} />
-            {/* See LanguageToggle.tsx: without this, the trigger's auto-wired
-                aria-labelledby wins over Select.HiddenSelect's aria-label. */}
-            <Select.Label css={visuallyHiddenStyle}>{t("fontSize.label")}</Select.Label>
-            <Select.Control>
-                {/* Shares BRAND_ICON_BUTTON_PROPS with ThemeToggle/LanguageToggle
-                    so the three styles can't drift apart. */}
-                <Select.Trigger
-                    fontSize="md"
-                    {...BRAND_ICON_BUTTON_PROPS}
-                    display="grid"
+            {/* See LanguageToggle.tsx: real native <select>, aria-hidden,
+                purely for the standard hidden-select fallback. */}
+            <select
+                aria-label={t("fontSize.label")}
+                aria-hidden="true"
+                tabIndex={-1}
+                className="sr-only"
+                value={fontSize}
+                onChange={(e) => setFontSize(e.target.value as FontSize)}
+            >
+                {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+            {/* Icon-only trigger, matching LanguageToggle's icon-button
+                treatment (see design/dashboard.html's .icon-btn) - shares
+                Button's "icon"/"icon-sm" variant classes with
+                ThemeToggle/LanguageToggle so the styles can't drift apart. */}
+            <SelectPrimitive.Trigger
+                aria-label={t("fontSize.label")}
+                className={cn(buttonVariants({ variant: "icon", size: "icon-sm" }))}
+            >
+                {/* See LanguageToggle.tsx: sr-only, not display:none, keeps
+                    the current size's name in the accessibility tree even
+                    though the trigger only shows an icon. */}
+                {/* Wrapper span, not className on Value itself: Radix's
+                    SelectValue destructures `className` (and `style`) out of
+                    its props and never applies either to the span it
+                    renders (@radix-ui/react-select's SelectValue2), so
+                    className="sr-only" directly on Value silently did
+                    nothing - the label rendered fully visible next to the
+                    icon. */}
+                <span className="sr-only">
+                    <SelectPrimitive.Value />
+                </span>
+                <ALargeSmall size={16} aria-hidden="true" />
+            </SelectPrimitive.Trigger>
+            <SelectPrimitive.Portal>
+                <SelectPrimitive.Content
+                    position="popper"
+                    sideOffset={4}
+                    className="z-[1500] w-max max-w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-brand-border bg-popover p-0 text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
                 >
-                    {/* The trigger always shows the fixed "Size" label, so its
-                        own text can't size the panel's width. This invisible
-                        stack (same Select.Item parts Select.Content renders)
-                        sizes the grid cell to the true widest option instead. */}
-                    <Flex
-                        gridArea="1 / 1"
-                        direction="column"
-                        h="0"
-                        overflow="hidden"
-                        p="1"
-                        borderWidth="1px"
-                        fontSize="md"
-                        visibility="hidden"
-                        aria-hidden
-                    >
+                    {/* See LanguageToggle.tsx: the icon-only trigger has no
+                        width of its own for the popover to size from. */}
+                    <SelectPrimitive.Viewport className="dropdown-scroll-area max-h-80 overflow-y-auto p-1 min-w-max">
                         {options.map((option) => (
-                            <Select.Item key={option.value} item={option}>
-                                <Select.ItemText>{option.label}</Select.ItemText>
-                                <Select.ItemIndicator />
-                            </Select.Item>
-                        ))}
-                    </Flex>
-                    <Flex gridArea="1 / 1" justifyContent="space-between" alignItems="center">
-                        {t("fontSize.trigger")}
-                        <Select.IndicatorGroup>
-                            <Select.Indicator />
-                        </Select.IndicatorGroup>
-                    </Flex>
-                </Select.Trigger>
-            </Select.Control>
-            <Portal>
-                <Select.Positioner>
-                    <Select.Content
-                        borderWidth="1px"
-                        borderColor="border.default"
-                        bg="bg.surface"
-                        boxShadow="lg"
-                        fontSize="md"
-                    >
-                        {options.map((option) => (
-                            <Select.Item
+                            <SelectPrimitive.Item
                                 key={option.value}
-                                item={option}
-                                _highlighted={{ bg: "brand.solid", color: "white" }}
-                                // brand.200: one step darker than brand.selected's
-                                // brand.100, which read as barely emphasized. Nested
-                                // _highlighted avoids invisible same-color text on
-                                // hover (see LanguageToggle.tsx).
-                                _selected={{
-                                    bg: "brand.200",
-                                    color: "brand.fg",
-                                    fontWeight: "semibold",
-                                    _dark: { bg: "brand.selected" },
-                                    _highlighted: { bg: "brand.solid", color: "white" },
-                                }}
+                                value={option.value}
+                                className={cn(
+                                    "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-6 text-sm outline-none overflow-hidden text-ellipsis whitespace-nowrap",
+                                    "data-[highlighted]:bg-brand-solid data-[highlighted]:text-brand-contrast",
+                                    "data-[state=checked]:bg-[var(--brand-200)] data-[state=checked]:text-brand-fg data-[state=checked]:font-semibold data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--brand-500)] dark:data-[state=checked]:bg-brand-selected dark:data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--brand-400)] data-[state=checked]:data-[highlighted]:bg-brand-solid data-[state=checked]:data-[highlighted]:text-brand-contrast data-[state=checked]:data-[highlighted]:shadow-none"
+                                )}
                             >
-                                <Select.ItemText>{option.label}</Select.ItemText>
-                                <Select.ItemIndicator />
-                            </Select.Item>
+                                <SelectPrimitive.ItemIndicator className="absolute right-2 inline-flex items-center">
+                                    <Check size={14} aria-hidden="true" />
+                                </SelectPrimitive.ItemIndicator>
+                                <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+                            </SelectPrimitive.Item>
                         ))}
-                    </Select.Content>
-                </Select.Positioner>
-            </Portal>
-        </Select.Root>
+                    </SelectPrimitive.Viewport>
+                </SelectPrimitive.Content>
+            </SelectPrimitive.Portal>
+        </SelectPrimitive.Root>
     );
 };
 

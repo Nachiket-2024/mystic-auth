@@ -2,9 +2,10 @@
 # Proves a backup is actually restorable, not just present: dumps the
 # running app database, restores that dump into a disposable scratch
 # database on the same Postgres server (never overwriting the real one),
-# runs a smoke query against it, then drops the scratch database. Exits
-# non-zero on any failure, so a broken backup or restore path fails loudly
-# instead of only being discovered during a real incident.
+# runs a smoke query against it plus a full per-table row-count parity
+# check, then drops the scratch database. Exits non-zero on any failure, so
+# a broken backup or restore path fails loudly instead of only being
+# discovered during a real incident.
 #
 # db_backup.sh already verifies a dump's *structure* with `pg_restore
 # --list`; this goes one step further and proves the dump's *contents* come
@@ -86,7 +87,7 @@ echo "3/4  Restoring the dump into '${SCRATCH_DB}'..."
 docker compose "${DC_ARGS[@]}" exec -T postgres \
   pg_restore -U "$POSTGRES_USER" --dbname "$SCRATCH_DB" < "$DRILL_DUMP"
 
-echo "4/4  Smoke-checking the restored database..."
+echo "4/5  Smoke-checking the restored database..."
 # alembic_version existing and non-empty proves the schema, not just raw
 # bytes, came back: a dump that restored an empty/corrupt database would
 # fail this even if pg_restore itself printed no error.
@@ -104,4 +105,32 @@ if [ "$(echo "$USERS_TABLE_EXISTS" | tr -d '[:space:]')" != "t" ]; then
   exit 1
 fi
 
-echo "OK: dump of '${POSTGRES_DB}' restores cleanly into a fresh database with its schema intact."
+echo "5/5  Comparing per-table row counts against the source database..."
+# Schema-only checks (alembic_version, users existing) can pass on a
+# silent partial restore - e.g. pg_restore skipping a table after a
+# mid-stream error but still exiting 0 for the rest. Counting every public
+# table in both databases and diffing them catches that class of bug that
+# the two checks above would miss.
+TABLES="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+  "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;" | tr -d '\r')"
+
+MISMATCH=0
+while IFS= read -r TABLE; do
+  [ -z "$TABLE" ] && continue
+  SOURCE_COUNT="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM \"${TABLE}\";" | tr -d '[:space:]')"
+  RESTORED_COUNT="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+    psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM \"${TABLE}\";" | tr -d '[:space:]')"
+  if [ "$SOURCE_COUNT" != "$RESTORED_COUNT" ]; then
+    echo "FAIL: table '${TABLE}' has ${SOURCE_COUNT} rows in '${POSTGRES_DB}' but ${RESTORED_COUNT} in the restored database." >&2
+    MISMATCH=1
+  fi
+done <<< "$TABLES"
+
+if [ "$MISMATCH" -ne 0 ]; then
+  echo "FAIL: restored database has row-count mismatches against the source - see above." >&2
+  exit 1
+fi
+
+echo "OK: dump of '${POSTGRES_DB}' restores cleanly with its schema and full row-count parity intact."

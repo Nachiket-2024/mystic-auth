@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,6 +10,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
   ],
   resolve: {
     // Must match the "@"/"@app" paths in tsconfig.app.json and the
@@ -37,4 +39,20 @@ export default defineConfig({
   // dependency) trades away that caching optimization for a build that
   // actually works; re-introduce chunking later only with real production
   // verification (not just curl on the built files) that nothing crashes.
+  build: {
+    rollupOptions: {
+      output: {
+        // The translation registry intentionally initializes every supported
+        // language synchronously before first paint. Keep that behavior, but
+        // place each language's JSON resources in its own stable chunk so a
+        // large translation registry does not become one oversized shared
+        // asset. This is deliberately narrower than vendor chunking and does
+        // not split application modules across unrelated execution chunks.
+        manualChunks(id) {
+          const match = id.match(/[\\/]translations[\\/]languages[\\/]([^\\/]+)[\\/]/);
+          return match ? `i18n-${match[1]}` : undefined;
+        },
+      },
+    },
+  },
 });

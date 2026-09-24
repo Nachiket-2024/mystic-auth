@@ -1,16 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 
-import Breadcrumbs from '@/ui/Breadcrumbs';
+import Breadcrumbs from '@/ui/navigation/Breadcrumbs';
 
 function renderBreadcrumbs(children: ReactNode) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <MemoryRouter>{children}</MemoryRouter>
-    </ChakraProvider>
   );
 }
 

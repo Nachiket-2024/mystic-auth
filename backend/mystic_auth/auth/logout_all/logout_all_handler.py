@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 class LogoutAllHandler:
-    """Revokes every session on the account (one account-wide Redis
+    """Revokes every session on the account (one account-wide Valkey
     version bump - see refresh_token_service.revoke_all_tokens_for_user)
     and clears authentication cookies."""
 
@@ -50,7 +50,7 @@ class LogoutAllHandler:
                 # like a completed logout-all.
                 await log_security_event(
                     LOGOUT_ALL, db, user_email=email, success=False, request=request,
-                    metadata={"error": "redis_unavailable"},
+                    metadata={"error": "valkey_unavailable"},
                 )
                 resp = JSONResponse(
                     content={

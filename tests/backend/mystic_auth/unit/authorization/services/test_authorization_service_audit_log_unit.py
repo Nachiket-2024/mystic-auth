@@ -136,7 +136,7 @@ async def test_authorize_log_entry_carries_the_supplied_context(mocker):
     log_mock = _mock_audit_log(mocker)
 
     await authorization_service.authorize(
-        "admin@example.com", "users:delete_any", "users", db=None,
+        "admin@example.com", "users:deactivate_any", "users", db=None,
         context={"mfa_verified": True},
     )
 

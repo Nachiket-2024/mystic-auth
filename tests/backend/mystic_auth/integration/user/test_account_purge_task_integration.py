@@ -2,7 +2,7 @@
 #
 # End-to-end coverage for the scheduled grace-period hard-purge job
 # (backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py) against
-# the real ASGI app, real PostgreSQL, and real Redis (see conftest.py).
+# the real ASGI app, real PostgreSQL, and real Valkey (see conftest.py).
 # Manual purge is covered in test_user_account_lifecycle_integration.py and
 # self-delete in test_user_self_service_routes_integration.py; this file
 # proves the daily job actually connects the two.

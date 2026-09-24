@@ -1,5 +1,5 @@
 # Regression guard for a fix to verify_token: single-use enforcement
-# previously did a separate GET then DELETE against Redis, and a TOCTOU
+# previously did a separate GET then DELETE against Valkey, and a TOCTOU
 # race let two concurrent requests both pass the GET before either ran
 # the DELETE, both treating a single-use token as valid. Fixed by using
 # an atomic GETDEL.
@@ -27,9 +27,9 @@ async def test_verify_token_uses_atomic_getdel_not_separate_get_and_delete(mocke
         new_callable=AsyncMock,
         return_value={"email": "user@example.com", "type": "verify"},
     )
-    getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
-    get_mock = mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock)
-    delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
+    getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    get_mock = mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock)
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
 
     result = await account_verification_service.verify_token("some-token")
 
@@ -48,7 +48,7 @@ async def test_verify_token_rejects_already_consumed_single_use_token(mocker):
         new_callable=AsyncMock,
         return_value={"email": "user@example.com", "type": "verify"},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value=None)
 
     result = await account_verification_service.verify_token("already-used-token")
 
@@ -60,7 +60,7 @@ async def test_create_verification_token_forwards_expires_minutes_to_jwt_service
     """Regression guard: create_verification_token used to call
     jwt_service.create_verification_token(email=email) without forwarding
     expires_minutes, so the JWT's exp claim silently used
-    ACCESS_TOKEN_EXPIRE_MINUTES (15min default) while the Redis
+    ACCESS_TOKEN_EXPIRE_MINUTES (15min default) while the Valkey
     single-use key TTL and the emailed wording both used
     RESET_TOKEN_EXPIRE_MINUTES (60min default): a user clicking between
     15-60 minutes in got a confusing invalid/expired error despite the
@@ -85,7 +85,7 @@ async def test_verify_token_rejects_token_of_the_wrong_type(mocker):
         new_callable=AsyncMock,
         return_value=None,
     )
-    getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock)
+    getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock)
 
     result = await account_verification_service.verify_token("wrong-type-token")
 

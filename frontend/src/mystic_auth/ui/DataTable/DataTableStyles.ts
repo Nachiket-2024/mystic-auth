@@ -8,57 +8,20 @@ export function plainTextOf(node: React.ReactNode): string | undefined {
     return undefined;
 }
 
-// The classic four-background "scroll shadow" trick, so a scrollable table
-// hints there's more content off to the side: two opaque gradients
-// (attachment: local, scroll with the content) plus two shadow gradients
-// underneath (attachment: scroll, pinned to the viewport, only visible
-// while there's more to scroll). Chakra CSS vars mean no dark-mode case.
-export const SCROLL_SHADOW_CSS = {
-    background: `
-        linear-gradient(to right, var(--chakra-colors-bg-surface) 30%, transparent),
-        linear-gradient(to left, var(--chakra-colors-bg-surface) 30%, transparent) 100% 0,
-        linear-gradient(to right, var(--chakra-colors-blackAlpha-400), transparent),
-        linear-gradient(to left, var(--chakra-colors-blackAlpha-400), transparent) 100% 0
-    `,
-    backgroundRepeat: "no-repeat" as const,
-    backgroundColor: "bg.surface",
-    backgroundSize: "24px 100%, 24px 100%, 10px 100%, 10px 100%",
-    backgroundPosition: "0 0, 100% 0, 0 0, 100% 0",
-    backgroundAttachment: "local, local, scroll, scroll" as const,
-};
-
-// Table.ScrollArea is its own overflow:auto box, separate from the page's
-// html-level scrollbar (themeStyles.ts's globalCss.html). Left unstyled it
-// renders the bare user-agent scrollbar color, same "black strip" issue as
-// the page. bg.surface (not bg.canvas) as track color, since this scrollbar
-// sits on the table's surface, not the page canvas.
-// `\.` in the var() names: scrollbarColor isn't resolved by the token
-// pipeline like plain style props are, so it needs the literal generated
-// CSS custom property name.
-export const SCROLL_AREA_SCROLLBAR_CSS = {
-    scrollbarColor: "var(--chakra-colors-border\\.default) var(--chakra-colors-bg\\.surface)",
-    "&::-webkit-scrollbar": {
-        width: "14px",
-        height: "14px",
-    },
-    "&::-webkit-scrollbar-track": {
-        bg: "bg.surface",
-    },
-    "&::-webkit-scrollbar-thumb": {
-        bg: "border.default",
-        borderRadius: "full",
-        border: "3px solid",
-        borderColor: "bg.surface",
-    },
-};
+// The scroll-shadow gradients and custom scrollbar colors live in
+// theme/tailwind.css's .data-table-scroll-area class: ::-webkit-scrollbar
+// and stacked multi-attachment backgrounds have no Tailwind utility
+// equivalent, so this needs a real CSS class rather than inline classes.
+export const SCROLL_AREA_CLASS = "data-table-scroll-area";
 
 // Applied to every header cell, not the <tr> (sticky on a table row is
 // unreliable cross-browser), so headers stay put as the body scrolls under
-// them. Only matters once Table.ScrollArea's maxH constrains height. bg.surface
-// (not transparent) hides scrolled rows passing beneath the sticky header.
-export const STICKY_HEADER_CELL_PROPS = {
-    position: "sticky" as const,
-    top: 0,
-    zIndex: 1,
-    bg: "bg.surface",
-};
+// them. Only matters once the scroll area's max-height constrains height.
+//
+// Must be an opaque color, not an alpha tint: a translucent background
+// composites over whatever scrolls underneath, so scrolled-past rows show
+// through the "sticky" header instead of being hidden behind it. bg-bg-table-header
+// is a step darker than DataTableRow.tsx's hover color (bg-muted), so the
+// header reads as clearly its own darker strip rather than blending into a
+// hovered row.
+export const STICKY_HEADER_CELL_CLASS = "sticky top-0 z-10 h-11 font-semibold text-fg-default bg-bg-table-header border-b-2 border-border-strong shadow-[0_1px_0_var(--border-strong)]";

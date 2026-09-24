@@ -9,6 +9,7 @@ from ...audit_log.audit_log_service import REFRESH_TOKEN_REUSE_DETECTED, log_sec
 from ...logging.logging_config import get_logger
 from ...user_session.session_events import publish_session_revoked
 from ...user_session.session_service import session_service
+from ..security.client_ip import get_client_ip
 from ..token_logic.jwt_service import jwt_service
 from ..token_logic.token_version_store import TokenVersionUnavailableError
 
@@ -69,10 +70,24 @@ class RefreshTokenService:
             # requests raced on the same token, or the token was stolen and is
             # being used by an attacker in parallel with its rightful owner.
             # Either way, that is reuse, not a routine invalid-token case.
-            claimed = await jwt_service.claim_jti_for_rotation(jti, payload.get("exp"), payload.get("email"))
+            client_ip = get_client_ip(request) if request is not None else None
+            claimed = await jwt_service.claim_jti_for_rotation(
+                jti, payload.get("exp"), payload.get("email"), client_ip=client_ip
+            )
+
+            # A duplicate seconds after the first use, from the same IP, is
+            # two tabs racing or a first response lost to a reload, not theft.
+            # It gets its own fresh pair on the same chain (the browser keeps
+            # whichever cookie lands last) instead of a chain revoke. Older or
+            # cross-IP reuse still takes the strict path below.
+            benign_duplicate = False
             if not claimed:
-                await RefreshTokenService._handle_reuse_detected(payload, db, request)
-                return None
+                if await jwt_service.is_benign_duplicate_rotation(jti, client_ip):
+                    logger.info("Duplicate refresh within grace window for jti %s, issuing fresh pair", jti)
+                    benign_duplicate = True
+                else:
+                    await RefreshTokenService._handle_reuse_detected(payload, db, request)
+                    return None
 
             email = payload.get("email")
             chain_id = payload.get("chain")
@@ -93,9 +108,17 @@ class RefreshTokenService:
             # identical comment for why).
             new_payload = await jwt_service.decode_payload(new_refresh_token)
             if new_payload and new_payload.get("jti") and new_payload.get("exp"):
-                await session_service.rotate_session(
-                    db, jti, new_payload["jti"], chain_id, new_payload["exp"], email=email, request=request
-                )
+                if benign_duplicate:
+                    # The session row already moved off the old jti on the
+                    # first rotation, so move it by chain instead of
+                    # backfilling a duplicate Manage Sessions row.
+                    await session_service.rotate_session_by_chain(
+                        db, chain_id, new_payload["jti"], new_payload["exp"], email=email, request=request
+                    )
+                else:
+                    await session_service.rotate_session(
+                        db, jti, new_payload["jti"], chain_id, new_payload["exp"], email=email, request=request
+                    )
 
             return {"access_token": new_access_token, "refresh_token": new_refresh_token}
 
@@ -112,9 +135,9 @@ class RefreshTokenService:
         the best-effort Postgres mirror.
 
         Raises TokenVersionUnavailableError if the account-version bump
-        itself could not be confirmed (Redis unreachable): the Postgres
+        itself could not be confirmed (Valkey unreachable): the Postgres
         mirror is deliberately left untouched in that case, since marking
-        sessions revoked there while the real Redis-backed version stayed
+        sessions revoked there while the real Valkey-backed version stayed
         unbumped would make Manage Sessions/audit logs lie about whether
         those tokens are actually dead. Callers must not report success
         when this is raised.
@@ -223,7 +246,7 @@ class RefreshTokenService:
         changes is only whether *other* tokens on the account/chain actually
         got invalidated too - caught here (rather than left to propagate)
         so the critical log and audit event, the evidence that theft was
-        detected at all, still get written even when Redis is down.
+        detected at all, still get written even when Valkey is down.
         """
         email = payload.get("email")
 
@@ -256,7 +279,7 @@ class RefreshTokenService:
         else:
             logger.critical(
                 "Refresh token reuse detected for %s, but revocation of %s could not be confirmed "
-                "(Redis unavailable) - those tokens may remain valid until Redis recovers",
+                "(Valkey unavailable) - those tokens may remain valid until Valkey recovers",
                 email, revoked_description,
             )
 

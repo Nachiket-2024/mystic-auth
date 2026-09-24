@@ -2,11 +2,6 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....audit_log.audit_log_service import POLICY_ACTION_REVOKED, POLICY_ASSIGNED, POLICY_REVOKED, log_security_event
-
-# Authentication-only dependency (no permission required), used by
-# /users/me/policies so a user can inspect their own assignments regardless
-# of whether they hold policies:read.
-from ....auth.current_user.current_user_dependency import get_current_user
 from ....authorization.context.request_context_builder import build_authorization_context
 from ....authorization.dependencies.permission_route_dependencies import (
     GRANT_DEPENDENCY as PERMISSIONS_GRANT_DEPENDENCY,
@@ -21,6 +16,7 @@ from ....authorization.repositories.policy_repository import policy_repository
 from ....authorization.schemas.policy_schema import (
     PolicyActionRevocationRequest,
     PolicyAssignmentRequest,
+    PolicyHolderRead,
     PolicyRead,
     UserPoliciesRead,
 )
@@ -35,8 +31,26 @@ from ....user.user_crud_collector import user_crud
 from ....user.user_model import UserRole
 from ....user_session.session_events import publish_permissions_changed
 from ...get_or_404.get_or_404 import get_or_404
+from .policy_self_routes import list_my_policies
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
+
+# Backward-compatible import path for focused unit tests and integrations.
+__all__ = ["list_my_policies", "router"]
+
+
+@router.get("/policies/{policy_name}/holders", response_model=list[PolicyHolderRead])
+async def list_policy_holders(
+    policy_name: str,
+    current_user: dict = READ_DEPENDENCY,
+    db: AsyncSession = Depends(database.get_session),
+):
+    """Every user currently assigned this policy, newest assignment first.
+    Backs both the details dialog's "Assigned users" list and the delete
+    confirm's "N users will lose access" count (the frontend just takes
+    len() of this same list, no separate count endpoint)."""
+    policy = await get_or_404(policy_repository.get_by_name(policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
+    return await policy_repository.get_holders(policy.id, db)
 
 
 @router.post("/users/{user_email}/policies")
@@ -75,7 +89,7 @@ async def assign_policy_to_user(
 
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], policy.actions, policy.resource_type, db,
-        context=build_authorization_context(request),
+        context=build_authorization_context(request), conditions=policy.conditions,
     )
 
     await policy_repository.assign_policy_to_user(
@@ -133,7 +147,7 @@ async def remove_policy_from_user(
 
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], policy.actions, policy.resource_type, db,
-        context=build_authorization_context(request),
+        context=build_authorization_context(request), conditions=policy.conditions,
     )
 
     # Confirm holdership BEFORE the lockout check below: otherwise a target
@@ -226,7 +240,7 @@ async def revoke_policy_action_from_user(
 
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], policy.actions, policy.resource_type, db,
-        context=build_authorization_context(request),
+        context=build_authorization_context(request), conditions=policy.conditions,
     )
 
     # Confirm holdership BEFORE the lockout check below: otherwise a target
@@ -294,33 +308,6 @@ async def revoke_policy_action_from_user(
     )
     await publish_permissions_changed(user.email)
     return {"detail": f"Action '{revocation.action}' revoked from {user_email}'s '{policy_name}' assignment; other actions retained as direct grants"}
-
-
-# Registered BEFORE /users/{user_email}/policies below: FastAPI/Starlette
-# matches routes in registration order, and a parameterized path segment
-# happily matches the literal string "me" too; this route must come first
-# or /users/{user_email}/policies (which requires policies:read) would
-# shadow it.
-@router.get("/users/me/policies", response_model=UserPoliciesRead)
-async def list_my_policies(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(database.get_session),
-):
-    """
-    Self-service: every policy currently assigned to the caller (active or
-    not, for inspection, not an authorization decision). No policies:read
-    required: inspecting one's own assignments isn't privileged
-    information, mirroring GET /audit-log/me's rationale. Same response
-    shape as the management GET /users/{email}/policies below, scoped to
-    the caller.
-    """
-    policies = await policy_repository.get_policies_for_user(current_user["email"], db)
-    # Explicit ORM -> schema conversion, unlike the response_model=... routes
-    # in policy_crud_routes.py which get this for free from FastAPI's own
-    # serialization, since UserPoliciesRead is constructed directly here.
-    return UserPoliciesRead(
-        user_email=current_user["email"], policies=[PolicyRead.model_validate(p) for p in policies]
-    )
 
 
 @router.get("/users/{user_email}/policies", response_model=UserPoliciesRead)

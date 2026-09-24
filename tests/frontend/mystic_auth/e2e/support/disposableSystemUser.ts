@@ -2,8 +2,12 @@ import { execFileSync } from "node:child_process";
 
 export const SEEDED_PASSWORD = "PlaywrightPass123!";
 
+// Keep the default CI/local Compose behavior, while allowing isolated test
+// stacks to select their own project without touching another stack's volume.
+const composeProjectName = process.env.PLAYWRIGHT_COMPOSE_PROJECT_NAME;
 const composeArgs = [
   "compose",
+  ...(composeProjectName ? ["-p", composeProjectName] : []),
   "-f", "docker/mystic_auth/compose/docker-compose.dev.yml",
   "-f", "docker/app/compose/docker-compose.dev.yml",
   "--env-file", "env/mystic_auth/.env",

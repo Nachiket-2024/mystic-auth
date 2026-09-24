@@ -1,8 +1,10 @@
 import React from "react";
-import { Skeleton, Table } from "@chakra-ui/react";
 
+import { Skeleton } from "../shadcn/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../shadcn/table";
+import { cn } from "../styles/classNames";
 import { ariaSortFor, renderHeaderCell } from "./DataTableSortIndicator";
-import { SCROLL_SHADOW_CSS } from "./DataTableStyles";
+import { SCROLL_AREA_CLASS } from "./DataTableStyles";
 import type { DataTableColumn } from "./DataTable";
 import type { SortState } from "../hooks/useSortState";
 
@@ -14,51 +16,51 @@ interface DataTableSkeletonProps<T> {
     sort: SortState | undefined;
 }
 
+const ALIGN_CLASS = { start: "text-left", center: "text-center", end: "text-right" } as const;
+
 /** DataTable's isLoading state: same column headers as the real table, with
  * skeleton placeholder cells instead of rows, so the layout doesn't jump
  * once data arrives. */
 function DataTableSkeleton<T>({ columns, colgroup, showRowNumbers, skeletonRowCount, sort }: DataTableSkeletonProps<T>) {
     return (
-        // fontSize here (not size="md"/"lg", which only changes cell
-        // padding, not text) cascades to every cell/header that doesn't set
-        // its own, matching the row-action buttons' and badges' size.
-        <Table.ScrollArea borderWidth="1px" borderColor="border.default" rounded="lg" css={SCROLL_SHADOW_CSS}>
-            <Table.Root size="sm" css={{ tableLayout: "fixed", width: "100%", fontSize: "md" }}>
+        // text-sm here (not a size prop, which only changes cell padding,
+        // not text) cascades to every cell/header that doesn't set its own,
+        // matching the row-action buttons' and badges' size.
+        <div className={cn("border border-border-default rounded-lg overflow-x-auto", SCROLL_AREA_CLASS)}>
+            <Table className="table-fixed w-full text-sm">
                 {colgroup}
-                <Table.Header>
-                    <Table.Row>
-                        {showRowNumbers && <Table.ColumnHeader w="1%" fontSize="md">#</Table.ColumnHeader>}
+                <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                        {showRowNumbers && <TableHead className="w-[1%] text-sm">#</TableHead>}
                         {columns.map((col) => (
-                            <Table.ColumnHeader
+                            <TableHead
                                 key={col.key}
-                                textAlign={col.align}
-                                overflow="hidden"
-                                fontSize="md"
+                                className={cn("overflow-hidden text-sm", col.align && ALIGN_CLASS[col.align])}
                                 aria-sort={ariaSortFor(col, sort)}
                             >
                                 {renderHeaderCell(col, sort)}
-                            </Table.ColumnHeader>
+                            </TableHead>
                         ))}
-                    </Table.Row>
-                </Table.Header>
-                <Table.Body>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
                     {Array.from({ length: skeletonRowCount }).map((_, rowIndex) => (
-                        <Table.Row key={rowIndex}>
+                        <TableRow key={rowIndex}>
                             {showRowNumbers && (
-                                <Table.Cell>
-                                    <Skeleton height="4" />
-                                </Table.Cell>
+                                <TableCell>
+                                    <Skeleton className="h-4" />
+                                </TableCell>
                             )}
                             {columns.map((col) => (
-                                <Table.Cell key={col.key}>
-                                    <Skeleton height="4" />
-                                </Table.Cell>
+                                <TableCell key={col.key}>
+                                    <Skeleton className="h-4" />
+                                </TableCell>
                             ))}
-                        </Table.Row>
+                        </TableRow>
                     ))}
-                </Table.Body>
-            </Table.Root>
-        </Table.ScrollArea>
+                </TableBody>
+            </Table>
+        </div>
     );
 }
 

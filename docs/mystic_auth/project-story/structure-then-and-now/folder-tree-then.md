@@ -29,7 +29,7 @@ mystic-auth/
       core/
       database/
       logging/
-      redis/
+      valkey/
       scripts/
       taskiq_tasks/
       user_crud/

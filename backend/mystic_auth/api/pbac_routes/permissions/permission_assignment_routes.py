@@ -66,7 +66,7 @@ async def grant_permission_to_user(
 
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], [assignment.action], assignment.resource_type, db,
-        context=build_authorization_context(request),
+        context=build_authorization_context(request), conditions=assignment.conditions,
     )
 
     await user_permission_repository.assign_permission_to_user(

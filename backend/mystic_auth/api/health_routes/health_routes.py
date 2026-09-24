@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database.connection import database
 from ...logging.logging_config import get_logger
-from ...redis.client import redis_client
+from ...valkey.client import valkey_client
 
 logger = get_logger(__name__)
 
@@ -25,7 +25,7 @@ async def health():
 @router.get("/health/ready")
 async def health_ready(db: AsyncSession = Depends(database.get_session)):
     """
-    Readiness probe: confirms Postgres and Redis connectivity. Each check is
+    Readiness probe: confirms Postgres and Valkey connectivity. Each check is
     wrapped in its own try/except, so one dependency being down still
     reports the other's real status instead of masking it.
     """
@@ -39,11 +39,11 @@ async def health_ready(db: AsyncSession = Depends(database.get_session)):
         checks["database"] = "error"
 
     try:
-        await redis_client.ping()
-        checks["redis"] = "ok"
+        await valkey_client.ping()
+        checks["valkey"] = "ok"
     except Exception:
-        logger.error("Readiness check: redis connectivity failed", exc_info=True)
-        checks["redis"] = "error"
+        logger.error("Readiness check: valkey connectivity failed", exc_info=True)
+        checks["valkey"] = "error"
 
     all_ok = all(status == "ok" for status in checks.values())
     return JSONResponse(

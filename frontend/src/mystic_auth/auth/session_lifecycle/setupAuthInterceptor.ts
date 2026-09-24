@@ -6,12 +6,13 @@ import { refreshTokenApi } from "../../api/auth_api";
 import { useAuthStore } from "../../store/authStore";
 import { queryClient } from "../../core/queryClient";
 import { CURRENT_USER_QUERY_KEY } from "../current_user/useCurrentUserQuery";
-import { SESSIONS_QUERY_KEY } from "../../dashboard/manage_sessions/useSessionsQuery";
+import { SESSIONS_QUERY_KEY } from "../../active_sessions/useSessionsQuery";
 import { MY_POLICIES_QUERY_KEY } from "../../policies/queries/policyQueries";
 import { MY_AUTHORIZATION_AUDIT_LOG_QUERY_KEY } from "../../audit_log/authorization_log/authorizationLogQueries";
 import { MY_SECURITY_AUDIT_LOG_QUERY_KEY } from "../../audit_log/security_log/securityLogQueries";
 import { toaster } from "../../ui/toaster/toasterInstance";
 import { getPendingSessionRotation, wasSessionRecentlyRotated } from "./sessionRotationGuard";
+import { runCrossTabRefresh } from "./crossTabRefresh";
 
 // Marks a request as already retried once (post-refresh) so it can't be retried again,
 // or it would loop forever between "refresh" and "retry" if it still 401s right after
@@ -48,7 +49,7 @@ let refreshInFlight: Promise<void> | null = null;
 
 function refreshSession(): Promise<void> {
     if (!refreshInFlight) {
-        refreshInFlight = refreshTokenApi()
+        refreshInFlight = runCrossTabRefresh(() => refreshTokenApi())
             .then(() => undefined)
             .finally(() => {
                 refreshInFlight = null;
@@ -105,7 +106,7 @@ export function setupAuthInterceptor(): void {
             }
 
             // Before giving up, check whether a session-rotating request (e.g. the
-            // account-settings password change) is still in flight: its Redis version
+            // account-settings password change) is still in flight: its Valkey version
             // bump can make even a currently-valid cookie look stale for the brief
             // window before fresh ones land (sessionRotationGuard.ts). Deliberately NOT
             // gated by isEligibleForRefresh, since this must also catch POST

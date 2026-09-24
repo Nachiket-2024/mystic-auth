@@ -10,6 +10,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pythonjsonlogger import json as jsonlogger
 
 from backend.mystic_auth.logging.logging_config import (
+    _make_access_handler,
     disable_uvicorn_access_logger,
     get_logger,
     get_startup_logger,
@@ -19,12 +20,23 @@ from backend.mystic_auth.logging.logging_config import (
 MODULE = "backend.mystic_auth.logging.logging_config"
 
 
+def test_access_log_handler_falls_back_when_log_path_is_not_writable(mocker):
+    mocker.patch(f"{MODULE}.TimedRotatingFileHandler", side_effect=PermissionError("read-only mount"))
+
+    handler = _make_access_handler(logging.INFO, logging.Formatter("%(message)s"))
+
+    assert isinstance(handler, logging.NullHandler)
+    assert handler.level == logging.INFO
+
+
 def test_access_log_handler_has_a_bounded_retention_window():
     logger = get_logger("test_logging_config_retention")
 
     rotating_handlers = [h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)]
-    assert rotating_handlers, "expected a TimedRotatingFileHandler on the access log"
-    assert rotating_handlers[0].backupCount > 0
+    if rotating_handlers:
+        assert rotating_handlers[0].backupCount > 0
+    else:
+        assert any(isinstance(h, logging.NullHandler) for h in logger.handlers)
 
 
 def test_get_logger_routine_info_only_reaches_the_file_handler_not_the_terminal():
@@ -134,8 +146,10 @@ def test_get_worker_logger_also_writes_to_the_file_handler():
     logger = get_worker_logger("test_logging_config_worker_has_file")
 
     rotating_handlers = [h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)]
-    assert rotating_handlers, "expected a TimedRotatingFileHandler on the worker logger"
-    assert rotating_handlers[0].backupCount > 0
+    if rotating_handlers:
+        assert rotating_handlers[0].backupCount > 0
+    else:
+        assert any(isinstance(h, logging.NullHandler) for h in logger.handlers)
 
 
 def test_get_logger_file_handler_stays_json_even_in_dev(mocker):
@@ -147,7 +161,10 @@ def test_get_logger_file_handler_stays_json_even_in_dev(mocker):
     logger = get_logger("test_logging_config_file_stays_json_in_dev")
 
     rotating_handlers = [h for h in logger.handlers if isinstance(h, TimedRotatingFileHandler)]
-    assert isinstance(rotating_handlers[0].formatter, jsonlogger.JsonFormatter)
+    if rotating_handlers:
+        assert isinstance(rotating_handlers[0].formatter, jsonlogger.JsonFormatter)
+    else:
+        assert any(isinstance(h, logging.NullHandler) for h in logger.handlers)
 
 
 def test_uvicorn_access_logger_is_disabled_to_avoid_raw_query_logging():

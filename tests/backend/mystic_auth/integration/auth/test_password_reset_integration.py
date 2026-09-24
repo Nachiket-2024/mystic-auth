@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/integration/auth/test_password_reset_integration.py
 #
 # End-to-end password-reset coverage against the real ASGI app, real
-# PostgreSQL, and real Redis (see conftest.py).
+# PostgreSQL, and real Valkey (see conftest.py).
 import asyncio
 
 import pytest
@@ -10,7 +10,7 @@ from backend.mystic_auth.auth.password_logic.password_service import (
     password_service,
 )
 from backend.mystic_auth.core.settings import settings
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 from .auth_test_accounts import (
     PASSWORD,
@@ -22,14 +22,14 @@ from .auth_test_accounts import (
 # ---------------------------- password reset ----------------------------
 
 async def _request_password_reset(client, email: str) -> str:
-    """Mirrors password_reset_service.send_reset_email's Redis single-use
+    """Mirrors password_reset_service.send_reset_email's Valkey single-use
     registration so the test can drive password-reset/confirm without
     depending on the email worker being up to deliver the link."""
     resp = await client.post("/auth/password-reset/request", json={"email": email})
     assert resp.status_code == 200
 
     token = await password_service.create_reset_token(email)
-    await redis_client.set(f"password_reset:{token}", "1", ex=settings.RESET_TOKEN_EXPIRE_MINUTES * 60)
+    await valkey_client.set(f"password_reset:{token}", "1", ex=settings.RESET_TOKEN_EXPIRE_MINUTES * 60)
     return token
 
 
@@ -108,7 +108,7 @@ async def test_password_reset_survives_retry_after_weak_password(client, created
 
 @pytest.mark.asyncio
 async def test_password_reset_concurrent_requests_only_one_succeeds(client, created_emails):
-    # The core TOCTOU race (real Redis, real Postgres): two requests firing
+    # The core TOCTOU race (real Valkey, real Postgres): two requests firing
     # concurrently with the same valid token and different new passwords
     # must not both succeed. GETDEL's atomicity means only one can ever win
     # the single-use check, regardless of how the DB writes interleave.
@@ -128,10 +128,9 @@ async def test_password_reset_concurrent_requests_only_one_succeeds(client, crea
     )
 
     statuses = sorted(resp.status_code for resp in responses)
-    # Exactly one of the two concurrent requests may succeed; the other
-    # loses the atomic GETDEL and gets password_reset_confirm_handler's
-    # standard "Invalid token or password" failure response.
-    assert statuses == [200, 400]
+    # Exactly one of the two concurrent requests may succeed; the other loses
+    # the atomic action reservation and is rejected without mutating state.
+    assert statuses == [200, 429]
 
     # Confirm exactly one of the two candidate passwords actually works.
     login_a = await client.post("/auth/login", json={"email": email, "password": "ConcurrentPassA1!"})

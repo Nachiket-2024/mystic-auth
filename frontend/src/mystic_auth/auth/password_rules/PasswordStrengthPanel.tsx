@@ -1,7 +1,6 @@
 import React from "react";
-import { Box, Flex, HStack, Text, VStack } from "@chakra-ui/react";
-import { ShieldCheck } from "lucide-react";
 
+import { cn } from "../../ui/styles/classNames";
 import type { PasswordRules } from "./passwordRules";
 import { evaluatePasswordStrength } from "./passwordRules";
 import PasswordRulesChecklist from "./PasswordRulesChecklist";
@@ -14,53 +13,53 @@ interface PasswordStrengthPanelProps {
     label: string;
     rules: PasswordRules;
     pristine?: boolean;
-    mt?: number | string;
+    /** Tailwind margin-top class, e.g. "mt-2". */
+    className?: string;
 }
 
 const SEGMENT_COUNT = 4;
-/** Fixed narrow width for the strength column, so its bar doesn't stretch
- * to fill the panel - it sits as a compact block beside the checklist
- * rather than spanning the full row. */
-const STRENGTH_COLUMN_WIDTH = "140px";
 
 /**
- * Strength (icon + bar + label) on the left, the 4 rules as a compact single-column
- * block on the right (via the shared PasswordRulesChecklist), centered as a unit.
- * Wraps to a stacked layout on narrow viewports so the checklist never gets squeezed.
+ * Strength bar + label full width above the checklist, left-aligned - not a
+ * centered block with the bar off to one side (design/auth.html's signup/
+ * reset states). The checklist collapses to a single column below ~400px
+ * (design.md's narrow-width rule) so each rule stays on one line at 360px.
  */
-const PasswordStrengthPanel: React.FC<PasswordStrengthPanelProps> = ({ password, label, rules, pristine, mt }) => {
+// Semantic strength color, as both a bg- and text- Tailwind class (the
+// segment bars need the former, the label the latter).
+const STRENGTH_CLASSES: Record<string, { bg: string; text: string }> = {
+    Weak: { bg: "bg-fg-error", text: "text-fg-error" },
+    Medium: { bg: "bg-fg-warning", text: "text-fg-warning" },
+    Strong: { bg: "bg-fg-success", text: "text-fg-success" },
+};
+
+const PasswordStrengthPanel: React.FC<PasswordStrengthPanelProps> = ({ password, label, rules, pristine, className }) => {
     const strength = evaluatePasswordStrength(password);
     const filled = Object.values(rules).filter(Boolean).length;
 
-    const color =
-        strength === "Weak" ? "fg.error" :
-        strength === "Medium" ? "fg.warning" :
-        strength === "Strong" ? "fg.success" : "border.default";
+    const strengthClasses = STRENGTH_CLASSES[strength] ?? { bg: "bg-border-default", text: "text-border-default" };
 
     return (
-        <Flex mt={mt} w="full" justify="center" align="center" gap={6} wrap="wrap">
-            <VStack gap={1} w={STRENGTH_COLUMN_WIDTH} flexShrink={0} color={strength ? color : "fg.muted"}>
-                <ShieldCheck size={16} color="currentColor" aria-hidden="true" />
-                <HStack gap={1} w="full" aria-hidden="true">
+        <div className={cn("flex flex-col w-full gap-2.5", className)}>
+            <div className="flex flex-col gap-1.5">
+                <p className={cn("text-sm font-semibold", strength ? strengthClasses.text : "text-fg-muted")}>
+                    {label}
+                </p>
+                <div className="flex items-center gap-1" aria-hidden="true">
                     {Array.from({ length: SEGMENT_COUNT }).map((_, i) => (
-                        <Box
+                        <div
                             key={i}
-                            h="1"
-                            flex="1"
-                            borderRadius="full"
-                            bg={i < filled ? color : "border.default"}
-                            transition="background-color var(--chakra-durations-fast) var(--chakra-easings-hover)"
+                            className={cn(
+                                "h-1 flex-1 rounded-full transition-[background-color] duration-[var(--duration-fast)] ease-[var(--easing-hover)]",
+                                i < filled ? strengthClasses.bg : "bg-border-default"
+                            )}
                         />
                     ))}
-                </HStack>
+                </div>
+            </div>
 
-                <Text fontSize="md" fontWeight="bold" color={strength ? color : "fg.muted"} textAlign="center" whiteSpace="nowrap">
-                    {label}
-                </Text>
-            </VStack>
-
-            <PasswordRulesChecklist rules={rules} pristine={pristine} columns={2} />
-        </Flex>
+            <PasswordRulesChecklist rules={rules} pristine={pristine} columnsClassName="grid-cols-1 sm:grid-cols-2" fontSize="sm" />
+        </div>
     );
 };
 

@@ -73,6 +73,7 @@ class PolicyEvaluationEngine:
         endpoint, audit logging, and tests."""
         evaluated_policies: list[str] = [policy.name for policy in policies]
         matched_policies: list[str] = []
+        matched_policy_conditions: dict[str, dict | None] = {}
         rejected_policies: list[str] = []
         failed_conditions: dict[str, list[str]] = {}
 
@@ -89,6 +90,7 @@ class PolicyEvaluationEngine:
             )
             if condition_result["satisfied"]:
                 matched_policies.append(policy.name)
+                matched_policy_conditions[policy.name] = policy.conditions
             else:
                 rejected_policies.append(policy.name)
                 failed_conditions[policy.name] = condition_result["failed_keys"]
@@ -102,6 +104,7 @@ class PolicyEvaluationEngine:
             user=user_email,
             evaluated_policies=evaluated_policies,
             matched_policies=matched_policies,
+            matched_policy_conditions=matched_policy_conditions,
             rejected_policies=rejected_policies,
             failed_conditions=failed_conditions,
             denial_reason=None if allowed else PolicyEvaluationEngine._denial_reason(

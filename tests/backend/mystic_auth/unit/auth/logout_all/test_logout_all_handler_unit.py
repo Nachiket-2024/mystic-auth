@@ -112,7 +112,7 @@ async def test_logout_all_returns_503_and_still_clears_cookies_when_bump_is_unco
     )
     mocker.patch(
         f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user",
-        new_callable=AsyncMock, side_effect=TokenVersionUnavailableError("redis down"),
+        new_callable=AsyncMock, side_effect=TokenVersionUnavailableError("valkey down"),
     )
     audit_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
 

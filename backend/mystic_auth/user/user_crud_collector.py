@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .user_crud_modules.user_base_crud import UserBaseCRUD, UserStatus
+from .user_crud_modules.user_base_crud import LastLoginBucket, PermissionSource, UserBaseCRUD, UserStatus
 from .user_crud_modules.user_email_crud import UserEmailCRUD
 from .user_crud_modules.user_lifecycle_crud import UserLifecycleCRUD
 from .user_crud_modules.user_role_crud import UserRoleCRUD
@@ -33,6 +35,10 @@ class UserCRUDCollector:
         sort_dir: str = "asc",
         policy: str | None = None,
         permission: str | None = None,
+        permission_source: PermissionSource | None = None,
+        last_login: LastLoginBucket | None = None,
+        last_login_from: datetime | None = None,
+        last_login_to: datetime | None = None,
     ):
         return await self.base.get_all(
             db,
@@ -46,6 +52,10 @@ class UserCRUDCollector:
             sort_dir=sort_dir,
             policy=policy,
             permission=permission,
+            permission_source=permission_source,
+            last_login=last_login,
+            last_login_from=last_login_from,
+            last_login_to=last_login_to,
         )
 
     async def count(
@@ -57,9 +67,15 @@ class UserCRUDCollector:
         status: UserStatus | None = None,
         policy: str | None = None,
         permission: str | None = None,
+        permission_source: PermissionSource | None = None,
+        last_login: LastLoginBucket | None = None,
+        last_login_from: datetime | None = None,
+        last_login_to: datetime | None = None,
     ) -> int:
         return await self.base.count(
-            db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission
+            db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission,
+            permission_source=permission_source,
+            last_login=last_login, last_login_from=last_login_from, last_login_to=last_login_to,
         )
 
     async def create(self, obj_data: dict, db: AsyncSession):
@@ -106,5 +122,6 @@ __all__ = [
     "UserLifecycleCRUD",
     "UserCRUDCollector",
     "UserStatus",
+    "LastLoginBucket",
     "user_crud",
 ]

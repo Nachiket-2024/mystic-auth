@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -34,12 +33,10 @@ function renderPage({ withToaster = false } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <RateLimitsPage />
           {withToaster && <Toaster />}
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -103,7 +100,6 @@ describe('RateLimitsPage', () => {
     });
     renderPage();
     const user = userEvent.setup();
-
     await screen.findByText('203.0.113.5');
     const nextButton = screen.getAllByRole('button', { name: 'Next page' })[0];
     const page2Button = screen.getAllByRole('button', { name: 'Page 2' })[0];
@@ -129,7 +125,6 @@ describe('RateLimitsPage', () => {
 
     renderPage();
     const user = userEvent.setup();
-
     await screen.findByText('203.0.113.5');
     await user.click(screen.getByRole('button', { name: 'Reset' }));
 
@@ -163,8 +158,8 @@ describe('RateLimitsPage', () => {
 
     // A real dropdown, not a text box: no free-text input to type into.
     expect(screen.queryByPlaceholderText(/filter by endpoint/i)).toBeNull();
-    await user.click(screen.getByRole('combobox', { name: 'Filter by endpoint' }));
-    await user.click(await screen.findByRole('option', { name: 'signup' }));
+    await user.click(screen.getByRole('button', { name: 'Filter by endpoint' }));
+    await user.click(await screen.findByRole('button', { name: 'signup' }));
 
     await waitFor(() => {
       const lastRequest = mock.history.get[mock.history.get.length - 1];
@@ -172,10 +167,10 @@ describe('RateLimitsPage', () => {
     });
   });
 
-  it('accepts the "email" (login lockout) scope filter without the request erroring', async () => {
+  it('activates the Login lockouts card when the login_lock endpoint is selected', async () => {
     mock.onGet('/rate-limits/').reply((config) => {
-      if (config.params?.scope === 'email') {
-        return [200, { entries: [], total: 1, truncated: false }];
+      if (config.params?.endpoint === 'login_lock') {
+        return [200, { entries: [{ ...IP_ENTRY, endpoint: 'login_lock' }], total: 1, truncated: false }];
       }
       return [200, { entries: [IP_ENTRY], total: 1, truncated: false }];
     });
@@ -183,14 +178,48 @@ describe('RateLimitsPage', () => {
     const user = userEvent.setup();
 
     await screen.findByText('203.0.113.5');
-    await user.click(screen.getByRole('combobox', { name: 'Filter by scope' }));
-    await user.click(await screen.findByRole('option', { name: 'Login lockout' }));
+    await user.click(screen.getByRole('button', { name: 'Filter by endpoint' }));
+    await user.click(await screen.findByRole('button', { name: 'login_lock' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Login lockouts' })).toHaveAttribute('aria-pressed', 'true'));
+    expect(await screen.findByText('Endpoint: login_lock')).toBeInTheDocument();
+  });
+
+  it('does not expose the login-lockout counter as a scope quick filter', async () => {
+    mock.onGet('/rate-limits/').reply((config) => {
+      if (config.params?.scope === 'email') {
+        return [200, { entries: [], total: 1, truncated: false }];
+      }
+      return [200, { entries: [IP_ENTRY], total: 1, truncated: false }];
+    });
+    renderPage();
+
+    await screen.findByText('203.0.113.5');
+    expect(within(screen.getByRole('radiogroup', { name: 'Filter by scope' })).queryByRole('radio', { name: /Login lockout/ })).toBeNull();
+  });
+
+  it('uses the dedicated login-lockout view without applying a scope filter', async () => {
+    mock.onGet('/rate-limits/').reply((config) => {
+      if (config.params?.kind === 'login_lockouts') {
+        return [200, { entries: [{ ...IP_ENTRY, endpoint: 'login_lock', scope: 'ip' }], total: 1, truncated: false }];
+      }
+      return [200, { entries: [IP_ENTRY], total: 1, truncated: false }];
+    });
+    renderPage();
+    const user = userEvent.setup();
+
+    await screen.findByText('203.0.113.5');
+    await user.click(screen.getByRole('button', { name: 'Login lockouts' }));
 
     await waitFor(() => {
       const lastRequest = mock.history.get[mock.history.get.length - 1];
-      expect(lastRequest.params).toMatchObject({ scope: 'email' });
+      expect(lastRequest.params).toMatchObject({ kind: 'login_lockouts' });
+      expect(lastRequest.params.scope).toBeUndefined();
+      expect(lastRequest.params.endpoint).toBe('login_lock');
     });
-    expect(await screen.findByText('No active rate limits')).toBeInTheDocument();
+    expect(screen.queryByText(/Scope: Login lockout/)).toBeNull();
+    expect(await screen.findByText('Endpoint: login_lock')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Login lockouts' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('shows the error message when the list request fails', async () => {

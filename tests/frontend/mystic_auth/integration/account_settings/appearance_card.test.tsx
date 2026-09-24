@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import MockAdapter from 'axios-mock-adapter';
 
 import api from '@/api/axiosInstance';
@@ -16,9 +15,7 @@ function renderCard() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <AppearanceCard />
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -40,10 +37,10 @@ describe('AppearanceCard', () => {
     window.localStorage.clear();
   });
 
-  it('defaults the hex field to the shipped amber brand when nothing is customized', () => {
+  it('defaults the hex field to the shipped terracotta brand when nothing is customized', () => {
     renderCard();
 
-    expect(screen.getByRole('textbox')).toHaveValue('#d97706');
+    expect(screen.getByRole('textbox')).toHaveValue('#b5533c');
   });
 
   it('preloads the hex field from an already-customized brand color', () => {
@@ -119,7 +116,7 @@ describe('AppearanceCard', () => {
     await waitFor(() => expect(mock.history.put.length).toBe(1));
     expect(JSON.parse(mock.history.put[0].data)).toEqual({ brand_color: null });
     expect(useAppearanceStore.getState().brandColor).toBeNull();
-    expect(screen.getByRole('textbox')).toHaveValue('#d97706');
+    expect(screen.getByRole('textbox')).toHaveValue('#b5533c');
   });
 
   it('shows an error alert when the save request fails', async () => {

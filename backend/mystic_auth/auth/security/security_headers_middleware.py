@@ -48,7 +48,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # Pins HTTPS for a year (closing the gap before the first secure
-        # connection, since cookies are already secure=True). Gated on
+        # connection, since production cookies are Secure. Gated on
         # ENVIRONMENT, checked fresh per request, because sending it from a
         # non-production deployment served over plain HTTP would pin HSTS
         # against real traffic with no easy way to undo it.

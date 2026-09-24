@@ -61,10 +61,10 @@ Only grants access from the corporate network:
 
 ```json
 {
-  "name": "office_only_admin_panel",
-  "description": "Admin panel access, corporate network only",
-  "actions": ["admin_panel:view"],
-  "resource_type": "admin_panel",
+  "name": "office_only_policy_management",
+  "description": "Policy management access, corporate network only",
+  "actions": ["policy_management:view"],
+  "resource_type": "policy_management",
   "conditions": {
     "network": {
       "allowed_ips": ["10.0.0.0/8", "203.0.113.7"]
@@ -132,7 +132,7 @@ The most sensitive policy in the system: it assigns the system role and manages 
     "policies:assign",
     "policies:revoke",
     "security_audit:read",
-    "users:purge",
+    "users:delete_any",
     "users:reactivate",
     "rate_limits:read",
     "rate_limits:reset"
@@ -142,17 +142,17 @@ The most sensitive policy in the system: it assigns the system role and manages 
 }
 ```
 
-This policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py` and updated in place by later data migrations as capabilities changed. The current migrated shape includes the fine-grained `policies:*` actions, `security_audit:read`, `users:purge`, `users:reactivate`, and (most recently) `rate_limits:read`/`rate_limits:reset` for the rate-limit admin dashboard (`GET`/`DELETE /rate-limits/...`, see `api/rate_limit_routes/rate_limit_routes.py`). It is protected: it can never be deleted or renamed via the management API (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)), and its last assignment can never be revoked (would leave nobody able to manage the authorization system at all).
+This policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py` and updated in place by later data migrations as capabilities changed. The current migrated shape includes the fine-grained `policies:*` actions, `security_audit:read`, `users:delete_any`, `users:reactivate`, and (most recently) `rate_limits:read`/`rate_limits:reset` for the permission-protected rate-limit dashboard (`GET`/`DELETE /rate-limits/...`, see `api/rate_limit_routes/rate_limit_routes.py`). It is protected: it can never be deleted or renamed via the management API (see [Writing and Testing Policies](writing-testing-policies.md#protected-baseline-policies)), and its last assignment can never be revoked (would leave nobody able to manage the authorization system at all).
 
 ---
 
-## User administration policy (seeded)
+## User management policy (seeded)
 
 ```json
 {
   "name": "user_administration",
   "description": "Manage other users' accounts: list, update, delete, assign non-system roles.",
-  "actions": ["users:list_all", "users:update_any", "users:delete_any", "users:assign_role"],
+  "actions": ["users:list_all", "users:update_any", "users:deactivate_any", "users:assign_role"],
   "resource_type": "users",
   "is_active": true
 }

@@ -11,10 +11,10 @@
 | Purpose | Local development | Self-hosted production image shape behind a free tunnel | Self-hosted deployment on your own server with Caddy-managed TLS |
 | Frontend | Vite dev server, HMR, bind-mounted source | nginx serving the baked-in static build | nginx serving the baked-in static build, reached through Caddy |
 | Backend/worker | `--reload`, bind-mounted `./backend:/app` | No reload, code baked into the image | No reload, code baked into the image |
-| Restart policy | `restart: always` for Postgres/Redis only | `unless-stopped` on every long-running service | `unless-stopped` on every long-running service |
-| Ports exposed | 5433 (Postgres), 6380 (Redis), 8000 (backend), 5173 (frontend), 8010 (Bugsink), all on localhost-friendly dev ports | backend/frontend/Bugsink published for local debugging, offset per tunnel variant (8001/8080/8011 cloudflare, 8101/8180/8111 ngrok, 8201/8280/8211 tailscale) so any of them can run alongside dev and each other | Only 80/443 on Caddy. Postgres, Redis, backend, and frontend are internal-only |
+| Restart policy | `restart: always` for Postgres/Valkey only | `unless-stopped` on every long-running service | `unless-stopped` on every long-running service |
+| Ports exposed | 5433 (Postgres), 6380 (Valkey), 8000 (backend), 5173 (frontend), 8010 (Bugsink), all on localhost-friendly dev ports | backend/frontend/Bugsink published for local debugging, offset per tunnel variant (8001/8080/8011 cloudflare, 8101/8180/8111 ngrok, 8201/8280/8211 tailscale) so any of them can run alongside dev and each other | Only 80/443 on Caddy. Postgres, Valkey, backend, and frontend are internal-only |
 | TLS | None | Terminates at the tunnel provider's edge | Caddy with automatic Let's Encrypt certificates |
-| `backend` startup gate | Postgres and Redis healthy | Postgres and Redis healthy, plus `alembic: service_completed_successfully` | Postgres and Redis healthy, plus `alembic: service_completed_successfully` |
+| `backend` startup gate | Postgres and Valkey healthy | Postgres and Valkey healthy, plus `alembic: service_completed_successfully` | Postgres and Valkey healthy, plus `alembic: service_completed_successfully` |
 | `procrastinate_worker` startup gate | Postgres healthy | Postgres healthy, plus `alembic: service_completed_successfully` | Postgres healthy, plus `alembic: service_completed_successfully` |
 
 Each mode's file lives at `docker/mystic_auth/compose/docker-compose.<mode>.yml`,

@@ -1,12 +1,12 @@
 # tests/backend/mystic_auth/unit/user_session/test_session_service_unit.py
 #
-# Redis fail-open regression coverage for revoke_session_on_logout (plain
+# Valkey fail-open regression coverage for revoke_session_on_logout (plain
 # Logout) and revoke_one_session (Manage Sessions "End session"): a chain-
-# version bump that can't be confirmed (Redis unreachable) must never look
+# version bump that can't be confirmed (Valkey unreachable) must never look
 # identical to a real revoke. See docs/mystic_auth/concerns/README.md's
-# now-resolved "Redis outage failure modes are inconsistent" entry.
+# now-resolved "Valkey outage failure modes are inconsistent" entry.
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -48,7 +48,7 @@ async def test_revoke_session_on_logout_returns_false_when_bump_is_unconfirmed(m
 
     assert result is False
     # The Postgres row must be left untouched: marking it revoked while the
-    # real Redis-backed version stayed unbumped would make the row lie
+    # real Valkey-backed version stayed unbumped would make the row lie
     # about the token actually being dead.
     revoke_by_jti_mock.assert_not_awaited()
 
@@ -96,3 +96,82 @@ async def test_revoke_one_session_succeeds_on_a_confirmed_bump(mocker):
     result = await SessionService.revoke_one_session(db=object(), email="user@example.com", session_id=1)
 
     assert result is session
+
+
+@pytest.mark.asyncio
+async def test_create_session_persists_client_metadata_and_notifies(mocker):
+    create_mock = mocker.patch(f"{MODULE}.session_repository.create", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.get_client_ip", return_value="198.51.100.10")
+    mocker.patch(f"{MODULE}.resolve_city_country", return_value=("Sydney", "Australia"))
+    notify_mock = mocker.patch(f"{MODULE}.publish_session_created", new_callable=AsyncMock)
+    request = MagicMock()
+    request.headers.get.return_value = "browser/1.0"
+
+    await SessionService.create_session(
+        db=object(), user_id=4, jti="jti-new", chain_id="chain-new", exp=1_800_000_000,
+        request=request, email="user@example.com",
+    )
+
+    create_mock.assert_awaited_once()
+    assert create_mock.await_args.args[:4] == (create_mock.await_args.args[0], 4, "jti-new", "chain-new")
+    assert create_mock.await_args.args[5:] == ("browser/1.0", "198.51.100.10", "Sydney", "Australia")
+    notify_mock.assert_awaited_once_with("user@example.com")
+
+
+@pytest.mark.asyncio
+async def test_create_session_does_nothing_without_database(mocker):
+    create_mock = mocker.patch(f"{MODULE}.session_repository.create", new_callable=AsyncMock)
+
+    await SessionService.create_session(None, 1, "jti", "chain", 1_800_000_000, None, "user@example.com")
+
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_rotate_session_backfills_missing_legacy_row(mocker):
+    mocker.patch(f"{MODULE}.session_repository.rotate", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=SimpleNamespace(id=9))
+    create_mock = mocker.patch(f"{MODULE}.session_repository.create", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.get_client_ip", return_value="203.0.113.5")
+    mocker.patch(f"{MODULE}.resolve_city_country", return_value=(None, None))
+    request = MagicMock()
+    request.headers.get.return_value = "mobile/2"
+
+    await SessionService.rotate_session(object(), "old", "new", "chain", 1_800_000_000, "user@example.com", request)
+
+    create_mock.assert_awaited_once()
+    assert create_mock.await_args.args[1:4] == (9, "new", "chain")
+    assert create_mock.await_args.args[5:] == ("mobile/2", "203.0.113.5", None, None)
+
+
+@pytest.mark.asyncio
+async def test_revoke_all_sessions_uses_exempt_chain_when_requested(mocker):
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=SimpleNamespace(id=7))
+    except_mock = mocker.patch(
+        f"{MODULE}.session_repository.revoke_all_for_user_except_chain", new_callable=AsyncMock
+    )
+
+    await SessionService.revoke_all_sessions(object(), "user@example.com", exempt_chain_id="keep-chain")
+
+    except_mock.assert_awaited_once_with(except_mock.await_args.args[0], 7, "keep-chain")
+
+
+@pytest.mark.asyncio
+async def test_list_and_count_return_empty_for_unknown_user(mocker):
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=None)
+
+    assert await SessionService.list_sessions(object(), "missing@example.com") == []
+    assert await SessionService.count_active_sessions(object(), "missing@example.com") == 0
+
+
+@pytest.mark.asyncio
+async def test_revoke_chain_is_fail_open_on_repository_error(mocker):
+    mocker.patch(
+        f"{MODULE}.session_repository.revoke_by_chain_id", new_callable=AsyncMock,
+        side_effect=RuntimeError("database unavailable"),
+    )
+
+    await SessionService.revoke_chain(object(), "chain-1")
+
+    # Session tracking must never turn a successful authentication flow into
+    # an outage when the auxiliary row cannot be updated.

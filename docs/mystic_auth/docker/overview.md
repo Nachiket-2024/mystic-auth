@@ -13,7 +13,7 @@ day-to-day workflow.
 | Service | Image / build | Purpose |
 |---|---|---|
 | `postgres` | `postgres:15` | Primary database, plus the Procrastinate job queue (`procrastinate_jobs`) |
-| `redis` | `redis:7` | Cache, rate limits, lockout counters, account/chain version counters, single-use refresh-token claims |
+| `valkey` | `valkey/valkey:9.1.2-alpine` | Cache, rate limits, lockout counters, account/chain version counters, single-use refresh-token claims |
 | `backend` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` | FastAPI app (uvicorn) |
 | `frontend` | `docker/mystic_auth/dockerfiles/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
 | `procrastinate_worker` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue and runs the daily scheduled account-purge job (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
@@ -44,7 +44,7 @@ The `postgres` service mounts `docker/mystic_auth/postgres-init/` to
 flowchart TD
     subgraph Data["Data layer"]
         postgres(("postgres"))
-        redis(("redis"))
+        valkey(("valkey"))
     end
     subgraph App["Application\n services"]
         alembic["alembic\n runs once,\n exits"]
@@ -57,11 +57,11 @@ flowchart TD
         bugsinkseed["bugsink-seed\n runs once,\n exits"]
     end
     postgres --> alembic
-    redis --> alembic
+    valkey --> alembic
     alembic -->|"prod: waits for\n success,\n dev: no gate"| backend
     alembic --> worker
     postgres --> backend
-    redis --> backend
+    valkey --> backend
     postgres --> worker
     backend -->|healthy| frontend
     postgres --> bugsink

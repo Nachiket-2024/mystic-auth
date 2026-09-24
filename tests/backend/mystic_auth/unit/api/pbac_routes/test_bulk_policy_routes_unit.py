@@ -22,6 +22,8 @@ from backend.mystic_auth.authorization.schemas.bulk_schema import (
     BulkPolicyRequest,
 )
 
+from .authorization_test_helpers import authorization_decision
+
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.bulk.bulk_policy_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 
@@ -76,7 +78,7 @@ async def test_bulk_remove_blocks_only_the_item_that_would_leave_zero_superuser_
     remove_mock = mocker.patch(
         f"{ROUTES_MODULE}.policy_repository.bulk_remove_policies", new_callable=AsyncMock, side_effect=_fake_bulk_remove
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
     body = BulkPolicyRequest(items=[
         BulkPolicyItem(user_email=target_a.email, policy_name=SYSTEM_SUPERUSER_POLICY_NAME),
@@ -115,7 +117,7 @@ async def test_bulk_remove_allows_all_items_when_enough_superuser_holders_remain
     remove_mock = mocker.patch(
         f"{ROUTES_MODULE}.policy_repository.bulk_remove_policies", new_callable=AsyncMock, side_effect=_fake_bulk_remove
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
     body = BulkPolicyRequest(items=[
         BulkPolicyItem(user_email=target_a.email, policy_name=SYSTEM_SUPERUSER_POLICY_NAME),
@@ -157,7 +159,7 @@ async def test_bulk_remove_non_holder_item_does_not_inflate_the_lockout_counter(
     remove_mock = mocker.patch(
         f"{ROUTES_MODULE}.policy_repository.bulk_remove_policies", new_callable=AsyncMock, side_effect=_fake_bulk_remove
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
     body = BulkPolicyRequest(items=[
         BulkPolicyItem(user_email=target_a.email, policy_name=SYSTEM_SUPERUSER_POLICY_NAME),
@@ -194,7 +196,7 @@ async def test_bulk_remove_of_non_superuser_policy_is_unaffected_by_the_lockout_
     remove_mock = mocker.patch(
         f"{ROUTES_MODULE}.policy_repository.bulk_remove_policies", new_callable=AsyncMock, side_effect=_fake_bulk_remove
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
     body = BulkPolicyRequest(items=[BulkPolicyItem(user_email=target.email, policy_name="user_administration")])
 

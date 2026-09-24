@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 import DataTable, { type DataTableColumn } from '@/ui/DataTable/DataTable';
 
@@ -20,9 +19,7 @@ const columns: DataTableColumn<Row>[] = [
 
 function renderTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>> = {}) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <DataTable columns={columns} rows={[]} rowKey={(row) => row.id} {...props} />
-    </ChakraProvider>
   );
 }
 
@@ -81,7 +78,6 @@ describe('DataTable', () => {
     function renderSelectable(selectedKeys: ReadonlySet<number> = new Set(), rowClickSelects = true) {
       const onSelectionChange = vi.fn();
       const utils = render(
-        <ChakraProvider value={defaultSystem}>
           <DataTable
             columns={columns}
             rows={[{ id: 1, name: 'Alice' }]}
@@ -91,7 +87,6 @@ describe('DataTable', () => {
             selectedKeys={selectedKeys}
             onSelectionChange={onSelectionChange}
           />
-        </ChakraProvider>
       );
       return { ...utils, onSelectionChange };
     }
@@ -136,6 +131,61 @@ describe('DataTable', () => {
       expect(onSelectionChange).toHaveBeenCalledTimes(1);
       const updater = onSelectionChange.mock.calls[0][0] as (prev: ReadonlySet<number>) => Set<number>;
       expect(updater(new Set())).toEqual(new Set([1]));
+    });
+  });
+
+  describe('onRowClick', () => {
+    it('calls onRowClick with the clicked row when a row is clicked', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      renderTable({ rows: [{ id: 1, name: 'Alice' }], onRowClick });
+
+      await user.click(screen.getByText('Alice'));
+
+      expect(onRowClick).toHaveBeenCalledWith({ id: 1, name: 'Alice' });
+    });
+
+    it('opens the row from keyboard focus with Enter or Space', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      renderTable({ rows: [{ id: 1, name: 'Alice' }], onRowClick });
+      const row = screen.getAllByRole('row')[1];
+
+      row.focus();
+      await user.keyboard('{Enter}');
+      await user.keyboard(' ');
+
+      expect(onRowClick).toHaveBeenCalledTimes(2);
+      expect(row).toHaveAttribute('tabindex', '0');
+    });
+
+    it('does not call onRowClick when the click starts on an interactive control inside the row', async () => {
+      const user = userEvent.setup();
+      const onRowClick = vi.fn();
+      renderTable({ rows: [{ id: 1, name: 'Alice' }], onRowClick });
+
+      await user.click(screen.getByRole('button', { name: 'Row action' }));
+
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+
+    it('renders a chevron hint column only when onRowClick is set', () => {
+      const { rerender } = renderTable({ rows: [{ id: 1, name: 'Alice' }] });
+      expect(document.querySelector('.lucide-chevron-right')).toBeNull();
+
+      rerender(<DataTable columns={columns} rows={[{ id: 1, name: 'Alice' }]} rowKey={(row) => row.id} onRowClick={() => {}} />);
+      expect(document.querySelector('.lucide-chevron-right')).not.toBeNull();
+    });
+
+    it('applies semantic row emphasis to every cell without replacing the row content', () => {
+      renderTable({
+        rows: [{ id: 1, name: 'Denied' }],
+        getRowClassName: () => 'audit-row-denied',
+      });
+
+      const row = screen.getAllByRole('row')[1];
+      expect(row.querySelectorAll('.audit-row-denied')).toHaveLength(3);
+      expect(screen.getByText('Denied')).toBeInTheDocument();
     });
   });
 });

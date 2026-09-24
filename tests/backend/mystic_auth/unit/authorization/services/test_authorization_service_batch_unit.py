@@ -37,7 +37,7 @@ async def test_authorize_batch_fetches_policies_exactly_once_for_the_whole_batch
     checks = [
         {"action": "users:list_all", "resource_type": "users", "resource": None},
         {"action": "users:read_own", "resource_type": "users", "resource": None},
-        {"action": "users:delete_any", "resource_type": "users", "resource": None},
+        {"action": "users:deactivate_any", "resource_type": "users", "resource": None},
     ]
 
     await authorization_service.authorize_batch("admin@example.com", checks, db=None)
@@ -56,14 +56,14 @@ async def test_authorize_batch_returns_mixed_allowed_and_denied_decisions(mocker
 
     checks = [
         {"action": "users:list_all", "resource_type": "users", "resource": None},
-        {"action": "users:delete_any", "resource_type": "users", "resource": None},
+        {"action": "users:deactivate_any", "resource_type": "users", "resource": None},
     ]
 
     decisions = await authorization_service.authorize_batch("admin@example.com", checks, db=None)
 
     assert [d.allowed for d in decisions] == [True, False]
     assert decisions[0].action == "users:list_all"
-    assert decisions[1].action == "users:delete_any"
+    assert decisions[1].action == "users:deactivate_any"
     assert decisions[1].denial_reason == "no_matching_policy"
 
 
@@ -79,12 +79,12 @@ async def test_authorize_batch_logs_every_check_in_one_bulk_write(mocker):
         return_value=[_policy(["users:list_all"], name="user_administration")],
     )
     bulk_log_mock = mocker.patch(
-        f"{MODULE}.audit_log_repository.create_entries", new_callable=AsyncMock
+        f"{MODULE}.authorization_audit_log_repository.create_entries", new_callable=AsyncMock
     )
 
     checks = [
         {"action": "users:list_all", "resource_type": "users", "resource": None},
-        {"action": "users:delete_any", "resource_type": "users", "resource": None},
+        {"action": "users:deactivate_any", "resource_type": "users", "resource": None},
     ]
 
     await authorization_service.authorize_batch("admin@example.com", checks, db=None)
@@ -92,7 +92,7 @@ async def test_authorize_batch_logs_every_check_in_one_bulk_write(mocker):
     assert bulk_log_mock.await_count == 1
     logged_entries = bulk_log_mock.await_args.args[0]
     assert len(logged_entries) == 2
-    assert [entry["action"] for entry in logged_entries] == ["users:list_all", "users:delete_any"]
+    assert [entry["action"] for entry in logged_entries] == ["users:list_all", "users:deactivate_any"]
 
 
 @pytest.mark.asyncio

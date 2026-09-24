@@ -32,7 +32,7 @@ sequenceDiagram
     B->>S: GET /auth/oauth2/login/google
     activate S
     S->>S: Generate state + PKCE verifier/challenge
-    S->>S: Store {state: code_verifier} in Redis (TTL 300s)
+    S->>S: Store {state: code_verifier} in Valkey (TTL 300s)
     S->>S: Set oauth_state cookie (httpOnly, SameSite=Lax)
     S-->>B: 302 to Google consent
     deactivate S
@@ -58,7 +58,7 @@ sequenceDiagram
 
 ## PKCE mechanics
 
-1. **Initiate** (`generate_and_store_state`): generates a random `code_verifier` (`secrets.token_urlsafe(64)`), derives `code_challenge = base64url(SHA256(code_verifier))` (no padding, RFC 7636 S256), and sends only the `code_challenge` to Google in the authorization URL (`code_challenge_method=S256`). The `code_verifier` itself is stored server-side in Redis, keyed by the `state` value, so it never touches the browser.
+1. **Initiate** (`generate_and_store_state`): generates a random `code_verifier` (`secrets.token_urlsafe(64)`), derives `code_challenge = base64url(SHA256(code_verifier))` (no padding, RFC 7636 S256), and sends only the `code_challenge` to Google in the authorization URL (`code_challenge_method=S256`). The `code_verifier` itself is stored server-side in Valkey, keyed by the `state` value, so it never touches the browser.
 2. **Callback** (`exchange_code_for_tokens`): the stored `code_verifier` is sent to Google's token endpoint alongside the authorization `code`. Google rejects the exchange if the verifier doesn't hash to the challenge it was given at the start, proving the same party that initiated the flow is the one completing it, even if the authorization `code` itself were intercepted in transit.
 
 PKCE is applied here even though this is a confidential client (it has a `client_secret`), because OAuth 2.1 requires PKCE for every client type, and it defends against a different threat (code interception) than `client_secret`/`state` cover.
@@ -67,7 +67,7 @@ PKCE is applied here even though this is a confidential client (it has a `client
 
 ## CSRF protection (`state`)
 
-A random `state = secrets.token_urlsafe(32)` is generated alongside the PKCE pair, stored in Redis (same TTL, same key as the `code_verifier`: `oauth_state:{state}`), and also set as an `oauth_state` httpOnly cookie (`SameSite=Lax`, since it must survive Google's top-level cross-site redirect back to the callback, which a `Strict` cookie would be dropped from). The callback requires the query-param `state`, the cookie value, and the Redis-stored entry to all agree, then atomically consumes the Redis entry (`GETDEL`) so the same `state` can never be redeemed twice, closing both a CSRF-via-forged-callback vector and a replay vector.
+A random `state = secrets.token_urlsafe(32)` is generated alongside the PKCE pair, stored in Valkey (same TTL, same key as the `code_verifier`: `oauth_state:{state}`), and also set as an `oauth_state` httpOnly cookie (`SameSite=Lax`, since it must survive Google's top-level cross-site redirect back to the callback, which a `Strict` cookie would be dropped from). The callback requires the query-param `state`, the cookie value, and the Valkey-stored entry to all agree, then atomically consumes the Valkey entry (`GETDEL`) so the same `state` can never be redeemed twice, closing both a CSRF-via-forged-callback vector and a replay vector.
 
 ---
 
@@ -114,7 +114,7 @@ Each rejection redirects to `{FRONTEND_BASE_URL}/login?error=<CODE>` with a code
 
 | Situation | Code | Notes |
 |---|---|---|
-| User cancels the Google consent screen (`error=access_denied`), or `code` is missing | `OAUTH_CANCELLED` | No state or Redis entry touched. |
+| User cancels the Google consent screen (`error=access_denied`), or `code` is missing | `OAUTH_CANCELLED` | No state or Valkey entry touched. |
 | `state` missing, doesn't match the `oauth_state` cookie, or was already consumed/expired | `OAUTH_STATE_INVALID` | Logged at `warning`. |
 | Token exchange fails, userinfo fetch fails, or the final token pair is malformed | `OAUTH_LOGIN_FAILED` | Each external call is independently wrapped in `try/except` and logs its own failure; also the generic fallback for any other unexpected error, including the outer catch-all. |
 | Google's `email_verified` is falsy or missing | `OAUTH_EMAIL_NOT_VERIFIED` | An unverified email never reaches `login_or_create_user`. |
@@ -134,7 +134,7 @@ state validation, split into its own `test_oauth2_callback_state_validation_unit
 `oauth2_service` with Google HTTP calls mocked, including which `?error=<CODE>` each rejection
 redirects with.
 `tests/backend/mystic_auth/integration/auth/test_oauth_integration.py` exercises the
-initiate-to-callback flow against a real Redis instance. See
+initiate-to-callback flow against a real Valkey instance. See
 [Testing Overview](../testing/overview.md).
 
 ---

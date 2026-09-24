@@ -4,10 +4,14 @@ from pydantic import ValidationError
 
 from backend.mystic_auth.core.settings import Settings
 
-# Every Settings field is required, no Python-level defaults, with one
-# exception: TRUSTED_PROXY_IPS defaults to "" (see the dedicated test below)
-# since only the backend service needs a real value, while alembic and
-# procrastinate_worker read the same env file directly and never use it.
+# Every Settings field is required, no Python-level defaults, with two
+# exceptions (see the dedicated tests below for each): TRUSTED_PROXY_IPS
+# defaults to "" since only the backend service needs a real value, while
+# alembic and procrastinate_worker read the same env file directly and never
+# use it; SESSION_ROW_RETENTION_HOURS defaults to 1 since it's a generic
+# internal buffer with no reason to vary by deployment, not a value forks
+# need to tune per .env/AGENTS.md's "default a required-but-service-specific
+# Settings field instead of padding every env file with it" convention.
 # .env (or the process environment) is the single source of truth for every
 # other field, in dev and prod alike. This fixture is a complete, valid
 # payload; the tests below poke at deviations from it.
@@ -16,6 +20,8 @@ _ALL_FIELDS = {
     "FRONTEND_BASE_URL": "http://localhost:5173",
     "FRONTEND_ADDITIONAL_BASE_URLS": "",
     "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/db",
+    "DB_POOL_SIZE": 10,
+    "DB_MAX_OVERFLOW": 20,
     "POSTGRES_USER": "user",
     "POSTGRES_PASSWORD": "pass",
     "POSTGRES_DB": "db",
@@ -30,7 +36,7 @@ _ALL_FIELDS = {
     "GOOGLE_CLIENT_ID": "client-id",
     "GOOGLE_CLIENT_SECRET": "client-secret",
     "GOOGLE_REDIRECT_URI": "http://localhost:8000/auth/oauth2/callback/google",
-    "REDIS_URL": "redis://localhost:6379/0",
+    "VALKEY_URL": "redis://localhost:6379/0",
     "CACHE_DEFAULT_TTL": 300,
     "FROM_EMAIL": "from@example.com",
     "GMAIL_APP_PASSWORD": "app-password",
@@ -52,6 +58,8 @@ _ALL_FIELDS = {
     "SENTRY_ENVIRONMENT": "",
     "DEFAULT_APP_POLICIES": "",
     "ACCOUNT_PURGE_GRACE_DAYS": 30,
+    "SESSION_ROW_RETENTION_HOURS": 1,
+    "REFRESH_TOKEN_REUSE_GRACE_SECONDS": 10,
     "USER_EXPORT_MAX_ROWS": 50000,
 }
 
@@ -64,11 +72,13 @@ def test_settings_construction_succeeds_with_only_declared_fields():
 
 
 @pytest.mark.parametrize(
-    "missing_field", sorted(set(_ALL_FIELDS) - {"TRUSTED_PROXY_IPS"})
+    "missing_field",
+    sorted(set(_ALL_FIELDS) - {"TRUSTED_PROXY_IPS", "SESSION_ROW_RETENTION_HOURS", "REFRESH_TOKEN_REUSE_GRACE_SECONDS"}),
 )
 def test_settings_construction_fails_when_any_field_is_missing(missing_field, monkeypatch):
-    # Every field except TRUSTED_PROXY_IPS is required: a silent fallback
-    # could let a real deployment start up misconfigured with no error.
+    # Every field except TRUSTED_PROXY_IPS and SESSION_ROW_RETENTION_HOURS is
+    # required: a silent fallback could let a real deployment start up
+    # misconfigured with no error.
     # monkeypatch.delenv is needed alongside omitting the kwarg: _env_file=None
     # only disables reading a dotenv file, pydantic-settings still falls back
     # to the real process environment (set here by docker-compose's env_file:),
@@ -94,10 +104,22 @@ def test_trusted_proxy_ips_defaults_to_empty_when_missing(monkeypatch):
     assert settings.TRUSTED_PROXY_IPS == ""
 
 
+def test_session_row_retention_hours_defaults_to_one_when_missing(monkeypatch):
+    # The other exception to "every field is required": a generic internal
+    # cleanup buffer, not a per-deployment knob, so no env file needs to
+    # carry it (see the fixture comment above).
+    monkeypatch.delenv("SESSION_ROW_RETENTION_HOURS", raising=False)
+    payload = {key: value for key, value in _ALL_FIELDS.items() if key != "SESSION_ROW_RETENTION_HOURS"}
+
+    settings = Settings(_env_file=None, **payload)
+
+    assert settings.SESSION_ROW_RETENTION_HOURS == 1
+
+
 def test_settings_ignores_env_vars_that_are_not_declared_fields():
     # Regression guard: env/mystic_auth/.env is shared with docker-compose.dev.yml's
     # `env_file:` directive, which also passes it to infra-only services.
-    # REDIS_PASSWORD (redis-server's own auth) and BUGSINK_* (the optional
+    # VALKEY_PASSWORD (valkey-server's own auth) and BUGSINK_* (the optional
     # self-hosted error-monitoring service, see
     # docs/mystic_auth/error-monitoring/overview.md) have no corresponding
     # Settings field. pydantic-settings defaults to extra="forbid", which
@@ -105,7 +127,7 @@ def test_settings_ignores_env_vars_that_are_not_declared_fields():
     # Settings.Config now sets extra="ignore".
     payload = {
         **_ALL_FIELDS,
-        "REDIS_PASSWORD": "redis-password",
+        "VALKEY_PASSWORD": "valkey-password",
         "BUGSINK_SECRET_KEY": "bugsink-secret",
         "BUGSINK_SUPERUSER_EMAIL": "admin@example.com",
         "BUGSINK_SUPERUSER_PASSWORD": "bugsink-password",
@@ -115,7 +137,7 @@ def test_settings_ignores_env_vars_that_are_not_declared_fields():
     settings = Settings(_env_file=None, **payload)
 
     assert settings.APP_NAME == "TestApp"
-    assert not hasattr(settings, "REDIS_PASSWORD")
+    assert not hasattr(settings, "VALKEY_PASSWORD")
 
 
 # ---------------------------- cors_allowed_origins ----------------------------
@@ -186,3 +208,12 @@ def test_default_app_policy_names_parses_deduplicates_and_trims():
     settings = Settings(_env_file=None, **payload)
 
     assert settings.default_app_policy_names == ["billing_admin", "support_agent"]
+
+
+def test_refresh_token_reuse_grace_seconds_defaults_to_ten_when_missing(monkeypatch):
+    monkeypatch.delenv("REFRESH_TOKEN_REUSE_GRACE_SECONDS", raising=False)
+    payload = {key: value for key, value in _ALL_FIELDS.items() if key != "REFRESH_TOKEN_REUSE_GRACE_SECONDS"}
+
+    settings = Settings(_env_file=None, **payload)
+
+    assert settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS == 10

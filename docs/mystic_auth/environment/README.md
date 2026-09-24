@@ -90,12 +90,12 @@ flowchart LR
   prod/local-prod-* Compose files derive and inject it there); `alembic` and
   `procrastinate_worker` read the same env file directly, never use this
   setting, and fall back to the default instead of failing to start.
-1. `REDIS_PASSWORD` alone does nothing: `redis-py` authenticates through the
-  connection URL, not a separate password kwarg, so `REDIS_URL` must also be
-  rewritten by hand to embed it (`redis://:<REDIS_PASSWORD>@redis:6379/0`).
-  Setting one without the other either leaves Redis unauthenticated or breaks
+1. `VALKEY_PASSWORD` alone does nothing: `valkey-py` authenticates through the
+  connection URL, not a separate password kwarg, so `VALKEY_URL` must also be
+  rewritten by hand to embed it (`redis://:<VALKEY_PASSWORD>@valkey:6379/0`).
+  Setting one without the other either leaves Valkey unauthenticated or breaks
   every service's connection. See
-  [Redis authentication](../security/hardening-infra.md#redis-authentication).
+  [Valkey authentication](../security/hardening-infra.md#valkey-authentication).
 1. `tests/backend/mystic_auth/unit/core/test_env_examples_parity_unit.py`
   checks every required `Settings` field against each backend-consuming
   `env/mystic_auth/.env*.example` file, so a field that's required but missing from a

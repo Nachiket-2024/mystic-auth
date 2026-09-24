@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import {
     getAuthorizationAuditLogApi,
@@ -20,6 +20,8 @@ export interface AuthorizationLogFilters {
     allowed?: boolean;
     sortBy?: string;
     sortDir?: SortDirection;
+    from?: string;
+    to?: string;
 }
 
 // Every hook below pages via limit/offset (offset = (page-1)*pageSize) and keeps the previous
@@ -33,7 +35,6 @@ export function useAuthorizationAuditLogQuery(page: number, pageSize: number, fi
             toPageResult(
                 await getAuthorizationAuditLogApi({ limit: pageSize, offset: (page - 1) * pageSize, ...filters })
             ),
-        placeholderData: keepPreviousData,
     });
 }
 
@@ -46,7 +47,6 @@ export function useMyAuthorizationAuditLogQuery(
             toPageResult(
                 await getMyAuthorizationAuditLogApi({ limit: pageSize, offset: (page - 1) * pageSize, ...filters })
             ),
-        placeholderData: keepPreviousData,
     });
 }
 
@@ -58,6 +58,5 @@ export function useUserAuthorizationAuditLogQuery(userEmail: string, page: numbe
                 await getUserAuthorizationAuditLogApi(userEmail, { limit: pageSize, offset: (page - 1) * pageSize })
             ),
         enabled: enabled && !!userEmail,
-        placeholderData: keepPreviousData,
     });
 }

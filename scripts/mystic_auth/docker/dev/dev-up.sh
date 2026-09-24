@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Starts the full stack, waits for long-running services, and prints a status
 # table before tailing focused logs (backend, frontend, procrastinate_worker
-# only, skipping DB/Redis/Bugsink health-check noise).
+# only, skipping DB/Valkey/Bugsink health-check noise).
 # Polls services directly instead of `docker compose up --wait`, since
 # alembic/bugsink-seed are one-shot containers meant to exit after startup.
 #
@@ -28,7 +28,7 @@ DC=(docker compose \
 
 # frontend has no healthcheck in docker-compose.dev.yml, so "Up" is as
 # ready as it gets. Every other long-running service does have one.
-LONG_RUNNING_SERVICES=(postgres redis bugsink backend procrastinate_worker frontend)
+LONG_RUNNING_SERVICES=(postgres valkey bugsink backend procrastinate_worker frontend)
 TIMEOUT_SECONDS=180
 POLL_INTERVAL=2
 TAIL_SINCE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

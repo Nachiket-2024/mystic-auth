@@ -8,7 +8,7 @@ import uuid
 from backend.mystic_auth.auth.verify_account.account_verification_service import (
     account_verification_service,
 )
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 PASSWORD = "StrongPass123!"
 
@@ -59,11 +59,11 @@ async def signup_verify_login(client, created_emails, email: str, password: str 
     assert signup_resp.status_code == 200
     created_emails.append(email)
 
-    # Verify via a real single-use Redis-backed token, the same way
+    # Verify via a real single-use Valkey-backed token, the same way
     # account_verification_service.send_verification_email would, without
     # depending on the email worker actually being up.
     token = await account_verification_service.create_verification_token(email)
-    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 

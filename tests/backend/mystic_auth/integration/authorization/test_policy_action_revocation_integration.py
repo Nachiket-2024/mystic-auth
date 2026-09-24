@@ -3,7 +3,7 @@
 # End-to-end coverage for POST /authorization/users/{email}/policies/{name}/
 # revoke-action (backend/mystic_auth/api/pbac_routes/policies/policy_assignment_routes.py):
 # carving one action out of a user's policy assignment while preserving the
-# rest, against the real ASGI app, real PostgreSQL, and real Redis. Proves
+# rest, against the real ASGI app, real PostgreSQL, and real Valkey. Proves
 # the outcome end-to-end (the revoked action stops authorizing, every other
 # action the policy granted keeps authorizing), not just that rows changed.
 import pytest

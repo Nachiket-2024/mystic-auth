@@ -14,7 +14,7 @@ Both the backend and frontend integrations speak the **Sentry SDK wire protocol*
 This template documents **self-hosted Bugsink** as the default path, for reasons specific to what this template is:
 
 - **This is an auth + PBAC template.** Error payloads (stack traces, request context) can carry emails and other PII. Self-hosting keeps that data on your own infrastructure instead of a third-party SaaS by default.
-- **Lightweight.** Bugsink is a single Django app: no Redis, no Celery, no split frontend/backend containers. It reuses the same Postgres server this template already runs (a second database, not a second container: see `docker/mystic_auth/postgres-init/init-bugsink-db.sh`).
+- **Lightweight.** Bugsink is a single Django app: no Valkey, no Celery, no split frontend/backend containers. It reuses the same Postgres server this template already runs (a second database, not a second container: see `docker/mystic_auth/postgres-init/init-bugsink-db.sh`).
 - **License**: Bugsink is [PolyForm Shield](https://polyformproject.org/licenses/shield/1.0.0/): source-available, not OSI-approved open source. In plain terms: free to self-host and modify, with one restriction: you can't use it to build a *competing* error-tracking product. Using it to monitor errors in an unrelated app (this one) isn't a competing use, so this doesn't affect you or this template's own MIT license (Bugsink runs as a fully separate service you only talk to over HTTP: nothing from it is copied into or distributed with this repo).
 
 ---
@@ -154,7 +154,7 @@ The backend attaches the caller's email (read from their `access_token` cookie, 
 
 ## Security notes
 
-- **Bugsink needs its own operational security**, same as Postgres/Redis already do in this stack: self-hosting only guarantees the *data* stays on your infrastructure, not that the service is automatically locked down. It has no host port exposed in production-style Compose by default (unlike the frontend entrypoint): reaching it in production means an SSH tunnel, a VPN, or a reverse-proxy route you add deliberately, not something exposed by default.
+- **Bugsink needs its own operational security**, same as Postgres/Valkey already do in this stack: self-hosting only guarantees the *data* stays on your infrastructure, not that the service is automatically locked down. It has no host port exposed in production-style Compose by default (unlike the frontend entrypoint): reaching it in production means an SSH tunnel, a VPN, or a reverse-proxy route you add deliberately, not something exposed by default.
 - **Traces are 0% sampled** (`traces_sample_rate: 0` / `tracesSampleRate: 0`): this integration is error capture only, not performance monitoring/tracing. No request-body/timing data is sent beyond what an actual captured exception includes.
 - **`SECRET_KEY` vs. `BUGSINK_SECRET_KEY`**: these are two unrelated secrets for two unrelated purposes (this app's JWT signing key vs. Bugsink's own Django secret key): never reuse one for the other.
 - **A typo'd `SENTRY_DSN` can't take the app down.** `init_sentry()` runs at import time, before the app itself really exists: it deliberately catches any failure from `sentry_sdk.init()` (verified directly: a malformed DSN string does raise from the SDK) and logs a warning instead of letting it propagate, so a mistake in this one *optional* setting degrades to "monitoring is off" rather than "nothing works." See [Security Decisions](../security/decisions-infra.md#a-malformed-sentry_dsn-must-never-crash-the-app).
@@ -163,6 +163,6 @@ The backend attaches the caller's email (read from their `access_token` cookie, 
 
 ## Alternative: GlitchTip
 
-[GlitchTip](https://glitchtip.com/) is another real option if you outgrow Bugsink or prefer a fully OSI-approved-open-source (MIT) self-hosted alternative: same DSN-swap story, but heavier to run (needs Redis + Celery + a split frontend/backend on top of Postgres, vs. Bugsink's single container). Not documented step-by-step here since Bugsink already covers the "lightweight, self-hosted, license-compatible" niche this template optimizes for: but nothing in the integration code assumes Bugsink specifically.
+[GlitchTip](https://glitchtip.com/) is another real option if you outgrow Bugsink or prefer a fully OSI-approved-open-source (MIT) self-hosted alternative: same DSN-swap story, but heavier to run (needs Valkey + Celery + a split frontend/backend on top of Postgres, vs. Bugsink's single container). Not documented step-by-step here since Bugsink already covers the "lightweight, self-hosted, license-compatible" niche this template optimizes for: but nothing in the integration code assumes Bugsink specifically.
 
 ---

@@ -1,20 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 import PasswordStrengthPanel from '@/auth/password_rules/PasswordStrengthPanel';
 import { checkPasswordRules } from '@/auth/password_rules/passwordRules';
 
 function renderPanel(password: string, label: string, pristine = false) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <PasswordStrengthPanel
         password={password}
         label={label}
         rules={checkPasswordRules(password)}
         pristine={pristine}
       />
-    </ChakraProvider>
   );
 }
 

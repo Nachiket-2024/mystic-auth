@@ -1,32 +1,69 @@
 import { expect, test } from "../../../../../frontend/e2e/playwright";
-import { expectNoHorizontalOverflow } from "../support/browserLayoutAssertions";
-import { installAuthenticatedMysticAuthApiRoutes, leastPrivilegeProfile } from "../support/authenticatedMysticAuthApiRoutes";
+import { installAuthenticatedMysticAuthApiRoutes } from "../support/authenticatedMysticAuthApiRoutes";
+import { expectNoAccessibilityViolations } from "../support/axeCheck";
 
 test.describe("rate limits page browser behavior", () => {
-  test.beforeEach(async ({ page }) => {
-    await installAuthenticatedMysticAuthApiRoutes(page);
-  });
+    test.beforeEach(async ({ page }) => {
+        await installAuthenticatedMysticAuthApiRoutes(page);
+    });
 
-  test("filters, pagination, and reset cancel flow work", async ({ page }) => {
-    await page.goto("/rate-limits");
-    await expect(page.getByRole("heading", { name: /rate limits/i })).toBeVisible();
-    await expect(page.getByText("127.0.0.1")).toBeVisible();
-    await expect(page.getByRole("button", { name: /next page/i }).first()).toBeEnabled();
+    test("summary cards are keyboard-accessible filter shortcuts", async ({ page }) => {
+        await page.goto("/rate-limits");
 
-    await page.locator('select[aria-label="Filter by endpoint"]').selectOption("login");
-    await page.getByRole("textbox", { name: /search by email or ip/i }).fill("attacker");
-    await page.locator('select[aria-label="Filter by scope"]').selectOption("email");
+        const total = page.getByRole("button", { name: "Active counters" });
+        const atLimit = page.getByRole("button", { name: "At limit" });
+        await expect(total).toBeVisible();
+        await expect(atLimit).toBeVisible();
+        const lockouts = page.getByRole("button", { name: "Login lockouts" });
+        await expect(lockouts).toBeVisible();
 
-    await page.getByRole("button", { name: /^reset$/i }).first().click();
-    await expect(page.getByRole("alertdialog")).toBeVisible();
-    await page.getByRole("button", { name: /cancel/i }).click();
-    await expect(page.getByRole("alertdialog")).toBeHidden();
-    await expectNoHorizontalOverflow(page);
-  });
+        await atLimit.focus();
+        await page.keyboard.press("Enter");
+        await expect(atLimit).toHaveAttribute("aria-pressed", "true");
+        await expect(page).toHaveURL(/rate-limits/);
 
-  test("least-privileged users cannot directly open the rate limits page", async ({ page }) => {
-    await installAuthenticatedMysticAuthApiRoutes(page, leastPrivilegeProfile);
-    await page.goto("/rate-limits");
-    await expect(page).toHaveURL(/\/not-authorized$/);
-  });
+        await lockouts.focus();
+        await page.keyboard.press("Enter");
+        await expect(lockouts).toHaveAttribute("aria-pressed", "true");
+        await expect(atLimit).toHaveAttribute("aria-pressed", "false");
+
+    });
+
+    test("keeps endpoint dropdown and scope quick filters usable at narrow width", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.goto("/rate-limits");
+
+        const endpointFilter = page.getByRole("button", { name: "Filter by endpoint" });
+        await expect(endpointFilter).toBeVisible();
+        await endpointFilter.click();
+        await expect(page.getByRole("textbox", { name: "Search endpoints..." })).toBeVisible();
+        await page.keyboard.press("Escape");
+        await page.getByRole("radio", { name: /IP/ }).click();
+        await expect(page.getByRole("radio", { name: /IP/ })).toHaveAttribute("aria-checked", "true");
+        await expect(page.getByRole("radio", { name: /Login lockout/i })).toHaveCount(0);
+        await expectNoAccessibilityViolations(page);
+    });
+
+    test("opens the reset confirmation, cancels safely, and confirms one reset", async ({ page }) => {
+        let resetCount = 0;
+        await page.route("http://localhost:8000/rate-limits/**", async (route) => {
+            if (route.request().method() === "DELETE") resetCount += 1;
+            await route.fallback();
+        });
+        await page.goto("/rate-limits");
+
+        const reset = page.getByRole("button", { name: "Reset", exact: true }).first();
+        await reset.click();
+        const dialog = page.getByRole("alertdialog");
+        await expect(dialog).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(dialog).toBeHidden();
+        await expect(reset).toBeFocused();
+        expect(resetCount).toBe(0);
+
+        await reset.click();
+        await dialog.getByRole("button", { name: /^reset$/i }).click();
+        await expect(page.getByText(/rate limit reset/i)).toBeVisible();
+        expect(resetCount).toBe(1);
+    });
 });

@@ -8,7 +8,7 @@
 # Differs from those local-prod files by adding Caddy (terminates TLS via
 # Let's Encrypt using PUBLIC_DOMAIN; the only service with host ports, see
 # docker/mystic_auth/Caddyfile) and publishing no other service's ports to the host.
-# REDIS_PASSWORD and a real SECRET_KEY/POSTGRES_PASSWORD are effectively
+# VALKEY_PASSWORD and a real SECRET_KEY/POSTGRES_PASSWORD are effectively
 # required here since env/mystic_auth/.env.prod is assumed to hold real secrets.
 #
 # Explicit project name: without one, every compose file here defaults to
@@ -43,12 +43,12 @@ services:
           cpus: "1"
           memory: 1G
 
-  redis:
-    image: redis:7
+  valkey:
+    image: valkey/valkey:9.1.2-alpine
     restart: unless-stopped
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-}"]
+    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:-}"]
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:-}\" --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -92,7 +92,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
       alembic:
         condition: service_completed_successfully

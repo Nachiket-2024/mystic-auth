@@ -7,11 +7,11 @@
 import pytest
 
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
 from backend.mystic_auth.user.user_crud_collector import user_crud
 from backend.mystic_auth.user_lifecycle.account_deletion_service import (
     account_deletion_service,
 )
+from backend.mystic_auth.valkey.client import valkey_client
 
 from .user_test_accounts import (
     PASSWORD,
@@ -42,7 +42,7 @@ async def test_self_delete_soft_deletes_own_account(client, created_emails):
 @pytest.mark.asyncio
 async def test_self_delete_still_soft_deletes_when_session_revocation_cant_be_confirmed(client, created_emails, mocker):
     # The soft-delete write (Postgres) must still succeed even if the
-    # account-version bump (Redis) can't be confirmed: the account really
+    # account-version bump (Valkey) can't be confirmed: the account really
     # is deleted, so this must not surface as an error to the caller.
     email = unique_email()
     await create_verified_user(client, created_emails, email)
@@ -211,7 +211,7 @@ async def test_confirm_delete_actually_deletes_and_revokes_sessions(client, crea
     assert delete_resp.status_code == 200
 
     token = await account_deletion_service.create_account_deletion_token(email)
-    await redis_client.set(f"account_delete:{token}", "1", ex=600)
+    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
 
     confirm_resp = await client.post("/users/me/confirm-delete", json={"token": token})
     assert confirm_resp.status_code == 200
@@ -231,7 +231,7 @@ async def test_confirm_delete_token_is_single_use(client, created_emails):
     await _make_oauth_only_user(client, created_emails, email)
 
     token = await account_deletion_service.create_account_deletion_token(email)
-    await redis_client.set(f"account_delete:{token}", "1", ex=600)
+    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
 
     first_resp = await client.post("/users/me/confirm-delete", json={"token": token})
     assert first_resp.status_code == 200
@@ -241,9 +241,9 @@ async def test_confirm_delete_token_is_single_use(client, created_emails):
 
 
 @pytest.mark.asyncio
-async def test_confirm_delete_rejects_token_never_persisted_in_redis(client, created_emails):
+async def test_confirm_delete_rejects_token_never_persisted_in_valkey(client, created_emails):
     # A validly-signed token that was never actually issued (never written
-    # to Redis) must be rejected, same as an already-used one.
+    # to Valkey) must be rejected, same as an already-used one.
     email = unique_email()
     await _make_oauth_only_user(client, created_emails, email)
 
@@ -273,7 +273,7 @@ async def test_confirm_delete_one_accounts_token_cannot_delete_a_different_accou
     await _make_oauth_only_user(client, created_emails, other_email)
 
     token = await account_deletion_service.create_account_deletion_token(victim_email)
-    await redis_client.set(f"account_delete:{token}", "1", ex=600)
+    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
 
     resp = await client.post("/users/me/confirm-delete", json={"token": token})
     assert resp.status_code == 200

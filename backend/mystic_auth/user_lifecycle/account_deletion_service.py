@@ -11,8 +11,8 @@ from ..core.settings import settings
 from ..emails.email_template_service import render_transactional_email
 from ..logging.logging_config import get_logger
 from ..procrastinate_tasks.email_tasks import send_email_task
-from ..redis.client import redis_client
 from ..user.user_crud_collector import user_crud
+from ..valkey.client import valkey_client
 from .user_self_deletion_service import finalize_self_deletion
 
 logger = get_logger(__name__)
@@ -26,7 +26,7 @@ class AccountDeletionService:
     user_self_service_routes.py::delete_my_account for the password-holding
     account's synchronous path). Modeled on
     auth/password_logic/password_reset_service.py: a signed, single-use JWT
-    emailed as a link, redeemed exactly once via Redis GETDEL.
+    emailed as a link, redeemed exactly once via Valkey GETDEL.
     """
 
     @staticmethod
@@ -91,12 +91,14 @@ class AccountDeletionService:
 
             expires_minutes = settings.ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES
 
-            # Persisted in Redis so confirm_deletion() can enforce single
+            # Persisted in Valkey so confirm_deletion() can enforce single
             # use; without it the JWT stays valid and replayable for the
             # whole expiry window even after being redeemed once.
-            await redis_client.set(f"account_delete:{token}", "1", ex=expires_minutes * 60)
+            await valkey_client.set(f"account_delete:{token}", "1", ex=expires_minutes * 60)
 
-            deletion_url = f"{settings.FRONTEND_BASE_URL}/confirm-delete?token={token}"
+            # Fragments stay in the browser and are not sent in HTTP requests
+            # or Referer headers.
+            deletion_url = f"{settings.FRONTEND_BASE_URL}/confirm-delete#token={token}"
 
             email_subject = "Confirm Account Deletion"
             email_body = render_transactional_email(
@@ -135,14 +137,14 @@ class AccountDeletionService:
     @staticmethod
     async def confirm_deletion(token: str, db: AsyncSession, request: Request | None = None) -> bool:
         """
-        Atomically fetch-and-delete the Redis entry (GETDEL, not GET+DEL) so
+        Atomically fetch-and-delete the Valkey entry (GETDEL, not GET+DEL) so
         reuse/replay is impossible: two concurrent requests with the same
         valid link could otherwise both pass a plain GET before either
         deleted the key, and both then run the deletion. Same race, same
         fix, as password_reset_service.reset_password. Unlike that flow
         there's no recoverable-validation-failure case worth restoring the
         token for (no equivalent to "weak new password"): once the token
-        verifies and the Redis entry is redeemed, the only remaining failure
+        verifies and the Valkey entry is redeemed, the only remaining failure
         is "user not found", which a retry can't fix either.
         """
         try:
@@ -151,7 +153,7 @@ class AccountDeletionService:
                 logger.warning("Invalid or expired account deletion token")
                 return False
 
-            if not await redis_client.getdel(f"account_delete:{token}"):
+            if not await valkey_client.getdel(f"account_delete:{token}"):
                 logger.warning("Account deletion token not found or already used")
                 return False
 

@@ -22,7 +22,7 @@ test.describe("account settings page browser behavior", () => {
     await expect(page.getByRole("button", { name: /reset to default/i })).toBeVisible();
     await page.getByRole("button", { name: /switch to dark mode/i }).click();
 
-    await page.getByRole("tab", { name: /danger zone/i }).click();
+    await page.getByRole("tab", { name: /delete account/i }).click();
     await page.getByPlaceholder("Required to confirm this action").fill("anything");
     await page.getByRole("button", { name: /delete my account/i }).click();
     await expect(page.getByRole("alertdialog")).toBeVisible();

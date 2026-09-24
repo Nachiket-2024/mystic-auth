@@ -12,11 +12,11 @@ beforeEach(() => {
 describe('listRateLimitsApi', () => {
   it('sends a GET request to /rate-limits/ with page/scope/endpoint params', async () => {
     mock.onGet('/rate-limits/').reply((config) => {
-      expect(config.params).toMatchObject({ page: 5, scope: 'ip', endpoint: 'login', page_size: 50 });
+      expect(config.params).toMatchObject({ page: 5, scope: 'ip', endpoint: 'login', page_size: 50, kind: 'at_limit', sort_by: 'count', sort_dir: 'desc' });
       return [200, { entries: [], total: 0, truncated: false }];
     });
 
-    const response = await listRateLimitsApi({ page: 5, scope: 'ip', endpoint: 'login', pageSize: 50 });
+    const response = await listRateLimitsApi({ page: 5, scope: 'ip', endpoint: 'login', pageSize: 50, kind: 'at_limit', sortBy: 'count', sortDir: 'desc' });
 
     expect(response.data).toEqual({ entries: [], total: 0, truncated: false });
   });
@@ -47,7 +47,7 @@ describe('listRateLimitsApi', () => {
 });
 
 describe('resetRateLimitApi', () => {
-  it('URL-encodes the raw Redis key (which contains colons) in the path', async () => {
+  it('URL-encodes the raw Valkey key (which contains colons) in the path', async () => {
     const key = 'login:ip:203.0.113.5';
     mock.onDelete(`/rate-limits/${encodeURIComponent(key)}`).reply(204);
 

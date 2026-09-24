@@ -2,7 +2,6 @@ import type { ReactElement } from 'react';
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter, Routes, Route } from 'react-router';
 
 import i18next from 'i18next';
@@ -15,9 +14,7 @@ const initialAuthState = useAuthStore.getState();
 
 function renderPage(ui: ReactElement) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <MemoryRouter>{ui}</MemoryRouter>
-    </ChakraProvider>
   );
 }
 
@@ -35,7 +32,7 @@ describe('PrivacyPolicyPage', () => {
     // review and are easy to drop by accident in a content rewrite.
     renderPage(<PrivacyPolicyPage />);
     expect(screen.getByText(/IP address and user agent/i)).toBeInTheDocument();
-    expect(screen.getByText(/does not delete your prior log entries/i)).toBeInTheDocument();
+    expect(screen.getByText(/prior audit entries|prior audit entries.*not deleted/i)).toBeInTheDocument();
   });
 });
 
@@ -56,14 +53,12 @@ describe('Back button navigation', () => {
   it('returns to the page the visitor actually came from, not always the landing page', async () => {
     const user = userEvent.setup();
     render(
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter initialEntries={['/account-settings', '/privacy']} initialIndex={1}>
           <Routes>
             <Route path="/account-settings" element={<div>Account Settings Page</div>} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
           </Routes>
         </MemoryRouter>
-      </ChakraProvider>
     );
 
     await user.click(screen.getAllByRole('button', { name: /Back/i })[0]);
@@ -74,14 +69,12 @@ describe('Back button navigation', () => {
     useAuthStore.getState().setAuthenticated(true);
     const user = userEvent.setup();
     render(
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter initialEntries={['/privacy']}>
           <Routes>
             <Route path="/dashboard" element={<div>Dashboard Page</div>} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
           </Routes>
         </MemoryRouter>
-      </ChakraProvider>
     );
 
     await user.click(screen.getAllByRole('button', { name: /Back/i })[0]);
@@ -91,14 +84,12 @@ describe('Back button navigation', () => {
   it('falls back to the landing page for an unauthenticated visitor landing directly on the document', async () => {
     const user = userEvent.setup();
     render(
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter initialEntries={['/terms']}>
           <Routes>
             <Route path="/" element={<div>Landing Page</div>} />
             <Route path="/terms" element={<TermsOfServicePage />} />
           </Routes>
         </MemoryRouter>
-      </ChakraProvider>
     );
 
     await user.click(screen.getAllByRole('button', { name: /Back/i })[0]);

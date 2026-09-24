@@ -11,8 +11,8 @@ test.describe("confirm delete account browser behavior", () => {
     });
 
     await page.goto("/confirm-delete");
-    await expect(page.getByRole("heading", { name: /confirm account deletion/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /confirm account deletion/i })).toBeDisabled();
+    await expect(page.getByRole("heading", { name: /delete your account/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^delete my account$/i })).toBeDisabled();
     await expectNoHorizontalOverflow(page);
     expect(confirmRequests).toBe(0);
   });
@@ -23,8 +23,8 @@ test.describe("confirm delete account browser behavior", () => {
       return fulfillUnauthenticatedAuthJson(route, { message: "Account deleted." });
     });
 
-    await page.goto("/confirm-delete?token=delete-token");
-    await page.getByRole("button", { name: /confirm account deletion/i }).click();
+    await page.goto("/confirm-delete#token=delete-token");
+    await page.getByRole("button", { name: /^delete my account$/i }).click();
     await expect(page).toHaveURL(/\/login$/);
   });
 });

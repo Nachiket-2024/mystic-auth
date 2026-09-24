@@ -20,9 +20,9 @@ function getInitialColorMode(): ColorMode {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-// Chakra v3's `_dark`/`_light` style conditions resolve against a `.dark` class on an
-// ancestor element; there's no separate ColorModeProvider in v3 core, this class
-// toggle IS the mechanism.
+// Tailwind's dark-mode selectors resolve against the `.dark` class on the
+// document root. This class toggle is the current color-mode mechanism; it
+// replaced the former Chakra v3 `_dark`/`_light` setup.
 function applyColorModeClass(mode: ColorMode): void {
     document.documentElement.classList.toggle("dark", mode === "dark");
     document.documentElement.style.colorScheme = mode;

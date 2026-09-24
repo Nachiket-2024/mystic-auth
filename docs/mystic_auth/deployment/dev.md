@@ -15,6 +15,26 @@ Deployment Guide.
 
 ## Getting started
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["Step 1: cp env.example env/mystic_auth/.env\n(or setup-env.sh)"]
+    S2["Step 2: configure a login path\nSMTP for password signup,\nGoogle OAuth, or both"]
+    S3["Step 3: dev-up.sh\nstarts stack, waits for health,\ntails backend/frontend/worker logs"]
+    S4["Step 4: open localhost:5173"]
+
+    S1 --> S2 --> S3 --> S4
+
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class S4 terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+See [Quickstart](../template-usage/quickstart.md) for the one-command version of all four steps
+above, with its own diagram.
+
+---
+
 Want the whole thing in one command instead of the steps below? Run
 `scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`): it does step 1 below
 automatically if `env/mystic_auth/.env` doesn't exist yet, brings the stack up, offers
@@ -34,7 +54,7 @@ color choice everywhere.
 
 `env/mystic_auth/.env.example` is the dev template for `docker/mystic_auth/compose/docker-compose.dev.yml`. Its defaults
 are enough to boot the stack as-is. It uses localhost URLs, development mode,
-Docker service names for internal database and Redis access, and placeholder
+Docker service names for internal database and Valkey access, and placeholder
 third-party credentials.
 
 Use a different template if you are not running dev:
@@ -114,7 +134,7 @@ URLs, Docker service names, development mode, and placeholders for Google,
 SMTP, and Bugsink.
 
 Dev values are read at container startup. If you change backend, database,
-Redis, Google, SMTP, or rate-limit values in `env/mystic_auth/.env`, restart the affected
+Valkey, Google, SMTP, or rate-limit values in `env/mystic_auth/.env`, restart the affected
 containers. If you change `VITE_*` values for the Docker frontend dev server,
 restart `frontend` so Vite reads the new values.
 
@@ -132,7 +152,7 @@ All published to `localhost` for direct access:
 | frontend (Vite dev server, HMR) | 5173 |
 | backend | 8000 |
 | postgres | 5433 |
-| redis | 6380 |
+| valkey | 6380 |
 | bugsink | 8010 |
 
 ---
@@ -142,7 +162,7 @@ All published to `localhost` for direct access:
 - Source code is bind-mounted (`./backend:/app`, `frontend/`), not baked
   into the image. Edits take effect immediately.
 - `backend` runs with `--reload`.
-- No `restart:` policy beyond Postgres/Redis. You restart manually.
+- No `restart:` policy beyond Postgres/Valkey. You restart manually.
 - No `alembic: service_completed_successfully` gate on `backend` startup.
 - No tunnel, no Caddy: everything is `localhost`-only, no public
   entrypoint.
@@ -158,6 +178,6 @@ for the full service-by-service comparison across all three Compose files.
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml down
 ```
 
-Add `-v` to also drop the Postgres/Redis volumes (wipes local data).
+Add `-v` to also drop the Postgres/Valkey volumes (wipes local data).
 
 ---

@@ -52,7 +52,7 @@ mystic-auth/
       error_monitoring/
       logging/
       procrastinate_tasks/
-      redis/
+      valkey/
       scripts/
       user/
       user_lifecycle/
@@ -70,12 +70,17 @@ mystic-auth/
         landing_page/
         legal/
         status_pages/
+        translations/
         App.tsx
         main.tsx
         sdk.ts
         app_sdk.ts
       mystic_auth/                # upstream-owned package
         account_settings/
+        active_sessions/          # renamed from dashboard/manage_sessions/, its own
+                                   # top-level folder since Dashboard is no longer
+                                   # its only consumer (Account Settings, Audit Log,
+                                   # Rate Limits all render it too)
         api/
         audit_log/
         auth/
@@ -114,6 +119,7 @@ mystic-auth/
         unit/
         integration/
         e2e/
+    scripts/                     # script/tooling tests
   agent-prompts/
     app/                         # project-owned prompts
     mystic_auth/                 # upstream prompts
@@ -164,6 +170,8 @@ mystic-auth/
       postgres-init/
         init-bugsink-db.sh
   screenshots/
+    app/                         # project-owned screenshots
+    mystic_auth/                 # upstream screenshots
   .github/
     workflows/
       ci.yml

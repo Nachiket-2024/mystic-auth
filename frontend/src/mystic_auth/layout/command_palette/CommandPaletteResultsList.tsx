@@ -1,8 +1,8 @@
 import React from "react";
-import { HStack, Stack, Text } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import { GROUP_LABEL_KEY, type Result } from "./CommandPaletteResults";
+import AppTooltip from "../../ui/feedback/AppTooltip";
 
 interface CommandPaletteResultsListProps {
     filtered: Result[];
@@ -26,9 +26,9 @@ const CommandPaletteResultsList: React.FC<CommandPaletteResultsListProps> = ({
 
     if (filtered.length === 0) {
         return (
-            <Text px={4} py={6} textAlign="center" color="fg.muted" fontSize="sm">
+            <p className="px-4 py-6 text-center text-fg-muted text-sm">
                 {t("commandPalette.noResults")}
-            </Text>
+            </p>
         );
     }
 
@@ -43,44 +43,32 @@ const CommandPaletteResultsList: React.FC<CommandPaletteResultsListProps> = ({
                 return (
                     <React.Fragment key={`${item.kind}:${item.to}:${item.label}`}>
                         {isFirstOfKind && (
-                            <Text
-                                px={4}
-                                pt={i === 0 ? 1 : 3}
-                                pb={1}
-                                fontSize="xs"
-                                fontWeight="semibold"
-                                color="fg.muted"
-                                textTransform="uppercase"
-                            >
+                            <p className={`px-4 ${i === 0 ? "pt-1" : "pt-3"} pb-1 text-xs font-semibold text-fg-muted uppercase`}>
                                 {t(GROUP_LABEL_KEY[item.kind])}
-                            </Text>
+                            </p>
                         )}
-                        <HStack
-                            as="button"
-                            w="100%"
-                            minW={0}
-                            textAlign="left"
-                            px={4}
-                            py={2.5}
-                            gap={3}
-                            bg={isActive ? "brand.selected" : "transparent"}
+                        <button
+                            type="button"
+                            className={`flex items-center gap-3 w-full min-w-0 text-left px-4 py-2.5 cursor-pointer text-fg-default ${isActive ? "bg-brand-selected" : "bg-transparent"}`}
                             onMouseEnter={() => setActiveIndex(i)}
                             onClick={() => goTo(item.to)}
-                            cursor="pointer"
-                            color="fg.default"
                         >
                             {Icon && <Icon size={16} aria-hidden="true" style={{ flexShrink: 0 }} />}
                             {/* A user's name/email can be arbitrarily long - truncate
                                 instead of wrapping unevenly against the icon. */}
-                            <Stack gap={0} minW={0} flex="1 1 auto">
-                                <Text fontWeight="medium" truncate title={item.label}>{item.label}</Text>
+                            <div className="flex flex-col min-w-0 flex-[1_1_auto]">
+                                <AppTooltip content={item.label}>
+                                    <p className="font-medium truncate">{item.label}</p>
+                                </AppTooltip>
                                 {item.sublabel && (
-                                    <Text fontSize="xs" color="fg.muted" truncate title={item.sublabel}>
-                                        {item.sublabel}
-                                    </Text>
+                                    <AppTooltip content={item.sublabel}>
+                                        <p className="text-xs text-fg-muted truncate">
+                                            {item.sublabel}
+                                        </p>
+                                    </AppTooltip>
                                 )}
-                            </Stack>
-                        </HStack>
+                            </div>
+                        </button>
                     </React.Fragment>
                 );
             })}

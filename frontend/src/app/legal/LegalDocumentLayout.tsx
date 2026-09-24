@@ -1,15 +1,14 @@
 import React, { useEffect } from "react";
-import { Button, Heading, HStack, Stack, Text } from "@chakra-ui/react";
 import { useLocation, useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
 
-import { Card, AuthLayout, Logo, BRAND_SOLID_HOVER_PROPS, useAuthStore } from "../sdk";
+import { Card, AuthLayout, Logo, Button, useAuthStore } from "../sdk";
 
 // Side-effect import: registers the "legal" i18next namespace so both
 // PrivacyPolicyPage and TermsOfServicePage's useTranslation("legal") calls
 // resolve, regardless of which one is visited first. Lives here (the shell
 // both pages render through) so it only needs registering once.
-import "./translations/registerLegalTranslations";
+import "../translations/registerLegalTranslations";
 
 export interface LegalSection {
     heading: string;
@@ -21,6 +20,7 @@ interface LegalDocumentLayoutProps {
     lastUpdatedLabel: string;
     lastUpdatedDate: string;
     backLabel: string;
+    reviewNote?: string;
     intro: string[];
     sections: LegalSection[];
 }
@@ -49,7 +49,7 @@ const BackButton: React.FC<{ label: string }> = ({ label }) => {
     };
 
     return (
-        <Button colorPalette="brand" size="sm" onClick={handleBack} {...BRAND_SOLID_HOVER_PROPS}>
+        <Button variant="brand" size="sm" onClick={handleBack}>
             <ArrowLeft size={16} aria-hidden="true" />
             {label}
         </Button>
@@ -72,6 +72,7 @@ const LegalDocumentLayout: React.FC<LegalDocumentLayoutProps> = ({
     lastUpdatedLabel,
     lastUpdatedDate,
     backLabel,
+    reviewNote,
     intro,
     sections,
 }) => {
@@ -87,50 +88,59 @@ const LegalDocumentLayout: React.FC<LegalDocumentLayoutProps> = ({
 
     return (
         <AuthLayout variant="status">
-            <Card w="full" maxW="3xl" p={{ base: 5, md: 8 }}>
-                <Stack gap={6}>
-                    <HStack justify="space-between" align="center">
+            <Card className="w-full max-w-3xl border-t-[3px] border-t-brand-solid p-5 md:p-8">
+                <div className="flex flex-col gap-6">
+                    <div className="relative flex items-center justify-center">
                         {/* Default (md) size, not Sidebar's compact "sm": this is the only
                             brand mark on the page, same anchor role Logo plays on
                             LoginPage/SignupPage. */}
                         <Logo />
-                        <BackButton label={backLabel} />
-                    </HStack>
+                        <div className="absolute right-0">
+                            <BackButton label={backLabel} />
+                        </div>
+                    </div>
+                    <div className="h-px w-full bg-brand-solid" aria-hidden="true" />
 
-                    <Stack gap={1}>
-                        <Heading as="h1" size="xl" color="brand.fg" textStyle="pageTitle">
+                    <div className="flex flex-col items-start gap-1 text-left">
+                        <h1 className="text-brand-fg text-[22px] leading-[1.2] font-bold tracking-[-0.01em]">
                             {title}
-                        </Heading>
-                        <Text fontSize="sm" color="fg.muted">
+                        </h1>
+                        <p className="text-sm text-fg-muted">
                             {lastUpdatedLabel}: {lastUpdatedDate}
-                        </Text>
-                    </Stack>
+                        </p>
+                    </div>
 
-                    <Stack gap={3}>
+                    {reviewNote && (
+                        <p className="rounded-md border border-brand-solid/40 bg-brand-tile-subtle p-3 text-sm text-fg-default">
+                            {reviewNote}
+                        </p>
+                    )}
+
+                    <div className="flex flex-col gap-3">
                         {intro.map((paragraph) => (
-                            <Text key={paragraph} color="fg.default" fontSize="md">
+                            <p key={paragraph} className="text-fg-default text-base">
                                 {paragraph}
-                            </Text>
+                            </p>
                         ))}
-                    </Stack>
+                    </div>
 
                     {sections.map((section) => (
-                        <Stack key={section.heading} gap={2}>
-                            <Heading as="h2" size="md" color="brand.fg" textStyle="sectionHeader">
+                        <div key={section.heading} className="flex flex-col gap-2">
+                            <h2 className="text-brand-fg text-base font-semibold tracking-[-0.01em]">
                                 {section.heading}
-                            </Heading>
+                            </h2>
                             {section.paragraphs.map((paragraph) => (
-                                <Text key={paragraph} color="fg.default" fontSize="md">
+                                <p key={paragraph} className="text-fg-default text-base">
                                     {paragraph}
-                                </Text>
+                                </p>
                             ))}
-                        </Stack>
+                        </div>
                     ))}
 
-                    <HStack justify="flex-end">
+                    <div className="flex w-full justify-end border-t border-brand-border pt-4">
                         <BackButton label={backLabel} />
-                    </HStack>
-                </Stack>
+                    </div>
+                </div>
             </Card>
         </AuthLayout>
     );

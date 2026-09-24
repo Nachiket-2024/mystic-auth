@@ -108,7 +108,7 @@ for f in "${FILES[@]}"; do
     fi
   fi
 
-  for portvar in POSTGRES_HOST_PORT REDIS_HOST_PORT BACKEND_HOST_PORT FRONTEND_HOST_PORT BUGSINK_HOST_PORT; do
+  for portvar in POSTGRES_HOST_PORT VALKEY_HOST_PORT BACKEND_HOST_PORT FRONTEND_HOST_PORT BUGSINK_HOST_PORT; do
     port="$(grep -m1 "^${portvar}=" "$f" | cut -d= -f2-)"
     [ -n "$port" ] || continue
     if port_in_use "$port"; then

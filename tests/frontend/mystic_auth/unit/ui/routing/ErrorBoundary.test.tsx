@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 // Mocked so these tests exercise ErrorBoundary's catch-and-render behavior
 // without depending on the real Sentry SDK. reportError has its own
@@ -26,11 +25,9 @@ describe('ErrorBoundary', () => {
 
   it('renders children normally when nothing below it throws', () => {
     render(
-      <ChakraProvider value={defaultSystem}>
         <ErrorBoundary>
           <div>Everything is fine</div>
         </ErrorBoundary>
-      </ChakraProvider>
     );
 
     expect(screen.getByText('Everything is fine')).toBeInTheDocument();
@@ -42,11 +39,9 @@ describe('ErrorBoundary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     render(
-      <ChakraProvider value={defaultSystem}>
         <ErrorBoundary>
           <Bomb />
         </ErrorBoundary>
-      </ChakraProvider>
     );
 
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
@@ -59,11 +54,9 @@ describe('ErrorBoundary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     render(
-      <ChakraProvider value={defaultSystem}>
         <ErrorBoundary>
           <Bomb />
         </ErrorBoundary>
-      </ChakraProvider>
     );
 
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
@@ -73,11 +66,9 @@ describe('ErrorBoundary', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     render(
-      <ChakraProvider value={defaultSystem}>
         <ErrorBoundary>
           <Bomb />
         </ErrorBoundary>
-      </ChakraProvider>
     );
 
     expect(reportError).toHaveBeenCalledOnce();

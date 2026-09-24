@@ -17,7 +17,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
     account_verification_service,
 )
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 PASSWORD = "StrongPass123!"
 
@@ -39,7 +39,7 @@ async def _signup_and_verify(client, created_emails, email):
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 

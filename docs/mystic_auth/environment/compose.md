@@ -9,7 +9,7 @@ container entrypoints, one-shot seed commands, or local helper scripts.
 | Variable | Modes | Actual use |
 |---|---|---|
 | `APP_DB_PASSWORD` | all env examples | Read by Alembic migration `b1e6a9f3c7d2_add_least_privilege_app_role.py` to create or update the least-privilege app role used by `APP_DATABASE_URL`. |
-| `REDIS_PASSWORD` | all env examples | Passed to `redis-server --requirepass`. Not auto-included in `REDIS_URL`: setting this alone does nothing, `REDIS_URL` must also be rewritten by hand to embed it. See [Redis authentication](../security/hardening-infra.md#redis-authentication). |
+| `VALKEY_PASSWORD` | all env examples | Passed to `valkey-server --requirepass`. Not auto-included in `VALKEY_URL`: setting this alone does nothing, `VALKEY_URL` must also be rewritten by hand to embed it. See [Valkey authentication](../security/hardening-infra.md#valkey-authentication). |
 | `BUGSINK_SECRET_KEY` | all env examples | Django secret key for Bugsink. Must be a real long value or Bugsink fails its deploy checks and crash-loops. |
 | `BUGSINK_SUPERUSER_EMAIL` | all env examples | Bugsink admin username/email and the switch that lets the backend watch for a late seeded DSN in dev/local stacks. |
 | `BUGSINK_SUPERUSER_PASSWORD` | all env examples | Bugsink admin password. |

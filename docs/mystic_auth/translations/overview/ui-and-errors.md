@@ -38,8 +38,8 @@ change needed. `chromeLanguage` is consumed explicitly by three call sites:
   (which would follow `pageLanguage`), they call
   `translations.getFixedT(chromeLanguage, "layout")` to get a translator pinned to
   `chromeLanguage` regardless of what the page is doing.
-- **Every page that formats a date or month name** (`DashboardPage`, `ManageSessionsCard`,
-  `UserDetailsDialog`, the audit-log sections, `LoginTrendChart`'s day/axis labels) reads
+- **Every page that formats a date or month name** (`DashboardPage`, `ActiveSessionsCard`,
+  `UserAccessDialog`'s Details tab, the audit-log sections, `LoginTrendChart`'s day/axis labels) reads
   `chromeLanguage` from the store and passes it into `formatMemberSince`/`formatDateTime`/
   `formatTimeOnly`/`monthNameShort`, so a date reads "15 Jan 2026" in the `en+hi` mode even though
   the surrounding page text is in Hindi. Plain numeral formatting that isn't a date (pagination
@@ -54,8 +54,8 @@ assistive tech cares most about the page's actual content.
 
 ## 4. The toggle itself: `frontend/src/mystic_auth/layout/controls/LanguageToggle.tsx`
 
-- A plain click-to-open dropdown (Chakra's `Select`, the same component `StyledSelect.tsx` wraps elsewhere in the app), not a typeable search box.
-- Styled to match `ThemeToggle`'s icon-button look (same border/background/hover colors, see `ui/styles/buttonStyles.ts`'s `ICON_BUTTON_PROPS`) via its own `Select.Trigger` overrides.
+- A plain click-to-open dropdown (the app's `StyledSelect.tsx` component), not a typeable search box.
+- Styled to match `ThemeToggle`'s icon-button look (same border/background/hover colors, with shared button variants in `ui/buttons/button-variants.ts`) via its own `Select.Trigger` overrides.
 - With only seven options, a search box isn't earning its keep the way it would past a few dozen languages - this matches how most real-world language switchers (GitHub, Wikipedia, Google) work at this scale.
 - Click to open, click an option, closes; the current selection stays visible on the trigger at rest either way.
 

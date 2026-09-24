@@ -38,7 +38,7 @@ const SATURATION_MULTIPLIER: Record<BrandScaleStep, number> = {
 };
 
 /**
- * Generates a Chakra-shaped 50-900 color scale from a single user-picked
+ * Generates the app's 50-900 color scale from a single user-picked
  * hex: fixes hue (and roughly saturation), interpolates lightness across
  * LIGHTNESS_LADDER. Single source of truth for every brand-colored surface
  * (buttons, focus rings, canvas tint, logo badge, favicon).

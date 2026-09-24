@@ -32,6 +32,28 @@ to repeat on every restart.
 
 ---
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["1. Create a free ngrok\naccount, grab authtoken"]
+    S2["2. Claim a free\nstatic domain"]
+    S3["3. Copy env.local-prod-ngrok.example"]
+    S4["4. Fill in\nNGROK_AUTHTOKEN, NGROK_DOMAIN"]
+    S5["5. Point the app at that domain\nFRONTEND_BASE_URL, JWT_ISSUER/AUDIENCE,\nGOOGLE_REDIRECT_URI"]
+    S6["6. Register the domain\nwith Google OAuth"]
+    S7["7. Start the stack"]
+    S7b["7b (optional): enable\nsession geolocation"]
+    Live["Public https://<app>.ngrok-free.app"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S7b --> Live
+
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Live terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+---
+
 **Step 1: Create a free ngrok account and grab your authtoken.**
 
 Sign up at [ngrok.com](https://ngrok.com/) (a free account is enough).

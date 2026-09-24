@@ -18,6 +18,8 @@ from backend.mystic_auth.authorization.schemas.policy_schema import (
     PolicyUpdate,
 )
 
+from .authorization_test_helpers import authorization_decision
+
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_crud_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 
@@ -79,7 +81,7 @@ async def test_create_policy_allows_valid_conditions(mocker):
     created = _make_policy(name="good_policy")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=None)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock, return_value=created)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
     result = await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
@@ -111,7 +113,7 @@ async def test_update_policy_does_not_validate_when_conditions_untouched(mocker)
     # Deactivating requires the grant-guard check; unrelated to what this
     # test verifies (conditions validation being skipped), but still on
     # the code path since is_active=False is part of this update.
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     # is_active=False also fans out publish_permissions_changed; also
     # unrelated to what this test verifies, but still on the code path.
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
@@ -163,12 +165,19 @@ async def test_update_policy_allows_reactivating_a_baseline_policy(mocker):
 
 
 @pytest.mark.asyncio
-async def test_update_policy_allows_explicitly_clearing_conditions_to_null(mocker):
+async def test_update_policy_rejects_clearing_conditions_to_null_for_conditional_caller(mocker):
     policy = _make_policy(conditions={"self_only": True})
     update_data = PolicyUpdate(conditions=None)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
+    mocker.patch(
+        f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision",
+        new_callable=AsyncMock,
+        return_value=authorization_decision(True, {"caller_policy": {"self_only": True}}),
+    )
 
-    await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
+    with pytest.raises(HTTPException) as exc_info:
+        await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
-    update_mock.assert_awaited_once()
+    assert exc_info.value.status_code == 403
+    update_mock.assert_not_awaited()

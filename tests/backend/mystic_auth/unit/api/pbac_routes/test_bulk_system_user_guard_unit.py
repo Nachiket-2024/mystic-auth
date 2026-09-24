@@ -26,6 +26,8 @@ from backend.mystic_auth.authorization.schemas.bulk_schema import (
 )
 from backend.mystic_auth.user.user_model import UserRole
 
+from .authorization_test_helpers import authorization_decision
+
 PERMISSION_ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.bulk.bulk_permission_routes"
 POLICY_ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.bulk.bulk_policy_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
@@ -75,7 +77,7 @@ async def test_bulk_assign_permissions_rejects_system_user_but_applies_other_ite
         f"{PERMISSION_ROUTES_MODULE}.user_crud.get_by_emails", new_callable=AsyncMock,
         return_value={system_user.email: system_user, normal_user.email: normal_user},
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     bulk_assign_mock = mocker.patch(
         f"{PERMISSION_ROUTES_MODULE}.user_permission_repository.bulk_assign_permissions",
         new_callable=AsyncMock, side_effect=_fake_bulk_permission_result,
@@ -103,7 +105,7 @@ async def test_bulk_assign_permissions_rejects_invalid_conditions_before_reposit
         f"{PERMISSION_ROUTES_MODULE}.user_crud.get_by_emails", new_callable=AsyncMock,
         return_value={normal_user.email: normal_user},
     )
-    guard_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    guard_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     bulk_assign_mock = mocker.patch(
         f"{PERMISSION_ROUTES_MODULE}.user_permission_repository.bulk_assign_permissions",
         new_callable=AsyncMock, side_effect=_fake_bulk_permission_result,
@@ -136,7 +138,7 @@ async def test_bulk_remove_permissions_rejects_system_user_but_applies_other_ite
         f"{PERMISSION_ROUTES_MODULE}.user_crud.get_by_emails", new_callable=AsyncMock,
         return_value={system_user.email: system_user, normal_user.email: normal_user},
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     bulk_remove_mock = mocker.patch(
         f"{PERMISSION_ROUTES_MODULE}.user_permission_repository.bulk_remove_permissions",
         new_callable=AsyncMock, side_effect=_fake_bulk_permission_result,
@@ -170,7 +172,7 @@ async def test_bulk_assign_policies_rejects_system_user_but_applies_other_items(
         f"{POLICY_ROUTES_MODULE}.policy_repository.get_policies_by_names", new_callable=AsyncMock,
         return_value={policy.name: policy},
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     bulk_assign_mock = mocker.patch(
         f"{POLICY_ROUTES_MODULE}.policy_repository.bulk_assign_policies",
         new_callable=AsyncMock, side_effect=_fake_bulk_policy_result,
@@ -207,7 +209,7 @@ async def test_bulk_remove_policies_rejects_system_user_but_applies_other_items(
         f"{POLICY_ROUTES_MODULE}.policy_repository.get_policies_by_names", new_callable=AsyncMock,
         return_value={policy.name: policy},
     )
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     bulk_remove_mock = mocker.patch(
         f"{POLICY_ROUTES_MODULE}.policy_repository.bulk_remove_policies",
         new_callable=AsyncMock, side_effect=_fake_bulk_policy_result,

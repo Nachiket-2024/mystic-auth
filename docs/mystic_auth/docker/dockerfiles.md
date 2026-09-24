@@ -27,7 +27,7 @@ Both `runtime` and `production` re-run their package-manager upgrade on every bu
 ## Why `frontend` sets `pull_policy: build`
 
 - `frontend` is the only service in any of the five compose files with both `image:` (`mystic-auth-dev-frontend` / `mystic-auth-local-prod-cloudflare-frontend` / `mystic-auth-local-prod-ngrok-frontend` / `mystic-auth-local-prod-tailscale-frontend` / `mystic-auth-prod-frontend`, one per file so building one never overwrites another's image) and `build:` set.
-- Every other service either only has `build:` (nothing to pull) or only has `image:` (postgres, redis, bugsink, genuinely pulled from a registry).
+- Every other service either only has `build:` (nothing to pull) or only has `image:` (postgres, valkey, bugsink, genuinely pulled from a registry).
 - Without `pull_policy: build`, Compose attempts a pull of `image:` first on every run, which always fails (`pull access denied for mystic-auth-dev-frontend, repository does not exist`) since these tags are never published, before falling back to building anyway. Harmless but noisy on every startup.
 - `pull_policy: build` skips straight to building.
 

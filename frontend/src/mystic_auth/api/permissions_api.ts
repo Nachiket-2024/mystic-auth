@@ -48,3 +48,24 @@ export interface PermissionCatalogEntry {
 
 export const getPermissionCatalogApi = () =>
     api.get<PermissionCatalogEntry[]>("/authorization/permissions/catalog");
+
+/** Mirrors permission_schema.py's PermissionUsagePolicyRead: one active
+ * policy that grants a catalog action, and how many users it reaches. */
+export interface PermissionUsagePolicy {
+    name: string;
+    user_count: number;
+}
+
+/** Mirrors permission_schema.py's PermissionUsageEntryRead: who actually
+ * holds one catalog action right now. */
+export interface PermissionUsageEntry {
+    action: string;
+    resource_type: string;
+    policies: PermissionUsagePolicy[];
+    policy_user_count: number;
+    direct_grant_count: number;
+    total_user_count: number;
+}
+
+export const getPermissionCatalogUsageApi = () =>
+    api.get<PermissionUsageEntry[]>("/authorization/permissions/catalog/usage");

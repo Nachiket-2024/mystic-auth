@@ -1,7 +1,7 @@
 import React from "react";
-import { Box, Flex } from "@chakra-ui/react";
 
 import ControlCluster from "../controls/ControlCluster";
+import { cn } from "../../ui/styles/classNames";
 
 interface AuthLayoutProps {
     children: React.ReactNode;
@@ -15,43 +15,35 @@ interface AuthLayoutProps {
 }
 
 /**
- * Shared shell for unauthenticated pages: plain canvas, theme/language
- * toggles pinned top-right, and the card as the only composed unit. No
- * copyright/legal footer, deliberately: an isolated line with no real
- * function on a gate screen, disconnected from the card above it.
+ * Shared shell for unauthenticated pages. The two-column treatment gives
+ * short auth flows a product-quality home without making the form itself
+ * longer; the right rail disappears on small screens to preserve space.
  */
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children, variant = "form" }) => {
     return (
-        <Flex
-            direction="column"
-            minH="100vh"
-            bg="bg.canvas"
-            // Same soft depth treatment as AppLayout; see theme/system.ts.
-            bgGradient="to-b"
-            gradientFrom="bg.canvasFrom"
-            gradientTo="bg.canvasTo"
-        >
+        <div className="relative isolate flex min-h-screen overflow-x-hidden bg-bg-canvas bg-linear-to-br from-(--bg-canvas-from) to-(--bg-canvas-to)">
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(740px_360px_at_18%_-10%,color-mix(in_srgb,var(--brand-solid)_16%,transparent),transparent_65%),radial-gradient(640px_320px_at_100%_8%,color-mix(in_srgb,var(--accent-solid)_14%,transparent),transparent_60%)] dark:bg-[radial-gradient(740px_360px_at_18%_-10%,color-mix(in_srgb,var(--brand-solid)_22%,transparent),transparent_65%),radial-gradient(640px_320px_at_100%_8%,color-mix(in_srgb,var(--accent-solid)_12%,transparent),transparent_60%)]"
+            />
             {/* Normal document flow (not position="absolute"), so it reserves
                 its own row height and never collides with a tall card's top
                 edge on short viewports. */}
-            <Box px={4} pt={4}>
-                <Flex justify="flex-end">
+            <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
+                <div className="flex justify-end">
                     <ControlCluster />
-                </Flex>
-            </Box>
+                </div>
+            </div>
 
-            <Flex
-                flex="1"
-                direction="column"
-                align="center"
-                justify={variant === "status" ? "flex-start" : "center"}
-                pt={variant === "status" ? { base: 10, md: 16 } : 4}
-                pb={8}
-                px={4}
-            >
-                {children}
-            </Flex>
-        </Flex>
+            <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-1 flex-col">
+                <main className={cn(
+                    "flex min-h-screen w-full min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-4 [&>div>div]:p-4 lg:[&>div>div]:p-5 [&_form]:gap-2.5 [&_label]:text-sm [&_input]:h-10 [&_>div>div>div]:gap-2.5",
+                    variant === "status" ? "lg:justify-start lg:pt-12" : ""
+                )}>
+                    <div className="flex w-full justify-center">{children}</div>
+                </main>
+            </div>
+        </div>
     );
 };
 

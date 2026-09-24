@@ -2,7 +2,7 @@
 #
 # End-to-end coverage for admin-side PUT /users/{email} and PATCH
 # /users/{email}/role (user_management_update_routes.py), against the real
-# ASGI app, real PostgreSQL, and real Redis (see conftest.py), including
+# ASGI app, real PostgreSQL, and real Valkey (see conftest.py), including
 # the system-user and self-role-change guards no admin capability can
 # bypass. GET /users/ listing/filtering/sorting coverage lives in
 # test_user_admin_listing_integration.py, split out once this file passed

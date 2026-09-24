@@ -19,10 +19,10 @@ export const APP_FAVICON_URL = import.meta.env.VITE_APP_FAVICON_URL || undefined
 export const SUPPORT_EMAIL = import.meta.env.VITE_SUPPORT_EMAIL || undefined;
 
 // App-wide default brand color, fed into theme/generateBrandScale.ts to build the whole
-// `brand` token scale (see theme/system.ts's buildSystem). Falls back to amber so forks
-// work with no .env changes; set VITE_BRAND_COLOR to re-skin the app from one place.
-// A signed-in user's own Appearance pick still overrides this per-user.
-export const BRAND_COLOR = import.meta.env.VITE_BRAND_COLOR || "#d97706";
+// `brand` token scale (see theme/system.ts's buildSystem). Falls back to this app's
+// terracotta so forks work with no .env changes; set VITE_BRAND_COLOR to re-skin the
+// app from one place. A signed-in user's own Appearance pick still overrides this per-user.
+export const BRAND_COLOR = import.meta.env.VITE_BRAND_COLOR || "#b5533c";
 
 const settings = {
     apiBaseUrl: import.meta.env.VITE_API_BASE_URL,

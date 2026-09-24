@@ -17,8 +17,8 @@ export const signupApi = (payload: { name: string; email: string; password: stri
 export const loginApi = (payload: { email: string; password: string }) =>
     api.post("/auth/login", payload);
 
-export const getCurrentUserApi = (src: string = "unknown") =>
-    api.get("/auth/me", { params: { src } });
+export const getCurrentUserApi = (src: string = "unknown", signal?: AbortSignal) =>
+    api.get("/auth/me", { params: { src }, signal });
 
 export const oauth2LoginGoogleApi = () =>
     api.get("/auth/oauth2/login/google");

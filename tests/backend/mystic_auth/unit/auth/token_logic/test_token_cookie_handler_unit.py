@@ -38,7 +38,8 @@ def test_access_token_cookie_is_not_path_restricted():
 
 
 @pytest.mark.parametrize("cookie_name", ["access_token", "refresh_token"])
-def test_both_cookies_keep_secure_flags(cookie_name):
+def test_both_cookies_keep_secure_flags_outside_development(monkeypatch, cookie_name):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
     response = token_cookie_handler.set_tokens_in_cookies(JSONResponse(content={}), TOKENS)
 
     headers = _set_cookie_headers(response)

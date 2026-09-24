@@ -7,7 +7,7 @@ Create Date: 2026-08-19 00:00:00.000000
 Data-only migration (per docs/mystic_auth/authorization/adding-permissions.md's
 documented process): grants the new rate_limits:read permission (see
 authorization/permissions.py) to the seeded system_superuser policy only.
-Live Redis rate-limit state is operational/security-sensitive in the same
+Live Valkey rate-limit state is operational/security-sensitive in the same
 way the security audit trail is, so it gets the same treatment as
 f3c1a9d7e5b2's grant of security_audit:read.
 """

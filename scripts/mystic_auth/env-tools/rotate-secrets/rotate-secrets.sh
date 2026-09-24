@@ -9,7 +9,7 @@
 # Scope is deliberately narrow: these two fields are the only secrets safe
 # to rotate by just editing the file and restarting. Every other secret
 # field (POSTGRES_PASSWORD, APP_DB_PASSWORD, BUGSINK_SUPERUSER_PASSWORD,
-# REDIS_PASSWORD) is backed by state a live service already has: Postgres
+# VALKEY_PASSWORD) is backed by state a live service already has: Postgres
 # only applies POSTGRES_PASSWORD on first volume init, so editing the file
 # after that does nothing to the role's real password and just breaks
 # DATABASE_URL; Bugsink's admin password lives in its own database, not

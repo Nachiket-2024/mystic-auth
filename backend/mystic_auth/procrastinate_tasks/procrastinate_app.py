@@ -1,8 +1,9 @@
 """Procrastinate App + connector setup, split from the task modules so the
 `procrastinate.App` instance exists before any `@app.task`/`@app.periodic`
-decorator runs. `email_tasks.py` and `account_purge_tasks.py` both import
-`app` from here rather than from each other, avoiding the circular import a
-single shared module would otherwise create between them.
+decorator runs. `email_tasks.py`, `account_purge_tasks.py`, and
+`session_cleanup_tasks.py` all import `app` from here rather than from each
+other, avoiding the circular import a single shared module would otherwise
+create between them.
 """
 import logging
 import random
@@ -57,5 +58,6 @@ app = App(
         "mystic_auth.procrastinate_tasks.email_tasks",
         "mystic_auth.procrastinate_tasks.account_purge_tasks",
         "mystic_auth.procrastinate_tasks.audit_log_tasks",
+        "mystic_auth.procrastinate_tasks.session_cleanup_tasks",
     ],
 )

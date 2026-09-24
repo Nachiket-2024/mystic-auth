@@ -9,6 +9,32 @@ formatting, the language store, the toggle, and backend error codes) this tutori
 Say you want to add Tamil (`ta`). Every step below is additive - nothing here requires touching
 component logic, only data files (plus the four language-scoped modules).
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["1. Add the language code\ntranslations.ts"]
+    S2["2. Add a locale folder\nall 13 namespace files"]
+    S3["3. Add month names\nmonthNames.ts"]
+    S4["4. Add digit glyphs\nnumerals.ts (or null for ASCII)"]
+    S5["5. Add time-of-day formatting\ntimeOfDay.ts"]
+    S6{"6. Optional: mixed\n'English + language' modes?"}
+    S6a["Add to LANGUAGE_MODES,\nLANGUAGE_MODE_LABELS,\nresolveLanguages()\nlanguageStore.ts"]
+    S7["7. Verify: typecheck,\nrun the test suite,\ncheck it live"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S6
+    S6 -- "yes" --> S6a --> S7
+    S6 -- "no" --> S7
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class S6 decision
+    class S7 terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+Every `Record<SupportedLanguage, ...>` across steps 1-5 is a compile-time exhaustiveness check, so a
+missing entry in any of them fails `npm run typecheck` rather than shipping a silent runtime gap.
+
 ---
 
 ## 1. Add the language code

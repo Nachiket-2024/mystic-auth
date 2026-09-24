@@ -37,7 +37,7 @@ class SessionRevokeHandler:
                 raise AppError(status_code=status.HTTP_404_NOT_FOUND, code="SESSION_NOT_FOUND", detail="Session not found")
 
             target = await session_repository.get_by_id(db, session_id)
-            if not target or target.user_id != user.id or target.revoked_at is not None:
+            if not target or target.user_id != user.id:
                 raise AppError(status_code=status.HTTP_404_NOT_FOUND, code="SESSION_NOT_FOUND", detail="Session not found")
 
             current_chain_id = None

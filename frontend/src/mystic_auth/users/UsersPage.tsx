@@ -1,21 +1,19 @@
 import React from "react";
-import { Button } from "@chakra-ui/react";
 import { Download, Users, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import PageContainer from "../ui/PageContainer";
+import PageContainer from "../ui/navigation/PageContainer";
+import GlossaryHelp from "../ui/display/GlossaryHelp";
 import DataTable from "../ui/DataTable/DataTable";
-import Pagination from "../ui/Pagination";
-import { BRAND_SOLID_HOVER_PROPS } from "../ui/styles/buttonStyles";
+import Pagination from "../ui/navigation/Pagination";
+import { Button } from "../ui/buttons/Button";
 import { IfCan } from "../authorization/IfCan";
 import { PERMISSIONS } from "../authorization/permissions";
-import UserStatsCard from "./UserStatsCard";
+import UserStatsCard, { type UserStatTileKey } from "./UserStatsCard";
 import UsersFilterBar, { ALL_VALUE } from "./UsersFilterBar";
 import UsersPageDialogs from "./dialogs/UsersPageDialogs";
 import BulkActionToolbar from "./bulk/BulkActionToolbar";
-import BulkPolicyAssignDialog from "./bulk/BulkPolicyAssignDialog";
-import BulkPermissionGrantDialog from "./bulk/BulkPermissionGrantDialog";
-import BulkRoleAssignDialog from "./bulk/BulkRoleAssignDialog";
+import BulkUserAccessDialog from "./bulk/BulkUserAccessDialog";
 import { useUsersPageState } from "./useUsersPageState";
 
 /**
@@ -47,13 +45,18 @@ const UsersPage: React.FC = () => {
         policy,
         setPolicy,
         permission,
+        permissionSource,
         setPermission,
+        lastLogin,
+        setLastLogin,
         sort,
         toggleSort,
         page,
         setPage,
         totalPages,
         users,
+        isFetching,
+        totalResults,
         isLoading,
         isError,
         columns,
@@ -63,15 +66,18 @@ const UsersPage: React.FC = () => {
         setPurgingUser,
         pendingRoleChange,
         setPendingRoleChange,
-        policiesUser,
-        setPoliciesUser,
-        permissionsUser,
-        setPermissionsUser,
-        viewingUser,
-        setViewingUser,
+        accessUser,
+        setAccessUser,
+        accessTab,
         selectedUserIds,
-        setSelectedUserIds,
+        handleSelectionChange,
         selectedUserEmails,
+        selectedCount,
+        selectAllMatching,
+        isSelectingAllMatching,
+        handleSelectAllMatching,
+        clearSelection,
+        clearFilters,
         bulkDialog,
         setBulkDialog,
         rowClickSelects,
@@ -87,88 +93,138 @@ const UsersPage: React.FC = () => {
         PAGE_SIZE,
     } = useUsersPageState();
 
+    // Drives UserStatsCard's pressed tile: only "on" when the filter state
+    // exactly matches what that tile's own click handler sets below, so a
+    // tile never looks pressed just because its number happens to agree
+    // with an unrelated combination of filters (design/users.html's
+    // `.tile[aria-pressed="true"]`).
+    const activeTile: UserStatTileKey | null = search || role !== ALL_VALUE || policy !== ALL_VALUE
+        || permission !== ALL_VALUE || lastLogin !== ALL_VALUE
+        ? null
+        : verified === "true" && status === ALL_VALUE
+          ? "verified"
+          : verified === "false" && status === ALL_VALUE
+            ? "unverified"
+            : status === "deleted" && verified === ALL_VALUE
+              ? "inactive"
+              : verified === ALL_VALUE && status === ALL_VALUE
+                ? "total"
+                : null;
+
     return (
         <PageContainer
             title={t("users:page.title")}
             icon={Users}
+            titleExtra={
+                <GlossaryHelp
+                    ariaLabel={t("users:page.glossaryAriaLabel")}
+                    items={[
+                        { term: t("users:page.glossary.role.term"), definition: t("users:page.glossary.role.definition") },
+                        { term: t("users:page.glossary.verified.term"), definition: t("users:page.glossary.verified.definition") },
+                        { term: t("users:page.glossary.policy.term"), definition: t("users:page.glossary.policy.definition") },
+                        { term: t("users:page.glossary.permission.term"), definition: t("users:page.glossary.permission.definition") },
+                        { term: t("users:page.glossary.deactivated.term"), definition: t("users:page.glossary.deactivated.definition") },
+                    ]}
+                />
+            }
             description={t("users:page.description")}
             actions={
-                <UserStatsCard
-                    onFilterTotal={() => {
-                        setSearch("");
-                        setRole(ALL_VALUE);
-                        setVerified(ALL_VALUE);
-                        setStatus(ALL_VALUE);
-                        setPolicy(ALL_VALUE);
-                        setPermission(ALL_VALUE);
-                    }}
-                    onFilterVerified={() => {
-                        setSearch("");
-                        setVerified("true");
-                        setRole(ALL_VALUE);
-                        setStatus(ALL_VALUE);
-                        setPolicy(ALL_VALUE);
-                        setPermission(ALL_VALUE);
-                    }}
-                    onFilterUnverified={() => {
-                        setSearch("");
-                        setVerified("false");
-                        setRole(ALL_VALUE);
-                        setStatus(ALL_VALUE);
-                        setPolicy(ALL_VALUE);
-                        setPermission(ALL_VALUE);
-                    }}
-                    onFilterInactive={() => {
-                        setSearch("");
-                        setStatus("inactive");
-                        setRole(ALL_VALUE);
-                        setVerified(ALL_VALUE);
-                        setPolicy(ALL_VALUE);
-                        setPermission(ALL_VALUE);
-                    }}
-                />
+                // Top-right of the page header, next to the title
+                // (design/users.html's #exportBtn) - its own dedicated
+                // slot instead of a sibling in the search row, so it can
+                // never get pushed out of view by the filter row wrapping.
+                <IfCan action={PERMISSIONS.USERS_LIST_ALL}>
+                    <Button size="sm" variant="brand-tinted-outline" onClick={handleExport} loading={exportMutation.isPending}>
+                        <Download size={16} />
+                        {t("users:page.exportCsv")}
+                    </Button>
+                </IfCan>
             }
             headerExtra={
-                <UsersFilterBar
-                    search={search}
-                    setSearch={setSearch}
-                    role={role}
-                    setRole={setRole}
-                    verified={verified}
-                    setVerified={setVerified}
-                    status={status}
-                    setStatus={setStatus}
-                    policy={policy}
-                    setPolicy={setPolicy}
-                    permission={permission}
-                    setPermission={setPermission}
-                    searchRowExtra={
-                        <IfCan action={PERMISSIONS.USERS_LIST_ALL}>
-                            <Button
-                                size="sm"
-                                colorPalette="brand"
-                                onClick={handleExport}
-                                loading={exportMutation.isPending}
-                                {...BRAND_SOLID_HOVER_PROPS}
-                            >
-                                <Download size={16} />
-                                {t("users:page.exportCsv")}
-                            </Button>
-                        </IfCan>
-                    }
-                />
+                // Stats row above the filter bar, both full width (design/
+                // users.html: "Stat tiles are one short row under the
+                // title, so the filters get the full width instead of
+                // wrapping beside a tall stats card") - rendered here, not
+                // PageContainer's narrow `actions` slot.
+                <div className="flex flex-col gap-4">
+                    <UserStatsCard
+                        activeTile={activeTile}
+                        onFilterTotal={() => {
+                            setSearch("");
+                            setRole(ALL_VALUE);
+                            setVerified(ALL_VALUE);
+                            setStatus(ALL_VALUE);
+                            setPolicy(ALL_VALUE);
+                            setPermission(ALL_VALUE);
+                            setLastLogin(ALL_VALUE);
+                        }}
+                        onFilterVerified={() => {
+                            setSearch("");
+                            setVerified("true");
+                            setRole(ALL_VALUE);
+                            setStatus(ALL_VALUE);
+                            setPolicy(ALL_VALUE);
+                            setPermission(ALL_VALUE);
+                            setLastLogin(ALL_VALUE);
+                        }}
+                        onFilterUnverified={() => {
+                            setSearch("");
+                            setVerified("false");
+                            setRole(ALL_VALUE);
+                            setStatus(ALL_VALUE);
+                            setPolicy(ALL_VALUE);
+                            setPermission(ALL_VALUE);
+                            setLastLogin(ALL_VALUE);
+                        }}
+                        onFilterInactive={() => {
+                            setSearch("");
+                            setStatus("deleted");
+                            setRole(ALL_VALUE);
+                            setVerified(ALL_VALUE);
+                            setPolicy(ALL_VALUE);
+                            setPermission(ALL_VALUE);
+                            setLastLogin(ALL_VALUE);
+                        }}
+                    />
+                    <UsersFilterBar
+                        search={search}
+                        setSearch={setSearch}
+                        isFetching={isFetching}
+                        totalResults={totalResults}
+                        role={role}
+                        setRole={setRole}
+                        verified={verified}
+                        setVerified={setVerified}
+                        status={status}
+                        setStatus={setStatus}
+                        policy={policy}
+                        setPolicy={setPolicy}
+                        permission={permission}
+                        setPermission={setPermission}
+                        permissionSource={permissionSource}
+                        lastLogin={lastLogin}
+                        setLastLogin={setLastLogin}
+                        onClearFilters={clearFilters}
+                    />
+                </div>
             }
         >
-            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} mb={4} />
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mb-4" />
 
             <BulkActionToolbar
-                selectedCount={selectedUserIds.size}
+                selectedCount={selectedCount}
                 onBulkAssignPolicy={() => setBulkDialog("policy")}
                 onBulkGrantPermission={() => setBulkDialog("permission")}
                 onBulkSetRole={() => setBulkDialog("role")}
-                onClearSelection={() => setSelectedUserIds(new Set())}
+                onClearSelection={clearSelection}
                 rowClickSelects={rowClickSelects}
                 onToggleRowClickSelects={() => setRowClickSelects((v) => !v)}
+                pageSelectedCount={selectedUserIds.size}
+                pageRowCount={users?.length ?? 0}
+                totalMatching={totalResults ?? 0}
+                selectAllMatching={selectAllMatching}
+                onSelectAllMatching={handleSelectAllMatching}
+                isSelectingAllMatching={isSelectingAllMatching}
             />
 
             <DataTable
@@ -177,6 +233,7 @@ const UsersPage: React.FC = () => {
                 rowKey={(u) => u.id}
                 isLoading={isLoading}
                 isError={isError}
+                isFetching={isFetching}
                 errorMessage={t("users:page.failedToLoadUsers")}
                 emptyMessage={search ? t("users:page.noUsersMatchSearch") : t("users:page.noUsersMatchFilters")}
                 emptyIcon={<UsersRound size={32} aria-hidden="true" />}
@@ -186,34 +243,22 @@ const UsersPage: React.FC = () => {
                 rowClickSelects={rowClickSelects}
                 selectable
                 selectedKeys={selectedUserIds}
-                onSelectionChange={setSelectedUserIds}
+                onSelectionChange={handleSelectionChange}
             />
 
-            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} mt={4} />
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4" />
 
-            <BulkPolicyAssignDialog
-                isOpen={bulkDialog === "policy"}
+            <BulkUserAccessDialog
+                isOpen={bulkDialog !== null}
                 userEmails={selectedUserEmails}
-                onClose={() => setBulkDialog(null)}
-            />
-            <BulkPermissionGrantDialog
-                isOpen={bulkDialog === "permission"}
-                userEmails={selectedUserEmails}
-                onClose={() => setBulkDialog(null)}
-            />
-            <BulkRoleAssignDialog
-                isOpen={bulkDialog === "role"}
-                userEmails={selectedUserEmails}
+                initialTab={bulkDialog === "permission" ? "permissions" : bulkDialog === "role" ? "roles" : "policies"}
                 onClose={() => setBulkDialog(null)}
             />
 
             <UsersPageDialogs
-                policiesUser={policiesUser}
-                onClosePolicies={() => setPoliciesUser(null)}
-                permissionsUser={permissionsUser}
-                onClosePermissions={() => setPermissionsUser(null)}
-                viewingUser={viewingUser}
-                onCloseView={() => setViewingUser(null)}
+                accessUser={accessUser}
+                accessTab={accessTab}
+                onCloseAccess={() => setAccessUser(null)}
                 deletingUser={deletingUser}
                 isDeletePending={deleteMutation.isPending}
                 onConfirmDelete={handleDeleteConfirm}

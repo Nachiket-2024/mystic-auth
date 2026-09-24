@@ -104,7 +104,7 @@ class LoginHandler:
 
             # Record the real outcome against both counters so failed attempts count
             # towards each threshold independently and successful ones reset each.
-            # The two counters are independent Redis keys, so record them concurrently.
+            # The two counters are independent Valkey keys, so record them concurrently.
             email_allowed, ip_allowed = await asyncio.gather(
                 login_protection_service.check_and_record_action(
                     email_lock_key, success=success

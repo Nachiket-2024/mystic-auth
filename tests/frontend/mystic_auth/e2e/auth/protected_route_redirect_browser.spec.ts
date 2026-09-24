@@ -5,6 +5,6 @@ test.describe("protected mystic auth route browser behavior", () => {
     await page.goto("/dashboard");
 
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByText(/sign in to continue/i)).toBeVisible();
+    await expect(page.getByText(/welcome back/i)).toBeVisible();
   });
 });

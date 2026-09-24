@@ -57,7 +57,7 @@ language touches all of them the same shape:
   day-period words (सुबह/सकाळ/સવારે, दोपहर/दुपार/બપોરે, ...) instead of a literal "AM"/"PM"
   transliteration.
 
-`frontend/src/mystic_auth/ui/dateFormat.ts` composes these into the actual formatters
+`frontend/src/mystic_auth/ui/dates/dateFormatters.ts` composes these into the actual formatters
 (`formatMemberSince`, `formatDateTime`, `formatTimeOnly`) used by pages that show timestamps.
 
 ---

@@ -6,7 +6,7 @@ import { queryClient } from "../../core/queryClient";
 import { useAuthStore } from "../../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "../../auth/current_user/useCurrentUserQuery";
 import { markSelfPermissionMutation } from "../../auth/session_lifecycle/selfPermissionMutationGuard";
-import { MY_PERMISSIONS_QUERY_KEY, userPermissionsQueryKey } from "./permissionQueries";
+import { MY_PERMISSIONS_QUERY_KEY, PERMISSION_CATALOG_USAGE_QUERY_KEY, userPermissionsQueryKey } from "./permissionQueries";
 
 /**
  * useGrantPermissionMutation / useRevokePermissionMutation
@@ -27,6 +27,7 @@ export function useGrantPermissionMutation() {
             }
         },
         onSuccess: (_data, { userEmail }) => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: userPermissionsQueryKey(userEmail) });
             queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
             if (userEmail === useAuthStore.getState().email) {
@@ -47,6 +48,7 @@ export function useRevokePermissionMutation() {
             }
         },
         onSuccess: (_data, { userEmail }) => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: userPermissionsQueryKey(userEmail) });
             queryClient.invalidateQueries({ queryKey: MY_PERMISSIONS_QUERY_KEY });
             if (userEmail === useAuthStore.getState().email) {

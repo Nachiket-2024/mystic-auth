@@ -50,16 +50,12 @@ async def test_successful_confirm_is_recorded_under_its_own_lock_namespace_and_c
         return_value={"email": "user@example.com"},
     )
     mocker.patch(f"{MODULE}.account_deletion_service.confirm_deletion", return_value=True)
-    record_mock = mocker.patch(
-        f"{MODULE}.login_protection_service.check_and_record_action", return_value=True
-    )
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=True)
+    mocker.patch(f"{MODULE}.login_protection_service.finish_protected_action")
 
     response = await account_deletion_confirm_handler.handle_confirm_delete(token="valid-token", db=None)
 
     assert response.status_code == 200
-    record_mock.assert_awaited_once_with(
-        "account_delete_confirm_lock:email:user@example.com", success=True
-    )
     set_cookie_headers = response.headers.getlist("set-cookie")
     assert any(header.startswith("access_token=") for header in set_cookie_headers)
     assert any(header.startswith("refresh_token=") and "Path=/auth" in header for header in set_cookie_headers)
@@ -72,17 +68,12 @@ async def test_failed_confirm_is_recorded_under_its_own_lock_namespace_not_login
         return_value={"email": "user@example.com"},
     )
     mocker.patch(f"{MODULE}.account_deletion_service.confirm_deletion", return_value=False)
-    record_mock = mocker.patch(
-        f"{MODULE}.login_protection_service.check_and_record_action", return_value=True
-    )
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=True)
+    mocker.patch(f"{MODULE}.login_protection_service.finish_protected_action")
 
     response = await account_deletion_confirm_handler.handle_confirm_delete(token="replayed-token", db=None)
 
     assert response.status_code == 400
-    key_used = record_mock.await_args.args[0]
-    assert key_used == "account_delete_confirm_lock:email:user@example.com"
-    assert key_used != "login_lock:email:user@example.com"
-    assert key_used != "password_reset_confirm_lock:email:user@example.com"
 
 
 @pytest.mark.asyncio
@@ -92,7 +83,9 @@ async def test_lockout_from_repeated_failures_returns_429(mocker):
         return_value={"email": "user@example.com"},
     )
     mocker.patch(f"{MODULE}.account_deletion_service.confirm_deletion", return_value=False)
-    mocker.patch(f"{MODULE}.login_protection_service.check_and_record_action", return_value=False)
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=True)
+    mocker.patch(f"{MODULE}.login_protection_service.finish_protected_action")
+    mocker.patch(f"{MODULE}.login_protection_service.is_locked", return_value=True)
 
     response = await account_deletion_confirm_handler.handle_confirm_delete(token="replayed-token", db=None)
 

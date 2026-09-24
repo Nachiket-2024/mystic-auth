@@ -40,6 +40,16 @@ def _office_gated_policy():
     )
 
 
+def _unconditional_policy():
+    return Policy(
+        name="unconditional_policy_admin",
+        actions=["policies:create"],
+        resource_type="policies",
+        conditions=None,
+        is_active=True,
+    )
+
+
 @pytest.mark.asyncio
 async def test_grant_guard_denies_a_context_gated_action_when_no_context_is_passed(mocker):
     """Omitting `context` entirely (e.g. a background task with no real request)
@@ -72,10 +82,27 @@ async def test_grant_guard_allows_a_context_gated_action_when_the_real_context_s
 
     matching_context = {"ip_address": "10.1.2.3", "current_time": "2026-01-01T12:00:00+00:00", "security_context": {}}
 
-    # Must not raise.
+    # Preserving the office restriction is allowed.
     await authorization_service.assert_authorized_to_grant(
-        "admin@example.com", ["policies:create"], "policies", db=None, context=matching_context
+        "admin@example.com", ["policies:create"], "policies", db=None, context=matching_context,
+        conditions={"network": {"allowed_ips": ["10.0.0.0/8"]}},
     )
+
+
+@pytest.mark.asyncio
+async def test_grant_guard_rejects_widening_a_context_gated_action(mocker):
+    mocker.patch(
+        f"{MODULE}.policy_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[_office_gated_policy()],
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        await authorization_service.assert_authorized_to_grant(
+            "admin@example.com", ["policies:create"], "policies", db=None,
+            context={"ip_address": "10.1.2.3"}, conditions=None,
+        )
+    assert exc_info.value.code == "CANNOT_GRANT_BROADER_CONDITIONS"
 
 
 @pytest.mark.asyncio
@@ -127,19 +154,21 @@ async def test_grant_guard_cache_is_scoped_per_action_and_resource_type(mocker):
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_office_gated_policy()],
+        return_value=[_unconditional_policy()],
     )
     matching_context = {"ip_address": "10.1.2.3", "current_time": "2026-01-01T12:00:00+00:00", "security_context": {}}
 
     cache: dict[tuple[str, str], bool] = {}
     # Allowed: held via the office-gated policy.
     await authorization_service.assert_authorized_to_grant(
-        "admin@example.com", ["policies:create"], "policies", db=None, context=matching_context, cache=cache
+        "admin@example.com", ["policies:create"], "policies", db=None, context=matching_context,
+        cache=cache,
     )
     # Different action, not held by any policy - must not reuse the prior cache entry.
     with pytest.raises(AppError):
         await authorization_service.assert_authorized_to_grant(
-            "admin@example.com", ["policies:delete"], "policies", db=None, context=matching_context, cache=cache
+            "admin@example.com", ["policies:delete"], "policies", db=None, context=matching_context,
+            cache=cache,
         )
 
     assert cache == {

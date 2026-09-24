@@ -4,7 +4,7 @@ import traceback
 from collections.abc import AsyncIterator
 
 from ..logging.logging_config import get_logger
-from ..redis.client import redis_client
+from ..valkey.client import valkey_client
 
 logger = get_logger(__name__)
 
@@ -19,14 +19,14 @@ _HEARTBEAT_SECONDS = 20
 # Upper bound on how long one SSE connection stays open. Past this, the
 # generator returns and the response ends normally; EventSource treats that
 # like a dropped connection and reconnects on its own. Bounds how long a
-# stuck client can hold a Redis pubsub connection open, and gives a
+# stuck client can hold a Valkey pubsub connection open, and gives a
 # connection that misses the shutdown signal a ceiling too. Long enough
 # that reconnects are rare, short enough to never block a deploy's
 # shutdown timeout.
 _MAX_CONNECTION_SECONDS = 15 * 60
 
 # Set from main.py's lifespan shutdown, right before it disposes the DB pool
-# and closes redis_client. Lets every open session_event_stream() loop
+# and closes valkey_client. Lets every open session_event_stream() loop
 # notice immediately and return, instead of the ASGI server waiting on the
 # next heartbeat or _MAX_CONNECTION_SECONDS. See session_event_stream's
 # docstring for why polling request.is_disconnected() doesn't work here.
@@ -47,7 +47,7 @@ async def publish_session_revoked(email: str) -> None:
     GET /auth/session-events connection for this account to re-check its
     own session right now (a normal GET /auth/me / GET /auth/sessions
     refetch), instead of waiting for its next background poll or window-
-    focus refetch. Best-effort and never raises: a Redis hiccup here must
+    focus refetch. Best-effort and never raises: a Valkey hiccup here must
     never turn a successful revoke into a failed request, the same
     reasoning as every other best-effort side-channel in this codebase
     (audit logging, the Manage Sessions mirror).
@@ -59,7 +59,7 @@ async def publish_session_revoked(email: str) -> None:
     request/response auth checks, never from this event's payload.
     """
     try:
-        await redis_client.publish(_CHANNEL_TEMPLATE.format(email=email), json.dumps({"type": "revoked"}))
+        await valkey_client.publish(_CHANNEL_TEMPLATE.format(email=email), json.dumps({"type": "revoked"}))
     except Exception:
         logger.warning("Failed to publish session-revoked event for %s:\n%s", email, traceback.format_exc())
 
@@ -76,7 +76,7 @@ async def publish_session_created(email: str) -> None:
     elsewhere, unlike a revoke, which already gets this treatment.
     """
     try:
-        await redis_client.publish(_CHANNEL_TEMPLATE.format(email=email), json.dumps({"type": "created"}))
+        await valkey_client.publish(_CHANNEL_TEMPLATE.format(email=email), json.dumps({"type": "created"}))
     except Exception:
         logger.warning("Failed to publish session-created event for %s:\n%s", email, traceback.format_exc())
 
@@ -98,7 +98,7 @@ async def publish_permissions_changed(email: str) -> None:
     GET /auth/me, this is only the "something changed, go check" signal.
     """
     try:
-        await redis_client.publish(_CHANNEL_TEMPLATE.format(email=email), json.dumps({"type": "permissions_changed"}))
+        await valkey_client.publish(_CHANNEL_TEMPLATE.format(email=email), json.dumps({"type": "permissions_changed"}))
     except Exception:
         logger.warning("Failed to publish permissions-changed event for %s:\n%s", email, traceback.format_exc())
 
@@ -106,7 +106,7 @@ async def publish_permissions_changed(email: str) -> None:
 async def session_event_stream(email: str) -> AsyncIterator[str]:
     """
     Yields Server-Sent-Events-formatted lines on `email`'s own channel
-    until the client disconnects. One Redis Pub/Sub subscription per open
+    until the client disconnects. One Valkey Pub/Sub subscription per open
     tab: fine at this app's scale (a handful of users, not millions
     of concurrent connections); a larger deployment would front this with
     a proper pub/sub fan-out layer instead of one subscription per
@@ -120,7 +120,7 @@ async def session_event_stream(email: str) -> AsyncIterator[str]:
     live client, closing this stream within milliseconds of opening it. The
     browser's EventSource then auto-reconnected in a tight loop, and any
     publish_permissions_changed()/publish_session_revoked() fired during one
-    of the resulting gaps was silently lost (Redis pub/sub doesn't replay to
+    of the resulting gaps was silently lost (Valkey pub/sub doesn't replay to
     a subscriber that wasn't connected at publish time) - exactly the "stays
     on a just-revoked page until a manual refresh" bug this stream exists to
     prevent. A real disconnect is still caught without this check: the next
@@ -138,7 +138,7 @@ async def session_event_stream(email: str) -> AsyncIterator[str]:
     ordinary long-lived connections are unaffected in between.
     """
     channel = _CHANNEL_TEMPLATE.format(email=email)
-    pubsub = redis_client.pubsub()
+    pubsub = valkey_client.pubsub()
     loop = asyncio.get_running_loop()
     deadline = loop.time() + _MAX_CONNECTION_SECONDS
     try:
@@ -146,7 +146,7 @@ async def session_event_stream(email: str) -> AsyncIterator[str]:
 
         while True:
             # Non-blocking drain first, before honoring shutdown/cutoff:
-            # Redis can push a message into the local buffer before a
+            # Valkey can push a message into the local buffer before a
             # shutdown is noticed, and ending the stream without draining it
             # would silently lose an event that already arrived.
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0)

@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 
 import { useAuthStore } from '@/store/authStore';
@@ -31,11 +30,9 @@ function renderSidebar(
   extraItems?: ComponentProps<typeof Sidebar>['extraItems']
 ) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <MemoryRouter initialEntries={initialEntries}>
         <Sidebar isOpen={false} onNavigate={() => {}} extraItems={extraItems} />
       </MemoryRouter>
-    </ChakraProvider>
   );
 }
 

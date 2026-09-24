@@ -39,15 +39,23 @@ ACCESS_LOG_PATH = os.path.join(LOG_DIR, 'access.log')
 
 
 def _make_access_handler(level: int, formatter: logging.Formatter) -> logging.Handler:
-    handler: logging.Handler = TimedRotatingFileHandler(
-        ACCESS_LOG_PATH,
-        when="midnight",
-        interval=1,
-        # backupCount=0 means "never delete a rotated file" (disables
-        # pruning), not "keep no backups" - that let access.log.* grow
-        # unbounded. 30 days is a reasonable retention window.
-        backupCount=30
-    )
+    try:
+        handler: logging.Handler = TimedRotatingFileHandler(
+            ACCESS_LOG_PATH,
+            when="midnight",
+            interval=1,
+            # backupCount=0 means "never delete a rotated file" (disables
+            # pruning), not "keep no backups" - that let access.log.* grow
+            # unbounded. 30 days is a reasonable retention window.
+            backupCount=30
+        )
+    except OSError:
+        # A container may mount the source tree read-only or hand ownership
+        # of the log directory to a host logging user. Startup must still
+        # succeed; the caller's console handler remains available for
+        # warnings/errors, while deployments can fix the mount for full JSON
+        # access-log retention.
+        handler = logging.NullHandler()
     handler.setLevel(level)
     handler.setFormatter(formatter)
     return handler

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 import PasswordRulesChecklist from '@/auth/password_rules/PasswordRulesChecklist';
 
@@ -9,12 +8,10 @@ function renderChecklist(
   pristine = false
 ) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <PasswordRulesChecklist
         rules={{ lengthRule: false, upperRule: false, lowerRule: false, numberRule: false, ...rules }}
         pristine={pristine}
       />
-    </ChakraProvider>
   );
 }
 
@@ -22,7 +19,7 @@ function renderChecklist(
 // so assert on the icon next to the label instead of a leading character.
 function expectRuleIcon(labelText: string, iconClass: 'lucide-check' | 'lucide-x') {
   const label = screen.getByText(labelText);
-  const row = label.closest('.chakra-stack');
+  const row = label.parentElement;
   expect(row?.querySelector(`svg.${iconClass}`)).toBeInTheDocument();
 }
 
@@ -58,7 +55,7 @@ describe('PasswordRulesChecklist', () => {
     renderChecklist({}, true);
 
     const label = screen.getByText('At least 8 characters');
-    const row = label.closest('.chakra-stack');
+    const row = label.parentElement;
     // .not.toBeInTheDocument() doesn't type-check here (see the ".not chaining"
     // note in docs/mystic_auth/testing/overview.md); toBeNull() is the equivalent.
     expect(row?.querySelector('svg.lucide-x')).toBeNull();

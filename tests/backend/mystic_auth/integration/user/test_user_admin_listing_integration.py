@@ -2,7 +2,7 @@
 #
 # End-to-end coverage for admin-side GET /users/ listing/filtering/sorting
 # (user_management_query_routes.py), against the real ASGI app, real
-# PostgreSQL, and real Redis (see conftest.py). Split out of
+# PostgreSQL, and real Valkey (see conftest.py). Split out of
 # test_user_admin_management_integration.py once that file passed the
 # repo's file-length guideline; see that file for PUT /users/{email},
 # PATCH /users/{email}/role, and the system-user guards.
@@ -149,7 +149,7 @@ async def test_list_all_users_filters_by_permission(client, created_emails):
     login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
     assert login_resp.status_code == 200
 
-    resp = await client.get("/users/", params={"permission": "users:list_all"})
+    resp = await client.get("/users/", params={"permission": "users:list_all", "permission_source": "policy"})
     assert resp.status_code == 200
     emails = [u["email"] for u in resp.json()]
     assert admin_email in emails
@@ -187,7 +187,9 @@ async def test_list_all_users_filters_by_permission_includes_a_direct_grant_hold
     )
     assert grant_resp.status_code == 200
 
-    resp = await client.get("/users/", params={"permission": "rate_limits:read"})
+    resp = await client.get(
+        "/users/", params={"permission": "rate_limits:read", "permission_source": "direct"}
+    )
     assert resp.status_code == 200
     emails = [u["email"] for u in resp.json()]
     assert direct_grant_email in emails

@@ -12,7 +12,7 @@ from ...logging.logging_config import get_logger
 from ..evaluators.authorization_decision import AuthorizationDecision
 from ..evaluators.policy_evaluator import policy_evaluation_engine
 from ..models.policy_model import Policy
-from ..repositories.audit_log_repository import audit_log_repository
+from ..repositories.authorization_audit_log_repository import authorization_audit_log_repository
 from ..repositories.policy_repository import policy_repository
 from ..repositories.user_permission_repository import user_permission_repository
 from .authorization_audit_logger import build_audit_entry, log_decision
@@ -175,7 +175,7 @@ class AuthorizationService:
             decisions.append(decision)
 
         try:
-            await audit_log_repository.create_entries(audit_entries, db)
+            await authorization_audit_log_repository.create_entries(audit_entries, db)
         except Exception:
             # Same "never break the real decision" guarantee as log_decision:
             # the caller already has every decision above regardless of

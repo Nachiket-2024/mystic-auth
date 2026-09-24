@@ -28,8 +28,8 @@ function getInitialFontSize(): FontSize {
     return "medium";
 }
 
-// Scales the root <html> font-size, which every Chakra recipe's rem-based sizing is
-// relative to, instead of overriding components one by one. One root-level switch
+// Scales the root <html> font-size, which the UI's rem-based sizing is relative
+// to, instead of overriding components one by one. One root-level switch
 // resizes the whole UI, same approach themeStore.ts uses for the `.dark` class.
 function applyFontSize(size: FontSize): void {
     document.documentElement.style.fontSize = FONT_SIZE_PERCENT[size];

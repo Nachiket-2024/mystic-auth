@@ -1,13 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 async function renderLogo() {
   const { default: Logo } = await import('@/layout/app_layout/Logo');
   return render(
-    <ChakraProvider value={defaultSystem}>
       <Logo />
-    </ChakraProvider>
   );
 }
 

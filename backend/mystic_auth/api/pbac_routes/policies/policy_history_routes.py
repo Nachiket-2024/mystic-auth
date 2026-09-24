@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....authorization.conditions.condition_validator import ConditionValidationError, validate_conditions
@@ -41,6 +41,7 @@ def _definition_for_entry(entry) -> dict | None:
 @router.get("/policies/{policy_name}/history", response_model=list[PolicyHistoryEntryRead])
 async def list_policy_history(
     policy_name: str,
+    response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     current_user: dict = READ_DEPENDENCY,
@@ -51,6 +52,7 @@ async def list_policy_history(
     the policy itself has been deleted (history is keyed by policy_name,
     not a live foreign key, see policy_history_model.py).
     """
+    response.headers["X-Total-Count"] = str(await policy_history_repository.count_for_policy(policy_name, db))
     return await policy_history_repository.get_for_policy(policy_name, db, limit=limit, offset=offset)
 
 
@@ -184,7 +186,8 @@ async def rollback_policy(
     # widely-assigned policy to a definition the caller doesn't hold,
     # silently stripping every other holder's access.
     await authorization_service.assert_authorized_to_grant(
-        current_user["email"], policy.actions, policy.resource_type, db, context=context
+        current_user["email"], policy.actions, policy.resource_type, db,
+        context=context, conditions=policy.conditions,
     )
 
     await authorization_service.assert_authorized_to_grant(
@@ -192,7 +195,7 @@ async def rollback_policy(
         (target_definition or {}).get("actions", []),
         (target_definition or {}).get("resource_type", policy.resource_type),
         db,
-        context=context,
+        context=context, conditions=(target_definition or {}).get("conditions"),
     )
 
     # Fetched before update() mutates the policy: rollback always restores

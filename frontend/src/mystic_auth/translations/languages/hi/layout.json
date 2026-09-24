@@ -13,11 +13,12 @@
     },
     "mainNavigation": "मुख्य नेविगेशन",
     "commandPalette": {
-        "placeholder": "पृष्ठ और उपयोगकर्ता खोजें...",
+        "placeholder": "पृष्ठ, नीतियां और उपयोगकर्ता खोजें...",
         "noResults": "कोई मेल खाता परिणाम नहीं मिला",
         "pagesGroup": "पृष्ठ",
         "featuresGroup": "सुविधाएं",
         "matchesGroup": "मेल खाता टेक्स्ट",
+        "policiesGroup": "नीतियां",
         "usersGroup": "उपयोगकर्ता",
         "trigger": "खोजें...",
         "triggerLabel": "खोज खोलें (Ctrl+K)"

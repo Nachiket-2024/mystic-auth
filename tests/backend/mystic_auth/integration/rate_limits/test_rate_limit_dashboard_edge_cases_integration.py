@@ -17,7 +17,7 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
 )
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 from ..authorization.authorization_test_accounts import (
     cleanup_test_policies,
@@ -65,11 +65,11 @@ async def test_reset_accepts_an_at_sign_in_an_email_scoped_identifier(client, cr
     endpoint = f"test_dashboard_email_reset_{uuid.uuid4().hex}"
     key = f"{endpoint}:email:victim+tag@example.com"
     await rate_limiter_service.record_request(key)
-    assert await redis_client.get(key) is not None
+    assert await valkey_client.get(key) is not None
 
     resp = await client.delete(f"/rate-limits/{key}")
     assert resp.status_code == 204
-    assert await redis_client.get(key) is None
+    assert await valkey_client.get(key) is None
 
 
 @pytest.mark.asyncio
@@ -85,6 +85,6 @@ async def test_concurrent_resets_of_the_same_key_both_succeed_idempotently(clien
             client.delete(f"/rate-limits/{key}"),
         )
         assert [r.status_code for r in results] == [204, 204]
-        assert await redis_client.get(key) is None
+        assert await valkey_client.get(key) is None
     finally:
-        await redis_client.delete(key)
+        await valkey_client.delete(key)

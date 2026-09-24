@@ -16,7 +16,7 @@ class PolicyHistory(Base):
     to log anything itself.
 
     No foreign key to `policies` (same rationale as AuthorizationAuditLog,
-    see audit_log_model.py): a referenced policy id may since be reused or
+    see authorization_audit_log_model.py): a referenced policy id may since be reused or
     deleted, and history must reflect what existed at the time, not what
     that id means now. `policy_name` is the durable lookup key, valid even
     after the policy row is gone.

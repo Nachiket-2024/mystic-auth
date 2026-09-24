@@ -1,6 +1,6 @@
 # Version-based revocation and issuer/audience claim enforcement for
 # jwt_service. Revocation is entirely version-based: a token is valid
-# only if its embedded account_ver and chain_ver still match Redis's
+# only if its embedded account_ver and chain_ver still match Valkey's
 # current values. bump_account_version/bump_chain_version are what an
 # actual revoke calls (see refresh_token_service.py); these tests cover
 # the read/write/compare primitives in isolation, plus the JWT_ISSUER/
@@ -24,33 +24,33 @@ def _decode(token: str) -> dict:
 
 
 def _mock_no_versions(mocker):
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
 
 
 @pytest.mark.asyncio
 async def test_get_account_version_defaults_to_zero_when_never_bumped(mocker):
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
 
     assert await jwt_service.get_account_version("user@example.com") == 0
 
 
 @pytest.mark.asyncio
 async def test_get_account_version_reads_the_stored_integer(mocker):
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value="7")
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="7")
 
     assert await jwt_service.get_account_version("user@example.com") == 7
 
 
 @pytest.mark.asyncio
 async def test_get_chain_version_defaults_to_zero_when_never_bumped(mocker):
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
 
     assert await jwt_service.get_chain_version("user@example.com", "chain-1") == 0
 
 
 @pytest.mark.asyncio
 async def test_bump_account_version_increments_the_key(mocker):
-    incr_mock = mocker.patch(f"{MODULE}.redis_client.incr", new_callable=AsyncMock)
+    incr_mock = mocker.patch(f"{MODULE}.valkey_client.incr", new_callable=AsyncMock)
 
     await jwt_service.bump_account_version("user@example.com")
 
@@ -59,8 +59,8 @@ async def test_bump_account_version_increments_the_key(mocker):
 
 @pytest.mark.asyncio
 async def test_bump_chain_version_increments_and_sets_a_ttl(mocker):
-    incr_mock = mocker.patch(f"{MODULE}.redis_client.incr", new_callable=AsyncMock)
-    expire_mock = mocker.patch(f"{MODULE}.redis_client.expire", new_callable=AsyncMock)
+    incr_mock = mocker.patch(f"{MODULE}.valkey_client.incr", new_callable=AsyncMock)
+    expire_mock = mocker.patch(f"{MODULE}.valkey_client.expire", new_callable=AsyncMock)
 
     await jwt_service.bump_chain_version("user@example.com", "chain-1")
 
@@ -78,11 +78,11 @@ async def test_bump_chain_version_increments_and_sets_a_ttl(mocker):
 async def test_verify_token_rejects_a_token_whose_account_version_is_stale(mocker):
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
     # Minted with account_ver=0 (nothing bumped yet)...
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
     token = await jwt_service.create_access_token(email="user@example.com", chain_id="chain-1")
 
     # ...then the account is revoked (bumped to 1) before the token is used.
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value="1")
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="1")
 
     assert await jwt_service.verify_token(token, expected_type="access") is None
 
@@ -94,7 +94,7 @@ async def test_verify_token_accepts_a_token_minted_after_the_account_bump(mocker
     on the account."""
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
     # Minted after the account was already bumped to version 1.
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value="1")
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="1")
 
     token = await jwt_service.create_access_token(email="user@example.com", chain_id="chain-1")
     payload = await jwt_service.verify_token(token, expected_type="access")
@@ -106,12 +106,12 @@ async def test_verify_token_accepts_a_token_minted_after_the_account_bump(mocker
 @pytest.mark.asyncio
 async def test_verify_token_rejects_a_token_whose_chain_version_is_stale(mocker):
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
     token = await jwt_service.create_refresh_token(email="user@example.com", chain_id="chain-1")
 
     # Only this one chain gets revoked: a different, unrelated chain on
     # the same account would read a version of 0 and stay unaffected.
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value="1")
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="1")
 
     assert await jwt_service.verify_token(token, expected_type="refresh") is None
 

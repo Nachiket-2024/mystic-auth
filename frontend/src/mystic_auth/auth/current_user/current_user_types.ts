@@ -13,7 +13,7 @@ export interface CurrentUserProfile {
     has_password: boolean;
     created_at: string;
     /** Count of this user's currently-live refresh tokens (devices/browsers with an
-     *  active session), from the Redis-backed registry. */
+     *  active session), from the Valkey-backed registry. */
     active_sessions: number;
     /** Per-user brand color override (#rrggbb). null = using the app
      *  default scale (app/theme.ts). See appearanceStore.ts. */

@@ -138,9 +138,9 @@ for pair in "${PAIRS[@]}"; do
 
   echo "created: $dst"
 
-  # REDIS_PASSWORD is deliberately left blank: it's optional hardening, and
-  # setting it also requires manually rewriting REDIS_URL to embed it (see
-  # docs/mystic_auth/security/hardening-infra.md#redis-authentication) -
+  # VALKEY_PASSWORD is deliberately left blank: it's optional hardening, and
+  # setting it also requires manually rewriting VALKEY_URL to embed it (see
+  # docs/mystic_auth/security/hardening-infra.md#valkey-authentication) -
   # not something safe to script blindly.
 
   placeholders="$(grep -oE '<your[a-z_-]*>|<your-domain>' "$dst" | sort -u || true)"

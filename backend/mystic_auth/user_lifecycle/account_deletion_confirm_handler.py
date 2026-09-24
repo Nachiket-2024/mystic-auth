@@ -46,34 +46,32 @@ class AccountDeletionConfirmHandler:
             # Same reasoning as password_reset_confirm_handler.
             email_lock_key = f"account_delete_confirm_lock:email:{email}"
 
-            success = await self.account_deletion_service.confirm_deletion(token, db, request=request)
-
-            allowed = await self.login_protection_service.check_and_record_action(
-                email_lock_key, success=success
-            )
-
-            if not allowed:
+            if not await self.login_protection_service.begin_protected_action(email_lock_key):
                 return JSONResponse(
                     {"error": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
                     status_code=429,
                 )
 
-            if not success:
-                return JSONResponse(
-                    {"error": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_DELETE_TOKEN"},
-                    status_code=400,
-                )
+            try:
+                success = await self.account_deletion_service.confirm_deletion(token, db, request=request)
+                await self.login_protection_service.finish_protected_action(email_lock_key, success=success)
 
-            resp = JSONResponse({"message": "Your account has been deleted"}, status_code=200)
+                if not success:
+                    if await self.login_protection_service.is_locked(email_lock_key):
+                        return JSONResponse(
+                            {"error": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
+                            status_code=429,
+                        )
+                    return JSONResponse(
+                        {"error": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_DELETE_TOKEN"},
+                        status_code=400,
+                    )
 
-            # Clears this browser's auth cookies too, in case the link was
-            # opened in the same session that requested the deletion (it
-            # doesn't have to be; the token itself is proof of intent, same
-            # trust model as password-reset-confirm). Harmless no-op
-            # otherwise. Same as logout_handler.py's cookie clearing.
-            token_cookie_handler.clear_tokens_from_cookies(resp)
-
-            return resp
+                resp = JSONResponse({"message": "Your account has been deleted"}, status_code=200)
+                token_cookie_handler.clear_tokens_from_cookies(resp)
+                return resp
+            finally:
+                await self.login_protection_service.release_protected_action(email_lock_key)
 
         except Exception:
             logger.error("Error during account deletion confirm logic:\n%s", traceback.format_exc())

@@ -20,11 +20,11 @@ class _FakeUser:
 # ---------------------------- send_reset_email ----------------------------
 
 @pytest.mark.asyncio
-async def test_send_reset_email_persists_single_use_token_in_redis(mocker):
+async def test_send_reset_email_persists_single_use_token_in_valkey(mocker):
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.create_reset_token", return_value="reset-token-abc")
     mocker.patch(f"{MODULE}.send_email_task.defer_async", new_callable=AsyncMock)
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
 
     result = await password_reset_service.send_reset_email("user@example.com", db=None)
 
@@ -38,7 +38,7 @@ async def test_send_reset_email_persists_single_use_token_in_redis(mocker):
 @pytest.mark.asyncio
 async def test_send_reset_email_returns_false_for_unknown_user(mocker):
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=None)
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
 
     result = await password_reset_service.send_reset_email("nobody@example.com", db=None)
 
@@ -48,12 +48,12 @@ async def test_send_reset_email_returns_false_for_unknown_user(mocker):
 
 # ---------------------------- reset_password ----------------------------
 #
-# reset_password consumes the Redis single-use entry atomically via GETDEL
+# reset_password consumes the Valkey single-use entry atomically via GETDEL
 # (rather than a separate GET followed by a later DELETE) to close a
 # TOCTOU race where two concurrent requests with the same token could
 # both pass the check before either consumed it. A request that wins the
 # GETDEL but then fails a recoverable validation step restores the entry
-# via `redis_client.set` so the user can retry with the same link.
+# via `valkey_client.set` so the user can retry with the same link.
 
 FUTURE_EXP = 9999999999.0  # far-future JWT "exp" claim for restore-TTL math
 
@@ -64,8 +64,8 @@ async def test_reset_password_succeeds_and_consumes_token(mocker):
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": FUTURE_EXP},
     )
-    getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=True)
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.verify_password", return_value=False)
@@ -88,9 +88,9 @@ async def test_reset_password_succeeds_and_consumes_token(mocker):
 
 
 @pytest.mark.asyncio
-async def test_reset_password_succeeds_but_flags_unrevoked_sessions_when_redis_is_unreachable(mocker):
+async def test_reset_password_succeeds_but_flags_unrevoked_sessions_when_valkey_is_unreachable(mocker):
     # Regression guard: the password write itself (Postgres, independent
-    # of Redis) must still succeed even if the account-version bump can't
+    # of Valkey) must still succeed even if the account-version bump can't
     # be confirmed, not get reported back as "invalid token or password"
     # the way a swallowed TokenVersionUnavailableError used to make it
     # look.
@@ -98,8 +98,8 @@ async def test_reset_password_succeeds_but_flags_unrevoked_sessions_when_redis_i
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": FUTURE_EXP},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=True)
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.verify_password", return_value=False)
@@ -108,7 +108,7 @@ async def test_reset_password_succeeds_but_flags_unrevoked_sessions_when_redis_i
     mocker.patch(
         f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user",
         new_callable=AsyncMock,
-        side_effect=TokenVersionUnavailableError("Redis unreachable"),
+        side_effect=TokenVersionUnavailableError("Valkey unreachable"),
     )
 
     success, sessions_revoked = await password_reset_service.reset_password("valid-token", "NewPass123!", db=None)
@@ -125,7 +125,7 @@ async def test_reset_password_rejects_unknown_or_already_used_token(mocker):
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": FUTURE_EXP},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value=None)
     update_mock = mocker.patch(f"{MODULE}.user_crud.update_by_email")
 
     success, sessions_revoked = await password_reset_service.reset_password("replayed-token", "NewPass123!", db=None)
@@ -138,15 +138,15 @@ async def test_reset_password_rejects_unknown_or_already_used_token(mocker):
 
 
 @pytest.mark.asyncio
-async def test_reset_password_rejects_invalid_jwt_before_touching_redis(mocker):
+async def test_reset_password_rejects_invalid_jwt_before_touching_valkey(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value=None)
-    redis_getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock)
+    valkey_getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock)
 
     success, sessions_revoked = await password_reset_service.reset_password("garbage-token", "NewPass123!", db=None)
 
     assert success is False
     assert sessions_revoked is None
-    redis_getdel_mock.assert_not_called()
+    valkey_getdel_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -159,7 +159,7 @@ async def test_reset_password_concurrent_replay_only_lets_one_request_through(mo
     )
     # First caller wins the atomic fetch-and-delete; a second, concurrent
     # caller racing it finds the key already gone.
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, side_effect=["1", None])
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, side_effect=["1", None])
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=True)
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.verify_password", return_value=False)
@@ -181,8 +181,8 @@ async def test_reset_password_weak_password_restores_token_for_retry(mocker):
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": FUTURE_EXP},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=False)
 
     success, sessions_revoked = await password_reset_service.reset_password("valid-token", "weak", db=None)
@@ -203,8 +203,8 @@ async def test_reset_password_same_as_old_password_restores_token_for_retry(mock
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": FUTURE_EXP},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=True)
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.verify_password", return_value=True)
@@ -222,8 +222,8 @@ async def test_reset_password_db_failure_restores_token_for_retry(mocker):
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": FUTURE_EXP},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=True)
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.password_service.verify_password", return_value=False)
@@ -240,7 +240,7 @@ async def test_reset_password_db_failure_restores_token_for_retry(mocker):
 @pytest.mark.asyncio
 async def test_reset_password_restore_ttl_is_capped_by_remaining_jwt_lifetime(mocker):
     # The restored key's TTL must never outlive the token's own JWT expiry,
-    # otherwise a persistent series of failed retries could keep the Redis
+    # otherwise a persistent series of failed retries could keep the Valkey
     # entry alive indefinitely regardless of the token's real expiration.
     import time
 
@@ -249,8 +249,8 @@ async def test_reset_password_restore_ttl_is_capped_by_remaining_jwt_lifetime(mo
         f"{MODULE}.password_service.verify_reset_token",
         return_value={"email": "user@example.com", "exp": near_future_exp},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.password_service.validate_password_strength", return_value=False)
 
     await password_reset_service.reset_password("valid-token", "weak", db=None)

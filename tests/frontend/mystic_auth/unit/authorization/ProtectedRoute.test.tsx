@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter, Routes, Route } from 'react-router';
 
 import { useAuthStore } from '@/store/authStore';
@@ -32,7 +31,6 @@ function renderProtectedRoute(
   initialPath = '/protected'
 ) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route
@@ -48,7 +46,6 @@ function renderProtectedRoute(
           <Route path="/dashboard" element={<div>Dashboard Page</div>} />
         </Routes>
       </MemoryRouter>
-    </ChakraProvider>
   );
 }
 

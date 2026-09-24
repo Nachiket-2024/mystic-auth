@@ -15,7 +15,7 @@ from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
 )
 from backend.mystic_auth.core.settings import settings
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 from .user_test_accounts import (
     assign_policies,
@@ -110,7 +110,7 @@ async def test_export_neutralizes_csv_formula_injection_in_name(client, created_
     assert signup_resp.status_code == 200
     created_emails.append(target_email)
     token = await account_verification_service.create_verification_token(target_email)
-    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
     await assign_policies(target_email, [SELF_SERVICE_POLICY_NAME])

@@ -12,13 +12,15 @@ test.describe("password reset browser behavior", () => {
     });
 
     await page.goto("/password-reset-request");
-    await expect(page.getByRole("heading", { name: /forgot password/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /forgot your password/i })).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.getByRole("textbox", { name: /^email$/i }).fill("reset-browser@example.com");
-    await page.getByRole("button", { name: /request password reset/i }).click();
+    await page.getByRole("button", { name: /send reset link/i }).click();
 
+    // F2: success swaps the form for a result panel with the server's own
+    // message and a disabled "Didn't get it? Resend in Ns" cooldown button.
     await expect(page.getByText(/password reset link sent/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /try again in/i })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /resend in/i })).toBeDisabled();
     expect(resetRequests).toBe(1);
   });
 
@@ -30,7 +32,8 @@ test.describe("password reset browser behavior", () => {
       return fulfillUnauthenticatedAuthJson(route, { message: "Password reset.", sessions_revoked: true });
     });
 
-    await page.goto("/reset-password?token=reset-token");
+    await page.goto("/reset-password#token=reset-token");
+    await expect(page).toHaveURL(/\/reset-password$/);
     await page.getByRole("textbox", { name: /^new password$/i }).fill("ValidPass123");
     await page.getByRole("textbox", { name: /^confirm new password$/i }).fill("Different123");
     await page.getByRole("button", { name: /^reset password$/i }).click();
@@ -39,7 +42,10 @@ test.describe("password reset browser behavior", () => {
 
     await page.getByRole("textbox", { name: /^confirm new password$/i }).fill("ValidPass123");
     await page.getByRole("button", { name: /^reset password$/i }).click();
-    await expect(page.getByText(/^password reset\.$/i)).toBeVisible();
+    // R2: success swaps the form for a result panel with fixed copy, not the
+    // raw server message directly.
+    await expect(page.getByText("Password updated")).toBeVisible();
+    await expect(page.getByText("You've been logged out of other devices.")).toBeVisible();
     expect(confirmRequests).toBe(1);
   });
 
@@ -50,7 +56,7 @@ test.describe("password reset browser behavior", () => {
     });
 
     await page.goto("/reset-password");
-    await page.getByRole("textbox", { name: /reset token/i }).fill("manual-token");
+    await page.getByRole("textbox", { name: /reset code/i }).fill("manual-token");
     await page.getByRole("textbox", { name: /^new password$/i }).fill("ValidPass123");
     await page.getByRole("textbox", { name: /^confirm new password$/i }).fill("ValidPass123");
     await page.getByRole("button", { name: /^reset password$/i }).click();

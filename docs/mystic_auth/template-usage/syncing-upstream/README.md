@@ -14,6 +14,41 @@ Prefer to hand this whole process to an AI coding agent (Claude Code, Codex, or 
 
 ## Step by step
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["Step 1: git status clean\n(commit or stash first)"]
+    S2["Step 2: run sync-upstream.sh"]
+    S3{"Step 3: incoming commits\nshown - sync now?"}
+    Wait["Nothing changed,\nrun again later"]
+    S4["Step 4: script applies\nupstream's changes"]
+    Outcome{"Outcome"}
+    Silent["Silent partial apply\n(rare)"]
+    Conflict["Merge conflict"]
+    Heads["Multiple alembic heads\n(rare)"]
+    Clean["Everything applied cleanly"]
+    S5["Step 5: git commit output,\nsync confirmed"]
+    S7["Step 7: rebuild and test"]
+
+    S1 --> S2 --> S3
+    S3 -- "N" --> Wait
+    S3 -- "y" --> S4 --> Outcome
+    Outcome -- "1" --> Silent
+    Outcome -- "2" --> Conflict
+    Outcome -- "3" --> Heads
+    Outcome -- "4, none of the above" --> Clean --> S5 --> S7
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class S3,Outcome decision
+    class Silent,Conflict,Heads caution
+    class S7 terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+Silent partial apply, conflict, and multiple alembic heads are safety nets, not expected steps - see [Troubleshooting](troubleshooting.md) for each. Most syncs go straight down the right-hand "Clean" path.
+
 ---
 
 ### Step 1: Check that you don't have unsaved work

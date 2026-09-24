@@ -1,10 +1,10 @@
 # tests/backend/mystic_auth/integration/auth/test_oauth_integration.py
 #
 # OAuth2 account-linking / CSRF flows against the real ASGI app, real
-# PostgreSQL, and real Redis (see conftest.py). The only mocked pieces are
+# PostgreSQL, and real Valkey (see conftest.py). The only mocked pieces are
 # the two outbound calls to Google itself (token exchange, userinfo); the
 # external provider is mocked at the HTTP boundary. Everything else,
-# including state generation and single-use consumption in Redis, account
+# including state generation and single-use consumption in Valkey, account
 # lookup/creation/linking in Postgres, and JWT issuance and cookie
 # handling, is real.
 import uuid
@@ -148,10 +148,10 @@ async def test_oauth2_login_does_not_touch_password_of_already_verified_account(
     from backend.mystic_auth.auth.verify_account.account_verification_service import (
         account_verification_service,
     )
-    from backend.mystic_auth.redis.client import redis_client
+    from backend.mystic_auth.valkey.client import valkey_client
 
     token = await account_verification_service.create_verification_token(email)
-    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 

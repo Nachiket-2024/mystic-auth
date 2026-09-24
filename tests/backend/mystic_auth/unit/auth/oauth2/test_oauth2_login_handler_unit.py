@@ -37,7 +37,7 @@ def _cookie_value(response, name):
 @pytest.mark.asyncio
 async def test_generate_and_store_state_persists_verifier_keyed_by_state(mocker):
     set_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_service.redis_client.set",
+        "backend.mystic_auth.auth.oauth2.oauth2_service.valkey_client.set",
         new_callable=AsyncMock,
     )
 
@@ -65,7 +65,7 @@ async def test_consume_state_rejects_empty_state():
 @pytest.mark.asyncio
 async def test_consume_state_returns_verifier_once_then_rejected_on_replay(mocker):
     getdel_mock = mocker.patch(
-        "backend.mystic_auth.auth.oauth2.oauth2_service.redis_client.getdel",
+        "backend.mystic_auth.auth.oauth2.oauth2_service.valkey_client.getdel",
         new_callable=AsyncMock,
         side_effect=["stored-code-verifier", None],
     )
@@ -82,7 +82,7 @@ async def test_generate_and_store_state_pkce_challenge_is_correct_sha256_derivat
     # (e.g. storing the verifier itself as the challenge) would let a
     # network observer complete the token exchange without ever needing
     # the verifier, defeating PKCE entirely.
-    set_mock = mocker.patch("backend.mystic_auth.auth.oauth2.oauth2_service.redis_client.set", new_callable=AsyncMock)
+    set_mock = mocker.patch("backend.mystic_auth.auth.oauth2.oauth2_service.valkey_client.set", new_callable=AsyncMock)
 
     _, code_challenge = await oauth2_service.generate_and_store_state()
 
@@ -160,7 +160,8 @@ async def test_exchange_code_for_tokens_fails_closed_on_pkce_mismatch(mocker):
 # ---------------------------- handle_oauth2_login_initiate ----------------------------
 
 @pytest.mark.asyncio
-async def test_oauth2_login_initiate_embeds_state_and_pkce_challenge_in_url_and_cookie(mocker):
+async def test_oauth2_login_initiate_embeds_state_and_pkce_challenge_in_url_and_cookie(mocker, monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.generate_and_store_state",
         return_value=("test-state-value", "test-code-challenge"),
@@ -186,7 +187,8 @@ async def test_oauth2_login_initiate_embeds_state_and_pkce_challenge_in_url_and_
 # redirect to the frontend login page.
 
 @pytest.mark.asyncio
-async def test_callback_redirects_cleanly_on_provider_error_without_touching_state(mocker):
+async def test_callback_redirects_cleanly_on_provider_error_without_touching_state(mocker, monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
     consume_mock = mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
     )

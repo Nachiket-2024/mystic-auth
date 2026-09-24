@@ -26,9 +26,9 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
     gone from every route's perspective either way (is_active gates every
     login/query path), so there's no recoverable failure to report back to
     the caller here, unlike password reset/change where a retry is still
-    meaningful. If the bump can't be confirmed (Redis unreachable), that's
+    meaningful. If the bump can't be confirmed (Valkey unreachable), that's
     logged at critical (existing sessions may keep minting fresh tokens
-    until they naturally expire, since refresh_tokens() is Redis/JWT-only
+    until they naturally expire, since refresh_tokens() is Valkey/JWT-only
     and never re-checks is_active) and recorded honestly in the audit trail
     instead of letting TokenVersionUnavailableError propagate and turn an
     already-successful deletion into a reported error.
@@ -38,7 +38,7 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
 
     # Same reasoning as delete_any_user/purge_user_account: is_active=False
     # alone doesn't stop an already-issued refresh token from minting fresh
-    # access tokens until it expires, since refresh_tokens() is Redis/
+    # access tokens until it expires, since refresh_tokens() is Valkey/
     # JWT-only and never re-checks the database.
     try:
         revoked_count = await refresh_token_service.revoke_all_tokens_for_user(email, db)
@@ -48,7 +48,7 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
         sessions_revoked_confirmed = False
         logger.critical(
             "Account %s was deleted, but session revocation could not be confirmed "
-            "(Redis unavailable): existing sessions may remain valid until Redis recovers",
+            "(Valkey unavailable): existing sessions may remain valid until Valkey recovers",
             email,
         )
 

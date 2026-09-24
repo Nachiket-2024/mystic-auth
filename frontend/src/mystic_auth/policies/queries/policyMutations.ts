@@ -7,6 +7,7 @@ import {
     assignPolicyApi,
     revokePolicyApi,
     revokePolicyActionApi,
+    rollbackPolicyApi,
     type PolicyCreatePayload,
     type PolicyUpdatePayload,
     type PolicyRead,
@@ -17,7 +18,7 @@ import { useAuthStore } from "../../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "../../auth/current_user/useCurrentUserQuery";
 import { markSelfPermissionMutation } from "../../auth/session_lifecycle/selfPermissionMutationGuard";
 import { POLICIES_QUERY_KEY, userPoliciesQueryKey, MY_POLICIES_QUERY_KEY } from "./policyQueries";
-import { userPermissionsQueryKey, MY_PERMISSIONS_QUERY_KEY } from "./permissionQueries";
+import { userPermissionsQueryKey, MY_PERMISSIONS_QUERY_KEY, PERMISSION_CATALOG_USAGE_QUERY_KEY } from "./permissionQueries";
 
 /**
  * useCreatePolicyMutation / useUpdatePolicyMutation / useDeletePolicyMutation
@@ -35,6 +36,7 @@ export function useCreatePolicyMutation() {
             }
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: POLICIES_QUERY_KEY });
         },
     });
@@ -50,6 +52,7 @@ export function useUpdatePolicyMutation() {
             }
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: POLICIES_QUERY_KEY });
         },
     });
@@ -65,7 +68,25 @@ export function useDeletePolicyMutation() {
             }
         },
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: POLICIES_QUERY_KEY });
+        },
+    });
+}
+
+export function useRollbackPolicyMutation() {
+    return useMutation<PolicyRead, Error, { policyName: string; historyId: number; reason?: string }>({
+        mutationFn: async ({ policyName, historyId, reason }) => {
+            try {
+                return (await rollbackPolicyApi(policyName, historyId, reason)).data;
+            } catch (error) {
+                throw new Error(extractApiErrorMessage(error, "Failed to roll back policy"), { cause: error });
+            }
+        },
+        onSuccess: (_data, { policyName }) => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
+            queryClient.invalidateQueries({ queryKey: POLICIES_QUERY_KEY });
+            queryClient.invalidateQueries({ queryKey: ["policies", policyName, "history"] });
         },
     });
 }
@@ -86,6 +107,7 @@ export function useAssignPolicyMutation() {
             }
         },
         onSuccess: (_data, { userEmail }) => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(userEmail) });
             queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
             // If the caller changed their OWN policies, the Zustand
@@ -115,6 +137,7 @@ export function useRevokePolicyMutation() {
             }
         },
         onSuccess: (_data, { userEmail }) => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(userEmail) });
             queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
             // See useAssignPolicyMutation's onSuccess above for why.
@@ -144,6 +167,7 @@ export function useRevokePolicyActionMutation() {
             }
         },
         onSuccess: (_data, { userEmail }) => {
+            queryClient.invalidateQueries({ queryKey: PERMISSION_CATALOG_USAGE_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: userPoliciesQueryKey(userEmail) });
             queryClient.invalidateQueries({ queryKey: MY_POLICIES_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: userPermissionsQueryKey(userEmail) });

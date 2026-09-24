@@ -1,15 +1,15 @@
 import React, { useState } from "react";
-import { Button, Field, Heading, Stack, Text } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
-import Card from "../ui/Card";
-import FormAlert from "../ui/FormAlert";
-import PasswordInput from "../ui/PasswordInput";
-import ConfirmDialog from "../ui/ConfirmDialog";
+import Card from "../ui/cards/Card";
+import SectionHeading from "../ui/navigation/SectionHeading";
+import FormAlert from "../ui/feedback/FormAlert";
+import PasswordInput from "../ui/inputs/PasswordInput";
+import ConfirmDialog from "../ui/feedback/ConfirmDialog";
 import { toaster } from "../ui/toaster/toasterInstance";
-import { DESTRUCTIVE_SOLID_HOVER_PROPS } from "../ui/styles/buttonStyles";
-import { SEARCH_INPUT_PROPS } from "../ui/styles/inputStyles";
+import { Button } from "../ui/buttons/Button";
+import { Label } from "../ui/shadcn/label";
 import { useDeleteMyAccountMutation } from "./useDeleteMyAccountMutation";
 
 interface DeleteAccountCardProps {
@@ -42,7 +42,7 @@ const DeleteAccountCard: React.FC<DeleteAccountCardProps> = ({ hasPassword }) =>
 
     const deleteMutation = useDeleteMyAccountMutation();
 
-    const handleRequestDelete = (e: React.SubmitEvent<HTMLDivElement>) => {
+    const handleRequestDelete = (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         setFormError("");
 
@@ -75,30 +75,27 @@ const DeleteAccountCard: React.FC<DeleteAccountCardProps> = ({ hasPassword }) =>
     };
 
     return (
-        <Card
-            p={5}
-            flex="1"
-            flexBasis="80"
-            maxW="lg"
-            bg="red.50"
-            borderColor="red.300"
-            _dark={{ bg: "red.950", borderColor: "red.700" }}
-        >
-            <Heading as="h2" size="lg" mb={2} textStyle="sectionHeader" color="fg.error">
+        // Softer red tint than a solid bg-red-50/dark:bg-red-950 - enough to
+        // mark this card as destructive at a glance, but not so saturated
+        // that the password field sitting inside it reads as an error state
+        // just from the surrounding color (see git history/review for why).
+        <Card className="max-w-2xl flex-1 basis-80 border-red-200 border-s-4 border-s-red-500 bg-red-50/60 p-5 shadow-none dark:border-red-800/60 dark:border-s-red-400 dark:bg-red-950/40">
+            <SectionHeading className="mb-2 text-fg-error">
                 {t("deleteAccount.title")}
-            </Heading>
-            <Text color="fg.muted" fontSize="md" mb={4}>
+            </SectionHeading>
+            <p className="text-fg-muted text-sm mb-4">
                 {hasPassword ? t("deleteAccount.description") : t("deleteAccount.oauthOnlyDescription")}
-            </Text>
+            </p>
 
             {confirmationSent ? (
                 <FormAlert size="lg" status="success">{t("deleteAccount.confirmationEmailSent")}</FormAlert>
             ) : (
-                <Stack as="form" onSubmit={handleRequestDelete} gap={4}>
+                <form onSubmit={handleRequestDelete} className="flex flex-col gap-4">
                     {hasPassword && (
-                        <Field.Root>
-                            <Field.Label fontSize="md">{t("deleteAccount.currentPasswordLabel")}</Field.Label>
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="delete-account-current-password">{t("deleteAccount.currentPasswordLabel")}</Label>
                             <PasswordInput
+                                id="delete-account-current-password"
                                 value={currentPassword}
                                 onChange={(e) => setCurrentPassword(e.target.value)}
                                 placeholder={t("deleteAccount.currentPasswordPlaceholder")}
@@ -107,9 +104,8 @@ const DeleteAccountCard: React.FC<DeleteAccountCardProps> = ({ hasPassword }) =>
                                     formError ? "delete-account-local-error" : deleteMutation.isError ? "delete-account-mutation-error" : undefined
                                 }
                                 size="lg"
-                                {...SEARCH_INPUT_PROPS}
                             />
-                        </Field.Root>
+                        </div>
                     )}
 
                     {formError && <FormAlert size="lg" status="error" id="delete-account-local-error">{formError}</FormAlert>}
@@ -119,13 +115,12 @@ const DeleteAccountCard: React.FC<DeleteAccountCardProps> = ({ hasPassword }) =>
 
                     <Button
                         type="submit"
-                        colorPalette="red"
-                        alignSelf="flex-start"
-                        {...DESTRUCTIVE_SOLID_HOVER_PROPS}
+                        variant="destructive"
+                        className="self-start"
                     >
                         {t("deleteAccount.deleteButton")}
                     </Button>
-                </Stack>
+                </form>
             )}
 
             <ConfirmDialog

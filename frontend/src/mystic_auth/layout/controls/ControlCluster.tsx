@@ -1,22 +1,25 @@
 import React from "react";
-import { HStack } from "@chakra-ui/react";
 
 import FontSizeControl from "./FontSizeControl";
 import LanguageToggle from "./LanguageToggle";
 import ThemeToggle from "./ThemeToggle";
 
 /**
- * Font size / language / theme toggles - three separately-boxed, brand-
- * tinted buttons (see BRAND_ICON_BUTTON_PROPS in ui/styles/buttonStyles.ts),
- * shared by Navbar, AuthLayout and LandingPage. A shared-border segmented
- * version was tried and reverted back to this standalone layout.
+ * Font size / language / theme toggles - three separately-boxed, neutral
+ * buttons (Button's "icon"/"icon-sm" variant, matching the command-palette
+ * search trigger's look), shared by Navbar, AuthLayout and LandingPage. A
+ * shared-border segmented version was tried and reverted back to this
+ * standalone layout.
  */
 const ControlCluster: React.FC = () => (
-    <HStack gap={3}>
+    <div
+        aria-label="Display preferences"
+        className="flex items-center gap-1 rounded-xl border border-border-card/80 bg-bg-surface/85 p-1 shadow-card backdrop-blur-md"
+    >
         <FontSizeControl />
         <LanguageToggle />
         <ThemeToggle />
-    </HStack>
+    </div>
 );
 
 export default ControlCluster;

@@ -8,15 +8,50 @@
 
 Prefer to hand this to an AI coding agent (Claude Code, Codex, or similar) instead of following the steps below yourself? See [`agent-prompts/new-project-setup.md`](../../../agent-prompts/mystic_auth/new-project-setup.md) at the repo root for a ready-to-paste prompt.
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Template["Use this template on GitHub\nclone your new repo"]
+    Script["quickstart.sh\n(.ps1 / .cmd)"]
+    EnvExists{"env/mystic_auth/.env\nalready exists?"}
+    SetupEnv["setup-env.sh:\ngenerate every env file,\na distinct secret per password field"]
+    DevUp["dev-up.sh:\nbring up backend, frontend,\nPostgres, Valkey, Procrastinate, Bugsink\nwait for every service healthy"]
+    Superuser["Offer to create\nthe system superuser"]
+    Tail["Tail backend/frontend/\nprocrastinate_worker logs"]
+    Login["Working login at\nlocalhost:5173"]
+
+    Template --> Script --> EnvExists
+    EnvExists -- "no" --> SetupEnv --> DevUp
+    EnvExists -- "yes, skip" --> DevUp
+    DevUp --> Superuser --> Tail --> Login
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class EnvExists decision
+    class Login terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+Every step above is safe to re-run: already-done work is skipped or made a no-op, not repeated.
+
 1. Click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)**, then clone *your* new repo.
 2. Run `./scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1` for PowerShell, `.cmd` for Command Prompt).
 
    This is the fastest path from a fresh clone to a working login: it runs `setup-env` for you if `env/mystic_auth/.env` doesn't exist yet, brings the dev stack up and waits for every service to become healthy, offers to create the system superuser right there, then tails `backend`/`frontend`/`procrastinate_worker` logs the same way `dev-up` normally does. Safe to re-run any time - each step is skipped or made a no-op once it's already done.
 
+   The first `dev-up` can take several minutes. Docker may need to download the
+   `postgres:15`, `valkey/valkey:9.1.2-alpine`, and `bugsink/bugsink:2` images, build the local
+   backend/worker/frontend images, initialize fresh named volumes, and run the
+   migrations and Bugsink seed job. The duration depends on Docker Hub and
+   Docker Desktop network speed. Subsequent starts normally reuse the pulled
+   images and volumes and are much faster. A slow pull is not itself a service
+   failure; look for an explicit registry error, a container in `Exited` or
+   `Restarting` state, or the helper's timeout message.
+
 Prefer to see and run each step yourself instead of one script doing all of it? That's exactly what `quickstart` runs under the hood:
 
 - **Env setup**: `./scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Creates `env/mystic_auth/.env` (and every other `env/mystic_auth/.env*` file, plus `frontend/.env`) from its `.example`, asks once for an app name and brand color and applies both everywhere, and generates a distinct random secret for every password field, so this just works for local dev as-is. It skips any file that already exists, so it's safe to re-run. Only two things need real values before those specific features work: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ([OAuth setup](#oauth-setup-google)) and `FROM_EMAIL`/`GMAIL_APP_PASSWORD` ([Email setup](#email-setup)). Everything else runs fine without them. Prefer to do it by hand instead? `cp env/mystic_auth/.env.example env/mystic_auth/.env` still works exactly like it always has.
-- **Bring the stack up**: `./scripts/mystic_auth/docker/dev/dev-up.sh` (`.ps1`/`.cmd`). Brings up backend, frontend, Postgres, Redis, Procrastinate, and Bugsink, migrations included, then settles into showing just `backend`/`frontend`/`procrastinate_worker` logs instead of every service's full startup output (see [Docker Overview](../docker/dev-workflow.md#day-to-day-dev-up-helpers)). Plain `docker compose up` still works if you want everything's logs interleaved instead.
+- **Bring the stack up**: `./scripts/mystic_auth/docker/dev/dev-up.sh` (`.ps1`/`.cmd`). Brings up backend, frontend, Postgres, Valkey, Procrastinate, and Bugsink, migrations included, then settles into showing just `backend`/`frontend`/`procrastinate_worker` logs instead of every service's full startup output (see [Docker Overview](../docker/dev-workflow.md#day-to-day-dev-up-helpers)). On a fresh machine, allow time for image pulls and local image builds; later starts are normally much faster. Plain `docker compose up` still works if you want everything's logs interleaved instead.
 - **Create the system superuser** (one-time, CLI-only):
 
   ```bash
@@ -33,7 +68,7 @@ Once it's up:
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Bugsink** (error monitoring): [http://localhost:8010](http://localhost:8010)
 - **Procrastinate** (email worker, retries, and scheduled account-purge, all in one process): no UI or port, it just runs. The dev helper includes `procrastinate_worker` in the live log tail. Use `docker compose logs -f procrastinate_worker` when you want only its logs. See [Background Email Delivery](../background-workers/procrastinate.md).
-- Postgres/Redis are reachable on `localhost:5433`/`localhost:6380` (non-default host ports, to avoid clashing with anything else you have running locally).
+- Postgres/Valkey are reachable on `localhost:5433`/`localhost:6380` (non-default host ports, to avoid clashing with anything else you have running locally).
 
 ---
 
@@ -44,7 +79,7 @@ Three more scripts complement `setup-env`, once a file is no longer freshly gene
 - **`scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh`** (`.ps1`/`.cmd`): sets one or more fields in every env file that already declares each key, for values meant to be the same everywhere (a contact address, OAuth credentials, a shared rate limit, `DEFAULT_APP_POLICIES`) instead of opening and editing five files by hand. Easiest way: copy `shared-values.env.example` (next to the script) to `shared-values.env`, fill in whichever fields you want with a normal text editor, run the script with no arguments. `set-env-field.sh SUPPORT_EMAIL=you@example.com GOOGLE_CLIENT_ID=...` also works directly, for scripting or an agent prompt. Added a field of your own that only `env/app/` declares? The parallel `scripts/app/env-tools/set-env-field/shared-values.env.example` covers that without ever touching upstream's copy of the script - see [the ownership split](ownership-split.md) for why that file exists.
 
 - **`scripts/mystic_auth/env-tools/check-env/check-env.sh`** (`.ps1`/`.cmd`): run this before starting local-prod or prod. It fails if `ENVIRONMENT=production` but a secret still equals the shipped placeholder, and warns on remaining `<your_...>` placeholders or a host port already bound by something else. It never writes anything.
-- **`scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh`** (`.ps1`/`.cmd`): regenerates `SECRET_KEY` and/or `BUGSINK_SECRET_KEY` in an existing env file. It's deliberately scoped to just those two: `POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `BUGSINK_SUPERUSER_PASSWORD`, and `REDIS_PASSWORD` are backed by state a live service already has (a running Postgres only applies `POSTGRES_PASSWORD` on first volume init), so editing the file alone would just break the connection instead of rotating anything. Rotating those safely means changing them at the live service first (`ALTER ROLE ...`, Bugsink's own admin tools), not something either script attempts. Your own `env/app/` secret field, safe to rotate by editing the file? List it in `scripts/app/env-tools/rotate-secrets/fields.env.example`'s copy and this script picks it up too.
+- **`scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh`** (`.ps1`/`.cmd`): regenerates `SECRET_KEY` and/or `BUGSINK_SECRET_KEY` in an existing env file. It's deliberately scoped to just those two: `POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `BUGSINK_SUPERUSER_PASSWORD`, and `VALKEY_PASSWORD` are backed by state a live service already has (a running Postgres only applies `POSTGRES_PASSWORD` on first volume init), so editing the file alone would just break the connection instead of rotating anything. Rotating those safely means changing them at the live service first (`ALTER ROLE ...`, Bugsink's own admin tools), not something either script attempts. Your own `env/app/` secret field, safe to rotate by editing the file? List it in `scripts/app/env-tools/rotate-secrets/fields.env.example`'s copy and this script picks it up too.
 
 ---
 

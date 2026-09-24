@@ -1,6 +1,7 @@
 import asyncio
 import traceback
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import Request
 
@@ -54,6 +55,9 @@ class LoginService:
             if not password_matches:
                 logger.warning("Incorrect password for email: %s", email)
                 return None
+
+            if db is not None:
+                await user_crud.update(user, {"last_login_at": datetime.now(UTC)}, db)
 
             # A fresh chain_id: this login shares nothing with any other
             # session on the account, so a future targeted revoke of one

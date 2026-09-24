@@ -27,7 +27,7 @@ async def purge_user_account(
     rows out from under a post-delete revoke call.
 
     Raises TokenVersionUnavailableError, uncaught, if the account-version
-    bump can't be confirmed (Redis unreachable). Unlike a reversible soft
+    bump can't be confirmed (Valkey unreachable). Unlike a reversible soft
     delete, this fails closed on purpose since the row deletion hasn't
     happened yet at that point; better to block an irreversible purge on an
     unconfirmed revoke than delete an account while its sessions might still

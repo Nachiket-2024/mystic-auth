@@ -1,10 +1,9 @@
 import React, { useRef, useState } from "react";
-import { Box, Dialog, HStack, Input, Kbd, Portal, Stack } from "@chakra-ui/react";
 import { useNavigate } from "react-router";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { DIALOG_BACKDROP_PROPS, DIALOG_CONTENT_PROPS } from "../../ui/styles/dialogStyles";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../../ui/shadcn/dialog";
 import { SEARCH_QUERY_MAX_LENGTH } from "../../ui/styles/inputStyles";
 import { type NavItem } from "../app_layout/navItems";
 import { type SearchItem } from "./searchItems";
@@ -36,6 +35,8 @@ interface CommandPaletteProps {
  *    string under a page's PAGE_CONTENT_NAMESPACES or a SEARCH_ITEMS'
  *    `scope` that contains the query becomes its own row, capped at
  *    TEXT_MATCH_RESULTS_LIMIT.
+ *  - real policy records server-side, gated on policies:read. Selecting one
+ *    jumps to /policies?search=<policy-name>, which PoliciesPage reads on entry.
  *  - real user accounts server-side (same endpoint UsersPage.tsx uses),
  *    gated on users:list_all. Selecting one jumps to
  *    /users?search=<email>, which UsersPage reads on mount to pre-filter.
@@ -97,54 +98,68 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraN
     };
 
     return (
-        <Dialog.Root
-            open={isOpen}
-            onOpenChange={(details) => !details.open && onClose()}
-            initialFocusEl={() => inputRef.current}
-        >
-            <Portal>
-                <Dialog.Backdrop {...DIALOG_BACKDROP_PROPS} />
-                <Dialog.Positioner>
-                    <Dialog.Content {...DIALOG_CONTENT_PROPS} maxW="md" my={{ base: "3", md: "20" }}>
-                        <Dialog.Body p={0}>
-                            <HStack px={4} py={3} borderBottom="1px solid" borderColor="border.default" gap={2}>
-                                <Box color="fg.muted" flexShrink={0}>
-                                    <Search size={18} aria-hidden="true" />
-                                </Box>
-                                <Input
-                                    ref={inputRef}
-                                    value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    maxLength={SEARCH_QUERY_MAX_LENGTH}
-                                    placeholder={t("commandPalette.placeholder")}
-                                    variant="flushed"
-                                    border="none"
-                                    // border="none" suppresses the flushed variant's own focus
-                                    // border, leaving no visible focus indicator (WCAG 2.4.7) on
-                                    // this field, which is always focused first on open. An inset
-                                    // bottom-border restores a focus cue without a full border.
-                                    _focus={{ boxShadow: "inset 0 -2px 0 0 var(--chakra-colors-brand-solid)" }}
-                                    autoComplete="off"
-                                    aria-label={t("commandPalette.placeholder")}
-                                />
-                                <Kbd flexShrink={0} display={{ base: "none", sm: "inline-flex" }}>Esc</Kbd>
-                            </HStack>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent
+                showCloseButton={false}
+                overlayClassName="backdrop-blur-[2px]"
+                // DialogContent's full-screen flex wrapper centers this panel
+                // vertically and horizontally. Avoid positional offsets here
+                // so the command palette remains centered at every viewport
+                // size.
+                className="max-w-md border-brand-border rounded-card bg-bg-surface p-0 shadow-dialog overflow-hidden"
+                // Focuses the search input specifically, not whatever Radix's
+                // default open-autofocus would pick (the first focusable
+                // element happens to already be this input, but pin it
+                // explicitly - matches the old Dialog.Root's initialFocusEl).
+                onOpenAutoFocus={(e) => {
+                    e.preventDefault();
+                    inputRef.current?.focus();
+                }}
+            >
+                {/* The former Chakra Dialog never required an explicit
+                    Title/Description (Ark UI didn't warn), but Radix's does for an accessible
+                    name/description - sr-only, since the visible search input
+                    already carries its own aria-label and this dialog has no
+                    visible heading in the design. */}
+                <DialogTitle className="sr-only">{t("commandPalette.placeholder")}</DialogTitle>
+                <DialogDescription className="sr-only">{t("commandPalette.placeholder")}</DialogDescription>
+                <div className="flex items-center gap-2 border-b border-brand-border px-4 py-3">
+                    <div className="text-fg-muted shrink-0">
+                        <Search size={18} aria-hidden="true" />
+                    </div>
+                    {/* Bare input, not ui/inputs/Input.tsx: this is a borderless
+                        "flushed" field, not the app's usual bordered look.
+                        The header divider provides the same visual separation
+                        used below dialog titles without attaching an underline
+                        directly to the focused text field. */}
+                    <input
+                        ref={inputRef}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        maxLength={SEARCH_QUERY_MAX_LENGTH}
+                        placeholder={t("commandPalette.placeholder")}
+                        className="flex-1 min-w-0 bg-transparent outline-none text-base md:text-sm placeholder:text-muted-foreground"
+                        autoComplete="off"
+                        aria-label={t("commandPalette.placeholder")}
+                    />
+                    {/* Former Chakra Kbd recipe default size (md: textStyle sm,
+                        height 5=1.25rem), subtle/gray variant - see
+                        Navbar.tsx's matching comment. */}
+                    <kbd className="hidden sm:inline-flex items-center shrink-0 whitespace-nowrap select-none font-medium text-sm h-5 px-1 rounded-md bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200">Esc</kbd>
+                </div>
 
-                            <Stack gap={0} py={2} maxH="80" overflowY="auto">
-                                <CommandPaletteResultsList
-                                    filtered={filtered}
-                                    kindCount={kindCount}
-                                    activeIndex={activeIndex}
-                                    setActiveIndex={setActiveIndex}
-                                    goTo={goTo}
-                                />
-                            </Stack>
-                        </Dialog.Body>
-                    </Dialog.Content>
-                </Dialog.Positioner>
-            </Portal>
-        </Dialog.Root>
+                <div className="flex flex-col gap-0 py-2 max-h-80 overflow-y-auto">
+                    <CommandPaletteResultsList
+                        filtered={filtered}
+                        kindCount={kindCount}
+                        activeIndex={activeIndex}
+                        setActiveIndex={setActiveIndex}
+                        goTo={goTo}
+                    />
+                </div>
+            </DialogContent>
+        </Dialog>
     );
 };
 

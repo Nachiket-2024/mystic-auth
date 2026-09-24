@@ -60,7 +60,7 @@ async def test_logout_response_carries_session_revoked_true_on_success(mocker):
 @pytest.mark.asyncio
 async def test_logout_still_reports_200_and_clears_cookies_when_revocation_is_unconfirmed(mocker):
     """Unlike logout-all/Manage Sessions, plain logout keeps its "always
-    succeed, clear cookies regardless" contract even when Redis couldn't
+    succeed, clear cookies regardless" contract even when Valkey couldn't
     confirm the chain-version bump. The gap must still be visible in the
     response body, though, not silently indistinguishable from a real
     revoke."""

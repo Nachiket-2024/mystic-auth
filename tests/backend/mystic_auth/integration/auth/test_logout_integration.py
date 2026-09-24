@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/integration/auth/test_logout_integration.py
 #
 # End-to-end logout/logout-all coverage against the real ASGI app, real
-# PostgreSQL, and real Redis (see conftest.py).
+# PostgreSQL, and real Valkey (see conftest.py).
 import pytest
 
 from .auth_test_accounts import (

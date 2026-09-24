@@ -1,10 +1,11 @@
 import React from "react";
-import { IconButton, Tooltip, type IconButtonProps } from "@chakra-ui/react";
 
-import { FAST_HOVER_TRANSITION } from "../../theme/system";
+import AppTooltip from "../feedback/AppTooltip";
+import { Button, type ButtonProps } from "../buttons/Button";
+import { cn } from "../styles/classNames";
 import { TABLE_ACTION_PALETTE_STYLES } from "./tableActionPalettes";
 
-type TableActionIconButtonProps = Omit<IconButtonProps, "colorPalette" | "aria-label"> & {
+type TableActionIconButtonProps = Omit<ButtonProps, "variant" | "size" | "aria-label"> & {
     colorPalette: keyof typeof TABLE_ACTION_PALETTE_STYLES;
     /** Used as both the button's aria-label and its hover/focus tooltip text,
      * so a row of icon-only actions stays identifiable to screen-reader and
@@ -26,42 +27,21 @@ type TableActionIconButtonProps = Omit<IconButtonProps, "colorPalette" | "aria-l
  * buttons to guarantee that. Reuses the same palette styling so icon and
  * text row-actions read as one design language.
  */
-const TableActionIconButton: React.FC<TableActionIconButtonProps> = ({ colorPalette, label, disabledLabel, ...rest }) => {
-    const palette = TABLE_ACTION_PALETTE_STYLES[colorPalette];
+const TableActionIconButton: React.FC<TableActionIconButtonProps> = ({ colorPalette, label, disabledLabel, className, ...rest }) => {
     // Read (without removing) `disabled` off `rest` so it still flows to
-    // IconButton via the same `...rest` spread.
+    // Button via the same `...rest` spread.
     const tooltipText = rest.disabled && disabledLabel ? disabledLabel : label;
 
     return (
-        <Tooltip.Root openDelay={300} closeDelay={100}>
-            <Tooltip.Trigger asChild>
-                <IconButton
-                    size="xs"
-                    variant="plain"
-                    borderWidth="1px"
-                    borderColor={palette.border}
-                    bg={palette.bg}
-                    color={palette.color}
-                    aria-label={label}
-                    transition={FAST_HOVER_TRANSITION}
-                    _hover={{ bg: palette.hoverBg, borderColor: palette.hoverBorder, color: palette.hoverColor }}
-                    _dark={{
-                        borderColor: palette.borderDark,
-                        bg: palette.bgDark,
-                        color: palette.colorDark,
-                        _hover: {
-                            bg: palette.hoverBgDark,
-                            borderColor: palette.hoverBorderDark,
-                            color: palette.hoverColorDark,
-                        },
-                    }}
-                    {...rest}
-                />
-            </Tooltip.Trigger>
-            <Tooltip.Positioner>
-                <Tooltip.Content>{tooltipText}</Tooltip.Content>
-            </Tooltip.Positioner>
-        </Tooltip.Root>
+        <AppTooltip content={tooltipText}>
+            <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={label}
+                className={cn("transition-colors", TABLE_ACTION_PALETTE_STYLES[colorPalette], className)}
+                {...rest}
+            />
+        </AppTooltip>
     );
 };
 

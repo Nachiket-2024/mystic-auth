@@ -4,7 +4,7 @@
 # api/pbac_routes/): direct, single-action grants to a user that bypass
 # Policy entirely (see authorization/models/user_permission_model.py).
 # Mirrors test_policy_assignment_integration.py's shape - same real ASGI
-# app, real PostgreSQL, real Redis - proving a direct grant/revoke actually
+# app, real PostgreSQL, real Valkey - proving a direct grant/revoke actually
 # changes what an account can do, not just that a row changed.
 import pytest
 

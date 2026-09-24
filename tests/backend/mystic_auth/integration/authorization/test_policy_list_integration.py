@@ -117,6 +117,57 @@ async def test_list_policies_filters_by_is_active(client, created_emails):
 
 
 @pytest.mark.asyncio
+async def test_list_policies_filters_by_contains_action_exactly(client, created_emails):
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+    token = uuid.uuid4().hex
+    target_action = f"widgets_{token}:void"
+
+    matching = unique_policy_name()
+    other = unique_policy_name()
+    await client.post(
+        "/authorization/policies",
+        json={"name": matching, "actions": [target_action, "widgets:read"], "resource_type": f"widgets_{token}"},
+    )
+    await client.post(
+        "/authorization/policies",
+        # Same resource type prefix, but doesn't grant the target action -
+        # proves this filter matches on the actions array, not resource_type.
+        json={"name": other, "actions": ["widgets:read"], "resource_type": f"widgets_{token}"},
+    )
+
+    resp = await client.get("/authorization/policies", params={"contains_action": target_action, "limit": 100})
+    assert resp.status_code == 200
+    matched_names = {p["name"] for p in resp.json()}
+
+    assert matched_names == {matching}
+
+
+@pytest.mark.asyncio
+async def test_list_policies_contains_action_x_total_count_matches_filtered_total(client, created_emails):
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+    token = uuid.uuid4().hex
+    target_action = f"gadgets_{token}:void"
+
+    await client.post(
+        "/authorization/policies",
+        json={"name": unique_policy_name(), "actions": [target_action], "resource_type": f"gadgets_{token}"},
+    )
+    await client.post(
+        "/authorization/policies",
+        json={"name": unique_policy_name(), "actions": ["gadgets:read"], "resource_type": f"gadgets_{token}"},
+    )
+
+    resp = await client.get(
+        "/authorization/policies", params={"contains_action": target_action, "limit": 1000}
+    )
+    assert resp.status_code == 200
+    assert resp.headers["x-total-count"] == "1"
+    assert len(resp.json()) == 1
+
+
+@pytest.mark.asyncio
 async def test_list_policies_sorts_by_name_ascending(client, created_emails):
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)

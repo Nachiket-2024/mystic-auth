@@ -1,8 +1,9 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import {
     listPoliciesApi,
     getPolicyHistoryApi,
+    getPolicyHoldersApi,
     getMyPoliciesApi,
     getUserPoliciesApi,
     type ListPoliciesParams,
@@ -11,7 +12,8 @@ import {
 import type { SortDirection } from "../../ui/hooks/useSortState";
 
 export const POLICIES_QUERY_KEY = ["policies"] as const;
-export const policyHistoryQueryKey = (policyName: string) => ["policies", policyName, "history"] as const;
+export const policyHistoryQueryKey = (policyName: string, page = 1, pageSize = 5) => ["policies", policyName, "history", page, pageSize] as const;
+export const policyHoldersQueryKey = (policyName: string) => ["policies", policyName, "holders"] as const;
 export const MY_POLICIES_QUERY_KEY = ["policies", "me"] as const;
 export const userPoliciesQueryKey = (userEmail: string) => ["policies", "user", userEmail] as const;
 
@@ -48,6 +50,8 @@ export interface PoliciesListFilters {
     search?: string;
     resourceType?: string;
     isActive?: boolean;
+    containsAction?: string;
+    destructiveOnly?: boolean;
     sortBy?: string;
     sortDir?: SortDirection;
 }
@@ -74,15 +78,31 @@ export function usePoliciesListQuery(
         },
         // Keeps the current page's rows on screen while a different
         // page/filter/sort loads, same as useUsersQuery.
-        placeholderData: keepPreviousData,
         enabled,
     });
 }
 
-export function usePolicyHistoryQuery(policyName: string, enabled = true) {
+export function usePolicyHistoryQuery(policyName: string, page = 1, pageSize = 5, enabled = true) {
     return useQuery({
-        queryKey: policyHistoryQueryKey(policyName),
-        queryFn: async () => (await getPolicyHistoryApi(policyName)).data,
+        queryKey: policyHistoryQueryKey(policyName, page, pageSize),
+        queryFn: async () => {
+            const response = await getPolicyHistoryApi(policyName, pageSize, (page - 1) * pageSize);
+            const total = Number(response.headers["x-total-count"]);
+            return { entries: response.data, total: Number.isFinite(total) ? total : response.data.length };
+        },
+        placeholderData: (previous) => previous,
+        enabled: enabled && !!policyName,
+    });
+}
+
+/** Every user currently holding this policy: backs the details dialog's
+ * "Assigned users" list and (via .length) the delete confirm's holder
+ * count. Disabled until the caller actually opens one of those, same
+ * lazy-fetch pattern as usePolicyHistoryQuery. */
+export function usePolicyHoldersQuery(policyName: string, enabled = true) {
+    return useQuery({
+        queryKey: policyHoldersQueryKey(policyName),
+        queryFn: async () => (await getPolicyHoldersApi(policyName)).data,
         enabled: enabled && !!policyName,
     });
 }

@@ -83,7 +83,7 @@ test.describe("live deployment smoke test - real requests, no stubs", () => {
       headers: { "Content-Type": "application/json" },
     });
 
-    for (const path of ["/dashboard", "/settings"]) {
+    for (const path of ["/dashboard", "/account-settings"]) {
       await page.goto(`${BASE_URL}${path}`);
       await page.waitForTimeout(1000);
       const fired = await page.evaluate(() => (window as unknown as { __liveSmokeXss?: boolean }).__liveSmokeXss ?? false);

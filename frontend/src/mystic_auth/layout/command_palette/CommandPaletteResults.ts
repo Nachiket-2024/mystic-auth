@@ -10,8 +10,10 @@ import translations from "../../translations/translations";
 import { namespaceMatches, namespaceSearchText, scopedMatches, scopedSearchText } from "../../translations/searchText";
 import { useUsersQuery } from "../../users/queries/userQueries";
 import { usePermissionCatalogQuery } from "../../policies/queries/permissionQueries";
+import { usePoliciesListQuery } from "../../policies/queries/policyQueries";
 
 const USER_RESULTS_LIMIT = 5;
+const POLICY_RESULTS_LIMIT = 5;
 const TEXT_MATCH_RESULTS_LIMIT = 20;
 
 // Same routes as Sidebar's NAV_ITEMS, keyed by `to`. A missing entry just
@@ -24,7 +26,7 @@ const ROUTE_ICONS: Record<string, React.ElementType> = {
     "/account-settings": Settings,
 };
 
-export type ResultKind = "page" | "content" | "match" | "user";
+export type ResultKind = "page" | "content" | "match" | "user" | "policy";
 
 export interface Result {
     kind: ResultKind;
@@ -39,11 +41,12 @@ export const GROUP_LABEL_KEY: Record<ResultKind, string> = {
     content: "commandPalette.featuresGroup",
     match: "commandPalette.matchesGroup",
     user: "commandPalette.usersGroup",
+    policy: "commandPalette.policiesGroup",
 };
 
 /**
- * Builds CommandPalette's four result groups (pages, in-page features,
- * Ctrl+F-style text matches, and live user search) for a given query. See
+ * Builds CommandPalette's result groups (pages, in-page features,
+ * Ctrl+F-style text matches, live policy search, and live user search) for a given query. See
  * CommandPalette.tsx's docstring for what each group searches.
  */
 export function useCommandPaletteResults(
@@ -177,7 +180,12 @@ export function useCommandPaletteResults(
     // filteredUsers below.
     const canViewPermissions = can(PERMISSIONS.PERMISSIONS_READ);
     const { data: permissionCatalog } = usePermissionCatalogQuery(canViewPermissions);
-    const permissionsPageLabel = resolveLabel("layout:nav.permissions");
+    const permissionsPageLabel = useMemo(
+        () => resolveLabel("layout:nav.permissions"),
+        // resolveLabel is derived entirely from chromeLanguage and the fixed translation registry.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [chromeLanguage]
+    );
 
     const permissionMatches = useMemo(() => {
         if (!q || !canViewPermissions || !permissionCatalog) return [];
@@ -225,10 +233,94 @@ export function useCommandPaletteResults(
         [canSearchUsers, trimmedQuery, userResults]
     );
 
-    const filtered = useMemo(
-        () => [...filteredPages, ...filteredContent, ...textMatches, ...permissionMatches, ...filteredUsers],
-        [filteredPages, filteredContent, textMatches, permissionMatches, filteredUsers]
+    // Policies are live backend data and must be gated by the same PBAC
+    // permission as the Policies page. The backend remains authoritative for
+    // the search result and only a small page is requested per query.
+    const canSearchPolicies = can(PERMISSIONS.POLICIES_READ);
+    const { data: policyResults } = usePoliciesListQuery(
+        1,
+        POLICY_RESULTS_LIMIT,
+        { search: trimmedQuery, sortBy: "name", sortDir: "asc" },
+        canSearchPolicies && trimmedQuery.length > 0
     );
+    const policiesPageLabel = useMemo(
+        () => resolveLabel("layout:nav.policies"),
+        // resolveLabel is derived entirely from chromeLanguage and the fixed translation registry.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [chromeLanguage]
+    );
+
+    const filteredPolicies = useMemo(
+        () =>
+            (canSearchPolicies && trimmedQuery ? policyResults?.policies ?? [] : []).map(
+                (policy): Result => ({
+                    kind: "policy",
+                    to: `/policies?search=${encodeURIComponent(policy.name)}`,
+                    label: policy.name,
+                    sublabel: policy.description || policiesPageLabel,
+                    icon: ShieldCheck,
+                })
+            ),
+        [canSearchPolicies, policiesPageLabel, policyResults, trimmedQuery]
+    );
+
+    const filtered = useMemo(() => {
+        const candidates = [
+            ...filteredPages,
+            ...filteredContent,
+            ...textMatches,
+            ...permissionMatches,
+            ...filteredPolicies,
+            ...filteredUsers,
+        ];
+        const kindPriority: Record<ResultKind, number> = {
+            page: 0,
+            content: 1,
+            match: 2,
+            policy: 3,
+            user: 4,
+        };
+
+        // A page can match because any word in its full namespace matches the
+        // query. That broad recall is useful, but it should not outrank a
+        // feature whose visible label directly matches the query (e.g.
+        // "Security events" should appear before Dashboard when searching
+        // "secur"). Keep exact/label matches first, then fall back to
+        // subtitles and finally broad page-content matches.
+        const ranked = candidates
+            .map((result, index) => {
+                const label = result.label.toLowerCase();
+                const sublabel = result.sublabel?.toLowerCase() ?? "";
+                const relevance = label === q
+                    ? 0
+                    : label.startsWith(q)
+                        ? 1
+                        : label.includes(q)
+                            ? 2
+                            : sublabel.includes(q)
+                                ? 3
+                                : 4;
+                return { result, relevance, index };
+            })
+        const groups = new Map<ResultKind, typeof ranked>();
+        for (const item of ranked) {
+            const group = groups.get(item.result.kind) ?? [];
+            group.push(item);
+            groups.set(item.result.kind, group);
+        }
+
+        return [...groups.values()]
+            .sort((a, b) =>
+                Math.min(...a.map((item) => item.relevance))
+                - Math.min(...b.map((item) => item.relevance))
+                || kindPriority[a[0].result.kind] - kindPriority[b[0].result.kind]
+            )
+            .flatMap((group) =>
+                group
+                    .sort((a, b) => a.relevance - b.relevance || a.index - b.index)
+                    .map(({ result }) => result)
+            );
+    }, [q, filteredPages, filteredContent, textMatches, permissionMatches, filteredPolicies, filteredUsers]);
     // Only worth a group header once there are two-plus kinds of result -
     // a lone "Pages" header over an all-pages list is just noise.
     const kindCount = useMemo(() => new Set(filtered.map((item) => item.kind)).size, [filtered]);

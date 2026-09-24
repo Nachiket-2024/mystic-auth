@@ -1,5 +1,5 @@
 # Unit coverage for AuthorizationCacheService: cache hit/miss, invalidation, and the
-# Redis-unavailable fallback (on any doubt, skip the cache and hit the database).
+# Valkey-unavailable fallback (on any doubt, skip the cache and hit the database).
 import json
 from unittest.mock import AsyncMock
 
@@ -35,7 +35,7 @@ async def test_get_user_policies_cache_hit_returns_deserialized_policies(mocker)
             "resource_type": "users", "conditions": None, "is_active": True,
         }
     ])
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=payload)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=payload)
 
     result = await authorization_cache_service.get_user_policies("user@example.com")
 
@@ -49,7 +49,7 @@ async def test_get_user_policies_cache_hit_returns_deserialized_policies(mocker)
 
 @pytest.mark.asyncio
 async def test_get_user_policies_cache_miss_returns_none(mocker):
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
 
     result = await authorization_cache_service.get_user_policies("user@example.com")
 
@@ -60,7 +60,7 @@ async def test_get_user_policies_cache_miss_returns_none(mocker):
 
 @pytest.mark.asyncio
 async def test_set_user_policies_writes_serialized_payload_with_ttl(mocker):
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
 
     await authorization_cache_service.set_user_policies("user@example.com", [_policy()])
 
@@ -76,7 +76,7 @@ async def test_set_user_policies_writes_serialized_payload_with_ttl(mocker):
 
 @pytest.mark.asyncio
 async def test_invalidate_user_policies_deletes_that_users_key(mocker):
-    delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
 
     await authorization_cache_service.invalidate_user_policies("user@example.com")
 
@@ -96,8 +96,8 @@ async def test_invalidate_all_user_policies_deletes_every_matching_key(mocker):
         for key in keys:
             yield key
 
-    mocker.patch(f"{MODULE}.redis_client.scan_iter", side_effect=_fake_scan_iter)
-    delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.valkey_client.scan_iter", side_effect=_fake_scan_iter)
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
 
     await authorization_cache_service.invalidate_all_user_policies()
 
@@ -105,11 +105,11 @@ async def test_invalidate_all_user_policies_deletes_every_matching_key(mocker):
     assert set(delete_mock.await_args.args) == set(keys)
 
 
-# ---------------------------- Redis-unavailable fallback ----------------------------
+# ---------------------------- Valkey-unavailable fallback ----------------------------
 
 @pytest.mark.asyncio
-async def test_get_user_policies_falls_back_to_none_when_redis_is_unavailable(mocker):
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, side_effect=ConnectionError("redis down"))
+async def test_get_user_policies_falls_back_to_none_when_valkey_is_unavailable(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, side_effect=ConnectionError("valkey down"))
 
     result = await authorization_cache_service.get_user_policies("user@example.com")
 
@@ -117,22 +117,22 @@ async def test_get_user_policies_falls_back_to_none_when_redis_is_unavailable(mo
 
 
 @pytest.mark.asyncio
-async def test_set_user_policies_swallows_redis_errors_without_raising(mocker):
-    mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock, side_effect=ConnectionError("redis down"))
+async def test_set_user_policies_swallows_valkey_errors_without_raising(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, side_effect=ConnectionError("valkey down"))
 
     await authorization_cache_service.set_user_policies("user@example.com", [_policy()])  # must not raise
 
 
 @pytest.mark.asyncio
-async def test_invalidate_user_policies_swallows_redis_errors_without_raising(mocker):
-    mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock, side_effect=ConnectionError("redis down"))
+async def test_invalidate_user_policies_swallows_valkey_errors_without_raising(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock, side_effect=ConnectionError("valkey down"))
 
     await authorization_cache_service.invalidate_user_policies("user@example.com")  # must not raise
 
 
 @pytest.mark.asyncio
 async def test_get_user_policies_corrupt_payload_returns_none_not_a_crash(mocker):
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value="not-valid-json{{{")
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="not-valid-json{{{")
 
     result = await authorization_cache_service.get_user_policies("user@example.com")
 

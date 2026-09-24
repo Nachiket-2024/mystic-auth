@@ -34,13 +34,14 @@ jobs:
           --health-timeout 3s
           --health-retries 5
 
-      redis:
-        # Same ECR Public mirror reasoning as postgres.
-        image: public.ecr.aws/docker/library/redis:7
+      valkey:
+        # Use the same pinned Valkey image as the Compose environments, via
+        # Valkey's ECR Public namespace to avoid Docker Hub pull limits.
+        image: public.ecr.aws/valkey/valkey:9.1.2-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd "redis-cli ping"
+          --health-cmd "valkey-cli ping"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 5
@@ -81,7 +82,7 @@ jobs:
       GOOGLE_CLIENT_SECRET: ci-test-google-client-secret
       GOOGLE_REDIRECT_URI: http://localhost:8000/auth/oauth2/callback/google
 
-      REDIS_URL: redis://localhost:6379/0
+      VALKEY_URL: redis://localhost:6379/0
       CACHE_DEFAULT_TTL: "300"
 
       FROM_EMAIL: ci-test@example.com
@@ -274,9 +275,9 @@ jobs:
         working-directory: frontend
         run: npm ci --legacy-peer-deps
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright browsers
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
 
       # Uses the *.example files only to satisfy each compose file's own
       # env_file reference (env/mystic_auth/.env + env/app/.env, and the
@@ -336,10 +337,29 @@ jobs:
           touch env/mystic_auth/.env.ci-created
           sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env
           sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/mystic_auth/.env
-          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres redis alembic backend frontend procrastinate_worker
+          # The browser matrix intentionally makes more than 100 authenticated
+          # requests from one runner IP. Keep production's default limit intact
+          # while giving this disposable CI stack enough headroom to test the
+          # application instead of its own test traffic budget.
+          sed -i 's/^MAX_REQUESTS_PER_WINDOW=.*/MAX_REQUESTS_PER_WINDOW=1000/' env/mystic_auth/.env
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres valkey alembic backend frontend procrastinate_worker
 
       - name: Wait for backend to report healthy
         run: timeout 150 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'
+
+      # The real-account permission-matrix browser test requires these
+      # disposable verified/active PBAC accounts. The script is available
+      # through the backend container's /repo bind mount and only replaces
+      # users whose email starts with matrix-.
+      - name: Seed browser permission matrix accounts
+        run: >-
+          docker compose
+          -f docker/mystic_auth/compose/docker-compose.dev.yml
+          -f docker/app/compose/docker-compose.dev.yml
+          --env-file env/mystic_auth/.env
+          --env-file env/app/.env
+          exec -T -w /repo backend
+          python local-scripts/app/seed-user-permission-matrix.py
 
       - name: Wait for frontend dev server to respond
         run: timeout 60 sh -c 'until curl -sf http://localhost:5173 >/dev/null 2>&1; do sleep 3; done'
@@ -401,7 +421,7 @@ jobs:
           touch env/mystic_auth/.env.ci-created
           sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env
           sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/mystic_auth/.env
-          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres redis alembic backend procrastinate_worker
+          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres valkey alembic backend procrastinate_worker
 
       - name: Wait for backend to report healthy
         run: timeout 180 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'

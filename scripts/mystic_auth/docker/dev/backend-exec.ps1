@@ -10,6 +10,14 @@ $ErrorActionPreference = "Continue"
 #
 # Usage: .\scripts\mystic_auth\docker\dev\backend-exec.ps1 python -m pytest tests/backend/mystic_auth/unit
 #        .\scripts\mystic_auth\docker\dev\backend-exec.ps1 alembic heads
+#
+# -w /repo is needed for pytest (pytest.ini's testpaths/--cov paths are
+# relative to the repo root), but alembic.ini lives at /repo/backend, not
+# /repo, so a bare `alembic heads` from -w /repo fails with "No
+# 'script_location' key found in configuration" despite being this
+# script's own documented example above. ALEMBIC_CONFIG points alembic at
+# the right file regardless of cwd, without changing -w for every other
+# command.
 
 if ($args.Count -eq 0) {
     Write-Error "Usage: scripts\mystic_auth\docker\dev\backend-exec.ps1 <command> [args...]"
@@ -24,5 +32,5 @@ docker compose `
   -f docker/app/compose/docker-compose.dev.yml `
   --env-file env/mystic_auth/.env `
   --env-file env/app/.env `
-  exec --user root -w /repo backend @args
+  exec --user root -w /repo -e ALEMBIC_CONFIG=/repo/backend/alembic.ini backend @args
 exit $LASTEXITCODE

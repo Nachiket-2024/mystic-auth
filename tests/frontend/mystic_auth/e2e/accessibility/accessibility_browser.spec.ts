@@ -8,6 +8,12 @@ import { expectNoAccessibilityViolations } from "../support/axeCheck";
 import { installAuthenticatedMysticAuthApiRoutes } from "../support/authenticatedMysticAuthApiRoutes";
 
 test.describe("accessibility - pre-auth pages", () => {
+  test("landing page has no WCAG 2.1 AA violations", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: /auth & authorization/i })).toBeVisible();
+    await expectNoAccessibilityViolations(page);
+  });
+
   test("login page has no WCAG 2.1 AA violations", async ({ page }) => {
     await page.goto("/login");
     await expect(page.locator('input[type="email"]')).toBeVisible();
@@ -19,6 +25,19 @@ test.describe("accessibility - pre-auth pages", () => {
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expectNoAccessibilityViolations(page);
   });
+
+  for (const [name, path, marker] of [
+    ["password reset request", "/password-reset-request", /forgot your password/i],
+    ["password reset confirmation", "/reset-password", /set a new password/i],
+    ["verification", "/verify-account", /verify your email/i],
+    ["account deletion confirmation", "/confirm-delete", /delete your account/i],
+  ] as const) {
+    test(`${name} page has no WCAG 2.1 AA violations`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { name: marker })).toBeVisible();
+      await expectNoAccessibilityViolations(page);
+    });
+  }
 });
 
 test.describe("accessibility - authenticated pages", () => {
@@ -40,7 +59,7 @@ test.describe("accessibility - authenticated pages", () => {
 
   test("policies page has no WCAG 2.1 AA violations", async ({ page }) => {
     await page.goto("/policies");
-    await expect(page.getByRole("heading", { name: /policies/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Policies", exact: true })).toBeVisible();
     await expectNoAccessibilityViolations(page);
   });
 

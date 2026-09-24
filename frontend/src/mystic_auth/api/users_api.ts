@@ -10,12 +10,15 @@ export interface ManagedUserRead {
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
+    /** Set on every successful sign-in. null means this account has never
+     * signed in (e.g. created by an admin but not yet used). */
+    last_login_at: string | null;
     has_password: boolean;
     /** Per-user brand color override (#rrggbb). null = using the app
      * default scale (app/theme.ts). See appearanceStore.ts. */
     brand_color: string | null;
     /** Self-service PUT /users/me only, and only set on a password change: whether the
-     * account's other sessions got revoked. False means the password changed but Redis
+     * account's other sessions got revoked. False means the password changed but Valkey
      * was unreachable, so other sessions are still live - see ChangePasswordCard.tsx. */
     sessions_revoked?: boolean | null;
 }
@@ -53,19 +56,30 @@ export interface ListUsersParams {
     /** Users holding a policy whose actions include this permission, one of
      * PERMISSIONS' own values (authorization/permissions.ts). */
     permission?: string;
+    permissionSource?: "policy" | "direct";
     /** Column to sort by. Must be one of the backend's allowlisted sortable columns
      * (see user_base_crud.py's _SORTABLE_COLUMN_NAMES); anything else is ignored
      * server-side and falls back to id. */
     sortBy?: string;
     sortDir?: "asc" | "desc";
+    /** Relative bucket, one of "today" | "7d" | "30d" | "90d" | "never".
+     * Ignored server-side if lastLoginFrom/lastLoginTo are set. */
+    lastLogin?: string;
+    /** Custom range bounds (ISO datetime strings), inclusive. Either one
+     * alone is enough to filter, same as most date-range pickers. */
+    lastLoginFrom?: string;
+    lastLoginTo?: string;
 }
 
 function toApiParams({
-    limit = 1000, offset = 0, search, role, isVerified, status, policy, permission, sortBy, sortDir,
+    limit = 1000, offset = 0, search, role, isVerified, status, policy, permission, permissionSource, sortBy, sortDir,
+    lastLogin, lastLoginFrom, lastLoginTo,
 }: ListUsersParams) {
     return {
         limit, offset, search, role, is_verified: isVerified, status, policy, permission,
+        permission_source: permissionSource,
         sort_by: sortBy, sort_dir: sortDir,
+        last_login: lastLogin, last_login_from: lastLoginFrom, last_login_to: lastLoginTo,
     };
 }
 
@@ -86,8 +100,8 @@ export const updateUserApi = (userEmail: string, payload: UserUpdatePayload) =>
 // revokes active sessions, preserves the row and its audit history.
 export const deleteUserApi = (userEmail: string) => api.delete(`/users/${encodeURIComponent(userEmail)}`);
 
-// Hard delete (separate, irreversible operation): requires users:purge,
-// a distinct and more sensitive permission from users:delete_any.
+// Hard delete (separate, irreversible operation): requires users:delete_any,
+// a distinct and more sensitive permission from users:deactivate_any.
 export const purgeUserApi = (userEmail: string) => api.delete(`/users/${encodeURIComponent(userEmail)}/purge`);
 
 // Undo a soft delete, requires users:reactivate.

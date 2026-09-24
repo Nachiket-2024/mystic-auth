@@ -74,7 +74,7 @@ async def test_purge_task_returns_zero_when_nothing_is_past_the_grace_period(moc
 
 @pytest.mark.asyncio
 async def test_purge_task_skips_an_account_whose_revocation_cant_be_confirmed_but_continues_the_batch(mocker):
-    # Regression guard for the "Redis outage failure modes are inconsistent"
+    # Regression guard for the "Valkey outage failure modes are inconsistent"
     # gap: purge_user_account fails closed (raises TokenVersionUnavailableError)
     # rather than purging while a revoke is unconfirmed, but that must only
     # skip the one affected account, not abort the whole day's batch and
@@ -85,17 +85,17 @@ async def test_purge_task_skips_an_account_whose_revocation_cant_be_confirmed_bu
     fake_session_cm.__aexit__ = AsyncMock(return_value=False)
     mocker.patch(f"{MODULE}.database.async_session", return_value=fake_session_cm)
 
-    redis_down_user = _FakeUser("redis-down@example.com")
+    valkey_down_user = _FakeUser("valkey-down@example.com")
     healthy_user = _FakeUser("healthy@example.com")
     mocker.patch(
         f"{MODULE}.user_crud.get_deleted_before",
         new_callable=AsyncMock,
-        return_value=[redis_down_user, healthy_user],
+        return_value=[valkey_down_user, healthy_user],
     )
     purge_mock = mocker.patch(
         f"{MODULE}.purge_user_account",
         new_callable=AsyncMock,
-        side_effect=[TokenVersionUnavailableError("Redis unreachable"), None],
+        side_effect=[TokenVersionUnavailableError("Valkey unreachable"), None],
     )
 
     result = await purge_expired_soft_deleted_accounts(timestamp=0)

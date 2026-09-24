@@ -69,6 +69,7 @@ user_management_update_router = _m("api.user_routes.user_management_update_route
 user_lifecycle_router = _m("api.user_routes.user_lifecycle_routes").router
 policy_crud_router = _m("api.pbac_routes.policies.policy_crud_routes").router
 policy_history_router = _m("api.pbac_routes.policies.policy_history_routes").router
+policy_self_router = _m("api.pbac_routes.policies.policy_self_routes").self_router
 policy_assignment_router = _m("api.pbac_routes.policies.policy_assignment_routes").router
 permission_assignment_router = _m("api.pbac_routes.permissions.permission_assignment_routes").router
 permission_catalog_router = _m("api.pbac_routes.permissions.permission_catalog_routes").router
@@ -108,12 +109,12 @@ PermissionCatalogEntryRead = _permission_schema.PermissionCatalogEntryRead
 UserPermissionRead = _permission_schema.UserPermissionRead
 UserPermissionsRead = _permission_schema.UserPermissionsRead
 
-# Redis client singleton, closed on shutdown in main.py's lifespan
-redis_client = _m("redis.client").redis_client
+# Valkey client singleton, closed on shutdown in main.py's lifespan
+valkey_client = _m("valkey.client").valkey_client
 
 # Procrastinate app singleton (background email + scheduled account-purge
 # tasks, see docs/mystic_auth/background-workers/procrastinate.md). Opened/
-# closed alongside the DB engine/Redis client in main.py's lifespan, since
+# closed alongside the DB engine/Valkey client in main.py's lifespan, since
 # `.defer_async()` calls from request handlers need its connector's psycopg
 # pool already open.
 procrastinate_app = _m("procrastinate_tasks.procrastinate_app").app
@@ -134,7 +135,7 @@ init_sentry = _sentry_service.init_sentry
 capture_exception = _sentry_service.capture_exception
 watch_for_late_dsn = _sentry_service.watch_for_late_dsn
 
-# Called once from main.py's lifespan teardown, before redis_client is
+# Called once from main.py's lifespan teardown, before valkey_client is
 # closed, so any open GET /auth/session-events SSE connection notices the
 # shutdown immediately and ends its stream instead of holding the process
 # open past its graceful-shutdown timeout. See
@@ -194,7 +195,7 @@ __all__ = [
     "PermissionCatalogEntryRead",
     "UserPermissionRead",
     "UserPermissionsRead",
-    "redis_client",
+    "valkey_client",
     "procrastinate_app",
     "LoggingMiddleware",
     "CorrelationIdMiddleware",

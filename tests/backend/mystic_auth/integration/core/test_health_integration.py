@@ -1,5 +1,5 @@
 # End-to-end tests for /health and /health/ready, using the real app, Postgres,
-# and Redis (via the `client` fixture in conftest.py). Confirms /health/ready
+# and Valkey (via the `client` fixture in conftest.py). Confirms /health/ready
 # actually checks both dependencies instead of just returning a static reply.
 import pytest
 
@@ -17,4 +17,4 @@ async def test_health_ready_returns_ok_when_dependencies_are_reachable(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["checks"] == {"database": "ok", "redis": "ok"}
+    assert body["checks"] == {"database": "ok", "valkey": "ok"}

@@ -4,8 +4,8 @@ import settings from "../../core/settings";
 import { queryClient } from "../../core/queryClient";
 import { useAuthStore } from "../../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "../current_user/useCurrentUserQuery";
-import { SESSIONS_QUERY_KEY } from "../../dashboard/manage_sessions/useSessionsQuery";
-import { LAST_LOGIN_QUERY_KEY } from "../../dashboard/useLastLoginQuery";
+import { SESSIONS_QUERY_KEY } from "../../active_sessions/useSessionsQuery";
+import { PREVIOUS_LOGIN_QUERY_KEY } from "../../dashboard/usePreviousLoginQuery";
 import { wasSelfPermissionMutationRecent } from "./selfPermissionMutationGuard";
 
 // Opens an SSE (Server-Sent Events: a one-way, auto-reconnecting push channel from
@@ -64,7 +64,7 @@ export function useSessionEventsStream(): void {
 
             queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY });
-            queryClient.invalidateQueries({ queryKey: LAST_LOGIN_QUERY_KEY });
+            queryClient.invalidateQueries({ queryKey: PREVIOUS_LOGIN_QUERY_KEY });
         };
 
         // EventSource auto-reconnects with browser-native backoff, so

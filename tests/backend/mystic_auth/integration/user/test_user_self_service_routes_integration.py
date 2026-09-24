@@ -94,11 +94,11 @@ async def test_self_password_change_reports_sessions_revoked_true_on_success(cli
 
 
 @pytest.mark.asyncio
-async def test_self_password_change_succeeds_but_flags_unrevoked_sessions_when_redis_is_unreachable(
+async def test_self_password_change_succeeds_but_flags_unrevoked_sessions_when_valkey_is_unreachable(
     client, created_emails, mocker
 ):
     # The password write (Postgres) must still succeed even if the
-    # account-version bump (Redis) can't be confirmed, but the response
+    # account-version bump (Valkey) can't be confirmed, but the response
     # must say so rather than pretending every session was revoked.
     email = unique_email()
     login_resp = await create_verified_user(client, created_emails, email)

@@ -1,68 +1,71 @@
 import { colord, extend } from "colord";
 import mixPlugin from "colord/plugins/mix";
-import type { SystemConfig } from "@chakra-ui/react";
 
 import { generateBrandScale } from "./generateBrandScale";
 
 extend([mixPlugin]);
 
-// Chakra's stock gray.900 (themeSemanticTokens.ts's bg.canvas dark default).
+// The former Chakra-compatible stock gray.900 (the dark canvas default in
+// tailwind.css).
 // Dark mode's canvasFrom is blended against this rather than a flat brand step.
 const GRAY_900 = "#18181b";
 
-export interface AppearancePreferences {
-    brandColor: string | null;
-}
+// This app's own dark canvas value from tailwind.css, not
+// The former Chakra-compatible generic gray.900 - deriveSidebar blends toward this instead (see
+// its own comment for why): gray.900 (#18181b, L=10) floors every possible
+// blend result at least that light, which can never reach the mockup's
+// actual chrome darkness (L=6.9) no matter the blend weight.
+const BG_CANVAS_DARK = "#0b0d12";
 
 /** The bg.canvasFrom pair for an arbitrary brand scale - shared with
  * AppearanceCard.tsx's preview boxes so they show exactly what applying
- * the pick will render. */
+ * the pick will render. Retuned to match the "neutral surfaces plus brand
+ * accent" system from design/dashboard.html's approved mockup: that page's
+ * body background is a *very* faint radial brand tint (rgba(brand-500,
+ * .07) light / .14 dark over an otherwise neutral canvas), not a visibly
+ * colored wash. L=95 (up from an earlier L=90/92) is what actually gets
+ * there - at very high lightness a color reads as barely-there regardless
+ * of its raw saturation number, so this keeps `scale["600"]`'s hue/sat
+ * mostly intact (only trimmed to 45%) rather than desaturating it, the
+ * mistake an earlier pass made (assuming "muted" meant "less saturated"
+ * when it actually meant "much lighter"). Dark value: blends gray.900 with
+ * the 900 step at a light 25% weight - enough to keep a hint of brand cast,
+ * not enough to read as a colored panel. */
 export function deriveCanvasFrom(scale: ReturnType<typeof generateBrandScale>): { light: string; dark: string } {
+    const { h, s } = colord(scale["600"]).toHsl();
     return {
-        light: scale["100"],
-        dark: colord(GRAY_900).mix(scale["900"], 0.35).toHex(),
+        light: colord({ h, s: Math.min(100, s * 0.45), l: 95 }).toHex(),
+        dark: colord(GRAY_900).mix(scale["900"], 0.25).toHex(),
     };
 }
 
-/**
- * Builds the SystemConfig fragment reflecting a user's brand color choice,
- * for AppearanceThemeProvider.tsx to merge on top of the base system
- * (theme/system.ts's buildSystem). Returns null when nothing is customized,
- * so the provider can skip rebuilding for the common case.
- *
- * There's no separate background-color pick: the page background
- * (bg.canvasFrom, the soft top-of-viewport gradient tint) is derived
- * straight from the picked brand color's generated scale: brand.100 in
- * light mode, a 65/35 blend of gray.900 with brand.900 in dark mode (a flat
- * brand.900 wash read as too strong; plain gray read as unbranded).
- * bg.canvas/bg.canvasTo/bg.surface stay at their stock values in both modes.
- */
-export function buildAppearanceThemeOverrides(prefs: AppearancePreferences): SystemConfig | null {
-    const { brandColor } = prefs;
-    if (!brandColor) return null;
-
-    const scale = generateBrandScale(brandColor);
-
+/** The bg.sidebar pair (Sidebar.tsx/Navbar.tsx's own surface, distinct from
+ * bg.surface/bg.canvas, and from bg.canvasFrom's gradient tint) for an
+ * arbitrary brand scale. Retuned to match design/dashboard.html's approved
+ * mockup: its sidebar/navbar "chrome" color (--bg-chrome, #fbf4f2 light /
+ * #160f0d dark) sits so close to the page's own canvas color that the two
+ * are barely distinguishable - a whisper of brand hue, not a visibly
+ * tinted panel. Measuring that mockup color directly: L=96.7/S=53% light,
+ * L=6.9/S=26% dark - both nearly the *same lightness as bg.canvas itself*
+ * (L=97 light, L=6 dark), unlike an earlier pass here that landed on L=88
+ * light / a 0.45-weight dark blend, which read as a distinctly warm/rose
+ * panel next to the white cards in front of it (the actual bug the design
+ * canvas review flagged: "still using the old rose/tan tinted-everywhere
+ * look"). This keeps `scale["600"]`'s saturation mostly intact (a trimmed
+ * 85%, since high lightness already mutes it) but pushes lightness up to
+ * L=96.5 - just one notch below bg.canvas, enough to read as its own
+ * surface without becoming a colored block. Dark mixes BG_CANVAS_DARK (this
+ * app's own bg.canvas dark value, not the old Chakra-compatible gray.900 - that
+ * floored every blend at L=10, too light to ever reach the mockup's L=6.9
+ * no matter the weight) with a deep, near-black step at 60% weight - tuned
+ * so the *default* brand color's output lands within a couple RGB values of
+ * the mockup's literal #160f0d, while staying a real brand-derived blend
+ * for any other brand color a fork picks. */
+export function deriveSidebar(scale: ReturnType<typeof generateBrandScale>): { light: string; dark: string } {
+    const { h, s } = colord(scale["600"]).toHsl();
+    const deepStep = colord({ h, s, l: 7 });
     return {
-        theme: {
-            tokens: {
-                colors: {
-                    brand: (Object.keys(scale) as (keyof typeof scale)[]).reduce(
-                        (acc, step) => ({ ...acc, [step]: { value: scale[step] } }),
-                        {} as Record<string, { value: string }>
-                    ),
-                },
-            },
-            semanticTokens: {
-                colors: {
-                    "bg.canvasFrom": {
-                        value: {
-                            _light: deriveCanvasFrom(scale).light,
-                            _dark: deriveCanvasFrom(scale).dark,
-                        },
-                    },
-                },
-            },
-        },
+        light: colord({ h, s: Math.min(100, s * 0.85), l: 96.5 }).toHex(),
+        dark: colord(BG_CANVAS_DARK).mix(deepStep, 0.6).toHex(),
     };
 }

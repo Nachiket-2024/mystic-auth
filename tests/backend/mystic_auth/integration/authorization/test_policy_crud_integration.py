@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/integration/authorization/test_policy_crud_integration.py
 #
 # End-to-end coverage for policy_crud_routes.py (backend/mystic_auth/api/
-# pbac_routes/) against the real ASGI app, real PostgreSQL, and real Redis:
+# pbac_routes/) against the real ASGI app, real PostgreSQL, and real Valkey:
 # the authorization gate on the policy management routes, and policy
 # create/read/update/delete itself. List search/filter/sort/pagination
 # coverage lives in test_policy_list_integration.py, split out once this
@@ -13,6 +13,11 @@ from backend.mystic_auth.authorization.policies.default_policies import (
     SYSTEM_SUPERUSER_POLICY_NAME,
     USER_ADMINISTRATION_POLICY_NAME,
 )
+from backend.mystic_auth.authorization.repositories.policy_repository import (
+    policy_repository,
+)
+from backend.mystic_auth.database.connection import database
+from backend.mystic_auth.user.user_crud_collector import user_crud
 
 from .authorization_test_accounts import (
     cleanup_test_policies,
@@ -121,6 +126,45 @@ async def test_creating_a_duplicate_named_policy_is_rejected(client, created_ema
 
     second = await client.post("/authorization/policies", json=payload)
     assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_conditional_operator_cannot_create_a_broader_policy(client, created_emails):
+    """Delegation keeps the caller's condition scope instead of checking only
+    the action name and resource type."""
+    operator_email = unique_email("operator")
+    await create_verified_user(client, created_emails, operator_email, [SELF_SERVICE_POLICY_NAME])
+
+    conditional_name = unique_policy_name()
+    async with database.async_session() as session:
+        await policy_repository.create(
+            {
+                "name": conditional_name,
+                "actions": ["policies:create"],
+                "resource_type": "policies",
+                "conditions": {"date_range": {"start": "2000-01-01", "end": "2099-12-31"}},
+            },
+            session,
+        )
+        policy = await policy_repository.get_by_name(conditional_name, session)
+        assert policy
+
+    # The operator needs the conditional management grant, assigned directly
+    # through the test database rather than through an HTTP grant endpoint.
+    async with database.async_session() as session:
+        account = await user_crud.get_by_email(operator_email, session)
+        policy = await policy_repository.get_by_name(conditional_name, session)
+        await policy_repository.assign_policy_to_user(
+            user_id=account.id, policy_id=policy.id, db=session, assigned_by="test"
+        )
+
+    await client.post("/auth/login", json={"email": operator_email, "password": "StrongPass123!"})
+    broad = await client.post(
+        "/authorization/policies",
+        json={"name": unique_policy_name(), "actions": ["policies:create"], "resource_type": "policies"},
+    )
+    assert broad.status_code == 403
+    assert broad.json()["code"] == "CANNOT_GRANT_BROADER_CONDITIONS"
 
 
 @pytest.mark.asyncio

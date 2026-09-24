@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import MockAdapter from 'axios-mock-adapter';
 
 import api from '@/api/axiosInstance';
@@ -15,9 +14,7 @@ function renderAppAt(path: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <App />
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -39,7 +36,7 @@ describe('App routing', () => {
     mock.onGet('/auth/me').reply(401);
     renderAppAt('/login');
 
-    expect(await screen.findByRole('button', { name: 'Login' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument();
   });
 
   it('redirects an unauthenticated visitor away from a protected route, to /login', async () => {
@@ -49,7 +46,7 @@ describe('App routing', () => {
     await waitFor(() => {
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
     });
-    expect(await screen.findByRole('button', { name: 'Login' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument();
   });
 
   it('renders the dashboard for an authenticated visitor', async () => {
@@ -61,11 +58,14 @@ describe('App routing', () => {
     });
     renderAppAt('/dashboard');
 
-    // "Manage Sessions" is used as the landmark since Dashboard's welcome
-    // banner has no unique static heading. Dashboard is a lazy-loaded route
-    // (trackedLazy.ts), so the first render can be slow under coverage
-    // instrumentation, hence the longer timeout.
-    expect(await screen.findByText('Manage Sessions', {}, { timeout: 5000 })).toBeInTheDocument();
+    // "Active Sessions" (ActiveSessionsCard's heading) is used as the
+    // landmark since Dashboard's identity strip has no unique static
+    // heading, and this card renders unconditionally once the user loads
+    // (unlike OperationsShortcutsCard, which is permission-gated and renders
+    // nothing for this permissions:[] test user). Dashboard is a
+    // lazy-loaded route (trackedLazy.ts), so the first render can be slow
+    // under coverage instrumentation, hence the longer timeout.
+    expect(await screen.findByText('Active Sessions', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText('user@example.com')).toBeInTheDocument();
   });
 
@@ -78,11 +78,9 @@ describe('App routing', () => {
     });
     renderAppAt('/');
 
-    // "Manage Sessions" is used as the landmark since Dashboard's welcome
-    // banner has no unique static heading. Dashboard is a lazy-loaded route
-    // (trackedLazy.ts), so the first render can be slow under coverage
-    // instrumentation, hence the longer timeout.
-    expect(await screen.findByText('Manage Sessions', {}, { timeout: 5000 })).toBeInTheDocument();
+    // "Active Sessions" (ActiveSessionsCard's heading) is used as the
+    // landmark - see the matching comment above for why.
+    expect(await screen.findByText('Active Sessions', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/dashboard');
   });
 

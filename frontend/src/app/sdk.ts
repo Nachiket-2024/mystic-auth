@@ -115,7 +115,7 @@ export { default as ControlCluster } from "../mystic_auth/layout/controls/Contro
 
 // Underline/darken hover link, the same treatment LoginPage/SignupForm give
 // their own Privacy Policy/Terms of Service footnote links.
-export { default as AuthInlineLink } from "../mystic_auth/ui/AuthInlineLink";
+export { default as AuthInlineLink } from "../mystic_auth/ui/links/AuthInlineLink";
 
 // The shared i18next instance itself (not just useTranslation, which you can
 // already import from "react-i18next" - see LoginPage.tsx). Your own
@@ -124,7 +124,8 @@ export { default as AuthInlineLink } from "../mystic_auth/ui/AuthInlineLink";
 // register your own namespace at runtime instead:
 // translations.addResourceBundle("en", "yourNamespace", enJson), once per
 // language, then useTranslation("yourNamespace") as normal. See
-// landing_page/translations/ for a worked example.
+// app/translations/ plus mystic_auth/translations/languages/ for the worked
+// app-owned locale layout.
 export { default as translations } from "../mystic_auth/translations/translations";
 
 // Route-splitting: use in place of React.lazy for your own routed pages so
@@ -140,36 +141,31 @@ export { toaster } from "../mystic_auth/ui/toaster/toasterInstance";
 
 // Generic UI primitives: no identity/PBAC coupling, reused as-is by your
 // own feature pages the same way this template's own pages do.
-// SECONDARY_BUTTON_PROPS: spread onto a Button instead of variant="ghost",
-// which has no border/background and disappears against a page background
-// until hovered; this gives it a visible fill/border and real hover state.
-export { SECONDARY_BUTTON_PROPS } from "../mystic_auth/ui/styles/buttonStyles";
-// BRAND_SOLID_HOVER_PROPS / BRAND_OUTLINE_HOVER_PROPS: spread onto a
-// colorPalette="brand" solid/outline Button (e.g. LoginForm's submit
-// button) for a visible hover state; stock Chakra's hover shift is too
-// subtle to read as a real hover. Use on your own brand-colored CTAs to match.
-export { BRAND_SOLID_HOVER_PROPS, BRAND_OUTLINE_HOVER_PROPS } from "../mystic_auth/ui/styles/buttonStyles";
-export {
-    BRAND_ICON_BUTTON_PROPS,
-    BRAND_SUBTLE_BUTTON_PROPS,
-    CLOSE_TRIGGER_PROPS,
-    DESTRUCTIVE_SOLID_HOVER_PROPS,
-    ICON_BUTTON_PROPS,
-} from "../mystic_auth/ui/styles/buttonStyles";
-export { default as LoadingState } from "../mystic_auth/ui/LoadingState";
-export { default as Card } from "../mystic_auth/ui/Card";
-export { default as PageContainer } from "../mystic_auth/ui/PageContainer";
+// Button: Tailwind/shadcn replacement for Chakra's raw <Button>. Use its
+// `variant` prop ("brand", "brand-outline", "destructive",
+// "destructive-outline", "brand-tinted-outline", "secondary", "icon",
+// "brand-subtle", "outline", "ghost", "link") instead of spreading a
+// hover-fix props object - see frontend/src/mystic_auth/ui/buttons/Button.tsx for what each variant looks
+// like and why.
+export { Button, type ButtonProps } from "../mystic_auth/ui/buttons/Button";
+export { buttonVariants } from "../mystic_auth/ui/buttons/button-variants";
+export { default as LoadingState } from "../mystic_auth/ui/feedback/LoadingState";
+export { default as Card } from "../mystic_auth/ui/cards/Card";
+export { default as PageContainer } from "../mystic_auth/ui/navigation/PageContainer";
 export { default as DataTable } from "../mystic_auth/ui/DataTable/DataTable";
 export type { DataTableColumn } from "../mystic_auth/ui/DataTable/DataTable";
-export { default as ConfirmDialog } from "../mystic_auth/ui/ConfirmDialog";
-export { default as FormAlert } from "../mystic_auth/ui/FormAlert";
-export { default as Badge } from "../mystic_auth/ui/Badge";
-export { default as Breadcrumbs } from "../mystic_auth/ui/Breadcrumbs";
-export { default as Pagination } from "../mystic_auth/ui/Pagination";
-export { default as PasswordInput } from "../mystic_auth/ui/PasswordInput";
-export { default as StatTile } from "../mystic_auth/ui/StatTile";
-export { default as StyledSelect } from "../mystic_auth/ui/StyledSelect";
-export { SEARCH_INPUT_PROPS, SEARCH_QUERY_MAX_LENGTH } from "../mystic_auth/ui/styles/inputStyles";
+export { default as ConfirmDialog } from "../mystic_auth/ui/feedback/ConfirmDialog";
+export { default as FormAlert } from "../mystic_auth/ui/feedback/FormAlert";
+export { default as Badge } from "../mystic_auth/ui/badges/Badge";
+export { default as Breadcrumbs } from "../mystic_auth/ui/navigation/Breadcrumbs";
+export { default as Pagination } from "../mystic_auth/ui/navigation/Pagination";
+export { default as PasswordInput } from "../mystic_auth/ui/inputs/PasswordInput";
+export { default as StatTile } from "../mystic_auth/ui/display/StatTile";
+export { default as StyledSelect } from "../mystic_auth/ui/filters/StyledSelect";
+export { Input, type InputProps } from "../mystic_auth/ui/inputs/Input";
+export { inputVariants } from "../mystic_auth/ui/inputs/input-variants";
+export { Textarea } from "../mystic_auth/ui/inputs/Textarea";
+export { SEARCH_QUERY_MAX_LENGTH } from "../mystic_auth/ui/styles/inputStyles";
 export { default as TableActionButton } from "../mystic_auth/ui/table_actions/TableActionButton";
 export { default as TableActionIconButton } from "../mystic_auth/ui/table_actions/TableActionIconButton";
 export { TABLE_ACTION_PALETTE_STYLES } from "../mystic_auth/ui/table_actions/tableActionPalettes";
@@ -189,7 +185,7 @@ export { extractApiErrorMessage, isForbiddenError, translateErrorCode } from "..
 export * as authApi from "../mystic_auth/api/auth_api";
 export * as accountSettingsApi from "../mystic_auth/api/account_settings_api";
 export * as auditApi from "../mystic_auth/api/audit_api";
-export * as bulkAssignmentApi from "../mystic_auth/api/bulkAssignment_api";
+export * as bulkAssignmentApi from "../mystic_auth/api/bulk_assignment_api";
 export * as permissionsApi from "../mystic_auth/api/permissions_api";
 export * as policiesApi from "../mystic_auth/api/policies_api";
 export * as rateLimitsApi from "../mystic_auth/api/rate_limits_api";
@@ -206,6 +202,6 @@ export { default as settings, APP_NAME, SUPPORT_EMAIL } from "../mystic_auth/cor
 
 // Error monitoring: reports a caught-but-still-noteworthy error the same
 // way an uncaught render error gets reported automatically (see
-// ui/ErrorBoundary.tsx). Safe no-op when VITE_SENTRY_DSN is unset, see
+// ui/routing/ErrorBoundary.tsx). Safe no-op when VITE_SENTRY_DSN is unset, see
 // docs/mystic_auth/error-monitoring/overview.md
 export { reportError } from "../mystic_auth/core/errorMonitoring";

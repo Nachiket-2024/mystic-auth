@@ -26,7 +26,7 @@ $DC = @(
 
 $LongRunningServices = @(
     "postgres",
-    "redis",
+    "valkey",
     "bugsink",
     "backend",
     "procrastinate_worker",

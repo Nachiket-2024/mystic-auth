@@ -1,5 +1,4 @@
 import React from "react";
-import { Box, SimpleGrid } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
 import type { PasswordRules } from "./passwordRules";
@@ -15,10 +14,12 @@ interface PasswordRulesChecklistProps {
      * keystroke switches it to the normal red/green checklist.
      */
     pristine?: boolean;
-    /** Number of grid columns. 2 (default) for a standalone, full-width
-     * checklist (e.g. ChangePasswordCard); 1 for the compact single-column
-     * block used next to the strength meter in PasswordStrengthPanel. */
-    columns?: number;
+    /** Tailwind grid-cols classes, e.g. "grid-cols-1 sm:grid-cols-2" so
+     * PasswordStrengthPanel's checklist drops to one column below ~400px
+     * (design.md's narrow-width rule for the auth pages opened from email
+     * links). "grid-cols-2" (default) for a standalone, full-width
+     * checklist (e.g. ChangePasswordCard). */
+    columnsClassName?: string;
 }
 
 /**
@@ -31,18 +32,20 @@ interface PasswordRulesChecklistProps {
  * would overflow past the card's edge instead of wrapping. The grid gives each item a
  * fixed column to wrap within.
  */
-const PasswordRulesChecklist: React.FC<PasswordRulesChecklistProps> = ({ rules, fontSize = "md", pristine = false, columns = 2 }) => {
+const FONT_SIZE_CLASSES: Record<string, string> = { xs: "text-xs", sm: "text-sm", md: "text-base", lg: "text-lg" };
+
+const PasswordRulesChecklist: React.FC<PasswordRulesChecklistProps> = ({ rules, fontSize = "md", pristine = false, columnsClassName = "grid-cols-2" }) => {
     const { t } = useTranslation("auth");
 
     return (
-        <Box fontSize={fontSize} color="fg.muted" aria-live="polite">
-            <SimpleGrid columns={columns} columnGap={4} rowGap={1}>
+        <div className={`${FONT_SIZE_CLASSES[fontSize] ?? fontSize} text-fg-muted`} aria-live="polite">
+            <div className={`grid ${columnsClassName} gap-x-4 gap-y-1`}>
                 <PasswordRuleItem passed={rules.lengthRule} label={t("passwordRules.minLength")} pristine={pristine} />
                 <PasswordRuleItem passed={rules.upperRule} label={t("passwordRules.upper")} pristine={pristine} />
                 <PasswordRuleItem passed={rules.lowerRule} label={t("passwordRules.lower")} pristine={pristine} />
                 <PasswordRuleItem passed={rules.numberRule} label={t("passwordRules.number")} pristine={pristine} />
-            </SimpleGrid>
-        </Box>
+            </div>
+        </div>
     );
 };
 

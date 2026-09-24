@@ -75,6 +75,7 @@ def _run_procrastinate_worker(tmp_path_factory: pytest.TempPathFactory):
             cwd=_BACKEND_DIR,
             env=env,
             capture_output=True,
+            check=False,
         )
         if check.returncode == 0:
             ready = True

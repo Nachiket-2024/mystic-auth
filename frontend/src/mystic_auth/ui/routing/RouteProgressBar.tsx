@@ -1,5 +1,4 @@
 import React from "react";
-import { Box } from "@chakra-ui/react";
 
 import { useRouteLoadingStore } from "../../store/routeLoadingStore";
 
@@ -30,34 +29,26 @@ const RouteProgressBar: React.FC = () => {
             <style href="mystic-route-progress-bar-keyframes" precedence="low">
                 {KEYFRAMES}
             </style>
-            <Box
-                position="fixed"
-                top={0}
-                left={0}
-                right={0}
-                height="1"
-                zIndex="max"
-                overflow="hidden"
-                pointerEvents="none"
+            {/* z-[2147483647]: Chakra's zIndex="max" token value, kept
+                exactly so this still overlays literally everything. */}
+            <div
+                className="fixed top-0 left-0 right-0 h-1 z-[2147483647] overflow-hidden pointer-events-none"
                 role="progressbar"
                 aria-label="Loading"
                 aria-valuetext="Loading"
             >
-                <Box
-                    position="absolute"
-                    top={0}
-                    left={0}
-                    height="full"
-                    w="40%"
-                    bg="brand.solid"
-                    boxShadow="0 0 8px 1px var(--chakra-colors-brand-solid)"
-                    // Left un-tokenized on purpose: this is a continuous
-                    // indeterminate-loading loop, not a UI response speed
-                    // like durations.hover/fast/base - retuning "how snappy
-                    // the app feels" shouldn't also change this loop's speed.
-                    animation="mystic-route-progress-slide 1.1s ease-in-out infinite"
+                <div
+                    className="absolute top-0 left-0 h-full w-2/5 bg-brand-solid"
+                    style={{
+                        boxShadow: "0 0 8px 1px var(--brand-solid)",
+                        // Left un-tokenized on purpose: this is a continuous
+                        // indeterminate-loading loop, not a UI response speed
+                        // like durations.hover/fast/base - retuning "how snappy
+                        // the app feels" shouldn't also change this loop's speed.
+                        animation: "mystic-route-progress-slide 1.1s ease-in-out infinite",
+                    }}
                 />
-            </Box>
+            </div>
         </>
     );
 };

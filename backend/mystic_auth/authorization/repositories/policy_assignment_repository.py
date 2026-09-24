@@ -5,7 +5,7 @@ from sqlalchemy.future import select
 
 from ...user.user_model import User
 
-# Centralized Redis cache for authorization data (see its own docstring
+# Centralized Valkey cache for authorization data (see its own docstring
 # for what's cached and why). Every mutation below invalidates whatever
 # it could have made stale.
 from ..caching.authorization_cache_service import authorization_cache_service
@@ -83,6 +83,32 @@ class PolicyAssignmentRepository:
             select(User.email).join(UserPolicy, UserPolicy.user_id == User.id).where(UserPolicy.policy_id == policy_id)
         )
         return list(result.scalars().all())
+
+    @staticmethod
+    async def get_holders(policy_id: int, db: AsyncSession) -> list[dict]:
+        """Every user currently assigned this policy, with enough detail
+        for the "Assigned users" view (name/email/role) and the delete
+        confirm's holder count, newest assignment first. Unlike
+        get_holder_emails, this is for display, not for the
+        publish_permissions_changed fan-out, so it carries assigned_at/
+        assigned_by too."""
+        stmt = (
+            select(User.email, User.name, User.role, UserPolicy.assigned_at, UserPolicy.assigned_by)
+            .join(UserPolicy, UserPolicy.user_id == User.id)
+            .where(UserPolicy.policy_id == policy_id)
+            .order_by(UserPolicy.assigned_at.desc())
+        )
+        result = await db.execute(stmt)
+        return [
+            {
+                "email": row.email,
+                "name": row.name,
+                "role": row.role,
+                "assigned_at": row.assigned_at,
+                "assigned_by": row.assigned_by,
+            }
+            for row in result.all()
+        ]
 
     @staticmethod
     async def get_holder_emails_for_update(policy_id: int, db: AsyncSession) -> list[str]:

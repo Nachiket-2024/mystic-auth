@@ -13,11 +13,12 @@
     },
     "mainNavigation": "मुख्य नेव्हिगेशन",
     "commandPalette": {
-        "placeholder": "पृष्ठे आणि वापरकर्ते शोधा...",
+        "placeholder": "पृष्ठे, धोरणे आणि वापरकर्ते शोधा...",
         "noResults": "जुळणारा निकाल आढळला नाही",
         "pagesGroup": "पृष्ठे",
         "featuresGroup": "वैशिष्ट्ये",
         "matchesGroup": "जुळणारा मजकूर",
+        "policiesGroup": "धोरणे",
         "usersGroup": "वापरकर्ते",
         "trigger": "शोधा...",
         "triggerLabel": "शोध उघडा (Ctrl+K)"

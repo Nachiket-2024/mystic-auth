@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { Button, Field, Heading, Stack, Text, Wrap } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
-import Badge from "../ui/Badge";
-import Card from "../ui/Card";
-import FormAlert from "../ui/FormAlert";
-import PasswordInput from "../ui/PasswordInput";
+import Badge from "../ui/badges/Badge";
+import Card from "../ui/cards/Card";
+import SectionHeading from "../ui/navigation/SectionHeading";
+import FormAlert from "../ui/feedback/FormAlert";
+import PasswordInput from "../ui/inputs/PasswordInput";
 import PasswordStrengthPanel from "../auth/password_rules/PasswordStrengthPanel";
 import { useUpdateMyAccountMutation } from "./useUpdateMyAccountMutation";
 import { checkPasswordRules, evaluatePasswordStrength, validatePassword } from "../auth/password_rules/passwordRules";
 import { toaster } from "../ui/toaster/toasterInstance";
-import { BRAND_SOLID_HOVER_PROPS } from "../ui/styles/buttonStyles";
-import { SEARCH_INPUT_PROPS } from "../ui/styles/inputStyles";
+import { Button } from "../ui/buttons/Button";
+import { Label } from "../ui/shadcn/label";
 
 interface ChangePasswordCardProps {
     hasPassword: boolean;
@@ -50,7 +50,7 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
         onDirtyChange(isDirty);
     }, [isDirty, onDirtyChange]);
 
-    const handlePasswordSubmit = (e: React.SubmitEvent<HTMLDivElement>) => {
+    const handlePasswordSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         setPasswordError("");
 
@@ -73,7 +73,7 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
         passwordMutation.mutate(payload, {
             onSuccess: (data) => {
                 // sessions_revoked === false: the password changed successfully,
-                // but Redis was unreachable so other sessions weren't revoked.
+                // but Valkey was unreachable so other sessions weren't revoked.
                 // Show a narrower warning instead of the plain success toast, since
                 // "other devices signed out" didn't actually happen here.
                 if (data.sessions_revoked === false) {
@@ -88,24 +88,25 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
     };
 
     return (
-        <Card p={5} flex="1" flexBasis="80" maxW="3xl">
-            <Wrap gap={2} align="center" mb={1}>
-                <Heading as="h2" size="lg" textStyle="sectionHeader">
+        <Card className="p-5 flex-1 basis-80 max-w-3xl">
+            <div className="flex items-center flex-wrap gap-2 mb-1">
+                <SectionHeading>
                     {hasPassword ? t("changePassword.changeTitle") : t("changePassword.setTitle")}
-                </Heading>
-                <Badge colorPalette={hasPassword ? "brand" : "gray"} variant="subtle" size="md" fontSize="md">
+                </SectionHeading>
+                <Badge colorPalette={hasPassword ? "brand" : "gray"} variant="subtle" size="md">
                     {hasPassword ? t("accountStatus.set") : t("accountStatus.notSet")}
                 </Badge>
-            </Wrap>
-            <Text color="fg.muted" fontSize="md" mb={4}>
+            </div>
+            <p className="text-fg-muted text-sm mb-4">
                 {hasPassword
                     ? t("accountStatus.hasPasswordDescription")
                     : t("accountStatus.noPasswordDescription")}
-            </Text>
-            <Stack as="form" onSubmit={handlePasswordSubmit} gap={4}>
-                <Field.Root>
-                    <Field.Label fontSize="md">{hasPassword ? t("changePassword.newPasswordLabel") : t("changePassword.setPasswordFieldLabel")}</Field.Label>
+            </p>
+            <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="change-password-new">{hasPassword ? t("changePassword.newPasswordLabel") : t("changePassword.setPasswordFieldLabel")}</Label>
                     <PasswordInput
+                        id="change-password-new"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder={
@@ -117,9 +118,8 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                         aria-describedby={passwordError ? "password-local-error" : passwordMutation.isError ? "password-mutation-error" : undefined}
                         size="lg"
                         maxLength={128}
-                        {...SEARCH_INPUT_PROPS}
                     />
-                </Field.Root>
+                </div>
 
                 {/* Placed right below New password since these rules describe
                     that field, not the confirmation field below. Always rendered
@@ -131,16 +131,17 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                     label={t("changePassword.strengthLabel", { strength: strength || "-" })}
                     rules={rules}
                     pristine={!isDirty}
-                    mt={1}
+                    className="mt-1"
                 />
 
                 {/* Always rendered when the account has a password to confirm
                     against, not only once newPassword has a value: the card
                     should look the same on open as it does mid-edit. */}
                 {hasPassword && (
-                    <Field.Root>
-                        <Field.Label fontSize="md">{t("changePassword.currentPasswordLabel")}</Field.Label>
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="change-password-current">{t("changePassword.currentPasswordLabel")}</Label>
                         <PasswordInput
+                            id="change-password-current"
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
                             placeholder={t("changePassword.currentPasswordPlaceholder")}
@@ -148,9 +149,8 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
                             aria-describedby={passwordError ? "password-local-error" : undefined}
                             size="lg"
                             maxLength={128}
-                            {...SEARCH_INPUT_PROPS}
                         />
-                    </Field.Root>
+                    </div>
                 )}
 
                 {passwordError && <FormAlert size="lg" status="error" id="password-local-error">{passwordError}</FormAlert>}
@@ -158,15 +158,13 @@ const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, on
 
                 <Button
                     type="submit"
-                    colorPalette="brand"
-                    alignSelf="flex-start"
+                    variant="brand"
+                    className="self-start"
                     loading={passwordMutation.isPending}
-                    loadingText={t("ui_text:saving")}
-                    {...BRAND_SOLID_HOVER_PROPS}
                 >
                     {hasPassword ? t("changePassword.updateButton") : t("changePassword.setButton")}
                 </Button>
-            </Stack>
+            </form>
         </Card>
     );
 };

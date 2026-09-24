@@ -3,9 +3,10 @@ import enum
 
 class Permission(str, enum.Enum):
     """
-    The fixed vocabulary of action identifiers usable in a Policy's
-    `actions` list, checked via require_authorization or
-    AuthorizationService.authorize/require.
+    MysticAuth's built-in vocabulary of action identifiers usable in a
+    Policy's `actions` list, checked via require_authorization or
+    AuthorizationService.authorize/require. Downstream applications may use
+    additional opaque action strings without adding them here.
 
     Represents possible actions only, no role -> action mapping: the only
     thing that grants an action to a user is an assigned, active Policy
@@ -23,7 +24,11 @@ class Permission(str, enum.Enum):
     # User administration: listing/updating/deleting arbitrary accounts
     USERS_LIST_ALL = "users:list_all"
     USERS_UPDATE_ANY = "users:update_any"
-    USERS_DELETE_ANY = "users:delete_any"
+
+    # Soft-delete (deactivate): reversible, preserves audit history. Named
+    # to match its UI label ("Deactivate") exactly - see USERS_DELETE_ANY
+    # below for the distinct, irreversible action that label pair maps to.
+    USERS_DEACTIVATE_ANY = "users:deactivate_any"
 
     # Assigning a role to another user (not system-role assignment, see below)
     USERS_ASSIGN_ROLE = "users:assign_role"
@@ -38,11 +43,12 @@ class Permission(str, enum.Enum):
     USERS_ASSIGN_SYSTEM_ROLE = "users:assign_system_role"
 
     # Permanently, irreversibly removing an account and its rows: a
-    # distinct, more sensitive action than USERS_DELETE_ANY (which is a
-    # soft delete: reversible, preserves audit history). Hard delete/purge
-    # is deliberately gated separately so a policy can grant ordinary user
-    # deletion without also granting irreversible data destruction.
-    USERS_PURGE = "users:purge"
+    # distinct, more sensitive action than USERS_DEACTIVATE_ANY (which is a
+    # soft delete: reversible, preserves audit history). Named to match its
+    # UI label ("Delete") exactly, and gated as its own action - deliberately
+    # separate from USERS_DEACTIVATE_ANY - so a policy can grant ordinary
+    # deactivation without also granting irreversible data destruction.
+    USERS_DELETE_ANY = "users:delete_any"
 
     # Fine-grained actions for managing the authorization system itself
     # (policies and their assignment to users), see
@@ -69,12 +75,12 @@ class Permission(str, enum.Enum):
     PERMISSIONS_READ = "permissions:read"
 
     # Reading the security audit trail (login/logout/signup/OAuth2/password-reset/
-    # lockout/token-reuse events : see audit/models/security_audit_log_model.py).
+    # lockout/token-reuse events: see backend/mystic_auth/audit_log/audit_log_model.py).
     # Its own action, separate from POLICIES_READ, since it covers a different
     # (non-PBAC) audit surface.
     SECURITY_AUDIT_READ = "security_audit:read"
 
-    # Reading live Redis-backed rate-limit counters (see
+    # Reading live Valkey-backed rate-limit counters (see
     # auth/security/rate_limiting/rate_limiter_service.py). Its own action, separate from
     # SECURITY_AUDIT_READ, since this is live operational state, not a
     # historical log.

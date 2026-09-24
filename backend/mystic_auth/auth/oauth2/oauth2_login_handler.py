@@ -32,7 +32,7 @@ class OAuth2LoginHandler:
         if error_code:
             url += f"?error={error_code}"
         response = RedirectResponse(url=url)
-        response.delete_cookie("oauth_state", httponly=True, secure=True, samesite="lax")
+        response.delete_cookie("oauth_state", httponly=True, secure=settings.secure_cookies, samesite="lax")
         return response
 
     async def handle_oauth2_login_initiate(self) -> RedirectResponse:
@@ -67,7 +67,7 @@ class OAuth2LoginHandler:
                 key="oauth_state",
                 value=state,
                 httponly=True,
-                secure=True,
+                secure=settings.secure_cookies,
                 samesite="lax",
                 max_age=OAUTH2_STATE_TTL_SECONDS,
             )
@@ -96,7 +96,7 @@ class OAuth2LoginHandler:
         try:
             # Reject immediately on a provider-reported error (e.g. cancelled
             # consent) or a missing authorization code, before touching
-            # state/Redis at all, since neither exists meaningfully in this case.
+            # state/Valkey at all, since neither exists meaningfully in this case.
             if error or not code:
                 logger.info("OAuth2 callback did not complete: error=%s, code_present=%s", error, bool(code))
                 return self._redirect_to_login_clearing_state("OAUTH_CANCELLED")
@@ -183,7 +183,7 @@ class OAuth2LoginHandler:
             response = RedirectResponse(url=f"{settings.FRONTEND_BASE_URL}/dashboard")
 
             token_cookie_handler.set_tokens_in_cookies(response, jwt_tokens)
-            response.delete_cookie("oauth_state", httponly=True, secure=True, samesite="lax")
+            response.delete_cookie("oauth_state", httponly=True, secure=settings.secure_cookies, samesite="lax")
 
             return response
 

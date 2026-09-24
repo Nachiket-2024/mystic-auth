@@ -3,7 +3,7 @@
 # End-to-end coverage for system-only privileged role assignment and the
 # account-lifecycle routes (soft delete, purge, reactivate) plus
 # admin-driven password change (user_management_update_routes.py), against
-# the real ASGI app, real PostgreSQL, and real Redis (see conftest.py).
+# the real ASGI app, real PostgreSQL, and real Valkey (see conftest.py).
 # Split out of the old 629-line test_user_management_routes_integration.py:
 # this half covers changes to an account's standing (deleted/purged/
 # reactivated, or a session revoked by a password reset);
@@ -207,8 +207,8 @@ async def test_admin_password_change_revokes_targets_existing_sessions(client, c
 
 @pytest.mark.asyncio
 async def test_admin_without_purge_permission_cannot_purge(client, created_emails):
-    # users:purge is granted only by system_superuser. user_administration
-    # (which includes users:delete_any) does not include it: hard delete is
+    # users:delete_any is granted only by system_superuser. user_administration
+    # (which includes users:deactivate_any) does not include it: hard delete is
     # a deliberately separate, more sensitive action.
     admin_email = unique_email("admin")
     target_email = unique_email("target")
@@ -310,7 +310,7 @@ async def test_reactivate_rejects_a_never_deleted_user(client, created_emails):
 @pytest.mark.asyncio
 async def test_admin_without_reactivate_permission_cannot_reactivate(client, created_emails):
     # users:reactivate is granted only by system_superuser, same tier as
-    # users:purge: restoring access is more sensitive than day-to-day user
+    # users:delete_any: restoring access is more sensitive than day-to-day user
     # administration.
     admin_email = unique_email("admin")
     target_email = unique_email("target")

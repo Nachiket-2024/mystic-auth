@@ -2,9 +2,9 @@
 #
 # End-to-end coverage for the login timing side-channel, login lockout,
 # lockout key isolation across flows, and IP/account rate limiting, against
-# the real ASGI app, real PostgreSQL, and real Redis (see conftest.py). See
+# the real ASGI app, real PostgreSQL, and real Valkey (see conftest.py). See
 # test_login_integration.py for the base signup/verify/login coverage.
-# Unlike the mocked unit suite, these exercise real Redis type/atomicity
+# Unlike the mocked unit suite, these exercise real Valkey type/atomicity
 # behavior, the class of bug (a Set/Hash key-type collision) that mocks
 # can't surface.
 import statistics
@@ -19,7 +19,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
     account_verification_service,
 )
 from backend.mystic_auth.core.settings import settings
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 from .auth_test_accounts import PASSWORD, signup_verify_login, unique_email
 
@@ -33,7 +33,7 @@ async def _median_login_latency(client, email: str, password: str, samples: int 
         # MAX_FAILED_LOGIN_ATTEMPTS partway through, and the locked-out
         # responses (which return instantly, before any hash comparison)
         # would corrupt this timing measurement rather than reflect it.
-        await redis_client.delete(f"login_lock:email:{email}")
+        await valkey_client.delete(f"login_lock:email:{email}")
         start = time.perf_counter()
         await client.post("/auth/login", json={"email": email, "password": password})
         durations.append(time.perf_counter() - start)
@@ -82,7 +82,7 @@ async def test_login_timing_does_not_distinguish_unverified_from_wrong_password(
     assert wrong_password_latency < unverified_latency * 3
 
 
-# ---------------------------- login lockout (real Redis) ----------------------------
+# ---------------------------- login lockout (real Valkey) ----------------------------
 
 @pytest.mark.asyncio
 async def test_login_locks_out_after_max_failed_attempts(client, created_emails):
@@ -90,7 +90,7 @@ async def test_login_locks_out_after_max_failed_attempts(client, created_emails)
     await signup_verify_login(client, created_emails, email)
     client.cookies.clear()
 
-    for _ in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
+    for _attempt in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
         resp = await client.post("/auth/login", json={"email": email, "password": "wrong-password"})
         assert resp.status_code == 401
 
@@ -121,11 +121,11 @@ async def test_successful_login_resets_failed_attempt_counter(client, created_em
     assert next_fail_resp.status_code == 401
 
 
-# ---------------------------- lockout key isolation across flows (real Redis) ----------------------------
+# ---------------------------- lockout key isolation across flows (real Valkey) ----------------------------
 #
 # Regression coverage for a bug where password_reset_confirm_handler and
 # account_verification_handler shared login_handler's exact "login_lock:
-# email:{email}" Redis key. Failures with no bearing on a real login
+# email:{email}" Valkey key. Failures with no bearing on a real login
 # attempt (a weak new password during reset, an already-verified account
 # resubmitted for verification) could trip the unrelated login lockout for
 # the same email. Each flow now uses its own key namespace
@@ -140,17 +140,17 @@ async def test_repeated_weak_password_reset_confirm_failures_do_not_lock_out_log
     resp = await client.post("/auth/password-reset/request", json={"email": email})
     assert resp.status_code == 200
     reset_token = await password_service.create_reset_token(email)
-    await redis_client.set(f"password_reset:{reset_token}", "1", ex=settings.RESET_TOKEN_EXPIRE_MINUTES * 60)
+    await valkey_client.set(f"password_reset:{reset_token}", "1", ex=settings.RESET_TOKEN_EXPIRE_MINUTES * 60)
 
-    for _ in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
+    for attempt in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
         # Too-short new password fails validate_password_strength, which
-        # restores the single-use Redis entry so the same token can be
+        # restores the single-use Valkey entry so the same token can be
         # retried, letting this loop drive enough failures to trip the old
         # shared lockout key.
         resp = await client.post(
             "/auth/password-reset/confirm", json={"token": reset_token, "new_password": "weak"}
         )
-        assert resp.status_code == 400
+        assert resp.status_code == (429 if attempt == settings.MAX_FAILED_LOGIN_ATTEMPTS - 1 else 400)
 
     login_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     assert login_resp.status_code == 200
@@ -162,27 +162,27 @@ async def test_repeated_already_verified_failures_do_not_lock_out_login(client, 
     await signup_verify_login(client, created_emails, email)
     client.cookies.clear()
 
-    for _ in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
+    for attempt in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
         # A fresh, valid, single-use-registered token for an account that's
-        # already verified: verify_token succeeds (real token, real Redis
+        # already verified: verify_token succeeds (real token, real Valkey
         # single-use entry) but mark_user_verified fails because is_verified
         # is already True, the "already verified" failure branch.
         token = await account_verification_service.create_verification_token(email)
-        await redis_client.set(f"verify:{token}", "1", ex=600)
+        await valkey_client.set(f"verify:{token}", "1", ex=600)
         resp = await client.post("/auth/verify-account", json={"token": token})
-        assert resp.status_code == 400
+        assert resp.status_code == (429 if attempt == settings.MAX_FAILED_LOGIN_ATTEMPTS - 1 else 400)
 
     login_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     assert login_resp.status_code == 200
 
 
-# ---------------------------- rate limiting (real Redis) ----------------------------
+# ---------------------------- rate limiting (real Valkey) ----------------------------
 
 @pytest.mark.asyncio
 async def test_ip_rate_limit_blocks_after_max_requests_per_window(client, created_emails):
     # Uses oauth2/login/google rather than /auth/login: that endpoint has no
     # account-level lockout side effect, so exactly MAX_REQUESTS_PER_WINDOW
-    # requests exercise only the per-IP rate limiter, in real Redis,
+    # requests exercise only the per-IP rate limiter, in real Valkey,
     # instead of tripping login_protection_service's lockout first.
     for _ in range(settings.MAX_REQUESTS_PER_WINDOW):
         resp = await client.get("/auth/oauth2/login/google")
@@ -199,14 +199,14 @@ async def test_ip_rate_limit_blocks_after_max_requests_per_window(client, create
 
 
 @pytest.mark.asyncio
-async def test_signup_account_key_rate_limit_is_tracked_in_real_redis(client, created_emails):
+async def test_signup_account_key_rate_limit_is_tracked_in_real_valkey(client, created_emails):
     # Regression guard for the account_key_func wiring in auth_routes.py:
     # confirm the per-account signup key is actually incremented in real
-    # Redis, not just under a mock.
+    # Valkey, not just under a mock.
     email = unique_email()
     await client.post("/auth/signup", json={"name": "A", "email": email, "password": PASSWORD})
     created_emails.append(email)
 
-    count = await redis_client.get(f"signup:account:{email}")
+    count = await valkey_client.get(f"signup:account:{email}")
     assert count is not None
     assert int(count) == 1

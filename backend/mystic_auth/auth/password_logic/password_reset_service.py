@@ -5,8 +5,8 @@ from ...core.settings import settings
 from ...emails.email_template_service import render_transactional_email
 from ...logging.logging_config import get_logger
 from ...procrastinate_tasks.email_tasks import send_email_task
-from ...redis.client import redis_client
 from ...user.user_crud_collector import user_crud
+from ...valkey.client import valkey_client
 from ..refresh_token_logic.refresh_token_service import refresh_token_service
 from ..token_logic.token_version_store import TokenVersionUnavailableError
 from .password_service import password_service
@@ -30,12 +30,14 @@ class PasswordResetService:
 
             expires_minutes = settings.RESET_TOKEN_EXPIRE_MINUTES
 
-            # Persisted in Redis so reset_password() can enforce single-use:
+            # Persisted in Valkey so reset_password() can enforce single-use:
             # without this, a JWT's signature alone stays valid (and replayable)
             # for the whole expiry window even after being redeemed once.
-            await redis_client.set(f"password_reset:{reset_token}", "1", ex=expires_minutes * 60)
+            await valkey_client.set(f"password_reset:{reset_token}", "1", ex=expires_minutes * 60)
 
-            reset_url = f"{settings.FRONTEND_BASE_URL}/reset-password?token={reset_token}"
+            # Fragment values are never sent in HTTP requests or Referer
+            # headers. The frontend consumes and scrubs the fragment in memory.
+            reset_url = f"{settings.FRONTEND_BASE_URL}/reset-password#token={reset_token}"
 
             email_subject = "Reset Your Password"
             email_body = render_transactional_email(
@@ -92,15 +94,15 @@ class PasswordResetService:
         such user, same password); once the new password is actually
         written, success is always True, even if the other-session revoke
         below couldn't be confirmed - blocking the reset on an unrelated
-        Redis outage would be worse than the gap it protects against.
+        Valkey outage would be worse than the gap it protects against.
         sessions_revoked is None when no revoke was attempted (the reset
-        itself failed first), True once confirmed, False if Redis was
+        itself failed first), True once confirmed, False if Valkey was
         unreachable for the bump - same contract as the self-service
         password-change path's own sessions_revoked field
-        (user_self_service_routes.py), so a Redis outage never turns a real
+        (user_self_service_routes.py), so a Valkey outage never turns a real
         password reset into a reported "invalid token" failure.
         """
-        redis_key = f"password_reset:{token}"
+        valkey_key = f"password_reset:{token}"
 
         async def _restore_token(payload: dict) -> None:
             # Cap the restored TTL at the token's own remaining JWT lifetime so
@@ -111,7 +113,7 @@ class PasswordResetService:
                 return
             remaining = int(exp - datetime.now(UTC).timestamp())
             if remaining > 0:
-                await redis_client.set(redis_key, "1", ex=remaining)
+                await valkey_client.set(valkey_key, "1", ex=remaining)
 
         try:
             payload = await password_service.verify_reset_token(token)
@@ -120,7 +122,7 @@ class PasswordResetService:
                 return False, None
 
             # Atomically fetch-and-delete so reuse/replay is impossible.
-            if not await redis_client.getdel(redis_key):
+            if not await valkey_client.getdel(valkey_key):
                 logger.warning("Password reset token not found or already used")
                 return False, None
 

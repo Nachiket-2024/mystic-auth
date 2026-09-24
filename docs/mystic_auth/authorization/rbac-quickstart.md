@@ -11,6 +11,24 @@ You don't need a different mechanism for this. This template doesn't ship a sepa
 
 ## The recipe
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["1. One policy per role\nconditions omitted/null\n= always granted to any holder"]
+    S2["2. Assign it to whichever\nusers should hold that role\n(a user can hold several)"]
+    S3["3. Routes stay identical\nrequire_authorization() doesn't\ncare whether the granting\npolicy has conditions"]
+    Grow{"Later need\n\"editors, but only...\"?"}
+    Add["Add a conditions block\nto the same/a more specific\npolicy - no migration away"]
+
+    S1 --> S2 --> S3 --> Grow
+    Grow -- "yes" --> Add
+    Grow -- "no" --> S3
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    class Grow decision
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 1. **One policy per role**, `conditions` omitted (or explicitly `null`): an unconditioned policy always evaluates to "granted" for anyone holding it, since [`condition_evaluation_service.py`](../authorization/architecture/component-responsibilities.md#condition-evaluation-service) has nothing to check:
 
    ```json

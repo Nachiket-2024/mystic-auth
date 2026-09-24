@@ -2,8 +2,8 @@
 #
 # End-to-end refresh-token rotation/reuse-detection coverage, and the
 # real-time session-events (SSE) route's auth gate, against the real ASGI
-# app, real PostgreSQL, and real Redis (see conftest.py). Unlike the mocked
-# unit suite, these exercise the real Redis atomicity behavior
+# app, real PostgreSQL, and real Valkey (see conftest.py). Unlike the mocked
+# unit suite, these exercise the real Valkey atomicity behavior
 # (claim_jti_for_rotation's SET...NX) that mocks can't surface.
 import asyncio
 import uuid
@@ -23,9 +23,18 @@ from .auth_test_accounts import (
 )
 
 # ---------------------------- refresh rotation / reuse detection ----------------------------
+#
+# The strict-reuse tests below replay a token immediately after using it, which
+# the grace window (REFRESH_TOKEN_REUSE_GRACE_SECONDS) would treat as a benign
+# duplicate, so they run with the grace disabled. Grace behaviour has its own
+# tests further down.
+
+@pytest.fixture
+def strict_reuse(monkeypatch):
+    monkeypatch.setattr(settings, "REFRESH_TOKEN_REUSE_GRACE_SECONDS", 0)
 
 @pytest.mark.asyncio
-async def test_refresh_token_rotates_and_old_token_is_rejected(client, created_emails):
+async def test_refresh_token_rotates_and_old_token_is_rejected(client, created_emails, strict_reuse):
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
     old_refresh = login_resp.cookies["refresh_token"]
@@ -40,11 +49,11 @@ async def test_refresh_token_rotates_and_old_token_is_rejected(client, created_e
 
 
 @pytest.mark.asyncio
-async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, created_emails):
+async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, created_emails, strict_reuse):
     # Regression guard for the refresh-token double-spend race: two requests
     # firing concurrently with the identical still-valid refresh token must
     # not both be able to rotate it into a new pair. claim_jti_for_rotation's
-    # atomic Redis SET...NX means only one can ever win, regardless of how
+    # atomic Valkey SET...NX means only one can ever win, regardless of how
     # the two requests interleave.
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
@@ -63,7 +72,7 @@ async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, 
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_reuse_revokes_the_compromised_chain_only(client, created_emails):
+async def test_refresh_token_reuse_revokes_the_compromised_chain_only(client, created_emails, strict_reuse):
     """Reuse detection must kill the entire compromised rotation chain
     (device A's own current, already-rotated-forward token included: it
     might be the attacker's copy, not the legitimate client's), but must
@@ -106,6 +115,89 @@ async def test_refresh_token_reuse_revokes_the_compromised_chain_only(client, cr
 
 
 @pytest.mark.asyncio
+async def test_duplicate_refresh_within_grace_gets_a_fresh_pair_without_revoking(client, created_emails):
+    # The false-positive this window exists for: a second tab (or a request
+    # whose response was lost to a reload) presenting the token that was just
+    # rotated. Same client, seconds apart: not theft.
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    old_refresh = login_resp.cookies["refresh_token"]
+
+    first = await refresh_with_cookie(client, old_refresh)
+    duplicate = await refresh_with_cookie(client, old_refresh)
+
+    assert first.status_code == 200
+    assert duplicate.status_code == 200
+    assert duplicate.cookies["refresh_token"] != first.cookies["refresh_token"]
+
+    # The chain was not revoked: both minted tokens still work.
+    assert (await refresh_with_cookie(client, duplicate.cookies["refresh_token"])).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_concurrent_refresh_with_the_same_token_both_succeed_within_grace(client, created_emails):
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    client.cookies.set("refresh_token", login_resp.cookies["refresh_token"], domain=TEST_COOKIE_DOMAIN, path="/auth")
+
+    responses = await asyncio.gather(client.post("/auth/refresh/"), client.post("/auth/refresh/"))
+
+    assert [resp.status_code for resp in responses] == [200, 200]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_refresh_within_grace_keeps_a_single_session_row(client, created_emails):
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    old_refresh = login_resp.cookies["refresh_token"]
+
+    await refresh_with_cookie(client, old_refresh)
+    latest = await refresh_with_cookie(client, old_refresh)
+
+    client.cookies.set("access_token", latest.cookies["access_token"], domain=TEST_COOKIE_DOMAIN)
+    client.cookies.set("refresh_token", latest.cookies["refresh_token"], domain=TEST_COOKIE_DOMAIN, path="/auth")
+    sessions = await client.get("/auth/sessions")
+    assert sessions.status_code == 200
+    assert len(sessions.json()) == 1
+
+
+@pytest.mark.asyncio
+async def test_reuse_after_the_grace_window_still_revokes_the_chain(client, created_emails, monkeypatch):
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    old_refresh = login_resp.cookies["refresh_token"]
+
+    rotated = await refresh_with_cookie(client, old_refresh)
+    assert rotated.status_code == 200
+
+    # Age the claim marker past the window instead of sleeping.
+    from backend.mystic_auth.valkey.client import valkey_client
+    jti = pyjwt.decode(old_refresh, options={"verify_signature": False})["jti"]
+    ttl = await valkey_client.ttl(f"revoked:{jti}")
+    await valkey_client.set(f"revoked:{jti}", f"{datetime.now(UTC).timestamp() - 3600}|", ex=max(ttl, 5))
+
+    assert (await refresh_with_cookie(client, old_refresh)).status_code == 401
+    # Chain is dead, including the legitimately rotated descendant.
+    assert (await refresh_with_cookie(client, rotated.cookies["refresh_token"])).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_duplicate_within_grace_from_a_different_ip_is_treated_as_reuse(client, created_emails):
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    old_refresh = login_resp.cookies["refresh_token"]
+
+    assert (await refresh_with_cookie(client, old_refresh)).status_code == 200
+
+    from backend.mystic_auth.valkey.client import valkey_client
+    jti = pyjwt.decode(old_refresh, options={"verify_signature": False})["jti"]
+    ttl = await valkey_client.ttl(f"revoked:{jti}")
+    await valkey_client.set(f"revoked:{jti}", f"{datetime.now(UTC).timestamp()}|203.0.113.9", ex=max(ttl, 5))
+
+    assert (await refresh_with_cookie(client, old_refresh)).status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_refresh_rejects_access_token_type(client, created_emails):
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
@@ -142,7 +234,7 @@ async def test_refresh_rejects_an_actually_expired_token(client, created_emails)
 
 @pytest.mark.asyncio
 async def test_repeated_legitimate_refreshes_do_not_trip_failed_attempt_lockout(client, created_emails):
-    # Regression guard (real Redis): rate_key and lock_key previously
+    # Regression guard (real Valkey): rate_key and lock_key previously
     # collided ("refresh:ip:{ip}" for both), so rate_limiter_service's
     # per-request counter (incremented on every call, success or failure)
     # and login_protection_service's failure counter shared one key: a
@@ -173,7 +265,7 @@ async def test_refresh_token_cookie_is_scoped_to_auth_path(client, created_email
 
 
 # ---------------------------- real-time session events (SSE) ----------------------------
-# The stream itself (real Redis Pub/Sub, heartbeats, disconnect handling) is
+# The stream itself (real Valkey Pub/Sub, heartbeats, disconnect handling) is
 # exercised directly in
 # tests/backend/mystic_auth/unit/user_session/test_session_events_unit.py, and
 # the end-to-end publish-on-revoke wiring in

@@ -13,7 +13,7 @@ Server-side revocation always takes effect immediately (the next request from an
 sequenceDiagram
     participant TabA as Tab A (revokes)
     participant API as Backend
-    participant R as Redis Pub/Sub
+    participant R as Valkey Pub/Sub
     participant TabB as Tab B (same account, another device)
     TabA->>API: Any revoke (logout-all, targeted revoke, password change, ...)
     API->>API: publish_session_revoked(email)
@@ -27,7 +27,7 @@ sequenceDiagram
 ---
 
 1. **Push (primary).** `GET /auth/session-events` is a Server-Sent Events stream, one per open tab,
-   subscribed to a per-account Redis Pub/Sub channel (`session_events:{email}`).
+   subscribed to a per-account Valkey Pub/Sub channel (`session_events:{email}`).
    `user_session/session_events.publish_session_revoked` is called from every revocation path,
    including `refresh_token_service.revoke_all_tokens_for_user`, `revoke_chain_for_user`, and
    `session_service.revoke_one_session`. Logout-all, password changes, account
@@ -58,7 +58,7 @@ The stream requires authentication the same way `GET /auth/me` does, sends a hea
 
 ### A third event type: `permissions_changed`
 
-This same channel also carries a third event type, `{"type": "permissions_changed"}`, published whenever an admin grants/revokes/edits a policy that changes what this account is granted. Unlike `revoked`/`created` (handled identically - invalidate the current-user/sessions/last-login queries), `permissions_changed` gets its own branch in `useSessionEventsStream.ts`'s handler: it synchronously fails every permission check closed (`authStore.dropPermissions()`) before any network round-trip, then evicts the entire TanStack Query cache (`queryClient.resetQueries()`, not just invalidate) and refetches. See [Authorization Architecture: Real-time push](../../authorization/architecture/real-time-push.md#real-time-push) for why the plain invalidate-only handling this channel used to share across all three event types wasn't enough for this one.
+This same channel also carries a third event type, `{"type": "permissions_changed"}`, published whenever an authorized caller grants, revokes, or edits a policy that changes what this account is granted. Unlike `revoked`/`created` (handled identically - invalidate the current-user/sessions/last-login queries), `permissions_changed` gets its own branch in `useSessionEventsStream.ts`'s handler: it synchronously fails every permission check closed (`authStore.dropPermissions()`) before any network round-trip, then evicts the entire TanStack Query cache (`queryClient.resetQueries()`, not just invalidate) and refetches. See [Authorization Architecture: Real-time push](../../authorization/architecture/real-time-push.md#real-time-push) for why the plain invalidate-only handling this channel used to share across all three event types wasn't enough for this one.
 
 ---
 

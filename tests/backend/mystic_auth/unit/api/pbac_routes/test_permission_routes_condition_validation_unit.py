@@ -6,7 +6,10 @@ from fastapi import HTTPException
 from backend.mystic_auth.api.pbac_routes.permissions.permission_assignment_routes import (
     grant_permission_to_user,
 )
-from backend.mystic_auth.authorization.schemas.permission_schema import PermissionAssignmentRequest, UserPermissionRead
+from backend.mystic_auth.authorization.schemas.permission_schema import (
+    PermissionAssignmentRequest,
+    UserPermissionRead,
+)
 
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.permissions.permission_assignment_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"

@@ -1,8 +1,7 @@
 import React from "react";
-import { Flex, Heading, Text, VStack, Button } from "@chakra-ui/react";
 
 import { reportError } from "../../core/errorMonitoring";
-import { BRAND_SOLID_HOVER_PROPS } from "../styles/buttonStyles";
+import { Button } from "../buttons/Button";
 import translations from "../../translations/translations";
 
 interface ErrorBoundaryProps {
@@ -45,29 +44,31 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         }
 
         return (
-            <Flex align="center" justify="center" h="100vh" bg="bg.canvas" px={4} textAlign="center">
-                <VStack gap={4}>
-                    <Heading color="fg.error" size="2xl">{translations.t("ui_text:errorBoundary.title")}</Heading>
+            <div className="flex items-center justify-center h-screen bg-bg-canvas px-4 text-center">
+                <div className="flex flex-col items-center gap-4">
+                    {/* size="2xl" resolves to Chakra's own "2xl" textStyle
+                        (fontSize 2xl / lineHeight 2rem), confirmed via
+                        text-styles.js. */}
+                    <h1 className="text-fg-error text-2xl leading-8 font-semibold">{translations.t("ui_text:errorBoundary.title")}</h1>
 
-                    <Text fontSize="xl" fontWeight="medium">
+                    <p className="text-xl font-medium">
                         {translations.t("ui_text:errorBoundary.description")}
-                    </Text>
+                    </p>
 
                     <Button
-                        colorPalette="brand"
+                        variant="brand"
                         size="md"
-                        fontWeight="bold"
+                        className="font-bold"
                         // A full navigation, not client-side routing: the
                         // React tree is in an unknown state after a render
                         // crash, so a fresh document load is the only
                         // reliably clean recovery.
                         onClick={() => window.location.assign("/")}
-                        {...BRAND_SOLID_HOVER_PROPS}
                     >
                         {translations.t("ui_text:errorBoundary.reload")}
                     </Button>
-                </VStack>
-            </Flex>
+                </div>
+            </div>
         );
     }
 }

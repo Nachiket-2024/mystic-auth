@@ -4,7 +4,7 @@
 *New to a term here? See the [Authentication & Sessions Glossary](../glossary/authentication.md).*
 
 Split out of [Authentication Flows](overview.md). Covers the "forgot password" self-service reset
-flow, plus the two places a password can otherwise change (self-service and admin), which share the
+flow, plus the two places a password can otherwise change (self-service and a permission-protected account route), which share the
 same session-revocation and current-password rules for the same reasons.
 
 ---
@@ -28,7 +28,7 @@ same session-revocation and current-password rules for the same reasons.
 sequenceDiagram
     participant U as User (browser)
     participant API as Backend
-    participant R as Redis
+    participant R as Valkey
     participant E as Email
     U->>API: POST /auth/password-reset/request { email }
     API->>R: SET reset:{token} (single-use, TTL)
@@ -48,28 +48,28 @@ sequenceDiagram
 ```
 ---
 
-1. **Request** issues a scoped, Redis-backed single-use token (`GETDEL` pattern, same as email
+1. **Request** issues a scoped, Valkey-backed single-use token (`GETDEL` pattern, same as email
    verification), emailed to the address. **Always** the same generic response whether or not the
    email is registered, closing the same enumeration gap as signup.
 2. **Confirm** atomically redeems the token, validates the new password's strength (the same rule
    signup enforces), rejects if it matches the current password, and, critically, **bumps
    `account_ver`**, so a reset actually ends every other session rather than just changing the
    password while old sessions stay valid.
-3. **A recoverable failure (e.g. weak password) restores the Redis token entry**, capped at its
+3. **A recoverable failure (e.g. weak password) restores the Valkey token entry**, capped at its
    *original* remaining TTL: it doesn't get a fresh full-length window, closing a
    window-extension loophole where repeatedly failing validation could keep the same link alive
    indefinitely.
 
 ---
 
-## Password change (self-service and admin)
+## Password change (self-service and permission-protected account route)
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Start(["PUT /users/me or PUT /users/{email}"]) --> HasPwField{"Request includes\n a new password field?"}
     HasPwField -- "no" --> Plain["Ordinary profile update\n no session side effects"]
-    HasPwField -- "yes" --> WhoAmI{"Self (/me) or admin route?"}
+    HasPwField -- "yes" --> WhoAmI{"Self (/me) or protected account route?"}
     WhoAmI -- "self" --> ReConfirm{"hashed_password set\n on this account?"}
     ReConfirm -- "yes" --> CheckCurrent{"current_password\n matches?"}
     CheckCurrent -- "no" --> Fail401["401"]
@@ -78,22 +78,22 @@ flowchart TD
     ChangeSelf --> RevokeSelf["revoke_all_tokens_for_user_except_chain()\n bumps account_ver, exempts caller's own chain"]
     RevokeSelf --> ReissueSelf["Reissue fresh cookies for\n the caller's current session"]
     ReissueSelf --> Done200Self["200, caller stays logged in"]
-    WhoAmI -- "admin" --> ChangeAdmin["Hash + store new password"]
+    WhoAmI -- "protected route" --> ChangeAdmin["Hash + store new password"]
     ChangeAdmin --> RevokeAdmin["revoke_all_tokens_for_user()\n bumps account_ver, no exemption"]
     RevokeAdmin --> Done200Admin["200"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
 
-1. `PUT /users/me` (self) and `PUT /users/{email}` (admin) both back onto the same `UserUpdate`
+1. `PUT /users/me` (self) and `PUT /users/{email}` (protected account route) both back onto the same `UserUpdate`
    schema, so a `password` field is handled identically by both once past the checks below.
 2. **Self-service requests re-confirm the current password.** `PUT /users/me` requires a matching
    `current_password` whenever the request sets a new `password`: proof of the old credential, not
    just a valid session, since a hijacked `access_token` cookie alone would otherwise be enough to
    lock the real owner out. Skipped only for an OAuth-only account (`hashed_password is None`)
    setting a password for the first time, since there is no existing password to confirm.
-3. **The admin route skips that check entirely.** `PUT /users/{email}` authenticates via the
-   admin's own `users:update_any` permission, not the target account's old password.
+3. **The protected account route skips that check entirely.** `PUT /users/{email}` authenticates via
+   the caller's `users:update_any` permission, not the target account's old password.
 4. **A successful self-service password change revokes every *other* session on the account, but
    not the caller's own.** `PUT /users/me` calls
    `refresh_token_service.revoke_all_tokens_for_user_except_chain`, which still bumps
@@ -104,9 +104,9 @@ flowchart TD
    `revoke_all_tokens_for_user`. The self-service route falls back to the same full,
    no-exemption `revoke_all_tokens_for_user` only if the caller's chain can't be resolved from
    the request's own cookie.
-5. **The admin route always fully revokes**, with no exemption:
+5. **The protected account route always fully revokes**, with no exemption:
    `PUT /users/{email}` (`user_management_update_routes.py`) calls
-   `refresh_token_service.revoke_all_tokens_for_user` unconditionally, since the admin performing
+   `refresh_token_service.revoke_all_tokens_for_user` unconditionally, since the caller performing
    the change is not the account owner and has no session on that account to preserve. An ordinary
    profile update with no password field never triggers either revoke path.
 
@@ -120,7 +120,7 @@ See [Security Decisions: self-service password change requires the current passw
 `tests/backend/mystic_auth/unit/auth/password_reset_confirm/` cover the token issue/redeem and
 strength-validation logic; `tests/backend/mystic_auth/integration/auth/test_password_reset_integration.py`
 exercises the full reset path, including the session-revocation side effect, against real
-Postgres/Redis. See [Testing Overview](../testing/overview.md).
+Postgres/Valkey. See [Testing Overview](../testing/overview.md).
 
 ---
 

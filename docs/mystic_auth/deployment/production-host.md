@@ -10,7 +10,7 @@ Host-level requirements and runtime behavior shared by production-shaped deploym
 ## 1. Graceful shutdown
 ---
 
-`backend/app/main.py` registers a FastAPI lifespan handler. On shutdown, including `docker stop` and rolling restarts, it disposes the SQLAlchemy connection pool and closes the Redis client cleanly.
+`backend/app/main.py` registers a FastAPI lifespan handler. On shutdown, including `docker stop` and rolling restarts, it disposes the SQLAlchemy connection pool and closes the Valkey client cleanly.
 
 The Procrastinate worker uses the same backend image but a different command. It owns background email delivery and scheduled account purge jobs.
 
@@ -41,7 +41,7 @@ The production-shaped Compose files include:
 | `backend` | FastAPI API server. |
 | `frontend` | nginx static SPA server and same-origin API proxy. |
 | `postgres` | Durable data store for users, policies, audit logs, jobs, and Bugsink database. |
-| `redis` | Derived state for rate limits, lockout, token versions, OAuth2 state, and Pub/Sub. |
+| `valkey` | Valkey-backed derived state for rate limits, lockout, token versions, OAuth2 state, and Pub/Sub. |
 | `procrastinate_worker` | Background email delivery and scheduled purge jobs. |
 | `alembic` | One-shot migration runner. |
 | `bugsink` | Self-hosted error monitoring. |

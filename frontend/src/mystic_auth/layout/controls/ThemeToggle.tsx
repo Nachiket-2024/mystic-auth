@@ -1,20 +1,19 @@
 import React from "react";
-import { Box, IconButton } from "@chakra-ui/react";
 import { Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useThemeStore } from "../../store/themeStore";
-import { BRAND_ICON_BUTTON_PROPS } from "../../ui/styles/buttonStyles";
+import { Button } from "../../ui/buttons/Button";
 
 // Rotate+cross-fade timing for the Sun/Moon swap, from the same
-// durations.hover/easings.hover tokens FAST_HOVER_TRANSITION uses (theme/system.ts).
-const ICON_SWAP_TRANSITION = "opacity var(--chakra-durations-hover) var(--chakra-easings-hover), transform var(--chakra-durations-hover) var(--chakra-easings-hover)";
+// duration-hover/easing-hover tokens FAST_HOVER_TRANSITION uses.
+const ICON_SWAP_TRANSITION = "opacity var(--duration-hover) var(--easing-hover), transform var(--duration-hover) var(--easing-hover)";
 
 /**
  * Light/dark mode switch, backed by store/themeStore.ts (persists to
- * localStorage, toggles the `.dark` class Chakra's _dark/_light conditions
- * key off - see that store's docstring for why Chakra v3 needs no separate
- * ColorModeProvider).
+ * localStorage and toggles the `.dark` class consumed by Tailwind's dark-mode
+ * selectors. The class-based approach is the successor to Chakra v3's former
+ * `_dark`/`_light` mechanism; no provider is required.
  */
 const ThemeToggle: React.FC = () => {
     const { t } = useTranslation("layout");
@@ -23,17 +22,17 @@ const ThemeToggle: React.FC = () => {
     const isDark = colorMode === "dark";
 
     return (
-        <IconButton
+        <Button
             aria-label={isDark ? t("switchToLightMode") : t("switchToDarkMode")}
             onClick={toggleColorMode}
-            size="sm"
-            {...BRAND_ICON_BUTTON_PROPS}
+            variant="icon"
+            size="icon-sm"
         >
             {/* Both icons always render, stacked in the same spot - only
                 opacity/rotation swap on colorMode change, so the toggle
                 animates between them. Neither is permanently tinted; color
                 still inherits the button's own currentColor/hover treatment. */}
-            <Box position="relative" boxSize="4" display="flex" alignItems="center" justifyContent="center">
+            <div className="relative w-4 h-4 flex items-center justify-center">
                 <Sun
                     size={16}
                     aria-hidden="true"
@@ -54,8 +53,8 @@ const ThemeToggle: React.FC = () => {
                         transform: isDark ? "rotate(90deg) scale(0.5)" : "rotate(0deg) scale(1)",
                     }}
                 />
-            </Box>
-        </IconButton>
+            </div>
+        </Button>
     );
 };
 

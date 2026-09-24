@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useSessionEventsStream } from '@/auth/session_lifecycle/useSessionEventsStream';
 import { queryClient } from '@/core/queryClient';
 import { CURRENT_USER_QUERY_KEY } from '@/auth/current_user/useCurrentUserQuery';
-import { SESSIONS_QUERY_KEY } from '@/dashboard/manage_sessions/useSessionsQuery';
+import { SESSIONS_QUERY_KEY } from '@/active_sessions/useSessionsQuery';
 import {
   markSelfPermissionMutation,
   resetSelfPermissionMutationGuardForTests,

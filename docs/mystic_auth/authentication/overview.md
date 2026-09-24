@@ -26,8 +26,12 @@ Every session is a pair of JWTs, delivered as httpOnly cookies: never readable b
 
 | Cookie | Path | Attributes | Purpose |
 |---|---|---|---|
-| `access_token` | `/` | `httponly`, `secure`, `samesite=Strict` | Sent on every request; verified by `get_current_user` on each one (see below). |
-| `refresh_token` | `/auth` (scoped; never sent to non-auth routes) | `httponly`, `secure`, `samesite=Strict` | Only used to mint a new token pair via `POST /auth/refresh/`. |
+| `access_token` | `/` | `httponly`, `secure` outside development, `samesite=Strict` | Sent on every request; verified by `get_current_user` on each one (see below). |
+| `refresh_token` | `/auth` (scoped; never sent to non-auth routes) | `httponly`, `secure` outside development, `samesite=Strict` | Only used to mint a new token pair via `POST /auth/refresh/`. |
+
+The development Docker stack uses plain HTTP, so `ENVIRONMENT=development` deliberately
+omits `Secure`; browsers otherwise reject the cookies before they can be sent. Local-prod
+and production stacks use HTTPS and set `Secure`.
 
 Expiry is configured via `ACCESS_TOKEN_EXPIRE_MINUTES`/`REFRESH_TOKEN_EXPIRE_MINUTES` (`env/mystic_auth/.env.example`) and encoded in each JWT's own `exp` claim. The cookie's `max_age` is a separate, independent browser-side hint, not the source of truth; a request with an expired-but-not-yet-cookie-cleared token is still rejected by signature/`exp` verification (`jwt_service.verify_token`).
 
@@ -56,11 +60,11 @@ flowchart TD
 ---
 
 1. Decode the refresh token's claims once (not the two-or-three separate decodes an earlier version did).
-2. **Version check first**: if the token's embedded `account_ver`/`chain_ver` has already fallen behind Redis's current value after logout, logout-all, password change, or a targeted Manage Sessions revoke, it is rejected as stale. This runs *before* the reuse check below, so an intentionally ended session is not treated as suspected theft.
+2. **Version check first**: if the token's embedded `account_ver`/`chain_ver` has already fallen behind Valkey's current value after logout, logout-all, password change, or a targeted Manage Sessions revoke, it is rejected as stale. This runs *before* the reuse check below, so an intentionally ended session is not treated as suspected theft.
 3. **Reuse detection**: refresh tokens are still single-use, enforced by an atomic per-`jti` claim (`claim_jti_for_rotation`), independent of the version check above. If a token whose `jti` is *already* claimed is presented again, the cause could be a stale retry, a race, or token theft. The response bumps that token's own `chain_ver` (`revoke_chain_for_user`), or `account_ver` account-wide for a pre-chain token with no lineage to scope to, and logs the incident at `critical`. See [Session Management](session-management/token-lifecycle.md#rotation-chains-and-reuse-detection) for why this stays scoped to the compromised chain instead of every session on the account.
 4. On a clean (non-reused, current-version) token: claim the old `jti`, issue a new access+refresh pair carrying the same `chain_id` forward.
 
-Token validity is version-based, governed by Redis (`account_ver`/`chain_ver` counters, not a registry of live tokens), not the database: `refresh_tokens()` does not re-check `is_active`/account existence itself. The `user_sessions` table mirrors the current `jti`/`chain_id` only for display and targeted revoke in the Manage Sessions card. See [Session Management](session-management/README.md) for the full source-of-truth breakdown.
+Token validity is version-based, governed by Valkey (`account_ver`/`chain_ver` counters, not a registry of live tokens), not the database: `refresh_tokens()` does not re-check `is_active`/account existence itself. The `user_sessions` table mirrors the current `jti`/`chain_id` only for display and targeted revoke in the Manage Sessions card. See [Session Management](session-management/README.md) for the full source-of-truth breakdown.
 
 ---
 

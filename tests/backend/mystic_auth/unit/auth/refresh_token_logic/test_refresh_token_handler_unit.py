@@ -63,11 +63,11 @@ async def test_handle_refresh_tokens_rejects_invalid_token(mocker):
 
 
 @pytest.mark.asyncio
-async def test_handle_refresh_tokens_rejects_missing_cookie_without_touching_redis(mocker):
+async def test_handle_refresh_tokens_rejects_missing_cookie_without_touching_valkey(mocker):
     # Regression guard: refresh_token is read from the httponly cookie by
     # the route (refresh_token_routes.py), not a JSON body. A client with
     # no session at all (cookie absent) must get the same 401 as an
-    # invalid token, without spending a rate-limit/lockout Redis
+    # invalid token, without spending a rate-limit/lockout Valkey
     # round-trip on a request that was never going anywhere.
     rate_mock = mocker.patch(f"{HANDLER_MODULE}.rate_limiter_service.record_request", new_callable=AsyncMock)
 
@@ -79,7 +79,7 @@ async def test_handle_refresh_tokens_rejects_missing_cookie_without_touching_red
 
 
 @pytest.mark.asyncio
-async def test_rate_limit_and_lockout_use_distinct_redis_keys(mocker):
+async def test_rate_limit_and_lockout_use_distinct_valkey_keys(mocker):
     # Regression guard: rate_key and lock_key were previously the
     # identical string "refresh:ip:{ip}". rate_limiter_service
     # .record_request (called on every request, success or failure) and

@@ -1,15 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 
 import { useNetworkStatusStore } from '@/store/networkStatusStore';
 import OfflineBanner from '@/ui/network/OfflineBanner';
 
 function renderBanner() {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <OfflineBanner />
-    </ChakraProvider>
   );
 }
 

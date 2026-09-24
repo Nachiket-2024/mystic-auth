@@ -38,7 +38,7 @@ async def test_login_or_create_user_existing_user_does_not_write_orphaned_sessio
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.jwt_service.create_access_token", return_value="access-token")
     mocker.patch(f"{MODULE}.jwt_service.create_refresh_token", return_value="refresh-token")
-    rpush_mock = mocker.patch(f"{MODULE}.redis_client.rpush", new_callable=AsyncMock)
+    rpush_mock = mocker.patch(f"{MODULE}.valkey_client.rpush", new_callable=AsyncMock)
 
     result = await oauth2_service.login_or_create_user(db=None, user_info={"email": "user@example.com"})
 
@@ -263,7 +263,7 @@ async def test_login_or_create_user_normalizes_google_email_casing_for_lookup(mo
     get_by_email_mock = mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.jwt_service.create_access_token", return_value="access-token")
     mocker.patch(f"{MODULE}.jwt_service.create_refresh_token", return_value="refresh-token")
-    mocker.patch(f"{MODULE}.redis_client.rpush", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.valkey_client.rpush", new_callable=AsyncMock)
 
     await oauth2_service.login_or_create_user(db=None, user_info={"email": "User@Example.COM"})
 

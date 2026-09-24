@@ -16,12 +16,12 @@ See [Security Decisions: Auth & Session](decisions-auth.md) for the full entries
 - [Email addresses are normalized, case-insensitively, everywhere](decisions-auth.md#email-addresses-are-normalized-case-insensitively-everywhere): normalized at lookup, insert, and every input boundary.
 - [Timing-attack mitigations](decisions-auth.md#timing-attack-mitigations): login, signup, and password-reset request are all enumeration-resistant.
 - [Token replay and reuse detection](decisions-auth.md#token-replay-and-reuse-detection): single-use refresh tokens, chain-scoped revocation on reuse, atomic rotation.
-- [Revocation is version-based](decisions-auth.md#revocation-is-version-based-one-redis-incr-not-a-registry-to-iterate): one Redis `INCR`, not a registry to iterate.
+- [Revocation is version-based](decisions-auth.md#revocation-is-version-based-one-valkey-incr-not-a-registry-to-iterate): one Valkey `INCR`, not a registry to iterate.
 - [OAuth2 CSRF and account-hijacking protections](decisions-auth.md#oauth2-csrf-and-account-hijacking-protections): state + PKCE, `email_verified`, pre-registration hijack handling, fixed redirect URI.
 - [The signup/OAuth2 email race](decisions-auth.md#the-signupoauth2-email-race): closed by a DB unique constraint, not application-level locking.
 - [Self-service password change requires the current password](decisions-auth.md#self-service-password-change-requires-the-current-password): prevents a hijacked session cookie from locking out the real owner.
 - [Logout and logout-all are idempotent](decisions-auth.md#logout-and-logout-all-are-idempotent-about-an-already-dead-refresh-token): about an already-dead refresh token.
-- [Rate limiting and lockout are layered, not singular](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular): generic rate limiting plus a purpose-built brute-force lockout, including why the rate limiter fails closed on a Redis outage.
+- [Rate limiting and lockout are layered, not singular](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular): generic rate limiting plus a purpose-built brute-force lockout, including why the rate limiter fails closed on a Valkey outage.
 
 ---
 

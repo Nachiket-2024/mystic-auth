@@ -1,8 +1,10 @@
-import { Checkbox, Box, Table } from "@chakra-ui/react";
-
+import { Checkbox } from "../shadcn/checkbox";
+import { TableHead, TableRow } from "../shadcn/table";
+import { cn } from "../styles/classNames";
+import AppTooltip from "../feedback/AppTooltip";
 import type { DataTableColumn } from "./DataTable";
 import type { SortState } from "../hooks/useSortState";
-import { STICKY_HEADER_CELL_PROPS } from "./DataTableStyles";
+import { STICKY_HEADER_CELL_CLASS } from "./DataTableStyles";
 import { ariaSortFor, renderHeaderCell } from "./DataTableSortIndicator";
 
 interface DataTableHeaderRowProps<T> {
@@ -15,12 +17,17 @@ interface DataTableHeaderRowProps<T> {
     isSomeSelected: boolean;
     onToggleAll: () => void;
     selectAllLabel: string;
+    /** See DataTable's onRowClick doc - adds an empty trailing header cell matching the
+     * chevron-hint column DataTableRow renders on each body row. */
+    hasRowClick?: boolean;
 }
 
-/** The full header <Table.Row>, split out of DataTable.tsx to keep that
- * file's render under the repo's file-length guideline - this owns only
- * the header cells, DataTableRow owns a body row, DataTable.tsx wires both
- * up to the shared column/selection state. */
+const ALIGN_CLASS = { start: "text-left", center: "text-center", end: "text-right" } as const;
+
+/** The full header <tr>, split out of DataTable.tsx to keep that file's
+ * render under the repo's file-length guideline - this owns only the header
+ * cells, DataTableRow owns a body row, DataTable.tsx wires both up to the
+ * shared column/selection state. */
 export function DataTableHeaderRow<T>({
     columns,
     sort,
@@ -31,32 +38,33 @@ export function DataTableHeaderRow<T>({
     isSomeSelected,
     onToggleAll,
     selectAllLabel,
+    hasRowClick,
 }: DataTableHeaderRowProps<T>) {
     return (
-        <Table.Row>
+        <TableRow className="hover:bg-transparent">
             {selectable && (
-                <Table.ColumnHeader w="1%" {...STICKY_HEADER_CELL_PROPS}>
-                    <Checkbox.Root
+                <TableHead className={cn("w-[1%]", STICKY_HEADER_CELL_CLASS)}>
+                    <Checkbox
                         checked={isAllSelected ? true : isSomeSelected ? "indeterminate" : false}
                         onCheckedChange={onToggleAll}
                         aria-label={selectAllLabel}
-                    >
-                        <Checkbox.HiddenInput />
-                        <Checkbox.Control />
-                    </Checkbox.Root>
-                </Table.ColumnHeader>
+                        // fg-muted override: the stock unchecked border is
+                        // border-input, which reads too faint against the
+                        // header's bg-table-header background. fg-muted is a
+                        // much stronger, text-level gray in both themes, so
+                        // the select-all box stays clearly visible.
+                        className="border-fg-muted"
+                    />
+                </TableHead>
             )}
             {showRowNumbers && (
-                <Table.ColumnHeader w="1%" fontSize="md" {...STICKY_HEADER_CELL_PROPS}>#</Table.ColumnHeader>
+                <TableHead className={cn("w-[1%] text-sm", STICKY_HEADER_CELL_CLASS)}>#</TableHead>
             )}
             {columns.map((col) => (
-                <Table.ColumnHeader
+                <TableHead
                     key={col.key}
-                    textAlign={col.align}
-                    overflow="hidden"
-                    fontSize="md"
+                    className={cn("text-sm overflow-hidden", col.align && ALIGN_CLASS[col.align], STICKY_HEADER_CELL_CLASS)}
                     aria-sort={ariaSortFor(col, sort)}
-                    {...STICKY_HEADER_CELL_PROPS}
                     onClick={col.sortable ? () => onSortChange?.(col.key) : undefined}
                     onKeyDown={
                         col.sortable
@@ -75,14 +83,15 @@ export function DataTableHeaderRow<T>({
                     }
                 >
                     {col.truncate ? (
-                        <Box overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap" title={col.header}>
-                            {renderHeaderCell(col, sort)}
-                        </Box>
+                        <AppTooltip content={col.header}>
+                            <div className="overflow-hidden text-ellipsis whitespace-nowrap">{renderHeaderCell(col, sort)}</div>
+                        </AppTooltip>
                     ) : (
                         renderHeaderCell(col, sort)
                     )}
-                </Table.ColumnHeader>
+                </TableHead>
             ))}
-        </Table.Row>
+            {hasRowClick && <TableHead className={cn("w-8", STICKY_HEADER_CELL_CLASS)} />}
+        </TableRow>
     );
 }

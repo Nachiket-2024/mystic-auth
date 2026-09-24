@@ -11,8 +11,8 @@ package rather than hand-transcribed, so it always matches the pinned
 version's actual schema. Corresponds to procrastinate==3.9.0's
 `procrastinate/sql/schema.sql`.
 
-Replaces taskiq (Redis Streams): background jobs now live as rows in this
-same Postgres database instead of a separate Redis broker. See
+Replaces taskiq (Valkey Streams): background jobs now live as rows in this
+same Postgres database instead of a separate Valkey broker. See
 backend/mystic_auth/procrastinate_tasks/.
 """
 from collections.abc import Sequence

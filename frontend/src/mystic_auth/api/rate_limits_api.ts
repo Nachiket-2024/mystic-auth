@@ -23,19 +23,33 @@ export interface RateLimitPage {
     truncated: boolean;
 }
 
+export interface RateLimitSummary {
+    total: number;
+    at_limit: number;
+    login_lockouts: number;
+    by_endpoint: Record<string, number>;
+    by_scope: Record<string, number>;
+    truncated: boolean;
+}
+
 export interface ListRateLimitsParams {
     page?: number;
     scope?: "ip" | "account" | "email";
     endpoint?: string;
     identifier?: string;
     pageSize?: number;
+    kind?: "at_limit" | "login_lockouts";
+    sortBy?: "endpoint" | "scope" | "identifier" | "count" | "resets_at";
+    sortDir?: "asc" | "desc";
 }
 
-export const listRateLimitsApi = ({ page = 1, scope, endpoint, identifier, pageSize }: ListRateLimitsParams = {}) =>
+export const listRateLimitsApi = ({ page = 1, scope, endpoint, identifier, pageSize, kind, sortBy, sortDir }: ListRateLimitsParams = {}) =>
     api.get<RateLimitPage>("/rate-limits/", {
-        params: { page, scope, endpoint: endpoint || undefined, identifier: identifier || undefined, page_size: pageSize },
+        params: { page, scope, endpoint: endpoint || undefined, identifier: identifier || undefined, page_size: pageSize, kind, sort_by: sortBy, sort_dir: sortDir },
     });
 
-// key is the raw Redis key (endpoint:scope:identifier, e.g. "login:ip:1.2.3.4")
+export const getRateLimitsSummaryApi = () => api.get<RateLimitSummary>("/rate-limits/summary");
+
+// key is the raw Valkey key (endpoint:scope:identifier, e.g. "login:ip:1.2.3.4")
 // - encoded whole since it contains colons but no slashes.
 export const resetRateLimitApi = (key: string) => api.delete(`/rate-limits/${encodeURIComponent(key)}`);

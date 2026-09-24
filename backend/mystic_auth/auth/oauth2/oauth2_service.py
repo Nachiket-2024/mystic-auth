@@ -7,6 +7,7 @@ import hashlib
 import secrets
 import traceback
 import uuid
+from datetime import UTC, datetime
 from typing import cast
 
 import httpx
@@ -20,7 +21,6 @@ from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME,
 from ...authorization.repositories.policy_repository import policy_repository
 from ...emails.email_normalization import normalize_email
 from ...logging.logging_config import get_logger
-from ...redis.client import redis_client
 from ...user.user_crud_collector import user_crud
 from ...user.user_model import UserRole
 
@@ -29,6 +29,7 @@ from ...user.user_model import UserRole
 # user_management_routes.py applies to update/delete/role-change. Never used to
 # grant access.
 from ...user_session.session_service import session_service
+from ...valkey.client import valkey_client
 from ..token_logic.jwt_service import jwt_service
 
 logger = get_logger(__name__)
@@ -60,7 +61,7 @@ class OAuth2Service:
         Issues a single-use CSRF state token plus a PKCE code_challenge for an
         OAuth2 login attempt, returning (state, code_challenge) to embed in the
         Google authorization URL. The code_verifier itself never leaves the server;
-        it is persisted in Redis keyed by state, with a short expiry, so the
+        it is persisted in Valkey keyed by state, with a short expiry, so the
         callback can retrieve it and the pair can only be redeemed once.
 
         OAuth 2.1 requires PKCE for every client, confidential or not: it defends
@@ -74,7 +75,7 @@ class OAuth2Service:
         digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
         code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
-        await redis_client.set(f"oauth_state:{state}", code_verifier, ex=OAUTH2_STATE_TTL_SECONDS)
+        await valkey_client.set(f"oauth_state:{state}", code_verifier, ex=OAUTH2_STATE_TTL_SECONDS)
 
         return state, code_challenge
 
@@ -88,11 +89,11 @@ class OAuth2Service:
             return None
 
         # Atomically fetch-and-delete so the same state (and its paired
-        # code_verifier) can never be redeemed twice. redis-py's stub types
+        # code_verifier) can never be redeemed twice. valkey-py's stub types
         # getdel() for both raw-bytes and decoded-str responses; this client
-        # is constructed with decode_responses=True (see redis/client.py),
+        # is constructed with decode_responses=True (see valkey/client.py),
         # so the result is always str | None here.
-        return cast("str | None", await redis_client.getdel(f"oauth_state:{state}"))
+        return cast("str | None", await valkey_client.getdel(f"oauth_state:{state}"))
 
     @staticmethod
     async def exchange_code_for_tokens(
@@ -150,9 +151,9 @@ class OAuth2Service:
         Sessions row (device/IP/last-seen) is recorded separately below via
         session_service, keyed off the same chain_id. An earlier version
         additionally wrote each token pair into a
-        separate `user_tokens:{email}` Redis list, but nothing ever read that
+        separate `user_tokens:{email}` Valkey list, but nothing ever read that
         list; it was pure dead weight that grew forever (no TTL) and needlessly
-        held raw, cleartext bearer tokens in Redis on top of the version counters.
+        held raw, cleartext bearer tokens in Valkey on top of the version counters.
 
         Pre-hijacking note: an unverified account is not proof that whoever
         created it owns the email address: anyone can sign up with any email and
@@ -254,6 +255,9 @@ class OAuth2Service:
                 code = "ACCOUNT_DELETED" if user.deleted_at is not None else "ACCOUNT_DEACTIVATED"
                 logger.info("OAuth2 login blocked (%s): %s", code, email)
                 raise OAuth2LoginRejected(code)
+
+            if db is not None:
+                await user_crud.update(user, {"last_login_at": datetime.now(UTC)}, db)
 
             # A fresh chain_id: see login_service.py's identical comment.
             chain_id = uuid.uuid4().hex

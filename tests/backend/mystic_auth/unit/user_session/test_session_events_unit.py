@@ -35,7 +35,7 @@ def _reset_shutdown_event():
 
 @pytest.mark.asyncio
 async def test_publish_session_revoked_publishes_to_the_users_own_channel(mocker):
-    publish_mock = mocker.patch(f"{MODULE}.redis_client.publish", new_callable=AsyncMock)
+    publish_mock = mocker.patch(f"{MODULE}.valkey_client.publish", new_callable=AsyncMock)
 
     await publish_session_revoked("user@example.com")
 
@@ -47,7 +47,7 @@ async def test_publish_session_revoked_publishes_to_the_users_own_channel(mocker
 
 @pytest.mark.asyncio
 async def test_publish_session_revoked_scopes_the_channel_per_email(mocker):
-    publish_mock = mocker.patch(f"{MODULE}.redis_client.publish", new_callable=AsyncMock)
+    publish_mock = mocker.patch(f"{MODULE}.valkey_client.publish", new_callable=AsyncMock)
 
     await publish_session_revoked("someone-else@example.com")
 
@@ -56,17 +56,17 @@ async def test_publish_session_revoked_scopes_the_channel_per_email(mocker):
 
 
 @pytest.mark.asyncio
-async def test_publish_session_revoked_swallows_redis_errors(mocker):
-    """Must never raise: a Redis hiccup on this best-effort side-channel
+async def test_publish_session_revoked_swallows_valkey_errors(mocker):
+    """Must never raise: a Valkey hiccup on this best-effort side-channel
     must never turn a successful revoke into a failed request, same
     reasoning as audit logging and the Manage Sessions mirror."""
-    mocker.patch(f"{MODULE}.redis_client.publish", new_callable=AsyncMock, side_effect=Exception("boom"))
+    mocker.patch(f"{MODULE}.valkey_client.publish", new_callable=AsyncMock, side_effect=Exception("boom"))
 
     await publish_session_revoked("user@example.com")
 
 
 # ---------------------------- session_event_stream ----------------------------
-# Against real Redis Pub/Sub (no mocking of redis_client here): the whole
+# Against real Valkey Pub/Sub (no mocking of valkey_client here): the whole
 # point of these is proving the generator actually subscribes and reacts to
 # a genuinely concurrent publish, not just that it calls the right mocked
 # methods. See test_manage_sessions_integration.py's own comment for why
@@ -150,7 +150,7 @@ async def test_session_event_stream_unsubscribes_cleanly_on_aclose(mocker):
     holding), not as an is_disconnected() poll inside the loop - see
     session_event_stream's own docstring for why that check was removed.
     This pins that an explicit aclose() during the heartbeat wait tears
-    down the Redis subscription cleanly (no hang, no error) and the
+    down the Valkey subscription cleanly (no hang, no error) and the
     generator is done afterwards."""
     mocker.patch(f"{MODULE}._HEARTBEAT_SECONDS", 0.05)
     stream = session_event_stream("disconnect-test@example.com")
@@ -201,7 +201,7 @@ async def test_session_event_stream_shutdown_does_not_swallow_a_pending_event(mo
     await anext(stream)  # first heartbeat: subscription is live
 
     await publish_session_revoked("shutdown-race-test@example.com")
-    await asyncio.sleep(0.1)  # let the publish actually land in Redis
+    await asyncio.sleep(0.1)  # let the publish actually land in Valkey
     signal_shutdown()
 
     try:
@@ -235,7 +235,7 @@ async def test_session_event_stream_ends_cleanly_at_the_max_connection_deadline(
 @pytest.mark.asyncio
 async def test_session_event_stream_unsubscribes_cleanly_on_shutdown():
     """Same guarantee as the aclose() case above: a shutdown-triggered end
-    must still tear down the Redis subscription (no leaked pubsub
+    must still tear down the Valkey subscription (no leaked pubsub
     connections across a rolling restart's worth of shutdowns)."""
     stream = session_event_stream("shutdown-cleanup-test@example.com")
     await anext(stream)  # first heartbeat: subscription is live

@@ -38,13 +38,13 @@ async def log_authorization_decision_task(entry: dict) -> None:
     # Imported here, not at module scope: avoids a circular import between
     # this module and authorization_service.py, which itself defers into
     # this task (procrastinate_app -> audit_log_tasks -> authorization
-    # package -> audit_log_repository, none of which need to import this
+    # package -> authorization_audit_log_repository, none of which need to import this
     # task module back).
-    from ..authorization.repositories.audit_log_repository import audit_log_repository
+    from ..authorization.repositories.authorization_audit_log_repository import authorization_audit_log_repository
 
     try:
         async with database.async_session() as session:
-            await audit_log_repository.create_entries([entry], session)
+            await authorization_audit_log_repository.create_entries([entry], session)
     except Exception:
         logger.error(
             "Error writing authorization audit log entry (will retry if attempts remain):\n%s",

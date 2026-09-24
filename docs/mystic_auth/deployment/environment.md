@@ -100,19 +100,19 @@ Review these settings before sharing a production-shaped deployment:
 ---
 
 Useful for iterating on the backend with a debugger attached, or a faster
-reload loop than the Dockerized `dev` target gives you. Postgres and Redis
+reload loop than the Dockerized `dev` target gives you. Postgres and Valkey
 still run in Docker either way; only the FastAPI process itself moves to
 the host.
 
-1. Bring up just the data services: `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d postgres redis`.
-2. In `env/mystic_auth/.env`, swap `DATABASE_URL` and `REDIS_URL` for their commented-out `localhost` alternatives already shipped right below each one (`postgres:5432` -> `localhost:5433`, `redis:6379` -> `localhost:6380`, the host ports the dev Compose file maps to avoid colliding with a developer's own local Postgres/Redis).
+1. Bring up just the data services: `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d postgres valkey`.
+2. In `env/mystic_auth/.env`, swap `DATABASE_URL` and `VALKEY_URL` for their commented-out `localhost` alternatives already shipped right below each one (`postgres:5432` -> `localhost:5433`, `valkey:6379` -> `localhost:6380`, the host ports the dev Compose file maps to avoid colliding with a developer's own local Postgres/Valkey).
 3. From the repo root, create a virtualenv and install both dependency files: `pip install -r backend/requirements.txt -r backend/requirements-dev.txt`.
 4. Run migrations once: `cd backend && alembic upgrade head`.
 5. Start the app: `uvicorn app.main:app --reload` from `backend/`. `--reload` gives a faster edit loop than rebuilding the Docker image.
 
 `Settings` (`backend/mystic_auth/core/settings.py`) reads `env/mystic_auth/.env` and `env/app/.env` directly when a variable isn't already in the process environment, so no manual `export` is needed as long as you're running from a checkout with those files in place - only real-value overrides (an IDE launch config, a shell you've already exported into) take priority over the files.
 
-Running the whole suite this way? `tests/backend/conftest.py` does the same `postgres`/`redis` -> `localhost` derivation automatically from `env/mystic_auth/.env` when `DATABASE_URL`/`REDIS_URL` aren't already set, so `pytest` from the repo root needs no extra setup once step 1 above is running. See [Testing Overview](../testing/overview.md).
+Running the whole suite this way? `tests/backend/conftest.py` does the same `postgres`/`valkey` -> `localhost` derivation automatically from `env/mystic_auth/.env` when `DATABASE_URL`/`VALKEY_URL` aren't already set, so `pytest` from the repo root needs no extra setup once step 1 above is running. See [Testing Overview](../testing/overview.md).
 
 ---
 
@@ -158,7 +158,7 @@ problem - either tool now gives a trustworthy number:
 | `UVICORN_WORKERS=4` (shipped default, this host has 12 cores) | 375 req/s | 31 | ~25% higher throughput, ~82% fewer timeouts, same host |
 
 The gain here is real but modest compared to a dedicated benchmarking
-host, because Postgres, Redis, and every other stack service were
+host, because Postgres, Valkey, and every other stack service were
 competing for the same machine's cores during the test - representative
 of a small self-hosted box, not a provisioned multi-machine deployment.
 Re-run the comparison yourself against your own target hardware before

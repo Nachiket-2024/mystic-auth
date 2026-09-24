@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuthorization } from "./useAuthorization";
 import { useAuthStore } from "../store/authStore";
-import LoadingState from "../ui/LoadingState";
+import LoadingState from "../ui/feedback/LoadingState";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;

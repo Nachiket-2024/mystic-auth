@@ -5,17 +5,20 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
 import ErrorBoundary from '../mystic_auth/ui/routing/ErrorBoundary.tsx';
 
-// Wraps <App> in Chakra's ChakraProvider, rebuilding the system with the
-// signed-in user's own brand/background colors (appearanceStore.ts) merged
-// in - see AppearanceThemeProvider.tsx for why this lives here instead of a
-// static `<ChakraProvider value={system}>`.
-import AppearanceThemeProvider from '../mystic_auth/theme/AppearanceThemeProvider.tsx';
-
 // Self-hosted, not a Google Fonts CDN request (consistent with this
 // template's other self-hosted defaults). Registers "InterVariable" before
-// first paint, which system.ts's fonts.heading/fonts.body tokens reference.
+// first paint, which tailwind.css's font-sans stack references.
 // CSS-only import, no JS export: kept only for that load side effect.
 import '@fontsource-variable/inter';
+
+// Tailwind v4 entry point + design tokens (see theme/tailwind.css).
+// applyBrandCssVars.ts is the plain-CSS-variable equivalent of the old
+// CSS-variable theme setup (the former AppearanceThemeProvider.tsx Chakra
+// rebuild was retired once every component moved to Tailwind): eager,
+// side-effect-only import, same
+// "before first paint" pattern as themeStore.ts below.
+import '../mystic_auth/theme/tailwind.css';
+import '../mystic_auth/theme/applyBrandCssVars.ts';
 
 // Auth/permissions state lives in Zustand (store/authStore.ts), which needs
 // no Provider since it's a module-level singleton reachable directly.
@@ -27,9 +30,9 @@ import { queryClient } from "../mystic_auth/core/queryClient.ts";
 import '../mystic_auth/store/themeStore.ts';
 
 // Same reasoning as themeStore.ts, for the persisted custom brand/background
-// colors: applies the favicon/meta tag before first paint (Chakra tokens
-// themselves come from AppearanceThemeProvider.tsx's first render, using
-// this module's cached state). This is just the locally cached guess;
+// colors: applies the favicon/meta tag before first paint (the --brand-*
+// CSS vars themselves come from applyBrandCssVars.ts above, reading this
+// module's cached state). This is just the locally cached guess;
 // useAuthSession reconciles it against the server value once GET /auth/me
 // resolves.
 import '../mystic_auth/store/appearanceStore.ts';
@@ -62,9 +65,7 @@ ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
         <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
-                <AppearanceThemeProvider>
-                    <App />
-                </AppearanceThemeProvider>
+                <App />
             </QueryClientProvider>
         </ErrorBoundary>
     </React.StrictMode>

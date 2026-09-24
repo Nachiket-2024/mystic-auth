@@ -81,7 +81,7 @@ Every create/update/delete stages an immutable row in `policy_history` in the sa
 
 ## Local testing approach
 
-**Fastest feedback: unit tests with mocked policies** (no DB needed): see `tests/backend/mystic_auth/unit/authorization/evaluators/test_policy_evaluator_unit.py` and `evaluators/test_authorization_decision_unit.py`. Build a `Policy(...)` instance directly (it's a plain SQLAlchemy model, freely instantiable without a session) and call `PolicyEvaluationEngine.evaluate_detailed` directly:
+**Fastest feedback: unit tests with mocked policies** (no DB needed): see `tests/backend/mystic_auth/unit/authorization/evaluators/test_policy_evaluator_unit.py` and `tests/backend/mystic_auth/unit/authorization/evaluators/test_authorization_decision_unit.py`. Build a `Policy(...)` instance directly (it's a plain SQLAlchemy model, freely instantiable without a session) and call `PolicyEvaluationEngine.evaluate_detailed` directly:
 
 ```python
 from backend.mystic_auth.authorization.models.policy_model import Policy
@@ -98,7 +98,7 @@ def test_my_new_policy_shape_grants_the_right_action():
     assert decision.allowed is True
 ```
 
-**Against a real database** (via `scripts/mystic_auth/docker/dev/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting/README.md): or from the host once `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up -d postgres redis`): create a real user, assign the real policy, log in, and hit a real protected route:
+**Against a real database** (via `scripts/mystic_auth/docker/dev/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting/README.md): or from the host once `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up -d postgres valkey`): create a real user, assign the real policy, log in, and hit a real protected route:
 
 ```python
 @pytest.mark.asyncio
@@ -136,7 +136,7 @@ def test_self_only_denies_a_different_owner():
     assert allowed is False
 ```
 
-**Multiple policies, one grants and one fails** (the exact scenario `AuthorizationDecision` exists to explain: see `authorization/test_authorization_decision_unit.py`):
+**Multiple policies, one grants and one fails** (the exact scenario `AuthorizationDecision` exists to explain: see `tests/backend/mystic_auth/unit/authorization/evaluators/test_authorization_decision_unit.py`):
 
 ```python
 def test_one_matching_policy_is_enough_even_if_another_rejects():

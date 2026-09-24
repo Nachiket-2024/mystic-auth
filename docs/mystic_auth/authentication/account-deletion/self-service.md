@@ -25,11 +25,11 @@ flowchart TD
     Verify -- "correct" --> Finalize["finalize_self_deletion()\n soft-delete (always succeeds)"]
     Finalize --> Revoke["revoke sessions"]
     Revoke -- "confirmed" --> Audit["audit: sessions_revoked_confirmed true"]
-    Revoke -- "Redis unreachable" --> Audit2["audit: sessions_revoked_confirmed false\n (logged critical)"]
+    Revoke -- "Valkey unreachable" --> Audit2["audit: sessions_revoked_confirmed false\n (logged critical)"]
     Audit --> ClearCookies["Clear access/refresh cookies"]
     Audit2 --> ClearCookies
     ClearCookies --> Done200["200, account soft-deleted now"]
-    HasPw -- "no (OAuth-only account)" --> SendEmail["Mint account_delete JWT\n Store in Redis, single-use\n Email /confirm-delete link"]
+    HasPw -- "no (OAuth-only account)" --> SendEmail["Mint account_delete JWT\n Store in Valkey, single-use\n Email /confirm-delete link"]
     SendEmail --> Pending["200, confirmation_required: true\n account untouched\n session still valid"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
@@ -43,13 +43,13 @@ flowchart TD
 `user_self_deletion_service.finalize_self_deletion(user, db, request)`, which:
 
 1. Soft-deletes the row (`user_lifecycle_crud.soft_delete`: `is_active=False`, `deleted_at=now()`).
-   This Postgres write always succeeds, independent of Redis.
+   This Postgres write always succeeds, independent of Valkey.
 2. Revokes every session on the account (`refresh_token_service.revoke_all_tokens_for_user`, one
    `account_ver` bump, see [Session Management](../session-management/README.md#source-of-truth)). If the
-   bump can't be confirmed (Redis unreachable), that's logged at `critical` rather than raised: the
+   bump can't be confirmed (Valkey unreachable), that's logged at `critical` rather than raised: the
    soft-delete already happened, so there's no recoverable failure to report back to the caller,
    see [Bump failure handling](../session-management/token-lifecycle.md#bump-failure-handling).
-3. Writes an `account_deleted_self` security audit event, distinct from admin-initiated
+3. Writes an `account_deleted_self` security audit event, distinct from permission-protected
    `account_deleted`, so the audit log can tell the two apart at a glance - its metadata carries
    `sessions_revoked_confirmed` so an unconfirmed revoke stays visible in the audit trail even
    though the deletion itself succeeded.
@@ -67,7 +67,7 @@ account is gone from the caller's perspective by the time the response arrives.
 sequenceDiagram
     participant U as User (browser)
     participant API as Backend
-    participant R as Redis
+    participant R as Valkey
     participant E as Email
     U->>API: DELETE /users/me (no password to send)
     API->>API: mint JWT (type=account_delete, TTL=ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES)
@@ -90,14 +90,14 @@ sequenceDiagram
 1. **Send.** `DELETE /users/me` on an account with no password mints a signed JWT carrying a
    `type` claim of `"account_delete"`, scoping it away from access/refresh/reset tokens that share
    the same `SECRET_KEY`, so a valid deletion link can never be replayed as a login or
-   password-reset token or vice versa. It's stored in Redis under `account_delete:{token}` with a
+   password-reset token or vice versa. It's stored in Valkey under `account_delete:{token}` with a
    TTL from `ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES`, then emailed as a link to `/confirm-delete`. The
    account and the calling session are both left untouched at this point.
 2. **Confirm.** `POST /users/me/confirm-delete` is deliberately unauthenticated (the token itself
    is the proof, the same trust model `POST /auth/password-reset/confirm` uses), so the link must
    work from whatever device the caller opens their email on, not just the one that requested
    deletion.
-3. **Redeem.** The token is redeemed via an atomic Redis `GETDEL`, so two concurrent submissions of
+3. **Redeem.** The token is redeemed via an atomic Valkey `GETDEL`, so two concurrent submissions of
    the same link can never both succeed; the first wins, the second sees the key already gone.
 4. **Finalize.** A valid, unexpired, unredeemed token runs the exact same
    `finalize_self_deletion()` routine as the password-account path (Path A above).
@@ -108,7 +108,7 @@ sequenceDiagram
 
 ---
 
-See [Account Deletion](README.md) for the feature map, or [Admin Actions and Purge](admin-and-purge.md)
-for the admin-initiated and scheduled paths.
+See [Account Deletion](README.md) for the feature map, or [Permission-Protected Actions and Purge](permission-protected-actions-and-purge.md)
+for the permission-protected and scheduled paths.
 
 ---

@@ -25,6 +25,8 @@ from backend.mystic_auth.authorization.services.authorization_service import (
     AuthorizationService,
 )
 
+from .authorization_test_helpers import authorization_decision
+
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_crud_routes"
 
@@ -51,7 +53,7 @@ def _make_policy(**overrides):
 
 @pytest.mark.asyncio
 async def test_assert_authorized_to_grant_passes_when_caller_holds_all_actions(mocker):
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
     await AuthorizationService.assert_authorized_to_grant(
         "caller@example.com", ["users:read_own", "users:update_own"], "users", "fake-db"
@@ -60,7 +62,7 @@ async def test_assert_authorized_to_grant_passes_when_caller_holds_all_actions(m
 
 @pytest.mark.asyncio
 async def test_assert_authorized_to_grant_rejects_action_caller_lacks(mocker):
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     with pytest.raises(HTTPException) as exc_info:
         await AuthorizationService.assert_authorized_to_grant(
@@ -70,15 +72,40 @@ async def test_assert_authorized_to_grant_rejects_action_caller_lacks(mocker):
 
 
 @pytest.mark.asyncio
-async def test_assert_authorized_to_grant_ignores_actions_outside_the_app_own_vocabulary(mocker):
-    """Arbitrary business-domain actions a downstream app defines for its
-    own resources (e.g. "projects:read") are outside this app's fixed
-    Permission vocabulary and must not be gated: policy authoring should
-    freely grant whatever a real deployment needs for its own resources."""
-    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+async def test_assert_authorized_to_grant_guards_downstream_business_actions(mocker):
+    """Custom downstream actions are opaque to MysticAuth but still require
+    the caller to hold them before they can be granted."""
+    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
+    mocker.patch(
+        "backend.mystic_auth.authorization.services.authorization_grant_guard.policy_assignment_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await AuthorizationService.assert_authorized_to_grant(
+            "caller@example.com", ["projects:read", "documents:publish"], "projects", "fake-db"
+        )
+
+    assert exc_info.value.status_code == 403
+    authorize_mock.assert_awaited_once_with(
+        "caller@example.com", "projects:read", "projects", "fake-db", context=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_system_superuser_can_bootstrap_downstream_business_actions(mocker):
+    system_policy = MagicMock()
+    system_policy.name = SYSTEM_SUPERUSER_POLICY_NAME
+    mocker.patch(
+        "backend.mystic_auth.authorization.services.authorization_grant_guard.policy_assignment_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[system_policy],
+    )
+    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     await AuthorizationService.assert_authorized_to_grant(
-        "caller@example.com", ["projects:read", "documents:publish"], "projects", "fake-db"
+        "system@example.com", ["projects:read"], "projects", "fake-db"
     )
 
     authorize_mock.assert_not_awaited()
@@ -91,11 +118,11 @@ async def test_assert_authorized_to_grant_ignores_actions_outside_the_app_own_vo
 @pytest.mark.asyncio
 async def test_create_policy_blocks_minting_action_caller_does_not_hold(mocker):
     """Holding only policies:create must not be enough to create a policy
-    granting, say, users:purge unless the caller already has it."""
-    policy_data = PolicyCreate(name="sneaky", actions=["users:purge"], resource_type="users")
+    granting, say, users:delete_any unless the caller already has it."""
+    policy_data = PolicyCreate(name="sneaky", actions=["users:delete_any"], resource_type="users")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=None)
     create_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     with pytest.raises(HTTPException) as exc_info:
         await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
@@ -110,7 +137,7 @@ async def test_create_policy_allows_when_caller_holds_every_action(mocker):
     created = _make_policy(name="fine")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=None)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock, return_value=created)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
     result = await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
@@ -118,21 +145,25 @@ async def test_create_policy_allows_when_caller_holds_every_action(mocker):
 
 
 @pytest.mark.asyncio
-async def test_create_policy_allows_business_domain_actions_regardless_of_caller_holdings(mocker):
-    """A caller with policies:create can create a policy for arbitrary
-    downstream business actions (outside this app's own Permission
-    vocabulary) even if authorize() would say no: the check must never be
-    consulted for such actions."""
+async def test_create_policy_blocks_unheld_business_domain_actions(mocker):
+    """A caller with policies:create cannot mint an unheld custom action."""
     policy_data = PolicyCreate(name="app_policy", actions=["projects:read"], resource_type="projects")
     created = _make_policy(name="app_policy", actions=["projects:read"], resource_type="projects")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=None)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.create", new_callable=AsyncMock, return_value=created)
-    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
+    mocker.patch(
+        "backend.mystic_auth.authorization.services.authorization_grant_guard.policy_assignment_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
 
-    result = await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
+    with pytest.raises(HTTPException) as exc_info:
+        await create_policy(policy_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
-    assert result is created
-    authorize_mock.assert_not_awaited()
+    assert exc_info.value.status_code == 403
+    assert created is not None
+    authorize_mock.assert_awaited_once()
 
 
 # ==================================================================
@@ -145,7 +176,7 @@ async def test_update_policy_blocks_adding_action_caller_does_not_hold(mocker):
     update_data = PolicyUpdate(actions=["users:read_own", "policies:delete"])
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     with pytest.raises(HTTPException) as exc_info:
         await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
@@ -164,7 +195,7 @@ async def test_update_policy_allows_non_grant_changes_without_grant_check(mocker
     update_data = PolicyUpdate(description="a clearer description")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
-    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+    authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
 
@@ -178,11 +209,11 @@ async def test_update_policy_blocks_deactivating_when_caller_lacks_current_actio
     holder at once, same effective impact as deleting it, so it requires
     holding every action the policy currently grants, even though no
     actions/resource_type field is part of this update."""
-    policy = _make_policy(name="some_policy", actions=["users:purge"], resource_type="users")
+    policy = _make_policy(name="some_policy", actions=["users:delete_any"], resource_type="users")
     update_data = PolicyUpdate(is_active=False)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     with pytest.raises(HTTPException) as exc_info:
         await update_policy("some_policy", update_data, request=MagicMock(), current_user=CALLER, db="fake-db")
@@ -197,7 +228,7 @@ async def test_update_policy_allows_deactivating_when_caller_holds_current_actio
     update_data = PolicyUpdate(is_active=False)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     # is_active=False affects grants, so update_policy fans out
     # publish_permissions_changed to every current holder.
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=["holder@example.com"])
@@ -246,10 +277,12 @@ async def test_delete_policy_blocks_deleting_when_caller_lacks_current_actions(m
     requires holding every action the policy currently grants; otherwise
     bare policies:delete could strip an equally- or more-privileged peer's
     access."""
-    policy = _make_policy(name="custom_policy", actions=["users:purge"], resource_type="users")
+    policy = _make_policy(
+        name="custom_policy", actions=["users:delete_any"], resource_type="users", is_active=False
+    )
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     delete_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.delete", new_callable=AsyncMock)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     with pytest.raises(HTTPException) as exc_info:
         await delete_policy("custom_policy", request=MagicMock(), reason=None, current_user=CALLER, db="fake-db")
@@ -260,10 +293,10 @@ async def test_delete_policy_blocks_deleting_when_caller_lacks_current_actions(m
 
 @pytest.mark.asyncio
 async def test_delete_policy_allows_deleting_non_baseline_policy(mocker):
-    policy = _make_policy(name="custom_policy", actions=["users:read_own"], resource_type="users")
+    policy = _make_policy(name="custom_policy", actions=["users:read_own"], resource_type="users", is_active=False)
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     delete_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.delete", new_callable=AsyncMock)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     # A delete always fans out publish_permissions_changed to every
     # current holder.
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=["holder@example.com"])
@@ -273,3 +306,17 @@ async def test_delete_policy_allows_deleting_non_baseline_policy(mocker):
 
     delete_mock.assert_awaited_once()
     publish_mock.assert_awaited_once_with("holder@example.com")
+
+
+@pytest.mark.asyncio
+async def test_delete_policy_requires_deactivation_first(mocker):
+    policy = _make_policy(name="custom_policy", is_active=True)
+    mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
+    delete_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.delete", new_callable=AsyncMock)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await delete_policy("custom_policy", request=MagicMock(), reason=None, current_user=CALLER, db="fake-db")
+
+    assert exc_info.value.status_code == 409
+    assert getattr(exc_info.value, "code", None) == "POLICY_MUST_BE_INACTIVE_TO_DELETE"
+    delete_mock.assert_not_called()

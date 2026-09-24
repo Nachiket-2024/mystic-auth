@@ -60,8 +60,8 @@ def _mock_session(mocker):
 async def test_task_writes_the_entry_via_create_entries_on_a_fresh_session(mocker):
     session = _mock_session(mocker)
     create_entries_mock = mocker.patch(
-        "backend.mystic_auth.authorization.repositories.audit_log_repository."
-        "audit_log_repository.create_entries",
+        "backend.mystic_auth.authorization.repositories.authorization_audit_log_repository."
+        "authorization_audit_log_repository.create_entries",
         new_callable=AsyncMock,
     )
 
@@ -74,8 +74,8 @@ async def test_task_writes_the_entry_via_create_entries_on_a_fresh_session(mocke
 async def test_task_logs_and_reraises_on_write_failure(mocker):
     _mock_session(mocker)
     mocker.patch(
-        "backend.mystic_auth.authorization.repositories.audit_log_repository."
-        "audit_log_repository.create_entries",
+        "backend.mystic_auth.authorization.repositories.authorization_audit_log_repository."
+        "authorization_audit_log_repository.create_entries",
         new_callable=AsyncMock,
         side_effect=RuntimeError("db is down"),
     )

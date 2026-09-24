@@ -22,13 +22,17 @@ test.describe("signup and verification browser behavior", () => {
     await page.getByRole("textbox", { name: /^email$/i }).fill("signup-browser@example.com");
     await page.getByPlaceholder("Enter password").fill("short");
     await page.getByPlaceholder("Confirm password").fill("different");
-    await page.getByRole("button", { name: /^signup$/i }).click();
+    await page.getByRole("button", { name: /^sign up$/i }).click();
     expect(signupRequests).toBe(0);
-    await expect(page.getByText(/password must be at least 8 characters long/i)).toBeVisible();
+    // U3: a failing password rule flags the field and moves focus there
+    // instead of repeating the rule as prose in an alert (the checklist
+    // below the field already shows it live).
+    await expect(page.getByPlaceholder("Enter password")).toBeFocused();
+    await expect(page.getByPlaceholder("Enter password")).toHaveAttribute("aria-invalid", "true");
 
     await page.getByPlaceholder("Enter password").fill("ValidPass123");
     await page.getByPlaceholder("Confirm password").fill("ValidPass123");
-    await page.getByRole("button", { name: /^signup$/i }).click();
+    await page.getByRole("button", { name: /^sign up$/i }).click();
     await expect(page.getByText(/check your email/i)).toBeVisible();
     expect(signupRequests).toBe(1);
     await expectXssNotExecuted(page);
@@ -49,12 +53,13 @@ test.describe("signup and verification browser behavior", () => {
     });
 
     await page.goto("/verify-account?email=verify-browser@example.com");
-    await page.getByRole("button", { name: /send new verification link/i }).click();
+    await page.getByRole("button", { name: /resend verification email/i }).click();
     await expect(page.getByText(/verification link sent/i)).toBeVisible();
     expect(requestCount).toBe(1);
 
     await page.goto("/verify-account?token=verify-token&email=verify-browser@example.com");
-    await page.getByRole("button", { name: /^verify account$/i }).click();
+    await expect(page).toHaveURL(/\/verify-account$/);
+    await page.getByRole("button", { name: /^verify email$/i }).click();
     await expect(page).toHaveURL(/\/login$/);
     expect(verifyCount).toBe(1);
   });

@@ -14,6 +14,21 @@ from .audit_log_model import AuditLog
 # the two lists in sync if the event-type vocabulary changes.
 _LOGIN_EVENT_TYPES = ("login_success", "login_failure", "oauth2_login_success")
 
+# UI-only alias (see UserAccessDialog's Details tab "Recent access changes"):
+# every event type that represents an admin changing what a user is allowed
+# to do, as opposed to that user's own auth activity (login, password reset,
+# etc). Duplicated (not imported) from audit_log_service.py's own constants
+# for the same reason _LOGIN_EVENT_TYPES is: that module already imports this
+# one via log_security_event, so importing back would be circular.
+_ACCESS_CHANGE_EVENT_TYPES = (
+    "policy_assigned",
+    "policy_revoked",
+    "policy_action_revoked",
+    "permission_granted",
+    "permission_revoked",
+    "user_role_changed",
+)
+
 # Allowlisted sort keys (frontend column -> real column). Never let a
 # caller-supplied column name reach the query directly.
 _SORTABLE_COLUMNS: dict[str, Column] = {
@@ -39,11 +54,14 @@ def _apply_filters(
     event_type: str | None,
     ip_address: str | None,
     success: bool | None,
+    from_: datetime | None = None,
+    to: datetime | None = None,
 ) -> Select:
     """Shared by get_all/get_for_user (row fetch) and count/count_for_user
     (X-Total-Count) so a filtered page's total always matches what's
     actually being paged through. `search`/`ip_address` are substring
-    matches; `event_type`/`success` are exact matches."""
+    matches; `event_type`/`success` are exact matches. `from_`/`to` bound
+    created_at, both inclusive."""
     if search:
         stmt = stmt.where(AuditLog.user_email.ilike(ilike_pattern(search), escape=ILIKE_ESCAPE_CHAR))
     if event_type == "login":
@@ -52,12 +70,18 @@ def _apply_filters(
         # login_success/login_failure separately. The Result filter already
         # covers narrowing to one outcome or the other.
         stmt = stmt.where(AuditLog.event_type.in_(("login_success", "login_failure")))
+    elif event_type == "access_change":
+        stmt = stmt.where(AuditLog.event_type.in_(_ACCESS_CHANGE_EVENT_TYPES))
     elif event_type:
         stmt = stmt.where(AuditLog.event_type == event_type)
     if ip_address:
         stmt = stmt.where(AuditLog.ip_address.ilike(ilike_pattern(ip_address), escape=ILIKE_ESCAPE_CHAR))
     if success is not None:
         stmt = stmt.where(AuditLog.success == success)
+    if from_:
+        stmt = stmt.where(AuditLog.created_at >= from_)
+    if to:
+        stmt = stmt.where(AuditLog.created_at <= to)
     return stmt
 
 
@@ -87,12 +111,14 @@ class AuditLogRepository:
         success: bool | None = None,
         sort_by: str | None = None,
         sort_dir: str = "desc",
+        from_: datetime | None = None,
+        to: datetime | None = None,
     ) -> list[AuditLog]:
         """Fetch entries across all users. `search` is a case-insensitive
         substring match on user_email; rows with no user_email (see
         audit_log_service.py) never match a non-empty search. Defaults to
         newest-first by created_at."""
-        stmt = _apply_filters(select(AuditLog), search, event_type, ip_address, success)
+        stmt = _apply_filters(select(AuditLog), search, event_type, ip_address, success, from_, to)
         stmt = stmt.order_by(*_order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
         return list(result.scalars().all())
@@ -108,12 +134,14 @@ class AuditLogRepository:
         success: bool | None = None,
         sort_by: str | None = None,
         sort_dir: str = "desc",
+        from_: datetime | None = None,
+        to: datetime | None = None,
     ) -> list[AuditLog]:
         """Same as get_all, scoped to a single user's events. No `search`
         parameter: once scoped to one user, there's nothing left for a
         user-email search to narrow."""
         stmt = select(AuditLog).where(AuditLog.user_email == user_email)
-        stmt = _apply_filters(stmt, None, event_type, ip_address, success)
+        stmt = _apply_filters(stmt, None, event_type, ip_address, success, from_, to)
         stmt = stmt.order_by(*_order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
         return list(result.scalars().all())
@@ -125,11 +153,15 @@ class AuditLogRepository:
         event_type: str | None = None,
         ip_address: str | None = None,
         success: bool | None = None,
+        from_: datetime | None = None,
+        to: datetime | None = None,
     ) -> int:
         """Total matching rows across all users, ignoring limit/offset. Lets
         a caller compute how many pages exist (see list_security_audit_log's
         X-Total-Count header)."""
-        stmt = _apply_filters(select(func.count()).select_from(AuditLog), search, event_type, ip_address, success)
+        stmt = _apply_filters(
+            select(func.count()).select_from(AuditLog), search, event_type, ip_address, success, from_, to
+        )
         result = await db.execute(stmt)
         return result.scalar_one()
 
@@ -140,21 +172,28 @@ class AuditLogRepository:
         event_type: str | None = None,
         ip_address: str | None = None,
         success: bool | None = None,
+        from_: datetime | None = None,
+        to: datetime | None = None,
     ) -> int:
         stmt = select(func.count()).select_from(AuditLog).where(AuditLog.user_email == user_email)
-        stmt = _apply_filters(stmt, None, event_type, ip_address, success)
+        stmt = _apply_filters(stmt, None, event_type, ip_address, success, from_, to)
         result = await db.execute(stmt)
         return result.scalar_one()
 
     @staticmethod
     async def get_login_trend(
-        db: AsyncSession, days: int = 14, user_email: str | None = None
+        db: AsyncSession,
+        days: int = 14,
+        user_email: str | None = None,
+        search: str | None = None,
+        from_: datetime | None = None,
+        to: datetime | None = None,
     ) -> list[dict]:
         """
         Daily success/failure counts for login-shaped events (password
-        login, OAuth2 login) over the last `days` days (today inclusive),
-        backing the Audit Log page's login trend chart. Scoped to
-        `user_email` when given, otherwise across every user.
+        login, OAuth2 login) over an exact inclusive time range when
+        `from_`/`to` are supplied, or over the last `days` days otherwise.
+        Scoped to `user_email` when given, otherwise across every user.
 
         Every day in the range appears in the result even with zero matching
         events, so the chart's x-axis stays continuous instead of skipping
@@ -163,7 +202,15 @@ class AuditLogRepository:
         # Bucketed in UTC explicitly, both the cutoff and the day truncation
         # below, so events near midnight always land in the right day
         # regardless of server or DB session timezone.
-        since = datetime.now(UTC).date() - timedelta(days=days - 1)
+        if from_ is not None:
+            since = from_.astimezone(UTC).date()
+            until = (to or from_).astimezone(UTC).date()
+        else:
+            since = datetime.now(UTC).date() - timedelta(days=days - 1)
+            until = datetime.now(UTC).date()
+        if until < since:
+            return []
+        range_days = (until - since).days + 1
 
         day_expr = func.date(func.timezone("UTC", AuditLog.created_at))
         stmt = (
@@ -174,9 +221,16 @@ class AuditLogRepository:
             )
             .where(AuditLog.event_type.in_(_LOGIN_EVENT_TYPES))
             .where(day_expr >= since)
+            .where(day_expr <= until)
         )
+        if from_:
+            stmt = stmt.where(AuditLog.created_at >= from_)
+        if to:
+            stmt = stmt.where(AuditLog.created_at <= to)
         if user_email:
             stmt = stmt.where(AuditLog.user_email == user_email)
+        if search:
+            stmt = stmt.where(AuditLog.user_email.ilike(ilike_pattern(search), escape=ILIKE_ESCAPE_CHAR))
         stmt = stmt.group_by(day_expr)
 
         result = await db.execute(stmt)
@@ -188,7 +242,7 @@ class AuditLogRepository:
                 "success": counts_by_day.get((since + timedelta(days=i)).isoformat(), (0, 0))[0],
                 "failure": counts_by_day.get((since + timedelta(days=i)).isoformat(), (0, 0))[1],
             }
-            for i in range(days)
+            for i in range(range_days)
         ]
 
 

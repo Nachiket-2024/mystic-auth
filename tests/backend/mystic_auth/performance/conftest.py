@@ -1,8 +1,8 @@
 # tests/backend/mystic_auth/performance/conftest.py
 #
-# Shares the same real-dependency fixtures (client, created_emails, Redis
+# Shares the same real-dependency fixtures (client, created_emails, Valkey
 # isolation) as tests/backend/integration/ and tests/backend/security/ :
-# performance tests run against the same real Postgres/Redis, seeded with
+# performance tests run against the same real Postgres/Valkey, seeded with
 # realistic bulk volume via direct SQL (seeding hundreds of rows through
 # the HTTP API one at a time would itself dominate the timing being
 # measured).

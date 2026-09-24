@@ -3,6 +3,34 @@
 
 *New to a term here? See the [Authorization Glossary](../glossary/authorization.md).*
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Start["New capability needed"]
+    Owner{"MysticAuth-owned\n(user/policy management)\nor your own app domain?"}
+    Enum["Add to Permission enum\n(permissions.py)\nsubject to the\nprivilege-escalation guard"]
+    Opaque["Your own opaque action string\n(e.g. \"projects:create\")\nsame guard applies, no enum entry needed"]
+    Who{"Who needs it?"}
+    Existing["Add to an existing policy\n(baseline: new migration;\ncustom: PUT the policy)"]
+    New["Create a new policy\nPOST /authorization/policies"]
+    Direct["One-off direct grant\nPOST /authorization/users/{email}/permissions"]
+
+    Start --> Owner
+    Owner -- "MysticAuth-owned" --> Enum --> Who
+    Owner -- "your own domain" --> Opaque --> Who
+    Who -- "a defined group\nof people, same bundle" --> Existing
+    Who -- "a defined group,\nno existing bundle fits" --> New
+    Who -- "exactly one person,\ngenuinely one-off" --> Direct
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    class Owner,Who decision
+    class Direct caution
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+---
+
 ## Where to define a new action
 
 Add it to the `Permission` enum in `backend/mystic_auth/authorization/permissions.py`:
@@ -24,7 +52,7 @@ Naming convention: `"<resource>:<action>[_<scope>]"`: e.g. `USERS_UPDATE_OWN` vs
 Every member of `Permission` is treated as one of this app's own **known-sensitive actions**: see `AuthorizationService.assert_authorized_to_grant`'s `_KNOWN_SENSITIVE_ACTIONS` set, which is derived directly from this enum. The check itself lives in `authorization/services/authorization_grant_guard.py::assert_authorized_to_grant`, a module-level function (kept out of `authorization_service.py` to avoid a circular import); `AuthorizationService` re-exposes it as a static method purely so every call site can keep saying `authorization_service.assert_authorized_to_grant(...)`. Adding a permission here means:
 
 - It's subject to the privilege-escalation guard: a caller can never create/update/assign a policy granting this action unless they already hold it themselves.
-- It's meant for **this application's own identity/authorization concerns** (user management, policy management). A downstream project's own business-domain actions (e.g. `"documents:view"`, `"projects:create"`) do **not** need to go in this enum at all: policies can grant arbitrary action strings freely, and only strings actually listed in `Permission` are escalation-guarded. Only add an enum member here if the action is sensitive enough that you want that guard to apply.
+- It's meant for **this application's own identity/authorization concerns** (user management, policy management). A downstream project's own business-domain actions (e.g. `"documents:view"`, `"projects:create"`) do **not** go in this enum: they remain app-owned opaque strings. They are still covered by the same privilege-escalation guard; the enum/catalog only provides MysticAuth's built-in reference data and does not define the full action universe.
 
 ---
 
@@ -57,7 +85,7 @@ def upgrade() -> None:
     connection.execute(
         policies_table.update()
         .where(policies_table.c.name == 'user_administration')
-        .values(actions=['users:list_all', 'users:update_any', 'users:delete_any', 'users:assign_role', 'projects:create'])
+        .values(actions=['users:list_all', 'users:update_any', 'users:deactivate_any', 'users:assign_role', 'projects:create'])
     )
 
 def downgrade() -> None:
@@ -88,11 +116,11 @@ Direct grants reuse the exact same `conditions` shape/semantics as `Policy.condi
 
 At evaluation time, `PolicyEvaluationEngine` never sees a `UserPermission` row directly. `AuthorizationService._get_effective_policies` fetches a user's assigned policies and active direct grants together, and normalizes each grant into a transient, unpersisted `Policy` object (named `"direct:{action}"`, never `db.add()`-ed) before handing the combined list to the evaluator. So a direct grant flows through the exact same action/resource_type/condition matching as a real policy, and shows up as `direct:{action}` in `matched_policies`/`rejected_policies` on the resulting `AuthorizationDecision`, distinguishable from a real named policy with no schema change.
 
-Managed via `POST`/`DELETE /authorization/users/{email}/permissions` (see `api/pbac_routes/permissions/permission_assignment_routes.py`), or in bulk via `POST /authorization/bulk/permissions/assign` and `/remove` (`api/pbac_routes/bulk/bulk_permission_routes.py`) for granting/revoking the same action to many users at once. In the UI: `users/dialogs/UserPermissionsDialog.tsx` for a single user, the bulk action toolbar's "Grant Permission" dialog for multiple.
+Managed via `POST`/`DELETE /authorization/users/{email}/permissions` (see `api/pbac_routes/permissions/permission_assignment_routes.py`), or in bulk via `POST /authorization/bulk/permissions/assign` and `/remove` (`api/pbac_routes/bulk/bulk_permission_routes.py`) for granting/revoking the same action to many users at once. In the UI: the Permissions tab of `users/dialogs/UserAccessDialog.tsx` for a single user, the bulk action toolbar's "Grant Permission" dialog for multiple.
 
-An admin never types an action or resource_type by hand: both are picked from `GET /authorization/permissions/catalog` (`authorization/permissions_catalog.py`), a static, code-defined list of every `Permission` enum member paired with the resource_type it's actually checked against and a short description. This is deliberately read-only with no create/edit endpoint: a permission only does something once a route checks for it, so letting an admin invent a new action string would just produce a grant that looks real but never matches anything. Adding a new `Permission` (see above) automatically makes it available to pick from, once you also add its entry to the catalog's `_RESOURCE_TYPE_BY_ACTION`/`_DESCRIPTION_BY_ACTION` maps. `UserPermissionsDialog.tsx`'s picker further excludes any catalog entry the target user already effectively has, whether from a prior direct grant or an assigned policy - see [Architecture Overview: Dropdown filtering in the single-user dialogs](architecture/frontend-ui.md#dropdown-filtering-in-the-single-user-dialogs).
+For MysticAuth-owned actions, the built-in access UI picks from `GET /authorization/permissions/catalog` (`authorization/permissions_catalog.py`), a static list of `Permission` enum members paired with their resource type and description. The catalog is deliberately read-only and is not a global allow-list. A downstream application should define and expose its own custom-action catalog and picker under its `app/` tree. Adding a new MysticAuth-owned `Permission` (see above) automatically makes it available after its catalog maps are updated. `UserAccessDialog.tsx`'s Permissions tab further excludes catalog entries the target user already effectively has; custom-action management belongs to the downstream app.
 
-The same catalog backs the standalone Permissions page (`permissions/PermissionsPage.tsx`, route `/permissions`), a read-only, browsable reference for the whole action vocabulary - separate from the Policies page so "what permissions exist" and "who has which policy" stay two distinct questions, not one page trying to answer both.
+The same catalog backs the standalone Permissions page (`permissions/PermissionsPage.tsx`, route `/permissions`), a read-only, browsable reference for MysticAuth's built-in action vocabulary. It is separate from the Policies page so "which built-in permissions exist" and "who has which policy" stay two distinct questions. A downstream application should provide a separate app-owned page for its custom actions.
 
 ---
 

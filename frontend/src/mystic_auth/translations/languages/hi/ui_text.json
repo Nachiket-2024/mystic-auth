@@ -8,7 +8,11 @@
     "closeDialog": "संवाद बंद करें",
     "confirm": "पुष्टि करें",
     "back": "वापस",
+    "previous": "पिछला",
+    "next": "अगला",
+    "noMatches": "कोई मेल नहीं",
     "loading": "लोड हो रहा है...",
+    "retry": "पुनः प्रयास करें",
     "saving": "सहेजा जा रहा है...",
     "yes": "हां",
     "no": "नहीं",
@@ -28,6 +32,8 @@
     },
     "filterLabel": "फ़िल्टर: {{label}}",
     "selectedCount": "{{count}} चयनित",
+    "bulkUsersSelected": "{{count}} उपयोगकर्ता चुने गए",
+    "bulkOperation": "सामूहिक कार्रवाई",
     "clearSelection": "चयन साफ़ करें",
     "selectAllRows": "सभी पंक्तियां चुनें",
     "selectRow": "पंक्ति चुनें",
@@ -41,5 +47,9 @@
     "offlineBanner": {
         "offline": "आप ऑफ़लाइन हैं। कनेक्शन बहाल होने तक कुछ सुविधाएं काम नहीं कर सकतीं।",
         "backOnline": "आप वापस ऑनलाइन हैं।"
+    },
+    "expandCollapseAll": {
+        "expandAll": "सभी विस्तृत करें",
+        "collapseAll": "सभी संक्षिप्त करें"
     }
 }

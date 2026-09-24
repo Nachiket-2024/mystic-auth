@@ -8,7 +8,11 @@
     "closeDialog": "संवाद बंद करा",
     "confirm": "पुष्टी करा",
     "back": "मागे",
+    "previous": "मागील",
+    "next": "पुढील",
+    "noMatches": "जुळणारे काहीही नाही",
     "loading": "लोड होत आहे...",
+    "retry": "पुन्हा प्रयत्न करा",
     "saving": "जतन होत आहे...",
     "yes": "होय",
     "no": "नाही",
@@ -28,6 +32,8 @@
     },
     "filterLabel": "फिल्टर: {{label}}",
     "selectedCount": "{{count}} निवडले",
+    "bulkUsersSelected": "{{count}} वापरकर्ते निवडले",
+    "bulkOperation": "सामूहिक कृती",
     "clearSelection": "निवड साफ करा",
     "selectAllRows": "सर्व पंक्ती निवडा",
     "selectRow": "पंक्ती निवडा",
@@ -41,5 +47,9 @@
     "offlineBanner": {
         "offline": "तुम्ही ऑफलाइन आहात. कनेक्शन पूर्ववत होईपर्यंत काही वैशिष्ट्ये कार्य करणार नाहीत.",
         "backOnline": "तुम्ही पुन्हा ऑनलाइन आहात."
+    },
+    "expandCollapseAll": {
+        "expandAll": "सर्व विस्तृत करा",
+        "collapseAll": "सर्व संक्षिप्त करा"
     }
 }

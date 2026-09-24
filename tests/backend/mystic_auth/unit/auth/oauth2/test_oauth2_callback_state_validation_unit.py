@@ -96,7 +96,8 @@ async def test_callback_rejects_expired_or_replayed_state(mocker):
 
 
 @pytest.mark.asyncio
-async def test_callback_proceeds_and_clears_state_cookie_on_valid_state(mocker):
+async def test_callback_proceeds_and_clears_state_cookie_on_valid_state(mocker, monkeypatch):
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
     mocker.patch(
         "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
         return_value="stored-code-verifier",

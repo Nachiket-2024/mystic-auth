@@ -2,26 +2,26 @@ import traceback
 
 from ...core.settings import settings
 from ...logging.logging_config import get_logger
-from ...redis.client import redis_client
+from ...valkey.client import valkey_client
 
 logger = get_logger(__name__)
 
 
 class TokenVersionUnavailableError(Exception):
     """Raised by bump_account_version/bump_chain_version's callers when a
-    version bump could not be confirmed (Redis unreachable). A revoke that
+    version bump could not be confirmed (Valkey unreachable). A revoke that
     cannot bump the version has not actually revoked anything - every
     existing token still matches - so this must never be swallowed into a
     silent "it worked" the way a stale-version read safely can be."""
 
 
-# Redis key for a user's account-wide token version (see jwt_service.py's
+# Valkey key for a user's account-wide token version (see jwt_service.py's
 # create_access_token/create_refresh_token). Bumping it is "logout
 # everywhere" in one atomic INCR, no per-token bookkeeping. Never expires:
 # it must keep meaning the same thing for as long as the account exists.
 ACCOUNT_VERSION_KEY = "account_ver:{email}"
 
-# Redis key for one login's version, scoped to its chain_id (see
+# Valkey key for one login's version, scoped to its chain_id (see
 # jwt_service.py's create_refresh_token). TTL'd to the refresh-token
 # lifetime on bump: past that, nothing could still validly use this
 # chain_id, so the key can expire instead of accumulating forever.
@@ -30,7 +30,7 @@ CHAIN_VERSION_KEY = "chain_ver:{email}:{chain_id}"
 
 class TokenVersionStore:
     """
-    Redis-backed account/chain token-version bookkeeping that
+    Valkey-backed account/chain token-version bookkeeping that
     jwt_service.py's revocation checks (is_current_version) and every
     revoke-everything/revoke-one-session caller (RefreshTokenService,
     SessionService) read and bump. Split out of jwt_service.py, which owns
@@ -42,7 +42,7 @@ class TokenVersionStore:
         """Current account-wide version, 0 if it has never been bumped
         (i.e. this account has never had a whole-account revoke)."""
         try:
-            raw = await redis_client.get(ACCOUNT_VERSION_KEY.format(email=email))
+            raw = await valkey_client.get(ACCOUNT_VERSION_KEY.format(email=email))
             return int(raw) if raw is not None else 0
         except Exception:
             logger.warning("Failed to read account version for %s:\n%s", email, traceback.format_exc())
@@ -52,7 +52,7 @@ class TokenVersionStore:
         """Current version for one chain, 0 if it has never been bumped
         (i.e. this specific session has never been individually revoked)."""
         try:
-            raw = await redis_client.get(CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id))
+            raw = await valkey_client.get(CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id))
             return int(raw) if raw is not None else 0
         except Exception:
             logger.warning(
@@ -67,11 +67,11 @@ class TokenVersionStore:
         Every token on the account, minted before this call, stops
         matching on its very next use.
 
-        Returns True once the bump is confirmed, False if Redis could not
+        Returns True once the bump is confirmed, False if Valkey could not
         be reached. Callers must treat False as "nothing was revoked", not
         as success - see TokenVersionUnavailableError."""
         try:
-            await redis_client.incr(ACCOUNT_VERSION_KEY.format(email=email))
+            await valkey_client.incr(ACCOUNT_VERSION_KEY.format(email=email))
             return True
         except Exception:
             logger.warning("Failed to bump account version for %s:\n%s", email, traceback.format_exc())
@@ -84,12 +84,12 @@ class TokenVersionStore:
         chain_id, minted before this call, stops matching on its next use;
         every other chain on the account is completely unaffected.
 
-        Returns True once the bump is confirmed, False if Redis could not
+        Returns True once the bump is confirmed, False if Valkey could not
         be reached - same contract as bump_account_version above."""
         try:
             key = CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id)
-            await redis_client.incr(key)
-            await redis_client.expire(key, settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60)
+            await valkey_client.incr(key)
+            await valkey_client.expire(key, settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60)
             return True
         except Exception:
             logger.warning(

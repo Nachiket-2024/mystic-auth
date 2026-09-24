@@ -33,7 +33,7 @@ async def list_all_projects(
     return await project_crud.get_all(db)
 ```
 
-`resource_type`/`action` don't need to be `Permission` enum values; any string works, granted via a policy (see [Writing and Testing Policies](../authorization/writing-testing-policies.md#policy-creation-workflow)). Only add a `Permission` enum member if the action is sensitive enough to need the privilege-escalation guard (see [Adding New Permissions](../authorization/adding-permissions.md)).
+`resource_type`/`action` don't need to be `Permission` enum values; any non-empty string works, granted via a policy. Custom actions remain app-owned and are still protected by the privilege-escalation guard, so seed the first app grant from an app-owned migration or policy bootstrap before using the management API.
 
 ---
 

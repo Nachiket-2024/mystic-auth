@@ -10,9 +10,12 @@ test.describe("users page browser behavior", () => {
   test("table, pagination, search, filters, row dialogs, bulk dialogs, and XSS escaping work", async ({ page }) => {
     await page.goto("/users");
     await expect(page.getByRole("heading", { name: /users/i })).toBeVisible();
-    await expect(page.getByTitle("attacker+<script>@example.com")).toBeVisible();
+    await expect(page.getByText("attacker+<script>@example.com", { exact: true })).toBeVisible();
     await expectXssNotExecuted(page);
     await expect(page.getByRole("button", { name: /next page/i }).first()).toBeEnabled();
+
+    await expect(page.locator('select[aria-label="Filter by role"]')).toHaveCount(0);
+    await page.getByRole("button", { name: /^Filters/ }).click();
 
     const searchInput = page.getByPlaceholder(/search by name or email/i);
     await searchInput.fill("<script>alert(1)</script>");
@@ -20,11 +23,13 @@ test.describe("users page browser behavior", () => {
     await searchInput.fill("");
 
     await page.getByRole("button", { name: /^view$/i }).nth(1).click();
-    await expect(page.getByText(/user details/i)).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Details/ })).toHaveAttribute("aria-selected", "true");
     await page.getByRole("button", { name: "Close", exact: true }).click();
 
-    await page.getByRole("button", { name: /^policies$/i }).first().click();
-    await expect(page.getByRole("dialog", { name: /policies for/i })).toBeVisible();
+    const attackerRow = page.getByText("attacker+<script>@example.com", { exact: true }).locator("xpath=ancestor::tr");
+    await attackerRow.getByRole("button", { name: "Policies" }).click();
+    await expect(page.getByRole("tab", { name: /Policies/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("button", { name: "Close", exact: true }).click();
 
     const userRowCheckbox = page.getByRole("checkbox", { name: /select row/i }).nth(1);
@@ -45,6 +50,8 @@ test.describe("users page browser behavior", () => {
   test("stat tile filter shortcuts, and cancel on delete/purge/role-change dialogs, leave state untouched", async ({ page }) => {
     await page.goto("/users");
     await expect(page.getByRole("heading", { name: /users/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /^Filters/ }).click();
 
     const roleFilter = page.locator('select[aria-label="Filter by role"]');
     const verifiedFilter = page.locator('select[aria-label="Filter by verified status"]');
@@ -68,15 +75,14 @@ test.describe("users page browser behavior", () => {
       if (route.request().method() === "DELETE") deleteCalled = true;
       route.continue();
     });
-    // .nth(1): the system row's own Delete button (index 0) is disabled
-    // (usersColumns.tsx disables it for role === "system"), so the first
-    // *enabled* Delete button belongs to the attacker row.
-    await page.getByRole("button", { name: "Delete", exact: true }).nth(1).click();
-    await expect(page.getByRole("heading", { name: "Delete user" })).toBeVisible();
+    const attackerRow = page.getByText("attacker+<script>@example.com", { exact: true }).locator("xpath=ancestor::tr");
+    await attackerRow.getByRole("button", { name: /more actions/i }).click();
+    await page.getByRole("menuitem", { name: "Deactivate", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Deactivate user" })).toBeVisible();
     await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByRole("heading", { name: "Delete user" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "Deactivate user" })).not.toBeVisible();
     expect(deleteCalled).toBe(false);
-    await expect(page.getByTitle("attacker+<script>@example.com")).toBeVisible();
+    await expect(page.getByText("attacker+<script>@example.com", { exact: true })).toBeVisible();
 
     // Purge (only offered for the already soft-deleted row): same contract.
     let purgeCalled = false;
@@ -84,10 +90,12 @@ test.describe("users page browser behavior", () => {
       purgeCalled = true;
       route.continue();
     });
-    await page.getByRole("button", { name: "Purge" }).click();
-    await expect(page.getByRole("heading", { name: "Permanently remove user" })).toBeVisible();
+    const deletedRow = page.getByText("deleted@example.com", { exact: true }).locator("xpath=ancestor::tr");
+    await deletedRow.getByRole("button", { name: /more actions/i }).click();
+    await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Delete user" })).toBeVisible();
     await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByRole("heading", { name: "Permanently remove user" })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: "Delete user" })).not.toBeVisible();
     expect(purgeCalled).toBe(false);
 
     // Role change: cancel must leave the trigger showing the original role.
@@ -110,5 +118,64 @@ test.describe("users page browser behavior", () => {
     await installAuthenticatedMysticAuthApiRoutes(page, leastPrivilegeProfile);
     await page.goto("/users");
     await expect(page).toHaveURL(/\/not-authorized$/);
+  });
+
+  test("stays within the desktop viewport at common zoom levels", async ({ page }) => {
+    for (const width of [1280, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/users");
+      await expect(page.getByRole("heading", { name: /users/i })).toBeVisible();
+
+      for (const zoom of [1.25, 1.5]) {
+        await page.evaluate((value) => {
+          document.documentElement.style.zoom = String(value);
+        }, zoom);
+        await expectNoHorizontalOverflow(page);
+      }
+
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = "";
+      });
+    }
+  });
+
+  test("keeps the access dialog content width stable when tabs have different scroll heights", async ({ page }) => {
+    await page.goto("/users");
+    const attackerRow = page.getByText("attacker+<script>@example.com", { exact: true }).locator("xpath=ancestor::tr");
+    await attackerRow.getByRole("button", { name: "Policies" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const tabPanel = dialog.locator('[role="tabpanel"]:visible');
+    const measure = async () => tabPanel.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { left: rect.left, width: rect.width, clientWidth: element.clientWidth };
+    });
+
+    await dialog.getByRole("tab", { name: /Details/ }).click();
+    const details = await measure();
+    await dialog.getByRole("tab", { name: /Policies/ }).click();
+    const policies = await measure();
+    await dialog.getByRole("tab", { name: /Permissions/ }).click();
+    const permissions = await measure();
+
+    for (const current of [policies, permissions]) {
+      expect(current.left).toBeCloseTo(details.left, 0);
+      expect(current.width).toBeCloseTo(details.width, 0);
+      expect(current.clientWidth).toBe(details.clientWidth);
+    }
+  });
+
+  test("applies policy and verification filters together", async ({ page }) => {
+    await page.goto("/users");
+    await page.getByRole("button", { name: /^Filters/ }).click();
+
+    await page.getByRole("button", { name: /filter by policy/i }).click();
+    await page.getByRole("button", { name: "self_service", exact: true }).click();
+    await page.locator('select[aria-label="Filter by verified status"]').selectOption("true");
+
+    await expect(page.getByText("attacker+<script>@example.com", { exact: true })).not.toBeVisible();
+    await expect(page.getByText("deleted@example.com", { exact: true })).not.toBeVisible();
+    await expect(page.getByRole("table").getByText("Playwright System", { exact: true })).toBeVisible();
   });
 });

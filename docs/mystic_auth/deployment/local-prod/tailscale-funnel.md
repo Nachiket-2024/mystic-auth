@@ -35,6 +35,30 @@ and an auth key are required before the tunnel comes up.
 
 ---
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    S1["1. Create a free\nTailscale account"]
+    S2["2. Generate an auth key"]
+    S3["3. Enable Funnel\nfor your tailnet"]
+    S4["4. Copy\nenv.local-prod-tailscale.example"]
+    S5["5. Fill in auth key,\nhostname"]
+    S5b["5b: understand\nURL timing"]
+    S6["6. Point the app at\nthat hostname"]
+    S7["7. Register the hostname\nwith Google OAuth"]
+    S8["8. Start (or restart)\nthe stack"]
+    S8b["8b (optional): enable\nsession geolocation"]
+    Live["Public Tailscale Funnel URL"]
+
+    S1 --> S2 --> S3 --> S4 --> S5 --> S5b --> S6 --> S7 --> S8 --> S8b --> Live
+
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Live terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+---
+
 **Step 1: Create a free Tailscale account.**
 
 Sign up at [tailscale.com](https://tailscale.com/) (a free "Personal" plan

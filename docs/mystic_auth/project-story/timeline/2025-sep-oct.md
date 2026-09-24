@@ -128,7 +128,7 @@
 
 ### Commit 28: 22 September, 2025
 
-`2804afb`: "Removed token tables to transition to Redis-only token management"
+`2804afb`: "Removed token tables to transition to redis-only token management"
 
 - `admin_token_table`, `role1_token_table`, and `role2_token_table` model/schema files all deleted.
 - `refresh_token_service.py` and `jwt_service.py` shrank sharply.
@@ -141,9 +141,9 @@
 
 ### Commit 29: 23 September, 2025
 
-`0b9816f`: "Token table logic being replaced by Redis only logic with proper comments ;not done yet"
+`0b9816f`: "Token table logic being replaced by redis only logic with proper comments ;not done yet"
 
-- `jwt_service.py` took the largest single change (241 lines, effectively rewritten for Redis-backed sessions).
+- `jwt_service.py` took the largest single change (241 lines, effectively rewritten for redis-backed sessions).
 - The first logging infrastructure appeared: `logging/logging_config.py` and `logging_middleware.py`, new.
 - Its own commit message flags the migration as still in progress.
 
@@ -155,7 +155,7 @@
 
 `f54f160`: "Oauth2 login works now with updated logic"
 
-- A small follow-up pair (`current_user_handler.py`, `jwt_service.py`) confirming the new Redis-only session logic actually holds up specifically for OAuth2-originated logins.
+- A small follow-up pair (`current_user_handler.py`, `jwt_service.py`) confirming the new redis-only session logic actually holds up specifically for OAuth2-originated logins.
 
 *2 files changed · +44/-42 lines*
 
@@ -165,7 +165,7 @@
 
 `d2fc1d8`: "Logout and Logout all ,both work now with updated token logic"
 
-- `refresh_token_service.py` shrank further (73 lines) as dead code left over from the token-table removal was trimmed, confirming both logout paths against Redis-only sessions.
+- `refresh_token_service.py` shrank further (73 lines) as dead code left over from the token-table removal was trimmed, confirming both logout paths against redis-only sessions.
 
 *4 files changed · +37/-73 lines*
 
@@ -199,7 +199,7 @@
 `6bc7fea`: "Dockerised the app completely ;Tested Oauth2 login and logout successfully"
 
 - A new `docker-compose.yml` (114 lines) coordinated the first `docker/backend.Dockerfile`, `docker/frontend.Dockerfile`, and `docker/nginx/` (Dockerfile + `nginx.conf`), plus a new `.dockerignore`.
-- The first time backend, frontend, PostgreSQL, Redis, background workers, migrations, and environment configuration were all managed together as one system, instead of pieces run separately.
+- The first time backend, frontend, PostgreSQL, redis, background workers, migrations, and environment configuration were all managed together as one system, instead of pieces run separately.
 
 *14 files changed · +861/-559 lines*
 

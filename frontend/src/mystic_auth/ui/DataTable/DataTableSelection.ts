@@ -16,15 +16,23 @@ export function useDataTableSelection<T>({
     rowKey,
     selectedKeys,
     onSelectionChange,
+    disabledKeys,
 }: {
     rows: T[] | undefined;
     rowKey: (row: T) => string | number;
     selectedKeys: ReadonlySet<string | number> | undefined;
     onSelectionChange: SelectionChangeHandler | undefined;
+    /** Row keys excluded from "select all"/toggle-all entirely (e.g. a row
+     * that can never be bulk-acted on, like the caller's own current
+     * session in ActiveSessionsCard). Without this, toggleAll's own
+     * all-selected check can never be satisfied once such a row exists
+     * (its key can never enter `selectedKeys`), so a second click on the
+     * header checkbox keeps selecting instead of toggling back off. */
+    disabledKeys?: ReadonlySet<string | number>;
 }) {
     // "Select all" only covers rows actually rendered now (this page,
-    // this filter), never rows the caller hasn't loaded.
-    const allKeysOnScreen = rows?.map(rowKey) ?? [];
+    // this filter) and not excluded via disabledKeys.
+    const allKeysOnScreen = (rows?.map(rowKey) ?? []).filter((k) => !disabledKeys?.has(k));
     const selectedOnScreenCount = allKeysOnScreen.filter((k) => selectedKeys?.has(k)).length;
     const isAllSelected = allKeysOnScreen.length > 0 && selectedOnScreenCount === allKeysOnScreen.length;
     const isSomeSelected = selectedOnScreenCount > 0 && !isAllSelected;

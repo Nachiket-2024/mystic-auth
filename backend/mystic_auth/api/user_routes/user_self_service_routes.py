@@ -93,7 +93,7 @@ async def update_my_profile(
     #
     # sessions_revoked stays None unless a revoke was attempted below: the
     # password write always succeeds regardless, since blocking it on an
-    # unrelated Redis outage would be worse. False (not raising) lets the
+    # unrelated Valkey outage would be worse. False (not raising) lets the
     # caller know, rather than sessions silently staying valid.
     sessions_revoked = None
     if "hashed_password" in prepared_data:

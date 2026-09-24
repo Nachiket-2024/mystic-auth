@@ -3,7 +3,7 @@
 ---
 
 This doc covers the full account-deletion lifecycle across backend, frontend, and the scheduled
-cleanup job: self-service delete (both the password-account and OAuth-only-account paths), admin
+cleanup job: self-service delete (both the password-account and OAuth-only-account paths), permission-protected
 delete/reactivate/purge, and the automatic grace-period purge. It is split out of
 [Database Design: Account lifecycle](../../database/design.md#account-lifecycle) and
 [Security Decisions: Product](../../security/decisions-product.md) so the full flow, end to end, lives in one place
@@ -17,7 +17,7 @@ with the sequence of each path made explicit.
 |---|---|---|
 | Self-service route | `backend/mystic_auth/api/user_routes/user_self_service_routes.py` | `DELETE /users/me`, `POST /users/me/confirm-delete` |
 | Self-service services | `backend/mystic_auth/user_lifecycle/user_self_deletion_service.py`, `account_deletion_service.py`, `account_deletion_confirm_handler.py` | Shared soft-delete routine, deletion-confirmation token issue/verify, confirm-endpoint handler |
-| Admin routes | `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py` | `DELETE /users/{email}`, `DELETE /users/{email}/purge`, `PATCH /users/{email}/reactivate` |
+| Permission-protected routes | `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py` | `DELETE /users/{email}`, `DELETE /users/{email}/purge`, `PATCH /users/{email}/reactivate` |
 | Purge routine | `backend/mystic_auth/user_lifecycle/user_purge_service.py` | `purge_user_account()`, shared by the manual purge route and the scheduled job |
 | Soft-delete mechanics | `backend/mystic_auth/user/user_crud_modules/user_lifecycle_crud.py` | `soft_delete`, `reactivate`, `get_deleted_before(cutoff)` |
 | Scheduled job | `backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py` | Daily 03:00 UTC purge of accounts past their grace period |
@@ -29,7 +29,7 @@ with the sequence of each path made explicit.
 ## Pages
 
 - [Self-Service Paths](self-service.md): why there are two paths, and how each one works.
-- [Admin Actions and Purge](admin-and-purge.md): admin delete/reactivate/purge, and the scheduled grace-period purge.
+- [Permission-Protected Actions and Purge](permission-protected-actions-and-purge.md): delete, reactivate, and purge actions gated by PBAC, plus the scheduled grace-period purge.
 - [Frontend](frontend.md): `DeleteAccountCard` and the `/confirm-delete` page.
 
 ---
@@ -48,7 +48,7 @@ Both live in `backend/mystic_auth/core/settings.py` and are set via `.env`.
 ## Production checks
 
 - Backend integration tests cover both self-service paths (password re-confirm success/failure,
-  OAuth-only send-and-confirm, expired/reused token, rate limiting on the confirm endpoint), admin
+  OAuth-only send-and-confirm, expired/reused token, rate limiting on the confirm endpoint), permission-protected
   soft-delete/reactivate/purge, self-targeting and system-account guards, and that the scheduled job
   only purges accounts past their grace period.
 - Backend unit tests cover `account_deletion_service` token issue/verify and

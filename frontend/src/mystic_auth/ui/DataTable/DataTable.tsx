@@ -1,13 +1,14 @@
 import React from "react";
-import { Table, EmptyState } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
-import FormAlert from "../FormAlert";
+import FormAlert from "../feedback/FormAlert";
+import { Table, TableBody, TableHeader } from "../shadcn/table";
+import { cn } from "../styles/classNames";
 import { DataTableHeaderRow } from "./DataTableSortableHeader";
 import { DataTableRow } from "./DataTableRow";
 import DataTableSkeleton from "./DataTableSkeleton";
 import { useDataTableSelection, type SelectionChangeHandler } from "./DataTableSelection";
-import { SCROLL_AREA_SCROLLBAR_CSS, SCROLL_SHADOW_CSS } from "./DataTableStyles";
+import { SCROLL_AREA_CLASS } from "./DataTableStyles";
 import type { SortState } from "../hooks/useSortState";
 import { useLanguageStore } from "../../store/languageStore";
 
@@ -32,7 +33,7 @@ export interface DataTableColumn<T> {
      * table's own rem-sized columns doesn't reliably share leftover space:
      * once the rem-sized columns alone exceed the container's width, the
      * unset column can get squeezed to a few illegible px instead of the
-     * table properly overflowing into Table.ScrollArea's horizontal scroll.
+     * table properly overflowing into the scroll area's horizontal scroll.
      * Give every column in a table that has ANY rem-sized column a rem
      * width too, so a too-narrow viewport scrolls the whole table instead
      * of silently truncating just that one column. */
@@ -99,18 +100,41 @@ interface DataTableProps<T> {
      * quick succession (see DataTableSelection.ts for why a value-only
      * version could silently resurrect a just-cleared row). */
     onSelectionChange?: SelectionChangeHandler;
+    /** Row keys that never take part in selection - rendered with a
+     * disabled, unchecked checkbox and excluded from "select all"/toggle-all
+     * so the header checkbox can still cleanly toggle every OTHER row
+     * without a permanently-unselectable row blocking it from ever reading
+     * as "all selected". */
+    disabledKeys?: ReadonlySet<string | number>;
     /** Opt-in: while true (and `selectable`), clicking anywhere in a row
      * (except an interactive control inside it) toggles that row's
      * selection, not just its checkbox. Defaults to off so a table stays
      * normal-click-to-select-text elsewhere - always-on would fight a user
      * trying to double-click/drag-select cell text to copy it. */
     rowClickSelects?: boolean;
+    /** Called with the clicked row when set, for a table whose rows open something on click
+     * (the Audit Log's details drawer) rather than toggling selection - independent of
+     * `rowClickSelects`/`selectable`, so a non-selectable table can still be row-clickable.
+     * Ignores clicks on an interactive control inside the row, same as rowClickSelects. */
+    onRowClick?: (row: T) => void;
+    /** The currently-open row's key (same key space as `rowKey`), highlighted so it stays
+     * identifiable while its drawer/detail view is open. Only meaningful alongside onRowClick. */
+    activeRowKey?: string | number;
+    /** Optional semantic emphasis applied to a row and its cells. The cell content must still
+     * carry the text/icon status so color is never the only signal. */
+    getRowClassName?: (row: T) => string | undefined;
+    /** True while a background refetch (new page/filter/sort) is in flight and `rows` is still
+     * the previous page's data (keepPreviousData - see authorizationLogQueries.ts). Dims the old
+     * rows slightly and shows a thin brand progress bar at the table's top edge instead of
+     * swapping to the loading skeleton, so the table doesn't flash on every filter keystroke.
+     * Has no effect while `isLoading` (the real first-load skeleton takes precedence). */
+    isFetching?: boolean;
 }
 
 /**
  * Generic table with a shared loading/error/empty treatment, so every
  * management list page (Users, Policies, Audit Log) doesn't reimplement the
- * same three conditional branches around a bare Chakra Table. Selection
+ * same three conditional branches around a bare HTML table. Selection
  * bookkeeping lives in DataTableSelection.ts, the loading skeleton in
  * DataTableSkeleton.tsx, and shared style constants in DataTableStyles.ts -
  * this file owns only the loaded-state render.
@@ -132,16 +156,21 @@ function DataTable<T>({
     selectable,
     selectedKeys,
     onSelectionChange,
+    disabledKeys,
     rowClickSelects,
+    onRowClick,
+    activeRowKey,
+    getRowClassName,
+    isFetching,
 }: DataTableProps<T>) {
     const { t } = useTranslation("ui_text");
     // chromeLanguage, not pageLanguage: numerals stay ASCII even in a mixed
-    // "en+hi" mode, same as dates (dateFormat.ts).
+    // "en+hi" mode, same as dates (dateFormatters.ts).
     const language = useLanguageStore((s) => s.chromeLanguage);
     const showRowNumbers = startIndex !== undefined;
 
     const { isAllSelected, isSomeSelected, toggleRow, toggleAll } =
-        useDataTableSelection({ rows, rowKey, selectedKeys, onSelectionChange });
+        useDataTableSelection({ rows, rowKey, selectedKeys, onSelectionChange, disabledKeys });
 
     const colgroup = (
         <colgroup>
@@ -150,8 +179,10 @@ function DataTable<T>({
             {columns.map((col) => (
                 <col key={col.key} style={col.width ? { width: col.width } : undefined} />
             ))}
+            {onRowClick && <col style={{ width: "2rem" }} />}
         </colgroup>
     );
+
 
     if (isLoading) {
         return (
@@ -171,65 +202,60 @@ function DataTable<T>({
 
     if (!rows || rows.length === 0) {
         return (
-            <EmptyState.Root size="md">
-                <EmptyState.Content>
-                    {emptyIcon && (
-                        // A bare icon glyph on its own reads as thin at this
-                        // size - a soft accent-tinted circle behind it gives
-                        // the empty state visual weight, matching
-                        // DashboardPage's own icon-in-a-circle treatment.
-                        <EmptyState.Indicator
-                            bg="accent.subtle"
-                            color="accent.fg"
-                            borderWidth="1px"
-                            borderColor="accent.border"
-                            rounded="full"
-                            boxSize="16"
-                            display="flex"
-                            alignItems="center"
-                            justifyContent="center"
-                        >
-                            {emptyIcon}
-                        </EmptyState.Indicator>
-                    )}
-                    <EmptyState.Title>{emptyMessage ?? t("noDataAvailable")}</EmptyState.Title>
-                    {emptyAction}
-                </EmptyState.Content>
-            </EmptyState.Root>
+            <div className="flex flex-col items-center text-center gap-4 py-12 px-6">
+                {emptyIcon && (
+                    // Brand ring, not accent-tinted: design/users.html's empty-state treatment,
+                    // carried over to every DataTable empty state instead of just Users'.
+                    <div className="flex items-center justify-center size-16 rounded-full border border-[var(--brand-400)] bg-[var(--brand-tint)] text-brand-fg">
+                        {emptyIcon}
+                    </div>
+                )}
+                <p className="text-lg font-semibold">{emptyMessage ?? t("noDataAvailable")}</p>
+                {emptyAction}
+            </div>
         );
     }
 
     return (
-        <>
-            {/* maxH caps this table's height once it has enough rows to exceed
-                it, turning Table.ScrollArea into a real vertical scroll
-                container too - which is what makes the sticky header cells
-                below actually stick to something. A table with fewer rows
-                than fit in 70dvh never hits this cap. */}
-            <Table.ScrollArea
-                borderWidth="1px"
-                borderColor="border.default"
-                rounded="lg"
-                maxH="70dvh"
-                css={{ ...SCROLL_SHADOW_CSS, ...SCROLL_AREA_SCROLLBAR_CSS }}
-            >
-            <Table.Root
-                size="sm"
-                striped
-                css={{
-                    tableLayout: "fixed",
-                    width: "100%",
-                    fontSize: "md",
-                    // The last row's own borderBottomWidth stacked directly
-                    // on top of Table.ScrollArea's outer border, reading as
-                    // a doubled line at the bottom edge - drop just that
-                    // row's bottom border since the ScrollArea's own border
-                    // already closes the box off there.
-                    "& tbody tr:last-of-type td": { borderBottomWidth: 0 },
-                }}
+        // max-h caps this table's height once it has enough rows to exceed
+        // it, turning the scroll area into a real vertical scroll container
+        // too - which is what makes the sticky header cells below actually
+        // stick to something. A table with fewer rows than fit in 70dvh
+        // never hits this cap.
+        // scrollbar-gutter left at the browser default (auto), same reasoning
+        // as .dropdown-scroll-area in tailwind.css: reserving a stable gutter
+        // unconditionally leaves visible dead space in the rounded corner
+        // whenever a table has too few rows to actually need a scrollbar
+        // (the common case). The browser still reserves it the moment a
+        // table's rows genuinely overflow 70dvh.
+        <div className={cn("relative border border-border-strong rounded-2xl max-h-[70dvh] overflow-auto bg-bg-surface shadow-card", SCROLL_AREA_CLASS)}>
+            {isFetching && (
+                // Thin indeterminate brand bar pinned to the table's top edge, instead of
+                // swapping to the loading skeleton on every page/filter/sort change - the old
+                // rows below stay visible (just dimmed) so the table doesn't flash.
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5 overflow-hidden bg-[var(--brand-tint)]" role="status" aria-label={t("loading")}>
+                    <div className="h-full w-1/3 bg-brand-solid animate-[data-table-progress_1.1s_ease-in-out_infinite]" />
+                </div>
+            )}
+            {/* No zebra striping: zebra rows are the classic "spreadsheet"
+                tell - modern SaaS tables (Linear, Stripe) read as flat with
+                just a hover highlight and thin row dividers (every row
+                already gets its own border-bottom from shadcn's table
+                styles) rather than alternating shading. */}
+            <Table
+                className={cn(
+                    "table-fixed w-full text-sm",
+                    // The last row's own border-bottom stacked directly on
+                    // top of the scroll area's outer border, reading as a
+                    // doubled line at the bottom edge - drop just that
+                    // row's bottom border since the scroll area's own
+                    // border already closes the box off there.
+                    "[&_tbody_tr:last-of-type_td]:border-b-0",
+                    isFetching && "opacity-60 transition-opacity"
+                )}
             >
                 {colgroup}
-                <Table.Header>
+                <TableHeader>
                     <DataTableHeaderRow
                         columns={columns}
                         sort={sort}
@@ -240,15 +266,17 @@ function DataTable<T>({
                         isSomeSelected={isSomeSelected}
                         onToggleAll={toggleAll}
                         selectAllLabel={t("selectAllRows")}
+                        hasRowClick={!!onRowClick}
                     />
-                </Table.Header>
-                <Table.Body>
+                </TableHeader>
+                <TableBody>
                     {rows.map((row, rowIndex) => (
                         <DataTableRow
                             key={rowKey(row)}
                             row={row}
                             columns={columns}
                             selectable={selectable}
+                            disabled={disabledKeys?.has(rowKey(row)) ?? false}
                             rowClickSelects={rowClickSelects}
                             isSelected={selectedKeys?.has(rowKey(row)) ?? false}
                             onToggle={() => toggleRow(rowKey(row))}
@@ -256,12 +284,14 @@ function DataTable<T>({
                             showRowNumbers={showRowNumbers}
                             rowNumber={showRowNumbers ? (startIndex as number) + rowIndex + 1 : undefined}
                             language={language}
+                            onRowClick={onRowClick ? () => onRowClick(row) : undefined}
+                            isActive={activeRowKey !== undefined && activeRowKey === rowKey(row)}
+                            rowClassName={getRowClassName?.(row)}
                         />
                     ))}
-                </Table.Body>
-            </Table.Root>
-            </Table.ScrollArea>
-        </>
+                </TableBody>
+            </Table>
+        </div>
     );
 }
 

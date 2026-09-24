@@ -1,48 +1,46 @@
-import type { SystemConfig } from "@chakra-ui/react";
+export interface AppThemeOverrides {
+    /** A hand-picked brand hex, overriding VITE_BRAND_COLOR at build time
+     * without editing env/mystic_auth/.env. theme/applyBrandCssVars.ts runs
+     * this through the same generateBrandScale.ts 50-900 ladder a signed-in
+     * user's own Appearance pick uses, so it's still just one hex, not a
+     * hand-authored scale. */
+    brandColor?: string;
+    /** Any other theme/tailwind.css custom property to override outright
+     * (fonts, radii, a hand-authored token that doesn't fit
+     * generateBrandScale's lightness ladder), applied once at startup.
+     * Doesn't take a light/dark pair: for a token that differs by mode
+     * (like the brand-derived --bg-canvas-from/--bg-sidebar), override
+     * generateBrandScale.ts's formula instead - a single literal here would
+     * apply to both modes. */
+    cssVars?: Record<string, string>;
+}
 
 /**
  * App-owned theme overrides (see docs/mystic_auth/template-usage/overview.md).
  *
  * For the common case, just changing the brand color, you don't need this
  * file: set VITE_BRAND_COLOR (env/mystic_auth/.env's BRAND_COLOR, aliased
- * like APP_NAME) to any hex and rebuild. mystic_auth/theme/system.ts generates the
- * whole 50-900 brand scale plus the canvas-gradient tint from that value
- * (mystic_auth/theme/generateBrandScale.ts), the same generator a signed-in
- * user's own Appearance pick uses. See
+ * like APP_NAME) to any hex and rebuild. See
  * docs/mystic_auth/template-usage/overview.md#environment-configuration.
  *
- * This file is for anything beyond that single color: a hand-authored scale
- * that doesn't fit the generator's lightness ladder, other token overrides
- * (fonts, radii, recipes), or global CSS. Counterpart to app_sdk.ts:
- * mystic_auth/theme/system.ts is upstream-owned, so hand-editing it directly
- * would conflict on every `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync.
- * This file merges on top of it instead (system.ts's own
- * `createSystem(defaultConfig, config, brandDefault, appThemeOverrides)`
- * call), the same "yours, upstream never touches it again" pattern
- * app_sdk.ts uses.
+ * This file is for anything beyond that single color. Counterpart to
+ * app_sdk.ts: theme/applyBrandCssVars.ts and theme/tailwind.css are
+ * upstream-owned, so hand-editing them directly would conflict on every
+ * `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync. This file's
+ * `cssVars` gets applied on top of them instead - the same "yours, upstream
+ * never touches it again" pattern app_sdk.ts uses. A signed-in user's own
+ * Appearance pick still overrides `brandColor` client-side for that user
+ * only, same precedence the old Chakra-based system had.
  *
- * Ships as an empty config in every release, so it never conflicts on a
- * sync. Fill in your own `brand` scale (and any other token to override)
- * below to go beyond what VITE_BRAND_COLOR alone can do; see
- * https://www.chakra-ui.com/docs/theming/customization/colors for the
- * 50-900 scale shape Chakra expects.
+ * Ships empty in every release, so it never conflicts on a sync.
  *
  * Example:
  *
- * const config: SystemConfig = {
- *     theme: {
- *         tokens: {
- *             colors: {
- *                 brand: {
- *                     50: { value: "#eef2ff" },
- *                     // ...
- *                     900: { value: "#1e1b4b" },
- *                 },
- *             },
- *         },
- *     },
+ * const overrides: AppThemeOverrides = {
+ *     brandColor: "#4338ca",
+ *     cssVars: { "--radius-control": "0.25rem" },
  * };
  */
-const config: SystemConfig = {};
+const overrides: AppThemeOverrides = {};
 
-export default config;
+export default overrides;

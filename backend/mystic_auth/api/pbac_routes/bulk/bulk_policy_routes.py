@@ -38,7 +38,8 @@ async def _resolve_and_authorize(
         return None
     try:
         await authorization_service.assert_authorized_to_grant(
-            current_user_email, policy.actions, policy.resource_type, db, context=context, cache=grant_cache
+            current_user_email, policy.actions, policy.resource_type, db,
+            context=context, conditions=policy.conditions, cache=grant_cache,
         )
     except AppError:
         error_results.append(bulk_error(item.user_email, item.policy_name, "CANNOT_GRANT_UNHELD_ACTION"))

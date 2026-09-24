@@ -9,6 +9,9 @@ import type { CurrentUserProfile } from "../auth/current_user/current_user_types
 interface AuthState {
     /** null = session not checked yet, true/false after. */
     isAuthenticated: boolean | null;
+    /** Timestamp of the latest successful session establishment. Used to ignore
+     * a stale pre-login 401 that resolves after login has completed. */
+    authenticatedAt: number | null;
     name: string | null;
     email: string | null;
     // Metadata only; see permissions.py's own docstring for why role is never used
@@ -60,10 +63,15 @@ const initialProfile = {
 
 export const useAuthStore = create<AuthState>((set) => ({
     isAuthenticated: null,
+    authenticatedAt: null,
     ...initialProfile,
 
     setAuthenticated: (isAuthenticated) =>
-        set(isAuthenticated ? { isAuthenticated } : { isAuthenticated, ...initialProfile }),
+        set(
+            isAuthenticated
+                ? { isAuthenticated, authenticatedAt: Date.now() }
+                : { isAuthenticated, authenticatedAt: null, ...initialProfile },
+        ),
 
     setProfile: (profile) =>
         set({
@@ -79,5 +87,5 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     dropPermissions: () => set({ permissions: [], permissionsPending: true }),
 
-    reset: () => set({ isAuthenticated: null, ...initialProfile }),
+    reset: () => set({ isAuthenticated: null, authenticatedAt: null, ...initialProfile }),
 }));

@@ -1,9 +1,9 @@
 # tests/backend/mystic_auth/unit/user_lifecycle/test_user_self_deletion_service_unit.py
 #
-# Unit coverage for finalize_self_deletion's own Redis-failure handling.
-# Regression guard for the "Redis outage failure modes are inconsistent"
+# Unit coverage for finalize_self_deletion's own Valkey-failure handling.
+# Regression guard for the "Valkey outage failure modes are inconsistent"
 # gap: the soft-delete itself (a Postgres write) always succeeds regardless
-# of whether the account-version bump can be confirmed, so a Redis outage
+# of whether the account-version bump can be confirmed, so a Valkey outage
 # must never turn an already-successful account deletion into a raised
 # exception (which would otherwise surface to the caller as a false
 # failure - the account really was deleted).
@@ -40,12 +40,12 @@ async def test_finalize_self_deletion_records_confirmed_revocation_on_success(mo
 
 
 @pytest.mark.asyncio
-async def test_finalize_self_deletion_succeeds_but_flags_unconfirmed_revocation_when_redis_is_unreachable(mocker):
+async def test_finalize_self_deletion_succeeds_but_flags_unconfirmed_revocation_when_valkey_is_unreachable(mocker):
     soft_delete_mock = mocker.patch(f"{MODULE}.user_crud.soft_delete", new_callable=AsyncMock)
     mocker.patch(
         f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user",
         new_callable=AsyncMock,
-        side_effect=TokenVersionUnavailableError("Redis unreachable"),
+        side_effect=TokenVersionUnavailableError("Valkey unreachable"),
     )
     log_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
 

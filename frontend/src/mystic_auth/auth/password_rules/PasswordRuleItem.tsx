@@ -1,6 +1,7 @@
 import React from "react";
-import { Center, HStack, Text } from "@chakra-ui/react";
 import { Check, Circle, X } from "lucide-react";
+
+import { cn } from "../../ui/styles/classNames";
 
 interface PasswordRuleItemProps {
     passed: boolean;
@@ -20,8 +21,8 @@ interface PasswordRuleItemProps {
  * pristine off. `alignItems="flex-start"` plus a small top offset keeps the icon
  * pinned to the label's first line if it wraps. */
 const PasswordRuleItem: React.FC<PasswordRuleItemProps> = ({ passed, label, pristine = false }) => (
-    <HStack gap={1} align="flex-start" color={pristine ? "fg.muted" : passed ? "fg.success" : "fg.error"}>
-        <Center boxSize="14px" flexShrink={0} mt="2px">
+    <div className={cn("flex items-start gap-1", pristine ? "text-fg-muted" : passed ? "text-fg-success" : "text-fg-error")}>
+        <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 mt-[2px]">
             {pristine ? (
                 <Circle size={8} fill="currentColor" aria-hidden="true" />
             ) : passed ? (
@@ -29,9 +30,9 @@ const PasswordRuleItem: React.FC<PasswordRuleItemProps> = ({ passed, label, pris
             ) : (
                 <X size={14} aria-hidden="true" />
             )}
-        </Center>
-        <Text as="span" textAlign="left">{label}</Text>
-    </HStack>
+        </div>
+        <span className="text-left">{label}</span>
+    </div>
 );
 
 export default PasswordRuleItem;

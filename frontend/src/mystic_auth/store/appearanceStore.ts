@@ -27,8 +27,8 @@ const initialBrandColor = readCached(BRAND_KEY);
 
 // Applied immediately at module load, before first paint (same reasoning as
 // themeStore.ts), but scoped to just the favicon/meta tag: the brand scale and
-// background are applied separately, by AppearanceThemeProvider.tsx rebuilding
-// Chakra's system on its first render. This is only the locally cached guess;
+// background are applied separately by applyBrandCssVars.ts. This is only the
+// locally cached guess;
 // useAuthSession reconciles it against the server value once GET /auth/me resolves.
 applyFaviconAndMetaColor(initialBrandColor);
 

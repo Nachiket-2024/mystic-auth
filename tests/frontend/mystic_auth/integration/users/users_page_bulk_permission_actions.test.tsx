@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -12,7 +11,7 @@ import UsersPage from '@/users/UsersPage';
 import { Toaster } from '@/ui/toaster/toaster';
 import { toaster } from '@/ui/toaster/toasterInstance';
 
-// BulkPermissionGrantDialog: fans one chosen direct permission out across
+// BulkUserAccessDialog: fans one chosen direct permission out across
 // every selected user via the real bulk endpoint, not a client-side loop over the single-item one.
 
 const mock = new MockAdapter(api);
@@ -37,12 +36,10 @@ function renderPage({ withToaster = false } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <UsersPage />
           {withToaster && <Toaster />}
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -90,7 +87,7 @@ describe('UsersPage bulk permission actions', () => {
   });
 
   it('bulk-grants a direct permission to every selected user via the real bulk endpoint', async () => {
-    seed(['users:list_all', 'permissions:grant']);
+    seed(['users:list_all', 'users:update_any', 'permissions:grant']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/permissions/catalog').reply(200, [
       { action: 'users:list_all', resource_type: 'users', description: "List and view any user's profile." },
@@ -112,7 +109,7 @@ describe('UsersPage bulk permission actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Grant / revoke permission' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(screen.getByLabelText('Select an action to grant', { selector: 'select' }), 'users:list_all');
+    await user.click(within(dialog).getByText("List and view any user's profile."));
     await user.click(within(dialog).getByRole('button', { name: 'Grant to selected' }));
 
     await waitFor(() => expect(mock.history.post.length).toBe(1));
@@ -122,13 +119,13 @@ describe('UsersPage bulk permission actions', () => {
         { user_email: 'user@example.com', action: 'users:list_all', resource_type: 'users', conditions: undefined },
       ],
     });
-    expect(await within(dialog).findByText('1 succeeded, 1 failed')).toBeInTheDocument();
+    expect(await screen.findByText('1 succeeded, 1 failed')).toBeInTheDocument();
   });
 
   it('does not still show the previous run\'s result summary when the bulk permission dialog is reopened', async () => {
     // Same regression as the bulk policy dialog's identical test: mutation
     // data must reset when the dialog is reopened.
-    seed(['users:list_all', 'permissions:grant']);
+    seed(['users:list_all', 'users:update_any', 'permissions:grant']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/permissions/catalog').reply(200, [
       { action: 'users:list_all', resource_type: 'users', description: "List and view any user's profile." },
@@ -147,10 +144,16 @@ describe('UsersPage bulk permission actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Grant / revoke permission' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(screen.getByLabelText('Select an action to grant', { selector: 'select' }), 'users:list_all');
+    await user.click(within(dialog).getByText("List and view any user's profile."));
     await user.click(within(dialog).getByRole('button', { name: 'Grant to selected' }));
-    expect(await within(dialog).findByText('1 succeeded, 0 failed')).toBeInTheDocument();
+    expect(await screen.findByText('1 succeeded, 0 failed')).toBeInTheDocument();
 
+    const resultDialog = screen.getAllByRole('dialog').find((candidate) =>
+      within(candidate).queryByText('Grant permission: users:list_all'),
+    );
+    expect(resultDialog).toBeDefined();
+    expect(within(resultDialog!).getByText('users:list_all')).toBeInTheDocument();
+    await user.click(within(resultDialog!).getByRole('button', { name: 'Close' }));
     await user.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
@@ -159,11 +162,11 @@ describe('UsersPage bulk permission actions', () => {
     expect(within(reopenedDialog).queryByText('1 succeeded, 0 failed')).toBeNull();
   });
 
-  it('excludes an action the sole selected user (themselves) already effectively holds via a policy, from the bulk-grant dropdown', async () => {
+  it('excludes an action the sole selected user (themselves) already effectively holds via a policy', async () => {
     // Regression: bulk-granting to a single selected row used to skip exclusion
     // filtering, letting an admin grant themselves an action already covered
     // by an assigned policy. Exclusion only applies when exactly one user is selected.
-    seed(['users:list_all', 'permissions:grant']);
+    seed(['users:list_all', 'users:update_any', 'permissions:grant']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/permissions/catalog').reply(200, [
       { action: 'users:list_all', resource_type: 'users', description: "List and view any user's profile." },
@@ -187,11 +190,8 @@ describe('UsersPage bulk permission actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Grant / revoke permission' }));
 
     const dialog = await screen.findByRole('dialog');
-    const actionSelect = within(dialog).getByLabelText('Select an action to grant', { selector: 'select' });
-    const optionLabels = Array.from(actionSelect.querySelectorAll('option')).map((o) => o.textContent);
-
-    expect(optionLabels).toContain('users:update_any');
-    expect(optionLabels.includes('users:list_all')).toBe(false);
+    expect(within(dialog).getByText("Update any user's profile.")).toBeInTheDocument();
+    expect(within(dialog).queryByText("List and view any user's profile.")).toBeNull();
   });
 
   it('hides "Revoke from selected" in the bulk permission dialog when the caller lacks permissions:revoke', async () => {

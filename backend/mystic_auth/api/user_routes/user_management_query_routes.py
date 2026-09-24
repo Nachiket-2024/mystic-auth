@@ -17,7 +17,7 @@ from ...core.errors import AppError
 from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
 from ...core.settings import settings
 from ...database.connection import database
-from ...user.user_crud_collector import UserStatus, user_crud
+from ...user.user_crud_collector import LastLoginBucket, PermissionSource, UserStatus, user_crud
 from ...user.user_model import UserRole
 from ...user.user_schema import UserRead, UserStatsRead
 
@@ -38,12 +38,20 @@ async def get_user_stats(
     """Same permission as the list itself (users:list_all): this is purely
     a different view of that same data, not a separate resource. Four
     independent counts, run concurrently rather than one query each awaited
-    in turn."""
+    in turn.
+
+    Counts status="deleted" (deleted_at IS NOT NULL), not "inactive":
+    deactivating a user sets is_active=False and deleted_at=now together, in
+    one step (user_lifecycle_crud.py), so "inactive" (is_active=False while
+    deleted_at is NULL) is a state no code path ever produces - counting it
+    would always return 0. UserStatsRead's `inactive` field name is kept for
+    now since it's a public API contract; it holds the deactivated-user count.
+    """
     total, verified, unverified, inactive = await asyncio.gather(
         user_crud.count(db),
         user_crud.count(db, is_verified=True),
         user_crud.count(db, is_verified=False),
-        user_crud.count(db, status="inactive"),
+        user_crud.count(db, status="deleted"),
     )
     return UserStatsRead(total=total, verified=verified, unverified=unverified, inactive=inactive)
 
@@ -67,21 +75,36 @@ async def list_all_users(
     permission: Permission | None = Query(
         default=None, description="Users holding a policy whose actions include this permission"
     ),
+    permission_source: PermissionSource | None = Query(
+        default=None, description="When permission is set, restrict matches to policy or direct grants"
+    ),
+    last_login: LastLoginBucket | None = Query(
+        default=None, description="Relative bucket: today, 7d, 30d, 90d, or never. Ignored if last_login_from/to are set."
+    ),
+    last_login_from: datetime | None = Query(default=None, description="Custom range lower bound (inclusive)"),
+    last_login_to: datetime | None = Query(default=None, description="Custom range upper bound (inclusive)"),
     sort_by: str | None = Query(
         default=None,
-        description="Column to sort by: name, email, role, is_verified, or created_at. "
+        description="Column to sort by: name, email, role, is_verified, created_at, or last_login_at. "
         "Any other value (including unset) falls back to id.",
     ),
     sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
     current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
+    # A custom range takes over from the bucket entirely once either bound is
+    # set, matching design/users.html's own "custom range only if a preset
+    # doesn't fit" behavior.
+    effective_last_login = None if (last_login_from or last_login_to) else last_login
+
     # X-Total-Count (not part of the response body, response_model stays
     # list[UserRead]) lets the frontend render numbered pages without a
     # separate round trip: computed from the same filters so the page count
     # always matches what's actually being paged through.
     total = await user_crud.count(
-        db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission
+        db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission,
+        permission_source=permission_source,
+        last_login=effective_last_login, last_login_from=last_login_from, last_login_to=last_login_to,
     )
     response.headers["X-Total-Count"] = str(total)
     return await user_crud.get_all(
@@ -96,6 +119,10 @@ async def list_all_users(
         sort_dir=sort_dir,
         policy=policy,
         permission=permission,
+        permission_source=permission_source,
+        last_login=effective_last_login,
+        last_login_from=last_login_from,
+        last_login_to=last_login_to,
     )
 
 
@@ -132,6 +159,12 @@ async def export_users(
     permission: Permission | None = Query(
         default=None, description="Users holding a policy whose actions include this permission"
     ),
+    permission_source: PermissionSource | None = Query(
+        default=None, description="When permission is set, restrict matches to policy or direct grants"
+    ),
+    last_login: LastLoginBucket | None = Query(default=None, description="Relative bucket: today, 7d, 30d, 90d, or never"),
+    last_login_from: datetime | None = Query(default=None, description="Custom range lower bound (inclusive)"),
+    last_login_to: datetime | None = Query(default=None, description="Custom range upper bound (inclusive)"),
     current_user: dict = Depends(require_authorization(Permission.USERS_LIST_ALL.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session),
 ):
@@ -139,8 +172,11 @@ async def export_users(
     limit/offset - always the whole filtered set, unlike the paginated
     list above). Same permission as the list itself, same reasoning as
     /stats: this is just another view of that same data."""
+    effective_last_login = None if (last_login_from or last_login_to) else last_login
     total = await user_crud.count(
-        db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission
+        db, search=search, role=role, is_verified=is_verified, status=status, policy=policy, permission=permission,
+        permission_source=permission_source,
+        last_login=effective_last_login, last_login_from=last_login_from, last_login_to=last_login_to,
     )
     if total > settings.USER_EXPORT_MAX_ROWS:
         raise AppError(
@@ -159,6 +195,10 @@ async def export_users(
         status=status,
         policy=policy,
         permission=permission,
+        permission_source=permission_source,
+        last_login=effective_last_login,
+        last_login_from=last_login_from,
+        last_login_to=last_login_to,
     )
 
     buffer = io.StringIO()

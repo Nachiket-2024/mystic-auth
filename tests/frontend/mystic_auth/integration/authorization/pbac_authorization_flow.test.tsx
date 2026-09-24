@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor, renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import MockAdapter from 'axios-mock-adapter';
 
 import api from '@/api/axiosInstance';
@@ -38,9 +37,7 @@ function Dashboard() {
 
 function renderDashboard() {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <Dashboard />
-    </ChakraProvider>
   );
 }
 

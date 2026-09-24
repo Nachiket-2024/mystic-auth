@@ -39,7 +39,7 @@ docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml --env-file 
 
 ### Local Backend Without Docker
 
-Use this only if the backend is running directly on your host and can reach the configured Postgres and Redis:
+Use this only if the backend is running directly on your host and can reach the configured Postgres and Valkey:
 
 ```bash
 PYTHONPATH=backend python -m mystic_auth.scripts.create_system_user

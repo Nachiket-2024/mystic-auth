@@ -78,10 +78,10 @@ async def test_verify_deletion_token_rejects_expired_token():
 # ---------------------------- send_deletion_email ----------------------------
 
 @pytest.mark.asyncio
-async def test_send_deletion_email_persists_single_use_token_in_redis(mocker):
+async def test_send_deletion_email_persists_single_use_token_in_valkey(mocker):
     mocker.patch(f"{MODULE}.account_deletion_service.create_account_deletion_token", return_value="delete-token-abc")
     mocker.patch(f"{MODULE}.send_email_task.defer_async", new_callable=AsyncMock)
-    set_mock = mocker.patch(f"{MODULE}.redis_client.set", new_callable=AsyncMock)
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
 
     result = await account_deletion_service.send_deletion_email(_FakeUser(), db=None)
 
@@ -100,7 +100,7 @@ async def test_confirm_deletion_succeeds_and_consumes_token(mocker):
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
         return_value={"email": "user@example.com"},
     )
-    getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
+    getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
 
@@ -117,7 +117,7 @@ async def test_confirm_deletion_rejects_replayed_or_unknown_token(mocker):
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
         return_value={"email": "user@example.com"},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value=None)
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
 
     result = await account_deletion_service.confirm_deletion("replayed-token", db=None)
@@ -132,7 +132,7 @@ async def test_confirm_deletion_concurrent_replay_only_lets_one_request_through(
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
         return_value={"email": "user@example.com"},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, side_effect=["1", None])
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, side_effect=["1", None])
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
 
@@ -144,9 +144,9 @@ async def test_confirm_deletion_concurrent_replay_only_lets_one_request_through(
 
 
 @pytest.mark.asyncio
-async def test_confirm_deletion_rejects_invalid_jwt_before_touching_redis(mocker):
+async def test_confirm_deletion_rejects_invalid_jwt_before_touching_valkey(mocker):
     mocker.patch(f"{MODULE}.account_deletion_service.verify_account_deletion_token", return_value=None)
-    getdel_mock = mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock)
+    getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock)
 
     result = await account_deletion_service.confirm_deletion("garbage-token", db=None)
 
@@ -160,7 +160,7 @@ async def test_confirm_deletion_rejects_unknown_user(mocker):
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
         return_value={"email": "nobody@example.com"},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=None)
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
 
@@ -180,7 +180,7 @@ async def test_confirm_deletion_only_ever_finalizes_the_token_owning_account(moc
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
         return_value={"email": "victim@example.com"},
     )
-    mocker.patch(f"{MODULE}.redis_client.getdel", new_callable=AsyncMock, return_value="1")
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
     get_by_email_mock = mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser("victim@example.com"))
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
 

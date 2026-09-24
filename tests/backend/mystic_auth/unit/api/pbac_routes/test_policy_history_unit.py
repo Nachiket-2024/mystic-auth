@@ -21,6 +21,8 @@ from backend.mystic_auth.authorization.schemas.policy_history_schema import (
     PolicyRollbackRequest,
 )
 
+from .authorization_test_helpers import authorization_decision
+
 REPO_MODULE = "backend.mystic_auth.authorization.repositories.policy_repository"
 ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_history_routes"
 SERVICE_MODULE = "backend.mystic_auth.authorization.services.authorization_service"
@@ -212,7 +214,7 @@ async def test_rollback_policy_applies_target_definition_and_labels_history(mock
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     mocker.patch(f"{ROUTES_MODULE}.policy_history_repository.get_by_id", new_callable=AsyncMock, return_value=history_entry)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     # A rollback always fans out publish_permissions_changed to every
     # current holder.
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
@@ -247,7 +249,7 @@ async def test_rollback_policy_to_deleted_entry_restores_previous_definition(moc
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     mocker.patch(f"{ROUTES_MODULE}.policy_history_repository.get_by_id", new_callable=AsyncMock, return_value=deleted_entry)
     update_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.update", new_callable=AsyncMock, return_value=policy)
-    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails", new_callable=AsyncMock, return_value=[])
     mocker.patch(f"{ROUTES_MODULE}.publish_permissions_changed", new_callable=AsyncMock)
 

@@ -32,7 +32,7 @@ flowchart TD
    - Generates a distinct random secret per password field, per file (a leaked dev secret never compromises prod).
    - Keeps `DATABASE_URL`/`APP_DATABASE_URL` in sync with the freshly generated password.
    - Prompts once for an app name and brand color, applies both everywhere.
-   - Deliberately leaves `REDIS_PASSWORD` blank - see [Redis authentication](../security/hardening-infra.md#redis-authentication) for why that one needs a manual step.
+   - Deliberately leaves `VALKEY_PASSWORD` blank - see [Valkey authentication](../security/hardening-infra.md#valkey-authentication) for why that one needs a manual step.
 2. **`quickstart/quickstart.sh`**: the fastest path for a brand-new clone. Runs `setup-env` only if `env/mystic_auth/.env` is missing, brings the dev stack up (reusing `dev-up`'s own readiness wait via a `DEV_UP_TAIL=0` toggle), offers to create the system superuser inline, then tails logs. See [Template Usage: Quickstart](../template-usage/quickstart.md).
 
 ---
@@ -48,7 +48,7 @@ flowchart TD
    - Warns on a remaining `<your_...>` placeholder or a host port already bound by something else.
    - Never writes anything.
 3. **`rotate-secrets/rotate-secrets.sh`**: regenerates `SECRET_KEY` and/or `BUGSINK_SECRET_KEY` in place - the only two secrets safe to change by editing the file alone.
-   - Deliberately excludes `POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `BUGSINK_SUPERUSER_PASSWORD`, and `REDIS_PASSWORD`: those are backed by a live service's own state (a running Postgres only applies `POSTGRES_PASSWORD` on first volume init), so editing the file alone would break the connection instead of rotating anything. Changing those safely means updating the live service first (`ALTER ROLE ...`, Bugsink's own admin tools).
+   - Deliberately excludes `POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `BUGSINK_SUPERUSER_PASSWORD`, and `VALKEY_PASSWORD`: those are backed by a live service's own state (a running Postgres only applies `POSTGRES_PASSWORD` on first volume init), so editing the file alone would break the connection instead of rotating anything. Changing those safely means updating the live service first (`ALTER ROLE ...`, Bugsink's own admin tools).
 
 ---
 

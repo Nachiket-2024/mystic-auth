@@ -37,7 +37,7 @@ async def purge_expired_soft_deleted_accounts(timestamp: int) -> int:
         for user in expired_users:
             # purge_user_account fails closed on an unconfirmed session
             # revoke (see its own docstring): caught here per-user, not left
-            # to propagate, so one account hitting a transient Redis outage
+            # to propagate, so one account hitting a transient Valkey outage
             # doesn't abort this whole batch mid-loop and silently skip
             # every remaining (unrelated) user for the day. The skipped
             # account stays soft-deleted and gets picked up again by
@@ -49,7 +49,7 @@ async def purge_expired_soft_deleted_accounts(timestamp: int) -> int:
                 skipped_count += 1
                 logger.error(
                     "Grace-period purge: skipped %s, session revocation could not be confirmed "
-                    "(Redis unavailable); will retry on a future run",
+                    "(Valkey unavailable); will retry on a future run",
                     user.email,
                 )
 

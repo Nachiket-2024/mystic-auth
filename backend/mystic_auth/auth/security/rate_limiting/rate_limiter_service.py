@@ -9,14 +9,14 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from ....core.settings import settings
 from ....logging.logging_config import get_logger
-from ....redis.client import redis_client
+from ....valkey.client import valkey_client
 from ..client_ip import get_client_ip
 
 logger = get_logger(__name__)
 
 
 class RateLimiterService:
-    """Enforces a max-requests-per-window rate limit, backed by Redis."""
+    """Enforces a max-requests-per-window rate limit, backed by Valkey."""
 
     MAX_REQUESTS_PER_WINDOW: int = settings.MAX_REQUESTS_PER_WINDOW
     REQUEST_WINDOW_SECONDS: int = settings.REQUEST_WINDOW_SECONDS
@@ -28,6 +28,7 @@ class RateLimiterService:
     # dashboard reports the threshold actually enforced, not always the
     # global one. An endpoint that never overrides is simply absent here.
     ENDPOINT_OVERRIDES: dict[str, tuple[int, int]] = {}
+    REGISTERED_ENDPOINTS: set[str] = set()
 
     @staticmethod
     async def record_request(
@@ -45,10 +46,10 @@ class RateLimiterService:
             # already exist, and is atomic: unlike a separate GET-then-SET,
             # this can't let two concurrent requests both read the same
             # pre-increment count and both be admitted past the limit.
-            new_count = await redis_client.incr(key)
+            new_count = await valkey_client.incr(key)
 
             if new_count == 1:
-                await redis_client.expire(key, window_seconds)
+                await valkey_client.expire(key, window_seconds)
 
             return new_count <= max_requests
 
@@ -84,7 +85,7 @@ class RateLimiterService:
         auth_routes.py's `_access_token_account_key`, backed by
         jwt_service.decode_payload - real signature+expiry verification, just
         skipping the revocation lookup verify_token also does, so this stays
-        a local CPU-bound decode with no extra Redis round trip). Pass None
+        a local CPU-bound decode with no extra Valkey round trip). Pass None
         for endpoints with no account identifier available by either means.
         When supplied, it adds a per-account limit, keyed independently of
         IP: this closes the gap where an attacker spreads requests targeting
@@ -100,6 +101,7 @@ class RateLimiterService:
         """
         effective_max = max_requests if max_requests is not None else self.MAX_REQUESTS_PER_WINDOW
         effective_window = window_seconds if window_seconds is not None else self.REQUEST_WINDOW_SECONDS
+        self.REGISTERED_ENDPOINTS.add(endpoint_name)
         if max_requests is not None or window_seconds is not None:
             self.ENDPOINT_OVERRIDES[endpoint_name] = (effective_max, effective_window)
 

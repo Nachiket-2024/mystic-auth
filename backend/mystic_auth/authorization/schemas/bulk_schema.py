@@ -1,6 +1,12 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
+
+from .policy_schema import POLICY_ACTION_MAX_LENGTH, POLICY_NAME_MAX_LENGTH, POLICY_RESOURCE_TYPE_MAX_LENGTH
+
+PolicyName = Annotated[str, Field(min_length=1, max_length=POLICY_NAME_MAX_LENGTH)]
+PolicyAction = Annotated[str, Field(min_length=1, max_length=POLICY_ACTION_MAX_LENGTH)]
+ResourceType = Annotated[str, Field(min_length=1, max_length=POLICY_RESOURCE_TYPE_MAX_LENGTH)]
 
 # Bulk request items are capped at 200 per request: bulk assignment is an
 # admin action (not a synchronous hot-path check like
@@ -37,7 +43,7 @@ class BulkResponse(BaseModel):
 
 class BulkPolicyItem(BaseModel):
     user_email: str
-    policy_name: str = Field(..., max_length=100)
+    policy_name: PolicyName
 
 
 class BulkPolicyRequest(BaseModel):
@@ -46,8 +52,8 @@ class BulkPolicyRequest(BaseModel):
 
 class BulkPermissionItem(BaseModel):
     user_email: str
-    action: str = Field(..., min_length=1, max_length=200)
-    resource_type: str = Field(..., min_length=1, max_length=100)
+    action: PolicyAction
+    resource_type: ResourceType
     conditions: dict | None = None
 
 
@@ -57,8 +63,8 @@ class BulkPermissionRequest(BaseModel):
 
 class BulkPermissionRemoveItem(BaseModel):
     user_email: str
-    action: str = Field(..., min_length=1, max_length=200)
-    resource_type: str = Field(..., min_length=1, max_length=100)
+    action: PolicyAction
+    resource_type: ResourceType
 
 
 class BulkPermissionRemoveRequest(BaseModel):

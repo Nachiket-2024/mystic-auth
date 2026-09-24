@@ -65,7 +65,7 @@ flowchart TD
    blocked the attempt) and record a failed attempt against both the rate limiter and lockout
    counters.
 6. **A lockout's 429 tells the caller how long to actually wait**, not just that they're locked
-   out: `login_handler.py`'s `_lockout_response` reads the tripped lockout key's remaining Redis
+   out: `login_handler.py`'s `_lockout_response` reads the tripped lockout key's remaining Valkey
    TTL (`login_protection_service.get_remaining_seconds`) and surfaces it two ways, matching how
    production APIs generally communicate a 429's cooldown - the standard `Retry-After` header (RFC
    9110) for any client/proxy that already understands it, and `params.minutes` in the JSON body
@@ -79,7 +79,7 @@ flowchart TD
 `tests/backend/mystic_auth/unit/auth/login/` covers the handler and service in isolation,
 including the rejection-order and timing-safety behavior; `tests/backend/mystic_auth/unit/auth/security/test_login_protection_unit.py`
 covers lockout independently; `tests/backend/mystic_auth/integration/auth/test_login_integration.py`
-exercises the full path against real Postgres/Redis. See [Testing Overview](../testing/overview.md).
+exercises the full path against real Postgres/Valkey. See [Testing Overview](../testing/overview.md).
 
 ---
 

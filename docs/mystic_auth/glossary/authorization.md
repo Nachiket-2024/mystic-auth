@@ -31,7 +31,7 @@ The piece of code that knows how to evaluate one specific condition type inside 
 
 ## audit log
 
-An append-only record of security-relevant events (an authorization decision, a login, a policy change, an account deletion). There's no update or delete API for it; it exists so an admin can later answer "who did what, and was it allowed." See [Authorization Architecture: Audit Log](../authorization/architecture/component-responsibilities.md#audit-log).
+An append-only record of security-relevant events (an authorization decision, a login, a policy change, an account deletion). There's no update or delete API for it; it exists so an authorized policy holder can later answer "who did what, and was it allowed." See [Authorization Architecture: Audit Log](../authorization/architecture/component-responsibilities.md#audit-log).
 
 ---
 
@@ -49,7 +49,7 @@ A permission handed to one specific user directly (`UserPermission`), bypassing 
 
 ## permission catalog
 
-The fixed, predefined list of every action string the app knows about (e.g. `policies:read`, `users:update_own`), browsable at `GET /authorization/permissions/catalog`. Policies and direct grants can only reference actions that exist in this catalog. The endpoint is available to callers who need it for read-only browsing or for policy/permission forms: any one of `permissions:read`, `policies:create`, `policies:update`, or `permissions:grant` is enough.
+The read-only, built-in action reference (e.g. `policies:read`, `users:update_own`) browsable at `GET /authorization/permissions/catalog`. It is not a global allow-list: policies and direct grants may also contain opaque action strings defined by a downstream application. MysticAuth does not own or describe those app actions, but its grant guard still requires the caller to already hold every action being granted. Applications should expose their own catalog/UI for custom actions. The endpoint is available to callers who need it for read-only browsing or for policy/permission forms: any one of `permissions:read`, `policies:create`, `policies:update`, or `permissions:grant` is enough.
 
 ---
 
@@ -61,7 +61,7 @@ An automatic change log kept for every policy: each create/update/delete/rollbac
 
 ## cache-aside
 
-A caching pattern where the app checks the cache first, and on a miss, reads the real data store (here, Postgres) and writes the result into the cache before returning it. The PBAC policy cache uses this pattern with Redis in front of Postgres. See [Authorization Architecture](../authorization/architecture/README.md#pbac-authorization-check-request-flow).
+A caching pattern where the app checks the cache first, and on a miss, reads the real data store (here, Postgres) and writes the result into the cache before returning it. The PBAC policy cache uses this pattern with Valkey in front of Postgres. See [Authorization Architecture](../authorization/architecture/README.md#pbac-authorization-check-request-flow).
 
 ---
 
@@ -73,7 +73,7 @@ The check (`assert_authorized_to_grant`) that stops a caller from handing out, e
 
 ## fail-safe / fail-closed
 
-A design where, when something goes ambiguous or breaks (an unrecognized condition key, a Redis outage during rate limiting), the system denies access rather than allowing it by default. PBAC's condition evaluation and the rate limiter both fail this way; contrast with the PBAC Redis policy cache, which fails open to Postgres instead (see [Infrastructure: cache-aside](infrastructure.md#cache-aside) and [Authorization Architecture: Condition Evaluation Service](../authorization/architecture/component-responsibilities.md#condition-evaluation-service)).
+A design where, when something goes ambiguous or breaks (an unrecognized condition key, a Valkey outage during rate limiting), the system denies access rather than allowing it by default. PBAC's condition evaluation and the rate limiter both fail this way; contrast with the PBAC Valkey policy cache, which fails open to Postgres instead (see [Infrastructure: cache-aside](infrastructure.md#cache-aside) and [Authorization Architecture: Condition Evaluation Service](../authorization/architecture/component-responsibilities.md#condition-evaluation-service)).
 
 ---
 
@@ -121,6 +121,6 @@ A permission scoped narrowly enough to distinguish "your own" from "anyone's" (e
 
 ## bulk operation
 
-An admin action that applies one policy assign/remove, permission grant/remove, or role change to many target users in a single request, returning a per-item success/error result rather than failing the whole batch on one bad target. See [Authorization Architecture: Full route list](../authorization/architecture/full-route-list.md#full-route-list).
+A PBAC management action that applies one policy assign/remove, permission grant/remove, or role change to many target users in a single request, returning a per-item success/error result rather than failing the whole batch on one bad target. See [Authorization Architecture: Full route list](../authorization/architecture/full-route-list.md#full-route-list).
 
 ---

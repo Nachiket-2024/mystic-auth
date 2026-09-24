@@ -4,7 +4,6 @@
 // displayed, and stripped from the URL.
 import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router';
 
 import OAuth2LoginButton from '@/auth/oauth2/OAuth2LoginButton';
@@ -16,7 +15,6 @@ function LocationProbe() {
 
 function renderAt(path: string) {
   return render(
-    <ChakraProvider value={defaultSystem}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route
@@ -30,7 +28,6 @@ function renderAt(path: string) {
           />
         </Routes>
       </MemoryRouter>
-    </ChakraProvider>
   );
 }
 

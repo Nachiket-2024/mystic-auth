@@ -6,6 +6,6 @@ export interface PasswordResetConfirmPayload {
 export interface PasswordResetConfirmResponse {
     message: string;
     // false only when the reset succeeded but the account's other sessions couldn't
-    // be confirmed as revoked (Redis unreachable). See password_reset_service.reset_password.
+    // be confirmed as revoked (Valkey unreachable). See password_reset_service.reset_password.
     sessions_revoked: boolean;
 }

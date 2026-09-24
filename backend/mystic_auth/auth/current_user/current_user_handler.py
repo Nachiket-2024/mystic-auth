@@ -95,7 +95,7 @@ class CurrentUserHandler:
                 if grant.resource_type in (grant.action.split(":", 1)[0], "*")
             }
 
-            # From the best-effort Postgres mirror (user_sessions), not Redis:
+            # From the best-effort Postgres mirror (user_sessions), not Valkey:
             # version counters (jwt_service.py) govern real token validity but
             # can't list live sessions. Only computed when include_active_sessions
             # is True (i.e. for GET /auth/me), since every other protected route

@@ -36,7 +36,7 @@ flowchart TD
     Current -- "no" --> Bump["bump_chain_version()"]
     Bump -- "confirmed" --> Mark["mark row revoked_at\n log security audit event"]
     Mark --> R200["200"]
-    Bump -- "Redis unreachable" --> R503["503\n SESSION_REVOCATION_UNAVAILABLE\n (row left untouched)"]
+    Bump -- "Valkey unreachable" --> R503["503\n SESSION_REVOCATION_UNAVAILABLE\n (row left untouched)"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
@@ -50,7 +50,7 @@ flowchart TD
    another device" as two distinct, unambiguous actions.
 3. **A successful revoke bumps `chain_ver` first** (`jwt_service.bump_chain_version`), then marks
    the row `revoked_at` and records a security audit event, in that order - deliberately, so a bump
-   that can't be confirmed (Redis unreachable) leaves the row untouched instead of marking a session
+   that can't be confirmed (Valkey unreachable) leaves the row untouched instead of marking a session
    "revoked" that's still actually valid. That case returns `503 SESSION_REVOCATION_UNAVAILABLE`
    rather than a false `200`. See [Bump failure handling](token-lifecycle.md#bump-failure-handling).
 

@@ -35,7 +35,7 @@ class TokenCookieHandler:
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=True,
+            secure=settings.secure_cookies,
             samesite="strict",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
@@ -44,7 +44,7 @@ class TokenCookieHandler:
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,
+            secure=settings.secure_cookies,
             samesite="strict",
             max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
             path="/auth"
@@ -65,8 +65,8 @@ class TokenCookieHandler:
         set avoids relying on that, and stays honest about what policy the
         cookie carried right up to deletion.
         """
-        response.delete_cookie(key="access_token", httponly=True, secure=True, samesite="strict")
-        response.delete_cookie(key="refresh_token", httponly=True, secure=True, samesite="strict", path="/auth")
+        response.delete_cookie(key="access_token", httponly=True, secure=settings.secure_cookies, samesite="strict")
+        response.delete_cookie(key="refresh_token", httponly=True, secure=settings.secure_cookies, samesite="strict", path="/auth")
         return response
 
 

@@ -2,10 +2,10 @@
 #
 # Proves user_purge_service.py's post-purge
 # invalidate_user_policies/invalidate_user_permissions calls actually clear
-# the real Redis cache, against the real ASGI app, real PostgreSQL, and real
-# Redis - not just that the mocked collaborator was called
+# the real Valkey cache, against the real ASGI app, real PostgreSQL, and real
+# Valkey - not just that the mocked collaborator was called
 # (test_user_purge_service_unit.py covers that at the unit level). Two angles:
-# the raw cache keys are gone from Redis, AND a fresh signup reusing the same
+# the raw cache keys are gone from Valkey, AND a fresh signup reusing the same
 # email starts with a clean effective-permission set rather than transiently
 # inheriting the purged user's stale cached grants.
 import pytest
@@ -21,7 +21,7 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
 )
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
+from backend.mystic_auth.valkey.client import valkey_client
 
 from .authorization_test_accounts import (
     PASSWORD,
@@ -55,7 +55,7 @@ async def _authorized(client, email: str, action: str, resource_type: str = "rep
 
 
 @pytest.mark.asyncio
-async def test_purge_clears_the_actual_redis_cache_keys(client, created_emails):
+async def test_purge_clears_the_actual_valkey_cache_keys(client, created_emails):
     system_email = unique_email("system")
     target_email = unique_email("target")
     policy_name = await _create_policy(["reports:view"])
@@ -74,14 +74,14 @@ async def test_purge_clears_the_actual_redis_cache_keys(client, created_emails):
     assert grant_resp.status_code == 200
     assert await _authorized(client, target_email, "reports:export")
 
-    assert await redis_client.get(_user_policies_key(target_email)) is not None
-    assert await redis_client.get(_user_permissions_key(target_email)) is not None
+    assert await valkey_client.get(_user_policies_key(target_email)) is not None
+    assert await valkey_client.get(_user_permissions_key(target_email)) is not None
 
     purge_resp = await client.delete(f"/users/{target_email}/purge")
     assert purge_resp.status_code == 200
 
-    assert await redis_client.get(_user_policies_key(target_email)) is None
-    assert await redis_client.get(_user_permissions_key(target_email)) is None
+    assert await valkey_client.get(_user_policies_key(target_email)) is None
+    assert await valkey_client.get(_user_permissions_key(target_email)) is None
 
 
 @pytest.mark.asyncio

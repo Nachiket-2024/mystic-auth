@@ -8,8 +8,8 @@ This template ships the authenticated app shell (sidebar, top bar, and the auth/
 - **Authentication**: email+password with Argon2 hashing, email verification, rate limiting + brute-force lockout, Google OAuth2 (PKCE), JWT access+refresh tokens as httpOnly cookies, refresh-token rotation with reuse detection, logout/logout-all, forgot/reset password. See [Authentication Overview](../authentication/overview.md).
 - **Authorization**: Policy-Based Access Control (PBAC), not RBAC. Every protected route is gated by an assigned `Policy`, not by a user's `role`. Policies are data (rows in Postgres), so a new access rule is a new policy, not a new deploy. See [PBAC Architecture](../authorization/architecture/README.md).
 - **Audit logging**: two append-only tables: security/session events, and every PBAC allow/deny decision. See [Database Design](../database/design.md#why-two-audit-tables-not-one).
-- **Frontend**: React 19 + TypeScript, Vite, Chakra UI v3, Zustand, TanStack Query. See [Frontend Architecture](../architecture/frontend.md).
-- **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Redis, Procrastinate async email (Postgres-native, no separate broker), Alembic migrations, GitHub Actions CI.
+- **Frontend**: React 19 + TypeScript, Vite, Tailwind v4 + shadcn/ui (Radix primitives), Zustand, and TanStack Query. See [Frontend Architecture](../architecture/frontend.md).
+- **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Valkey, Procrastinate async email (Postgres-native, no separate broker), Alembic migrations, GitHub Actions CI.
 - **Error monitoring**: self-hosted Bugsink, on by default with the stack. See [Error Monitoring](../error-monitoring/overview.md).
 
 ---

@@ -5,9 +5,11 @@ Frontend libraries and UI patterns. See [Glossary](README.md) for the full index
 
 ---
 
-## Chakra UI
+## shadcn/ui
 
-The React component library the frontend is built with. This app extends its theming system to generate a full brand color scale from a single chosen color, both an app-wide default and a per-user override. See [Appearance: Brand Color and Logo](../appearance/overview.md).
+The frontend's component patterns and generated UI primitives, built on Tailwind CSS and Radix UI. Theme tokens live in CSS custom properties and generate a full brand color scale from a single chosen color, both as an app-wide default and a per-user override. See [Appearance: Brand Color and Logo](../appearance/overview.md).
+
+Chakra UI was used by an earlier version of the frontend and is retained only in migration history and compatibility notes.
 
 ---
 

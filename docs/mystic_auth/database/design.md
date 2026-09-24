@@ -125,7 +125,7 @@ Separate audit vocabulary from the table above: login/logout/signup/OAuth2/passw
 
 ### `user_sessions`
 
-One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Redis (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Redis-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management/README.md).
+One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Valkey (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Valkey-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management/README.md).
 
 ---
 
@@ -144,10 +144,10 @@ Three operations, two permissions, deliberately separate:
 
 | Operation | Endpoint | Permission | Reversible? |
 |---|---|---|---|
-| Soft delete (admin) | `DELETE /users/{email}` | `users:delete_any` | Yes, via reactivate |
+| Soft delete (admin) | `DELETE /users/{email}` | `users:deactivate_any` | Yes, via reactivate |
 | Soft delete (self-service) | `DELETE /users/me` | `users:update_own` + current password | Yes, via reactivate (admin-only) |
 | Reactivate | `PATCH /users/{email}/reactivate` | `users:reactivate` | N/A |
-| Purge (hard delete, manual) | `DELETE /users/{email}/purge` | `users:purge` | **No** |
+| Purge (hard delete, manual) | `DELETE /users/{email}/purge` | `users:delete_any` | **No** |
 | Purge (hard delete, automatic) | daily `procrastinate_tasks/account_purge_tasks.py` job | N/A (system-initiated) | **No** |
 
 ---
@@ -156,7 +156,7 @@ Three operations, two permissions, deliberately separate:
 
 ---
 
-**Purge** (`DELETE /users/{email}/purge`, or the daily automatic job below) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`); `authorization_audit_log`/`security_audit_log` rows are untouched (string snapshot, not FK, see above), so the historical record of what the account did survives even though the account itself is gone. The manual route is gated by `users:purge`, a distinct and more sensitive permission from `users:delete_any`, granted only by the seeded `system_superuser` policy, never `user_administration`. An admin who can delete accounts day-to-day cannot irreversibly destroy one. Both the manual route and the automatic job call the same `purge_user_account()` (`backend/mystic_auth/user_lifecycle/user_purge_service.py`) so the revoke → audit → delete sequence can never drift between the two call sites.
+**Purge** (`DELETE /users/{email}/purge`, or the daily automatic job below) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`); `authorization_audit_log`/`security_audit_log` rows are untouched (string snapshot, not FK, see above), so the historical record of what the account did survives even though the account itself is gone. The manual route is gated by `users:delete_any`, a distinct and more sensitive permission from `users:deactivate_any`, granted only by the seeded `system_superuser` policy, never `user_administration`. An admin who can delete accounts day-to-day cannot irreversibly destroy one. Both the manual route and the automatic job call the same `purge_user_account()` (`backend/mystic_auth/user_lifecycle/user_purge_service.py`) so the revoke → audit → delete sequence can never drift between the two call sites.
 
 ---
 

@@ -68,6 +68,8 @@ timeline
                    : Fixed i18n namespace mutation, multi-fork Docker collision avoidance
                    : Env-file bootstrap/sync tooling, AI agent setup prompts
                    : docker/env split into app/mystic_auth, Makefile
+                   : Frontend migrated to shadcn/Radix, unified User Access dialog
+                   : Literal-exhaustive PBAC matrix check, ZAP full scan, sqlmap, docs sweep
 ```
 
 ---
@@ -78,7 +80,7 @@ timeline
 - [September-October 2025](2025-sep-oct.md): commits 17-36, 1 September, 2025 to 14 October, 2025.
 - [February-July 2026](2026-feb-jul.md): commits 37-53, 21 February, 2026 to 29 July, 2026.
 - [August 2026](2026-aug.md): commits 54-69, 2 August, 2026 to 29 August, 2026.
-- [September 2026](2026-sep.md): commits 70-75, 4 September, 2026 to 11 September, 2026.
+- [September 2026](2026-sep.md): commits 70-76, 4 September, 2026 to 26 September, 2026.
 
 ---
 

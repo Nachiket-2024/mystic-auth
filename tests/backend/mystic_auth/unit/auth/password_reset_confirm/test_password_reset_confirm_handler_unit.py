@@ -49,18 +49,15 @@ async def test_non_reset_token_is_rejected_without_touching_lockout(mocker):
 async def test_successful_reset_is_recorded_under_its_own_lock_namespace(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
     mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(True, True))
-    record_mock = mocker.patch(
-        f"{MODULE}.login_protection_service.check_and_record_action", return_value=True
-    )
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=True)
+    finish_mock = mocker.patch(f"{MODULE}.login_protection_service.finish_protected_action")
 
     response = await password_reset_confirm_handler.handle_password_reset_confirm(
         token="valid-token", new_password="NewStrongPass123!", db=None
     )
 
     assert response.status_code == 200
-    record_mock.assert_awaited_once_with(
-        "password_reset_confirm_lock:email:user@example.com", success=True
-    )
+    finish_mock.assert_awaited_once_with("password_reset_confirm_lock:email:user@example.com", success=True)
 
 
 @pytest.mark.asyncio
@@ -72,7 +69,8 @@ async def test_successful_reset_reports_sessions_revoked_in_the_response_body(mo
     # unrevoked.
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
     mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(True, False))
-    mocker.patch(f"{MODULE}.login_protection_service.check_and_record_action", return_value=True)
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=True)
+    mocker.patch(f"{MODULE}.login_protection_service.finish_protected_action")
 
     response = await password_reset_confirm_handler.handle_password_reset_confirm(
         token="valid-token", new_password="NewStrongPass123!", db=None
@@ -86,28 +84,41 @@ async def test_successful_reset_reports_sessions_revoked_in_the_response_body(mo
 async def test_failed_reset_is_recorded_under_its_own_lock_namespace_not_logins(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
     mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(False, None))
-    record_mock = mocker.patch(
-        f"{MODULE}.login_protection_service.check_and_record_action", return_value=True
-    )
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=True)
+    finish_mock = mocker.patch(f"{MODULE}.login_protection_service.finish_protected_action")
 
     response = await password_reset_confirm_handler.handle_password_reset_confirm(
         token="valid-token", new_password="weak", db=None
     )
 
     assert response.status_code == 400
-    key_used = record_mock.await_args.args[0]
-    assert key_used == "password_reset_confirm_lock:email:user@example.com"
-    assert key_used != "login_lock:email:user@example.com"
+    finish_mock.assert_awaited_once_with("password_reset_confirm_lock:email:user@example.com", success=False)
 
 
 @pytest.mark.asyncio
 async def test_lockout_from_repeated_failures_returns_429(mocker):
     mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
     mocker.patch(f"{MODULE}.password_reset_service.reset_password", return_value=(False, None))
-    mocker.patch(f"{MODULE}.login_protection_service.check_and_record_action", return_value=False)
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=True)
+    mocker.patch(f"{MODULE}.login_protection_service.finish_protected_action")
+    mocker.patch(f"{MODULE}.login_protection_service.is_locked", return_value=True)
 
     response = await password_reset_confirm_handler.handle_password_reset_confirm(
         token="valid-token", new_password="weak", db=None
     )
 
     assert response.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_locked_reset_is_rejected_before_password_mutation(mocker):
+    mocker.patch(f"{MODULE}.password_service.verify_reset_token", return_value={"email": "user@example.com"})
+    mocker.patch(f"{MODULE}.login_protection_service.begin_protected_action", return_value=False)
+    reset_mock = mocker.patch(f"{MODULE}.password_reset_service.reset_password")
+
+    response = await password_reset_confirm_handler.handle_password_reset_confirm(
+        token="valid-token", new_password="NewStrongPass123!", db=None
+    )
+
+    assert response.status_code == 429
+    reset_mock.assert_not_called()

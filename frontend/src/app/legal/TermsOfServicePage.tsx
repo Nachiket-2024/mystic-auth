@@ -8,7 +8,7 @@ import LegalDocumentLayout, { type LegalSection } from "./LegalDocumentLayout";
 const TermsOfServicePage: React.FC = () => {
     const { t } = useTranslation("legal");
 
-    const contactPlaceholder = SUPPORT_EMAIL;
+    const contactPlaceholder = SUPPORT_EMAIL || t("operatorContactPlaceholder");
     const entityPlaceholder = t("operatorEntityPlaceholder");
     const interpolation = { appName: APP_NAME, contactPlaceholder, entityPlaceholder };
 
@@ -18,6 +18,7 @@ const TermsOfServicePage: React.FC = () => {
             lastUpdatedLabel={t("lastUpdatedLabel")}
             lastUpdatedDate={t("lastUpdatedDate")}
             backLabel={t("back")}
+            reviewNote={t("operatorReviewNote")}
             intro={t("terms.intro", { ...interpolation, returnObjects: true }) as string[]}
             sections={t("terms.sections", { ...interpolation, returnObjects: true }) as LegalSection[]}
         />

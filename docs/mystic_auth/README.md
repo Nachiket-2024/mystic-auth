@@ -39,9 +39,9 @@ Read the docs in this order if you are new to the repository:
 - [Signup and Email Verification](authentication/signup-and-verification.md): account creation, verification token issue/redeem, resend
 - [Login](authentication/login.md): rate limiting, brute-force lockout, timing-attack resistance
 - [Logout and Logout-All](authentication/logout.md): single-device vs. whole-account session termination, idempotency
-- [Password Reset and Password Change](authentication/password-reset.md): forgot-password flow, self-service and admin password change
+- [Password Reset and Password Change](authentication/password-reset.md): forgot-password flow, self-service and permission-protected password change
 - [Session Management](authentication/session-management/README.md): active-session tracking, refresh-token rotation mirror, dashboard card behavior, revoke edge cases
-- [Account Deletion and Purge](authentication/account-deletion/README.md): self-service delete (password re-confirm and OAuth email-confirm paths), admin delete/reactivate/purge, and the scheduled grace-period purge job
+- [Account Deletion and Purge](authentication/account-deletion/README.md): self-service delete, permission-protected delete/reactivate/purge, and the scheduled grace-period purge job
 - [OAuth2 / PKCE](authentication/oauth2-pkce.md): Google OAuth2 login flow, PKCE code-challenge mechanics, CSRF state protection
 - [System Superuser: Bootstrapping and Promotion](authentication/system-superuser/README.md): `create_system_user.py`'s full behavior, covering fresh creation, promoting an existing account, and the Google-only-account special case
 
@@ -57,7 +57,7 @@ Read the docs in this order if you are new to the repository:
 - [Adding New Permissions](authorization/adding-permissions.md): extending the action vocabulary
 - [Adding New Condition Handlers](authorization/adding-condition-handlers.md): extending the condition framework
 - [Writing and Testing Policies](authorization/writing-testing-policies.md): policy lifecycle, local testing, unit test patterns
-- [Operational Troubleshooting Guide](authorization/troubleshooting/README.md): common issues, logging, Redis/DB debugging
+- [Operational Troubleshooting Guide](authorization/troubleshooting/README.md): common issues, logging, Valkey/DB debugging
 
 ---
 
@@ -83,7 +83,7 @@ Read the docs in this order if you are new to the repository:
 
 - [Security Decisions](security/decisions.md): index of the *why* behind non-obvious security choices, plus known accepted gaps, split into [Auth & Session](security/decisions-auth.md), [Infrastructure](security/decisions-infra.md), and [Product](security/decisions-product.md)
 - [Security Hardening](security/hardening.md): rate limiting, lockout, security headers, CORS, cookie flags, consolidated
-- [Rate Limits](security/hardening-abuse-prevention.md#rate-limiting): the generic per-IP/per-account limiter, brute-force lockout, and the Rate Limit Dashboard (`GET /rate-limits/`, `frontend/src/mystic_auth/rate_limits/`) an admin uses to view and reset active limits
+- [Rate Limits](security/hardening-abuse-prevention.md#rate-limiting): the generic per-IP/per-account limiter, brute-force lockout, and the permission-protected Rate Limit Dashboard (`GET /rate-limits/`, `frontend/src/mystic_auth/rate_limits/`) for viewing and resetting active limits
 - [SECURITY.md](../../SECURITY.md): how to report a vulnerability privately (not via a public GitHub Issue)
 
 ---
@@ -102,7 +102,7 @@ Read the docs in this order if you are new to the repository:
 
 ## Appearance
 
-- [Appearance: Per-User Brand Color](appearance/overview.md): per-account brand-color override on top of the app-wide default theme, live Chakra system rebuild, generated 50-900 color scale, favicon/meta sync, server reconciliation across devices
+- [Appearance: Per-User Brand Color](appearance/overview.md): per-account brand-color override on top of the app-wide default theme, live CSS custom-property rebuild, generated 50-900 color scale, favicon/meta sync, server reconciliation across devices
 
 ---
 

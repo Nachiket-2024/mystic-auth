@@ -1,6 +1,6 @@
 # DELETE /auth/sessions/{id} must report a real 503, not a false "Session
 # revoked", when the underlying chain-version bump can't be confirmed
-# (Redis unreachable): session_service.revoke_one_session raises
+# (Valkey unreachable): session_service.revoke_one_session raises
 # TokenVersionUnavailableError in that case.
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -33,7 +33,7 @@ async def test_revoke_session_returns_503_when_chain_bump_is_unconfirmed(mocker)
     mocker.patch(f"{MODULE}.jwt_service.decode_payload", new_callable=AsyncMock, return_value=None)
     mocker.patch(
         f"{MODULE}.session_service.revoke_one_session",
-        new_callable=AsyncMock, side_effect=TokenVersionUnavailableError("redis down"),
+        new_callable=AsyncMock, side_effect=TokenVersionUnavailableError("valkey down"),
     )
     audit_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
 

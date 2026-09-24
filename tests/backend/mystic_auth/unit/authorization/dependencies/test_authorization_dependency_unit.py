@@ -53,14 +53,14 @@ async def test_propagates_403_from_the_authorization_service(mocker):
 @pytest.mark.asyncio
 async def test_calls_the_authorization_service_with_the_declared_action_and_resource_type(mocker):
     require_mock = mocker.patch(f"{MODULE}.authorization_service.require", new_callable=AsyncMock)
-    dependency = require_authorization("users:delete_any", "users")
+    dependency = require_authorization("users:deactivate_any", "users")
 
     await dependency(request=_request(), current_user=_user("admin@example.com"), db="fake-db-session")
 
     require_mock.assert_awaited_once()
     kwargs = require_mock.await_args.kwargs
     assert kwargs["user_email"] == "admin@example.com"
-    assert kwargs["action"] == "users:delete_any"
+    assert kwargs["action"] == "users:deactivate_any"
     assert kwargs["resource_type"] == "users"
     assert kwargs["db"] == "fake-db-session"
 

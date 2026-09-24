@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router";
 
-// Sourced from theme/system.ts's durations.fast/easings.hover tokens (same
-// tier StatTile/PasswordStrengthPanel use), so "how snappy the app feels"
-// is retunable from app/theme.ts in one place.
-const ROUTE_FADE_TRANSITION = "opacity var(--chakra-durations-fast) var(--chakra-easings-hover)";
+// theme/tailwind.css's --duration-fast/--easing-hover (same tier
+// StatTile/PasswordStrengthPanel use), so "how snappy the app feels" stays
+// retunable from one place.
+const ROUTE_FADE_TRANSITION = "opacity var(--duration-fast) var(--easing-hover)";
 
 /**
  * Fades each route's content in on navigation instead of the hard cut a bare

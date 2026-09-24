@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getCurrentUserApi } from "../../api/auth_api";
 import { useAuthStore } from "../../store/authStore";
@@ -22,8 +22,8 @@ const REVALIDATE_INTERVAL_MS = 2 * 60 * 1000;
 export function useCurrentUserQuery() {
     return useQuery({
         queryKey: CURRENT_USER_QUERY_KEY,
-        queryFn: async () => {
-            const res = await getCurrentUserApi("useCurrentUserQuery");
+        queryFn: async ({ signal }) => {
+            const res = await getCurrentUserApi("useCurrentUserQuery", signal);
             return res.data as CurrentUserProfile;
         },
         // This is specifically the query that needs to notice a revocation even in a
@@ -38,6 +38,7 @@ export function useCurrentUserQuery() {
 // state from useAuthStore, so a second call here would just duplicate the subscription.
 export function useAuthSession(): void {
     const { data, isSuccess, isError } = useCurrentUserQuery();
+    const queryClient = useQueryClient();
     const setProfile = useAuthStore((s) => s.setProfile);
     const setAuthenticated = useAuthStore((s) => s.setAuthenticated);
     const clearProfile = useAuthStore((s) => s.clearProfile);
@@ -50,11 +51,14 @@ export function useAuthSession(): void {
             // guess from module load (e.g. colors picked on another device).
             const appearance = useAppearanceStore.getState();
             appearance.setBrandColor(data.brand_color ?? null);
-        } else if (isError) {
+        } else if (isError && queryClient.getQueryState(CURRENT_USER_QUERY_KEY)?.status === "error") {
+            const authenticatedAt = useAuthStore.getState().authenticatedAt;
+            const errorUpdatedAt = queryClient.getQueryState(CURRENT_USER_QUERY_KEY)?.errorUpdatedAt ?? 0;
+            if (authenticatedAt !== null && errorUpdatedAt < authenticatedAt) return;
             clearProfile();
             setAuthenticated(false);
             const appearance = useAppearanceStore.getState();
             appearance.setBrandColor(null);
         }
-    }, [isSuccess, isError, data, setProfile, setAuthenticated, clearProfile]);
+    }, [isSuccess, isError, data, queryClient, setProfile, setAuthenticated, clearProfile]);
 }

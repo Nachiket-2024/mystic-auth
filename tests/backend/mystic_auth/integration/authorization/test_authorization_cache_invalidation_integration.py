@@ -1,5 +1,5 @@
 # Proves that policy update/deactivate and direct-permission revoke actually
-# invalidate the authorization cache end-to-end (real app, Postgres, Redis).
+# invalidate the authorization cache end-to-end (real app, Postgres, Valkey).
 # The unit test only checks the invalidation method was *called*; this checks
 # the authorization *decision* itself flips on a repeated, cache-populating check.
 import pytest

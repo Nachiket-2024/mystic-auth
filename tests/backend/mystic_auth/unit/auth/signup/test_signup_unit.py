@@ -182,13 +182,12 @@ async def test_signup_service_assigns_self_service_policy_to_new_user(mocker):
 
 
 @pytest.mark.asyncio
-async def test_signup_service_still_succeeds_if_default_policy_is_missing(mocker):
-    # An operational/migration issue (baseline policy not seeded) must
-    # not take down signup entirely: it's logged loudly instead, and the
-    # account can be fixed up by an admin later.
+async def test_signup_service_refuses_creation_if_default_policy_is_missing(mocker):
+    # A baseline PBAC policy is required for a new account. The display-only
+    # role must never become an authorization fallback.
     mocker.patch(f"{SERVICE_MODULE}.user_crud.get_by_email", return_value=None)
     mocker.patch(f"{SERVICE_MODULE}.password_service.hash_password", return_value="hashed-value")
-    mocker.patch(
+    create_mock = mocker.patch(
         f"{SERVICE_MODULE}.user_crud.create", new_callable=AsyncMock, return_value=_FakeCreatedUser()
     )
     mocker.patch(
@@ -202,5 +201,32 @@ async def test_signup_service_still_succeeds_if_default_policy_is_missing(mocker
         name="New User", email="new@example.com", password="StrongPass123!", db=None
     )
 
-    assert result is True
+    assert result is False
+    create_mock.assert_not_called()
     assign_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_signup_service_removes_created_user_if_default_policy_assignment_fails(mocker):
+    mocker.patch(f"{SERVICE_MODULE}.user_crud.get_by_email", return_value=None)
+    mocker.patch(f"{SERVICE_MODULE}.password_service.hash_password", return_value="hashed-value")
+    created_user = _FakeCreatedUser(id=42)
+    mocker.patch(f"{SERVICE_MODULE}.user_crud.create", new_callable=AsyncMock, return_value=created_user)
+    mocker.patch(
+        f"{SERVICE_MODULE}.policy_repository.get_by_name",
+        new_callable=AsyncMock,
+        return_value=mocker.Mock(id=7),
+    )
+    mocker.patch(
+        f"{SERVICE_MODULE}.policy_repository.assign_policy_to_user",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("assignment unavailable"),
+    )
+    delete_mock = mocker.patch(f"{SERVICE_MODULE}.user_crud.delete", new_callable=AsyncMock)
+
+    result = await signup_service.signup(
+        name="New User", email="new@example.com", password="StrongPass123!", db=None
+    )
+
+    assert result is False
+    delete_mock.assert_awaited_once_with(created_user, None)

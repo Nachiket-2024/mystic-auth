@@ -6,9 +6,9 @@ from backend.mystic_auth.auth.refresh_token_logic.refresh_token_service import (
     refresh_token_service,
 )
 
-# Redis-unavailable/fail-closed coverage (bump_account_version/
+# Valkey-unavailable/fail-closed coverage (bump_account_version/
 # bump_chain_version returning False) lives in
-# test_refresh_token_redis_unavailable_unit.py.
+# test_refresh_token_valkey_unavailable_unit.py.
 MODULE = "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.jwt_service"
 
 
@@ -37,7 +37,7 @@ async def test_refresh_tokens_rotates_on_valid_unused_token(mocker):
     # purpose.
     assert decode_mock.await_count == 2
     decode_mock.assert_any_await("old-refresh-token")
-    claim_mock.assert_awaited_once_with("jti-1", 123, "user@example.com")
+    claim_mock.assert_awaited_once_with("jti-1", 123, "user@example.com", client_ip=None)
 
 
 @pytest.mark.asyncio
@@ -262,14 +262,14 @@ async def test_decode_payload_ignores_revocation_status(mocker):
     from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
 
     mocker.patch(
-        "backend.mystic_auth.auth.token_logic.jwt_service.redis_client.get",
+        "backend.mystic_auth.auth.token_logic.jwt_service.valkey_client.get",
         new_callable=AsyncMock,
         return_value=None,
     )
     token = await jwt_service.create_refresh_token(email="user@example.com", chain_id="chain-1")
 
     # decode_payload must return the claims even though revoke status is
-    # never consulted: it's used precisely for tokens Redis already marks
+    # never consulted: it's used precisely for tokens Valkey already marks
     # as revoked.
     payload = await jwt_service.decode_payload(token)
 
@@ -282,3 +282,57 @@ async def test_decode_payload_returns_none_for_garbage_token():
     from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
 
     assert await jwt_service.decode_payload("not-a-real-jwt") is None
+
+
+@pytest.mark.asyncio
+async def test_refresh_tokens_duplicate_within_grace_mints_fresh_pair_without_revoking(mocker):
+    mocker.patch(
+        f"{MODULE}.decode_payload",
+        new_callable=AsyncMock,
+        return_value={
+            "email": "user@example.com", "type": "refresh",
+            "jti": "jti-1", "chain": "chain-1", "exp": 123,
+        },
+    )
+    mocker.patch(f"{MODULE}.claim_jti_for_rotation", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{MODULE}.is_benign_duplicate_rotation", new_callable=AsyncMock, return_value=True)
+    mocker.patch(f"{MODULE}.create_access_token", new_callable=AsyncMock, return_value="new-access")
+    mocker.patch(f"{MODULE}.create_refresh_token", new_callable=AsyncMock, return_value="new-refresh")
+    reuse_mock = mocker.patch.object(type(refresh_token_service), "_handle_reuse_detected", new_callable=AsyncMock)
+    by_chain = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.session_service.rotate_session_by_chain",
+        new_callable=AsyncMock,
+    )
+    by_jti = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.session_service.rotate_session",
+        new_callable=AsyncMock,
+    )
+
+    result = await refresh_token_service.refresh_tokens("dup-token", db=object())
+
+    assert result == {"access_token": "new-access", "refresh_token": "new-refresh"}
+    reuse_mock.assert_not_called()
+    # Chain-based, so the already-moved session row is not backfilled twice.
+    by_jti.assert_not_called()
+    by_chain.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_refresh_tokens_duplicate_outside_grace_runs_reuse_detection(mocker):
+    mocker.patch(
+        f"{MODULE}.decode_payload",
+        new_callable=AsyncMock,
+        return_value={
+            "email": "user@example.com", "type": "refresh",
+            "jti": "jti-1", "chain": "chain-1", "exp": 123,
+        },
+    )
+    mocker.patch(f"{MODULE}.claim_jti_for_rotation", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{MODULE}.is_benign_duplicate_rotation", new_callable=AsyncMock, return_value=False)
+    create_mock = mocker.patch(f"{MODULE}.create_access_token", new_callable=AsyncMock)
+    reuse_mock = mocker.patch.object(type(refresh_token_service), "_handle_reuse_detected", new_callable=AsyncMock)
+
+    assert await refresh_token_service.refresh_tokens("stolen-token") is None
+
+    reuse_mock.assert_awaited_once()
+    create_mock.assert_not_called()

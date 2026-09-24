@@ -60,6 +60,11 @@ class User(Base):
     # "deleted". See docs/mystic_auth/security/decisions.md.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Set on every successful sign-in (password or OAuth2), NULL for an
+    # account that has never signed in. Cheap to sort/filter on since it's a
+    # plain column, unlike aggregating the audit log for "last login".
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

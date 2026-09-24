@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -32,11 +31,9 @@ function renderAccountSettings() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <AccountSettingsPage />
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -63,7 +60,10 @@ describe('AccountSettingsPage', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('tab', { name: 'Permissions' }));
-    await screen.findByText('self_service');
+    // self_service now appears twice once its group is expanded by default:
+    // the Policies badge, and again as the source tag on the effective-
+    // permissions chip it granted.
+    await screen.findAllByText('self_service');
   });
 
   it('renders the effective permissions (fanned-out policy actions and direct grants) and the raw direct grants, via the self-service /me endpoints', async () => {
@@ -78,18 +78,21 @@ describe('AccountSettingsPage', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Permissions' }));
 
-    await screen.findByText('self_service');
+    // self_service now appears twice once its group is expanded by default:
+    // the Policies badge, and again as the source tag on the effective-
+    // permissions chip it granted.
+    await screen.findAllByText('self_service');
     // Effective permissions include both the policy action and the direct grant.
-    expect(screen.getByText('users:read_own')).toBeInTheDocument();
-    expect(screen.getAllByText('policies:create').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Read own users')).toBeInTheDocument();
+    expect(screen.getAllByText('Create policies').length).toBeGreaterThanOrEqual(1);
 
     // Direct permissions show only the raw grant, not the policy-derived one.
     const directHeading = screen.getByText('Direct permissions');
     const directSection = directHeading.parentElement;
     expect(directSection).toBeTruthy();
     if (directSection) {
-      expect(within(directSection).getByText('policies:create')).toBeInTheDocument();
-      expect(within(directSection).queryByText('users:read_own')).toBeNull();
+      expect(within(directSection).getByText('Create policies')).toBeInTheDocument();
+      expect(within(directSection).queryByText('Read own users')).toBeNull();
     }
   });
 
@@ -120,10 +123,13 @@ describe('AccountSettingsPage', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('tab', { name: 'Permissions' }));
-    await screen.findByText('self_service');
+    // self_service now appears twice once its group is expanded by default:
+    // the Policies badge, and again as the source tag on the effective-
+    // permissions chip it granted.
+    await screen.findAllByText('self_service');
 
-    expect(screen.getAllByText('(*)').length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByText('(policies)')).toBeNull();
+    expect(screen.getAllByText('All resource types').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('Policies')).toBeNull();
   });
 
   it('collapses a direct grant into a POLICY-sourced wildcard, not just another direct wildcard grant', async () => {
@@ -142,7 +148,10 @@ describe('AccountSettingsPage', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('tab', { name: 'Permissions' }));
-    await screen.findByText('system_superuser');
+    // system_superuser appears twice once its group is expanded by default:
+    // the Policies badge, and again as the source tag on the effective-
+    // permissions chip it granted.
+    await screen.findAllByText('system_superuser');
 
     const directHeading = screen.getByText('Direct permissions');
     const directSection = directHeading.parentElement;

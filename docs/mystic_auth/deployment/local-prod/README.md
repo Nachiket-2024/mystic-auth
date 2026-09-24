@@ -47,7 +47,7 @@ troubleshooting.
 
 All four produce the same app behind the same image/runtime shape: only the
 tunnel service, its Compose file, and its env template differ. Nothing
-about `backend`, `frontend`, `postgres`, `redis`, `procrastinate_worker`,
+about `backend`, `frontend`, `postgres`, `valkey`, `procrastinate_worker`,
 `alembic`, or `bugsink` changes between them.
 
 ```mermaid
@@ -118,11 +118,11 @@ own fixed frontend nginx proxy IP. Rotate the secrets in the copied file
 before real use - `scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh` handles
 `SECRET_KEY`/`BUGSINK_SECRET_KEY` in place; the rest
 (`POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `BUGSINK_SUPERUSER_PASSWORD`,
-`REDIS_PASSWORD`) need a live-service step too, see its own header. Run
+`VALKEY_PASSWORD`) need a live-service step too, see its own header. Run
 `scripts/mystic_auth/env-tools/check-env/check-env.sh <file>` before starting the stack to catch
 a leftover placeholder secret or an already-bound host port. Review
 `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP,
-rate-limit, Redis, and error-monitoring values before sharing the service.
+rate-limit, Valkey, and error-monitoring values before sharing the service.
 
 Build-time values must be final before you run `--build`:
 
@@ -141,8 +141,8 @@ Build-time values must be final before you run `--build`:
 
 Runtime values can be changed with a container restart:
 
-- `SECRET_KEY`, `DATABASE_URL`, `POSTGRES_*`, `REDIS_URL`, and
-  `REDIS_PASSWORD`
+- `SECRET_KEY`, `DATABASE_URL`, `POSTGRES_*`, `VALKEY_URL`, and
+  `VALKEY_PASSWORD`
 - `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`
 - SMTP settings, rate-limit settings, and backend `SENTRY_DSN`
 

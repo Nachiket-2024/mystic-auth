@@ -1,7 +1,7 @@
 # GET /auth/me also surfaces `created_at` (for the dashboard's "Member
 # since" stat) and `active_sessions` (for its "active sessions" stat).
 # active_sessions comes from the Postgres mirror
-# (session_service.count_active_sessions), not Redis, and is only
+# (session_service.count_active_sessions), not Valkey, and is only
 # computed when explicitly requested (include_active_sessions=True): every
 # other route sharing this handler skips the query by default.
 from datetime import UTC, datetime

@@ -27,7 +27,7 @@ async def test_policies_create_only_cannot_mint_a_policy_granting_an_unheld_sens
         "/authorization/policies",
         json={
             "name": unique_policy_name(),
-            "actions": ["users:purge"],  # caller doesn't hold this
+            "actions": ["users:delete_any"],  # caller doesn't hold this
             "resource_type": "users",
         },
     )
@@ -81,7 +81,7 @@ async def test_policies_update_only_cannot_rollback_to_a_revision_holding_an_unh
     policy_name = unique_policy_name()
     create_resp = await client.post(
         "/authorization/policies",
-        json={"name": policy_name, "actions": ["users:purge"], "resource_type": "users"},
+        json={"name": policy_name, "actions": ["users:delete_any"], "resource_type": "users"},
     )
     assert create_resp.status_code == 201
 
@@ -100,7 +100,7 @@ async def test_policies_update_only_cannot_rollback_to_a_revision_holding_an_unh
     # later "downgrade" one
     target_entry = next(
         entry for entry in history
-        if entry["new_definition"] and "users:purge" in entry["new_definition"]["actions"]
+        if entry["new_definition"] and "users:delete_any" in entry["new_definition"]["actions"]
     )
 
     attacker_email = unique_email("rollback-escalate")
@@ -146,7 +146,7 @@ async def test_policies_update_only_cannot_rollback_a_policy_it_does_not_current
     # upgrade to the policy's current definition: a sensitive action the
     # attacker will never hold
     upgrade_resp = await client.put(
-        f"/authorization/policies/{policy_name}", json={"actions": ["users:purge"]}
+        f"/authorization/policies/{policy_name}", json={"actions": ["users:delete_any"]}
     )
     assert upgrade_resp.status_code == 200
 
@@ -156,7 +156,7 @@ async def test_policies_update_only_cannot_rollback_a_policy_it_does_not_current
     )
 
     # attacker holds the target actions (policies:update) but not the
-    # policy's current actions (users:purge): must still be blocked
+    # policy's current actions (users:delete_any): must still be blocked
     rollback_resp = await client.post(
         f"/authorization/policies/{policy_name}/history/{target_entry['id']}/rollback"
     )
@@ -166,7 +166,7 @@ async def test_policies_update_only_cannot_rollback_a_policy_it_does_not_current
     # definition, not rolled back to the attacker-held one
     get_resp = await client.get(f"/authorization/policies/{policy_name}")
     assert get_resp.status_code == 200
-    assert get_resp.json()["actions"] == ["users:purge"]
+    assert get_resp.json()["actions"] == ["users:delete_any"]
 
 
 @pytest.mark.asyncio
@@ -183,7 +183,7 @@ async def test_policies_update_only_cannot_repoint_resource_type_to_activate_a_d
     policy_name = unique_policy_name()
     create_resp = await client.post(
         "/authorization/policies",
-        json={"name": policy_name, "actions": ["users:purge"], "resource_type": "policies"},
+        json={"name": policy_name, "actions": ["users:delete_any"], "resource_type": "policies"},
     )
     assert create_resp.status_code == 201
 
@@ -206,6 +206,6 @@ async def test_system_superuser_can_still_perform_all_of_the_above(client, creat
 
     create_resp = await client.post(
         "/authorization/policies",
-        json={"name": unique_policy_name(), "actions": ["users:purge"], "resource_type": "users"},
+        json={"name": unique_policy_name(), "actions": ["users:delete_any"], "resource_type": "users"},
     )
     assert create_resp.status_code == 201

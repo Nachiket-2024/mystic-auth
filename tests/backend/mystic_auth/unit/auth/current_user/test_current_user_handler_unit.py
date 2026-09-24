@@ -193,7 +193,7 @@ async def test_a_user_with_no_role_gets_admin_level_permissions_if_assigned_admi
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_FakePolicy(["users:list_all", "users:update_any", "users:delete_any"])],
+        return_value=[_FakePolicy(["users:list_all", "users:update_any", "users:deactivate_any"])],
     )
 
     _mock_no_direct_grants(mocker)
@@ -201,7 +201,7 @@ async def test_a_user_with_no_role_gets_admin_level_permissions_if_assigned_admi
     result = await current_user_handler.get_current_user("some-token", db=None)
 
     assert result["role"] is None
-    assert result["permissions"] == ["users:delete_any", "users:list_all", "users:update_any"]
+    assert result["permissions"] == ["users:deactivate_any", "users:list_all", "users:update_any"]
 
 
 # -------------------- Direct (bypasses-Policy) UserPermission grants --------------------

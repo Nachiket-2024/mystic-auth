@@ -1,14 +1,16 @@
 import React from "react";
-import { Box, Grid, Heading, Stack, Text, Wrap } from "@chakra-ui/react";
 import { useTranslation } from "react-i18next";
 
-import Badge from "../ui/Badge";
-import Card from "../ui/Card";
-import LoadingState from "../ui/LoadingState";
-import FormAlert from "../ui/FormAlert";
+import Card from "../ui/cards/Card";
+import SectionHeading from "../ui/navigation/SectionHeading";
+import LoadingState from "../ui/feedback/LoadingState";
+import FormAlert from "../ui/feedback/FormAlert";
 import { useMyPoliciesQuery } from "../policies/queries/policyQueries";
 import { useMyPermissionsQuery } from "../policies/queries/permissionQueries";
-import { buildEffectivePermissionList, dedupeAgainstWildcards } from "../policies/logic/effectiveGrants";
+import { buildEffectiveGrantsWithSource, dedupeAgainstWildcards } from "../policies/logic/effectiveGrants";
+import AccessResourceCards from "../users/dialogs/AccessResourceCards";
+import { formatResourceTypeLabel } from "../policies/policyCardHelpers";
+import { groupPoliciesByResourceType } from "../policies/policyListHelpers";
 
 interface StatusSectionProps {
     heading: string;
@@ -26,10 +28,8 @@ interface StatusSectionProps {
  * permission needed), so isError only ever means a genuine failure, never
  * a permission gap. */
 const StatusSection: React.FC<StatusSectionProps> = ({ heading, isLoading, isError, loadingMessage, failedMessage, children }) => (
-    <Stack gap={2}>
-        <Heading as="h2" size="lg" textStyle="sectionHeader">
-            {heading}
-        </Heading>
+    <div className="flex flex-col gap-2">
+        <SectionHeading>{heading}</SectionHeading>
         {isLoading ? (
             <LoadingState message={loadingMessage} />
         ) : isError ? (
@@ -37,7 +37,7 @@ const StatusSection: React.FC<StatusSectionProps> = ({ heading, isLoading, isErr
         ) : (
             children
         )}
-    </Stack>
+    </div>
 );
 
 /**
@@ -86,9 +86,17 @@ const AccountStatusCard: React.FC = () => {
     // understate what the caller can really do (same guard as
     // UserDetailsDialog's canReadEffectivePermissions).
     const bothLoaded = !policiesLoading && !policiesError && !permissionsLoading && !permissionsError;
-    const effectivePermissions = bothLoaded
-        ? dedupeAgainstWildcards(buildEffectivePermissionList(policies, rawDirectPermissions))
+    // Carries policy-name/"Direct" source labels, same as UserDetailsDialog's
+    // admin-facing equivalent, so AccessResourceCards can show WHY the
+    // caller holds each grant, not just what they hold.
+    const effectiveWithSource = bothLoaded
+        ? dedupeAgainstWildcards(buildEffectiveGrantsWithSource(policies, rawDirectPermissions))
         : [];
+    const effectivePermissions = effectiveWithSource.map((g) => ({
+        action: g.action,
+        resource_type: g.resource_type,
+        sourceLabels: g.direct ? [...g.policyNames, t("accountStatus.directSourceLabel")] : g.policyNames,
+    }));
     // Dedupe raw direct grants against the full effective set (policies +
     // direct grants), not just against each other: a policy's own wildcard
     // (e.g. "system_superuser" on resource_type "*") already covers a direct
@@ -96,18 +104,18 @@ const AccountStatusCard: React.FC = () => {
     // itself while policies haven't loaded yet.
     const directPermissions = dedupeAgainstWildcards(
         rawDirectPermissions,
-        bothLoaded ? buildEffectivePermissionList(policies, rawDirectPermissions) : rawDirectPermissions
+        bothLoaded ? effectiveWithSource : rawDirectPermissions
     );
 
     return (
-        <Card p={5}>
+        <Card className="p-5">
             {/* alignItems="start": Grid's default (stretch) would force both
                 columns to the height of the taller one, usually the right column,
                 leaving the shorter column with a trailing gap of whitespace
                 instead of ending where its content ends. Same as
                 UserDetailsDialog's Grid. */}
-            <Grid templateColumns={{ base: "1fr", md: "fit-content(320px) 1fr" }} gap={0} alignItems="start">
-                <Stack gap={4} minW={0} pe={{ base: 0, md: 6 }} pb={{ base: 4, md: 0 }}>
+            <div className="grid grid-cols-1 md:grid-cols-[fit-content(320px)_1fr] gap-0 items-start">
+                <div className="flex flex-col gap-4 min-w-0 pb-4 md:pb-0 md:pe-6">
                     <StatusSection
                         heading={t("accountStatus.myPolicies")}
                         isLoading={policiesLoading}
@@ -116,19 +124,26 @@ const AccountStatusCard: React.FC = () => {
                         failedMessage={t("accountStatus.failedLoadPolicies")}
                     >
                         {policies.length > 0 ? (
-                            <Wrap gap={2}>
-                                {policies.map((p) => (
-                                    <Badge key={p.name} colorPalette="brand" variant="subtle" size="md" fontSize="md">
-                                        {p.name}
-                                    </Badge>
+                            <div className="flex flex-col gap-3">
+                                {groupPoliciesByResourceType(policies).map(([resourceType, groupedPolicies]) => (
+                                    <div key={resourceType} className="flex flex-col gap-1.5">
+                                        <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                                            {formatResourceTypeLabel(resourceType)}
+                                        </span>
+                                        {groupedPolicies.map((p) => (
+                                            <p key={p.name} className="text-sm font-medium text-fg-default">
+                                                {p.name}
+                                            </p>
+                                        ))}
+                                    </div>
                                 ))}
-                            </Wrap>
+                            </div>
                         ) : (
-                            <Text color="fg.muted">{t("accountStatus.noPolicies")}</Text>
+                            <p className="text-fg-muted">{t("accountStatus.noPolicies")}</p>
                         )}
                     </StatusSection>
 
-                    <Box borderTopWidth="1px" borderColor="border.default" />
+                    <div className="border-t border-border-default" />
 
                     {/* Raw direct grants only, not fanned out through any policy,
                         so it's clear which entries in Effective permissions came
@@ -143,29 +158,11 @@ const AccountStatusCard: React.FC = () => {
                         loadingMessage={t("accountStatus.loadingDirectPermissions")}
                         failedMessage={t("accountStatus.failedLoadDirectPermissions")}
                     >
-                        {directPermissions.length > 0 ? (
-                            <Wrap gap={2}>
-                                {directPermissions.map((g) => (
-                                    <Badge key={`${g.action}:${g.resource_type}`} colorPalette="purple" variant="subtle" size="md" fontSize="md">
-                                        {g.action} <Text as="span" color="fg.muted">({g.resource_type})</Text>
-                                    </Badge>
-                                ))}
-                            </Wrap>
-                        ) : (
-                            <Text color="fg.muted">{t("accountStatus.noDirectPermissions")}</Text>
-                        )}
+                        <AccessResourceCards items={directPermissions} emptyText={t("accountStatus.noDirectPermissions")} />
                     </StatusSection>
-                </Stack>
+                </div>
 
-                <Stack
-                    gap={4}
-                    minW={0}
-                    ps={{ base: 0, md: 6 }}
-                    pt={{ base: 4, md: 0 }}
-                    borderTopWidth={{ base: "1px", md: 0 }}
-                    borderStartWidth={{ base: 0, md: "1px" }}
-                    borderColor="border.default"
-                >
+                <div className="flex flex-col gap-4 min-w-0 pt-4 md:pt-0 md:ps-6 border-t md:border-t-0 md:border-s border-border-default">
                     {/* Union of every action the caller holds either way (policies
                         and direct grants), not just the raw direct grants in the
                         left column, so this reads as "everything I can actually do".
@@ -177,20 +174,10 @@ const AccountStatusCard: React.FC = () => {
                         loadingMessage={t("accountStatus.loadingEffectivePermissions")}
                         failedMessage={t("accountStatus.failedLoadEffectivePermissions")}
                     >
-                        {effectivePermissions.length > 0 ? (
-                            <Wrap gap={2}>
-                                {effectivePermissions.map((g) => (
-                                    <Badge key={`${g.action}:${g.resource_type}`} colorPalette="teal" variant="subtle" size="md" fontSize="md">
-                                        {g.action} <Text as="span" color="fg.muted">({g.resource_type})</Text>
-                                    </Badge>
-                                ))}
-                            </Wrap>
-                        ) : (
-                            <Text color="fg.muted">{t("accountStatus.noPermissions")}</Text>
-                        )}
+                        <AccessResourceCards items={effectivePermissions} emptyText={t("accountStatus.noPermissions")} />
                     </StatusSection>
-                </Stack>
-            </Grid>
+                </div>
+            </div>
         </Card>
     );
 };

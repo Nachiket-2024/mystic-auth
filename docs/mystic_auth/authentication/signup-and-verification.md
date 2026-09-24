@@ -67,7 +67,7 @@ sequenceDiagram
 sequenceDiagram
     participant U as User (browser)
     participant API as Backend
-    participant R as Redis
+    participant R as Valkey
     participant DB as Postgres
     U->>API: POST /auth/verify-account { token }
     API->>API: decode JWT (role=verify claim)
@@ -87,7 +87,7 @@ sequenceDiagram
 ---
 
 1. The verification token is a scoped JWT (`role="verify"` internally, distinct from a login
-   token), paired with a Redis key `verify:{token}` that makes it single-use even within the JWT's
+   token), paired with a Valkey key `verify:{token}` that makes it single-use even within the JWT's
    own expiry window.
 2. Redemption is an atomic `GETDEL`, the same single-use pattern used by password reset and
    account-delete confirmation tokens elsewhere in this app.
@@ -114,7 +114,7 @@ sequenceDiagram
 `tests/backend/mystic_auth/unit/auth/signup/test_signup_unit.py` and
 `tests/backend/mystic_auth/unit/auth/verify_account/` cover the handler/service logic in
 isolation; integration coverage exercises the full signup-to-verified path against real
-Postgres/Redis. See [Testing Overview](../testing/overview.md).
+Postgres/Valkey. See [Testing Overview](../testing/overview.md).
 
 ---
 

@@ -1,16 +1,16 @@
 import type { Page, Route } from "@playwright/test";
 
-const API_BASE_URL = "http://localhost:8000";
+export const API_BASE_URL = "http://localhost:8000";
 
 export const ALL_PERMISSIONS = [
   "users:read_own",
   "users:update_own",
   "users:list_all",
   "users:update_any",
-  "users:delete_any",
+  "users:deactivate_any",
   "users:assign_role",
   "users:assign_system_role",
-  "users:purge",
+  "users:delete_any",
   "users:reactivate",
   "policies:read",
   "policies:create",
@@ -46,6 +46,20 @@ export const leastPrivilegeProfile = {
   created_at: "2026-02-01T00:00:00Z",
   active_sessions: 1,
   brand_color: null,
+};
+
+export const policiesReadOnlyProfile = {
+  ...leastPrivilegeProfile,
+  name: "Policy Reader",
+  email: "policy-reader@example.com",
+  permissions: ["policies:read"],
+};
+
+export const policiesEditorProfile = {
+  ...policiesReadOnlyProfile,
+  name: "Policy Editor",
+  email: "policy-editor@example.com",
+  permissions: ["policies:read", "policies:update"],
 };
 
 export const users = [
@@ -127,6 +141,14 @@ export const permissionCatalog = [
   { action: "rate_limits:reset", resource_type: "rate_limits", description: "Reset rate-limit counters." },
 ];
 
+const permissionCatalogUsage = permissionCatalog.map((permission) => ({
+  action: permission.action,
+  policy_user_count: permission.action === "users:list_all" ? 1 : 0,
+  direct_grant_count: permission.action === "users:read_own" ? 1 : 0,
+  policies: permission.action === "users:list_all" ? ["system_superuser"] : [],
+  total_user_count: permission.action === "users:read_own" || permission.action === "users:list_all" ? 1 : 0,
+}));
+
 const authorizationLogs = [
   {
     id: 1,
@@ -157,6 +179,14 @@ const securityLogs = [
   },
 ];
 
+// Keep the fixture larger than PAGE_SIZE so the drawer's keyboard navigation is tested
+// across the server-side page boundary, not only within the first rendered page.
+const authorizationLogsForPaging = Array.from({ length: 55 }, (_, index) => ({
+  ...authorizationLogs[0],
+  id: index + 1,
+  created_at: `2026-03-${String(1 + Math.floor(index / 24)).padStart(2, "0")}T${String(index % 24).padStart(2, "0")}:00:00Z`,
+}));
+
 const rateLimits = [
   {
     key: "login:ip:127.0.0.1",
@@ -184,13 +214,17 @@ export async function installAuthenticatedMysticAuthApiRoutes(page: Page, profil
   await page.route(`${API_BASE_URL}/auth/sessions**`, (route) => fulfillJson(route, []));
   await page.route(`${API_BASE_URL}/auth/logout`, (route) => fulfillJson(route, { detail: "Logged out" }));
   await page.route(`${API_BASE_URL}/auth/logout/all`, (route) => fulfillJson(route, { detail: "Logged out" }));
-  await page.route(`${API_BASE_URL}/users/stats`, (route) => fulfillJson(route, { total: 3, verified: 2, unverified: 1, inactive: 1 }));
   await page.route(`${API_BASE_URL}/users/export**`, (route) => route.fulfill({ body: "name,email\nPlaywright System,playwright-system@example.com\n", headers: corsHeaders() }));
   await page.route(`${API_BASE_URL}/users/**/policies**`, userPolicyRoute);
   await page.route(`${API_BASE_URL}/users/**/permissions**`, userPermissionRoute);
   await page.route(`${API_BASE_URL}/users/**`, userMutationRoute);
   await page.route(`${API_BASE_URL}/users/**`, userListRoute);
+  // Registered after the /users/** catch-alls: Playwright runs the most
+  // recently registered matching route first, so registering this earlier
+  // let userListRoute answer /users/stats instead.
+  await page.route(`${API_BASE_URL}/users/stats`, (route) => fulfillJson(route, { total: 3, verified: 2, unverified: 1, inactive: 1 }));
   await page.route(`${API_BASE_URL}/authorization/permissions/catalog`, (route) => fulfillJson(route, permissionCatalog));
+  await page.route(`${API_BASE_URL}/authorization/permissions/catalog/usage`, (route) => fulfillJson(route, permissionCatalogUsage));
   await page.route(`${API_BASE_URL}/authorization/users/me/policies`, (route) => fulfillJson(route, { user_email: profile.email, policies }));
   await page.route(`${API_BASE_URL}/authorization/users/me/permissions`, (route) => fulfillJson(route, { user_email: profile.email, permissions: [] }));
   await page.route(`${API_BASE_URL}/authorization/users/**/policies**`, userPolicyRoute);
@@ -198,7 +232,7 @@ export async function installAuthenticatedMysticAuthApiRoutes(page: Page, profil
   await page.route(`${API_BASE_URL}/authorization/policies/**/history**`, (route) => fulfillJson(route, []));
   await page.route(`${API_BASE_URL}/authorization/policies/**`, policyMutationRoute);
   await page.route(`${API_BASE_URL}/authorization/policies**`, policyListRoute);
-  await page.route(`${API_BASE_URL}/authorization/audit-log**`, auditRoute(authorizationLogs));
+  await page.route(`${API_BASE_URL}/authorization/audit-log**`, auditRoute(authorizationLogsForPaging));
   await page.route(`${API_BASE_URL}/audit/security-log**`, auditRoute(securityLogs));
   await page.route(`${API_BASE_URL}/rate-limits/**`, rateLimitMutationRoute);
   await page.route(`${API_BASE_URL}/rate-limits/**`, rateLimitListRoute);
@@ -217,7 +251,7 @@ function corsHeaders(extra?: Record<string, string>) {
   };
 }
 
-function fulfillJson(route: Route, json: unknown, headers?: Record<string, string>, status = 200) {
+export function fulfillJson(route: Route, json: unknown, headers?: Record<string, string>, status = 200) {
   return route.fulfill({ status, json, headers: corsHeaders(headers) });
 }
 
@@ -225,7 +259,25 @@ function userListRoute(route: Route) {
   if (route.request().method() !== "GET") return route.fallback();
   const url = new URL(route.request().url());
   const search = url.searchParams.get("search")?.toLowerCase() ?? "";
-  const rows = search ? users.filter((user) => `${user.name} ${user.email}`.toLowerCase().includes(search)) : users;
+  const role = url.searchParams.get("role");
+  const verified = url.searchParams.get("is_verified");
+  const status = url.searchParams.get("status");
+  const policy = url.searchParams.get("policy");
+  const policyHolders: Record<string, number[]> = {
+    self_service: [1, 2, 3],
+    policy_admin: [1],
+  };
+  const rows = users.filter((user) => {
+    if (search && !`${user.name} ${user.email}`.toLowerCase().includes(search)) return false;
+    if (role && user.role !== role) return false;
+    if (verified === "true" && !user.is_verified) return false;
+    if (verified === "false" && user.is_verified) return false;
+    const effectiveStatus = status ?? (verified ? "active" : null);
+    if (effectiveStatus === "active" && (!user.is_active || user.deleted_at)) return false;
+    if (effectiveStatus === "deleted" && !user.deleted_at) return false;
+    if (policy && !policyHolders[policy]?.includes(user.id)) return false;
+    return true;
+  });
   return withTotal(route, rows, rows.length > 1 ? 52 : rows.length);
 }
 
@@ -260,13 +312,26 @@ function auditRoute(rows: unknown[]) {
     if (route.request().url().includes("login-trend")) {
       return fulfillJson(route, [{ date: "2026-03-01", success: 1, failure: 0 }]);
     }
-    return withTotal(route, rows, 55);
+    const url = new URL(route.request().url());
+    const limit = Number(url.searchParams.get("limit") ?? 50);
+    const offset = Number(url.searchParams.get("offset") ?? 0);
+    return withTotal(route, rows.slice(offset, offset + limit), rows.length);
   };
 }
 
 function rateLimitListRoute(route: Route) {
-  if (route.request().method() !== "GET") return route.fallback();
-  return fulfillJson(route, { entries: rateLimits, total: 22, truncated: false });
+    if (route.request().method() !== "GET") return route.fallback();
+    if (route.request().url().endsWith("/rate-limits/summary")) {
+        return fulfillJson(route, {
+            total: 22,
+            at_limit: 4,
+            login_lockouts: 1,
+            by_endpoint: { login: 10, login_lock: 1 },
+            by_scope: { ip: 15, account: 6, email: 1 },
+            truncated: false,
+        });
+    }
+    return fulfillJson(route, { entries: rateLimits, total: 22, truncated: false });
 }
 
 function rateLimitMutationRoute(route: Route) {

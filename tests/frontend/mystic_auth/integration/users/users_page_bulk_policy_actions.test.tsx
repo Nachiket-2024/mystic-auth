@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -12,7 +11,7 @@ import UsersPage from '@/users/UsersPage';
 import { Toaster } from '@/ui/toaster/toaster';
 import { toaster } from '@/ui/toaster/toasterInstance';
 
-// BulkPolicyAssignDialog: fans one chosen policy out across every selected
+// BulkUserAccessDialog: fans one chosen policy out across every selected
 // user via the real bulk endpoint, not a client-side loop over the single-item one.
 
 const mock = new MockAdapter(api);
@@ -37,12 +36,10 @@ function renderPage({ withToaster = false } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <UsersPage />
           {withToaster && <Toaster />}
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
@@ -90,7 +87,7 @@ describe('UsersPage bulk policy actions', () => {
   });
 
   it('bulk-assigns a policy to every selected user via the real bulk endpoint', async () => {
-    seed(['users:list_all', 'policies:assign', 'policies:read']);
+    seed(['users:list_all', 'policies:assign', 'policies:read', 'reports:view']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'reporting', description: '', actions: ['reports:view'], resource_type: 'reports', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
@@ -112,7 +109,7 @@ describe('UsersPage bulk policy actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Assign / revoke policy' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Select a policy to assign', { selector: 'select' }), 'reporting');
+    await user.click(within(dialog).getByRole('switch', { name: 'reporting' }));
     await user.click(within(dialog).getByRole('button', { name: 'Assign to selected' }));
 
     await waitFor(() => expect(mock.history.post.length).toBe(1));
@@ -122,13 +119,13 @@ describe('UsersPage bulk policy actions', () => {
         { user_email: 'user@example.com', policy_name: 'reporting' },
       ],
     });
-    expect(await within(dialog).findByText('2 succeeded, 0 failed')).toBeInTheDocument();
+    expect(await screen.findByText('2 succeeded, 0 failed')).toBeInTheDocument();
   });
 
   it('does not still show the previous run\'s result summary when the bulk policy dialog is reopened', async () => {
     // Regression: react-query mutations keep their last `.data` around across
     // remounts, so a reopened dialog used to show the previous run's summary.
-    seed(['users:list_all', 'policies:assign', 'policies:read']);
+    seed(['users:list_all', 'policies:assign', 'policies:read', 'reports:view']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'reporting', description: '', actions: ['reports:view'], resource_type: 'reports', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
@@ -147,10 +144,16 @@ describe('UsersPage bulk policy actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Assign / revoke policy' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Select a policy to assign', { selector: 'select' }), 'reporting');
+    await user.click(within(dialog).getByRole('switch', { name: 'reporting' }));
     await user.click(within(dialog).getByRole('button', { name: 'Assign to selected' }));
-    expect(await within(dialog).findByText('1 succeeded, 0 failed')).toBeInTheDocument();
+    expect(await screen.findByText('1 succeeded, 0 failed')).toBeInTheDocument();
 
+    const resultDialog = screen.getAllByRole('dialog').find((candidate) =>
+      within(candidate).queryByText('Assign policy: reporting'),
+    );
+    expect(resultDialog).toBeDefined();
+    expect(within(resultDialog!).getByText('reporting')).toBeInTheDocument();
+    await user.click(within(resultDialog!).getByRole('button', { name: 'Close' }));
     await user.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
@@ -162,7 +165,7 @@ describe('UsersPage bulk policy actions', () => {
   it('surfaces a toast when the bulk-assign request itself fails (not a per-item error)', async () => {
     // Regression: a request-level failure used to leave the button's spinner
     // just stop, with no error feedback.
-    seed(['users:list_all', 'policies:assign', 'policies:read']);
+    seed(['users:list_all', 'policies:assign', 'policies:read', 'reports:view']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'reporting', description: '', actions: ['reports:view'], resource_type: 'reports', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
@@ -177,15 +180,15 @@ describe('UsersPage bulk policy actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Assign / revoke policy' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Select a policy to assign', { selector: 'select' }), 'reporting');
+    await user.click(within(dialog).getByRole('switch', { name: 'reporting' }));
     await user.click(within(dialog).getByRole('button', { name: 'Assign to selected' }));
 
     expect(await screen.findByText('bulk assign failed')).toBeInTheDocument();
   });
 
-  it('excludes a policy that adds nothing the sole selected user (themselves) does not already effectively hold, from the bulk-assign dropdown', async () => {
+  it('excludes a policy that adds nothing the sole selected user (themselves) does not already effectively hold, from the bulk-assign list', async () => {
     // Same regression as the matching test for direct permission grants.
-    seed(['users:list_all', 'policies:assign']);
+    seed(['users:list_all', 'policies:assign', 'reports:view']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'user_administration', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
@@ -208,17 +211,14 @@ describe('UsersPage bulk policy actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Assign / revoke policy' }));
 
     const dialog = await screen.findByRole('dialog');
-    const policySelect = within(dialog).getByLabelText('Select a policy to assign', { selector: 'select' });
-    const optionLabels = Array.from(policySelect.querySelectorAll('option')).map((o) => o.textContent);
-
-    expect(optionLabels).toContain('reporting');
-    expect(optionLabels.includes('user_administration')).toBe(false);
+    expect(within(dialog).getByText('reporting')).toBeInTheDocument();
+    expect(within(dialog).queryByText('user_administration')).toBeNull();
   });
 
   it('shows "already had this" for a bulk-assign item the backend reports as a no-op', async () => {
     // status "already_held" is a genuine no-op the backend reports separately
     // from "success", since the picker doesn't filter per-user across a bulk selection.
-    seed(['users:list_all', 'policies:assign', 'policies:read']);
+    seed(['users:list_all', 'policies:assign', 'policies:read', 'reports:view']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'reporting', description: '', actions: ['reports:view'], resource_type: 'reports', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
@@ -240,11 +240,11 @@ describe('UsersPage bulk policy actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Assign / revoke policy' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Select a policy to assign', { selector: 'select' }), 'reporting');
+    await user.click(within(dialog).getByRole('switch', { name: 'reporting' }));
     await user.click(within(dialog).getByRole('button', { name: 'Assign to selected' }));
 
-    expect(await within(dialog).findByText('2 succeeded, 0 failed')).toBeInTheDocument();
-    expect(within(dialog).getByText('already had this')).toBeInTheDocument();
+    expect(await screen.findByText('2 succeeded, 0 failed')).toBeInTheDocument();
+    expect(screen.getByText('already had this')).toBeInTheDocument();
   });
 
   it('hides "Remove from selected" in the bulk policy dialog when the caller lacks policies:revoke', async () => {

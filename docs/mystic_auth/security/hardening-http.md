@@ -35,7 +35,9 @@ Response headers, CORS, cookie flags, middleware ordering, and error handling: t
 
 4. `docker/mystic_auth/nginx.frontend.conf` mirrors most of the backend's header set for the SPA response (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `Cross-Origin-Embedder-Policy`, plus its own less-strict CSP), and also disables `server_tokens` to stop the nginx version leaking in the `Server` response header.
 
-5. The frontend's `style-src` has no `'unsafe-inline'`: Chakra UI's `@emotion/react` runtime inserts a small, fixed number of `<style data-emotion="...">` tags once at startup and mutates their rules afterward via the CSSOM, never by rewriting `textContent` - so their hashed content stays constant across this app's own CSS, theme, brand color, and dark-mode state (verified with Playwright across public pages, an authenticated session, and a dark-mode toggle: same three `sha256-...` violations with `'unsafe-inline'` removed, zero with the hashes allow-listed instead). See the comment above `style-src` in `docker/mystic_auth/nginx.frontend.conf` for how to regenerate the three hashes if an Emotion/Chakra upgrade changes this insertion strategy.
+5. The frontend's `style-src` has no `'unsafe-inline'`. The three `sha256-...` hashes currently allow-listed there were computed for Chakra UI's `@emotion/react` runtime, which inserted a small, fixed number of `<style data-emotion="...">` tags once at startup and mutated their rules afterward via the CSSOM, never by rewriting `textContent` - so their hashed content stayed constant across this app's own CSS, theme, brand color, and dark-mode state (verified with Playwright across public pages, an authenticated session, and a dark-mode toggle: same three `sha256-...` violations with `'unsafe-inline'` removed, zero with the hashes allow-listed instead). Chakra/Emotion were later replaced with Tailwind/shadcn (static utility classes, no CSS-in-JS runtime), so whether the app still needs any hash here at all - or `style-src` can now drop to a bare `'self'` - has not been re-verified since that migration; treat the three hashes above as historical/unconfirmed until someone re-runs the same Playwright verification against the current build. See the comment above `style-src` in `docker/mystic_auth/nginx.frontend.conf`.
+
+6. The shared frontend toast renderer (`frontend/src/mystic_auth/ui/toaster/`) is app-owned and styled from the bundled Tailwind stylesheet. It deliberately does not use a library that injects runtime `<style>` tags, so toast notifications remain compatible with the strict production CSP without adding `'unsafe-inline'`. Keep new toast styling in `frontend/src/mystic_auth/theme/tailwind.css` rather than adding runtime style injection.
 
 ---
 
@@ -55,11 +57,13 @@ Response headers, CORS, cookie flags, middleware ordering, and error handling: t
 
 | Cookie | Path | Flags | Set by |
 |---|---|---|---|
-| `access_token` | `/` | `httponly`, `secure`, `samesite=Strict` | `token_cookie_handler.py` |
-| `refresh_token` | `/auth` | `httponly`, `secure`, `samesite=Strict` | `token_cookie_handler.py` |
-| `oauth_state` | `/` | `httponly`, `secure`, `samesite=Lax` (must survive Google's cross-site redirect) | `oauth2_login_handler.py` |
+| `access_token` | `/` | `httponly`, `secure` outside development, `samesite=Strict` | `token_cookie_handler.py` |
+| `refresh_token` | `/auth` | `httponly`, `secure` outside development, `samesite=Strict` | `token_cookie_handler.py` |
+| `oauth_state` | `/` | `httponly`, `secure` outside development, `samesite=Lax` (must survive Google's cross-site redirect) | `oauth2_login_handler.py` |
 
-`secure=True` on every cookie means **local HTTP development requires the browser to treat `localhost` as a secure context** (modern browsers do this automatically for `localhost`). This will not work over plain HTTP on a non-localhost hostname.
+The development stack uses plain HTTP, so it intentionally omits `Secure` for browser
+compatibility. Local-prod and production must use HTTPS and set `Secure`; the setting is
+derived from `ENVIRONMENT`, not from a request-controlled host or scheme.
 
 ---
 

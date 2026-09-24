@@ -30,8 +30,8 @@ loads them from process environment or `env/mystic_auth/.env`.
 | `GOOGLE_CLIENT_ID` | string | yes, can be placeholder until OAuth is used | Google OAuth2 client id used by the login redirect and token exchange. |
 | `GOOGLE_CLIENT_SECRET` | string secret | yes, can be placeholder until OAuth is used | Google OAuth2 token exchange secret. |
 | `GOOGLE_REDIRECT_URI` | string URL | yes | Must exactly match the callback URL registered in Google Cloud. |
-| `REDIS_URL` | Redis URL | yes | Redis client connection for rate limits, lockout, token versions, single-use refresh claims, OAuth state, policy cache, and Pub/Sub. |
-| `CACHE_DEFAULT_TTL` | integer seconds | yes | Default Redis cache TTL used by the authorization cache. |
+| `VALKEY_URL` | Valkey URL | yes | Valkey client connection for rate limits, lockout, token versions, single-use refresh claims, OAuth state, policy cache, and Pub/Sub. |
+| `CACHE_DEFAULT_TTL` | integer seconds | yes | Default Valkey cache TTL used by the authorization cache. |
 | `FROM_EMAIL` | email string | yes | SMTP username and email `From` address. |
 | `GMAIL_APP_PASSWORD` | string secret | yes, can be placeholder if email disabled | SMTP password for the Gmail sender account. |
 | `SUPPORT_EMAIL` | email string | yes, can be empty | Email `Reply-To`, legal page contact, and optional sidebar support link. Empty falls back to `FROM_EMAIL` for email sending. |
@@ -43,6 +43,7 @@ loads them from process environment or `env/mystic_auth/.env`.
 | `MAX_FAILED_LOGIN_ATTEMPTS` | integer | yes | Failed login threshold per account. |
 | `LOGIN_LOCKOUT_TIME_PER_IP` | integer seconds | yes | IP lockout duration after too many failed login attempts across accounts. |
 | `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` | integer | yes | Failed login threshold per IP. |
+| `ACTION_RESERVATION_TIME` | integer seconds | no, defaults to `60` | Valkey reservation lifetime used to serialize concurrent password-reset, verification, and account-deletion confirmations. Keep it longer than the slowest expected mutation, but shorter than the user-facing lockout window. |
 | `MAX_REQUESTS_PER_WINDOW` | integer | yes | Shared request count for the generic auth route rate limiter. |
 | `REQUEST_WINDOW_SECONDS` | integer seconds | yes | Shared fixed-window length for the generic auth route rate limiter. |
 | `LOG_LEVEL` | string | yes | Application logger level. Used by `logging_config.py`. |

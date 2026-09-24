@@ -1,4 +1,4 @@
-# Reuses the real-dependency fixtures (client, created_emails, Redis
+# Reuses the real-dependency fixtures (client, created_emails, Valkey
 # isolation) from tests/backend/integration/, since pytest walks up to find
 # conftest.py files. This file just adds user-creation helpers for
 # security/attack-scenario tests.
@@ -18,8 +18,8 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
 )
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.redis.client import redis_client
 from backend.mystic_auth.user.user_crud_collector import user_crud
+from backend.mystic_auth.valkey.client import valkey_client
 
 PASSWORD = "StrongPass123!"
 
@@ -51,7 +51,7 @@ async def create_verified_user(client, created_emails, email, policy_names):
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await redis_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 

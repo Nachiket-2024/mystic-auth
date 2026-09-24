@@ -56,6 +56,32 @@ disposable scratch database on the same Postgres server (never touching the
 real one), runs a smoke check against it (the schema migrated and the
 `users` table exists), then drops the scratch database.
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Dump["pg_dump the running\napp database"]
+    Scratch["Restore into a disposable\nscratch database\n(same Postgres server)"]
+    Smoke["Smoke check:\nschema migrated,\nusers table exists"]
+    Pass{"All checks pass?"}
+    Drop["Drop the scratch database"]
+    Fail["Exit non-zero\n(dump/restore/missing-schema)"]
+
+    Dump --> Scratch --> Smoke --> Pass
+    Pass -- "yes" --> Drop
+    Pass -- "no" --> Fail
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Pass decision
+    class Fail caution
+    class Drop terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+The real database is never touched by any step above - the drill's whole point is proving
+restorability without risking the thing it's protecting.
+
 ```bash
 # Prove the dev stack's own database is restorable
 scripts/mystic_auth/db/db_restore_drill.sh

@@ -110,13 +110,13 @@ async def test_authorize_batch_combines_direct_grants_with_policies_for_every_ch
         new_callable=AsyncMock,
         return_value=[_grant("users:list_all")],
     )
-    mocker.patch(f"{MODULE}.audit_log_repository.create_entries", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.authorization_audit_log_repository.create_entries", new_callable=AsyncMock)
 
     decisions = await authorization_service.authorize_batch(
         "user@example.com",
         [
             {"action": "users:list_all", "resource_type": "users"},
-            {"action": "users:purge", "resource_type": "users"},
+            {"action": "users:delete_any", "resource_type": "users"},
         ],
         db=None,
     )

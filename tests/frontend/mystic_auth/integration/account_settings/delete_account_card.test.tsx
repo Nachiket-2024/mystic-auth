@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
 import { MemoryRouter } from 'react-router';
 import MockAdapter from 'axios-mock-adapter';
 
@@ -32,17 +31,15 @@ function renderAccountSettings() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ChakraProvider value={defaultSystem}>
         <MemoryRouter>
           <AccountSettingsPage />
         </MemoryRouter>
-      </ChakraProvider>
     </QueryClientProvider>
   );
 }
 
 async function openDangerTab(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('tab', { name: 'Danger Zone' }));
+  await user.click(screen.getByRole('tab', { name: 'Delete account' }));
 }
 
 describe('DeleteAccountCard', () => {

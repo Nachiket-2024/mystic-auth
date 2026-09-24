@@ -231,7 +231,7 @@ async def main() -> None:
             return
 
         await run_scenario(
-            "POST /auth/login (real Argon2 hash + Redis lockout counters, repeated)",
+            "POST /auth/login (real Argon2 hash + Valkey lockout counters, repeated)",
             args.base_url,
             "POST",
             "/auth/login",

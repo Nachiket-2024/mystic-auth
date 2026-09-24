@@ -1,8 +1,8 @@
 # Unit coverage for RateLimitDashboardService.list_active_limits /
 # reset_counter, the admin Rate Limit Dashboard's read/reset primitives.
-# Patches redis_client's individual methods directly rather than
-# standing up a real Redis, since these are pure request/response-shape
-# tests (see test_rate_limit_routes_integration.py for the real-Redis
+# Patches valkey_client's individual methods directly rather than
+# standing up a real Valkey, since these are pure request/response-shape
+# tests (see test_rate_limit_routes_integration.py for the real-Valkey
 # path).
 from unittest.mock import AsyncMock
 
@@ -15,6 +15,7 @@ from backend.mystic_auth.auth.security.rate_limiting.rate_limit_dashboard_servic
 from backend.mystic_auth.auth.security.rate_limiting.rate_limiter_service import (
     RateLimiterService,
 )
+from backend.mystic_auth.core.settings import settings
 
 MODULE = "backend.mystic_auth.auth.security.rate_limiting.rate_limit_dashboard_service"
 
@@ -33,7 +34,7 @@ def _reset_scan_snapshot_cache():
 
 
 class _FakePipeline:
-    """Duck-typed stand-in for redis.asyncio.client.Pipeline: only used as
+    """Duck-typed stand-in for valkey.asyncio.client.Pipeline: only used as
     an async context manager whose .get()/.ttl() queue commands and whose
     .execute() returns a pre-canned flat [count, ttl, count, ttl, ...]
     result list, matching list_active_limits' own GET/TTL-per-key pairing.
@@ -59,11 +60,11 @@ class _FakePipeline:
 
 
 def _patch_scan(mocker, next_cursor, keys):
-    return mocker.patch(f"{MODULE}.redis_client.scan", new_callable=AsyncMock, return_value=(next_cursor, keys))
+    return mocker.patch(f"{MODULE}.valkey_client.scan", new_callable=AsyncMock, return_value=(next_cursor, keys))
 
 
 def _patch_pipeline(mocker, results):
-    return mocker.patch(f"{MODULE}.redis_client.pipeline", return_value=_FakePipeline(results))
+    return mocker.patch(f"{MODULE}.valkey_client.pipeline", return_value=_FakePipeline(results))
 
 
 @pytest.mark.asyncio
@@ -125,11 +126,11 @@ async def test_list_active_limits_walks_multiple_scan_batches_until_cursor_zero(
     # A keyspace that spans more than one SCAN batch must be walked fully
     # (cursor chained through) before the total/page can be computed.
     scan_mock = mocker.patch(
-        f"{MODULE}.redis_client.scan",
+        f"{MODULE}.valkey_client.scan",
         new_callable=AsyncMock,
         side_effect=[(11, ["login:ip:1.1.1.1"]), (0, ["login:ip:2.2.2.2"])],
     )
-    _patch_pipeline(mocker, ["1", 10])
+    _patch_pipeline(mocker, ["1", 10, "1", 10])
 
     entries, total, truncated = await rate_limit_dashboard_service.list_active_limits(page=1, page_size=1)
 
@@ -158,7 +159,7 @@ async def test_list_active_limits_slices_the_requested_page(mocker):
     # Sorted key order ("login:account:..." < "login:ip:...") must be
     # stable across requests since a fresh walk's SCAN order isn't.
     _patch_scan(mocker, 0, ["login:ip:2.2.2.2", "login:account:a@example.com", "login:ip:1.1.1.1"])
-    _patch_pipeline(mocker, ["1", 10])
+    _patch_pipeline(mocker, ["1", 10, "1", 10, "1", 10])
 
     entries, total, _ = await rate_limit_dashboard_service.list_active_limits(page=2, page_size=1)
 
@@ -168,8 +169,34 @@ async def test_list_active_limits_slices_the_requested_page(mocker):
 
 
 @pytest.mark.asyncio
+async def test_list_active_limits_sorts_before_slicing_the_requested_page(mocker):
+    _patch_scan(mocker, 0, [
+        "login:ip:1.1.1.1",
+        "signup:ip:2.2.2.2",
+        "password_reset_request:ip:3.3.3.3",
+    ])
+    _patch_pipeline(mocker, ["1", 10, "9", 20, "4", 30])
+
+    entries, total, _ = await rate_limit_dashboard_service.list_active_limits(
+        page=1, page_size=1, sort_by="count", sort_dir="desc"
+    )
+
+    assert total == 3
+    assert entries[0]["count"] == 9
+
+
+@pytest.mark.asyncio
+async def test_reset_counter_rejects_a_fabricated_rate_limit_key(mocker):
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
+
+    await rate_limit_dashboard_service.reset_counter("fabricated:not-a-rate-limit-scope:1.2.3.4")
+
+    delete_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_list_active_limits_filters_by_scope_and_endpoint_via_match_pattern(mocker):
-    # Filtering happens Redis-side (the MATCH pattern), not by fetching
+    # Filtering happens Valkey-side (the MATCH pattern), not by fetching
     # everything and filtering in Python: a narrowed query must actually
     # be cheaper, not just smaller.
     scan_mock = _patch_scan(mocker, 0, [])
@@ -197,6 +224,17 @@ async def test_list_active_limits_filters_by_email_scope_via_match_pattern(mocke
 
 
 @pytest.mark.asyncio
+async def test_list_active_limits_filters_login_lockouts_as_a_server_side_view(mocker):
+    _patch_scan(mocker, 0, ["login_lock:email:person@example.test", "login:ip:1.2.3.4"])
+    _patch_pipeline(mocker, ["5", 60])
+
+    entries, total, _ = await rate_limit_dashboard_service.list_active_limits(kind="login_lockouts")
+
+    assert total == 1
+    assert entries[0]["endpoint"] == "login_lock"
+
+
+@pytest.mark.asyncio
 async def test_list_active_limits_skips_unparseable_keys(mocker):
     _patch_scan(mocker, 0, ["not-a-rate-limit-key"])
     _patch_pipeline(mocker, ["1", 10])
@@ -207,8 +245,8 @@ async def test_list_active_limits_skips_unparseable_keys(mocker):
 
 
 @pytest.mark.asyncio
-async def test_list_active_limits_returns_empty_on_redis_error(mocker):
-    mocker.patch(f"{MODULE}.redis_client.scan", side_effect=ConnectionError("redis unreachable"))
+async def test_list_active_limits_returns_empty_on_valkey_error(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.scan", side_effect=ConnectionError("valkey unreachable"))
     error_mock = mocker.patch(f"{MODULE}.logger.error")
 
     entries, total, truncated = await rate_limit_dashboard_service.list_active_limits()
@@ -221,7 +259,7 @@ async def test_list_active_limits_returns_empty_on_redis_error(mocker):
 
 @pytest.mark.asyncio
 async def test_reset_counter_deletes_the_key(mocker):
-    delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
 
     await rate_limit_dashboard_service.reset_counter("login:ip:1.2.3.4")
 
@@ -229,8 +267,33 @@ async def test_reset_counter_deletes_the_key(mocker):
 
 
 @pytest.mark.asyncio
+async def test_summarize_active_limits_counts_total_at_limit_lockouts_and_dimensions(mocker):
+    _patch_scan(mocker, 0, [
+        "login:ip:1.2.3.4",
+        "login_lock:email:person@example.test",
+        "signup:account:acct-1",
+    ])
+    _patch_pipeline(mocker, [
+        str(RateLimiterService.MAX_REQUESTS_PER_WINDOW),
+        str(settings.MAX_FAILED_LOGIN_ATTEMPTS),
+        "1",
+    ])
+
+    summary = await rate_limit_dashboard_service.summarize_active_limits()
+
+    assert summary == {
+        "total": 3,
+        "at_limit": 2,
+        "login_lockouts": 1,
+        "by_endpoint": {"login": 1, "login_lock": 1, "signup": 1},
+        "by_scope": {"ip": 1, "email": 1, "account": 1},
+        "truncated": False,
+    }
+
+
+@pytest.mark.asyncio
 async def test_reset_counter_deletes_an_account_scoped_key(mocker):
-    delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
 
     await rate_limit_dashboard_service.reset_counter("password_reset_request:account:user@example.com")
 
@@ -255,7 +318,7 @@ async def test_reset_counter_deletes_an_account_scoped_key(mocker):
     ],
 )
 async def test_reset_counter_ignores_a_key_outside_the_rate_limiter_keyspace(mocker, key):
-    delete_mock = mocker.patch(f"{MODULE}.redis_client.delete", new_callable=AsyncMock)
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
 
     await rate_limit_dashboard_service.reset_counter(key)
 

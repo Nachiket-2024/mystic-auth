@@ -2,7 +2,7 @@ import json
 import traceback
 
 from ...logging.logging_config import get_logger
-from ...redis.client import redis_client
+from ...valkey.client import valkey_client
 from ..models.policy_model import Policy
 from ..models.user_permission_model import UserPermission
 
@@ -87,9 +87,9 @@ def _deserialize_user_permission(data: dict) -> UserPermission:
 
 class AuthorizationCacheService:
     """
-    The single, centralized Redis abstraction for authorization data.
+    The single, centralized Valkey abstraction for authorization data.
     Only policy_repository.py and user_permission_repository.py call
-    this; nothing else in the authorization module talks to Redis
+    this; nothing else in the authorization module talks to Valkey
     directly.
 
     Cache targets:
@@ -120,10 +120,10 @@ class AuthorizationCacheService:
           only add correctness risk, no real speedup.
 
     Fail-closed with respect to the cache, never with respect to
-    authorization. Any Redis error is caught, logged, and returns a
+    authorization. Any Valkey error is caught, logged, and returns a
     cache-miss sentinel (None); the caller then falls through to the
     authoritative database query. It does not mean "deny every request
-    whenever Redis is unreachable": that would turn a transient cache
+    whenever Valkey is unreachable": that would turn a transient cache
     outage into an application-wide denial of service.
     """
 
@@ -132,7 +132,7 @@ class AuthorizationCacheService:
         """Returns None on a cache miss or any cache failure: both are
         treated identically by the caller (fall through to the database)."""
         try:
-            raw = await redis_client.get(_user_policies_key(user_email))
+            raw = await valkey_client.get(_user_policies_key(user_email))
         except Exception:
             logger.warning("Authorization cache read failed (user_policies):\n%s", traceback.format_exc())
             return None
@@ -153,7 +153,7 @@ class AuthorizationCacheService:
         succeeded; this is purely a subsequent-request optimization)."""
         try:
             payload = json.dumps([_serialize_policy(policy) for policy in policies])
-            await redis_client.set(_user_policies_key(user_email), payload, ex=_USER_POLICIES_TTL_SECONDS)
+            await valkey_client.set(_user_policies_key(user_email), payload, ex=_USER_POLICIES_TTL_SECONDS)
         except Exception:
             logger.warning("Authorization cache write failed (user_policies):\n%s", traceback.format_exc())
 
@@ -165,20 +165,20 @@ class AuthorizationCacheService:
         set changed.
         """
         try:
-            await redis_client.delete(_user_policies_key(user_email))
+            await valkey_client.delete(_user_policies_key(user_email))
         except Exception:
             logger.warning("Authorization cache invalidation failed (user_policies):\n%s", traceback.format_exc())
 
     @staticmethod
     async def invalidate_user_policies_bulk(user_emails: set[str]) -> None:
         """Same effect as invalidate_user_policies() per email, collapsed
-        into one redis_client.delete() call: used when the exact set of
+        into one valkey_client.delete() call: used when the exact set of
         affected users is already known (unlike invalidate_all_user_policies,
         for a policy edit with no cheap reverse index to its holders)."""
         if not user_emails:
             return
         try:
-            await redis_client.delete(*(_user_policies_key(email) for email in user_emails))
+            await valkey_client.delete(*(_user_policies_key(email) for email in user_emails))
         except Exception:
             logger.warning("Authorization cache invalidation failed (user_policies bulk):\n%s", traceback.format_exc())
 
@@ -191,17 +191,17 @@ class AuthorizationCacheService:
         user_policies namespace instead of guessing who's affected. Policy
         edits are rare relative to authorization checks, so a full flush
         on infrequent writes is a deliberate trade-off. Uses SCAN (not
-        KEYS) so it never blocks Redis, batching deletes per SCAN batch.
+        KEYS) so it never blocks Valkey, batching deletes per SCAN batch.
         """
         try:
             batch: list[str] = []
-            async for key in redis_client.scan_iter(match=_USER_POLICIES_KEY_PATTERN):
+            async for key in valkey_client.scan_iter(match=_USER_POLICIES_KEY_PATTERN):
                 batch.append(key)
                 if len(batch) >= 500:
-                    await redis_client.delete(*batch)
+                    await valkey_client.delete(*batch)
                     batch = []
             if batch:
-                await redis_client.delete(*batch)
+                await valkey_client.delete(*batch)
         except Exception:
             logger.warning(
                 "Authorization cache namespace flush failed (user_policies):\n%s", traceback.format_exc()
@@ -212,7 +212,7 @@ class AuthorizationCacheService:
         """Same contract as get_user_policies: None on a miss or any
         failure, both treated identically by the caller."""
         try:
-            raw = await redis_client.get(_user_permissions_key(user_email))
+            raw = await valkey_client.get(_user_permissions_key(user_email))
         except Exception:
             logger.warning("Authorization cache read failed (user_permissions):\n%s", traceback.format_exc())
             return None
@@ -231,7 +231,7 @@ class AuthorizationCacheService:
         """Best-effort populate, same contract as set_user_policies."""
         try:
             payload = json.dumps([_serialize_user_permission(grant) for grant in grants])
-            await redis_client.set(_user_permissions_key(user_email), payload, ex=_USER_POLICIES_TTL_SECONDS)
+            await valkey_client.set(_user_permissions_key(user_email), payload, ex=_USER_POLICIES_TTL_SECONDS)
         except Exception:
             logger.warning("Authorization cache write failed (user_permissions):\n%s", traceback.format_exc())
 
@@ -242,19 +242,19 @@ class AuthorizationCacheService:
         separate "definition" other users share, so single-user
         invalidation is always sufficient."""
         try:
-            await redis_client.delete(_user_permissions_key(user_email))
+            await valkey_client.delete(_user_permissions_key(user_email))
         except Exception:
             logger.warning("Authorization cache invalidation failed (user_permissions):\n%s", traceback.format_exc())
 
     @staticmethod
     async def invalidate_user_permissions_bulk(user_emails: set[str]) -> None:
         """Bulk counterpart to invalidate_user_permissions: one
-        redis_client.delete() for every affected key instead of one round
+        valkey_client.delete() for every affected key instead of one round
         trip per user."""
         if not user_emails:
             return
         try:
-            await redis_client.delete(*(_user_permissions_key(email) for email in user_emails))
+            await valkey_client.delete(*(_user_permissions_key(email) for email in user_emails))
         except Exception:
             logger.warning(
                 "Authorization cache invalidation failed (user_permissions bulk):\n%s", traceback.format_exc()

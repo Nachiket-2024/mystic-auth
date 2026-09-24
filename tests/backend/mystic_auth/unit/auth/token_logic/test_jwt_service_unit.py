@@ -21,9 +21,9 @@ def _decode(token: str) -> dict:
 
 
 def _mock_no_versions(mocker):
-    """Redis GET always returns None: every version check reads as 0 (never
+    """Valkey GET always returns None: every version check reads as 0 (never
     revoked), the default state for a fresh account/chain."""
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
 
 
 @pytest.mark.asyncio
@@ -60,7 +60,7 @@ async def test_create_access_token_embeds_current_account_and_chain_versions(moc
             return "5"
         return None
 
-    mocker.patch(f"{MODULE}.redis_client.get", new_callable=AsyncMock, side_effect=fake_get)
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, side_effect=fake_get)
 
     token = await jwt_service.create_access_token(email="user@example.com", chain_id="chain-1")
 
@@ -249,9 +249,9 @@ async def test_refresh_token_service_requires_refresh_type_on_rotation(mocker):
 async def test_create_verification_token_honors_explicit_expires_minutes():
     """Regression guard: this used to hardcode ACCESS_TOKEN_EXPIRE_MINUTES
     (15min default) regardless of the caller's requested expiry, while
-    account_verification_service set the paired Redis single-use key's TTL
+    account_verification_service set the paired Valkey single-use key's TTL
     (and the emailed wording) to RESET_TOKEN_EXPIRE_MINUTES (60min
-    default), so the JWT itself expired 45 minutes before the email/Redis
+    default), so the JWT itself expired 45 minutes before the email/Valkey
     key said it should."""
     token = await jwt_service.create_verification_token(email="user@example.com", expires_minutes=60)
 

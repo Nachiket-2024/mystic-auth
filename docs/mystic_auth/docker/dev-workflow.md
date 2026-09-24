@@ -37,6 +37,27 @@ rem Command Prompt
 scripts\mystic_auth\docker\dev\dev-up.cmd
 ```
 
+### First-run startup time
+
+On a fresh clone or Docker installation, the first run can take several
+minutes. Compose must pull `postgres:15`, `valkey/valkey:9.1.2-alpine`, and `bugsink/bugsink:2`,
+build the local backend/worker/frontend images, create the named volumes, and
+wait for Postgres, Bugsink, migrations, and the worker/backend healthchecks.
+The exact duration depends mostly on Docker Hub connectivity, Docker Desktop's
+network path, and whether the image build layers are already cached.
+
+Later runs normally reuse the images and named volumes. Source edits are
+picked up through the dev bind mounts, while changes to dependencies or a
+Dockerfile can trigger another build. A quiet terminal while images are being
+pulled is not necessarily a hang: wait for Compose to finish and for the
+helper's status table. Investigate when Docker reports a registry/daemon error,
+a container is `Exited` or `Restarting`, or the helper reports that it timed out.
+
+If an image pull fails, verify that Docker Desktop is running and that its
+registry/proxy or network settings allow access to Docker Hub, then rerun the
+same helper. Partial layers are cached, so a retry can resume rather than
+starting the download from zero.
+
 ---
 
 ```mermaid

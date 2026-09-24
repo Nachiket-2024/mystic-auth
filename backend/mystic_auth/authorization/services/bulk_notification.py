@@ -18,8 +18,8 @@ async def log_and_notify_bulk_success(
     notify_permissions_changed: bool = True,
 ) -> None:
     """
-    Shared tail of every bulk PBAC route: audit-log each successful item,
-    then nudge affected users' open tabs.
+    Shared tail of every bulk PBAC route: audit-log every item outcome,
+    then nudge affected users' open tabs for successful changes.
 
     Audit logging is one call per item (each is its own event). The
     permissions-changed notification is deduped to once per user instead,
@@ -28,16 +28,20 @@ async def log_and_notify_bulk_success(
     """
     notified_emails: set[str] = set()
     for result in repo_results:
-        if result.status != "success":
-            continue
-        await log_security_event(
-            event_type,
-            db,
-            user_email=result.user_email,
-            success=True,
-            metadata={actor_field: actor_email, identifier_field: result.identifier, "bulk": True},
-        )
-        if notify_permissions_changed:
+        if result.status == "success":
+            await log_security_event(
+                event_type,
+                db,
+                user_email=result.user_email,
+                success=True,
+                metadata={
+                    actor_field: actor_email,
+                    identifier_field: result.identifier,
+                    "bulk": True,
+                    "result_status": result.status,
+                },
+            )
+        if notify_permissions_changed and result.status == "success":
             notified_emails.add(result.user_email)
 
     if notified_emails:

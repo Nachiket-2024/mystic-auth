@@ -19,9 +19,9 @@ async def test_list_my_audit_log_scopes_to_caller_email(mocker):
     current_user = {"email": "caller@example.com", "name": "Caller"}
     expected_entries = [object(), object()]
     get_for_user_mock = mocker.patch(
-        f"{MODULE}.audit_log_repository.get_for_user", new_callable=AsyncMock, return_value=expected_entries
+        f"{MODULE}.authorization_audit_log_repository.get_for_user", new_callable=AsyncMock, return_value=expected_entries
     )
-    mocker.patch(f"{MODULE}.audit_log_repository.count_for_user", new_callable=AsyncMock, return_value=2)
+    mocker.patch(f"{MODULE}.authorization_audit_log_repository.count_for_user", new_callable=AsyncMock, return_value=2)
 
     result = await list_my_audit_log(
         response=Response(),
@@ -32,6 +32,8 @@ async def test_list_my_audit_log_scopes_to_caller_email(mocker):
         allowed=None,
         sort_by=None,
         sort_dir="desc",
+        from_=None,
+        to=None,
         current_user=current_user,
         db="fake-db",
     )
@@ -46,6 +48,8 @@ async def test_list_my_audit_log_scopes_to_caller_email(mocker):
         allowed=None,
         sort_by=None,
         sort_dir="desc",
+        from_=None,
+        to=None,
     )
     assert result == expected_entries
 
@@ -54,9 +58,9 @@ async def test_list_my_audit_log_scopes_to_caller_email(mocker):
 async def test_list_my_audit_log_default_paging(mocker):
     current_user = {"email": "someone@example.com", "name": "Someone"}
     get_for_user_mock = mocker.patch(
-        f"{MODULE}.audit_log_repository.get_for_user", new_callable=AsyncMock, return_value=[]
+        f"{MODULE}.authorization_audit_log_repository.get_for_user", new_callable=AsyncMock, return_value=[]
     )
-    mocker.patch(f"{MODULE}.audit_log_repository.count_for_user", new_callable=AsyncMock, return_value=0)
+    mocker.patch(f"{MODULE}.authorization_audit_log_repository.count_for_user", new_callable=AsyncMock, return_value=0)
 
     await list_my_audit_log(
         response=Response(),
@@ -67,6 +71,8 @@ async def test_list_my_audit_log_default_paging(mocker):
         allowed=None,
         sort_by=None,
         sort_dir="desc",
+        from_=None,
+        to=None,
         current_user=current_user,
         db="fake-db",
     )
@@ -81,6 +87,8 @@ async def test_list_my_audit_log_default_paging(mocker):
         allowed=None,
         sort_by=None,
         sort_dir="desc",
+        from_=None,
+        to=None,
     )
 
 
@@ -90,9 +98,9 @@ async def test_list_my_audit_log_passes_field_filters_through(mocker):
     unchanged, the same way limit/offset/sort already do."""
     current_user = {"email": "caller@example.com", "name": "Caller"}
     get_for_user_mock = mocker.patch(
-        f"{MODULE}.audit_log_repository.get_for_user", new_callable=AsyncMock, return_value=[]
+        f"{MODULE}.authorization_audit_log_repository.get_for_user", new_callable=AsyncMock, return_value=[]
     )
-    mocker.patch(f"{MODULE}.audit_log_repository.count_for_user", new_callable=AsyncMock, return_value=0)
+    mocker.patch(f"{MODULE}.authorization_audit_log_repository.count_for_user", new_callable=AsyncMock, return_value=0)
 
     await list_my_audit_log(
         response=Response(),
@@ -103,6 +111,8 @@ async def test_list_my_audit_log_passes_field_filters_through(mocker):
         allowed=False,
         sort_by="action",
         sort_dir="asc",
+        from_=None,
+        to=None,
         current_user=current_user,
         db="fake-db",
     )
@@ -117,4 +127,6 @@ async def test_list_my_audit_log_passes_field_filters_through(mocker):
         allowed=False,
         sort_by="action",
         sort_dir="asc",
+        from_=None,
+        to=None,
     )
