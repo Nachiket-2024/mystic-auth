@@ -12,7 +12,7 @@ policy only. Granting a bare action directly to a user (bypassing Policy
 entirely, see authorization/models/user_permission_model.py) is at least as
 sensitive as policies:assign/revoke, so it follows the same
 system_superuser-only default the original policies:assign/revoke actions
-got, not the five extended (policy_administration/policy_maintainer/...)
+got, not the five extended (policy_management/policy_maintainer/...)
 policies - an operator can extend those separately if desired.
 """
 from collections.abc import Sequence

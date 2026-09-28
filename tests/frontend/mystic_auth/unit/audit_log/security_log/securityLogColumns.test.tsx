@@ -34,14 +34,14 @@ describe('getSecurityColumns', () => {
         rows={[
           baseEntry({
             event_type: 'policy_assigned',
-            event_metadata: { assigned_by: 'admin@example.com', policy_name: 'user_administration' },
+            event_metadata: { assigned_by: 'admin@example.com', policy_name: 'user_management' },
           }),
         ]}
       />
     );
 
     expect(screen.queryByText('127.0.0.1')).toBeNull();
-    expect(screen.queryByText('"user_administration" assigned by admin@example.com')).toBeNull();
+    expect(screen.queryByText('"user_management" assigned by admin@example.com')).toBeNull();
   });
 
   it('shows a dash with a reason tooltip for a missing user_email, instead of a wordy inline label', async () => {

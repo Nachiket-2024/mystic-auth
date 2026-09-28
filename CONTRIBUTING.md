@@ -50,7 +50,7 @@ the full walkthrough.
 - **Add or update tests for what you changed.** See
   [Testing Overview](docs/mystic_auth/testing/overview.md) for how backend
   (pytest) and frontend (Vitest) suites are organized, and
-  [Browser E2E Tests](docs/mystic_auth/testing/browser-e2e.md) for Playwright.
+  [Browser E2E Tests](docs/mystic_auth/testing/frontend-e2e.md) for Playwright.
 
 ---
 

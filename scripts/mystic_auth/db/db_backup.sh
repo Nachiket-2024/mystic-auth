@@ -23,12 +23,11 @@ esac
 
 # Derived from the filename rather than a fixed list, so a fork's own new
 # mode (e.g. docker-compose.staging.yml) resolves to the right env file
-# too: "dev" is the one mode with no suffix by convention, every other
-# mode's suffix is ".<mode>".
+# too: every mode has an explicit suffix (`.dev`, `.prod`, `.local-prod-*`).
 MODE="${COMPOSE_BASENAME#docker-compose.}"
 MODE="${MODE%.yml}"
 if [ "$MODE" = "dev" ]; then
-  ENV_SUFFIX=""
+  ENV_SUFFIX=".dev"
 else
   ENV_SUFFIX=".${MODE}"
 fi
@@ -57,6 +56,10 @@ for f in "${ENV_FILES[@]}"; do DC_ARGS+=(--env-file "$f"); done
 BACKUP_DIR="$REPO_ROOT/backups"
 mkdir -p "$BACKUP_DIR"
 
+alert_backup_failure() {
+  "$REPO_ROOT/scripts/mystic_auth/db/backup_failure_alert.sh" "$1" || true
+}
+
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
 for DB in "$POSTGRES_DB" bugsink; do
@@ -68,10 +71,16 @@ for DB in "$POSTGRES_DB" bugsink; do
   # scripts/mystic_auth/db/db_restore_drill.sh). Omitting --file entirely
   # defaults to stdout, which this redirect already captures, and works
   # portably regardless of that behavior.
-  docker compose "${DC_ARGS[@]}" exec -T postgres \
-    pg_dump -U "$POSTGRES_USER" --format=custom "$DB" > "$BACKUP_FILE"
-  docker compose "${DC_ARGS[@]}" exec -T postgres \
-    pg_restore --list < "$BACKUP_FILE" >/dev/null
+  if ! docker compose "${DC_ARGS[@]}" exec -T postgres \
+    pg_dump -U "$POSTGRES_USER" --format=custom "$DB" > "$BACKUP_FILE"; then
+    alert_backup_failure "pg_dump failed for $DB"
+    exit 1
+  fi
+  if ! docker compose "${DC_ARGS[@]}" exec -T postgres \
+    pg_restore --list < "$BACKUP_FILE" >/dev/null; then
+    alert_backup_failure "pg_restore --list failed for $BACKUP_FILE"
+    exit 1
+  fi
   echo "Backup written to $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
 
   # Same optional off-host upload hook as the db_backup Compose service
@@ -79,6 +88,9 @@ for DB in "$POSTGRES_DB" bugsink; do
   # backup ships off-host the same way a scheduled one does.
   if [ -n "${BACKUP_UPLOAD_COMMAND:-}" ]; then
     echo "Running BACKUP_UPLOAD_COMMAND for $BACKUP_FILE..."
-    DUMP_FILE="$BACKUP_FILE" sh -c "$BACKUP_UPLOAD_COMMAND"
+    if ! DUMP_FILE="$BACKUP_FILE" sh -c "$BACKUP_UPLOAD_COMMAND"; then
+      alert_backup_failure "off-host upload failed for $BACKUP_FILE"
+      exit 1
+    fi
   fi
 done

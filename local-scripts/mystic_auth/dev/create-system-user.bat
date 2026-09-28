@@ -4,7 +4,7 @@ REM (docker/mystic_auth/compose/docker-compose.dev.yml). Fill in local-scripts\m
 REM Assumes a fresh account (no existing user with that email): this pipes a
 REM fixed 3-line stdin (email, name, password) matching create_system_user.py's
 REM "brand new account" prompt sequence. If the account already exists, run
-REM `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env exec backend python -m mystic_auth.scripts.create_system_user`
+REM `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec backend python -m mystic_auth.scripts.create_system_user`
 REM by hand instead, since that branch asks different questions.
 setlocal enabledelayedexpansion
 set "SCRIPT_DIR=%~dp0"
@@ -19,6 +19,6 @@ cd /d "%SCRIPT_DIR%..\..\.."
   echo %SYSTEM_USER_EMAIL%
   echo %SYSTEM_USER_NAME%
   echo %SYSTEM_USER_PASSWORD%
-) | docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env exec -T backend python -m mystic_auth.scripts.create_system_user
+) | docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T backend python -m mystic_auth.scripts.create_system_user
 
 endlocal

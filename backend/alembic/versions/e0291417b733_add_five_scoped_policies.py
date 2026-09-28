@@ -5,20 +5,20 @@ Revises: e7a2c4d8f1b3
 Create Date: 2026-08-22 00:00:00.000000
 
 Seeds five additional, non-protected policies alongside the three original
-baseline ones (self_service, user_administration, system_superuser), each
+baseline ones (self_service, user_management, system_superuser), each
 scoped to exactly one resource_type so every action in it actually takes
 effect (see policy_evaluator.py: a policy only matches when
 resource_type == its own resource_type, or "*"):
 
-  - policy_administration (resource_type "policies"): full policy-system
+  - policy_management (resource_type "policies"): full policy-system
     management - read/create/update/delete/assign/revoke.
   - policy_maintainer (resource_type "policies"): a narrower slice of the
     above - read/update/revoke only, for fixing or locking down an
     existing policy without being able to author new ones or reassign
     who's exempt from a delete/revoke escalation guard.
-  - rate_limit_administration (resource_type "rate_limits"): read/reset.
-  - security_audit_administration (resource_type "security_audit"): read.
-  - user_lifecycle_administration (resource_type "users"): purge/reactivate.
+  - rate_limit_management (resource_type "rate_limits"): read/reset.
+  - security_audit_access (resource_type "security_audit"): read.
+  - user_lifecycle (resource_type "users"): purge/reactivate.
 
 These were originally created ad hoc through the management API (POST
 /authorization/policies), which is normally sufficient for a genuinely
@@ -49,7 +49,7 @@ depends_on: str | Sequence[str] | None = None
 
 _POLICIES = [
     {
-        "name": "policy_administration",
+        "name": "policy_management",
         "description": (
             "Manage the policy system itself and grant/revoke policies on other users: "
             "list/create/edit/delete policy definitions, and assign or revoke them."
@@ -70,19 +70,19 @@ _POLICIES = [
         "resource_type": "policies",
     },
     {
-        "name": "rate_limit_administration",
+        "name": "rate_limit_management",
         "description": "View and reset rate-limit entries.",
         "actions": ["rate_limits:read", "rate_limits:reset"],
         "resource_type": "rate_limits",
     },
     {
-        "name": "security_audit_administration",
+        "name": "security_audit_access",
         "description": "View the security audit log and dashboard login-trend data.",
         "actions": ["security_audit:read"],
         "resource_type": "security_audit",
     },
     {
-        "name": "user_lifecycle_administration",
+        "name": "user_lifecycle",
         "description": "Hard-purge a deleted user, or reactivate a deactivated one.",
         "actions": ["users:purge", "users:reactivate"],
         "resource_type": "users",

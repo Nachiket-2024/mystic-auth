@@ -3,8 +3,12 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
-These fields are declared in `backend/mystic_auth/core/settings.py`. Pydantic
-loads them from process environment or `env/mystic_auth/.env`.
+These are the template's fields, declared in the upstream-owned
+`backend/mystic_auth/core/settings.py`. Pydantic loads them from the process
+environment or the mode's `env/mystic_auth/.env.dev` plus `env/app/.env.dev` files.
+For downstream-only fields, add an app-owned settings class under
+`backend/app/` and document those fields with the app rather than changing this
+table or `core/settings.py`; see [Building On This Template](../template-usage/customization.md#backend-customization).
 
 | Variable | Type | Required | Actual use |
 |---|---|---|---|

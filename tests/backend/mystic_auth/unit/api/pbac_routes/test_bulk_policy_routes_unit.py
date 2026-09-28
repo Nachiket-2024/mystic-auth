@@ -182,7 +182,7 @@ async def test_bulk_remove_non_holder_item_does_not_inflate_the_lockout_counter(
 
 @pytest.mark.asyncio
 async def test_bulk_remove_of_non_superuser_policy_is_unaffected_by_the_lockout_guard(mocker):
-    other_policy = _make_policy(name="user_administration")
+    other_policy = _make_policy(name="user_management")
     target = _make_user("a@example.com")
 
     mocker.patch(
@@ -190,7 +190,7 @@ async def test_bulk_remove_of_non_superuser_policy_is_unaffected_by_the_lockout_
     )
     mocker.patch(
         f"{ROUTES_MODULE}.policy_repository.get_policies_by_names", new_callable=AsyncMock,
-        return_value={"user_administration": other_policy},
+        return_value={"user_management": other_policy},
     )
     holder_emails_mock = mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_holder_emails_for_update", new_callable=AsyncMock)
     remove_mock = mocker.patch(
@@ -198,7 +198,7 @@ async def test_bulk_remove_of_non_superuser_policy_is_unaffected_by_the_lockout_
     )
     mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
 
-    body = BulkPolicyRequest(items=[BulkPolicyItem(user_email=target.email, policy_name="user_administration")])
+    body = BulkPolicyRequest(items=[BulkPolicyItem(user_email=target.email, policy_name="user_management")])
 
     result = await bulk_remove_policies(body, MagicMock(), current_user=CALLER, db=MagicMock())
 

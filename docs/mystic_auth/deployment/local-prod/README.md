@@ -21,6 +21,12 @@ files, then covers the provider dashboard work, environment values, Compose
 command, public URL, Google OAuth2 callback, optional GeoIP profile, and
 troubleshooting.
 
+The helper scripts already pass both the upstream and app Compose/env files.
+If you run a manual `docker compose` command copied from a walkthrough, add
+the matching `docker/app/compose/docker-compose.<mode>.yml` file after the
+`docker/mystic_auth/` file and the matching `env/app/.env.dev<mode-suffix>` after
+the `env/mystic_auth/` file.
+
 | | Cloudflare Quick Tunnel | Cloudflare Named Tunnel | ngrok | Tailscale Funnel |
 |---|---|---|---|---|
 | Account needed | No | Free, + your own domain | Free, + static domain | Free |
@@ -90,10 +96,10 @@ Deployment Guide.
 | `env/mystic_auth/.env.local-prod-cloudflare.example` | Cloudflare local-prod environment template. |
 | `env/mystic_auth/.env.local-prod-ngrok.example` | ngrok local-prod environment template. |
 | `env/mystic_auth/.env.local-prod-tailscale.example` | Tailscale local-prod environment template. |
-| `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Cloudflare env file. |
-| `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the ngrok env file. |
-| `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass the Tailscale env file. |
-| `local-scripts/local-prod-*/create-system-user.*` | Non-interactive system-superuser bootstrap helpers for each local-prod tunnel variant. |
+| `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass both the MysticAuth and app-owned Cloudflare env files. |
+| `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass both the MysticAuth and app-owned ngrok env files. |
+| `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Shell, PowerShell, and Command Prompt helpers that always pass both the MysticAuth and app-owned Tailscale env files. |
+| `local-scripts/mystic_auth/local-prod-*/create-system-user.*` | Non-interactive system-superuser bootstrap helpers for each local-prod tunnel variant. |
 
 ---
 
@@ -153,7 +159,7 @@ source vars) in your chosen tunnel's env file before `--build`, not after.
 Always run Compose with `--env-file` pointed at that same file (or the
 matching `scripts/mystic_auth/docker/local-prod-*/local-prod-*-up.sh` / `.ps1` / `.cmd`
 helper, which does this for you) - without it, `${VAR}` build-arg
-substitution silently falls back to whatever's in `env/mystic_auth/.env` instead. See
+substitution silently falls back to whatever's in `env/mystic_auth/.env.dev` instead. See
 [Deployment Guide: required production environment variables](../environment.md#5-required-production-review)
 for the full explanation of each.
 

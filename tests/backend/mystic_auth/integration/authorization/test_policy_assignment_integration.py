@@ -10,7 +10,7 @@ import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
@@ -30,7 +30,7 @@ __all__ = ["cleanup_test_policies"]
 
 
 @pytest.mark.asyncio
-async def test_assigning_user_administration_via_the_api_actually_grants_list_all_access(
+async def test_assigning_user_management_via_the_api_actually_grants_list_all_access(
     client, created_emails
 ):
     system_email = unique_email("system")
@@ -47,7 +47,7 @@ async def test_assigning_user_administration_via_the_api_actually_grants_list_al
     await client.post("/auth/login", json={"email": system_email, "password": PASSWORD})
     assign_resp = await client.post(
         f"/authorization/users/{target_email}/policies",
-        json={"policy_name": USER_ADMINISTRATION_POLICY_NAME},
+        json={"policy_name": USER_MANAGEMENT_POLICY_NAME},
     )
     assert assign_resp.status_code == 200
 
@@ -63,7 +63,7 @@ async def test_removing_a_policy_via_the_api_actually_revokes_access(client, cre
     system_email = unique_email("system")
     target_email = unique_email("target")
     await create_verified_user(
-        client, created_emails, target_email, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]
+        client, created_emails, target_email, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME]
     )
     await create_system_user(client, created_emails, system_email)
 
@@ -73,7 +73,7 @@ async def test_removing_a_policy_via_the_api_actually_revokes_access(client, cre
 
     await client.post("/auth/login", json={"email": system_email, "password": PASSWORD})
     remove_resp = await client.delete(
-        f"/authorization/users/{target_email}/policies/{USER_ADMINISTRATION_POLICY_NAME}"
+        f"/authorization/users/{target_email}/policies/{USER_MANAGEMENT_POLICY_NAME}"
     )
     assert remove_resp.status_code == 200
 
@@ -90,7 +90,7 @@ async def test_removing_a_policy_the_user_does_not_hold_returns_404(client, crea
     await create_system_user(client, created_emails, system_email)
 
     resp = await client.delete(
-        f"/authorization/users/{target_email}/policies/{USER_ADMINISTRATION_POLICY_NAME}"
+        f"/authorization/users/{target_email}/policies/{USER_MANAGEMENT_POLICY_NAME}"
     )
     assert resp.status_code == 404
 
@@ -100,7 +100,7 @@ async def test_list_user_policies_reports_currently_assigned_policies(client, cr
     system_email = unique_email("system")
     target_email = unique_email("target")
     await create_verified_user(
-        client, created_emails, target_email, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]
+        client, created_emails, target_email, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME]
     )
     await create_system_user(client, created_emails, system_email)
 
@@ -109,7 +109,7 @@ async def test_list_user_policies_reports_currently_assigned_policies(client, cr
     body = resp.json()
     assert body["user_email"] == target_email
     names = {p["name"] for p in body["policies"]}
-    assert names == {SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME}
+    assert names == {SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME}
 
 
 @pytest.mark.asyncio

@@ -14,7 +14,7 @@ import pytest
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.user.user_crud_collector import user_crud
@@ -207,7 +207,7 @@ async def test_admin_password_change_revokes_targets_existing_sessions(client, c
 
 @pytest.mark.asyncio
 async def test_admin_without_purge_permission_cannot_purge(client, created_emails):
-    # users:delete_any is granted only by system_superuser. user_administration
+    # users:delete_any is granted only by system_superuser. user_management
     # (which includes users:deactivate_any) does not include it: hard delete is
     # a deliberately separate, more sensitive action.
     admin_email = unique_email("admin")
@@ -247,7 +247,7 @@ async def test_purge_holder_cannot_purge_their_own_account(client, created_email
     email = unique_email("purge-holder")
     await create_verified_user(
         client, created_emails, email,
-        policy_names=[SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
     )
 
     resp = await client.delete(f"/users/{email}/purge")

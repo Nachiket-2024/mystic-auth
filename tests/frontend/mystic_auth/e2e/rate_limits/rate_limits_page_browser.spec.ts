@@ -46,7 +46,7 @@ test.describe("rate limits page browser behavior", () => {
 
     test("opens the reset confirmation, cancels safely, and confirms one reset", async ({ page }) => {
         let resetCount = 0;
-        await page.route("http://localhost:8000/rate-limits/**", async (route) => {
+        await page.route("**/rate-limits/**", async (route) => {
             if (route.request().method() === "DELETE") resetCount += 1;
             await route.fallback();
         });

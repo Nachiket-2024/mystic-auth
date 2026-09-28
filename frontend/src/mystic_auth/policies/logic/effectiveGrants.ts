@@ -65,28 +65,6 @@ export function policyAddsNothingNew(
     return candidate.actions.every((action) => hasEffectiveGrant(effectiveGrantKeys, action, candidate.resource_type));
 }
 
-/** Every (action, resource_type) pair a user effectively holds, deduped
- * across both grant sources (fanned-out assigned policies and direct
- * grants). The display counterpart to buildEffectiveGrantKeySet, for
- * UserDetailsDialog's "full effective permissions" list rather than a
- * membership-only Set. Two sources contributing the identical pair collapse
- * to one entry here, same as they collapse to one key there. */
-export function buildEffectivePermissionList(
-    assignedPolicies: Pick<PolicyRead, "actions" | "resource_type">[],
-    directGrants: { action: string; resource_type: string }[]
-): { action: string; resource_type: string }[] {
-    const byKey = new Map<string, { action: string; resource_type: string }>();
-    for (const policy of assignedPolicies) {
-        for (const action of policy.actions) {
-            byKey.set(grantKey(action, policy.resource_type), { action, resource_type: policy.resource_type });
-        }
-    }
-    for (const grant of directGrants) {
-        byKey.set(grantKey(grant.action, grant.resource_type), { action: grant.action, resource_type: grant.resource_type });
-    }
-    return [...byKey.values()];
-}
-
 /** Drops any (action, resource_type) pair in `grants` whose action already
  * has a wildcard ("*") entry in `wildcardSource` (defaults to `grants`
  * itself). A specific "policies:read" badge next to a "policies:read" on
@@ -99,7 +77,7 @@ export function buildEffectivePermissionList(
  * "system_superuser" policy with resource_type "*" covers a direct
  * "permissions:grant" on "permissions" even though neither directly grants
  * the other. Callers filtering a raw direct-grant list should pass the full
- * effective list (buildEffectivePermissionList) as `wildcardSource` so a
+ * effective list (buildEffectiveGrantsWithSource) as `wildcardSource` so a
  * policy-sourced wildcard is honored too.
  *
  * Used by the "Direct permissions"/"Effective permissions" badge lists

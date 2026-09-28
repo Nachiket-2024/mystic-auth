@@ -3,16 +3,16 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-env/mystic_auth/.env
+env/mystic_auth/.env.dev
 env/mystic_auth/.env.*
-!env/mystic_auth/.env.example
+!env/mystic_auth/.env.dev.example
 !env/mystic_auth/.env.local-prod-cloudflare.example
 !env/mystic_auth/.env.local-prod-ngrok.example
 !env/mystic_auth/.env.local-prod-tailscale.example
 !env/mystic_auth/.env.prod.example
-env/app/.env
+env/app/.env.dev
 env/app/.env.*
-!env/app/.env.example
+!env/app/.env.dev.example
 !env/app/.env.local-prod-cloudflare.example
 !env/app/.env.local-prod-ngrok.example
 !env/app/.env.local-prod-tailscale.example
@@ -92,6 +92,9 @@ logs/
 # ---------------------------- Database backups ----------------------------
 backups/
 
+# ---------------------------- Local SBOM output ----------------------------
+sbom/
+
 # ---------------------------- Local scripts (system user bootstrap) ----------------------------
 # Real credentials for local-scripts/mystic_auth/{dev,local-prod-*,prod}/create-system-user.*;
 # the .example templates alongside them stay tracked.
@@ -113,6 +116,7 @@ TODO.md
 
 # ---------------------------- Local Development Tools ----------------------------
 .claude/
+.codex/
 # Git matching is case-sensitive on Linux CI, unlike Windows and macOS.
 .project/
 design/

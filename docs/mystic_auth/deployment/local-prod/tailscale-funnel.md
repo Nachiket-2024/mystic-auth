@@ -26,11 +26,11 @@ and an auth key are required before the tunnel comes up.
 
 | File | Why it matters |
 |---|---|
-| `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` | Runs the local-prod stack and the `tailscale/tailscale` container. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` + `docker/app/compose/docker-compose.local-prod-tailscale.yml` | The upstream file runs the local-prod stack and `tailscale/tailscale`; the app override is the downstream extension point. |
 | `docker/tailscale-serve-config.json` | Programmatic Serve/Funnel config mounted into the Tailscale container through `TS_SERVE_CONFIG`. |
 | `env/mystic_auth/.env.local-prod-tailscale.example` | Source template for Tailscale local-prod settings. |
-| `env/mystic_auth/.env.local-prod-tailscale` | Your local, gitignored copy with `TS_AUTHKEY`, `TS_HOSTNAME`, public URLs, Google callback, and secrets. |
-| `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Compose helpers that always pass the Tailscale env file. |
+| `env/mystic_auth/.env.local-prod-tailscale` + `env/app/.env.local-prod-tailscale` | Your local, gitignored runtime files with `TS_AUTHKEY`, `TS_HOSTNAME`, app settings, public URLs, Google callback, and secrets. |
+| `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.*` | Compose helpers that always pass both the MysticAuth and app-owned Tailscale env files. |
 | `local-scripts/mystic_auth/local-prod-tailscale/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
 
 ---
@@ -91,18 +91,20 @@ traffic never reaches `frontend`.
 
 ---
 
-**Step 4: Copy the env file.**
+**Step 4: Copy both env files.**
 
 ```bash
 cp env/mystic_auth/.env.local-prod-tailscale.example env/mystic_auth/.env.local-prod-tailscale
+cp env/app/.env.local-prod-tailscale.example env/app/.env.local-prod-tailscale
 ```
 
 `env/mystic_auth/.env.local-prod-tailscale.example` is the local-prod template for
 `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml`. It preconfigures
 same-origin API routing (`VITE_API_BASE_URL` empty) and the fixed frontend
 nginx proxy IP (`TRUSTED_PROXY_IPS`, derived automatically from
-`FRONTEND_STATIC_IP`/`TAILSCALE_STATIC_IP`). Do not start
-this stack from `env/mystic_auth/.env.example` or either of the other two local-prod
+`FRONTEND_STATIC_IP`/`TAILSCALE_STATIC_IP`). Put downstream-only values in the matching
+`env/app/` file. Do not start
+this stack from `env/mystic_auth/.env.dev.example` or either of the other two local-prod
 example files. See
 [Choosing the right env template](../environment.md#1-choosing-the-right-env-template)
 for the full comparison.
@@ -177,7 +179,7 @@ under **Authorized JavaScript origins**. It must match
 **Step 8: Start (or restart) the stack.**
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml -f docker/app/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --env-file env/app/.env.local-prod-tailscale up -d --build
 # or: ./scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh
 ```
 
@@ -201,7 +203,7 @@ Compose profile, skipped by Step 8's command as written. Re-run Step 8 with
 the profile added instead:
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --profile geoip up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml -f docker/app/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --env-file env/app/.env.local-prod-tailscale --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with
@@ -250,7 +252,7 @@ host itself.
 | Machine appears in Tailscale but public URL does not resolve | DNS and certificate registration have not finished, or MagicDNS/HTTPS Certificates/Funnel is disabled. | Wait a few minutes, then verify MagicDNS, HTTPS Certificates, and Funnel are enabled in the admin console. |
 | `.ts.net` names do not resolve on your device | Local DNS resolver is not using the Tailscale DNS configuration correctly. | In the Tailscale admin console DNS settings, add global nameservers such as `8.8.8.8`, `8.8.4.4`, `1.1.1.1`, or `1.0.0.1`, then enable the override option if that matches your tailnet policy. Disconnect and reconnect the affected client. |
 | Public URL loads a TLS or certificate error | HTTPS Certificates are disabled or the certificate has not been provisioned yet. | Enable HTTPS Certificates under Tailscale DNS settings and wait for provisioning. |
-| Public URL resolves but returns no app | `docker/tailscale-serve-config.json` is not loaded or `frontend` is unhealthy. | Check `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale logs tailscale frontend backend`. |
+| Public URL resolves but returns no app | `docker/tailscale-serve-config.json` is not loaded or `frontend` is unhealthy. | Check `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml -f docker/app/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --env-file env/app/.env.local-prod-tailscale logs tailscale frontend backend`. |
 | Google login returns `redirect_uri_mismatch` | Google Cloud Console callback does not match `GOOGLE_REDIRECT_URI`. | Register `https://mystic-auth.<tailnet>.ts.net/auth/oauth2/callback/google` exactly. |
 | Bugsink is not public | This is expected. Funnel exposes `frontend:80` only. | Use `http://localhost:8211` on the host or access Bugsink privately over the tailnet. |
 

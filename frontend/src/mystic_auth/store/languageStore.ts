@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import translations, { SUPPORTED_LANGUAGES, type SupportedLanguage } from "../translations/translations";
+import translations, { loadLanguage, SUPPORTED_LANGUAGES, type SupportedLanguage } from "../translations/translations";
 
 // A "mode" is what the user picks from LanguageToggle. The plain ones (en/hi/mr) mean
 // everything, including navbar/sidebar, in that language. The "en+hi"/"en+mr" modes
@@ -48,6 +48,7 @@ function resolveLanguages(mode: LanguageMode): ResolvedLanguages {
 
 interface LanguageState extends ResolvedLanguages {
     mode: LanguageMode;
+    languageRevision: number;
     setMode: (mode: LanguageMode) => void;
 }
 
@@ -71,21 +72,29 @@ function getInitialMode(): LanguageMode {
     return "en";
 }
 
+let languageLoadVersion = 0;
+let refreshLanguageState = () => {};
+
 function applyMode(mode: LanguageMode): void {
     const { pageLanguage } = resolveLanguages(mode);
-    void translations.changeLanguage(pageLanguage);
     document.documentElement.lang = pageLanguage;
+    const version = ++languageLoadVersion;
+    void loadLanguage(pageLanguage).then(() => {
+        if (version === languageLoadVersion) {
+            void translations.changeLanguage(pageLanguage).then(refreshLanguageState);
+        }
+    });
 }
 
 // Apply immediately at module load, imported eagerly at the top of main.tsx so this
 // runs before first paint, avoiding a flash of the wrong language (mirrors themeStore.ts).
 const initialMode = getInitialMode();
-applyMode(initialMode);
 
 // Client-side preference, not server state, so it lives in Zustand alongside
 // authStore/themeStore rather than TanStack Query.
 export const useLanguageStore = create<LanguageState>((set) => ({
     mode: initialMode,
+    languageRevision: 0,
     ...resolveLanguages(initialMode),
 
     setMode: (mode) => {
@@ -94,3 +103,9 @@ export const useLanguageStore = create<LanguageState>((set) => ({
         set({ mode, ...resolveLanguages(mode) });
     },
 }));
+
+refreshLanguageState = () => {
+    useLanguageStore.setState((state) => ({ languageRevision: state.languageRevision + 1 }));
+};
+
+applyMode(initialMode);

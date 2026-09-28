@@ -18,7 +18,8 @@ mystic_auth/-owned UI without editing it directly. See
 
 - **New domain/resource**: a new top-level package under `backend/app/` (sibling to `mystic_auth/`) with its own model/schema/CRUD/router, mounted in `backend/app/main.py`, importing from `backend/app/sdk.py`. See [Backend Architecture](../architecture/backend.md#module-layout) for the shape to follow.
 - **Database changes**: an Alembic migration under `backend/alembic/versions/`: no `create_all()`. See [Database Design](../database/design.md#migrations).
-- **Configuration**: settings live in `backend/mystic_auth/core/settings.py`: add new ones there, re-exported from `sdk.py` as `settings`.
+- **Configuration**: template settings live in the upstream-owned `backend/mystic_auth/core/settings.py` and are re-exported from `sdk.py` as `settings`; do not add downstream fields there. Put your app's variables in the matching `env/app/.env.dev` or `env/app/.env.<mode>` file and read them from an app-owned settings/config module under `backend/app/` (for example, a `BaseSettings` class in `backend/app/config.py`). Compose loads both env-file halves, and `extra="ignore"` on the template settings lets app-only variables coexist without editing MysticAuth. See [Environment Configuration](../environment/README.md#the-mystic_auth--app-split).
+- **Authorization condition extensions**: keep a custom handler and validator under `backend/app/` and register them from `backend/app/app_sdk.py` with `register_condition_type()`; do not edit the registry or validator under `backend/mystic_auth/`. See [Adding Condition Handlers](../authorization/adding-condition-handlers.md).
 
 ---
 

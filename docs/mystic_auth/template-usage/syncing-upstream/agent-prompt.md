@@ -16,13 +16,23 @@ A real sync can hit several things that don't show up in a first-time read of th
 
 Regenerating env files is part of a full sync (fresh secrets, upstream's latest fields), but an agent reading your real `GOOGLE_CLIENT_SECRET`, `GMAIL_APP_PASSWORD`, or `DATABASE_URL` to "carry them forward" puts those values into its context and transcript for no real reason. The prompt routes around this with two scripts, neither of which ever prints a secret value to its own output, only field *names*:
 
-1. The agent **renames** each real env file aside (`env/mystic_auth/.env` to `env/mystic_auth/.env.bak`, and so on) - never deletes - so nothing is lost.
-2. The agent runs `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Since the real files no longer exist under their normal names, it generates fresh ones from the current `.example` files, with newly generated secrets and this sync's latest fields.
-3. The agent runs `scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW` (`.ps1`/`.cmd`) for each pair. It copies every field from the old file into the new one, except the handful setup-env just generated fresh (secrets, and the DB URLs that embed them) - reporting only which field *names* it moved, never their values, and flagging any field that existed in the old file but not the new one (upstream may have dropped or renamed it) for you to decide on by hand.
+1. The agent **renames** each real env file in both `env/mystic_auth/` and
+   `env/app/` aside (`.env` to `.env.bak`, and so on), plus `frontend/.env` if
+   present - never deletes - so nothing is lost.
+2. The agent runs `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Since the real files no longer exist under their normal names, it generates fresh files from the current `.example` files, with newly generated secrets and this sync's latest fields.
+3. The agent runs `scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW` (`.ps1`/`.cmd`) for each old/new pair. It copies every field from the old file into the new one, except the handful setup-env just generated fresh (secrets, and the DB URLs that embed them) - reporting only which field *names* it moved, never their values, and flagging any field that existed in the old file but not the new one (upstream may have dropped or renamed it) for you to decide on by hand.
 4. Once you've confirmed the new files are correct, the agent tells you to delete the `.bak` files yourself.
+
+The sync prompt reads only `COMPOSE_PROJECT_NAME`, `APP_NAME`, and
+`BRAND_COLOR` from the existing dev env file so it can preserve the project's
+identity when answering `setup-env`'s prompts. It never reads secret values.
 
 See [Environment Configuration](../../environment/README.md) for what both scripts do in full.
 
 ---
 
 See [Rebuild, Push, and Reference](rebuild-and-push.md) and [Troubleshooting](troubleshooting.md) for what each numbered step in the prompt is actually doing under the hood, if the agent (or you, reviewing its work) needs the full explanation behind a given step.
+
+The sync script intentionally creates one sync commit when it succeeds. The
+prompt therefore asks the agent not to add another commit or push; a conflict
+or migration-head failure remains for human review instead.

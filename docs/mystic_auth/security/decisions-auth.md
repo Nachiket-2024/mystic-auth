@@ -10,9 +10,9 @@ decisions. This page covers the *why* behind authentication, session, and rate-l
 
 ## Role is never used to decide access
 
-PBAC (policy-based access control), not RBAC. `users.role` is nullable, display/grouping metadata only: every real authorization decision goes through an assigned, active `Policy` (see [../authorization/architecture/README.md](../authorization/architecture/README.md)). Two accounts with the identical role can have completely different effective permissions, and a roleless account (`role=NULL`) can still be fully authorized via policies alone.
+PBAC (policy-based access control), not role-based access control. `users.role` is nullable, display/grouping metadata only: every real authorization decision goes through an assigned, active `Policy` (see [../authorization/architecture/README.md](../authorization/architecture/README.md)). Two accounts with the identical role can have completely different effective permissions, and a roleless account (`role=NULL`) can still be fully authorized via policies alone.
 
-**Why not RBAC**:
+**Why not role-based access control**:
 
 1. A static role-permission mapping means every new access pattern either overloads an existing role's meaning or requires a new role and a code deploy.
 2. Policies are data, not code: a new access pattern is a new policy row, assignable and revocable per account without touching role definitions.

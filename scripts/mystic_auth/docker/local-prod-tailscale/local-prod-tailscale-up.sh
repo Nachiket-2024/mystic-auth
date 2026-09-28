@@ -2,7 +2,7 @@
 # Thin wrapper around `docker compose -f
 # docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` that always passes
 # --env-file env/mystic_auth/.env.local-prod-tailscale, so this stack never accidentally
-# reads dev's env/mystic_auth/.env.
+# reads dev's env/mystic_auth/.env.dev.
 #
 # Forwards all arguments, e.g.:
 #   scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh up -d --build

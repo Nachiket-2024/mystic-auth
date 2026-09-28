@@ -22,7 +22,7 @@ with the sequence of each path made explicit.
 | Soft-delete mechanics | `backend/mystic_auth/user/user_crud_modules/user_lifecycle_crud.py` | `soft_delete`, `reactivate`, `get_deleted_before(cutoff)` |
 | Scheduled job | `backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py` | Daily 03:00 UTC purge of accounts past their grace period |
 | Frontend | `frontend/src/mystic_auth/account_settings/DeleteAccountCard.tsx`, `confirm_delete/ConfirmDeleteAccountPage.tsx` | Delete UI, password re-confirm, "check your email" state, the public `/confirm-delete` landing page |
-| Tests | `tests/backend/mystic_auth/integration/user_lifecycle/`, matching unit suites, `tests/frontend/mystic_auth/*/account_settings/` | End-to-end and unit coverage for every path below |
+| Tests | `tests/backend/mystic_auth/integration/user/`, `tests/backend/mystic_auth/unit/user_lifecycle/`, matching frontend suites under `tests/frontend/mystic_auth/` | End-to-end and unit coverage for every path below |
 
 ---
 
@@ -41,7 +41,7 @@ with the sequence of each path made explicit.
 | `ACCOUNT_PURGE_GRACE_DAYS` | Days a soft-deleted account stays recoverable before the scheduled job purges it | 30 |
 | `ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES` | Lifetime of the OAuth-only-account confirmation link | 60 |
 
-Both live in `backend/mystic_auth/core/settings.py` and are set via `.env`.
+Both are declared in the upstream-owned `backend/mystic_auth/core/settings.py` and set in the active `env/mystic_auth/.env.dev<mode-suffix>` runtime file (with any downstream-only values kept in the matching `env/app/` file).
 
 ---
 

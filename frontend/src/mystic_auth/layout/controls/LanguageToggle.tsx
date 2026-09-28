@@ -24,6 +24,7 @@ const LanguageToggle: React.FC = () => {
     const mode = useLanguageStore((s) => s.mode);
     const setMode = useLanguageStore((s) => s.setMode);
     const chromeLanguage = useLanguageStore((s) => s.chromeLanguage);
+    useLanguageStore((s) => s.languageRevision);
     const t = translations.getFixedT(chromeLanguage, "layout");
 
     const options = useMemo(

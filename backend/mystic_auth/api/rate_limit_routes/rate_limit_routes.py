@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from ...auth.security.rate_limiting.rate_limit_dashboard_service import rate_limit_dashboard_service
-from ...auth.security.rate_limiting.rate_limit_schema import RateLimitPageRead, RateLimitSummaryRead
+from ...auth.security.rate_limiting.rate_limit_schema import RateLimitEntryRead, RateLimitPageRead, RateLimitSummaryRead
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
 from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
@@ -51,7 +51,11 @@ async def list_rate_limits(
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
-    return RateLimitPageRead(entries=entries, total=total, truncated=truncated)
+    return RateLimitPageRead(
+        entries=[RateLimitEntryRead(**entry) for entry in entries],
+        total=total,
+        truncated=truncated,
+    )
 
 
 @router.get("/summary", response_model=RateLimitSummaryRead)

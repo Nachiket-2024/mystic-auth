@@ -55,9 +55,9 @@ A Valkey error is one specific case of "no entry present" above, not a separate 
 **If you suspect stale cached permissions:**
 
 ```bash
-docker compose exec valkey valkey-cli KEYS "authz:user_policies:*"
-docker compose exec valkey valkey-cli DEL "authz:user_policies:someone@example.com"
-docker compose exec valkey valkey-cli FLUSHDB   # nuclear option: clears everything in this logical DB
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec valkey valkey-cli KEYS "authz:user_policies:*"
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec valkey valkey-cli DEL "authz:user_policies:someone@example.com"
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec valkey valkey-cli FLUSHDB   # nuclear option: clears everything in this logical DB
 ```
 
 **This is server-side correctness only.** A browser tab that already has a permission-gated page open doesn't re-request anything just because the cache above got invalidated. It needs its own signal to go check. See [Architecture: Real-time push](../architecture/real-time-push.md#real-time-push) for the SSE nudge that closes that gap; if a tab still shows stale permissions for more than a few seconds after a grant/revoke/update/delete, check that flow (and the browser's Network tab for a live `GET /auth/session-events` connection) before assuming it's this Valkey cache.

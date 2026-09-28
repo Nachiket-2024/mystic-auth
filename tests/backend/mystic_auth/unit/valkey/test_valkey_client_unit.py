@@ -7,7 +7,10 @@
 from valkey.asyncio import Valkey
 
 from backend.mystic_auth.core.settings import settings
-from backend.mystic_auth.valkey.client import VALKEY_SOCKET_TIMEOUT_SECONDS, valkey_client
+from backend.mystic_auth.valkey.client import (
+    VALKEY_SOCKET_TIMEOUT_SECONDS,
+    valkey_client,
+)
 
 
 def test_valkey_client_is_a_valkey_instance():

@@ -8,7 +8,7 @@
 #
 # Covers the real bug found manually during development: setup-env's and
 # rotate-secrets' shared sed_inplace helper used to delete a caller's own
-# env/mystic_auth/.env.bak by colliding with sed -i.bak's own transient backup file.
+# env/mystic_auth/.env.dev.bak by colliding with sed -i.bak's own transient backup file.
 
 set -euo pipefail
 
@@ -35,27 +35,27 @@ cd "$BASE"
 
 echo "=== setup-env: bootstraps every file, skips none that don't exist yet ==="
 printf 'TestApp\n#123456\n' | scripts/mystic_auth/env-tools/setup-env/setup-env.sh >/dev/null
-for f in env/mystic_auth/.env env/mystic_auth/.env.prod env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale frontend/.env; do
+for f in env/mystic_auth/.env.dev env/mystic_auth/.env.prod env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale frontend/.env; do
   [ -f "$f" ] || fail "setup-env: $f was not created"
 done
 pass "setup-env: created every expected file"
 
-DEV_SECRET_1="$(grep '^SECRET_KEY=' env/mystic_auth/.env | cut -d= -f2)"
+DEV_SECRET_1="$(grep '^SECRET_KEY=' env/mystic_auth/.env.dev | cut -d= -f2)"
 PROD_SECRET="$(grep '^SECRET_KEY=' env/mystic_auth/.env.prod | cut -d= -f2)"
 [ "$DEV_SECRET_1" != "$PROD_SECRET" ] || fail "setup-env: SECRET_KEY reused across files"
 pass "setup-env: SECRET_KEY is distinct per file"
 
-PG_PW="$(grep '^POSTGRES_PASSWORD=' env/mystic_auth/.env | cut -d= -f2)"
-grep -q "postgres:${PG_PW}@" <(grep '^DATABASE_URL=' env/mystic_auth/.env) || fail "setup-env: DATABASE_URL password out of sync with POSTGRES_PASSWORD"
+PG_PW="$(grep '^POSTGRES_PASSWORD=' env/mystic_auth/.env.dev | cut -d= -f2)"
+grep -q "postgres:${PG_PW}@" <(grep '^DATABASE_URL=' env/mystic_auth/.env.dev) || fail "setup-env: DATABASE_URL password out of sync with POSTGRES_PASSWORD"
 pass "setup-env: DATABASE_URL password matches generated POSTGRES_PASSWORD"
 
 echo "=== setup-env: never overwrites an existing file ==="
-BEFORE_DEV_FILE="$(cat env/mystic_auth/.env)"
+BEFORE_DEV_FILE="$(cat env/mystic_auth/.env.dev)"
 printf '\n\n' | scripts/mystic_auth/env-tools/setup-env/setup-env.sh >/dev/null
-[ "$(cat env/mystic_auth/.env)" = "$BEFORE_DEV_FILE" ] || fail "setup-env: overwrote an existing file"
+[ "$(cat env/mystic_auth/.env.dev)" = "$BEFORE_DEV_FILE" ] || fail "setup-env: overwrote an existing file"
 pass "setup-env: left an existing file untouched"
 
-# Regression test for the sed -i.bak / env/mystic_auth/.env.bak collision bug.
+# Regression test for the sed -i.bak / env/mystic_auth/.env.dev.bak collision bug.
 cp env/mystic_auth/.env.local-prod-cloudflare.example env/mystic_auth/.env.local-prod-cloudflare.bak
 echo "CANARY=should-survive" >> env/mystic_auth/.env.local-prod-cloudflare.bak
 rm env/mystic_auth/.env.local-prod-cloudflare
@@ -67,7 +67,7 @@ rm env/mystic_auth/.env.local-prod-cloudflare.bak
 
 echo ""
 echo "=== check-env: clean file only warns on shipped placeholders ==="
-if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env > /tmp/check-env-out.$$; then
+if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.dev > /tmp/check-env-out.$$; then
   grep -q "WARNING" /tmp/check-env-out.$$ || fail "check-env: expected placeholder warnings, got none"
   pass "check-env: exits 0 with placeholder warnings on a freshly generated dev file"
 else
@@ -87,14 +87,14 @@ fi
 rm -f /tmp/check-env-out2.$$ env/mystic_auth/.env.prod.broken
 
 echo "=== check-env: warns about a leftover .bak file ==="
-cp env/mystic_auth/.env env/mystic_auth/.env.bak
-if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env > /tmp/check-env-out3.$$; then
-  grep -q "env/mystic_auth/.env.bak still exists" /tmp/check-env-out3.$$ || fail "check-env: did not warn about a leftover env/mystic_auth/.env.bak"
+cp env/mystic_auth/.env.dev env/mystic_auth/.env.dev.bak
+if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.dev > /tmp/check-env-out3.$$; then
+  grep -q "env/mystic_auth/.env.dev.bak still exists" /tmp/check-env-out3.$$ || fail "check-env: did not warn about a leftover env/mystic_auth/.env.dev.bak"
   pass "check-env: warns about a leftover .bak file"
 else
   fail "check-env: unexpectedly failed just from a leftover .bak file existing"
 fi
-rm -f /tmp/check-env-out3.$$ env/mystic_auth/.env.bak
+rm -f /tmp/check-env-out3.$$ env/mystic_auth/.env.dev.bak
 
 echo ""
 echo "=== check-env: warns about a blank/invalid BUGSINK_SUPERUSER_EMAIL ==="
@@ -102,40 +102,40 @@ echo "=== check-env: warns about a blank/invalid BUGSINK_SUPERUSER_EMAIL ==="
 # hard startup failure - Bugsink's own prestart hook rejects it and
 # crash-loops, taking backend/frontend down with it via depends_on. Found
 # live: this exact failure reproduced against a real docker-compose up.
-cp env/mystic_auth/.env env/mystic_auth/.env.emailtest
-sed -i.tmp 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.emailtest && rm -f env/mystic_auth/.env.emailtest.tmp
-if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.emailtest > /tmp/check-env-out4.$$; then
+cp env/mystic_auth/.env.dev env/mystic_auth/.env.dev.emailtest
+sed -i.tmp 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.dev.emailtest && rm -f env/mystic_auth/.env.dev.emailtest.tmp
+if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.dev.emailtest > /tmp/check-env-out4.$$; then
   grep -q "BUGSINK_SUPERUSER_EMAIL is blank or not a valid email" /tmp/check-env-out4.$$ || fail "check-env: did not warn about a blank BUGSINK_SUPERUSER_EMAIL"
   pass "check-env: warns about a blank BUGSINK_SUPERUSER_EMAIL"
 else
   fail "check-env: unexpectedly failed just from a blank BUGSINK_SUPERUSER_EMAIL"
 fi
-sed -i.tmp 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=not-an-email/' env/mystic_auth/.env.emailtest && rm -f env/mystic_auth/.env.emailtest.tmp
-if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.emailtest > /tmp/check-env-out5.$$; then
+sed -i.tmp 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=not-an-email/' env/mystic_auth/.env.dev.emailtest && rm -f env/mystic_auth/.env.dev.emailtest.tmp
+if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.dev.emailtest > /tmp/check-env-out5.$$; then
   grep -q "BUGSINK_SUPERUSER_EMAIL is blank or not a valid email" /tmp/check-env-out5.$$ || fail "check-env: did not warn about a malformed BUGSINK_SUPERUSER_EMAIL"
   pass "check-env: warns about a malformed (no @/domain) BUGSINK_SUPERUSER_EMAIL"
 else
   fail "check-env: unexpectedly failed just from a malformed BUGSINK_SUPERUSER_EMAIL"
 fi
-rm -f /tmp/check-env-out4.$$ /tmp/check-env-out5.$$ env/mystic_auth/.env.emailtest
+rm -f /tmp/check-env-out4.$$ /tmp/check-env-out5.$$ env/mystic_auth/.env.dev.emailtest
 
 echo ""
 echo "=== rotate-secrets: rotates SECRET_KEY/BUGSINK_SECRET_KEY, leaves other secrets alone ==="
-BEFORE_PG="$(grep '^POSTGRES_PASSWORD=' env/mystic_auth/.env)"
-scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh env/mystic_auth/.env >/dev/null
-DEV_SECRET_2="$(grep '^SECRET_KEY=' env/mystic_auth/.env | cut -d= -f2)"
+BEFORE_PG="$(grep '^POSTGRES_PASSWORD=' env/mystic_auth/.env.dev)"
+scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh env/mystic_auth/.env.dev >/dev/null
+DEV_SECRET_2="$(grep '^SECRET_KEY=' env/mystic_auth/.env.dev | cut -d= -f2)"
 [ "$DEV_SECRET_2" != "$DEV_SECRET_1" ] || fail "rotate-secrets: SECRET_KEY did not change"
 pass "rotate-secrets: SECRET_KEY rotated"
-AFTER_PG="$(grep '^POSTGRES_PASSWORD=' env/mystic_auth/.env)"
+AFTER_PG="$(grep '^POSTGRES_PASSWORD=' env/mystic_auth/.env.dev)"
 [ "$BEFORE_PG" = "$AFTER_PG" ] || fail "rotate-secrets: touched POSTGRES_PASSWORD, which is out of scope"
 pass "rotate-secrets: left POSTGRES_PASSWORD untouched"
 
 echo ""
 echo "=== set-env-field: direct KEY=VALUE mode, special characters survive ==="
 scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh 'FROM_EMAIL=team@example.com' 'SUPPORT_EMAIL=a/b&c=d' >/dev/null
-grep -qx "FROM_EMAIL=team@example.com" env/mystic_auth/.env || fail "set-env-field: FROM_EMAIL not set in env/mystic_auth/.env"
+grep -qx "FROM_EMAIL=team@example.com" env/mystic_auth/.env.dev || fail "set-env-field: FROM_EMAIL not set in env/mystic_auth/.env.dev"
 grep -qx "FROM_EMAIL=team@example.com" env/mystic_auth/.env.prod || fail "set-env-field: FROM_EMAIL not propagated to env/mystic_auth/.env.prod"
-grep -qx 'SUPPORT_EMAIL=a/b&c=d' env/mystic_auth/.env || fail "set-env-field: special characters mangled"
+grep -qx 'SUPPORT_EMAIL=a/b&c=d' env/mystic_auth/.env.dev || fail "set-env-field: special characters mangled"
 pass "set-env-field: direct mode sets fields across files, special characters intact"
 
 echo "=== set-env-field: file-based mode skips blank fields ==="
@@ -145,27 +145,27 @@ sed -i.tmp 's/^GEOIPUPDATE_ACCOUNT_ID=.*/GEOIPUPDATE_ACCOUNT_ID=file-mode-maxmin
 sed -i.tmp 's/^USER_EXPORT_MAX_ROWS=.*/USER_EXPORT_MAX_ROWS=25000/' scripts/mystic_auth/env-tools/set-env-field/shared-values.env
 sed -i.tmp 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=ops@example.com/' scripts/mystic_auth/env-tools/set-env-field/shared-values.env
 rm -f scripts/mystic_auth/env-tools/set-env-field/shared-values.env.tmp
-BEFORE_BUGSINK_PW="$(grep '^BUGSINK_SUPERUSER_PASSWORD=' env/mystic_auth/.env)"
+BEFORE_BUGSINK_PW="$(grep '^BUGSINK_SUPERUSER_PASSWORD=' env/mystic_auth/.env.dev)"
 scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh >/dev/null
-grep -qx "GOOGLE_CLIENT_ID=file-mode-id" env/mystic_auth/.env || fail "set-env-field: filled-in shared-values.env field not applied"
+grep -qx "GOOGLE_CLIENT_ID=file-mode-id" env/mystic_auth/.env.dev || fail "set-env-field: filled-in shared-values.env field not applied"
 grep -qx "GEOIPUPDATE_ACCOUNT_ID=file-mode-maxmind-id" env/mystic_auth/.env.prod || fail "set-env-field: geolocation field not applied to a prod-shaped file"
 grep -qx "USER_EXPORT_MAX_ROWS=25000" env/mystic_auth/.env.prod || fail "set-env-field: operational tuning field not applied"
 grep -qx "BUGSINK_SUPERUSER_EMAIL=ops@example.com" env/mystic_auth/.env.prod || fail "set-env-field: BUGSINK_SUPERUSER_EMAIL not applied to a prod-shaped file"
-[ "$(grep '^BUGSINK_SUPERUSER_PASSWORD=' env/mystic_auth/.env)" = "$BEFORE_BUGSINK_PW" ] || fail "set-env-field: shared-values.env's excluded BUGSINK_SUPERUSER_PASSWORD was somehow touched"
-grep -qx "GMAIL_APP_PASSWORD=<your_gmail_app_password>" env/mystic_auth/.env || fail "set-env-field: blank shared-values.env field was applied anyway"
+[ "$(grep '^BUGSINK_SUPERUSER_PASSWORD=' env/mystic_auth/.env.dev)" = "$BEFORE_BUGSINK_PW" ] || fail "set-env-field: shared-values.env's excluded BUGSINK_SUPERUSER_PASSWORD was somehow touched"
+grep -qx "GMAIL_APP_PASSWORD=<your_gmail_app_password>" env/mystic_auth/.env.dev || fail "set-env-field: blank shared-values.env field was applied anyway"
 pass "set-env-field: file-based mode applies filled fields, skips blank ones"
 rm -f scripts/mystic_auth/env-tools/set-env-field/shared-values.env
 
 echo ""
 echo "=== copy-env-values: copies real fields, skips freshly generated secrets ==="
-cp env/mystic_auth/.env env/mystic_auth/.env.bak
-sed -i.tmp 's/^SUPPORT_EMAIL=.*/SUPPORT_EMAIL=copied-value@example.com/' env/mystic_auth/.env.bak && rm -f env/mystic_auth/.env.bak.tmp
-sed -i.tmp 's/^SECRET_KEY=.*/SECRET_KEY=SHOULD_NOT_SURVIVE/' env/mystic_auth/.env.bak && rm -f env/mystic_auth/.env.bak.tmp
-scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh env/mystic_auth/.env.bak env/mystic_auth/.env >/dev/null
-grep -qx "SUPPORT_EMAIL=copied-value@example.com" env/mystic_auth/.env || fail "copy-env-values: real field was not copied"
-grep -qx "SECRET_KEY=SHOULD_NOT_SURVIVE" env/mystic_auth/.env && fail "copy-env-values: copied an excluded (freshly generated) field" || pass "copy-env-values: excluded field left untouched"
+cp env/mystic_auth/.env.dev env/mystic_auth/.env.dev.bak
+sed -i.tmp 's/^SUPPORT_EMAIL=.*/SUPPORT_EMAIL=copied-value@example.com/' env/mystic_auth/.env.dev.bak && rm -f env/mystic_auth/.env.dev.bak.tmp
+sed -i.tmp 's/^SECRET_KEY=.*/SECRET_KEY=SHOULD_NOT_SURVIVE/' env/mystic_auth/.env.dev.bak && rm -f env/mystic_auth/.env.dev.bak.tmp
+scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh env/mystic_auth/.env.dev.bak env/mystic_auth/.env.dev >/dev/null
+grep -qx "SUPPORT_EMAIL=copied-value@example.com" env/mystic_auth/.env.dev || fail "copy-env-values: real field was not copied"
+grep -qx "SECRET_KEY=SHOULD_NOT_SURVIVE" env/mystic_auth/.env.dev && fail "copy-env-values: copied an excluded (freshly generated) field" || pass "copy-env-values: excluded field left untouched"
 pass "copy-env-values: non-excluded field copied from old file into new one"
-rm -f env/mystic_auth/.env.bak
+rm -f env/mystic_auth/.env.dev.bak
 
 echo ""
 echo "All env-tooling regression checks passed."

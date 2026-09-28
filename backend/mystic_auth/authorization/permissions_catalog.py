@@ -13,7 +13,7 @@ class PermissionCatalogEntry:
     """One entry in the read-only permission catalog: an action from the
     fixed `Permission` vocabulary, the resource_type it's actually checked
     against (see each action's `require_authorization`/`*_DEPENDENCY` call
-    site), and a short admin-facing description of what it grants."""
+    site), and a short operator-facing description of what it grants."""
 
     action: str
     resource_type: str

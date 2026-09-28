@@ -31,7 +31,7 @@ async def test_authorize_writes_an_audit_log_entry_with_the_decision(mocker):
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_policy(["users:list_all"], name="user_administration")],
+        return_value=[_policy(["users:list_all"], name="user_management")],
     )
     log_mock = _mock_audit_log(mocker)
 
@@ -43,8 +43,8 @@ async def test_authorize_writes_an_audit_log_entry_with_the_decision(mocker):
     assert entry_data["action"] == "users:list_all"
     assert entry_data["resource_type"] == "users"
     assert entry_data["allowed"] is True
-    assert entry_data["candidate_policy_names"] == ["user_administration"]
-    assert entry_data["granting_policy_names"] == ["user_administration"]
+    assert entry_data["candidate_policy_names"] == ["user_management"]
+    assert entry_data["granting_policy_names"] == ["user_management"]
     assert entry_data["failed_conditions"] is None
 
 

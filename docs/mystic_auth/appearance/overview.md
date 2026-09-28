@@ -9,7 +9,19 @@ Lets a signed-in user pick their own brand accent color from Account Settings, r
 
 ## Default brand color
 
-The app-wide default is one env var, not a code edit: `BRAND_COLOR` in the root `.env` (aliased to `VITE_BRAND_COLOR` for the frontend build, the same pattern `APP_NAME` uses, see [Using This Repository as a Template: Environment configuration](../template-usage/quickstart.md#environment-configuration)). Ships as amber. `frontend/src/mystic_auth/core/settings.ts` reads it (falling back to that same amber if unset), and `frontend/src/mystic_auth/theme/applyBrandCssVars.ts` feeds it through `generateBrandScale`, the same generator described below, to write the whole `--brand-*` CSS variable scale plus the canvas-gradient/sidebar tints onto `<html>` at startup - after `frontend/src/app/theme.ts`'s own `brandColor` override (if any), and before a signed-in user's own pick, which still wins client-side for that user.
+The app-wide default is one env var, not a code edit: `BRAND_COLOR` in the
+active runtime env file (normally `env/mystic_auth/.env.dev` for dev, or the
+matching mode file; downstream-only overrides belong in `env/app/`). It is
+aliased to `VITE_BRAND_COLOR` for the frontend build, the same pattern as
+`APP_NAME` uses; see [Environment configuration](../template-usage/quickstart.md#environment-configuration).
+It ships as terracotta (`#b5533c`). `frontend/src/mystic_auth/core/settings.ts`
+reads it (falling back to that same terracotta if unset), and
+`frontend/src/mystic_auth/theme/applyBrandCssVars.ts` feeds it through
+`generateBrandScale`, the same generator described below, to write the whole
+`--brand-*` CSS variable scale plus the canvas-gradient/sidebar tints onto
+`<html>` at startup - after `frontend/src/app/theme.ts`'s own `brandColor`
+override (if any), and before a signed-in user's own pick, which still wins
+client-side for that user.
 
 Need more than a single color, for example a hand-authored scale that doesn't fit the generator's lightness ladder? `frontend/src/app/theme.ts` still exists for that; see [Frontend Customization: Theme](../template-usage/frontend-customization.md#frontend-customization).
 
@@ -40,7 +52,7 @@ Because `AppearanceCard.tsx` reads and writes the same store `applyBrandCssVars.
 
 ## Color scale generation
 
-`generateBrandScale(hex)` (`theme/generateBrandScale.ts`) keeps the picked color's hue (and roughly its saturation) fixed, and interpolates lightness across a `LIGHTNESS_LADDER` calibrated against the shipped default's amber scale (Tailwind's amber scale), so an arbitrary input hue lands at roughly the same visual weight and contrast per step as that hand-tuned scale, without per-color manual re-tuning. Saturation is tapered slightly at the darkest steps (`SATURATION_MULTIPLIER`) so `900` doesn't read as an oversaturated near-black. `contrastRatio(a, b)` (WCAG contrast, via the `colord` `a11y` plugin) backs `AppearanceCard.tsx`'s low-contrast warning, checked against `scale["600"]` on white.
+`generateBrandScale(hex)` (`theme/generateBrandScale.ts`) keeps the picked color's hue (and roughly its saturation) fixed, and interpolates lightness across a `LIGHTNESS_LADDER` calibrated against the shipped default's terracotta scale, so an arbitrary input hue lands at roughly the same visual weight and contrast per step as that hand-tuned scale, without per-color manual re-tuning. Saturation is tapered slightly at the darkest steps (`SATURATION_MULTIPLIER`) so `900` doesn't read as an oversaturated near-black. `contrastRatio(a, b)` (WCAG contrast, via the `colord` `a11y` plugin) backs `AppearanceCard.tsx`'s low-contrast warning, checked against `scale["600"]` on white.
 
 The page background gradient's start color (`--bg-canvas-from`, the CSS variable every `AppLayout`/`AuthLayout`/`LandingPage` gradient reads) is derived from this same scale rather than picked separately (`deriveCanvasFrom` in `appearanceThemeOverrides.ts`, the same function `applyBrandCssVars.ts` calls to build the app-wide default's canvas tint from `BRAND_COLOR`): a muted tint of `scale["600"]` in light mode, and a 75/25 blend of a stock near-black with `scale["900"]` in dark mode. A flat `scale["900"]` wash read as too strong at the top of a dark viewport; plain gray alone read as unbranded. `--bg-canvas`, `--bg-canvas-to`, and `--bg-surface` stay at their stock values in both modes; only the gradient's start color (and, via the matching `deriveSidebar`, `--bg-sidebar`) moves with the user's pick.
 

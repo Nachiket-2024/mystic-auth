@@ -51,7 +51,7 @@ Read the docs in this order if you are new to the repository:
 
 - [Architecture Overview](authorization/architecture/README.md): request flow, component responsibilities, integration points
 - [Policy JSON Examples](authorization/policy-examples.md): basic, conditioned, superuser, and self-service policies
-- [RBAC Quickstart](authorization/rbac-quickstart.md): plain role-shaped access (no conditions) using the same policies, for projects that don't need PBAC's full generality
+- [Unconditioned Policy Quickstart](authorization/unconditioned-policy-quickstart.md): plain role-shaped access (no conditions) using the same policies, for projects that don't need PBAC's full generality
 - [Common Patterns](authorization/common-patterns.md): modeling common access shapes (e.g. org-chart/company-group hierarchies) on top of PBAC's existing condition types
 - [Condition Schema Reference](authorization/condition-schema-reference.md): every supported condition type, field-by-field
 - [Adding New Permissions](authorization/adding-permissions.md): extending the action vocabulary
@@ -122,6 +122,7 @@ Read the docs in this order if you are new to the repository:
 ## Testing
 
 - [Testing Overview](testing/overview.md): backend pytest suites, frontend vitest suites, coverage state, how to run
+- [Manual Accessibility Checklist](testing/accessibility-manual-checklist.md): keyboard-only and screen-reader acceptance checks beyond axe automation
 
 ---
 
@@ -168,6 +169,7 @@ Read the docs in this order if you are new to the repository:
 ## Using This as a Template
 
 - [Template Usage Guide](template-usage/overview.md): for anyone cloning this repo as a starting point for their own auth+PBAC project, an index into quickstart, the ownership split, building on the template, and deployment
+- [Downstream Project Launch Checklist](template-usage/downstream-launch-checklist.md): project-specific legal, integration, VPS, recovery, monitoring, accessibility, and final acceptance work before serving real users
 - [Quickstart](template-usage/quickstart.md): the one-command path from `git clone` to a working login, each step by hand instead, keeping env files honest over time, renaming the app, OAuth/email setup
 - [Command Cheat Sheet](template-usage/cheatsheet.md): one-line "when to run this" for every script in the template, plus the `make` target shortcuts
 - [The `app/` + `mystic_auth/` Split](template-usage/ownership-split.md): the file-ownership tiering table and diagram that keeps a `sync-upstream.sh` run low-conflict

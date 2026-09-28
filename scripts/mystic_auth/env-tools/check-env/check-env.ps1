@@ -8,7 +8,7 @@
 #   2. WARNING (exit 0, printed): a <your_...>/<your-domain> placeholder is
 #      still present, or a host port this file declares is already bound.
 #
-# Usage: .\check-env.ps1 [env/mystic_auth/.env ...]
+# Usage: .\check-env.ps1 [env/mystic_auth/.env.dev ...]
 # With no arguments, checks every env/mystic_auth/.env* and env/app/.env*
 # file that actually exists.
 param(

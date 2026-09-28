@@ -57,7 +57,7 @@ export function usePolicyFormState({
   const [conditionsEnabled, setConditionsEnabled] = useState(false);
   const [conditionsText, setConditionsText] = useState("");
 
-  // Live, as the admin types - catches malformed JSON (or valid JSON
+  // Live, as the operator types - catches malformed JSON (or valid JSON
   // that isn't an object, e.g. an array or a bare string) before submit,
   // instead of only surfacing INVALID_CONDITIONS after a save round-trip.
   // Deeper semantic checks (unsupported keys, wrong value shapes - see
@@ -104,7 +104,7 @@ export function usePolicyFormState({
 
   // Actions are scoped to the selected resource type: a policy grants
   // actions against one resource type, so showing every catalog action
-  // regardless of selection would let an admin pick a combination no
+  // regardless of selection would let an operator pick a combination no
   // route actually matches. "*" is the one exception (system_superuser):
   // it grants against every resource type, so its action list is the full
   // catalog instead of one type's slice.

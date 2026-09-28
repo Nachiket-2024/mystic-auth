@@ -71,8 +71,8 @@ action in a policy before the UI presents that policy as grantable.
 ### `tests/frontend/mystic_auth/integration/authorization/pbac_authorization_flow.test.tsx`
 
 The first scenario logs in a user with a restricted permission set and proves
-only the allowed UI is rendered. The second adds the admin permission and
-proves admin-gated UI becomes available. The failed-login scenario proves a
+only the allowed UI is rendered. The second adds the required management
+permission and proves protected UI becomes available. The failed-login scenario proves a
 later-resolving session query cannot briefly reveal protected content. This is
 mocked-backend page behavior, not proof that the server granted the permission.
 
@@ -83,7 +83,7 @@ mocked-backend page behavior, not proof that the server granted the permission.
 ### `tests/frontend/mystic_auth/e2e/authorization/permission_matrix_browser.spec.ts`
 
 The nine mock profiles exercise protected routes and controls using synthetic
-`/auth/me` responses. The first test checks usable admin routes and controls;
+`/auth/me` responses. The first test checks usable authorization routes and controls;
 the second opens available dialogs and checks Escape restores focus. This is
 the broad UI-shape matrix: it is useful for many combinations but cannot find
 a mismatch between database grants and `/auth/me`.
@@ -94,7 +94,7 @@ a mismatch between database grants and `/auth/me`.
 
 ### `tests/frontend/mystic_auth/e2e/authorization/permission_matrix_real_accounts_browser.spec.ts`
 
-Each of the 32 buckets logs in with a seeded account, reads `/auth/me`, and
+Each of the 32 buckets logs in with a seeded account in Chromium desktop, reads `/auth/me`, and
 compares the exact permission set to the policy/direct-grant expectation in
 the fixture. It then checks users, policies, permissions, and rate-limit route
 gates, with retry handling for the browser cookie-commit race.
@@ -103,7 +103,7 @@ The audit-log checks distinguish two independent permissions. The Authorization
 decisions category shows the “All users” tab only with `policies:read`. After
 switching to Security Events, the “All users” tab is checked against
 `security_audit:read`. The p4 bundle supplies `policy_maintainer`,
-`security_audit_administration`, and `user_lifecycle_administration`, so the
+`security_audit_access`, and `user_lifecycle`, so the
 new Security Events frontend gate is exercised by real backend accounts.
 
 The seed creates 40 role/policy/direct-grant combinations and 96 accounts,
@@ -122,7 +122,7 @@ account matrix.
 - `tests/frontend/mystic_auth/integration/policies/policies_page_status_and_delete.test.tsx`
   verifies protected-policy status and deletion controls.
 - `tests/frontend/mystic_auth/integration/users/users_page_access_dialog_self_protection.test.tsx`
-  verifies the current administrator cannot remove their own protective access.
+  verifies the current operator cannot remove their own protective access.
 - `tests/frontend/mystic_auth/integration/rate_limits/rate_limits_page.test.tsx`
   verifies the rate-limit page's permission gate alongside data states.
 - `tests/frontend/mystic_auth/e2e/users/users_page_browser.spec.ts` verifies

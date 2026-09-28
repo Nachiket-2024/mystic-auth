@@ -11,6 +11,14 @@ const SERVER_COMMAND = process.env.PLAYWRIGHT_USE_PREVIEW === "1"
   ? `npm run build && npm run preview -- --host 127.0.0.1 --port ${PORT}`
   : `npm run dev -- --host 127.0.0.1 --port ${PORT}`;
 
+// These suites deliberately exercise different layers of the browser stack.
+// The real-account matrix logs into dozens of accounts against one disposable
+// backend and is exhaustive in Chromium desktop. Repeating the same matrix in
+// Firefox, WebKit, and mobile multiplies backend contention without adding
+// authorization coverage: the mocked matrix already runs in every browser.
+const REAL_ACCOUNT_MATRIX = "**/authorization/permission_matrix_real_accounts_browser.spec.ts";
+const RESPONSIVENESS_TIMING = "**/performance/admin_responsiveness_browser.spec.ts";
+
 export default defineConfig({
   testDir: "../tests/frontend",
   testMatch: "**/e2e/**/*.spec.ts",
@@ -47,14 +55,17 @@ export default defineConfig({
     {
       name: "chromium-mobile",
       use: { ...devices["Pixel 7"] },
+      testIgnore: [REAL_ACCOUNT_MATRIX],
     },
     {
       name: "firefox-desktop",
       use: { ...devices["Desktop Firefox"] },
+      testIgnore: [REAL_ACCOUNT_MATRIX, RESPONSIVENESS_TIMING],
     },
     {
       name: "webkit-desktop",
       use: { ...devices["Desktop Safari"] },
+      testIgnore: [REAL_ACCOUNT_MATRIX, RESPONSIVENESS_TIMING],
     },
   ],
 });

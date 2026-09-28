@@ -26,7 +26,21 @@ Migrations run with `DATABASE_URL`, normally the Postgres superuser. Runtime app
 ## 2. Backup scripts
 ---
 
-`scripts/mystic_auth/db/db_backup.sh` and `scripts/mystic_auth/db/db_restore.sh` wrap Docker Compose, `pg_dump`, and `psql`.
+`scripts/mystic_auth/db/db_backup.sh` and `scripts/mystic_auth/db/db_restore.sh` wrap Docker Compose, `pg_dump`, and `psql`. Production-shaped Compose files use a custom Postgres client image with `rclone` and `curl` installed. The intended off-host target is Backblaze B2, using rclone's native B2 backend.
+
+Run `scripts/mystic_auth/db/check_backup_freshness.sh` from an external
+monitoring scheduler to verify that every required database has a recent,
+non-empty dump. It defaults to twice `BACKUP_INTERVAL_HOURS` and checks
+`POSTGRES_DB` plus `bugsink`; set `BACKUP_MAX_AGE_HOURS` or pass the directory
+and maximum age explicitly when the deployment needs a different policy:
+
+```bash
+BACKUP_MAX_AGE_HOURS=30 scripts/mystic_auth/db/check_backup_freshness.sh /backups
+```
+
+The check does not claim that an off-host object exists or that a dump can be
+restored. Use the restore drill for restoreability and monitor the B2 bucket
+itself for off-host freshness.
 
 ```bash
 # Dump the dev database and Bugsink database, if enabled
@@ -41,6 +55,72 @@ scripts/mystic_auth/db/db_restore.sh backups/mystic_auth-20260717-120000.sql
 # Restore without confirmation
 scripts/mystic_auth/db/db_restore.sh -y backups/mystic_auth-20260717-120000.sql
 ```
+
+### Backblaze B2 off-host copies
+---
+
+Create a B2 bucket in the Backblaze dashboard with these choices:
+
+1. Give it a globally unique name, such as `mystic-auth-backups-<owner>`.
+2. Keep **Files in Bucket** set to **Private**.
+3. Enable **Default Encryption**.
+4. Enable **Object Lock** for a real backup bucket, then configure a 14-day
+   Governance-mode default retention. Object Lock is irreversible, so leave it
+   disabled only for a temporary test bucket.
+
+Backblaze's current signup offers 10 GB of free storage without requiring a
+billing method. Usage above the free allowance can still incur charges, so
+configure B2 caps and alerts.
+
+Create an application key with these choices:
+
+1. The key name is just a label, for example `mystic-auth-backups`.
+2. Restrict **Allow access to Bucket(s)** to this backup bucket.
+3. Select **Read and Write**.
+4. Leave **Allow List All Bucket Names**, **File name prefix**, and **Duration**
+   empty.
+5. Copy the generated **keyID** and **applicationKey**. The key name is not a
+   credential.
+
+Keep the application key in the deployment secret store, not in git. In the
+environment file used by the production-shaped Compose file, map **keyID** to
+`RCLONE_CONFIG_B2_ACCOUNT` and **applicationKey** to
+`RCLONE_CONFIG_B2_KEY`:
+
+```dotenv
+B2_BUCKET=mystic-auth-production-backups
+RCLONE_CONFIG_B2_ACCOUNT=<keyID>
+RCLONE_CONFIG_B2_KEY=<applicationKey>
+BACKUP_UPLOAD_COMMAND=rclone copyto "$${DUMP_FILE}" "b2:mystic-auth-production-backups/$$(basename "$${DUMP_FILE}")"
+```
+
+The doubled dollar signs are required in a Compose environment file so
+Compose passes the variable references through to the backup container. Use
+the real bucket name in both `B2_BUCKET` and the `b2:<bucket-name>/...` part of
+the command. Do not copy these credentials into an `.example` file.
+
+The scheduled `db_backup` image contains `rclone`; the manual backup command
+uses the same hook and therefore needs `rclone` installed on the host. Every
+dump is checked with `pg_restore --list` before this command runs. Dump,
+verification, and upload failures are reported through the same Sentry
+protocol DSN used by the backend. The scheduled service reads the generated
+Bugsink DSN from its shared Compose volume. For a manual host-side backup,
+export `BACKUP_SENTRY_DSN` if the host cannot read that volume.
+
+After configuring the bucket, verify both directions:
+
+```bash
+make restore-drill
+scripts/mystic_auth/db/db_backup.sh docker-compose.prod.yml
+rclone lsjson "b2:${B2_BUCKET}"
+pg_restore --list <(rclone cat "b2:${B2_BUCKET}/<dump-name>.dump")
+```
+
+The restore drill in the repository checks a local dump. A deployment
+acceptance check must also download one named B2 object and restore that copy
+into a disposable database, then compare its schema and row counts. Periodic
+full dumps do not provide point-in-time recovery; use WAL archiving or managed
+Postgres if the backup interval is too large for the required RPO.
 
 The restore target is inferred from the dump filename. A `bugsink-*.sql` file restores into the `bugsink` database.
 
@@ -61,10 +141,10 @@ real one), runs a smoke check against it (the schema migrated and the
 flowchart TD
     Dump["pg_dump the running\napp database"]
     Scratch["Restore into a disposable\nscratch database\n(same Postgres server)"]
-    Smoke["Smoke check:\nschema migrated,\nusers table exists"]
+    Smoke["Verify:\nschema migrated, users table exists,\nsource and restored row counts match"]
     Pass{"All checks pass?"}
     Drop["Drop the scratch database"]
-    Fail["Exit non-zero\n(dump/restore/missing-schema)"]
+    Fail["Exit non-zero\n(dump/restore/schema/row-count mismatch)"]
 
     Dump --> Scratch --> Smoke --> Pass
     Pass -- "yes" --> Drop
@@ -114,12 +194,14 @@ behavior. See the fixed line's own comment in either script for the detail.
 |---|---|
 | `BACKUP_INTERVAL_HOURS` | Hours between scheduled dumps. |
 | `BACKUP_RETENTION_DAYS` | Local retention window for old dump files. |
-| `BACKUP_UPLOAD_COMMAND` | Optional shell command run after each verified dump, with `DUMP_FILE` exported to it, to ship the dump off-host. Blank (off) by default. |
+| `BACKUP_UPLOAD_COMMAND` | Shell command run after each verified dump, with `DUMP_FILE` exported to it, to ship the dump off-host. Configure it for B2 before treating the deployment as protected. |
 | `./backups` | Host directory where dumps are written. |
 
 This is a periodic `pg_dump` loop. It is a baseline, not a production-grade backup system. `scripts/mystic_auth/db/db_backup.sh` (manual/on-demand backups) honors the same `BACKUP_UPLOAD_COMMAND` for parity.
 
-Example: `BACKUP_UPLOAD_COMMAND=aws s3 cp "$DUMP_FILE" s3://my-bucket/` (the `postgres:15` image has no `aws-cli`/`rclone` preinstalled - use a command already on `PATH`, or bind-mount one in via a custom `db_backup` image).
+The scheduled backup image includes `rclone` and uses the B2 environment
+variables above. A host running the manual script needs `rclone` installed
+locally.
 
 ---
 
@@ -130,7 +212,7 @@ Known limitations:
 
 1. Dumps live on the same host by default, unless `BACKUP_UPLOAD_COMMAND` is set.
 2. There is no point-in-time recovery - periodic full dumps only, so worst-case data loss is up to `BACKUP_INTERVAL_HOURS` of writes.
-3. There is no alert when a scheduled backup or upload fails; a failure is visible only in `docker compose ps`/container logs (`set -e` restarts the container rather than skipping silently).
+3. Failure events are sent to Bugsink when its generated DSN is available, but an operator should still monitor backup freshness and B2 bucket contents.
 
 Each dump is already verified with `pg_restore --list` immediately after writing, so a corrupt dump is caught before it's trusted, not after a restore is attempted. Beyond that structural check, run [the restore drill](#3-restore-drill) periodically against production data to confirm the whole pipeline, not just the dump file, works end to end.
 

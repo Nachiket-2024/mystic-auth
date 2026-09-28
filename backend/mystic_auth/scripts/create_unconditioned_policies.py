@@ -13,12 +13,12 @@ def _policy_name_for_role(role_name: str) -> str:
     return f"{ROLE_POLICY_PREFIX}{role_name.strip().lower().replace(' ', '_')}"
 
 
-async def create_rbac_policy():
-    """Interactive CLI script that seeds one unconditioned, RBAC-shaped
+async def create_unconditioned_policy():
+    """Interactive CLI script that seeds one unconditioned, role-shaped
     policy: "everyone holding this role gets exactly this action list, with
     no per-resource scoping", for downstream projects that don't need
     PBAC's full conditions/resource_attributes generality. A policy with no
-    `conditions` at all is already RBAC, the same shape this template's own
+    `conditions` at all is the same shape this template's own
     seeded baseline policies use.
 
     Does NOT touch `users.role`; that column stays display/grouping
@@ -33,12 +33,12 @@ async def create_rbac_policy():
     endpoint bypasses the privilege-escalation guard this way.
 
     Run interactively:
-        python -m mystic_auth.scripts.create_rbac_policies
+        python -m mystic_auth.scripts.create_unconditioned_policies
     """
-    print("\n--- RBAC-Shaped Policy Creation ---")
+    print("\n--- Unconditioned Policy Creation ---")
     print("Creates one unconditioned policy: every user assigned it gets exactly")
     print("the actions you list below, with no per-resource scoping.")
-    print("See docs/mystic_auth/authorization/rbac-quickstart.md for the concept.\n")
+    print("See docs/mystic_auth/authorization/unconditioned-policy-quickstart.md for the concept.\n")
 
     role_name = input("Role name (e.g. 'editor', 'viewer'): ").strip()
     if not role_name:
@@ -66,7 +66,7 @@ async def create_rbac_policy():
                 f"\n Policy '{policy_name}' already exists with actions {existing.actions} : "
                 "no changes made. Edit it via PUT /authorization/policies/{id} or the /policies UI instead."
             )
-            logger.info("RBAC policy creation skipped, already exists: %s", policy_name)
+            logger.info("Unconditioned policy creation skipped, already exists: %s", policy_name)
             return
 
         policy = await policy_repository.create(
@@ -84,9 +84,9 @@ async def create_rbac_policy():
 
         print(f"\n Policy '{policy.name}' created : grants {actions} on '{resource_type}'.")
         print(" Assign it to users via the /policies UI or POST /authorization/users/{email}/policies.")
-        logger.info("RBAC policy created via CLI: %s", policy.name)
+        logger.info("Unconditioned policy created via CLI: %s", policy.name)
         return
 
 
 if __name__ == "__main__":
-    asyncio.run(create_rbac_policy())
+    asyncio.run(create_unconditioned_policy())

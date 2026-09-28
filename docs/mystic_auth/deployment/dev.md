@@ -18,7 +18,7 @@ Deployment Guide.
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    S1["Step 1: cp env.example env/mystic_auth/.env\n(or setup-env.sh)"]
+    S1["Step 1: create both env/mystic_auth/.env.dev\nand env/app/.env.dev\n(or setup-env.sh)"]
     S2["Step 2: configure a login path\nSMTP for password signup,\nGoogle OAuth, or both"]
     S3["Step 3: dev-up.sh\nstarts stack, waits for health,\ntails backend/frontend/worker logs"]
     S4["Step 4: open localhost:5173"]
@@ -37,14 +37,15 @@ above, with its own diagram.
 
 Want the whole thing in one command instead of the steps below? Run
 `scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`): it does step 1 below
-automatically if `env/mystic_auth/.env` doesn't exist yet, brings the stack up, offers
+automatically if `env/mystic_auth/.env.dev` doesn't exist yet, brings the stack up, offers
 to create the system superuser, then tails logs. See
 [Template Usage: Quickstart](../template-usage/quickstart.md).
 
 **Step 1: Copy the env file.**
 
 ```bash
-cp env/mystic_auth/.env.example env/mystic_auth/.env
+cp env/mystic_auth/.env.dev.example env/mystic_auth/.env.dev
+cp env/app/.env.dev.example env/app/.env.dev
 ```
 
 Or run `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) instead of a plain
@@ -52,8 +53,10 @@ Or run `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`) in
 distinct random secret per password field and applying one app name/brand
 color choice everywhere.
 
-`env/mystic_auth/.env.example` is the dev template for `docker/mystic_auth/compose/docker-compose.dev.yml`. Its defaults
-are enough to boot the stack as-is. It uses localhost URLs, development mode,
+`env/mystic_auth/.env.dev.example` is the template half for
+`docker/mystic_auth/compose/docker-compose.dev.yml`; `env/app/.env.dev.example`
+is the downstream override half. The app example is empty, and the MysticAuth
+defaults are enough to boot the stack as-is. It uses localhost URLs, development mode,
 Docker service names for internal database and Valkey access, and placeholder
 third-party credentials.
 
@@ -90,7 +93,7 @@ version.
 
 See [Environment variables](#environment-variables) below for the runtime
 rules, or the [Template Usage Guide](../template-usage/overview.md) for the
-full first-run walkthrough (cloning, `env/mystic_auth/.env`, first `docker compose up`).
+full first-run walkthrough (cloning, `env/mystic_auth/.env.dev`, and the first dev-up run).
 
 ---
 
@@ -112,9 +115,9 @@ The helper starts the stack detached, restarts `backend` and
 `procrastinate_worker` so their startup banners are fresh, waits for health
 checks, then tails logs from `backend`/`frontend`/`procrastinate_worker`. See
 [Docker Overview: day-to-day dev-up helpers](../docker/dev-workflow.md#day-to-day-dev-up-helpers)
-for why this is preferred over plain `docker compose up`.
+for why this is preferred over running the full dev Compose command directly.
 
-Use plain `docker compose up` (no `-d`) instead when you want every
+Run the full dev Compose command without `-d` when you want every
 service's logs interleaved into one stream, e.g. debugging Postgres/Bugsink/
 Alembic startup itself rather than the app.
 
@@ -129,12 +132,12 @@ API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## Environment variables
 
-`env/mystic_auth/.env.example` is the source of truth for dev values. It includes localhost
+`env/mystic_auth/.env.dev.example` is the source of truth for dev values. It includes localhost
 URLs, Docker service names, development mode, and placeholders for Google,
 SMTP, and Bugsink.
 
 Dev values are read at container startup. If you change backend, database,
-Valkey, Google, SMTP, or rate-limit values in `env/mystic_auth/.env`, restart the affected
+Valkey, Google, SMTP, or rate-limit values in `env/mystic_auth/.env.dev`, restart the affected
 containers. If you change `VITE_*` values for the Docker frontend dev server,
 restart `frontend` so Vite reads the new values.
 
@@ -175,7 +178,7 @@ for the full service-by-service comparison across all three Compose files.
 ## Stopping
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml down
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down
 ```
 
 Add `-v` to also drop the Postgres/Valkey volumes (wipes local data).

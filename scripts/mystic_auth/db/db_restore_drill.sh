@@ -33,7 +33,7 @@ esac
 MODE="${COMPOSE_BASENAME#docker-compose.}"
 MODE="${MODE%.yml}"
 if [ "$MODE" = "dev" ]; then
-  ENV_SUFFIX=""
+  ENV_SUFFIX=".dev"
 else
   ENV_SUFFIX=".${MODE}"
 fi
@@ -69,7 +69,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "1/4  Dumping '${POSTGRES_DB}'..."
+echo "1/5  Dumping '${POSTGRES_DB}'..."
 # No --file=-: see db_backup.sh's own comment on this same line - it
 # produces a 0-byte dump on this image's pg_dump build instead of writing
 # to stdout. Omitting --file defaults to stdout, which this redirect
@@ -77,13 +77,13 @@ echo "1/4  Dumping '${POSTGRES_DB}'..."
 docker compose "${DC_ARGS[@]}" exec -T postgres \
   pg_dump -U "$POSTGRES_USER" --format=custom "$POSTGRES_DB" > "$DRILL_DUMP"
 
-echo "2/4  Creating scratch database '${SCRATCH_DB}'..."
+echo "2/5  Creating scratch database '${SCRATCH_DB}'..."
 docker compose "${DC_ARGS[@]}" exec -T postgres \
   psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};" >/dev/null
 docker compose "${DC_ARGS[@]}" exec -T postgres \
   psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE ${SCRATCH_DB};" >/dev/null
 
-echo "3/4  Restoring the dump into '${SCRATCH_DB}'..."
+echo "3/5  Restoring the dump into '${SCRATCH_DB}'..."
 docker compose "${DC_ARGS[@]}" exec -T postgres \
   pg_restore -U "$POSTGRES_USER" --dbname "$SCRATCH_DB" < "$DRILL_DUMP"
 

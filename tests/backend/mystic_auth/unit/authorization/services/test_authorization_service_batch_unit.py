@@ -50,7 +50,7 @@ async def test_authorize_batch_returns_mixed_allowed_and_denied_decisions(mocker
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_policy(["users:list_all"], name="user_administration")],
+        return_value=[_policy(["users:list_all"], name="user_management")],
     )
     _mock_audit_log(mocker)
 
@@ -76,7 +76,7 @@ async def test_authorize_batch_logs_every_check_in_one_bulk_write(mocker):
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_policy(["users:list_all"], name="user_administration")],
+        return_value=[_policy(["users:list_all"], name="user_management")],
     )
     bulk_log_mock = mocker.patch(
         f"{MODULE}.authorization_audit_log_repository.create_entries", new_callable=AsyncMock
@@ -99,7 +99,7 @@ async def test_authorize_batch_logs_every_check_in_one_bulk_write(mocker):
 async def test_authorize_batch_matches_individual_authorize_calls_for_the_same_checks(mocker):
     """The exact requirement: single authorization and batch authorization
     must produce identical authorization decisions."""
-    policies = [_policy(["users:list_all"], name="user_administration")]
+    policies = [_policy(["users:list_all"], name="user_management")]
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
@@ -126,7 +126,7 @@ async def test_authorize_batch_fails_closed_when_one_check_raises_during_evaluat
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_policy(["users:list_all"], name="user_administration")],
+        return_value=[_policy(["users:list_all"], name="user_management")],
     )
     _mock_audit_log(mocker)
 

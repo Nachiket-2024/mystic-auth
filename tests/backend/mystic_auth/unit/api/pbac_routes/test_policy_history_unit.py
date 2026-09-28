@@ -187,7 +187,7 @@ async def test_compare_policy_history_returns_diff(mocker):
 @pytest.mark.asyncio
 async def test_compare_policy_history_rejects_mismatched_policy_name(mocker):
     from_entry = _make_history_entry(id=1, policy_name="self_service")
-    to_entry = _make_history_entry(id=2, policy_name="user_administration")
+    to_entry = _make_history_entry(id=2, policy_name="user_management")
     mocker.patch(
         f"{ROUTES_MODULE}.policy_history_repository.get_by_id",
         new_callable=AsyncMock, side_effect=[from_entry, to_entry],
@@ -269,7 +269,7 @@ async def test_rollback_policy_to_deleted_entry_restores_previous_definition(moc
 @pytest.mark.asyncio
 async def test_rollback_policy_rejects_entry_belonging_to_another_policy(mocker):
     policy = _make_policy()
-    other_policy_entry = _make_history_entry(id=9, policy_name="user_administration")
+    other_policy_entry = _make_history_entry(id=9, policy_name="user_management")
     mocker.patch(f"{ROUTES_MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=policy)
     mocker.patch(f"{ROUTES_MODULE}.policy_history_repository.get_by_id", new_callable=AsyncMock, return_value=other_policy_entry)
 

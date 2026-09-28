@@ -37,7 +37,7 @@ flowchart TB
 
 Most of the early foundation, everything up through the single-`users`-table refactor and the forgot-password/email work, came out of the ChatGPT + VSCode loop above. "Manual" here means hand-editing and integrating ChatGPT's output, not writing everything from scratch. No tool had direct access to the codebase or applied changes automatically; every change passed through me first. Slower than the Claude Code loop, but it meant every system decision was actually understood before it landed.
 
-Working through ChatGPT's suggestions and adjusting them to fit the real codebase is how I learned most of the underlying technologies during this period: Valkey-based session management, Docker and multi-container setups, TypeScript, OAuth2/PKCE flows, background workers, security practices, and Redux-based state management. Some concepts, like PBAC, weren't part of this original architecture at all. PBAC came later as an exploration beyond RBAC.
+Working through ChatGPT's suggestions and adjusting them to fit the real codebase is how I learned most of the underlying technologies during this period: Valkey-based session management, Docker and multi-container setups, TypeScript, OAuth2/PKCE flows, background workers, security practices, and Redux-based state management. Some concepts, like PBAC, weren't part of this original architecture at all. PBAC came later as an exploration beyond role-based access control.
 
 ---
 

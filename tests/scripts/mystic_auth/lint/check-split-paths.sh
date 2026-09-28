@@ -56,7 +56,7 @@ PATTERNS=(
 
 # git ls-files (tracked + untracked-but-not-ignored), not find: skips
 # gitignored files (a personal AGENTS.md/CLAUDE.md, generated
-# env/mystic_auth/.env, etc.) that aren't part of what actually ships,
+# env/mystic_auth/.env.dev, etc.) that aren't part of what actually ships,
 # and would otherwise show up as false positives, while still covering a
 # file that's new on disk but not committed yet.
 FILES=()
@@ -77,10 +77,10 @@ HITS=()
 for f in "${FILES[@]}"; do
   for pattern in "${PATTERNS[@]}"; do
     # -F: literal string, not regex. env/.env would otherwise also match
-    # env/mystic_auth/.env via the "." wildcard if treated as a regex.
+    # env/mystic_auth/.env.dev via the "." wildcard if treated as a regex.
     while IFS= read -r line; do
       [ -n "$line" ] || continue
-      # A real "env/mystic_auth/.env" or "env/app/.env" substring contains
+      # A real "env/mystic_auth/.env.dev" or "env/app/.env.dev" substring contains
       # "env/.env" only as a false positive of the plain-string search
       # above when "mystic_auth/.env" or "app/.env" is what's actually
       # there - filter those back out here.

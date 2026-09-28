@@ -11,9 +11,9 @@ Short for Policy-Based Access Control: this app's authorization model. Every acc
 
 ---
 
-## RBAC
+## role-based access control
 
-Short for Role-Based Access Control: the more familiar "give this role these permissions" model. This app doesn't use RBAC as a separate system; instead you can shape PBAC's policies to behave like roles when you don't need per-request conditions. See [RBAC Quickstart](../authorization/rbac-quickstart.md).
+Short for Role-Based Access Control: the more familiar "give this role these permissions" model. This app doesn't use role-based access control as a separate system; instead you can shape PBAC's policies to behave like roles when you don't need per-request conditions. See [Unconditioned Policy Quickstart](../authorization/unconditioned-policy-quickstart.md).
 
 ---
 

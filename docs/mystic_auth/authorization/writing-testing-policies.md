@@ -59,7 +59,7 @@ flowchart TD
 
 ### Protected baseline policies
 
-`self_service`, `user_administration`, and `system_superuser` can never be deleted or renamed via the management API, regardless of who's calling: every default account assignment (signup, OAuth2, `create_system_user.py`) looks them up by these exact names. Their other fields (description, actions, conditions) can still be edited.
+`self_service`, `user_management`, and `system_superuser` can never be deleted or renamed via the management API, regardless of who's calling: every default account assignment (signup, OAuth2, `create_system_user.py`) looks them up by these exact names. Their other fields (description, actions, conditions) can still be edited.
 
 ---
 
@@ -98,7 +98,7 @@ def test_my_new_policy_shape_grants_the_right_action():
     assert decision.allowed is True
 ```
 
-**Against a real database** (via `scripts/mystic_auth/docker/dev/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting/README.md): or from the host once `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up -d postgres valkey`): create a real user, assign the real policy, log in, and hit a real protected route:
+**Against a real database** (via `scripts/mystic_auth/docker/dev/backend-exec.sh pytest tests/backend/mystic_auth/integration/`, see [Troubleshooting](troubleshooting/README.md): or from the host once `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d postgres valkey`): create a real user, assign the real policy, log in, and hit a real protected route:
 
 ```python
 @pytest.mark.asyncio
@@ -111,7 +111,7 @@ async def test_assigning_report_viewers_actually_grants_access(client, created_e
     assert resp.status_code == 200
 ```
 
-See `tests/backend/mystic_auth/integration/authorization_test_accounts.py` for the full fixture pattern (`create_verified_user`, `create_system_user`, `create_user_with_custom_policy_actions`) and `tests/backend/mystic_auth/security/conftest.py` for the shared reusable version of the same helpers.
+See `tests/backend/mystic_auth/integration/authorization/authorization_test_accounts.py` for the full fixture pattern (`create_verified_user`, `create_system_user`, `create_user_with_custom_policy_actions`) and `tests/backend/mystic_auth/security/conftest.py` for the shared reusable version of the same helpers.
 
 ---
 

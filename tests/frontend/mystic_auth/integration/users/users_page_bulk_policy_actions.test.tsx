@@ -191,13 +191,13 @@ describe('UsersPage bulk policy actions', () => {
     seed(['users:list_all', 'policies:assign', 'reports:view']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
-      { id: 1, name: 'user_administration', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
+      { id: 1, name: 'user_management', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
       { id: 2, name: 'reporting', description: '', actions: ['reports:view'], resource_type: 'reports', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
     ]);
     mock.onGet('/authorization/users/me/policies').reply(200, {
       user_email: 'admin@example.com',
       policies: [
-        { id: 1, name: 'user_administration', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
+        { id: 1, name: 'user_management', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
       ],
     });
     mock.onGet('/authorization/users/me/permissions').reply(200, { user_email: 'admin@example.com', permissions: [] });
@@ -212,7 +212,7 @@ describe('UsersPage bulk policy actions', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('reporting')).toBeInTheDocument();
-    expect(within(dialog).queryByText('user_administration')).toBeNull();
+    expect(within(dialog).queryByText('user_management')).toBeNull();
   });
 
   it('shows "already had this" for a bulk-assign item the backend reports as a no-op', async () => {

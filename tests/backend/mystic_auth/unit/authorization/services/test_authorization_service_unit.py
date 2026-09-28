@@ -63,7 +63,7 @@ async def test_authorize_queues_an_audit_entry_matching_the_computed_decision(mo
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_policy(["users:list_all"], name="user_administration")],
+        return_value=[_policy(["users:list_all"], name="user_management")],
     )
 
     await authorization_service.authorize(
@@ -77,7 +77,7 @@ async def test_authorize_queues_an_audit_entry_matching_the_computed_decision(mo
     assert entry["resource_type"] == "users"
     assert entry["resource_identifier"] == "target@example.com"
     assert entry["allowed"] is True
-    assert entry["granting_policy_names"] == ["user_administration"]
+    assert entry["granting_policy_names"] == ["user_management"]
     assert entry["context"] == {"ip_address": "203.0.113.7"}
 
 
@@ -216,7 +216,7 @@ async def test_authorize_detailed_reports_matched_policies(mocker):
     mocker.patch(
         f"{MODULE}.policy_repository.get_active_policies_for_user",
         new_callable=AsyncMock,
-        return_value=[_policy(["users:list_all"], name="user_administration")],
+        return_value=[_policy(["users:list_all"], name="user_management")],
     )
 
     decision = await authorization_service.authorize_detailed(
@@ -224,7 +224,7 @@ async def test_authorize_detailed_reports_matched_policies(mocker):
     )
 
     assert decision.allowed is True
-    assert decision.matched_policies == ["user_administration"]
+    assert decision.matched_policies == ["user_management"]
     assert decision.rejected_policies == []
     assert decision.denial_reason is None
 

@@ -218,8 +218,8 @@ The PBAC route files above live in
   payloads and retry handling.
 - `procrastinate_tasks/test_session_cleanup_tasks_unit.py` verifies stale
   session cleanup scheduling.
-- `tests/backend/mystic_auth/unit/scripts/test_create_rbac_policies_unit.py`
-  verifies default RBAC policy creation and repeatability.
+- `tests/backend/mystic_auth/unit/scripts/test_create_role-based access control_policies_unit.py`
+  verifies default role-based access control policy creation and repeatability.
 - `tests/backend/mystic_auth/unit/scripts/test_create_system_user_unit.py`
   verifies protected system-user creation and bootstrap safeguards.
 - `user/test_user_base_crud_filters_unit.py` verifies user filtering and

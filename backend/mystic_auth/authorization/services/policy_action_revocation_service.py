@@ -30,7 +30,7 @@ class PolicyActionRevocationService:
     the user's effective access is unchanged except for the revoked
     action.
 
-    One-shot conversion triggered by an explicit admin action, not a
+    One-shot conversion triggered by an explicit operator action, not a
     generic "diff a policy assignment" mechanism or a DB trigger.
     """
 

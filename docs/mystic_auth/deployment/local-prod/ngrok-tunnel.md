@@ -12,10 +12,10 @@ walkthrough, start to finish.
 
 | File | Why it matters |
 |---|---|
-| `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml` | Runs the local-prod stack and the `ngrok` tunnel container. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml` + `docker/app/compose/docker-compose.local-prod-ngrok.yml` | The upstream file runs the local-prod stack and `ngrok`; the app override is the downstream extension point. |
 | `env/mystic_auth/.env.local-prod-ngrok.example` | Source template for ngrok local-prod settings. |
-| `env/mystic_auth/.env.local-prod-ngrok` | Your local, gitignored copy with `NGROK_AUTHTOKEN`, `NGROK_DOMAIN`, public URLs, Google callback, and secrets. |
-| `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Compose helpers that always pass the ngrok env file. |
+| `env/mystic_auth/.env.local-prod-ngrok` + `env/app/.env.local-prod-ngrok` | Your local, gitignored runtime files with `NGROK_AUTHTOKEN`, `NGROK_DOMAIN`, app settings, public URLs, Google callback, and secrets. |
+| `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.*` | Compose helpers that always pass both the MysticAuth and app-owned ngrok env files. |
 | `local-scripts/mystic_auth/local-prod-ngrok/create-system-user.*` | Optional non-interactive system-superuser creation scripts. |
 
 ---
@@ -70,18 +70,20 @@ domain does not change between restarts.
 
 ---
 
-**Step 3: Copy the env file.**
+**Step 3: Copy both env files.**
 
 ```bash
 cp env/mystic_auth/.env.local-prod-ngrok.example env/mystic_auth/.env.local-prod-ngrok
+cp env/app/.env.local-prod-ngrok.example env/app/.env.local-prod-ngrok
 ```
 
 `env/mystic_auth/.env.local-prod-ngrok.example` is the local-prod template for
 `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml`. It preconfigures
 same-origin API routing (`VITE_API_BASE_URL` empty) and the fixed frontend
 nginx proxy IP (`TRUSTED_PROXY_IPS`, derived automatically from
-`FRONTEND_STATIC_IP`/`NGROK_STATIC_IP`). Do not start
-this stack from `env/mystic_auth/.env.example` or `env/mystic_auth/.env.local-prod-cloudflare.example`;
+`FRONTEND_STATIC_IP`/`NGROK_STATIC_IP`). Put downstream-only values in the matching
+`env/app/` file. Do not start
+this stack from `env/mystic_auth/.env.dev.example` or `env/mystic_auth/.env.local-prod-cloudflare.example`;
 those are dev's and Cloudflare's files respectively. See
 [Choosing the right env template](../environment.md#1-choosing-the-right-env-template)
 for the full comparison.
@@ -132,7 +134,7 @@ byte-for-byte, or login fails with `redirect_uri_mismatch`.
 **Step 7: Start the stack.**
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok up -d --build
 # or: ./scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh
 ```
 
@@ -156,7 +158,7 @@ profile, skipped by Step 7's command as written. Re-run Step 7 with the
 profile added instead:
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --profile geoip up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with
@@ -179,7 +181,7 @@ this is a remote host.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `ngrok` container exits | `NGROK_AUTHTOKEN` or `NGROK_DOMAIN` is missing or invalid. | Check `env/mystic_auth/.env.local-prod-ngrok`, then run `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok logs ngrok`. |
+| `ngrok` container exits | `NGROK_AUTHTOKEN` or `NGROK_DOMAIN` is missing or invalid. | Check `env/mystic_auth/.env.local-prod-ngrok`, then run `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok logs ngrok`. |
 | Public URL returns an ngrok error page | The static domain is not assigned to your ngrok account or the tunnel is not running. | Confirm the domain in the ngrok dashboard and restart the stack. |
 | Google login returns `redirect_uri_mismatch` | Google Cloud Console callback does not match `GOOGLE_REDIRECT_URI`. | Register `https://<your-app>.ngrok-free.app/auth/oauth2/callback/google`. |
 | API calls fail but the landing page loads | nginx or backend is unhealthy inside Docker. | Check `docker compose ... ps`, `docker compose ... logs frontend backend`, and the backend ready check on `http://localhost:8101/health/ready`. |

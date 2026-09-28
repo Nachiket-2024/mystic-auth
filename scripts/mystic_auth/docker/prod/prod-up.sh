@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Thin wrapper around `docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml`
 # that always passes --env-file env/mystic_auth/.env.prod, so this stack never
-# accidentally reads dev's env/mystic_auth/.env (Compose's default env_file for
+# accidentally reads dev's env/mystic_auth/.env.dev (Compose's default env_file for
 # interpolation is always a literal ".env" in the working directory unless
 # --env-file overrides it).
 #

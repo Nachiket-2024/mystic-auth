@@ -145,7 +145,7 @@ async def update_policy(
     Partially updates a policy: only provided fields are applied (e.g. this
     can disable a policy via is_active=False without touching its actions).
 
-    Baseline policies (self_service, user_administration, system_superuser)
+    Baseline policies (self_service, user_management, system_superuser)
     can't be renamed away from their well-known name, since default
     assignments (signup, oauth2, create_system_user.py) look them up by
     name. They also can't be deactivated: is_active=False excludes a policy

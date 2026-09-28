@@ -12,7 +12,7 @@ from backend.mystic_auth.core.settings import Settings
 # internal buffer with no reason to vary by deployment, not a value forks
 # need to tune per .env/AGENTS.md's "default a required-but-service-specific
 # Settings field instead of padding every env file with it" convention.
-# .env (or the process environment) is the single source of truth for every
+# .env.dev (or the process environment) is the single source of truth for every
 # other field, in dev and prod alike. This fixture is a complete, valid
 # payload; the tests below poke at deviations from it.
 _ALL_FIELDS = {
@@ -117,7 +117,7 @@ def test_session_row_retention_hours_defaults_to_one_when_missing(monkeypatch):
 
 
 def test_settings_ignores_env_vars_that_are_not_declared_fields():
-    # Regression guard: env/mystic_auth/.env is shared with docker-compose.dev.yml's
+    # Regression guard: env/mystic_auth/.env.dev is shared with docker-compose.dev.yml's
     # `env_file:` directive, which also passes it to infra-only services.
     # VALKEY_PASSWORD (valkey-server's own auth) and BUGSINK_* (the optional
     # self-hosted error-monitoring service, see

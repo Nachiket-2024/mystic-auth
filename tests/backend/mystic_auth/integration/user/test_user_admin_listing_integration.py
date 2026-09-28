@@ -10,7 +10,7 @@ import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 
 from .user_test_accounts import (
@@ -116,7 +116,7 @@ async def test_list_all_users_filters_by_status(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_list_all_users_filters_by_policy_name(client, created_emails):
-    # create_admin holds user_administration; create_verified_user's
+    # create_admin holds user_management; create_verified_user's
     # default policy (self_service only) doesn't.
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
@@ -125,7 +125,7 @@ async def test_list_all_users_filters_by_policy_name(client, created_emails):
     login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
     assert login_resp.status_code == 200
 
-    resp = await client.get("/users/", params={"policy": USER_ADMINISTRATION_POLICY_NAME})
+    resp = await client.get("/users/", params={"policy": USER_MANAGEMENT_POLICY_NAME})
     assert resp.status_code == 200
     emails = [u["email"] for u in resp.json()]
     assert admin_email in emails
@@ -140,7 +140,7 @@ async def test_list_all_users_filters_by_policy_name(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_list_all_users_filters_by_permission(client, created_emails):
-    # users:list_all comes from user_administration, not self_service, so
+    # users:list_all comes from user_management, not self_service, so
     # this proves the filter matches on the policy's actions, not its name.
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
@@ -168,7 +168,7 @@ async def test_list_all_users_filters_by_permission_includes_a_direct_grant_hold
     # The granter needs permissions:grant (only system_superuser has it),
     # which also happens to grant rate_limits:read, so system_email is used
     # only to perform the grant and the query, never asserted on below.
-    # admin_email (user_administration only, no rate_limits:read via any
+    # admin_email (user_management only, no rate_limits:read via any
     # policy) is the "should not appear" control instead.
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)

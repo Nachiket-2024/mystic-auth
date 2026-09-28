@@ -12,11 +12,11 @@ Deployment modes use separate environment files so dev, local-prod tunnel varian
 
 | Mode | Copy this file | To this file | Use with | Best for |
 |---|---|---|---|---|
-| Dev | `env/mystic_auth/.env.example` | `env/mystic_auth/.env` | `docker/mystic_auth/compose/docker-compose.dev.yml` | Local development with hot reload |
-| Local-prod Cloudflare | `env/mystic_auth/.env.local-prod-cloudflare.example` | `env/mystic_auth/.env.local-prod-cloudflare` | `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` | Your machine through Cloudflare Tunnel |
-| Local-prod ngrok | `env/mystic_auth/.env.local-prod-ngrok.example` | `env/mystic_auth/.env.local-prod-ngrok` | `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml` | Your machine through ngrok |
-| Local-prod Tailscale | `env/mystic_auth/.env.local-prod-tailscale.example` | `env/mystic_auth/.env.local-prod-tailscale` | `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` | Your machine through Tailscale Funnel |
-| Prod | `env/mystic_auth/.env.prod.example` | `env/mystic_auth/.env.prod` | `docker/mystic_auth/compose/docker-compose.prod.yml` | Public server with Caddy TLS |
+| Dev | `env/mystic_auth/.env.dev.example` plus `env/app/.env.dev.example` | `env/mystic_auth/.env.dev` plus `env/app/.env.dev` | `docker/mystic_auth/compose/docker-compose.dev.yml` plus `docker/app/compose/docker-compose.dev.yml` | Local development with hot reload |
+| Local-prod Cloudflare | `env/mystic_auth/.env.local-prod-cloudflare.example` plus the matching app example | matching `env/mystic_auth/` and `env/app/` files | matching `docker/mystic_auth/` and `docker/app/` Compose files | Your machine through Cloudflare Tunnel |
+| Local-prod ngrok | `env/mystic_auth/.env.local-prod-ngrok.example` plus the matching app example | matching `env/mystic_auth/` and `env/app/` files | matching `docker/mystic_auth/` and `docker/app/` Compose files | Your machine through ngrok |
+| Local-prod Tailscale | `env/mystic_auth/.env.local-prod-tailscale.example` plus the matching app example | matching `env/mystic_auth/` and `env/app/` files | matching `docker/mystic_auth/` and `docker/app/` Compose files | Your machine through Tailscale Funnel |
+| Prod | `env/mystic_auth/.env.prod.example` plus `env/app/.env.prod.example` | `env/mystic_auth/.env.prod` plus `env/app/.env.prod` | `docker/mystic_auth/compose/docker-compose.prod.yml` plus `docker/app/compose/docker-compose.prod.yml` | Public server with Caddy TLS |
 
 ---
 
@@ -25,24 +25,32 @@ Deployment modes use separate environment files so dev, local-prod tunnel varian
 
 ```bash
 # Dev
-cp env/mystic_auth/.env.example env/mystic_auth/.env
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up
+cp env/mystic_auth/.env.dev.example env/mystic_auth/.env.dev
+cp env/app/.env.dev.example env/app/.env.dev
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up
 
 # Local-prod, ngrok example
 cp env/mystic_auth/.env.local-prod-ngrok.example env/mystic_auth/.env.local-prod-ngrok
-docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok up -d --build
+cp env/app/.env.local-prod-ngrok.example env/app/.env.local-prod-ngrok
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok up -d --build
 
 # Prod
 cp env/mystic_auth/.env.prod.example env/mystic_auth/.env.prod
-docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod up -d --build
+cp env/app/.env.prod.example env/app/.env.prod
+docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod up -d --build
 ```
+
+The app-side examples are intentionally empty. Keep template-defined values
+in the `mystic_auth` runtime file and add product-specific values in the
+matching `env/app/` file; do not edit tracked examples or tracked upstream
+Compose files.
 
 ---
 
 ## 3. Compose env-file rule
 ---
 
-The `--env-file` flag matters for local-prod and prod. Compose only auto-loads a file literally named `env/mystic_auth/.env` for `${VAR}` substitution in Compose YAML. Each service's `env_file:` entry points at the correct dedicated file, but frontend build args and other Compose-level substitutions still need `--env-file`.
+The `--env-file` flag matters for local-prod and prod. Compose only auto-loads a file literally named `env/mystic_auth/.env.dev` for `${VAR}` substitution in Compose YAML. Each service's `env_file:` entry points at the correct dedicated file, but frontend build args and other Compose-level substitutions still need `--env-file`.
 
 Use the helper scripts when possible because they always pass the matching env file:
 
@@ -104,15 +112,15 @@ reload loop than the Dockerized `dev` target gives you. Postgres and Valkey
 still run in Docker either way; only the FastAPI process itself moves to
 the host.
 
-1. Bring up just the data services: `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d postgres valkey`.
-2. In `env/mystic_auth/.env`, swap `DATABASE_URL` and `VALKEY_URL` for their commented-out `localhost` alternatives already shipped right below each one (`postgres:5432` -> `localhost:5433`, `valkey:6379` -> `localhost:6380`, the host ports the dev Compose file maps to avoid colliding with a developer's own local Postgres/Valkey).
+1. Bring up just the data services: `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d postgres valkey`.
+2. In `env/mystic_auth/.env.dev`, swap `DATABASE_URL` and `VALKEY_URL` for their commented-out `localhost` alternatives already shipped right below each one (`postgres:5432` -> `localhost:5433`, `valkey:6379` -> `localhost:6380`, the host ports the dev Compose file maps to avoid colliding with a developer's own local Postgres/Valkey).
 3. From the repo root, create a virtualenv and install both dependency files: `pip install -r backend/requirements.txt -r backend/requirements-dev.txt`.
 4. Run migrations once: `cd backend && alembic upgrade head`.
 5. Start the app: `uvicorn app.main:app --reload` from `backend/`. `--reload` gives a faster edit loop than rebuilding the Docker image.
 
-`Settings` (`backend/mystic_auth/core/settings.py`) reads `env/mystic_auth/.env` and `env/app/.env` directly when a variable isn't already in the process environment, so no manual `export` is needed as long as you're running from a checkout with those files in place - only real-value overrides (an IDE launch config, a shell you've already exported into) take priority over the files.
+`Settings` (`backend/mystic_auth/core/settings.py`) reads `env/mystic_auth/.env.dev` and `env/app/.env.dev` directly when a variable isn't already in the process environment, so no manual `export` is needed as long as you're running from a checkout with those files in place - only real-value overrides (an IDE launch config, a shell you've already exported into) take priority over the files.
 
-Running the whole suite this way? `tests/backend/conftest.py` does the same `postgres`/`valkey` -> `localhost` derivation automatically from `env/mystic_auth/.env` when `DATABASE_URL`/`VALKEY_URL` aren't already set, so `pytest` from the repo root needs no extra setup once step 1 above is running. See [Testing Overview](../testing/overview.md).
+Running the whole suite this way? `tests/backend/conftest.py` does the same `postgres`/`valkey` -> `localhost` derivation automatically from `env/mystic_auth/.env.dev` when `DATABASE_URL`/`VALKEY_URL` aren't already set, so `pytest` from the repo root needs no extra setup once step 1 above is running. See [Testing Overview](../testing/overview.md).
 
 ---
 
@@ -177,7 +185,84 @@ more workers help concurrency, not this per-request cost.
 
 ---
 
-## 8. Related docs
+## 8. Running multiple backend containers
+---
+
+The Compose files in this repository are a one-host deployment shape. When
+one host is the capacity ceiling, run multiple identical backend containers
+behind a load balancer and move the data services to shared infrastructure:
+
+```mermaid
+flowchart LR
+    Browser --> LB[Load balancer / reverse proxy]
+    LB --> B1[Backend container 1]
+    LB --> B2[Backend container 2]
+    LB --> B3[Backend container 3]
+    B1 --> PG[(Managed/shared Postgres)]
+    B2 --> PG
+    B3 --> PG
+    B1 --> VK[(Managed/shared Valkey)]
+    B2 --> VK
+    B3 --> VK
+```
+
+1. Provision one managed or separately shared Postgres instance and one
+   managed or separately shared Valkey instance. Set every replica's
+   `APP_DATABASE_URL`/`DATABASE_URL` and `VALKEY_URL` to those shared endpoints.
+   Do not point replicas at the `postgres` and `valkey` service names from the
+   single-host Compose files. Separate data containers would split state.
+2. Size the total database connection budget across all replicas and workers:
+   `replicas * UVICORN_WORKERS * (DB_POOL_SIZE + DB_MAX_OVERFLOW)`, plus
+   connections for the migration runner, `procrastinate_worker`, and backups.
+   Keep that total below the shared Postgres limit with operational headroom.
+3. Run `cd backend && alembic upgrade head` exactly once per deployment, from a
+   release job or one explicitly selected migration task. Route traffic to new
+   replicas only after it succeeds. Do not let every replica run migrations
+   during startup.
+4. Use the same `SECRET_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, cookie settings,
+   and application configuration on every replica. Access and refresh tokens
+   are in cookies and are verified by each replica, so sticky sessions are not
+   required. OAuth state, token-version invalidation, rate limits, and
+   session-event publication use Valkey and must not fall back to memory.
+
+The live `/auth/session-events` connection is held by the process that
+accepted it. A reconnect can land on another replica, so clients must handle
+reconnects; a backend process is not durable session state. Process-local
+logging/context state and the SQLAlchemy pool are not user session state.
+Postgres and Valkey are the shared sources of truth.
+
+An nginx instance or managed load balancer can use the existing readiness
+endpoint as its backend health check. This nginx-style upstream illustrates
+the routing decision:
+
+```nginx
+upstream mystic_auth_backend {
+    server backend-1.internal:8000 max_fails=3 fail_timeout=10s;
+    server backend-2.internal:8000 max_fails=3 fail_timeout=10s;
+    server backend-3.internal:8000 max_fails=3 fail_timeout=10s;
+}
+
+server {
+    listen 443 ssl;
+
+    location / {
+        proxy_pass http://mystic_auth_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Active check: GET /health/ready, expect HTTP 200.
+    # It returns 503 when Postgres or Valkey is unavailable.
+}
+```
+
+Use `/health` only as a liveness check. Use `/health/ready` for traffic
+eligibility because it checks both shared dependencies. Preserve the trusted
+proxy configuration described in [Routing: Trusted proxy IPs](routing.md#2-trusted-proxy-ips)
+when the load balancer adds `X-Forwarded-For`.
+
+## 9. Related docs
 ---
 
 1. [Configuration Reference](../environment/README.md)

@@ -3,7 +3,7 @@ import { CalendarRange, ChevronDown, X, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Popover, PopoverContent, PopoverTrigger } from "../shadcn/popover";
-import { Button } from "../shadcn/button";
+import { Button } from "../buttons/Button";
 import { cn } from "../styles/classNames";
 import {
     TIME_RANGE_PRESETS,

@@ -14,7 +14,7 @@ const SKELETON_CLASSNAME = "bg-bg-muted";
  * route that does suspend reads as "arriving," not a hard blank cut.
  */
 const RouteSkeleton: React.FC = () => (
-    <div className="max-w-(--size-page-content) w-full py-2">
+    <div data-route-loading="true" className="max-w-(--size-page-content) w-full py-2">
         <span role="status" className="sr-only">Loading page...</span>
         {/* density.sectionGap -> --spacing-6 (themeTokens.ts), same value
             PageContainer's own mb-(--spacing-section-gap) resolves to. */}

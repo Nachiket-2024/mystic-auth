@@ -19,7 +19,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
@@ -63,7 +63,7 @@ async def _create_verified_user(client, created_emails, email, policy_names):
 async def _create_system_user(client, created_emails, email):
     return await _create_verified_user(
         client, created_emails, email,
-        [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
+        [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
     )
 
 
@@ -302,7 +302,7 @@ async def test_user_security_log_access_change_alias_filters_to_admin_actions_on
 
     assign_resp = await client.post(
         f"/authorization/users/{target_email}/policies",
-        json={"policy_name": USER_ADMINISTRATION_POLICY_NAME},
+        json={"policy_name": USER_MANAGEMENT_POLICY_NAME},
     )
     assert assign_resp.status_code == 200
 

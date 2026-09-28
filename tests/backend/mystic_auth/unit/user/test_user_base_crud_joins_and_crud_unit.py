@@ -49,7 +49,7 @@ def test_apply_filters_without_policy_or_permission_does_not_join():
 def test_apply_filters_by_policy_name_joins_and_matches_on_policy_name():
     crud = UserBaseCRUD(_FakeModel)
 
-    stmt = crud._apply_filters(select(_FakeModel), None, None, None, None, policy="user_administration")
+    stmt = crud._apply_filters(select(_FakeModel), None, None, None, None, policy="user_management")
 
     compiled = str(stmt)
     assert "JOIN user_policies" in compiled
@@ -88,7 +88,7 @@ def test_apply_filters_by_policy_and_permission_together_still_requires_both_on_
     crud = UserBaseCRUD(_FakeModel)
 
     stmt = crud._apply_filters(
-        select(_FakeModel), None, None, None, None, policy="user_administration", permission="users:list_all"
+        select(_FakeModel), None, None, None, None, policy="user_management", permission="users:list_all"
     )
 
     compiled = str(stmt)
@@ -128,7 +128,7 @@ def test_apply_filters_keeps_all_user_filters_conjunctive():
         UserRole.user,
         True,
         "active",
-        policy="user_administration",
+        policy="user_management",
         permission="users:list_all",
         permission_source="policy",
         last_login="30d",
@@ -150,7 +150,7 @@ async def test_get_all_threads_policy_and_permission_through_to_apply_filters():
     db = _make_db(scalars_all_return=["row1"])
     crud = UserBaseCRUD(_FakeModel)
 
-    result = await crud.get_all(db, policy="user_administration", permission="users:list_all")
+    result = await crud.get_all(db, policy="user_management", permission="users:list_all")
 
     assert result == ["row1"]
     db.execute.assert_awaited_once()
@@ -161,7 +161,7 @@ async def test_count_threads_policy_and_permission_through_to_apply_filters():
     db = _make_db(scalar_return=3)
     crud = UserBaseCRUD(_FakeModel)
 
-    result = await crud.count(db, policy="user_administration", permission="users:list_all")
+    result = await crud.count(db, policy="user_management", permission="users:list_all")
 
     assert result == 3
 

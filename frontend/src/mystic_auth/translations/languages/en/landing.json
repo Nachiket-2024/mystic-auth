@@ -24,9 +24,9 @@
             "title": "Audit logging",
             "description": "Every session event and access decision recorded, queryable per user."
         },
-        "multilingual": {
-            "title": "Multilingual",
-            "description": "Ships with English, Hindi, Marathi, and Gujarati out of the box."
+        "selfHosted": {
+            "title": "Self-hosted",
+            "description": "Runs on your own VPS - Postgres, Valkey, and every audit log stay on infrastructure you control."
         }
     },
     "footer": {

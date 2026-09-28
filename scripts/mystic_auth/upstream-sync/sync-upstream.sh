@@ -253,7 +253,7 @@ Your history stays yours -- no upstream commits were imported.
 Before trusting this, rebuild and rerun the test suite -- a sync can change
 behavior underneath you even when every file merged automatically:
 
-  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build
+  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build
   scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security
   # frontend: see docs/mystic_auth/testing/overview.md for the equivalent commands
   # scripts/mystic_auth/docker/dev/backend-exec.sh wraps the two Windows/Git Bash and native-Linux

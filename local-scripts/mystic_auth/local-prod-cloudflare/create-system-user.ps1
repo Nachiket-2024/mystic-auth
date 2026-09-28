@@ -1,6 +1,6 @@
 # Non-interactively bootstraps the system superuser against the local-prod
 # stack (docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml). Fill in
-# local-scripts/local-prod-cloudflare/system-user.env first. Assumes a fresh account (no
+# local-scripts/mystic_auth/local-prod-cloudflare/system-user.env first. Assumes a fresh account (no
 # existing user with that email) : this pipes a fixed 3-line stdin (email,
 # name, password) matching create_system_user.py's "brand new account" prompt
 # sequence. If the account already exists, run

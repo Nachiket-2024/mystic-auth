@@ -11,7 +11,7 @@ import pytest
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
@@ -48,10 +48,10 @@ async def test_regular_user_cannot_manage_policies(client, created_emails):
 
 @pytest.mark.asyncio
 async def test_admin_without_policies_read_cannot_manage_policies(client, created_emails):
-    # user_administration doesn't include any policies:* action; only
+    # user_management doesn't include any policies:* action; only
     # system_superuser does, so an ordinary admin must be denied here.
     email = unique_email("admin")
-    await create_verified_user(client, created_emails, email, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME])
+    await create_verified_user(client, created_emails, email, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME])
 
     resp = await client.get("/authorization/policies")
     assert resp.status_code == 403

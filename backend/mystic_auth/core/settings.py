@@ -90,7 +90,7 @@ class Settings(BaseSettings):
     # have no matching Settings field below; extra="ignore" lets those pass
     # through instead of pydantic rejecting them as undeclared.
     model_config = SettingsConfigDict(
-        env_file=(_REPO_ROOT / "env" / "mystic_auth" / ".env", _REPO_ROOT / "env" / "app" / ".env"),
+        env_file=(_REPO_ROOT / "env" / "mystic_auth" / ".env.dev", _REPO_ROOT / "env" / "app" / ".env.dev"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

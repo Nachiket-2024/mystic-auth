@@ -10,7 +10,7 @@ import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.user.user_model import UserRole
 
@@ -64,15 +64,15 @@ async def test_identical_roles_can_have_different_permissions(client, created_em
     await create_verified_user(
         client, created_emails, admin_with_access_email,
         role=UserRole.admin,
-        policy_names=[SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME],
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME],
     )
     await create_verified_user(
         client, created_emails, admin_without_access_email,
         role=UserRole.admin,
-        policy_names=[SELF_SERVICE_POLICY_NAME],  # no user_administration policy
+        policy_names=[SELF_SERVICE_POLICY_NAME],  # no user_management policy
     )
 
-    # ...but only the one actually holding user_administration can list users.
+    # ...but only the one actually holding user_management can list users.
     with_access_resp = await client.post(
         "/auth/login", json={"email": admin_with_access_email, "password": PASSWORD}
     )
@@ -90,13 +90,13 @@ async def test_identical_roles_can_have_different_permissions(client, created_em
 
 @pytest.mark.asyncio
 async def test_a_plain_role_user_with_admin_policy_gets_admin_capability(client, created_emails):
-    # The converse: role="user" with user_administration assigned directly
+    # The converse: role="user" with user_management assigned directly
     # must be authorized exactly like an "admin"-role account.
     email = unique_email()
     await create_verified_user(
         client, created_emails, email,
         role=UserRole.user,
-        policy_names=[SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME],
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME],
     )
 
     resp = await client.get("/users/")
@@ -111,7 +111,7 @@ async def test_list_all_users_respects_limit_query_param(client, created_emails)
     await create_verified_user(
         client, created_emails, email,
         role=UserRole.admin,
-        policy_names=[SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME],
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME],
     )
     await client.post("/auth/login", json={"email": email, "password": PASSWORD})
 
@@ -130,7 +130,7 @@ async def test_roleless_user_gets_admin_level_access_when_assigned_admin_policie
     # policies it holds, same as any role-carrying account.
     email = unique_email("roleless-admin")
     await create_roleless_user(
-        created_emails, email, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]
+        created_emails, email, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME]
     )
 
     login_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})

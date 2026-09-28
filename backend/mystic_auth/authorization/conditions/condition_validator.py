@@ -1,4 +1,5 @@
 import ipaddress
+from collections.abc import Callable
 from datetime import date
 from datetime import time as dt_time
 from zoneinfo import available_timezones
@@ -17,17 +18,15 @@ class ConditionValidationError(ValueError):
 # Mirrors default_condition_registry, kept as its own explicit set so this
 # validator's key list is a deliberate contract, not just whatever
 # handlers happen to be registered.
-_SUPPORTED_KEYS = frozenset(
-    {
-        "self_only",
-        "resource_attributes",
-        "context_attributes",
-        "time",
-        "date_range",
-        "network",
-        "security_context",
-    }
-)
+_SUPPORTED_KEYS: set[str] = {
+    "self_only",
+    "resource_attributes",
+    "context_attributes",
+    "time",
+    "date_range",
+    "network",
+    "security_context",
+}
 
 # resource_attributes/context_attributes/security_context only check "is a
 # non-empty dict" and never look inside the values, so without these limits
@@ -231,7 +230,7 @@ def _validate_network(value) -> list[str]:
     return errors
 
 
-_VALIDATORS = {
+_VALIDATORS: dict[str, Callable[[object], list[str]]] = {
     "self_only": _validate_self_only,
     "resource_attributes": _validate_resource_attributes,
     "context_attributes": _validate_context_attributes,
@@ -240,3 +239,19 @@ _VALIDATORS = {
     "date_range": _validate_date_range,
     "network": _validate_network,
 }
+
+
+def register_condition_validator(key: str, validator: Callable[[object], list[str]]) -> None:
+    """Register a downstream condition validator without editing this module.
+
+    The matching handler is registered by ``register_condition_type`` in the
+    condition registry.  Registration is intentionally additive: replacing a
+    built-in or previously registered key would let an app silently change
+    the meaning of existing policies.
+    """
+    if not isinstance(key, str) or not key or key.strip() != key:
+        raise ValueError("condition key must be a non-empty string without surrounding whitespace")
+    if key in _SUPPORTED_KEYS:
+        raise ValueError(f"condition key is already registered: {key}")
+    _SUPPORTED_KEYS.add(key)
+    _VALIDATORS[key] = validator

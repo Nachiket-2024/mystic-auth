@@ -173,6 +173,68 @@ The scheduled, automatic custom-format dump of both the app's and Bugsink's Post
 
 ---
 
+## VPS
+
+Short for Virtual Private Server: a rented virtual machine with its own CPU,
+memory, storage, network address, and operating system. The production Compose
+mode can run on one VPS, but the template does not provision or manage that
+server for you.
+
+---
+
+## DNS
+
+The system that maps a human-readable hostname such as `auth.example.com` to
+an IP address. Production deployment needs DNS pointed at the public entrypoint
+before Caddy or another TLS provider can issue a certificate.
+
+---
+
+## TLS
+
+Transport Layer Security, the encryption protocol used by HTTPS. A TLS
+terminator such as Caddy or a tunnel provider accepts the encrypted connection,
+then forwards a protected or private connection to the application.
+
+---
+
+## PITR
+
+Short for point-in-time recovery. A database recovery method that combines a
+base backup with continuous write-ahead-log archiving so an operator can restore
+to a chosen time. The template's default scheduled `pg_dump` files do not
+provide PITR.
+
+---
+
+## SBOM
+
+Short for Software Bill of Materials: a machine-readable inventory of packages
+included in a built artifact. CI generates SPDX JSON SBOMs for the exact
+backend and frontend runtime images it builds, then stores them as a 90-day
+artifact. An SBOM is an inventory for vulnerability response; it is not a
+signature, proof that an image is safe, or a backup.
+
+---
+
+## off-host backup
+
+A backup stored outside the machine that runs the application, such as an
+encrypted object-storage bucket, another server, or removable media. It is what
+protects against loss of the VPS or its local disk. See [Migrations and
+Backups](../deployment/migrations-and-backups.md#6-off-host-copy-without-a-cloud-account).
+
+---
+
+## monitoring and alerting
+
+Monitoring collects health signals such as uptime, disk space, container
+health, certificate expiry, and backup age. Alerting sends a human a warning
+when a signal crosses a useful threshold. Bugsink reports application errors,
+but it does not replace host, backup, or provider monitoring.
+
+---
+
 ## environment variable
 
 A named setting supplied to a process by the shell or Docker Compose. The

@@ -57,7 +57,7 @@ const SAMPLE_POLICIES = [
   },
   {
     id: 2,
-    name: 'policy_administration',
+    name: 'policy_management',
     description: 'Manage policies',
     actions: ['policies:read'],
     resource_type: 'policies',
@@ -91,7 +91,7 @@ describe('PoliciesPage list controls', () => {
     renderPage();
     const user = userEvent.setup();
 
-    await screen.findByText('policy_administration');
+    await screen.findByText('policy_management');
     // 30 policies / 25 per page = 2 pages, so page buttons should render.
     const page2Buttons = screen.getAllByRole('button', { name: 'Page 2' });
     expect(page2Buttons.length).toBeGreaterThan(0);
@@ -121,7 +121,7 @@ describe('PoliciesPage list controls', () => {
     // Debounced: the filtered result (and the self_service row disappearing)
     // shouldn't show up until after the debounce window.
     await waitFor(() => expect(screen.queryByText('self_service')).toBeNull(), { timeout: 2000 });
-    expect(await screen.findByText('policy_administration')).toBeInTheDocument();
+    expect(await screen.findByText('policy_management')).toBeInTheDocument();
 
     const lastRequest = mock.history.get[mock.history.get.length - 1];
     expect(lastRequest.params).toMatchObject({ search: 'administration' });
@@ -139,7 +139,7 @@ describe('PoliciesPage list controls', () => {
     renderPage(['/policies?search=administration']);
 
     expect(await screen.findByDisplayValue('administration')).toBeInTheDocument();
-    expect(await screen.findByText('policy_administration')).toBeInTheDocument();
+    expect(await screen.findByText('policy_management')).toBeInTheDocument();
     expect(screen.queryByText('self_service')).toBeNull();
     const listRequest = mock.history.get.find((request) => request.params?.limit === 25);
     expect(listRequest?.params).toMatchObject({ search: 'administration' });
@@ -181,7 +181,7 @@ describe('PoliciesPage list controls', () => {
     );
 
     await waitFor(() => expect(screen.queryByText('self_service')).toBeNull());
-    expect(screen.getByText('policy_administration')).toBeInTheDocument();
+    expect(screen.getByText('policy_management')).toBeInTheDocument();
 
     const lastRequest = mock.history.get[mock.history.get.length - 1];
     expect(lastRequest.params).toMatchObject({ resource_type: 'policies' });
@@ -272,7 +272,7 @@ describe('PoliciesPage list controls', () => {
     await user.click(screen.getByText('Read policies'));
 
     await waitFor(() => expect(screen.queryByText('self_service')).toBeNull());
-    expect(screen.getByText('policy_administration')).toBeInTheDocument();
+    expect(screen.getByText('policy_management')).toBeInTheDocument();
 
     const lastRequest = mock.history.get[mock.history.get.length - 1];
     expect(lastRequest.params).toMatchObject({ contains_action: 'policies:read' });

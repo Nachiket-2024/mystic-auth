@@ -5,7 +5,7 @@ import { fulfillUnauthenticatedAuthJson } from "../support/unauthenticatedAuthAp
 test.describe("signup and verification browser behavior", () => {
   test("signup validates passwords locally and submits only to the stubbed signup endpoint", async ({ page }) => {
     let signupRequests = 0;
-    await page.route("http://localhost:8000/auth/signup", async (route) => {
+    await page.route("**/auth/signup", async (route) => {
       signupRequests += 1;
       const payload = route.request().postDataJSON() as { name: string; email: string; password: string };
       expect(payload.name).toBe("<script>window.__xssSignup = true</script>");
@@ -41,12 +41,12 @@ test.describe("signup and verification browser behavior", () => {
   test("verification request and token confirmation use stubbed endpoints", async ({ page }) => {
     let requestCount = 0;
     let verifyCount = 0;
-    await page.route("http://localhost:8000/auth/verify-account/request", async (route) => {
+    await page.route("**/auth/verify-account/request", async (route) => {
       requestCount += 1;
       expect(route.request().postDataJSON()).toEqual({ email: "verify-browser@example.com" });
       return fulfillUnauthenticatedAuthJson(route, { message: "Verification link sent." });
     });
-    await page.route("http://localhost:8000/auth/verify-account", async (route) => {
+    await page.route("**/auth/verify-account", async (route) => {
       verifyCount += 1;
       expect(route.request().postDataJSON()).toEqual({ token: "verify-token" });
       return fulfillUnauthenticatedAuthJson(route, { message: "Account verified." });

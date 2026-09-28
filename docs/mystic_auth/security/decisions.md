@@ -11,7 +11,7 @@ A decision log capturing the *why* behind non-obvious security choices in this c
 
 See [Security Decisions: Auth & Session](decisions-auth.md) for the full entries.
 
-- [Role is never used to decide access](decisions-auth.md#role-is-never-used-to-decide-access): PBAC, not RBAC - `users.role` is display metadata only.
+- [Role is never used to decide access](decisions-auth.md#role-is-never-used-to-decide-access): PBAC, not role-based access control - `users.role` is display metadata only.
 - [Why current-user lookups re-query the database every time](decisions-auth.md#why-current-user-lookups-re-query-the-database-every-time): makes deactivation take effect on the next request, not at token expiry.
 - [Email addresses are normalized, case-insensitively, everywhere](decisions-auth.md#email-addresses-are-normalized-case-insensitively-everywhere): normalized at lookup, insert, and every input boundary.
 - [Timing-attack mitigations](decisions-auth.md#timing-attack-mitigations): login, signup, and password-reset request are all enumeration-resistant.

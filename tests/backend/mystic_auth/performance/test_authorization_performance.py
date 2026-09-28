@@ -63,15 +63,15 @@ async def test_listing_policies_stays_reasonable_with_many_policies(client, crea
     try:
         system_email = f"sysuser_{tag}@example.com"
         # Reuse the security suite's system-user helper indirectly: build
-        # it here since it needs system_superuser + user_administration
+        # it here since it needs system_superuser + user_management
         # too, not just self_service.
         from backend.mystic_auth.authorization.policies.default_policies import (
             SYSTEM_SUPERUSER_POLICY_NAME,
-            USER_ADMINISTRATION_POLICY_NAME,
+            USER_MANAGEMENT_POLICY_NAME,
         )
         await create_verified_user(
             client, created_emails, system_email,
-            [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
+            [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
         )
 
         start = time.perf_counter()

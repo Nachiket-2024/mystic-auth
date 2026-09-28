@@ -7,7 +7,7 @@ from ...logging.logging_config import get_logger
 from ..repositories.policy_repository import policy_repository
 
 SELF_SERVICE_POLICY_NAME = "self_service"
-USER_ADMINISTRATION_POLICY_NAME = "user_administration"
+USER_MANAGEMENT_POLICY_NAME = "user_management"
 SYSTEM_SUPERUSER_POLICY_NAME = "system_superuser"
 
 logger = get_logger(__name__)

@@ -27,7 +27,7 @@ It provides two core subsystems:
 1. **Authentication**: email/password signup, account verification, Google OAuth2 with PKCE, JWT access tokens, refresh-token rotation, session tracking, password reset, logout, logout-all, and account deletion.
 2. **Authorization**: Policy-Based Access Control (PBAC) with database-backed policies, direct grants, condition evaluation, privilege-escalation guards, policy history, authorization audit logs, and frontend permission checks.
 
-The `users.role` column is presentation metadata. Runtime authorization decisions are made from policies and direct permission grants, not from role string comparisons. Projects that only need role-shaped access can still model RBAC by assigning one unconditioned policy per role. See [RBAC Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/rbac-quickstart).
+The `users.role` column is presentation metadata. Runtime authorization decisions are made from policies and direct permission grants, not from role string comparisons. Projects that only need role-shaped access can model that shape by assigning one unconditioned policy per role. See [Unconditioned Policy Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/unconditioned-policy-quickstart).
 
 ---
 
@@ -47,10 +47,11 @@ This started as a reusable authentication foundation for projects that needed ac
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     Browser["Browser (SPA)"]
-    Browser -- "HTTPS\n TLS terminated in front\n see deployment guide" --> Nginx
-    Browser -- HTTPS --> Backend
+    Browser -- "HTTPS\n TLS terminated in front\n production/local-prod" --> Nginx
+    Browser -. "direct API origin\n development only" .-> Backend
     Nginx["nginx\n (static frontend build)"]
     Backend["FastAPI backend\n (uvicorn)"]
+    Nginx -->|"same-origin API proxy\n production/local-prod"| Backend
     Backend --> Postgres[("PostgreSQL\n users, policies,\n audit logs")]
     Backend --> Valkey[("Valkey\n rate limits, account/chain\n version counters, reset/verify\n tokens")]
     Backend --> Bugsink["Bugsink\n self-hosted error monitoring\n own DB on same Postgres server"]
@@ -105,7 +106,7 @@ The screenshots cover the public pages, authenticated user experience, account s
 ---
 
 ### 7. Language Switcher
-Seven modes: English, three regional languages, and three bilingual pairings that keep the app chrome in English while page content switches.
+Seven modes: English, three regional languages, and three bilingual pairings that keep the app navbar, sidebar in English while page content switches.
 ![Language Switcher](screenshots/mystic_auth/language_switcher.png)
 
 ---
@@ -205,14 +206,16 @@ What a signed-in user without the required permission sees when opening a protec
 - **i18n:** English, Hindi, Marathi, and Gujarati via `react-i18next`. See [Translations](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/translations/overview).
 - **Data/Infra:** PostgreSQL for durable state, Valkey for derived state and token/rate-limit counters, Procrastinate for PostgreSQL-backed background jobs.
 - **Error Monitoring:** Self-hosted Bugsink using the Sentry SDK protocol for backend and frontend exception reporting.
-- **Backups:** Scheduled `pg_dump` sidecar in local-prod and prod, plus a restore drill that dumps, restores into a scratch database, and smoke-checks the result, run in CI on every push. See [Known Issues](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) for remaining backup gaps.
+- **Backups:** Scheduled `pg_dump` sidecar in local-prod and prod, with `pg_restore --list` verification, optional Backblaze B2 upload through `rclone`, Bugsink failure alerts, a freshness check, and a restore drill that restores into a scratch database and compares row counts. See [Migrations and Backups](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/migrations-and-backups) and [Known Issues](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) for setup and remaining PITR gaps.
 - **Deployment:** Docker dev mode, local-prod tunnel mode through Cloudflare/ngrok/Tailscale, and server-hosted prod mode behind Caddy-managed TLS.
-- **Browser E2E:** Playwright tests cover the app and MysticAuth UI split under `tests/frontend/app/e2e/` and `tests/frontend/mystic_auth/e2e/`, including authentication, dashboards, account settings, permission-protected pages, responsive layouts, no-email stubbed flows, a WCAG 2.1 AA accessibility scan (`@axe-core/playwright`) across every major page, and an opt-in live-deployment smoke test that makes real requests against an already-running deployment. See [Browser E2E Tests](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/testing/browser-e2e)
+- **Browser E2E:** Playwright tests cover the app and MysticAuth UI split under `tests/frontend/app/e2e/` and `tests/frontend/mystic_auth/e2e/`, including authentication, dashboards, account settings, permission-protected pages, responsive layouts, no-email stubbed flows, keyboard and dialog focus behavior, a WCAG 2.1 AA accessibility scan (`@axe-core/playwright`) across every major page, and an opt-in live-deployment smoke test that makes real requests against an already-running deployment. A human keyboard and screen-reader listening pass still needs a graphical desktop with working audio. See [Browser E2E Tests](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/testing/browser-e2e)
 
 ### Verification matrix
 
 The maintained local audit commands cover four Playwright projects: Chromium
-desktop and mobile, Firefox desktop, and WebKit desktop. Backend security
+desktop and mobile, Firefox desktop, and WebKit desktop. The live seeded-account
+permission matrix runs in Chromium desktop; mocked authorization checks remain
+cross-browser. Backend security
 coverage includes authorization escalation, condition-scope widening, context
 spoofing, malformed and oversized condition payloads, batch abuse, tampering,
 and concurrency. Generated coverage and browser artifacts are ignored by both
@@ -272,7 +275,7 @@ Skip the steps below. After cloning your new repo, hand your agent [`agent-promp
 
 ---
 
-   This is the whole setup in one command: it generates every `env/mystic_auth/.env*` file (plus `frontend/.env`) from its `.example` if `env/mystic_auth/.env` doesn't exist yet (distinct random secret per password field, one app name/brand color prompt applied everywhere), brings the dev stack up and waits for it to be healthy, offers to create the system superuser right there, then tails logs. On the first run, Docker may need to pull the PostgreSQL, Valkey, and Bugsink images and build the local backend/worker/frontend images, so startup can take several minutes and depends on Docker Hub and Docker Desktop network speed. Later starts reuse those images and named volumes and are normally much faster. Safe to re-run any time. Prefer to see and run each step yourself? See [Using This Repository as a Template: Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart) for the same steps run individually (`setup-env`, `dev-up`, `create_system_user`), and for what each remaining field (Google OAuth, SMTP, a real domain, tunnel tokens) means.
+   This is the whole setup in one command: it generates every `env/mystic_auth/.env*` file (plus `frontend/.env`) from its `.example` if `env/mystic_auth/.env.dev` doesn't exist yet (distinct random secret per password field, one app name/brand color prompt applied everywhere), brings the dev stack up and waits for it to be healthy, offers to create the system superuser right there, then tails logs. On the first run, Docker may need to pull the PostgreSQL, Valkey, and Bugsink images and build the local backend/worker/frontend images, so startup can take several minutes and depends on Docker Hub and Docker Desktop network speed. Later starts reuse those images and named volumes and are normally much faster. Safe to re-run any time. Prefer to see and run each step yourself? See [Using This Repository as a Template: Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart) for the same steps run individually (`setup-env`, `dev-up`, `create_system_user`), and for what each remaining field (Google OAuth, SMTP, a real domain, tunnel tokens) means.
 
 3. Once it's up, open:
 

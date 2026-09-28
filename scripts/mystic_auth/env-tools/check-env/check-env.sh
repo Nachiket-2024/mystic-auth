@@ -13,7 +13,7 @@
 #      port this file declares is already bound by something else on this
 #      machine.
 #
-# Usage: scripts/mystic_auth/env-tools/check-env/check-env.sh [env/mystic_auth/.env ...]
+# Usage: scripts/mystic_auth/env-tools/check-env/check-env.sh [env/mystic_auth/.env.dev ...]
 # With no arguments, checks every env/mystic_auth/.env* and env/app/.env*
 # file that actually exists.
 set -uo pipefail

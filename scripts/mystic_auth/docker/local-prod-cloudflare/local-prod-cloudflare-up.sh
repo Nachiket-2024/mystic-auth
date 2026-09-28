@@ -2,7 +2,7 @@
 # Thin wrapper around `docker compose -f
 # docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` that always passes
 # --env-file env/mystic_auth/.env.local-prod-cloudflare, so this stack never accidentally
-# reads dev's env/mystic_auth/.env.
+# reads dev's env/mystic_auth/.env.dev.
 #
 # Forwards all arguments, e.g.:
 #   scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh up -d --build

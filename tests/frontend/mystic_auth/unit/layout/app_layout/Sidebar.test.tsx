@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 
 import { useAuthStore } from '@/store/authStore';
@@ -171,12 +171,20 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Account Settings' })).toBeInTheDocument();
   });
 
-  it('translates nav links to Marathi in the plain "mr" mode (unlike the mixed modes)', () => {
+  it('translates nav links to Marathi in the plain "mr" mode (unlike the mixed modes)', async () => {
     useLanguageStore.getState().setMode('mr');
 
     renderSidebar();
 
-    expect(screen.getByRole('link', { name: 'डॅशबोर्ड' })).toBeInTheDocument();
+    // setMode('mr') triggers translations.ts's on-demand language-pack load
+    // (translations/translations.ts's loadLanguage - added so non-English
+    // packs aren't in the initial bundle, see docs/mystic_auth/concerns/README.md's
+    // mobile LCP fix), which resolves after this test's synchronous render.
+    // waitFor here, not a synchronous assertion, since the sidebar renders in
+    // English until that promise settles.
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'डॅशबोर्ड' })).toBeInTheDocument();
+    });
     expect(screen.queryByRole('link', { name: 'Dashboard' })).toBeNull();
   });
 });

@@ -10,15 +10,6 @@ export const DIALOG_BODY_CLASSNAME =
 export const DIALOG_FOOTER_CLASSNAME =
     "px-5 py-3.5 pb-0 sm:px-6 border-t border-brand-border bg-bg-canvas";
 
-export const DIALOG_COMPACT_CONTENT_CLASSNAME =
-    "px-5 py-4 sm:px-6 bg-bg-canvas";
-
-export const DIALOG_FORM_SECTION_CLASSNAME =
-    "rounded-lg border border-border-card bg-bg-surface p-3.5 shadow-card";
-
-export const DIALOG_RESULT_SECTION_CLASSNAME =
-    "rounded-lg border border-border-card bg-bg-surface-raised p-3.5";
-
 export const DIALOG_SECTION_CLASSNAME =
     "rounded-card border border-border-card bg-bg-surface p-4 shadow-card";
 

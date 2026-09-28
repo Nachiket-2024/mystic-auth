@@ -131,6 +131,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      bugsink-seed:
+        condition: service_completed_successfully
       valkey:
         condition: service_healthy
       alembic:
@@ -283,11 +285,13 @@ services:
   # above). Dumps both POSTGRES_DB (the app) and bugsink (error monitoring),
   # since they're separate databases on the same server. See
   # docker-compose.prod.yml's identical db_backup service and
-  # docs/mystic_auth/deployment/migrations-and-backups.md: dumps still need copying
-  # off this host manually. Applies here too, since cloudflared above can
+  # docs/mystic_auth/deployment/migrations-and-backups.md: dumps remain local
+  # unless the optional upload hook is configured. Applies here too, since cloudflared above can
   # make this a real internet-facing deployment, not just a local test.
   db_backup:
-    image: postgres:15
+    build:
+      context: ../../..
+      dockerfile: docker/mystic_auth/dockerfiles/db-backup.Dockerfile
     restart: unless-stopped
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
@@ -298,16 +302,16 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
-      # Optional: shell command run after each verified dump, with DUMP_FILE
-      # exported to it, to ship the dump off-host (see Known Issues: backups
-      # are single-point-of-failure without this). Unset by default - dumps
-      # stay local-only until an operator opts in. Example:
-      # BACKUP_UPLOAD_COMMAND=aws s3 cp "$DUMP_FILE" s3://my-bucket/
-      # The postgres:15 image has no aws-cli/rclone preinstalled; use a
-      # command already on PATH or bind-mount one in.
+      # Backblaze B2 uses rclone's native backend. See docs/mystic_auth/deployment/migrations-and-backups.md.
       BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:-}
+      BACKUP_SENTRY_DSN: ${BACKUP_SENTRY_DSN:-}
+      B2_BUCKET: ${B2_BUCKET:-}
+      RCLONE_CONFIG_B2_TYPE: b2
+      RCLONE_CONFIG_B2_ACCOUNT: ${RCLONE_CONFIG_B2_ACCOUNT:-}
+      RCLONE_CONFIG_B2_KEY: ${RCLONE_CONFIG_B2_KEY:-}
     volumes:
       - ../../../backups:/backups
+      - bugsink_dsn:/shared/bugsink-dsn:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -315,20 +319,25 @@ services:
     command: |
       sh -c '
       set -e
+      if [ -z "$$BACKUP_SENTRY_DSN" ] && [ -f /shared/bugsink-dsn/backend.env ]; then . /shared/bugsink-dsn/backend.env; fi
       while true; do
         TIMESTAMP="$$(date +%Y%m%d-%H%M%S)"
+        UPLOAD_FAILED=0
         for DB in "$$POSTGRES_DB" bugsink; do
           DUMP_FILE="/backups/$${DB}-$${TIMESTAMP}.dump"
           echo "[db_backup] Dumping $${DB} to $${DUMP_FILE}"
-          pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$DUMP_FILE" "$$DB"
-          pg_restore --list "$$DUMP_FILE" >/dev/null
+          pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$DUMP_FILE" "$$DB" || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_dump failed for $$DB"; exit $$rc; }
+          pg_restore --list "$$DUMP_FILE" >/dev/null || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_restore --list failed for $$DUMP_FILE"; exit $$rc; }
           echo "[db_backup] Wrote $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
           if [ -n "$$BACKUP_UPLOAD_COMMAND" ]; then
             echo "[db_backup] Running BACKUP_UPLOAD_COMMAND for $${DUMP_FILE}"
-            DUMP_FILE="$$DUMP_FILE" sh -c "$$BACKUP_UPLOAD_COMMAND"
+            /usr/local/bin/run-backup-upload "$$DUMP_FILE" || { UPLOAD_FAILED=1; /usr/local/bin/backup-failure-alert "off-host upload failed for $$DUMP_FILE"; }
           fi
           find /backups -maxdepth 1 \( -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
         done
+        if [ "$$UPLOAD_FAILED" -eq 1 ]; then
+          echo "[db_backup] One or more off-host uploads failed; local dumps retained for the next retry"
+        fi
         sleep "$$((BACKUP_INTERVAL_HOURS * 3600))"
       done
       '

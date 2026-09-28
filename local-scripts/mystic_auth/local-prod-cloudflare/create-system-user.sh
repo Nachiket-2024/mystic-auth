@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Non-interactively bootstraps the system superuser against the local-prod
-# cloudflare stack. Fill in local-scripts/local-prod-cloudflare/system-user.env first.
+# cloudflare stack. Fill in local-scripts/mystic_auth/local-prod-cloudflare/system-user.env first.
 # Assumes a fresh account: pipes a fixed 3-line stdin (email, name, password)
 # matching create_system_user.py's "brand new account" prompt. If the account
 # already exists, run this by hand instead (it asks different questions):

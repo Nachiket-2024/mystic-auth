@@ -107,7 +107,24 @@ async def oauth2_callback_google(
 
 
 @router.get("/me")
-@rate_limiter_service.rate_limited("get_current_user", account_key_func=_access_token_account_key)
+# Read-only, session-cookie-gated (not a credential-guessing target the way
+# /auth/login is), yet the highest-frequency authenticated route: the SPA
+# calls it on every route mount via useAuthSession. The shared
+# MAX_REQUESTS_PER_WINDOW default (100/60s, sized for /auth/login's
+# brute-force risk) is real usage-limiting here, not just theoretical: it
+# was measured live tripping this exact endpoint 492 times in one local run
+# of the full 32-account permission-matrix e2e suite, misread for months as
+# a WebKit/Firefox cookie-commit timing race because the failure symptom
+# (login succeeds, then "not authenticated" after) looks identical either
+# way - see docs/mystic_auth/testing/frontend-e2e.md and
+# tests/frontend/mystic_auth/e2e/authorization/permission_matrix_real_accounts_browser.spec.ts.
+# A real user with a few tabs open and normal navigation could plausibly
+# trip the same default. 300/60s keeps a real bound (still IP- and
+# account-keyed, same as every other endpoint here) while giving routine
+# multi-tab/multi-navigation usage real headroom.
+@rate_limiter_service.rate_limited(
+    "get_current_user", account_key_func=_access_token_account_key, max_requests=300, window_seconds=60
+)
 async def get_current_user(
     request: Request, access_token: str = Cookie(None), db: AsyncSession = Depends(database.get_session)
 ):

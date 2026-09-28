@@ -4,9 +4,12 @@ import { useTranslation } from "react-i18next";
 import { APP_NAME, SUPPORT_EMAIL } from "../sdk";
 import LegalDocumentLayout, { type LegalSection } from "./LegalDocumentLayout";
 
-// Content lives in mystic_auth/translations/languages/*/legal.json, kept in sync with
-// the codebase's actual data flows (see docs/mystic_auth/security/decisions-infra.md
-// for the audit this was written against) rather than generic boilerplate.
+// Content lives in mystic_auth/translations/languages/*/legal.json as the
+// repository's documented ownership exception: the values are downstream
+// deployment content, while the registration and rendering code stays shared.
+// Keep it in sync with the codebase's actual data flows (see
+// docs/mystic_auth/security/decisions-infra.md for the audit this was written
+// against) rather than generic boilerplate.
 // Update that file, in every language, whenever a data-collecting field,
 // cookie, or third party changes.
 const PrivacyPolicyPage: React.FC = () => {

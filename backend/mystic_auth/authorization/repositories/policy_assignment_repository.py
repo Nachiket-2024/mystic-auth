@@ -120,7 +120,7 @@ class PolicyAssignmentRepository:
         assignment" guard: without a lock, two concurrent bulk-remove
         requests targeting different holder subsets could each read the
         same pre-removal count, each pass the guard individually, and
-        together strip every assignment (full admin lockout). Locking up
+        together strip every assignment (full account lockout). Locking up
         front serializes such requests: the second blocks until the first
         commits, then re-reads the real post-removal holder set.
         """

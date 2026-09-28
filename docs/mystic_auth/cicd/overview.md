@@ -36,7 +36,7 @@ flowchart TD
   remains the source of truth for local development, but service containers are
   a lower-overhead CI equivalent for the backend job.
 - Provides all required settings as job-level environment variables with
-  clearly fake CI-only values because CI has no checked-in `env/mystic_auth/.env`. `APP_NAME`
+  clearly fake CI-only values because CI has no checked-in `env/mystic_auth/.env.dev`. `APP_NAME`
   is set to `MysticAuth` only because `Settings` requires a value. It is a test
   placeholder, not branding that a downstream project must keep in sync.
 - Installs `backend/requirements.txt` and `backend/requirements-dev.txt`, then
@@ -93,9 +93,17 @@ flowchart TD
 ### `docker-build`: Docker image build verification
 
 - Builds `docker/mystic_auth/dockerfiles/backend.Dockerfile` and `docker/mystic_auth/dockerfiles/frontend.Dockerfile --target production` to confirm both images still build cleanly.
+- Generates pinned-tool SPDX JSON SBOMs from the exact `backend:ci` and
+  `frontend:ci` images that were just built. The artifacts include the image
+  runtime contents and are uploaded for 90 days with a manifest containing the
+  commit and local image IDs they describe. The frontend report is intentionally
+  nginx-only: Node/npm build dependencies are not present in the shipped image.
+  The step validates that both SBOMs are non-empty before upload. It does not
+  claim image signing or provenance attestation; those require a registry
+  publish/signing workflow and remain outside this template's deployment scope.
 - Validates all five modes' Compose file pairs (`docker/mystic_auth/compose/` + `docker/app/compose/`) parse: `docker-compose.dev.yml`, `docker-compose.local-prod-cloudflare.yml`, `docker-compose.local-prod-ngrok.yml`, `docker-compose.local-prod-tailscale.yml`, and `docker-compose.prod.yml`.
 - Runs the built backend image and asserts `/app/logs` exists but is **empty**: a regression guard for a real bug found during a pre-release image-contents audit (local access-log files, with real request data, were previously getting baked into the image via a `.dockerignore` gap: see [Security Decisions](../security/decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images)). The directory itself is expected to exist (the app creates it on import); this only checks that no host-side log content rode along inside it.
-- Boots the real dev stack with `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres valkey
+- Boots the real dev stack with `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build postgres valkey
   alembic backend frontend procrastinate_worker`, waits for `/health/ready` and the frontend dev
   server, and checks response bodies. This verifies the images and Compose
   wiring actually serve traffic.
@@ -108,18 +116,23 @@ flowchart TD
   stack: dumps the real database, restores it into a disposable scratch
   database, and checks the schema and a real table came back intact, proving
   the backup path is actually restorable, not just that a dump file exists.
-- Runs the full Playwright browser E2E suite (`npm run test:browser`,
+- Runs the Playwright browser E2E suite (`npm run test:browser`,
   `EMAIL_ENABLED=false`) against the booted dev stack, including the
-  accessibility scan. Does not run the backend's own pytest suite here,
+  accessibility scan. Mocked UI and authorization suites run in all four
+  browser projects. The exhaustive live permission matrix runs in Chromium
+  desktop, and responsiveness timing runs in Chromium desktop and mobile, so
+  real backend traffic is not multiplied across engines. Does not run the
+  backend's own pytest suite here,
   because that is handled by `docker-full-suite`. Does not run the opt-in
   live-deployment smoke test (`tests/frontend/mystic_auth/e2e/live/`), since
   that needs a real separate deployment and its own env vars to target.
 - Raises `MAX_REQUESTS_PER_WINDOW` only in the disposable CI env copy, from the
   production default of 100 to 1000, because the real-account matrix makes
   more than 100 authenticated requests from one runner IP. Playwright runs
-  four browser projects with two workers and two CI retries; these are
-  determinism controls, not relaxed application assertions.
-- Blanks `BUGSINK_SUPERUSER_EMAIL` in the job's temporary `env/mystic_auth/.env` copy before
+  four browser projects with two workers and two CI retries; project-level
+  coverage is intentionally split in `frontend/playwright.config.ts`. These
+  are determinism controls, not relaxed application assertions.
+- Blanks `BUGSINK_SUPERUSER_EMAIL` in the job's temporary `env/mystic_auth/.env.dev` copy before
   booting because `bugsink` and `bugsink-seed` are not started in this job. This
   avoids waiting for a DSN file that will never be written.
 - Prints `docker compose logs --no-color` on failure so container startup
@@ -156,8 +169,10 @@ flowchart TD
 - Full frontend type-check, lint, test (with coverage thresholds enforced), and production build.
 - Full Playwright browser E2E suite against the real booted dev stack, including a WCAG 2.1 AA accessibility scan (`@axe-core/playwright`) across every major page.
 - A backup restore drill: dumps the real database, restores it into a disposable scratch database, and checks the schema and a real table came back intact, not just that a dump file exists.
+- A deterministic backup-freshness regression suite covering missing, stale, empty, and fresh backup artifacts.
 - Path-lint scripts (stale `scripts/`/`local-scripts/` path references, stale pre-split `docker`/`env`/`scripts` references) and the env-tools/upstream-sync regression suites, all against throwaway copies, never this repo's own real files.
 - Both Docker images still build, and (on every PR) the actual dev compose stack boots and serves traffic.
+- Every built runtime image has a validated SPDX JSON SBOM retained as a CI artifact, tied to the commit and local image ID used to generate it.
 - On every push to `main`: the entire backend + frontend test suites, re-run a second time inside the real containers rather than a bare runner.
 - Dependency vulnerability scanning on every push/PR: `pip-audit` (backend, blocking) and `npm audit --audit-level=high` (frontend, blocking). There is no scheduled/automated dependency-update bot in this repo; dependency bumps are a manual, deliberate action (see the header comment in `backend/requirements.txt`), not something that opens PRs on its own.
 - Secret scanning across full git history (`gitleaks`), independent of the backend/frontend jobs.
@@ -216,16 +231,16 @@ docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dock
 # silently skip any app/ overrides a fork has added.
 
 # Boot + smoke-test the dev stack, the same thing docker-build does on every PR
-cp env/mystic_auth/.env.example env/mystic_auth/.env
-cp env/app/.env.example env/app/.env
-sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env   # skip the wasted Bugsink-DSN wait: bugsink isn't started below
-sed -i 's/^MAX_REQUESTS_PER_WINDOW=.*/MAX_REQUESTS_PER_WINDOW=1000/' env/mystic_auth/.env   # disposable CI headroom; production remains at 100
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres valkey alembic backend frontend procrastinate_worker
+cp env/mystic_auth/.env.dev.example env/mystic_auth/.env.dev
+cp env/app/.env.dev.example env/app/.env.dev
+sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.dev   # skip the wasted Bugsink-DSN wait: bugsink isn't started below
+sed -i 's/^MAX_REQUESTS_PER_WINDOW=.*/MAX_REQUESTS_PER_WINDOW=1000/' env/mystic_auth/.env.dev   # disposable CI headroom; production remains at 100
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build postgres valkey alembic backend frontend procrastinate_worker
 curl -sf http://localhost:8000/health/ready   # wait/retry until it returns {"status":"ok"}
 curl -sf http://localhost:5173                # wait/retry until it responds
 
 # Seed the real-account permission matrix used by the browser E2E suite.
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env exec -T -w /repo backend python local-scripts/app/seed-user-permission-matrix.py
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T -w /repo backend python local-scripts/app/seed-user-permission-matrix.py
 
 # Restore drill, the same thing docker-build runs against that booted stack
 tests/scripts/mystic_auth/db/test-restore-drill.sh
@@ -234,30 +249,30 @@ tests/scripts/mystic_auth/db/test-restore-drill.sh
 # the same thing docker-build runs against that booted stack
 CI=true PLAYWRIGHT_WORKERS=2 EMAIL_ENABLED=false npm run test:browser --prefix frontend
 
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env down -v && rm env/mystic_auth/.env env/app/.env
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v && rm env/mystic_auth/.env.dev env/app/.env.dev
 
 # Full suite through the actual containers, the same thing docker-full-suite
 # does on every push to main
-cp env/mystic_auth/.env.example env/mystic_auth/.env
-cp env/app/.env.example env/app/.env
-sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env
+cp env/mystic_auth/.env.dev.example env/mystic_auth/.env.dev
+cp env/app/.env.dev.example env/app/.env.dev
+sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.dev
 # BACKEND_BUILD_TARGET=test builds docker/mystic_auth/dockerfiles/backend.Dockerfile's `test` stage
 # (runtime image + pytest), so pytest is available inside the container below
 # without the runtime image everyone else deploys ever shipping test tooling.
-BACKEND_BUILD_TARGET=test docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build postgres valkey alembic backend procrastinate_worker
+BACKEND_BUILD_TARGET=test docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build postgres valkey alembic backend procrastinate_worker
 # --user root: needed on native Linux, or pytest-cov's coverage output
 # (written to /repo, the whole-repo bind mount) crashes with a permission
 # error: see docs/mystic_auth/docker/overview.md's "running a one-off
 # command inside a container" section
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env exec -T --user root backend bash -c "
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T --user root backend bash -c "
   cd /repo &&
   python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q &&
   python -m pytest tests/backend/mystic_auth/integration -q --cov-append &&
   python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=90
 "
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env up -d --build frontend
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env exec -T frontend sh -c "npm run test -- --run"
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env --env-file env/app/.env down -v && rm env/mystic_auth/.env env/app/.env
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build frontend
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T frontend sh -c "npm run test -- --run"
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v && rm env/mystic_auth/.env.dev env/app/.env.dev
 ```
 
 ---

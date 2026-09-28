@@ -33,7 +33,7 @@ app = App(
 )
 ```
 
-`settings.procrastinate_database_url` (`core/settings.py`) translates `DATABASE_URL`'s SQLAlchemy `postgresql+asyncpg://` dialect prefix into the bare `postgresql://` DSN Procrastinate's `PsycopgConnector` expects. The connector opens its own psycopg connection pool, entirely separate from the SQLAlchemy engine `database.py` builds: two independent pools onto the same database, not a shared one.
+`settings.procrastinate_database_url` (`core/settings.py`) translates `DATABASE_URL`'s SQLAlchemy `postgresql+asyncpg://` dialect prefix into the bare `postgresql://` DSN Procrastinate's `PsycopgConnector` expects. The connector opens its own psycopg connection pool, entirely separate from the SQLAlchemy engine `database/connection.py` builds: two independent pools onto the same database, not a shared one.
 
 The FastAPI process itself needs this connector open too, since request handlers call `.defer_async(...)` directly: `backend/app/main.py`'s lifespan opens it (`await procrastinate_app.open_async()`) before serving traffic and closes it on shutdown, the same pattern as the Valkey client and the SQLAlchemy engine.
 

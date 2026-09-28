@@ -12,7 +12,7 @@ Both trees list only files and folders that are actually committed to the reposi
 `__pycache__`, `node_modules`, build output, coverage reports, or anything else covered by
 `.gitignore`). The "then" tree is the real commit tree at
 [`946e384`](../../../..), the last commit of the manual, ChatGPT-assisted era, on 14 April, 2026. The
-"now" tree reflects the repository as it stands today.
+"now" tree reflects the repository as verified on 29 September, 2026.
 
 ---
 
@@ -26,7 +26,8 @@ Both trees list only files and folders that are actually committed to the reposi
 ## What Changed, In Short
 
 - **One package became two, on both sides.** `backend/app/` and `frontend/src/app/` are now thin,
-  project-owned shells (entry point plus `sdk.py`/`sdk.ts` and `app_sdk.py`/`app_sdk.ts`). All the
+  project-owned shells (entry point plus `sdk.py`/`sdk.ts`, `app_sdk.py`/`app_sdk.ts`, with
+  `app_sdk.py` also serving as the backend's app-owned startup hook). All the
   actual feature code moved into `backend/mystic_auth/` and `frontend/src/mystic_auth/`, the
   upstream-owned package a template update can safely overwrite. See
   [Using This Repository as a Template](../../template-usage/overview.md) for the ownership model
@@ -73,7 +74,12 @@ Both trees list only files and folders that are actually committed to the reposi
 - **`docker/` and `env/` gained the split last**, the two domains that hadn't. `docker/compose/`,
   `dockerfiles/`, `postgres-init/`, `Caddyfile`, and `nginx.frontend.conf` moved under
   `docker/mystic_auth/`, mirrored by an empty `docker/app/`; `env/` split the same way into
-  `env/mystic_auth/` + `env/app/`. See [The `app/` + `mystic_auth/` Split](../../template-usage/ownership-split.md).
+  `env/mystic_auth/` + `env/app/`, with development templates named explicitly
+  `.env.dev.example` and runtime copies named `.env.dev`. See
+  [The `app/` + `mystic_auth/` Split](../../template-usage/ownership-split.md).
+- **The extension boundary became executable, not just documented.** Downstream condition handlers
+  and validators live under `backend/app/` and register through `app_sdk.py` and the public
+  `sdk.py` API. A fork does not edit `backend/mystic_auth/` to add an application condition type.
 - **A root `Makefile`/`make.ps1` appeared, then got the split too.** Both are now two-line entry
   points that `include` (Make) or dot-source (PowerShell) the real targets from
   `makefiles/mystic_auth/` + `makefiles/app/`, so adding your own `make` target never conflicts

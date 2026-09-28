@@ -21,7 +21,7 @@ class Permission(str, enum.Enum):
     USERS_READ_OWN = "users:read_own"
     USERS_UPDATE_OWN = "users:update_own"
 
-    # User administration: listing/updating/deleting arbitrary accounts
+    # User management: listing/updating/deleting arbitrary accounts
     USERS_LIST_ALL = "users:list_all"
     USERS_UPDATE_ANY = "users:update_any"
 

@@ -19,7 +19,7 @@ The helper scripts that wrap Docker Compose and other repetitive setup steps for
 
 ## non-interactive bootstrap script
 
-A `local-scripts/<mode>/create-system-user.{sh,ps1,bat}` script that pipes the reserved system account's fresh-creation prompts (email, name, password) from a local `system-user.env` file into the right Compose file for that deployment mode, so you don't have to retype them at an interactive prompt every time you reset a local stack. It only covers fresh-account creation, not promoting an existing account to system. See [System Superuser: Non-interactive bootstrap scripts](../authentication/system-superuser/README.md#non-interactive-bootstrap-scripts).
+A `local-scripts/mystic_auth/<mode>/create-system-user.{sh,ps1,bat}` script that pipes the reserved system account's fresh-creation prompts (email, name, password) from a local `system-user.env` file into the matching upstream Compose file plus the app-owned override for that deployment mode, so you don't have to retype them at an interactive prompt every time you reset a local stack. It only covers fresh-account creation, not promoting an existing account to system. See [System Superuser: Non-interactive bootstrap scripts](../authentication/system-superuser/README.md#non-interactive-bootstrap-scripts).
 
 ---
 
@@ -37,6 +37,6 @@ A file-mode flag (`100755` vs `100644`) that git tracks as part of a file itself
 
 ## env file (per-mode)
 
-Each deployment mode (dev, each local-prod tunnel variant, prod) has its own dedicated env template under `env/` (e.g. `env/mystic_auth/.env.example`, `env/mystic_auth/.env.local-prod-ngrok.example`), copied to its real, git-ignored counterpart before first use. This lets every mode hold real values at once without one overwriting another. See [Deployment Guide: Choosing the right env template](../deployment/environment.md#1-choosing-the-right-env-template).
+Each deployment mode (dev, each local-prod tunnel variant, prod) has its own dedicated env template under `env/` (e.g. `env/mystic_auth/.env.dev.example`, `env/mystic_auth/.env.local-prod-ngrok.example`), copied to its real, git-ignored counterpart before first use. This lets every mode hold real values at once without one overwriting another. See [Deployment Guide: Choosing the right env template](../deployment/environment.md#1-choosing-the-right-env-template).
 
 ---

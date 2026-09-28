@@ -7,7 +7,7 @@ import SectionHeading from "../../ui/navigation/SectionHeading";
 import DataTable from "../../ui/DataTable/DataTable";
 import LoadingState from "../../ui/feedback/LoadingState";
 import Pagination from "../../ui/navigation/Pagination";
-import { Button } from "../../ui/shadcn/button";
+import { Button } from "../../ui/buttons/Button";
 import { useDebouncedValue } from "../../ui/hooks/useDebouncedValue";
 import { nextSortState } from "../../ui/hooks/useSortState";
 import { usePageResetOn } from "../../ui/hooks/usePageResetOn";

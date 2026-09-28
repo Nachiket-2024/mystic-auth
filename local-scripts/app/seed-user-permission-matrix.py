@@ -15,10 +15,8 @@ from itertools import product
 from secrets import SystemRandom
 
 from argon2 import PasswordHasher
-from sqlalchemy import text
-
 from mystic_auth.database.connection import database
-
+from sqlalchemy import text
 
 PREFIX = "matrix-"
 PASSWORD = "MatrixPassw0rd!"
@@ -43,12 +41,12 @@ STATUS_PLAN = (
 POLICY_BUNDLES = (
     (),
     ("self_service",),
-    ("self_service", "user_administration"),
-    ("policy_administration", "rate_limit_administration"),
+    ("self_service", "user_management"),
+    ("policy_management", "rate_limit_management"),
     (
         "policy_maintainer",
-        "security_audit_administration",
-        "user_lifecycle_administration",
+        "security_audit_access",
+        "user_lifecycle",
     ),
 )
 
@@ -65,8 +63,7 @@ async def seed() -> None:
     password_hash = hasher.hash(PASSWORD)
     random = SystemRandom()
 
-    async with database.async_session() as session:
-        async with session.begin():
+    async with database.async_session() as session, session.begin():
             # The prefix is intentionally narrow so the existing system user
             # and all non-matrix development accounts remain untouched.
             await session.execute(
@@ -74,17 +71,14 @@ async def seed() -> None:
                 {"prefix": f"{PREFIX}%"},
             )
 
-            policies = dict(
-                (
-                    row.name,
-                    row.id,
-                )
+            policies = {
+                row.name: row.id
                 for row in (
                     await session.execute(
                         text("SELECT id, name FROM policies WHERE is_active = true")
                     )
                 ).mappings()
-            )
+            }
 
             expected_policies = {
                 name for bundle in POLICY_BUNDLES for name in bundle

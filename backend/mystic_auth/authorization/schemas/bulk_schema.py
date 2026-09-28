@@ -9,7 +9,7 @@ PolicyAction = Annotated[str, Field(min_length=1, max_length=POLICY_ACTION_MAX_L
 ResourceType = Annotated[str, Field(min_length=1, max_length=POLICY_RESOURCE_TYPE_MAX_LENGTH)]
 
 # Bulk request items are capped at 200 per request: bulk assignment is an
-# admin action (not a synchronous hot-path check like
+# operator action (not a synchronous hot-path check like
 # BatchAuthorizationCheckRequest's 1-50), but still bounded to keep one
 # request's worst-case DB lock/latency time predictable.
 _MAX_BULK_ITEMS = 200

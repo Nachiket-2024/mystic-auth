@@ -14,7 +14,7 @@ from backend.mystic_auth.auth.password_logic.password_service import password_se
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from tests.backend.mystic_auth.security.conftest import PASSWORD, create_verified_user
 
@@ -29,7 +29,7 @@ _CONCURRENT_LOGIN_MAX_SECONDS = 5.0
 _AUDIT_LOG_LIST_MAX_SECONDS = 3.0
 _CONCURRENT_LOGINS = 25
 _MANY_AUDIT_ROWS = 5000
-_SECURITY_AUDIT_READ_POLICIES = [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME]
+_SECURITY_AUDIT_READ_POLICIES = [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME]
 
 
 @pytest.mark.asyncio

@@ -7,7 +7,7 @@
 Even a sync that applied with zero conflicts can quietly change how the app behaves, so don't skip this:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build
 scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security
 ```
 

@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 
-export const API_BASE_URL = "http://localhost:8000";
+export const API_BASE_URL = process.env.E2E_API_BASE_URL ?? "http://localhost:8000";
 
 export const ALL_PERMISSIONS = [
   "users:read_own",
@@ -242,13 +242,20 @@ function withTotal(route: Route, rows: unknown[], total = rows.length) {
   return fulfillJson(route, rows, { "x-total-count": String(total) });
 }
 
-function corsHeaders(extra?: Record<string, string>) {
+export function corsHeaders(extra?: Record<string, string>) {
+  const browserOrigin = new URL(
+    process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173",
+  ).origin;
   return {
-    "access-control-allow-origin": "http://localhost:5173",
+    "access-control-allow-origin": browserOrigin,
     "access-control-allow-credentials": "true",
     "access-control-expose-headers": "x-total-count",
     ...extra,
   };
+}
+
+export function fulfillNoContent(route: Route, status = 204) {
+  return route.fulfill({ status, headers: corsHeaders() });
 }
 
 export function fulfillJson(route: Route, json: unknown, headers?: Record<string, string>, status = 200) {

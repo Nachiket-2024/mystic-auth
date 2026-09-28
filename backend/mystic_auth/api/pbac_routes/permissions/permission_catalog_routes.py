@@ -12,10 +12,10 @@ router = APIRouter(prefix="/authorization", tags=["Authorization"])
 
 @router.get("/permissions/catalog", response_model=list[PermissionCatalogEntryRead])
 async def get_permission_catalog(current_user: dict = CATALOG_READ_DEPENDENCY):
-    """The built-in, code-defined action reference an admin can assign, either
+    """The built-in, code-defined action reference an authorized operator can assign, either
     directly or bundled into a Policy (see authorization/permissions_catalog.py).
     Downstream application actions are opaque strings and are managed by the
-    application's own catalog or admin UI.
+    application's own catalog or authorization UI.
     Static and small (~20 entries), so no pagination/filter/sort: the
     frontend does that client-side.
 

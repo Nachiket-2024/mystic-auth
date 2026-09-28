@@ -24,7 +24,9 @@ Note: this template's own screenshots live under `screenshots/mystic_auth/`, fol
 
 ## Step 6: Conflict: resolve it
 
-A "conflict" just means: you had made your own edit to a line, and upstream also changed that same line, so git can't automatically decide which version should win and needs a human (you) to pick. This is most likely in `backend/app/main.py` or `frontend/src/app/App.tsx`, since those are the two files you're expected to routinely edit (registering your own routers/routes), and only if you genuinely edited the exact same lines upstream did. It can also happen, less often, in a shared config file neither side "owns" outright: `frontend/package.json`, `backend/requirements.txt`, `docker/mystic_auth/compose/docker-compose.dev.yml`, `env/mystic_auth/.env.example`, if you've edited the exact same line upstream touched (e.g. you'd already bumped the same dependency's version, or added your own dependency on the same line upstream reformatted). For most syncs, none of this happens at all. You'll see something like:
+A "conflict" just means: you had made your own edit to a line, and upstream also changed that same line, so git can't automatically decide which version should win and needs a human (you) to pick. This is most likely in `backend/app/main.py` or `frontend/src/app/App.tsx`, since those are the two files you're expected to routinely edit (registering your own routers/routes), and only if you genuinely edited the exact same lines upstream did. It can also happen, less often, in a shared config file neither side "owns" outright: `frontend/package.json`, `backend/requirements.txt`, `docker/mystic_auth/compose/docker-compose.dev.yml`, `env/mystic_auth/.env.dev.example`, or one of the downstream-owned `legal.json` content files, if you've edited the exact same line upstream touched (e.g. you'd already bumped the same dependency's version, or added your own dependency on the same line upstream reformatted). For most syncs, none of this happens at all. You'll see something like:
+
+If the conflicted file is a `legal.json`, retain your reviewed deployment wording and merge in any new keys or structural changes from upstream. Treat legal text as content requiring operator/legal review, not as a routine code merge. The exception and its exact path are documented in [the ownership split](../ownership-split.md#one-intentional-content-exception).
 
 ```
 Conflicts staged above -- resolve them in your working tree, then:
@@ -67,7 +69,7 @@ Not committing -- resolve the alembic branch above first, then:
 Fix it the same way you'd fix any two-heads alembic history, with a merge migration. `backend-exec.sh` wraps `docker compose exec`, which needs the `backend` container already up and healthy - bring the stack up first if you haven't already (e.g. right after a fresh sync, before anything's running):
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build
 scripts/mystic_auth/docker/dev/backend-exec.sh alembic merge heads -m "merge migration branches"
 git add backend/alembic/versions/
 git commit -m "Sync upstream template updates (mystic-auth@<sha>)"

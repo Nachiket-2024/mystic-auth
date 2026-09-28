@@ -1,7 +1,7 @@
 # Explicit project name: without it, every compose file in this directory
 # defaults to the same name (the directory name) and shares
 # containers/network/volumes with the others, so a command meant for one
-# stack could wipe another's data. Set in env/mystic_auth/.env - see
+# stack could wipe another's data. Set in env/mystic_auth/.env.dev - see
 # docs/mystic_auth/docker/compose-modes.md.
 name: ${COMPOSE_PROJECT_NAME}
 
@@ -11,8 +11,8 @@ services:
     image: postgres:15
     restart: always
     env_file:
-      - ../../../env/mystic_auth/.env
-      - ../../../env/app/.env
+      - ../../../env/mystic_auth/.env.dev
+      - ../../../env/app/.env.dev
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -25,7 +25,7 @@ services:
       - ../postgres-init:/docker-entrypoint-initdb.d:ro
     ports:
       # Non-default port to avoid colliding with other local Postgres.
-      # Set POSTGRES_HOST_PORT in env/mystic_auth/.env; change it if another mystic-auth
+      # Set POSTGRES_HOST_PORT in env/mystic_auth/.env.dev; change it if another mystic-auth
       # fork on this machine uses the same value.
       - "${POSTGRES_HOST_PORT}:5432"
     healthcheck:
@@ -57,8 +57,8 @@ services:
       target: ${BACKEND_BUILD_TARGET:-runtime}
     working_dir: /app
     env_file:
-      - ../../../env/mystic_auth/.env
-      - ../../../env/app/.env
+      - ../../../env/mystic_auth/.env.dev
+      - ../../../env/app/.env.dev
     # Wait up to ~10s for bugsink-seed to write the SENTRY_DSN, only when
     # Bugsink is configured.
     command: |
@@ -122,8 +122,8 @@ services:
       target: dev
     working_dir: /app
     env_file:
-      - ../../../env/mystic_auth/.env
-      - ../../../env/app/.env
+      - ../../../env/mystic_auth/.env.dev
+      - ../../../env/app/.env.dev
     # Same DSN wait as backend, gated on BUGSINK_SUPERUSER_EMAIL.
     command: |
       sh -c "if [ -n \"$$BUGSINK_SUPERUSER_EMAIL\" ]; then
@@ -172,8 +172,8 @@ services:
       target: runtime
     working_dir: /app
     env_file:
-      - ../../../env/mystic_auth/.env
-      - ../../../env/app/.env
+      - ../../../env/mystic_auth/.env.dev
+      - ../../../env/app/.env.dev
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
       - PYTHONPATH=/app
@@ -201,8 +201,8 @@ services:
       target: runtime
     working_dir: /app
     env_file:
-      - ../../../env/mystic_auth/.env
-      - ../../../env/app/.env
+      - ../../../env/mystic_auth/.env.dev
+      - ../../../env/app/.env.dev
     command: alembic upgrade head
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -220,8 +220,8 @@ services:
     image: bugsink/bugsink:2
     restart: always
     env_file:
-      - ../../../env/mystic_auth/.env
-      - ../../../env/app/.env
+      - ../../../env/mystic_auth/.env.dev
+      - ../../../env/app/.env.dev
     environment:
       SECRET_KEY: ${BUGSINK_SECRET_KEY}
       CREATE_SUPERUSER: ${BUGSINK_SUPERUSER_EMAIL}:${BUGSINK_SUPERUSER_PASSWORD}
@@ -299,8 +299,8 @@ services:
     # non-root "bugsink" user can't write the DSN file into it otherwise.
     user: root
     env_file:
-      - ../../../env/mystic_auth/.env
-      - ../../../env/app/.env
+      - ../../../env/mystic_auth/.env.dev
+      - ../../../env/app/.env.dev
     environment:
       SECRET_KEY: ${BUGSINK_SECRET_KEY}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bugsink
@@ -343,7 +343,7 @@ volumes:
 
 networks:
   # Pinned subnet so this can run alongside the prod/local-prod-* stacks
-  # without an auto-assigned pool collision. Set in env/mystic_auth/.env - change it if
+  # without an auto-assigned pool collision. Set in env/mystic_auth/.env.dev - change it if
   # another mystic-auth fork's stack on this machine uses the same subnet.
   # See docs/mystic_auth/docker/compose-modes.md.
   default:

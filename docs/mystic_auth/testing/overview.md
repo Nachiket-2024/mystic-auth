@@ -21,6 +21,22 @@ Detail](frontend-pages-test-detail.md).
 3. `--cov-fail-under` is not set in `pytest.ini` because it would also apply to partial local runs.
 4. CI enforces the 90% cumulative coverage gate after unit, integration, and security tests append to the same coverage data.
 
+### 29 September, 2026 verification
+
+- Backend app/unit, integration, and security runs passed 933, 304, and 37 tests
+  respectively. The cumulative security-gate run reported 94.29% coverage.
+- Frontend Vitest passed 844 tests in 132 files. The measured report was
+  88.59% statements, 81.64% branches, 81.72% functions, and 90.67% lines,
+  above the configured floors.
+- The browser matrix produced 425 passing checks and 25 intentional skips.
+  The initial six-worker run overlapped with the backend integration run and
+  exposed resource-contention timeouts; all 12 affected cases passed again
+  with the backend idle and one worker.
+- Backend performance checks remain advisory. One concurrent-login timing run
+  exceeded its shared-host threshold at 5.50 seconds; an isolated rerun passed
+  at the same threshold. No performance threshold was changed from this one
+  host measurement.
+
 The backend 90% gate is deliberately below 100%: defensive exception
 branches, framework wiring, and deployment-only paths are valuable to review
 but often cannot be exercised meaningfully in every test environment. A 90%
@@ -104,7 +120,7 @@ stack setup, seeded accounts, full coverage list, the axe accessibility scan,
 and the opt-in live-deployment smoke test - the commands below just start it.
 
 ```bash
-# From repo root, against local Postgres/Valkey (see env/mystic_auth/.env)
+# From repo root, against local Postgres/Valkey (see env/mystic_auth/.env.dev)
 python -m pytest tests/backend/app -q
 python -m pytest tests/backend/mystic_auth/unit -q
 python -m pytest tests/backend/mystic_auth/integration -q

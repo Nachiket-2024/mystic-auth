@@ -11,6 +11,13 @@ import ErrorBoundary from '../mystic_auth/ui/routing/ErrorBoundary.tsx';
 // CSS-only import, no JS export: kept only for that load side effect.
 import '@fontsource-variable/inter';
 
+// The production build marks the stylesheet as media="print" so it can be
+// fetched without blocking the first HTML paint. Looked up once here and
+// reused below (querying by [media="print"] again after removeAttribute
+// would never match, since the attribute is already gone by then).
+const stylesheet = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"][media="print"]');
+stylesheet?.removeAttribute("media");
+
 // Tailwind v4 entry point + design tokens (see theme/tailwind.css).
 // applyBrandCssVars.ts is the plain-CSS-variable equivalent of the old
 // CSS-variable theme setup (the former AppearanceThemeProvider.tsx Chakra
@@ -46,6 +53,7 @@ import '../mystic_auth/store/fontSizeStore.ts';
 // this import both configures translations and applies the chosen
 // language before first paint.
 import '../mystic_auth/store/languageStore.ts';
+import { prefetchRoute } from '../mystic_auth/layout/app_layout/routePrefetch';
 
 // Must be called once, before the app renders, so every API call made
 // during the initial session check is already covered.
@@ -58,15 +66,36 @@ import { initErrorMonitoring } from "../mystic_auth/core/errorMonitoring.ts";
 
 const rootElement = document.getElementById('root') as HTMLElement;
 
-setupAuthInterceptor();
-initErrorMonitoring();
+// Start the protected route chunk while the app shell and session request are
+// starting. The same dynamic import is reused by React.lazy, so this removes
+// the route fetch from the critical render sequence without making every route
+// part of the initial bundle.
+prefetchRoute(window.location.pathname);
 
-ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
-        <ErrorBoundary>
-            <QueryClientProvider client={queryClient}>
-                <App />
-            </QueryClientProvider>
-        </ErrorBoundary>
-    </React.StrictMode>
-);
+function mountApp(): void {
+    setupAuthInterceptor();
+    initErrorMonitoring();
+
+    ReactDOM.createRoot(rootElement).render(
+        <React.StrictMode>
+            <ErrorBoundary>
+                <QueryClientProvider client={queryClient}>
+                    <App />
+                </QueryClientProvider>
+            </ErrorBoundary>
+        </React.StrictMode>
+    );
+}
+
+const stylesheetIsReady = stylesheet?.sheet && (() => {
+    try {
+        return stylesheet.sheet.cssRules.length > 0;
+    } catch {
+        return false;
+    }
+})();
+if (stylesheet && !stylesheetIsReady) {
+    stylesheet.addEventListener("load", mountApp, { once: true });
+} else {
+    mountApp();
+}

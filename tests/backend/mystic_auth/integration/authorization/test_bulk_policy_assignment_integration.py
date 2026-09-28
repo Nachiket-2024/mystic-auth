@@ -21,7 +21,7 @@ from httpx import ASGITransport, AsyncClient
 from backend.app.main import app
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.authorization.repositories.policy_assignment_repository import (
     policy_assignment_repository,
@@ -57,8 +57,8 @@ async def test_bulk_assign_policies_grants_access_to_every_selected_user(client,
     resp = await client.post(
         "/authorization/bulk/policies/assign",
         json={"items": [
-            {"user_email": target_a, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
-            {"user_email": target_b, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
+            {"user_email": target_a, "policy_name": USER_MANAGEMENT_POLICY_NAME},
+            {"user_email": target_b, "policy_name": USER_MANAGEMENT_POLICY_NAME},
         ]},
     )
     assert resp.status_code == 200
@@ -89,8 +89,8 @@ async def test_bulk_assign_policies_is_best_effort_not_all_or_nothing(client, cr
     resp = await client.post(
         "/authorization/bulk/policies/assign",
         json={"items": [
-            {"user_email": target, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
-            {"user_email": unique_email("bulk-missing"), "policy_name": USER_ADMINISTRATION_POLICY_NAME},
+            {"user_email": target, "policy_name": USER_MANAGEMENT_POLICY_NAME},
+            {"user_email": unique_email("bulk-missing"), "policy_name": USER_MANAGEMENT_POLICY_NAME},
         ]},
     )
     assert resp.status_code == 200
@@ -117,7 +117,7 @@ async def test_bulk_assign_policies_reports_already_held_without_duplicating_the
     already_holding_target = unique_email("bulk-already-held-2")
     await create_verified_user(client, created_emails, target, [SELF_SERVICE_POLICY_NAME])
     await create_verified_user(
-        client, created_emails, already_holding_target, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]
+        client, created_emails, already_holding_target, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME]
     )
     await create_system_user(client, created_emails, system_email)
 
@@ -125,8 +125,8 @@ async def test_bulk_assign_policies_reports_already_held_without_duplicating_the
     resp = await client.post(
         "/authorization/bulk/policies/assign",
         json={"items": [
-            {"user_email": target, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
-            {"user_email": already_holding_target, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
+            {"user_email": target, "policy_name": USER_MANAGEMENT_POLICY_NAME},
+            {"user_email": already_holding_target, "policy_name": USER_MANAGEMENT_POLICY_NAME},
         ]},
     )
     assert resp.status_code == 200
@@ -142,7 +142,7 @@ async def test_bulk_assign_policies_reports_already_held_without_duplicating_the
     # Re-assigning must not have created a duplicate UserPolicy row.
     async with database.async_session() as session:
         assigned = await policy_assignment_repository.get_policies_for_user(already_holding_target, session)
-    assert sum(1 for p in assigned if p.name == USER_ADMINISTRATION_POLICY_NAME) == 1
+    assert sum(1 for p in assigned if p.name == USER_MANAGEMENT_POLICY_NAME) == 1
 
 
 @pytest.mark.asyncio
@@ -157,7 +157,7 @@ async def test_bulk_assign_policies_reports_policy_not_found_without_blocking_ot
         "/authorization/bulk/policies/assign",
         json={"items": [
             {"user_email": target, "policy_name": "this_policy_does_not_exist"},
-            {"user_email": target, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
+            {"user_email": target, "policy_name": USER_MANAGEMENT_POLICY_NAME},
         ]},
     )
     assert resp.status_code == 200
@@ -166,7 +166,7 @@ async def test_bulk_assign_policies_reports_policy_not_found_without_blocking_ot
     assert body["error_count"] == 1
     outcomes = {r["identifier"]: (r["status"], r["error"]) for r in body["results"]}
     assert outcomes["this_policy_does_not_exist"] == ("error", "POLICY_NOT_FOUND")
-    assert outcomes[USER_ADMINISTRATION_POLICY_NAME][0] == "success"
+    assert outcomes[USER_MANAGEMENT_POLICY_NAME][0] == "success"
 
 
 @pytest.mark.asyncio
@@ -214,15 +214,15 @@ async def test_concurrent_bulk_assigns_of_the_same_pair_do_not_fail_the_whole_ba
             client_a.post(
                 "/authorization/bulk/policies/assign",
                 json={"items": [
-                    {"user_email": shared_target, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
-                    {"user_email": distinct_a, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
+                    {"user_email": shared_target, "policy_name": USER_MANAGEMENT_POLICY_NAME},
+                    {"user_email": distinct_a, "policy_name": USER_MANAGEMENT_POLICY_NAME},
                 ]},
             ),
             client_b.post(
                 "/authorization/bulk/policies/assign",
                 json={"items": [
-                    {"user_email": shared_target, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
-                    {"user_email": distinct_b, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
+                    {"user_email": shared_target, "policy_name": USER_MANAGEMENT_POLICY_NAME},
+                    {"user_email": distinct_b, "policy_name": USER_MANAGEMENT_POLICY_NAME},
                 ]},
             ),
         )
@@ -241,7 +241,7 @@ async def test_concurrent_bulk_assigns_of_the_same_pair_do_not_fail_the_whole_ba
         # actually won the race to insert it first.
         async with database.async_session() as session:
             shared_policies = await policy_assignment_repository.get_policies_for_user(shared_target, session)
-        assert sum(1 for p in shared_policies if p.name == USER_ADMINISTRATION_POLICY_NAME) == 1
+        assert sum(1 for p in shared_policies if p.name == USER_MANAGEMENT_POLICY_NAME) == 1
 
         # Each request's own distinct, non-conflicting pair must also have
         # landed - proof the race on the shared pair didn't take the rest
@@ -261,10 +261,10 @@ async def test_bulk_remove_policies_revokes_access_from_every_selected_user(clie
     target_a = unique_email("bulk-remove-a")
     target_b = unique_email("bulk-remove-b")
     await create_verified_user(
-        client, created_emails, target_a, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]
+        client, created_emails, target_a, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME]
     )
     await create_verified_user(
-        client, created_emails, target_b, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]
+        client, created_emails, target_b, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME]
     )
     await create_system_user(client, created_emails, system_email)
 
@@ -272,8 +272,8 @@ async def test_bulk_remove_policies_revokes_access_from_every_selected_user(clie
     resp = await client.post(
         "/authorization/bulk/policies/remove",
         json={"items": [
-            {"user_email": target_a, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
-            {"user_email": target_b, "policy_name": USER_ADMINISTRATION_POLICY_NAME},
+            {"user_email": target_a, "policy_name": USER_MANAGEMENT_POLICY_NAME},
+            {"user_email": target_b, "policy_name": USER_MANAGEMENT_POLICY_NAME},
         ]},
     )
     assert resp.status_code == 200
@@ -298,7 +298,7 @@ async def test_bulk_remove_policies_only_own_escalation_guard_blocks_a_policy_no
     target = unique_email("bulk-revoke-target")
     await create_system_user(client, created_emails, system_email)
     await create_verified_user(
-        client, created_emails, target, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME]
+        client, created_emails, target, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME]
     )
     await create_verified_user(client, created_emails, escalator, [SELF_SERVICE_POLICY_NAME])
 
@@ -315,7 +315,7 @@ async def test_bulk_remove_policies_only_own_escalation_guard_blocks_a_policy_no
     await client.post("/auth/login", json={"email": escalator, "password": PASSWORD})
     resp = await client.post(
         "/authorization/bulk/policies/remove",
-        json={"items": [{"user_email": target, "policy_name": USER_ADMINISTRATION_POLICY_NAME}]},
+        json={"items": [{"user_email": target, "policy_name": USER_MANAGEMENT_POLICY_NAME}]},
     )
     assert resp.status_code == 200
     body = resp.json()

@@ -6,11 +6,27 @@ import { fileURLToPath } from 'node:url';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function preloadStylesheet() {
+  return {
+    name: 'preload-stylesheet',
+    transformIndexHtml: {
+      order: 'post' as const,
+      handler(html: string) {
+        return html.replace(
+          /<link rel="stylesheet" crossorigin href="([^"]+)">/,
+          '<link rel="stylesheet" media="print" crossorigin href="$1"><noscript><link rel="stylesheet" crossorigin href="$1"></noscript>',
+        );
+      },
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    preloadStylesheet(),
   ],
   resolve: {
     // Must match the "@"/"@app" paths in tsconfig.app.json and the

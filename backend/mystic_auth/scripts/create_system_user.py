@@ -7,7 +7,7 @@ from ..authorization.caching.authorization_cache_service import authorization_ca
 from ..authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 
 # PBAC: the system superuser's actual access comes from holding every
@@ -30,7 +30,7 @@ SYSTEM_ROLE = UserRole.system
 # the system-only actions).
 SYSTEM_USER_POLICY_NAMES = (
     SELF_SERVICE_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
 )
 

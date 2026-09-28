@@ -150,7 +150,7 @@ This policy is seeded by `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policie
 
 ```json
 {
-  "name": "user_administration",
+  "name": "user_management",
   "description": "Manage other users' accounts: list, update, delete, assign non-system roles.",
   "actions": ["users:list_all", "users:update_any", "users:deactivate_any", "users:assign_role"],
   "resource_type": "users",

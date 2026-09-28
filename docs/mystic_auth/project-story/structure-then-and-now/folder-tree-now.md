@@ -2,6 +2,11 @@
 
 ---
 
+This is the current repository tree as of 29 September, 2026. It reflects the established
+`app/` and `mystic_auth/` ownership split, the PBAC implementation, the shadcn/Radix frontend,
+the separated test suites, the five Docker deployment modes, and the exact template extension
+points. Generated files, local secrets, build output, and test caches are omitted.
+
 ```text
 mystic-auth/
   backend/
@@ -132,6 +137,7 @@ mystic-auth/
       docker/
       env-tools/
       load-test/
+      testing/                   # disposable test-account seeding (e.g. accessibility scans)
       upstream-sync/
   local-scripts/
     app/                         # project-owned local scripts
@@ -167,6 +173,7 @@ mystic-auth/
         backend.Dockerfile
         backend-entrypoint.sh
         frontend.Dockerfile
+        db-backup.Dockerfile
       postgres-init/
         init-bugsink-db.sh
   screenshots/
@@ -185,13 +192,13 @@ mystic-auth/
       make.ps1
   env/
     app/                         # project-owned env fields, ships empty
-      .env.example
+      .env.dev.example
       .env.local-prod-cloudflare.example
       .env.local-prod-ngrok.example
       .env.local-prod-tailscale.example
       .env.prod.example
     mystic_auth/                 # upstream env fields
-      .env.example
+      .env.dev.example
       .env.local-prod-cloudflare.example
       .env.local-prod-ngrok.example
       .env.local-prod-tailscale.example

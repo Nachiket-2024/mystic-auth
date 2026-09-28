@@ -183,10 +183,10 @@ describe('UsersPage list controls', () => {
     seed(['users:list_all']);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'self_service', description: null, actions: ['users:read_own'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
-      { id: 2, name: 'user_administration', description: null, actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
+      { id: 2, name: 'user_management', description: null, actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
     ]);
     mock.onGet('/users/').reply((config) => {
-      if (config.params?.policy === 'user_administration') {
+      if (config.params?.policy === 'user_management') {
         return [200, [SAMPLE_USERS[0]], { 'x-total-count': '1' }];
       }
       return [200, SAMPLE_USERS, { 'x-total-count': '2' }];
@@ -198,13 +198,13 @@ describe('UsersPage list controls', () => {
     await screen.findByText('Regular User');
     await user.click(screen.getByRole('button', { name: /^Filters/ }));
     await user.click(screen.getByRole('button', { name: 'Filter by policy' }));
-    await user.click(screen.getByRole('button', { name: 'user_administration' }));
+    await user.click(screen.getByRole('button', { name: 'user_management' }));
 
     await waitFor(() => expect(screen.queryByText('Regular User')).toBeNull());
     expect(screen.getByText('Admin User')).toBeInTheDocument();
 
     const lastRequest = mock.history.get.filter((r) => r.url === '/users/').at(-1);
-    expect(lastRequest?.params).toMatchObject({ policy: 'user_administration' });
+    expect(lastRequest?.params).toMatchObject({ policy: 'user_management' });
   });
 
   it('keeps policy and verification filters conjunctive', async () => {

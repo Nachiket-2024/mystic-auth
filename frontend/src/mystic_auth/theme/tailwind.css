@@ -426,6 +426,26 @@ body::-webkit-scrollbar-thumb {
   }
 }
 
+/* A browser's own password manager (Chrome/Edge/Opera autofill, not just
+   the classic yellow Chrome case) forces a fixed white-background/black-text
+   look on a filled input via its own internal UA styles the moment it fills
+   the field, before any of our own CSS or JS runs - this is not something a
+   normal background/color rule on the input can override, in light or dark
+   mode. The oversized inset box-shadow is the standard workaround: it paints
+   over the forced background with our own token color from the inside,
+   while -webkit-text-fill-color overrides the forced text color (color alone
+   does not). The long transition delay stops the forced colors from
+   flashing before the shadow paints. var(...) resolves per theme
+   automatically, same reasoning as .data-table-scroll-area below. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  box-shadow: 0 0 0 1000px var(--bg-canvas) inset;
+  -webkit-text-fill-color: var(--fg-default);
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+
 /* DataTable's horizontal scroll container. Expressed as a real CSS class,
    not Tailwind utilities: the "scroll shadow" trick needs 4 stacked
    background layers with mixed attachment (local/scroll), and

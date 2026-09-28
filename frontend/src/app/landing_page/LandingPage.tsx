@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, Link as RouterLink } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ShieldCheck, KeyRound, ScrollText, Globe } from "lucide-react";
+import { ShieldCheck, KeyRound, ScrollText, Server } from "lucide-react";
 
 // Everything below comes from the public extension surface (../sdk), not
 // internal mystic_auth/* paths. This page is the reference example for an
@@ -23,7 +23,7 @@ const HIGHLIGHTS = [
     { icon: KeyRound, key: "authentication" },
     { icon: ShieldCheck, key: "authorization" },
     { icon: ScrollText, key: "auditLog" },
-    { icon: Globe, key: "multilingual" },
+    { icon: Server, key: "selfHosted" },
 ] as const;
 
 /**
@@ -90,10 +90,12 @@ const LandingPage: React.FC = () => {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         {HIGHLIGHTS.map(({ icon: HighlightIcon, key }) => (
                             <Card as="article" key={key} className="p-4 text-left">
-                                <HighlightIcon size={20} className="mb-2 text-brand-solid" aria-hidden="true" />
-                                <h3 className="mb-1 font-semibold">
-                                    {t(`highlights.${key}.title`)}
-                                </h3>
+                                <div className="mb-1 flex items-center gap-2">
+                                    <HighlightIcon size={20} className="shrink-0 text-brand-solid" aria-hidden="true" />
+                                    <h3 className="font-semibold">
+                                        {t(`highlights.${key}.title`)}
+                                    </h3>
+                                </div>
                                 <p className="text-sm text-fg-muted">
                                     {t(`highlights.${key}.description`)}
                                 </p>

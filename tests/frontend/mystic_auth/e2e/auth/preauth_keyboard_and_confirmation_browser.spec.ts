@@ -15,7 +15,7 @@ test.describe("pre-auth keyboard and confirmation behavior", () => {
 
   test("reset request Enter submits once and the result button is cooldown-disabled", async ({ page }) => {
     let requests = 0;
-    await page.route("http://localhost:8000/auth/password-reset/request", async (route) => {
+    await page.route("**/auth/password-reset/request", async (route) => {
       requests += 1;
       return fulfillUnauthenticatedAuthJson(route, { message: "Reset mail queued." });
     });
@@ -31,7 +31,7 @@ test.describe("pre-auth keyboard and confirmation behavior", () => {
 
   test("verification without a token is visibly disabled, while resend uses Space", async ({ page }) => {
     let requests = 0;
-    await page.route("http://localhost:8000/auth/verify-account/request", async (route) => {
+    await page.route("**/auth/verify-account/request", async (route) => {
       requests += 1;
       return fulfillUnauthenticatedAuthJson(route, { message: "Verification mail queued." });
     });
@@ -53,7 +53,7 @@ test.describe("pre-auth keyboard and confirmation behavior", () => {
     await expect(page).toHaveURL(/\/$/);
 
     let confirmations = 0;
-    await page.route("http://localhost:8000/users/me/confirm-delete", async (route) => {
+    await page.route("**/users/me/confirm-delete", async (route) => {
       confirmations += 1;
       return fulfillUnauthenticatedAuthJson(route, { message: "Account deleted." });
     });
@@ -67,7 +67,7 @@ test.describe("pre-auth keyboard and confirmation behavior", () => {
 
   test("password reset confirmation exposes a local mismatch and submits with Enter", async ({ page }) => {
     let requests = 0;
-    await page.route("http://localhost:8000/auth/password-reset/confirm", async (route) => {
+    await page.route("**/auth/password-reset/confirm", async (route) => {
       requests += 1;
       return fulfillUnauthenticatedAuthJson(route, { message: "Password reset.", sessions_revoked: true });
     });

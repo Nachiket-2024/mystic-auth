@@ -10,8 +10,8 @@ const composeArgs = [
   ...(composeProjectName ? ["-p", composeProjectName] : []),
   "-f", "docker/mystic_auth/compose/docker-compose.dev.yml",
   "-f", "docker/app/compose/docker-compose.dev.yml",
-  "--env-file", "env/mystic_auth/.env",
-  "--env-file", "env/app/.env",
+  "--env-file", "env/mystic_auth/.env.dev",
+  "--env-file", "env/app/.env.dev",
 ];
 
 export function seededSystemEmail(projectName: string) {
@@ -65,7 +65,7 @@ const seedPython = String.raw`
 import asyncio
 import os
 from mystic_auth.auth.password_logic.password_service import password_service
-from mystic_auth.authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME
+from mystic_auth.authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME
 from mystic_auth.authorization.repositories.policy_repository import policy_repository
 from mystic_auth.database.connection import database
 from mystic_auth.user.user_crud_collector import user_crud
@@ -82,7 +82,7 @@ async def main():
             await user_crud.update(user, {"name": "Playwright System", "role": UserRole.system, "hashed_password": hashed, "is_verified": True, "is_active": True}, db)
         else:
             user = await user_crud.create({"name": "Playwright System", "email": EMAIL, "hashed_password": hashed, "role": UserRole.system, "is_verified": True, "is_active": True}, db)
-        for name in (SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME):
+        for name in (SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME):
             policy = await policy_repository.get_by_name(name, db)
             await policy_repository.assign_policy_to_user(user.id, policy.id, db, assigned_by="playwright", user_email=EMAIL)
         await db.commit()

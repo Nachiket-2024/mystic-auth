@@ -120,7 +120,7 @@ async def test_admin_cannot_change_own_role(client, created_emails):
 async def test_admin_can_change_user_role_to_admin_and_back_via_role_endpoint(client, created_emails):
     # Role changes are bidirectional through the single generic /role
     # endpoint; there's no separate one-directional "promote" path. An
-    # admin holding only user_administration (users:assign_role, not
+    # admin holding only user_management (users:assign_role, not
     # users:assign_system_role) can move a non-system user to any
     # non-system role, either direction.
     admin_email = unique_email("admin")

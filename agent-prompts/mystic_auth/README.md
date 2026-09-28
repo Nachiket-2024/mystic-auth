@@ -7,7 +7,7 @@ following the docs by hand.
 | File | Use when | Assumes |
 |---|---|---|
 | [`new-project-setup.md`](new-project-setup.md) | You just clicked "Use this template" and cloned your new repo for the first time. See [Template Usage: Quickstart](../../docs/mystic_auth/template-usage/quickstart.md) for what each step does. | Docker installed, agent has a shell in the repo root. Tell it your app name/brand color when you hand it the file, or it'll ask. |
-| [`sync-with-upstream.md`](sync-with-upstream.md) | Your project already exists and you want to pull in the latest mystic-auth template fixes/features. See [Staying in Sync with Upstream Template Updates](../../docs/mystic_auth/template-usage/syncing-upstream/README.md) for the manual version this automates, and [agent-prompt.md](../../docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md) for the reasoning behind it. | Nothing - it derives your project's own naming from env/mystic_auth/.env itself. |
+| [`sync-with-upstream.md`](sync-with-upstream.md) | Your project already exists and you want to pull in the latest mystic-auth template fixes/features. See [Staying in Sync with Upstream Template Updates](../../docs/mystic_auth/template-usage/syncing-upstream/README.md) for the manual version this automates, and [agent-prompt.md](../../docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md) for the reasoning behind it. | A clean working tree, Docker, and an upstream remote or network access. It reads only the non-secret project name, app name, and brand color from the dev env file. |
 
 Each file is nothing but the prompt itself: hand the whole file to your
 agent (e.g. "read new-project-setup.md and follow it") and it needs
@@ -31,6 +31,6 @@ value to their own output, only field *names*. The agent runs the script
 and reports which fields still need a real value; a human fills those in
 directly, either straight into the env file or into
 `scripts/mystic_auth/env-tools/set-env-field/shared-values.env` (a copy of that folder's
-`.env.example`, gitignored) so one edit reaches every mode at once. See
+`shared-values.env.example`, gitignored) so one edit reaches every mode at once. See
 [Environment Configuration](../../docs/mystic_auth/environment/README.md) for
 what each script actually does.

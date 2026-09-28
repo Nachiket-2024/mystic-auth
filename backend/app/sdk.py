@@ -13,11 +13,23 @@ docstring for the "why" behind any given piece.
 
 DO NOT hand-edit this file. It's a drop-in from upstream and the one file a
 `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync is expected to touch, so local edits here
-turn a clean sync into a manual conflict. Add your own re-exports to
-app_sdk.py instead: it's kept empty by upstream for exactly this purpose.
+turn a clean sync into a manual conflict. Add your own re-exports and startup
+registrations to app_sdk.py instead: it is the downstream-owned extension
+surface and ships with only a stable no-op hook.
 """
 
 import importlib
+import sys
+
+# Native tests import the application as ``backend.app`` while the Docker
+# image imports it as top-level ``app``. Keep both names pointed at this
+# module so an app-owned condition handler imported through the documented
+# ``app.sdk`` path is still an instance of the same ConditionHandler class
+# that the registry sees through the native test path.
+if __name__ == "backend.app.sdk":
+    sys.modules.setdefault("app.sdk", sys.modules[__name__])
+elif __name__ == "app.sdk":
+    sys.modules.setdefault("backend.app.sdk", sys.modules[__name__])
 
 # `mystic_auth` is a sibling of `app`, not a child, so neither a relative
 # nor a hardcoded absolute import works in both the Docker image (top-level
@@ -49,9 +61,15 @@ SecurityHeadersMiddleware = _m("auth.security.security_headers_middleware").Secu
 
 # Database: Depends(database.get_session) in a route signature
 database = _m("database.connection").database
-# Settings: add your own fields to Settings in core/settings.py, read them
-# from here rather than os.environ directly
+# Settings: read template settings from here. Do not add downstream fields to
+# the upstream Settings model; define app-owned configuration under app/.
 settings = _m("core.settings").settings
+
+# PBAC condition extensions: define the handler and validator under app/ and
+# register them from app/app_sdk.py. This keeps downstream code out of the
+# upstream-owned authorization implementation.
+ConditionHandler = _m("authorization.conditions.condition_handler").ConditionHandler
+register_condition_type = _m("authorization.conditions.condition_registry").register_condition_type
 
 # Small route helpers
 get_or_404 = _m("api.get_or_404.get_or_404").get_or_404
@@ -154,6 +172,8 @@ __all__ = [
     "SecurityHeadersMiddleware",
     "database",
     "settings",
+    "ConditionHandler",
+    "register_condition_type",
     "get_or_404",
     "AppError",
     "auth_router",

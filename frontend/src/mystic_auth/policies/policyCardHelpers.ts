@@ -7,7 +7,7 @@ import { Gauge, KeyRound, LockKeyhole, Shield, ShieldCheck, Users, type LucideIc
 // dependencies.py's PROTECTED_POLICY_NAMES: the backend already rejects
 // deactivating/deleting these, this just disables the controls instead of
 // letting the click round-trip to a 403.
-export const PROTECTED_POLICY_NAMES = new Set(["self_service", "user_administration", "system_superuser"]);
+export const PROTECTED_POLICY_NAMES = new Set(["self_service", "user_management", "system_superuser"]);
 
 /** Shared resource icons keep policy cards and permission group headers in the
  * same visual language. Unknown resource types use a shield fallback. */
@@ -20,7 +20,7 @@ export const RESOURCE_TYPE_ICONS: Record<string, LucideIcon> = {
     "*": LockKeyhole,
 };
 
-/** Subtle semantic tones help administrators scan resource groups without
+/** Subtle semantic tones help authorized operators scan resource groups without
  * turning each header into a colored badge or decorative tile. */
 export function resourceTypeIconTone(resourceType: string): string {
     if (resourceType === "users") return "text-sky-600 dark:text-sky-400";
@@ -48,13 +48,11 @@ export function groupActionsByVerb(actions: string[]): [string, string[]][] {
 }
 
 /** Turns an internal permission id into the plain-language label shown to
- * administrators. Keep the original id available via a tooltip/details view.
+ * authorized operators. Keep the original id available via a tooltip/details view.
  * Unknown/fork action shapes remain readable instead of being discarded. */
 export const POLICY_DESCRIPTION_MAX_LENGTH = 160;
 export const AUTHORIZATION_DESCRIPTION_MAX_LENGTH = 160;
 export const POLICY_NAME_MAX_LENGTH = 100;
-export const POLICY_ACTION_MAX_LENGTH = 200;
-export const POLICY_RESOURCE_TYPE_MAX_LENGTH = 100;
 
 /** Defensive read-side guard matching the backend description contract. */
 export function displayAuthorizationDescription(description: string | null | undefined, fallback = ""): string {
@@ -73,7 +71,7 @@ export function formatPolicyActionLabel(action: string): string {
 }
 
 /** Turns an internal resource type into the plain-language label shown to
- * administrators. The raw value remains the filter/API value. */
+ * authorized operators. The raw value remains the filter/API value. */
 export function formatResourceTypeLabel(resourceType: string): string {
     if (resourceType === "*") return "All resource types";
     const words = resourceType.replace(/[_-]+/g, " ").trim();

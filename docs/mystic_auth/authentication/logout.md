@@ -94,8 +94,8 @@ apparently-still-logged-in UI) behind.
 
 ## Frontend behavior
 
-`useLogoutMutation` and the equivalent logout-all mutation `removeQueries` (not just invalidate)
-every "me"-scoped TanStack Query cache: current user, sessions, own policy assignments, own audit
+`useLogoutMutation` and the equivalent `useLogoutAllMutation` both call `removeQueries` (not just
+invalidate) for every "me"-scoped TanStack Query cache: current user, sessions, own policy assignments, own audit
 history. None of those caches are keyed by email, so leaving a stale response cached across a
 logout could otherwise flash the previous account's data for whoever logs in next in the same
 browser tab. See [Session Management: frontend behavior](session-management/frontend-and-checks.md#frontend-behavior).

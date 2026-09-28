@@ -1,8 +1,8 @@
-# tests/backend/mystic_auth/unit/test_create_rbac_policies_unit.py
+# tests/backend/mystic_auth/unit/test_create_unconditioned_policies_unit.py
 #
-# Covers create_rbac_policies.py: an interactive CLI script that seeds one
-# unconditioned, RBAC-shaped policy (name "role_<role>", conditions=None).
-# See docs/mystic_auth/authorization/rbac-quickstart.md for the concept.
+# Covers create_unconditioned_policies.py: an interactive CLI script that seeds
+# one unconditioned, role-shaped policy (name "role_<role>", conditions=None).
+# See docs/mystic_auth/authorization/unconditioned-policy-quickstart.md.
 # Idempotent by name (skips, doesn't overwrite, if the policy already
 # exists) and refuses an empty role name or an empty actions list.
 from types import SimpleNamespace
@@ -10,12 +10,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.mystic_auth.scripts.create_rbac_policies import (
+from backend.mystic_auth.scripts.create_unconditioned_policies import (
     _policy_name_for_role,
-    create_rbac_policy,
+    create_unconditioned_policy,
 )
 
-MODULE = "backend.mystic_auth.scripts.create_rbac_policies"
+MODULE = "backend.mystic_auth.scripts.create_unconditioned_policies"
 
 
 def _patch_db_session(mocker):
@@ -41,7 +41,7 @@ async def test_creates_an_unconditioned_policy_for_a_new_role(mocker):
         side_effect=["Editor", "documents", "documents:view, documents:edit", ""],
     )
 
-    await create_rbac_policy()
+    await create_unconditioned_policy()
 
     create_mock.assert_awaited_once()
     data = create_mock.await_args.args[0]
@@ -64,7 +64,7 @@ async def test_defaults_resource_type_to_wildcard_when_left_blank(mocker):
     create_mock = mocker.patch(f"{MODULE}.policy_repository.create", new_callable=AsyncMock, return_value=created)
     mocker.patch("builtins.input", side_effect=["viewer", "", "reports:view", "Read-only viewer role"])
 
-    await create_rbac_policy()
+    await create_unconditioned_policy()
 
     data = create_mock.await_args.args[0]
     assert data["resource_type"] == "*"
@@ -79,7 +79,7 @@ async def test_skips_without_changes_when_the_policy_already_exists(mocker):
     create_mock = mocker.patch(f"{MODULE}.policy_repository.create", new_callable=AsyncMock)
     mocker.patch("builtins.input", side_effect=["Editor", "documents", "documents:view,documents:edit", ""])
 
-    await create_rbac_policy()
+    await create_unconditioned_policy()
 
     create_mock.assert_not_awaited()
 
@@ -90,7 +90,7 @@ async def test_aborts_on_an_empty_role_name(mocker):
     get_by_name_mock = mocker.patch(f"{MODULE}.policy_repository.get_by_name", new_callable=AsyncMock)
     mocker.patch("builtins.input", side_effect=[""])
 
-    await create_rbac_policy()
+    await create_unconditioned_policy()
 
     create_mock.assert_not_awaited()
     get_by_name_mock.assert_not_awaited()
@@ -105,6 +105,6 @@ async def test_aborts_on_an_empty_actions_list(mocker):
     # actions list after filtering.
     mocker.patch("builtins.input", side_effect=["editor", "documents", " , , "])
 
-    await create_rbac_policy()
+    await create_unconditioned_policy()
 
     create_mock.assert_not_awaited()

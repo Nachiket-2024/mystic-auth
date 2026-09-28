@@ -28,11 +28,11 @@ def _policy(actions, resource_type="users", conditions=None, name=None):
 
 def test_allowed_because_a_policy_matched():
     decision = PolicyEvaluationEngine.evaluate_detailed(
-        [_policy(["users:list_all"], name="user_administration")],
+        [_policy(["users:list_all"], name="user_management")],
         "users:list_all", "users", "admin@example.com",
     )
     assert decision.allowed is True
-    assert decision.matched_policies == ["user_administration"]
+    assert decision.matched_policies == ["user_management"]
     assert decision.denial_reason is None
 
 

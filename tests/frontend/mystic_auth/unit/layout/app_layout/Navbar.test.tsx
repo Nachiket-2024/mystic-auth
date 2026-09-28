@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
@@ -94,11 +94,19 @@ describe('Navbar', () => {
     expect(screen.getByText('Signed in as')).toBeInTheDocument();
   });
 
-  it('translates chrome text to Hindi in the plain "hi" mode (unlike the mixed modes)', () => {
+  it('translates chrome text to Hindi in the plain "hi" mode (unlike the mixed modes)', async () => {
     useLanguageStore.getState().setMode('hi');
 
     renderNavbar();
 
-    expect(screen.getByRole('button', { name: 'नेविगेशन मेनू टॉगल करें' })).toBeInTheDocument();
+    // setMode('hi') triggers translations.ts's on-demand language-pack load
+    // (translations/translations.ts's loadLanguage - added so non-English
+    // packs aren't in the initial bundle, see docs/mystic_auth/concerns/README.md's
+    // mobile LCP fix), which resolves after this test's synchronous render.
+    // waitFor here, not a synchronous assertion, since the navbar renders in
+    // English until that promise settles.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'नेविगेशन मेनू टॉगल करें' })).toBeInTheDocument();
+    });
   });
 });

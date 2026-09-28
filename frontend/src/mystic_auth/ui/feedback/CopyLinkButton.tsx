@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link as LinkIcon, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "../shadcn/button";
+import { Button } from "../buttons/Button";
 import AppTooltip from "../feedback/AppTooltip";
 
 interface CopyLinkButtonProps {

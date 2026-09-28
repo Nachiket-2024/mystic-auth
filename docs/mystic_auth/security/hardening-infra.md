@@ -9,7 +9,7 @@ Valkey authentication, secret strength, reverse-proxy IP trust, session geolocat
 
 ## Valkey authentication
 
-`VALKEY_PASSWORD` (`env/mystic_auth/.env`/`env/mystic_auth/.env.example`) is passed to `valkey-server --requirepass` in every compose file (empty value = no-op, so local dev is unaffected by default); both healthchecks authenticate with it. Since `valkey-py` (`valkey/client.py`) authenticates via the connection URL rather than a separate kwarg, the same password must also be embedded in `VALKEY_URL` (`redis://:<VALKEY_PASSWORD>@valkey:6379/0`): documented inline in `env/mystic_auth/.env.example`. (Background jobs no longer use Valkey at all: `procrastinate_tasks/` runs on the same Postgres instance as everything else, see [Background Email Delivery](../background-workers/procrastinate.md).)
+`VALKEY_PASSWORD` (`env/mystic_auth/.env.dev`/`env/mystic_auth/.env.dev.example`) is passed to `valkey-server --requirepass` in every compose file (empty value = no-op, so local dev is unaffected by default); both healthchecks authenticate with it. Since `valkey-py` (`valkey/client.py`) authenticates via the connection URL rather than a separate kwarg, the same password must also be embedded in `VALKEY_URL` (`redis://:<VALKEY_PASSWORD>@valkey:6379/0`): documented inline in `env/mystic_auth/.env.dev.example`. (Background jobs no longer use Valkey at all: `procrastinate_tasks/` runs on the same Postgres instance as everything else, see [Background Email Delivery](../background-workers/procrastinate.md).)
 
 ---
 

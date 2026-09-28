@@ -57,7 +57,7 @@ esac
 MODE="${COMPOSE_BASENAME#docker-compose.}"
 MODE="${MODE%.yml}"
 if [ "$MODE" = "dev" ]; then
-  ENV_SUFFIX=""
+  ENV_SUFFIX=".dev"
 else
   ENV_SUFFIX=".${MODE}"
 fi

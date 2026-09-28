@@ -33,9 +33,8 @@ import { useAuthSession } from "../mystic_auth/auth/current_user/useCurrentUserQ
 // "call once, at the app root" reasoning as useAuthSession above.
 import { useSessionEventsStream } from "../mystic_auth/auth/session_lifecycle/useSessionEventsStream";
 
-import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, LoadingState, CommandPalette } from "./sdk";
+import { AppLayout, ProtectedRoute, PERMISSIONS, Toaster, useAuthStore, CommandPalette } from "./sdk";
 import RouteProgressBar from "../mystic_auth/ui/routing/RouteProgressBar";
-import RouteSkeleton from "../mystic_auth/ui/routing/RouteSkeleton";
 import RouteFadeIn from "../mystic_auth/ui/routing/RouteFadeIn";
 import OfflineBanner from "../mystic_auth/ui/network/OfflineBanner";
 
@@ -68,7 +67,10 @@ const App: React.FC = () => {
     // isAuthenticated is null until the session check resolves; showing a
     // loading screen until then avoids a flash of unauthenticated content.
     if (isAuthenticated === null) {
-        return <LoadingState message="Checking session..." fullScreen />;
+        // The static boot shell covers this state until the first route
+        // commits. Keeping the React tree empty here avoids showing a second
+        // full-screen loader immediately after the HTML loader.
+        return null;
     }
 
     return (
@@ -89,14 +91,10 @@ const App: React.FC = () => {
 
             {/* react-router wraps navigation in React.startTransition, so a
                 click to a not-yet-loaded lazy route defers instead of
-                triggering this Suspense fallback (RouteProgressBar above
-                signals that pending load instead). This fallback only
-                matters for edge cases transition deferral misses, like a
-                lazy route suspending on first paint; RouteSkeleton keeps
-                that from reading as a blank cut. RouteFadeIn fades in every
-                route's content, not just this fallback case. */}
+                blanking the current page. The single HTML boot shell covers
+                the initial session and first lazy-route load. */}
             <RouteFadeIn>
-            <Suspense fallback={<RouteSkeleton />}>
+            <Suspense fallback={null}>
             <Routes>
                 {/* Protected routes require authentication. Each wraps
                     AppLayout (sidebar + top bar) inside ProtectedRoute, so

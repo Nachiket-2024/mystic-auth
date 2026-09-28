@@ -33,6 +33,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
     // Chrome (navbar + Sidebar) renders in chromeLanguage, not the page-wide
     // translation language. See store/languageStore.ts's LanguageMode docstring.
     const chromeLanguage = useLanguageStore((s) => s.chromeLanguage);
+    useLanguageStore((s) => s.languageRevision);
     const t = translations.getFixedT(chromeLanguage, "layout");
     const name = useAuthStore((s) => s.name);
     const email = useAuthStore((s) => s.email);

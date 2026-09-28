@@ -81,7 +81,7 @@ test.describe("policies page browser behavior", () => {
   test("flips the active switch before a slow update response arrives", async ({ page }) => {
     let releaseUpdate!: () => void;
     const updateStarted = new Promise<void>((resolve) => {
-      page.route("http://localhost:8000/authorization/policies/policy_admin", async (route) => {
+      page.route("**/authorization/policies/policy_admin", async (route) => {
         if (route.request().method() !== "PUT") return route.fallback();
         resolve();
         await new Promise<void>((release) => {

@@ -49,8 +49,8 @@ app-declared value overrides the matching mystic_auth one:
 docker compose \
   -f docker/mystic_auth/compose/docker-compose.dev.yml \
   -f docker/app/compose/docker-compose.dev.yml \
-  --env-file env/mystic_auth/.env \
-  --env-file env/app/.env \
+  --env-file env/mystic_auth/.env.dev \
+  --env-file env/app/.env.dev \
   up -d
 ```
 
@@ -74,8 +74,9 @@ flowchart LR
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
-The same split applies to env files: `env/mystic_auth/.env<mode-suffix>`
-(upstream-owned) and `env/app/.env<mode-suffix>` (yours). See
+The same split applies to env files: `env/mystic_auth/.env.dev` for dev and
+`env/mystic_auth/.env.<mode>` for the other modes (upstream-owned), with the
+matching files under `env/app/` for yours. See
 [Environment Configuration](../environment/README.md#the-mystic_auth--app-split)
 for the env-file side of this.
 
@@ -88,11 +89,11 @@ All five files declare a top-level `name:` (`mystic-auth-dev`,
 `mystic-auth-local-prod-tailscale`, `mystic-auth-prod`).
 
 - Without it, Compose derives the project name from the directory (`mystic-auth` for every file here, since they all live in the same directory), which means every container, network, and **named volume** (`postgres_data`, `backend_logs`, ...) from any of the five files collides on the exact same name.
-- Two of these stacks running "side by side" then aren't actually isolated: they silently share one Postgres volume, so a command that looks scoped to one stack (`docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml down -v`, or even just recreating a volume to fix a stale password) can wipe what's actually a different stack's real data.
+- Two of these stacks running "side by side" then aren't actually isolated: they silently share one Postgres volume, so a command that looks scoped to one stack (`docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v`, or even just recreating a volume to fix a stale password) can wipe what's actually a different stack's real data.
 - That's a real incident, not a hypothetical: an early local-prod test environment's database (test users, custom PBAC policies) was lost exactly this way, mid-session, before this fix.
 
-With each file's `name:` set, `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up -d`
-and `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok up -d --build` can run
+With each file's `name:` set, `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d`
+and `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok up -d --build` can run
 at the same time on one machine with zero collision - separate containers
 (`mystic-auth-dev-postgres-1` vs. `mystic-auth-local-prod-ngrok-postgres-1`),
 separate networks, separate volumes.

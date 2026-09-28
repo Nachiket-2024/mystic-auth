@@ -16,7 +16,7 @@ import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 
 from .audit_log_test_accounts import (
@@ -41,7 +41,7 @@ __all__ = ["_cleanup_audit_log"]
 async def test_a_successful_protected_action_is_logged_as_allowed(client, created_emails):
     admin_email = unique_email("admin")
     system_email = unique_email("system")
-    await create_verified_user(client, created_emails, admin_email, [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME])
+    await create_verified_user(client, created_emails, admin_email, [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME])
     await create_system_user(client, created_emails, system_email)
 
     login_resp = await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
@@ -67,7 +67,7 @@ async def test_a_successful_protected_action_is_logged_as_allowed(client, create
     matching = [e for e in entries if e["action"] == "users:list_all" and e["resource_type"] == "users"]
     assert len(matching) >= 1
     assert matching[0]["allowed"] is True
-    assert "user_administration" in matching[0]["granting_policy_names"]
+    assert "user_management" in matching[0]["granting_policy_names"]
 
 
 @pytest.mark.asyncio

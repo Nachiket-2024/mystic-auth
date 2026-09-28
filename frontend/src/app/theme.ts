@@ -1,6 +1,6 @@
 export interface AppThemeOverrides {
     /** A hand-picked brand hex, overriding VITE_BRAND_COLOR at build time
-     * without editing env/mystic_auth/.env. theme/applyBrandCssVars.ts runs
+     * without editing env/mystic_auth/.env.dev. theme/applyBrandCssVars.ts runs
      * this through the same generateBrandScale.ts 50-900 ladder a signed-in
      * user's own Appearance pick uses, so it's still just one hex, not a
      * hand-authored scale. */
@@ -19,7 +19,7 @@ export interface AppThemeOverrides {
  * App-owned theme overrides (see docs/mystic_auth/template-usage/overview.md).
  *
  * For the common case, just changing the brand color, you don't need this
- * file: set VITE_BRAND_COLOR (env/mystic_auth/.env's BRAND_COLOR, aliased
+ * file: set VITE_BRAND_COLOR (env/mystic_auth/.env.dev's BRAND_COLOR, aliased
  * like APP_NAME) to any hex and rebuild. See
  * docs/mystic_auth/template-usage/overview.md#environment-configuration.
  *

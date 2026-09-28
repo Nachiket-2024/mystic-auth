@@ -6,14 +6,14 @@
 
 ## Day-to-day: dev-up helpers
 
-First time in this repo, on a fresh clone with no `env/mystic_auth/.env` yet?
+First time in this repo, on a fresh clone with no `env/mystic_auth/.env.dev` yet?
 `scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1`/`.cmd`) chains env setup, this
 helper, and system superuser creation into one command - see
 [Template Usage: Quickstart](../template-usage/quickstart.md). The
 rest of this section covers `dev-up` on its own, which is what you'll use
 day to day once the stack already exists.
 
-`docker compose up` (no `-d`) attaches to and interleaves *every* service's
+The full dev Compose command without `-d` attaches to and interleaves *every* service's
 full stdout/stderr into one stream: Postgres's own boot log, Alembic's
 migration list, Bugsink's 100+ Django migrations, and (worst of it)
 Bugsink's own healthcheck hitting `/health/ready` every 10 seconds,
@@ -104,7 +104,7 @@ successful start, because those two containers correctly finished and
 exited. The dev-up helpers poll the long-running services' own status
 text directly instead, entirely sidestepping that mismatch.
 
-Plain `docker compose up` still has its place. Run it directly when you
+The full dev Compose command still has its place. Run it directly when you
 want everything's full logs in one interleaved stream, e.g. actually
 debugging Postgres/Bugsink/Alembic startup itself rather than the app.
 
@@ -115,7 +115,7 @@ debugging Postgres/Bugsink/Alembic startup itself rather than the app.
 `backend`, `alembic`, and `frontend` all `depends_on` `bugsink` being
 healthy, so a crash-looping Bugsink takes the whole stack down with it, not
 just error monitoring. The single most common cause: a blank or malformed
-`BUGSINK_SUPERUSER_EMAIL` in `env/mystic_auth/.env` - Bugsink's own
+`BUGSINK_SUPERUSER_EMAIL` in `env/mystic_auth/.env.dev` - Bugsink's own
 prestart hook rejects it outright and crash-loops (`docker logs
 mystic-auth-dev-bugsink-1` shows `ValueError: CREATE_SUPERUSER email
 should be a valid email address`). Run
@@ -138,7 +138,7 @@ run `dev-up` directly and let it tail.
 
 **Shortcut: `scripts/mystic_auth/docker/dev/backend-exec.sh <command>` (Git Bash/WSL/Linux/macOS), `scripts\mystic_auth\docker\dev\backend-exec.ps1 <command>` (PowerShell), or `scripts\mystic_auth\docker\dev\backend-exec.cmd <command>` (Command Prompt)** run this section's recommended invocation. Both workarounds below are built in and are harmless no-ops on platforms that do not need them. Use these day to day. The raw command is spelled out below for cases the wrapper does not cover.
 
-`docker compose exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see `docker/mystic_auth/compose/docker-compose.dev.yml`'s `backend` service).
+`docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -w /repo backend <command>` (used throughout this documentation to run tests against the whole repo: see [Testing Overview](../testing/overview.md)) runs `<command>` with its working directory set to `/repo` inside the container (the whole-repo bind mount: see the dev Compose file's `backend` service).
 
 ---
 
@@ -146,10 +146,10 @@ run `dev-up` directly and let it tail.
 
 ```bash
 # Option 1: disable Git Bash's path rewriting for this one command
-MSYS_NO_PATHCONV=1 docker compose exec -w /repo backend <command>
+MSYS_NO_PATHCONV=1 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -w /repo backend <command>
 
 # Option 2: cd inside the container's own shell instead of using -w
-docker compose exec backend bash -c "cd /repo && <command>"
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec backend bash -c "cd /repo && <command>"
 ```
 
 This is specific to Git Bash's own path handling: PowerShell, Command Prompt, and native Linux/macOS terminals all run `-w /repo` as written, with nothing to work around.
@@ -159,7 +159,7 @@ This is specific to Git Bash's own path handling: PowerShell, Command Prompt, an
 **Running `pytest` specifically needs `--user root`, on native Linux.** `pytest.ini` writes coverage output (`.coverage`, `htmlcov/`) to the current working directory: `/repo`, the whole-repo bind mount: and that directory's actual ownership on disk is whatever owns the host's checkout, not the container's own non-root `app` user (same root cause as [why `/app/logs` is a named volume](#why-applogs-is-a-named-volume-not-part-of-the-backendapp-bind-mount), just for coverage's output files instead of the app's own log directory, and not something a single named-volume mount can carve out the way `/app/logs` could, since coverage's output isn't confined to one fixed path). Invisible on Docker Desktop for the same reason as always; a hard `PermissionError`/`INTERNALERROR` on native Linux otherwise:
 
 ```text
-docker compose exec --user root -w /repo backend pytest tests/backend/
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec --user root -w /repo backend pytest tests/backend/
 ```
 
 Running as root here is scoped to this one throwaway test invocation: it has no bearing on the actual application, which still runs as its normal non-root `app` user by default (`backend.Dockerfile`'s `USER app`) for every real request it serves. One minor side effect worth knowing on native Linux specifically: `.coverage`/`htmlcov/` end up root-owned on the host afterward, so a later `rm -rf htmlcov/` may need `sudo`. Docker Desktop (Windows/Mac) doesn't have this wrinkle either, for the same permissive-bind-mount reason as above.
@@ -186,8 +186,8 @@ The fix has two parts:
 - `docker/mystic_auth/compose/docker-compose.dev.yml` mounts a Docker-managed volume, `backend_logs:/app/logs`, on top of that path for both `backend` and `procrastinate_worker`. Docker initializes a fresh named volume from the image path, including ownership, so the app always writes to a directory owned by the container user.
 
 The tradeoff is that `backend/logs/access.log` is no longer directly readable from the host in
-dev. Use `docker compose exec backend tail -f logs/access.log`, or `docker compose logs backend`
-for WARNING and above.
+dev. Use the matching dev Compose command with `exec backend tail -f logs/access.log`, or the
+same command with `logs backend` for WARNING and above.
 
 ---
 

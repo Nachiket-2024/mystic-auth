@@ -1,15 +1,16 @@
 import { expect, test } from "../../../../../frontend/e2e/playwright";
+import { API_BASE_URL } from "../support/authenticatedMysticAuthApiRoutes";
 
 test.describe("oauth2 login browser behavior", () => {
   test("google button navigates to the backend oauth endpoint without an API mutation", async ({ page }) => {
-    await page.route("http://localhost:8000/auth/oauth2/login/google", (route) =>
+    await page.route(`${API_BASE_URL}/auth/oauth2/login/google`, (route) =>
       route.fulfill({ status: 204, body: "" }),
     );
 
     await page.goto("/login");
-    const oauthRequest = page.waitForRequest("http://localhost:8000/auth/oauth2/login/google");
+    const oauthRequest = page.waitForRequest(`${API_BASE_URL}/auth/oauth2/login/google`);
     await page.getByRole("button", { name: /sign in with google/i }).click();
-    expect((await oauthRequest).url()).toBe("http://localhost:8000/auth/oauth2/login/google");
+    expect((await oauthRequest).url()).toBe(`${API_BASE_URL}/auth/oauth2/login/google`);
   });
 
   test("oauth error query renders a translated error and is removed from the URL", async ({ page }) => {

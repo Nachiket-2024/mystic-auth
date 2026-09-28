@@ -98,7 +98,7 @@ test.describe("live deployment smoke test - real requests, no stubs", () => {
 
     for (const route of ["/users", "/policies", "/permissions", "/rate-limits"]) {
       await page.goto(`${BASE_URL}${route}`);
-      await page.waitForTimeout(1000);
+      await page.waitForURL(/\/not-authorized$/, { timeout: 10_000 });
       expect(page.url(), `${route} did not redirect a non-admin away`).toContain("not-authorized");
     }
     await context.close();

@@ -31,7 +31,7 @@ fi
 echo
 echo "=== a corrupt dump is caught, not silently accepted ==="
 DC_ARGS=(-f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml \
-  --env-file env/mystic_auth/.env --env-file env/app/.env)
+  --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev)
 # Deliberately truncated input, the same failure shape the real --file=-
 # bug produced (a 0-byte/too-short file), fed straight to pg_restore
 # without going through the drill script (which always dumps a real,

@@ -4,8 +4,8 @@
 # docs/mystic_auth/template-usage/cheatsheet.md for the full command list
 # and docs/mystic_auth/template-usage/ownership-split.md for the split.
 .PHONY: help quickstart dev prod local-prod-cloudflare local-prod-ngrok local-prod-tailscale \
-	setup-env check-env rotate-secrets set-env-field superuser backup restore-drill sync \
-	test-tooling test-sync lint-paths lint-split lint
+	setup-env check-env rotate-secrets set-env-field superuser backup restore-drill backup-freshness sync \
+	test-tooling test-sync test-backup-freshness lint-paths lint-split lint
 
 help:
 	@echo "make quickstart              fresh clone -> working login, one command"
@@ -21,9 +21,11 @@ help:
 	@echo "make superuser               create/promote the system superuser (dev stack)"
 	@echo "make backup                  dump the dev database"
 	@echo "make restore-drill           prove the dev database's dump actually restores"
+	@echo "make backup-freshness        verify required backups are recent and non-empty"
 	@echo "make sync                    pull in upstream template updates"
 	@echo "make test-tooling            regression suite for env-tools scripts"
 	@echo "make test-sync               regression suite for sync-upstream.sh"
+	@echo "make test-backup-freshness   regression suite for check_backup_freshness.sh"
 	@echo "make lint-paths              check every scripts/ path reference resolves"
 	@echo "make lint-split              check for stale pre-split docker/env/scripts references"
 	@echo "make lint                    run lint-paths and lint-split together"
@@ -71,6 +73,9 @@ backup:
 restore-drill:
 	./scripts/mystic_auth/db/db_restore_drill.sh
 
+backup-freshness:
+	./scripts/mystic_auth/db/check_backup_freshness.sh
+
 sync:
 	./scripts/mystic_auth/upstream-sync/sync-upstream.sh
 
@@ -79,6 +84,9 @@ test-tooling:
 
 test-sync:
 	tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh
+
+test-backup-freshness:
+	tests/scripts/mystic_auth/db/test-backup-freshness.sh
 
 lint-paths:
 	tests/scripts/mystic_auth/lint/check-script-paths.sh

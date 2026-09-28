@@ -30,7 +30,7 @@ Set-Location $RepoRoot
 docker compose `
   -f docker/mystic_auth/compose/docker-compose.dev.yml `
   -f docker/app/compose/docker-compose.dev.yml `
-  --env-file env/mystic_auth/.env `
-  --env-file env/app/.env `
+  --env-file env/mystic_auth/.env.dev `
+  --env-file env/app/.env.dev `
   exec --user root -w /repo -e ALEMBIC_CONFIG=/repo/backend/alembic.ini backend @args
 exit $LASTEXITCODE

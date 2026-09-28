@@ -21,8 +21,15 @@ async def test_logging_middleware_does_not_log_query_string_values(mocker):
         response = await client.get("/oauth/callback?code=secret-code&state=secret-state")
 
     assert response.status_code == 200
-    logged_text = " ".join(str(part) for call in info_mock.call_args_list for part in call.args)
+    logged_text = " ".join(str(call) for call in info_mock.call_args_list)
     assert "/oauth/callback" in logged_text
     assert "secret-code" not in logged_text
     assert "secret-state" not in logged_text
     assert "?" not in logged_text
+
+    response_call = info_mock.call_args_list[-1]
+    assert response_call.args == ("Response",)
+    assert response_call.kwargs["extra"]["http_method"] == "GET"
+    assert response_call.kwargs["extra"]["http_path"] == "/oauth/callback"
+    assert response_call.kwargs["extra"]["http_status"] == 200
+    assert isinstance(response_call.kwargs["extra"]["duration_ms"], float)

@@ -6,7 +6,7 @@
 This template ships the authenticated app shell (sidebar, top bar, and the auth/PBAC/audit-log pages listed below) plus a minimal pre-auth landing page at `/` (`frontend/src/app/landing_page/LandingPage.tsx`, mounted in `frontend/src/app/App.tsx`) that redirects an already-signed-in visitor straight to `/dashboard`. It's a worked example of the "outside the auth shell" page shape, not a page meant to ship as-is - rename, restyle, or replace it freely (see [worked example §6](worked-example.md#6-a-pre-auth-landing-page)).
 
 - **Authentication**: email+password with Argon2 hashing, email verification, rate limiting + brute-force lockout, Google OAuth2 (PKCE), JWT access+refresh tokens as httpOnly cookies, refresh-token rotation with reuse detection, logout/logout-all, forgot/reset password. See [Authentication Overview](../authentication/overview.md).
-- **Authorization**: Policy-Based Access Control (PBAC), not RBAC. Every protected route is gated by an assigned `Policy`, not by a user's `role`. Policies are data (rows in Postgres), so a new access rule is a new policy, not a new deploy. See [PBAC Architecture](../authorization/architecture/README.md).
+- **Authorization**: Policy-Based Access Control (PBAC). Every protected route is gated by an assigned `Policy`, not by a user's `role`. Policies are data (rows in Postgres), so a new access rule is a new policy, not a new deploy. See [PBAC Architecture](../authorization/architecture/README.md).
 - **Audit logging**: two append-only tables: security/session events, and every PBAC allow/deny decision. See [Database Design](../database/design.md#why-two-audit-tables-not-one).
 - **Frontend**: React 19 + TypeScript, Vite, Tailwind v4 + shadcn/ui (Radix primitives), Zustand, and TanStack Query. See [Frontend Architecture](../architecture/frontend.md).
 - **Infrastructure**: Docker Compose (dev + prod), PostgreSQL, Valkey, Procrastinate async email (Postgres-native, no separate broker), Alembic migrations, GitHub Actions CI.
@@ -37,6 +37,12 @@ New domain/resource, database changes, PBAC route protection, replacing the fron
 ## Deployment
 
 See the [Deployment Guide](../deployment/guide.md) for Compose topology, required env vars, migrations, backups, and production host requirements. Use one of the [`docker-compose.local-prod-*.yml`](../deployment/local-prod/README.md#which-tunnel-do-i-want) variants for a production-style local or self-hosted run behind a free tunnel. Use [`docker-compose.prod.yml`](../../../docker/mystic_auth/compose/docker-compose.prod.yml) for self-hosting on your own server, where Caddy terminates TLS.
+
+Before a customized downstream project goes to real users, follow the
+[Downstream Project Launch Checklist](downstream-launch-checklist.md). It
+covers project-specific legal, integration, VPS, backup, monitoring,
+accessibility, and acceptance work that does not belong in the reusable
+template's own setup.
 
 ---
 

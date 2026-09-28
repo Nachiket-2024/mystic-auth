@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Continue"
 
 # PowerShell counterpart to prod-up.sh. Always passes --env-file
-# env/mystic_auth/.env.prod, so this stack never accidentally reads dev's env/mystic_auth/.env.
+# env/mystic_auth/.env.prod, so this stack never accidentally reads dev's env/mystic_auth/.env.dev.
 #
 # Usage: .\scripts\mystic_auth\docker\prod\prod-up.ps1 up -d --build
 #        .\scripts\mystic_auth\docker\prod\prod-up.ps1 logs -f frontend

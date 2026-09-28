@@ -1,5 +1,5 @@
 import { expect, test } from "../../../../../frontend/e2e/playwright";
-import { fulfillJson, installAuthenticatedMysticAuthApiRoutes } from "../support/authenticatedMysticAuthApiRoutes";
+import { fulfillJson, fulfillNoContent, installAuthenticatedMysticAuthApiRoutes } from "../support/authenticatedMysticAuthApiRoutes";
 
 const sessions = [
   {
@@ -27,7 +27,7 @@ const sessions = [
 test.describe("active sessions browser behavior", () => {
   test.beforeEach(async ({ page }) => {
     await installAuthenticatedMysticAuthApiRoutes(page);
-    await page.route("http://localhost:8000/auth/sessions", (route) => fulfillJson(route, sessions));
+    await page.route("**/auth/sessions", (route) => fulfillJson(route, sessions));
   });
 
   test("renders both sessions and cancels an end-session dialog with Escape", async ({ page }) => {
@@ -48,10 +48,10 @@ test.describe("active sessions browser behavior", () => {
 
   test("confirms a non-current session and reports one successful mutation", async ({ page }) => {
     let deleteCount = 0;
-    await page.route("http://localhost:8000/auth/sessions/2", async (route) => {
+    await page.route("**/auth/sessions/2", async (route) => {
       if (route.request().method() === "DELETE") {
         deleteCount += 1;
-        await route.fulfill({ status: 204, headers: { "access-control-allow-origin": "http://localhost:5173", "access-control-allow-credentials": "true" } });
+        await fulfillNoContent(route);
         return;
       }
       await route.fallback();
@@ -69,7 +69,7 @@ test.describe("active sessions browser behavior", () => {
 
   test("select mode, bulk cancel, and log-out-everywhere cancel leave sessions untouched", async ({ page }) => {
     let mutationCount = 0;
-    await page.route("http://localhost:8000/auth/sessions/**", (route) => {
+    await page.route("**/auth/sessions/**", (route) => {
       if (route.request().method() !== "GET") mutationCount += 1;
       return route.fallback();
     });

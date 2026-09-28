@@ -18,11 +18,12 @@
 |---|---|
 | `./scripts/mystic_auth/env-tools/check-env/check-env.sh` | Before starting any mode, dev included. Fails if a secret is still the shipped placeholder under `ENVIRONMENT=production`; warns on remaining `<your_...>` placeholders, a host port already in use, or a blank/invalid `BUGSINK_SUPERUSER_EMAIL` (which crash-loops Bugsink and takes backend/frontend down with it). |
 | `./scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh` | You need to change one value (a contact address, a shared rate limit) across every env file at once, instead of opening five files by hand. |
-| `./scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh` | Rotate `SECRET_KEY`/`BUGSINK_SECRET_KEY` (or your own `env/app/` fields listed in `scripts/app/env-tools/rotate-secrets/fields.env`) in an existing env file. Logs everyone out; see the script's own header for what it deliberately does *not* rotate. |
+| `./scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh` | Rotate `SECRET_KEY`/`BUGSINK_SECRET_KEY` (or your own `env/app/` fields listed in a copied `scripts/app/env-tools/rotate-secrets/fields.env.example`) in an existing env file. Logs everyone out; see the script's own header for what it deliberately does *not* rotate. |
 | `./scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW` | Carrying real values (OAuth secret, SMTP password) from an old env file into a freshly regenerated one, without ever printing them. |
-| `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml exec -it backend python -m mystic_auth.scripts.create_system_user` | One-time: bootstrap or promote the reserved system superuser account. See [System Superuser](../authentication/system-superuser/README.md). |
+| `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -it backend python -m mystic_auth.scripts.create_system_user` | One-time: bootstrap or promote the reserved system superuser account. See [System Superuser](../authentication/system-superuser/README.md). |
 | `./scripts/mystic_auth/docker/dev/backend-exec.sh <command>` | Run a one-off command inside the running `backend` container (tests, `alembic heads`, a shell), with the Windows/Linux path-handling workarounds already applied. |
 | `./scripts/mystic_auth/db/db_backup.sh [compose-file]` | Dump the app database and the Bugsink database to timestamped `.dump` files under `backups/`. |
+| `./scripts/mystic_auth/db/check_backup_freshness.sh [backup-dir] [max-age-hours]` | Fail if the required database backups are missing, empty, or older than the configured age. |
 | `./scripts/mystic_auth/db/db_restore.sh <backup-file> [compose-file]` | Restore a `.dump`/`.sql` backup. Destructive: asks for confirmation unless you pass `-y`. |
 
 ## Deploying
@@ -76,7 +77,7 @@ This is purely a convenience layer: everything it runs is one of the commands ab
 .\make.ps1 help
 ```
 
-A few targets (`test-tooling`, `test-sync`, `lint-paths`, `lint-split`, `backup`) are regression suites and a db-dump script that only exist as `.sh` files, since they're dev-only tooling, not something a template consumer runs day to day; `make.ps1` shells out to `bash` for those (Git for Windows already provides it if you cloned this repo with Git in the first place). Every other target runs natively in PowerShell, no `bash` needed.
+A few targets (`test-tooling`, `test-sync`, `test-backup-freshness`, `lint-paths`, `lint-split`, `backup`, `backup-freshness`) are regression suites and database scripts that only exist as `.sh` files, since they're POSIX-oriented tooling; `make.ps1` shells out to `bash` for those (Git for Windows already provides it if you cloned this repo with Git in the first place). Every other target runs natively in PowerShell, no `bash` needed.
 
 Neither `make` nor PowerShell required at all? Use the `.sh`/`.ps1`/`.cmd` commands directly instead - nothing here requires either wrapper.
 

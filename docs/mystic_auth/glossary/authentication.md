@@ -53,6 +53,39 @@ Short for Cross-Site Request Forgery: an attack where a malicious site tricks a 
 
 ---
 
+## OAuth 2.0
+
+An authorization protocol that lets an application use a provider's login or
+data-access decision without receiving the user's provider password. In this
+app, Google authenticates the user and MysticAuth then creates its own session;
+the app does not store a Google refresh token. See [OAuth2 / PKCE](../authentication/oauth2-pkce.md).
+
+---
+
+## OIDC (OpenID Connect)
+
+An identity layer built on OAuth 2.0. The `openid` scope tells Google that the
+flow is being used for sign-in and identity, not only delegated API access.
+
+---
+
+## redirect URI
+
+The exact URL to which an OAuth provider sends the browser after consent. The
+provider compares it with the registered value, so scheme, hostname, path, and
+trailing slash must match exactly. This app uses `GOOGLE_REDIRECT_URI` on the
+backend.
+
+---
+
+## OAuth consent screen
+
+The provider page that identifies the application and shows the requested
+scopes before the user approves login. Google manages its publishing, test-user,
+branding, and verification status in Google Cloud Console.
+
+---
+
 ## superuser (system account)
 
 A single reserved account (`role == system`) with full access, created only via a one-off script, never through the API or a self-service signup. It's blocked from Google OAuth2 login entirely and can only authenticate with a password. See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md).

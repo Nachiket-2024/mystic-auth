@@ -33,8 +33,8 @@ scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/
 Verify you're pointed at the container you think you are, and that `DATABASE_URL` resolves to the right host (`postgres` inside the Docker network, `localhost` from the host: see any `tests/backend/conftest.py`'s environment-derivation logic for the exact substitution rule). To start completely fresh:
 
 ```bash
-docker compose exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-docker compose run --rm alembic
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev run --rm alembic
 ```
 
 This reproduces the full migration chain from empty state and re-seeds the three baseline policies: verified as part of this project's own Docker/Test Environment Verification pass.

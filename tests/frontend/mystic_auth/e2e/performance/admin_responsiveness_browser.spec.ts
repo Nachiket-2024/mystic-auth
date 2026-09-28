@@ -1,6 +1,7 @@
 import { expect, test } from "../../../../../frontend/e2e/playwright";
 import {
   fulfillJson,
+  corsHeaders,
   installAuthenticatedMysticAuthApiRoutes,
   users,
 } from "../support/authenticatedMysticAuthApiRoutes";
@@ -13,11 +14,11 @@ test.describe("admin responsiveness", () => {
   });
 
   test("user access dialog shows real content without a blank or large layout jump", async ({ page }) => {
-    await page.route("http://localhost:8000/users/2/policies", async (route) => {
+    await page.route("**/users/2/policies", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 180));
       await fulfillJson(route, { user_email: users[1].email, policies: [] });
     });
-    await page.route("http://localhost:8000/users/2/permissions", async (route) => {
+    await page.route("**/users/2/permissions", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 180));
       await fulfillJson(route, { user_email: users[1].email, permissions: [] });
     });
@@ -44,7 +45,7 @@ test.describe("admin responsiveness", () => {
 
   test("rapid reset confirmation produces one request and one toast", async ({ page }) => {
     let resets = 0;
-    await page.route("http://localhost:8000/rate-limits/**", async (route) => {
+    await page.route("**/rate-limits/**", async (route) => {
       if (route.request().method() === "DELETE") resets += 1;
       await route.fallback();
     });
@@ -64,8 +65,9 @@ test.describe("admin responsiveness", () => {
       name: `Matrix User ${String(index + 1).padStart(2, "0")}`,
       email: `matrix-${String(index + 1).padStart(2, "0")}@example.com`,
     }));
-    await page.route("http://localhost:8000/users/**", (route) => {
-      if (route.request().method() !== "GET" || new URL(route.request().url()).pathname !== "/users/") {
+    await page.route("**/users/**", (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (route.request().method() !== "GET" || !["/users", "/users/"].includes(pathname)) {
         return route.fallback();
       }
       const url = new URL(route.request().url());
@@ -74,9 +76,7 @@ test.describe("admin responsiveness", () => {
       return route.fulfill({
         json: rows,
         headers: {
-          "access-control-allow-origin": "http://localhost:5173",
-          "access-control-allow-credentials": "true",
-          "access-control-expose-headers": "x-total-count",
+          ...corsHeaders(),
           "x-total-count": String(rows.length),
         },
       });

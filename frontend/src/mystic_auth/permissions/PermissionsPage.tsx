@@ -29,7 +29,7 @@ import GlossaryHelp from "../ui/display/GlossaryHelp";
  * authorization/permissions_catalog.py), plus who actually holds each
  * action (GET .../catalog/usage). Kept separate from PoliciesPage rather
  * than a tab on it: this is the built-in action reference developers define,
- * Policies is how admins compose it. No create/edit/delete, since a
+ * Policies are how authorized operators compose it. No create/edit/delete, since a
  * permission only means something once a backend route checks for it.
  *
  * Redesigned per design/permissions.html and

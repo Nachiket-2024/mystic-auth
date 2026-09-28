@@ -33,7 +33,9 @@ flowchart TD
 
 ## Where to define a new action
 
-Add it to the `Permission` enum in `backend/mystic_auth/authorization/permissions.py`:
+If this is a new MysticAuth capability (auth, users, policies, rate limits,
+or another feature maintained by this template), add it to the `Permission`
+enum in the upstream-owned `backend/mystic_auth/authorization/permissions.py`:
 
 ```python
 class Permission(str, enum.Enum):
@@ -44,6 +46,13 @@ class Permission(str, enum.Enum):
 Naming convention: `"<resource>:<action>[_<scope>]"`: e.g. `USERS_UPDATE_OWN` vs `USERS_UPDATE_ANY` are genuinely different actions (a policy can grant one without the other), not one action with a role check bolted on.
 
 **`Permission` is a vocabulary, not a grant.** Adding an enum member here does not give anyone access to anything: it only makes the identifier available for a policy's `actions` list. The only thing that ever grants an action is an assigned, active `Policy` whose `actions` include it.
+
+For a downstream product feature, do not edit that enum or any other
+`mystic_auth/` file. Use an app-owned opaque action string such as
+`projects:create`, define any catalog in `backend/app/` and
+`frontend/src/app/`, and seed its first policy/grant from an app-owned
+migration or bootstrap path. The template's built-in catalog is intentionally
+only for MysticAuth actions.
 
 ---
 
@@ -58,19 +67,19 @@ Every member of `Permission` is treated as one of this app's own **known-sensiti
 
 ## How to update seed policies
 
-The three original baseline policies (`self_service`, `user_administration`, `system_superuser`) are seeded by Alembic migrations, **not** read from application code at migration time:
+The three original baseline policies (`self_service`, `user_management`, `system_superuser`) are seeded by Alembic migrations, **not** read from application code at migration time:
 
 - `backend/alembic/versions/b7d3a1c9e4f2_add_pbac_policies.py`: the original seed.
 - `backend/alembic/versions/e2b6c8a4f1d5_split_policies_manage_action.py`: an example of a later **data-only migration** that updated one seeded policy's `actions` array in place.
 - `backend/alembic/versions/c4d5e6f7a8b9_grant_rate_limits_read.py` and `backend/alembic/versions/44a59c2f57a3_grant_rate_limits_reset.py`: a more recent pair of data-only migrations, one per new `Permission` member, each granting a single new action to `system_superuser` via `array_append`/`array_remove` rather than restating the whole `actions` array. Same effect as the `sa.table(...)`/`.update()` pattern below, just via a raw `sa.text()` `UPDATE ... SET actions = array_append(actions, ...)`: either form is fine for a single-action grant; prefer the explicit `_NEW_ACTIONS`/`_OLD_ACTIONS` list form above when a migration changes more than one action at once, since `array_append`/`array_remove` calls don't compose as cleanly for a multi-action diff.
-- `backend/alembic/versions/e0291417b733_add_five_scoped_policies.py`: seeds five more, non-protected policies the same way (`policy_administration`, `policy_maintainer`, `rate_limit_administration`, `security_audit_administration`, `user_lifecycle_administration`) - each correctly scoped to exactly one `resource_type`, unlike the original mistake this migration's own docstring recounts (grafting cross-resource-type actions onto `user_administration`, which never took effect because its `resource_type` stayed `"users"` - see troubleshooting.md's "UI shows a capability that then 403s" entry). These are migration-seeded purely so they survive a fresh volume/environment the same way the original three do; they are **not** protected (see below) and remain freely editable/deletable through the management API like any policy an operator creates by hand.
+- `backend/alembic/versions/e0291417b733_add_five_scoped_policies.py`: seeds five more, non-protected policies the same way (`policy_management`, `policy_maintainer`, `rate_limit_management`, `security_audit_access`, `user_lifecycle`) - each correctly scoped to exactly one `resource_type`, unlike the original mistake this migration's own docstring recounts (grafting cross-resource-type actions onto `user_management`, which never took effect because its `resource_type` stayed `"users"` - see troubleshooting.md's "UI shows a capability that then 403s" entry). These are migration-seeded purely so they survive a fresh volume/environment the same way the original three do; they are **not** protected (see below) and remain freely editable/deletable through the management API like any policy an operator creates by hand.
 
 This is deliberate: migrations are a historical record and must keep producing the same rows years from now even if `permissions.py`'s constants are later renamed or removed. `authorization/policies/default_policies.py` only holds the three *protected* baseline policy **name** constants (`SELF_SERVICE_POLICY_NAME`, etc.): used to look up and assign already-seeded policies: never the actual action lists, and never the five extended ones above (those aren't auto-assigned to anyone by default; an operator assigns them deliberately through the Policies page).
 
 **To grant a new permission to an existing baseline policy**, write a new data-only migration (do not edit the old seed migration):
 
 ```python
-"""add projects:create to user_administration"""
+"""add projects:create to user_management"""
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -84,7 +93,7 @@ def upgrade() -> None:
     )
     connection.execute(
         policies_table.update()
-        .where(policies_table.c.name == 'user_administration')
+        .where(policies_table.c.name == 'user_management')
         .values(actions=['users:list_all', 'users:update_any', 'users:deactivate_any', 'users:assign_role', 'projects:create'])
     )
 
@@ -108,7 +117,7 @@ def downgrade() -> None:
 
 ## Direct grants vs. policies
 
-Most access should go through a `Policy`. But occasionally even the narrowest existing policy still grants more than one specific user should have, and defining a new one-off named policy just for that single case would just recreate RBAC-by-another-name: a pile of single-purpose "policies" that are really just a role for one person. For that case there's `UserPermission` (`authorization/models/user_permission_model.py`): an unnamed, ad hoc `(user, action, resource_type, conditions)` grant, bypassing `Policy` entirely.
+Most access should go through a `Policy`. But occasionally even the narrowest existing policy still grants more than one specific user should have, and defining a new one-off named policy just for that single case would just recreate role-based access control-by-another-name: a pile of single-purpose "policies" that are really just a role for one person. For that case there's `UserPermission` (`authorization/models/user_permission_model.py`): an unnamed, ad hoc `(user, action, resource_type, conditions)` grant, bypassing `Policy` entirely.
 
 Use a direct grant instead of a policy when the access is genuinely one-off for one user (e.g. a single support engineer needs `users:read_own` on one extra resource type temporarily), not when it's a bundle of actions or something you'd want to hand out to more than one person: that's still a policy's job.
 

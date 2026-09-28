@@ -1,11 +1,11 @@
-# RBAC Quickstart: Role-Shaped Policies Without Conditions
+# Unconditioned Policy Quickstart: Role-Shaped Policies Without Conditions
 ---
 
 *New to a term here? See the [Authorization Glossary](../glossary/authorization.md).*
 
-[Common Patterns](common-patterns.md) covers modeling *hierarchies* on top of PBAC. This page is for the opposite, simpler need: your access model really is just "everyone with role X gets exactly these actions, no per-resource scoping", i.e. plain RBAC, and PBAC's full generality (conditions, `resource_attributes`, time/network/date-range checks) is more machinery than you need for it.
+[Common Patterns](common-patterns.md) covers modeling *hierarchies* on top of PBAC. This page is for the opposite, simpler need: your access model really is just "everyone with role X gets exactly these actions, no per-resource scoping", i.e. plain role-based access control, and PBAC's full generality (conditions, `resource_attributes`, time/network/date-range checks) is more machinery than you need for it.
 
-You don't need a different mechanism for this. This template doesn't ship a separate RBAC engine alongside PBAC, and it doesn't need to: a **policy with no `conditions` at all is already RBAC**. This template's own three seeded baseline policies (`self_service`, `user_administration`, `system_superuser`, see [Policy JSON Examples](policy-examples.md)) are exactly that shape already: one unconditioned policy per "role", each just an action list. Building your own roles this way costs nothing extra: same tables, same evaluator, same audit log, same `require_authorization(...)` on every route.
+You don't need a separate mechanism for this. A **policy with no `conditions`** is simply an unconditioned grant: every user assigned it receives its declared actions. This template's own three seeded baseline policies (`self_service`, `user_management`, `system_superuser`, see [Policy JSON Examples](policy-examples.md)) use that same shape. Building your own role-shaped access this way costs nothing extra: same tables, same evaluator, same audit log, same `require_authorization(...)` on every route.
 
 ---
 
@@ -59,16 +59,16 @@ flowchart TD
 
 ## `users.role` still doesn't grant anything
 
-This pattern doesn't change the one rule the rest of this template's authorization docs already state repeatedly: `users.role` is display/grouping metadata only, never read by the authorization service, evaluator, or condition handlers (see [Adding New Permissions: Roles vs. policies](adding-permissions.md#roles-vs-policies)). "RBAC-shaped" here describes the *policy's* shape (unconditioned, one per role), not a return to role-column checks anywhere in the request path. If you want the UI to visually group users by their intended role, that's exactly what `users.role` remains useful for (e.g. showing "Editor" next to a name); it's just never consulted to decide whether a request is allowed.
+This pattern doesn't change the one rule the rest of this template's authorization docs already state repeatedly: `users.role` is display/grouping metadata only, never read by the authorization service, evaluator, or condition handlers (see [Adding New Permissions: Roles vs. policies](adding-permissions.md#roles-vs-policies)). "role-shaped" here describes the *policy's* shape (unconditioned, one per role), not a return to role-column checks anywhere in the request path. If you want the UI to visually group users by their intended role, that's exactly what `users.role` remains useful for (e.g. showing "Editor" next to a name); it's just never consulted to decide whether a request is allowed.
 
 ---
 
 ## Optional: a CLI script for this
 
-`backend/mystic_auth/scripts/create_rbac_policies.py`, same shape as [`create_system_user.py`](../authentication/system-superuser/README.md), interactive and CLI-only:
+`backend/mystic_auth/scripts/create_unconditioned_policies.py`, same shape as [`create_system_user.py`](../authentication/system-superuser/README.md), interactive and CLI-only:
 
 ```bash
-python -m mystic_auth.scripts.create_rbac_policies
+python -m mystic_auth.scripts.create_role-based access control_policies
 ```
 
 Prompts for a role name, resource type, and a comma-separated action list, then creates one unconditioned policy named `role_<role>`. Idempotent by name: running it again for a role that already has a policy prints the existing action list and makes no changes, rather than silently overwriting it (edit via `PUT /authorization/policies/{id}` or the UI instead). Entirely optional: everything it does is also just one `POST /authorization/policies` call, so skip it if you'd rather create role-policies through the API/UI directly.

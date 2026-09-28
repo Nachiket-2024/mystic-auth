@@ -6,9 +6,9 @@ import { matrixPermissionProfiles } from "../support/permissionMatrixProfiles";
 
 const has = (profile: { permissions: string[] }, permission: string) => profile.permissions.includes(permission);
 
-test.describe("permission matrix admin surfaces", () => {
+test.describe("permission matrix authorization surfaces", () => {
   for (const profile of matrixPermissionProfiles) {
-    test(`${profile.name} sees only usable admin routes and controls`, async ({ page }) => {
+    test(`${profile.name} sees only usable authorization routes and controls`, async ({ page }) => {
       await installAuthenticatedMysticAuthApiRoutes(page, profile);
 
       const routeExpectations = [

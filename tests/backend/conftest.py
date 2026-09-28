@@ -20,8 +20,8 @@ from pathlib import Path
 # If DATABASE_URL / VALKEY_URL are already set (e.g. inside the docker-compose
 # network, pointed at the "postgres"/"valkey" service hostnames), leave them
 # alone. Otherwise, running from the host, derive a localhost equivalent from
-# env/mystic_auth/.env.
-_ENV_PATH = Path(__file__).resolve().parents[2] / "env" / "mystic_auth" / ".env"
+# env/mystic_auth/.env.dev.
+_ENV_PATH = Path(__file__).resolve().parents[2] / "env" / "mystic_auth" / ".env.dev"
 
 
 def _read_env_value(key: str) -> str | None:

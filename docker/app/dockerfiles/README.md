@@ -18,8 +18,8 @@ upstream-owned files:
          context: ../../..
          dockerfile: docker/app/dockerfiles/my-service.Dockerfile
        env_file:
-         - ../../../env/mystic_auth/.env
-         - ../../../env/app/.env
+         - ../../../env/mystic_auth/.env.dev
+         - ../../../env/app/.env.dev
    ```
 
 3. Repeat per mode (`dev`, `prod`, `local-prod-*`) for whichever modes

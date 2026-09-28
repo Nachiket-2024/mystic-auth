@@ -9,18 +9,17 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ---
 
-### Database backups are scheduled, integrity-checked, and optionally shipped off-host, but there's still no point-in-time recovery or failure alerting
+### Database backups are scheduled, integrity-checked, and shipped to Backblaze B2, but there's still no point-in-time recovery
 
-**Description**: `docker-compose.prod.yml` and every `docker-compose.local-prod-*.yml` variant run a `db_backup` service by default: a loop that calls `pg_dump --format=custom` on an interval (`BACKUP_INTERVAL_HOURS`), immediately verifies the dump with `pg_restore --list`, and writes it to `./backups` on the same host, deleting dumps older than `BACKUP_RETENTION_DAYS`. `scripts/mystic_auth/db/db_backup.sh` (manual/on-demand backups) does the same. An optional `BACKUP_UPLOAD_COMMAND` hook (blank by default) then runs after each verified dump with `DUMP_FILE` exported to it, so an operator can plug in `aws s3 cp`/`rclone copy`/`rsync`/etc. to ship the dump off-host without this template hardcoding a provider. This closes the original gaps ("no scheduler exists at all", "plain-text dumps with no verification", "single point of failure with no off-host path") but the mechanism still stops short of full production Postgres backup practice.
+**Description**: `docker-compose.prod.yml` and every `docker-compose.local-prod-*.yml` variant run a `db_backup` service by default: a loop that calls `pg_dump --format=custom` on an interval (`BACKUP_INTERVAL_HOURS`), immediately verifies the dump with `pg_restore --list`, writes it to `./backups`, and uploads it to a configured Backblaze B2 bucket with `rclone`, deleting local dumps older than `BACKUP_RETENTION_DAYS`. `scripts/mystic_auth/db/db_backup.sh` (manual/on-demand backups) uses the same `DUMP_FILE` upload hook. Dump, verification, and upload failures are reported through the Sentry-compatible Bugsink DSN as well as causing the backup command/service to fail. `scripts/mystic_auth/db/check_backup_freshness.sh` separately verifies that the required local dump artifacts are present, non-empty, and within the configured age window.
 
 **Impact**: Two remaining gaps for a deployment beyond local/self-hosted testing:
 - **No point-in-time recovery**: this is periodic full dumps only, so worst-case data loss is up to `BACKUP_INTERVAL_HOURS` of writes, not "up to the last transaction" the way WAL-based continuous archiving gives you.
-- **No active alerting**: a failed dump, failed `pg_restore --list` check, or failed `BACKUP_UPLOAD_COMMAND` is visible (`set -e` restarts the container) but only through container logs/`docker compose ps` someone has to be watching - there's no active paging.
-- **`BACKUP_UPLOAD_COMMAND` is opt-in and unset by default**: a deployment that doesn't configure it still has dumps living only on the same host/disk as the database they're backing up.
+- **B2 is configuration-dependent**: a deployment that has not created the bucket, application key, and `BACKUP_UPLOAD_COMMAND` still has only local dumps. The setup is documented, but credentials and bucket ownership remain deployment-specific. The freshness script cannot prove that an off-host object exists; the B2 bucket still needs its own monitoring. The first 10 GB is free without a billing method, but usage above the free allowance is not free.
 
-**Why it's not fully fixed yet**: real PITR means integrating a dedicated tool (`pgBackRest`, `WAL-G`) for WAL archiving, which is more surface area than this loop was designed for - deliberately deferred rather than rushed. The off-host upload gap has a hook, but the template still assumes no specific cloud provider, so an operator has to supply the actual upload command (and, for S3-family targets, install `aws-cli`/`rclone` themselves - the `postgres:15` base image doesn't include one).
+**Why it's not fully fixed yet**: real PITR means integrating a dedicated tool (`pgBackRest`, `WAL-G`) for WAL archiving, which is more surface area than this loop was designed for. B2 upload, Bugsink failure reporting, and a local end-to-end B2 restore are now verified. Each deployment still has to create and protect its own bucket and application key, then repeat the restore check after deployment.
 
-**Possible fix**: Wire a failure path into the Bugsink error-monitoring already in this stack, so a failed dump, failed verification, or failed upload pages someone instead of sitting in logs. For real uptime/RPO requirements, replace the whole mechanism with `pgBackRest`/`WAL-G` or a managed Postgres provider's own backup feature instead of extending this loop further.
+**Possible fix**: For real uptime/RPO requirements, replace the whole mechanism with `pgBackRest`/`WAL-G` or a managed Postgres provider's own backup feature instead of extending this loop further.
 
 **Priority**: Low/Medium for a deployment beyond local/self-hosted testing - lower than before now that off-host shipping just needs one env var set, rather than a missing mechanism. Still Medium if PITR-level RPO actually matters for the data involved (this app stores password hashes, sessions, audit logs). Low/N/A for local development or a throwaway deployment.
 
@@ -44,15 +43,15 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ---
 
-### Dependency updates are manual, not automated
+### Dependency updates are manual by design
 
-**Description**: No Dependabot or Renovate config exists. `pip-audit`/`npm audit` in CI catch known CVEs in whatever versions are currently pinned, but nothing proactively opens a PR when a newer version ships.
+**Description**: No automated dependency-update bot is used. `pip-audit`/`npm audit` in CI catch known CVEs in whatever versions are currently pinned, while version updates are reviewed and batched manually.
 
 **Why it exists**: This repo ran Dependabot earlier and turned it off. Its PRs updated packages independently of each other (for example bumping TypeScript without ESLint's TypeScript-parsing plugins in the same PR), which produced breakage from version skew between packages that need to move together, not from the updates themselves. Manual, batched updates (bumping a related group together, then running the full test suite once) avoid that failure mode, at the cost of updates happening less often.
 
-**Impact**: A dependency with a known fix available won't get flagged until the next manual review, beyond whatever `pip-audit`/`npm audit` already catches for known CVEs specifically.
+**Impact**: A non-CVE release will wait for the next deliberate maintenance pass. Known-CVE coverage remains available through `pip-audit`/`npm audit`.
 
-**Possible fix**: Revisit a bot-based approach only if grouped-update support (bumping a set of interdependent packages together in one PR, e.g. Dependabot's `groups` config) closes the version-skew problem that caused it to be turned off the first time; otherwise, keep this manual and batched.
+**Operating choice**: Keep dependency updates manual and batched. Automated update PRs are intentionally out of scope because related packages need to move together and this repository does not want a bot opening independent version-skew changes.
 
 **Priority**: Low. Known-CVE coverage already exists via `pip-audit`/`npm audit`; this gap is specifically about staying current on non-CVE releases.
 
@@ -83,5 +82,121 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 **Possible fix**: Tighten the thresholds and/or the runner environment until false positives are rare enough to make the job blocking, or move to a dedicated, less noisy performance-testing environment instead of sharing CI's general-purpose runners.
 
 **Priority**: Low. Correctness is still enforced elsewhere through blocking unit, integration, and security suites. This only affects how fast a real performance regression would be noticed.
+
+### Lighthouse baseline is local and has no INP sample
+
+**Description**: An earlier production frontend build was measured with
+Lighthouse 12.8.2 against the rebuilt local ngrok stack, using an authenticated local
+operator for the protected routes. The original mobile runs reported login
+LCP 4.943 s, dashboard LCP 5.017 s, and audit log LCP 4.735 s. Their
+diagnostics identified the page greeting or audit-log subtitle as the LCP
+element, with about 89-91% of LCP in render delay, no API load delay, and no
+image or font load delay. The initial bundle also loaded all four language
+packs before the first render.
+
+The fix keeps English translations on the initial path, loads the other
+language packs only when selected, and preloads the production stylesheet
+without making it render-blocking. The HTML boot shell remains visible until
+the first application frame, so the browser can paint a small accessible
+loading surface while the authenticated app shell and route code start. A
+single authenticated mobile Lighthouse 13.5.0 run against the rebuilt current
+local-prod-ngrok stack reported login LCP 4.265 s, dashboard LCP 4.255 s, and
+audit log LCP 4.214 s - slower than the earlier local values on all three
+pages, and unusual in its own right: three otherwise-different pages
+converging on nearly the same number is not what a real page-specific
+regression looks like. That run was flagged as unconfirmed rather than
+recorded as a regression, and repeated under a controlled measurement
+instead of another full Lighthouse pass: a direct `PerformanceObserver`
+largest-contentful-paint reading (Chrome DevTools Protocol, 4x CPU
+throttling, a Fast-3G-equivalent network profile, the LCP value read after a
+6-second settle window so an async-loaded table's own paint counts), two
+runs per page. That came back low-variance and consistent with the original
+baseline: login ~2.71-2.75 s, dashboard ~2.88-2.90 s, audit log ~2.99-3.06 s.
+Login in particular improved over its original 4.021 s. The single slow
+Lighthouse run is treated as measurement noise (this machine ran many
+concurrent Docker rebuilds and Chromium instances around that time, not a
+controlled environment), not a real regression from the boot-shell changes -
+`/health/ready` responded in ~5 ms locally, unaffected. Treat
+either single-run number as a lab data point, not a certified value: a
+downstream deployment should repeat this against its real domain, device
+profile, and a quiet, dedicated measurement environment before setting a
+performance budget.
+
+The earlier desktop results were: login LCP 0.947 s, CLS 0.000, score 0.99;
+dashboard LCP 1.006 s, CLS 0.000, score 0.98; audit log LCP 0.956 s, CLS
+0.000, score 0.98. Lighthouse did not report INP for these navigation-mode
+runs because they contained no real user interaction. An INP value needs a
+Lighthouse timespan or user-flow run that records an interaction.
+
+**Impact**: The confirmed mobile LCP (the low-variance repeated measurement,
+not the single anomalous Lighthouse run) is ~2.7-3.1 s across all three
+pages, below 4 s and improved on login specifically versus the original
+baseline. It remains above the 2.5 s good threshold. The boot shell provides
+the first visible loading surface while the app initializes. The authenticated
+page content still needs a real-device measurement before a stricter budget
+is set. The desktop values remain below the good threshold.
+
+**Why it exists**: The template does not have a fixed production host or
+network profile. The initial mobile problem was client startup work, not a
+slow authenticated API response. A downstream deployment should repeat the
+measurement against its real domain and authenticated pages before setting a
+performance budget.
+
+**Priority**: Medium before a public launch; low for local development.
+
+---
+
+## Operations and scale
+
+---
+
+### Horizontal scaling is documented but not a maintained deployment
+
+**Description**: Production-shaped Compose files are designed for one host.
+Worker sizing uses the host's available cores. The deployment guide now
+documents the multi-host path in [Running multiple backend containers](../deployment/environment.md#8-running-multiple-backend-containers):
+shared Postgres and Valkey, one migration runner, cookie-based sessions with
+no sticky-session requirement, and a load balancer using `/health/ready`.
+There is still no maintained provider-specific deployment or working
+multi-host Compose example.
+
+**Impact**: A service that outgrows one VPS needs an architecture decision for
+shared Postgres, Valkey, worker concurrency, migrations, sticky-free sessions,
+health checks, and deployment coordination.
+
+**Possible fix**: Validate the documented topology in a downstream deployment
+or a separate reference deployment rather than assuming one provider in the
+template.
+
+**Priority**: Low for the template; high only when one host is approaching its
+capacity limit.
+
+---
+
+### Automated keyboard coverage is not full accessibility coverage
+
+**Description**: The Playwright axe scan covers common markup, contrast, and
+ARIA problems. The Chromium browser pass covered the pre-auth flows, OAuth,
+password reset, dashboard, users, audit-log tabs, settings, account deletion,
+CRUD dialogs, Escape handling, and focus restoration. The targeted dialog
+tests passed for moving focus into dialogs and returning it to the trigger.
+The keyboard pass also checked route controls, OAuth reachability, audit-log
+tabs, and keyboard activation of pre-auth actions. Focus-visible styles were
+checked against the focusable components and shared button/input variants.
+Orca 50.2, AT-SPI2, and speech-dispatcher are installed on this host, but this
+session has no audio device and Orca reports no running desktop application.
+No human screen-reader listening pass is therefore claimed.
+
+**Impact**: A clean automated scan and passing browser assertions are useful
+evidence, but they are not a claim of full WCAG conformance. Screen-reader
+announcement quality and a human keyboard pass with real assistive technology
+remain open. No screen-reader coverage is claimed.
+
+**Possible fix**: Run Orca from a graphical Linux session with working audio,
+then repeat the signup, login, and one CRUD flow. Repeat the full keyboard pass
+after substantial UI changes and add stable regression tests for specific bugs
+that are found. Keep testing application-owned routes separately.
+
+**Priority**: Medium before a public launch; low for internal tooling.
 
 ---

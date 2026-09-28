@@ -140,6 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
     // Chrome (sidebar + Navbar) renders in chromeLanguage, not the page-wide
     // translation language. See store/languageStore.ts's LanguageMode docstring.
     const chromeLanguage = useLanguageStore((s) => s.chromeLanguage);
+    useLanguageStore((s) => s.languageRevision);
     const t = translations.getFixedT(chromeLanguage, "layout");
     // Built-in items pass a "namespace:key" translation key; app-supplied
     // extraItems pass a plain display string. exists() tells them apart.

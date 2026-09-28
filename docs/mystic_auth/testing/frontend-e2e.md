@@ -9,15 +9,63 @@ account” means the test creates or uses a short-lived account against the loca
 stack. “Real seeded accounts” means the test depends on the PBAC matrix seeded
 by `local-scripts/app/seed-user-permission-matrix.py`. “Live” is opt-in.
 
-The CI browser run uses all four configured browser projects with two workers
-and two retries. Two workers keep the real-account matrix and shared dev
-backend deterministic on standard runners without relaxing the 30-second test
-timeout or the CI performance budgets. Set `PLAYWRIGHT_WORKERS` when
+The CI browser run uses two workers and two retries. Mocked UI and authorization
+checks run in all four browser projects. The real-account matrix runs
+exhaustively in Chromium desktop, where it checks live database grants without
+multiplying login and route traffic across four engines. The responsiveness
+timing suite runs in Chromium desktop and mobile; Firefox and WebKit still run
+the broader layout, accessibility, and interaction suites. This split keeps
+the shared disposable backend deterministic without relaxing the 30-second
+test timeout or performance assertions. Set `PLAYWRIGHT_WORKERS` when
 deliberately validating on a larger runner; the browser fixture also accepts
 `PLAYWRIGHT_COMPOSE_PROJECT_NAME` for an isolated Compose stack.
 For a native run without an already booted frontend container, set
 `PLAYWRIGHT_USE_PREVIEW=1` to build once and serve the production bundle via
 Vite preview, avoiding dev-server HMR noise during the browser matrix.
+
+## Persistent local Codex operator
+
+For manual browser, keyboard, and Lighthouse checks against the local dev
+stack, run `scripts/mystic_auth/testing/seed-codex-accessibility-user.sh` once
+after the stack is up. It creates or refreshes this local-only account and
+assigns the self-service, user-management, and system-superuser policies:
+
+The email and password are stored only in the ignored local file
+`.codex/mystic-auth-accessibility.env`. Create that file with
+`CODEX_ACCESSIBILITY_EMAIL` and `CODEX_ACCESSIBILITY_PASSWORD` before running
+the seed command. It is not copied into Docker images or Compose environment
+files.
+
+The command marks the account verified and active, hashes the password in the
+backend, and forces `EMAIL_ENABLED=false` for the seed process. The checked-in
+local environment already has `EMAIL_ENABLED=false`; do not use these dummy
+credentials against a production deployment.
+
+For a human Linux screen-reader pass, run this from the graphical session that
+owns the browser and has working audio:
+
+```bash
+dbus-run-session -- orca --replace
+```
+
+Orca must be able to see the browser's AT-SPI application. A terminal-only
+session, a headless browser, or a host without an audio device is not a
+screen-reader listening pass. Test signup, login, and one CRUD flow, including
+icon-button labels, route changes, dialog focus, Escape, and focus return.
+
+Verify the account directly in Postgres rather than trusting the seed output:
+
+```bash
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml \
+  -f docker/app/compose/docker-compose.dev.yml \
+  --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev \
+  exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+  "SELECT u.email, u.role, u.is_verified, u.is_active, count(up.policy_id) AS policy_count FROM users u LEFT JOIN user_policies up ON up.user_id = u.id WHERE u.name = 'Codex Accessibility Operator' GROUP BY u.email, u.role, u.is_verified, u.is_active;"
+```
+
+The expected result is one verified, active `system` user with three assigned
+policies. The account is intentionally persistent for repeated Codex sessions;
+remove it from the local database when it is no longer needed.
 
 ---
 
@@ -85,21 +133,29 @@ Vite preview, avoiding dev-server HMR noise during the browser matrix.
   restoration, and fail-closed states. It proves broad frontend gating with
   synthetic `/auth/me` responses.
 - `authorization/permission_matrix_real_accounts_browser.spec.ts` exercises
-  the seeded real-account matrix. It checks exact `/auth/me` permission sets,
-  route gates, authorization-log “All users” visibility, and the Security
-  Events “All users” tab for `security_audit:read`. The seed currently creates
-  40 role/policy/direct-grant combinations, of which 32 verified-active
-  buckets are selected for browser coverage across four Playwright projects.
-  Known issue: WebKit can race cookie commit immediately after the login
-  request, so the test retries `/auth/me` once after 150 ms. That is a browser
-  fixture timing race, not a permission failure; failures after the retry are
-  actionable.
+  the seeded real-account matrix in Chromium desktop. It checks exact
+  `/auth/me` permission sets, route gates, authorization-log “All users”
+  visibility, and the Security Events “All users” tab for
+  `security_audit:read`. The seed currently creates 40 role/policy/direct-grant
+  combinations, of which 32 verified-active buckets are selected for browser
+  coverage. The mocked matrix covers the same frontend gates in every browser
+  project, so the live matrix is not duplicated against the shared backend.
+  WebKit and Firefox can expose the login response before the `Set-Cookie`
+  commit is observable to a subsequent request. The test polls `/auth/me` until
+  the authenticated contract is visible, and waits on rendered route state
+  rather than fixed sleeps. That is a browser fixture timing race, not a
+  permission failure; failures after the bounded poll are actionable.
 
 ## Performance and live deployment
 
-- `performance/admin_responsiveness_browser.spec.ts` checks delayed admin
+- `performance/admin_responsiveness_browser.spec.ts` checks delayed management
   tables, repeated destructive confirmation, filtering, sorting, and browser
-  responsiveness. Backend mode: mocked API.
+  responsiveness in Chromium desktop and mobile. Backend mode: mocked API.
+- `performance/core_web_vitals_browser.spec.ts` is an opt-in Chromium baseline
+  for LCP plus an interaction timing sample on the dashboard and audit log.
+  Run it with `RUN_FRONTEND_PERF=1`; optional `FRONTEND_LCP_BUDGET_MS` and
+  `FRONTEND_INP_BUDGET_MS` turn measured budgets into assertions. It is not a
+  blocking CI gate because local lab measurements are not production RUM.
 - `live/live_deployment_smoke.spec.ts` verifies signup/login, inert stored XSS,
   protected redirects, and 390px overflow against `LIVE_BASE_URL`. It is
   skipped unless the live environment variables are supplied.

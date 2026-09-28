@@ -27,7 +27,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
 ---
 
-1. **Set the Bugsink-specific variables in `env/mystic_auth/.env`** (see `env/mystic_auth/.env.example`):
+1. **Set the Bugsink-specific variables in `env/mystic_auth/.env.dev`** (see `env/mystic_auth/.env.dev.example`):
 
    ```bash
    BUGSINK_SECRET_KEY=<run: openssl rand -base64 50>
@@ -38,7 +38,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
    These configure the Bugsink *container* directly: they are unrelated to this app's own `Settings` class and never read by the backend/frontend themselves. `BUGSINK_BASE_URL` is what Bugsink uses to construct links back to itself (e.g. in any email it sends): `http://localhost:8010` is only correct for local dev; update it to match wherever you're actually reaching Bugsink from (a LAN IP, a tunnel, a real hostname) if that's not `localhost`.
 
-   **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `env/mystic_auth/.env.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If you don't want error monitoring at all, either set a real key anyway (cheapest fix, `openssl rand -base64 50`) or run `docker compose stop bugsink bugsink-seed` to stop the restart loop.
+   **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `env/mystic_auth/.env.dev.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If you don't want error monitoring at all, either set a real key anyway (cheapest fix, `openssl rand -base64 50`) or run `docker compose stop bugsink bugsink-seed` to stop the restart loop.
 
    **Email notifications on a new issue reuse this app's own mail settings.** Every Compose file's `bugsink` service maps `SMTP_HOST`/`SMTP_PORT`/`FROM_EMAIL`/`GMAIL_APP_PASSWORD` (already set for this app's own signup/reset emails, see [Authentication Overview](../authentication/overview.md)) onto Bugsink's own env var names (`EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD`/`DEFAULT_FROM_EMAIL`, plus `EMAIL_USE_TLS: "true"`). Bugsink is a separate Django app with its own settings, so it never reads this app's `Settings` class regardless of naming. No extra setup needed: as long as the mail vars above are real, a brand-new issue (not a repeat event on one already seen) emails the project's members automatically. Without a real `SMTP_HOST`, Bugsink silently falls back to writing to its own console log instead of sending anything: check `docker compose logs bugsink` for `QuietConsoleEmailBackend` if notifications seem to be missing.
 
@@ -47,7 +47,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 2. **Start it** (part of the normal quickstart: no extra flag needed):
 
    ```bash
-   docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up -d
+   docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d
    ```
 
    First boot runs Bugsink's own database migrations against the `bugsink` database (created automatically by `docker/mystic_auth/postgres-init/init-bugsink-db.sh`: see that file's own comment if you're enabling this against an *already-initialized* `postgres_data` volume, since init scripts only run once, against a fresh volume) and creates the superuser from step 1.
@@ -76,7 +76,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 4. **Verify it actually works**: don't just trust the config, trigger a real error and confirm it shows up in Bugsink's UI:
 
    ```bash
-   docker compose exec backend sh -c '. /shared/bugsink-dsn/backend.env 2>/dev/null; python -c "
+   docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec backend sh -c '. /shared/bugsink-dsn/backend.env 2>/dev/null; python -c "
    import sentry_sdk
    from mystic_auth.error_monitoring.sentry_service import init_sentry, capture_exception
    import asyncio

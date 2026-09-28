@@ -13,7 +13,7 @@ Prefer to hand this to an AI coding agent (Claude Code, Codex, or similar) inste
 flowchart TD
     Template["Use this template on GitHub\nclone your new repo"]
     Script["quickstart.sh\n(.ps1 / .cmd)"]
-    EnvExists{"env/mystic_auth/.env\nalready exists?"}
+    EnvExists{"env/mystic_auth/.env.dev\nalready exists?"}
     SetupEnv["setup-env.sh:\ngenerate every env file,\na distinct secret per password field"]
     DevUp["dev-up.sh:\nbring up backend, frontend,\nPostgres, Valkey, Procrastinate, Bugsink\nwait for every service healthy"]
     Superuser["Offer to create\nthe system superuser"]
@@ -37,7 +37,7 @@ Every step above is safe to re-run: already-done work is skipped or made a no-op
 1. Click **[Use this template](https://github.com/Nachiket-2024/mystic-auth/generate)**, then clone *your* new repo.
 2. Run `./scripts/mystic_auth/env-tools/quickstart/quickstart.sh` (`.ps1` for PowerShell, `.cmd` for Command Prompt).
 
-   This is the fastest path from a fresh clone to a working login: it runs `setup-env` for you if `env/mystic_auth/.env` doesn't exist yet, brings the dev stack up and waits for every service to become healthy, offers to create the system superuser right there, then tails `backend`/`frontend`/`procrastinate_worker` logs the same way `dev-up` normally does. Safe to re-run any time - each step is skipped or made a no-op once it's already done.
+   This is the fastest path from a fresh clone to a working login: it runs `setup-env` for you if `env/mystic_auth/.env.dev` doesn't exist yet, brings the dev stack up and waits for every service to become healthy, offers to create the system superuser right there, then tails `backend`/`frontend`/`procrastinate_worker` logs the same way `dev-up` normally does. Safe to re-run any time - each step is skipped or made a no-op once it's already done.
 
    The first `dev-up` can take several minutes. Docker may need to download the
    `postgres:15`, `valkey/valkey:9.1.2-alpine`, and `bugsink/bugsink:2` images, build the local
@@ -50,12 +50,12 @@ Every step above is safe to re-run: already-done work is skipped or made a no-op
 
 Prefer to see and run each step yourself instead of one script doing all of it? That's exactly what `quickstart` runs under the hood:
 
-- **Env setup**: `./scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Creates `env/mystic_auth/.env` (and every other `env/mystic_auth/.env*` file, plus `frontend/.env`) from its `.example`, asks once for an app name and brand color and applies both everywhere, and generates a distinct random secret for every password field, so this just works for local dev as-is. It skips any file that already exists, so it's safe to re-run. Only two things need real values before those specific features work: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ([OAuth setup](#oauth-setup-google)) and `FROM_EMAIL`/`GMAIL_APP_PASSWORD` ([Email setup](#email-setup)). Everything else runs fine without them. Prefer to do it by hand instead? `cp env/mystic_auth/.env.example env/mystic_auth/.env` still works exactly like it always has.
+- **Env setup**: `./scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Creates every `env/mystic_auth/.env*` and `env/app/.env*` file, plus `frontend/.env`, from its `.example`, asks once for an app name and brand color and applies both everywhere, and generates a distinct random secret for every password field, so this just works for local dev as-is. It skips any file that already exists, so it's safe to re-run. Only two things need real values before those specific features work: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ([OAuth setup](#oauth-setup-google)) and `FROM_EMAIL`/`GMAIL_APP_PASSWORD` ([Email setup](#email-setup)). Everything else runs fine without them. Prefer to do it by hand instead? Copy both `env/mystic_auth/.env.dev.example` to `env/mystic_auth/.env.dev` and `env/app/.env.dev.example` to `env/app/.env.dev`.
 - **Bring the stack up**: `./scripts/mystic_auth/docker/dev/dev-up.sh` (`.ps1`/`.cmd`). Brings up backend, frontend, Postgres, Valkey, Procrastinate, and Bugsink, migrations included, then settles into showing just `backend`/`frontend`/`procrastinate_worker` logs instead of every service's full startup output (see [Docker Overview](../docker/dev-workflow.md#day-to-day-dev-up-helpers)). On a fresh machine, allow time for image pulls and local image builds; later starts are normally much faster. Plain `docker compose up` still works if you want everything's logs interleaved instead.
 - **Create the system superuser** (one-time, CLI-only):
 
   ```bash
-  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml exec -it backend python -m mystic_auth.scripts.create_system_user
+  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -it backend python -m mystic_auth.scripts.create_system_user
   ```
 
   See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md) for the prompts.
@@ -85,16 +85,16 @@ Three more scripts complement `setup-env`, once a file is no longer freshly gene
 
 ## Environment configuration
 
-[`env/mystic_auth/.env.example`](../../../env/mystic_auth/.env.example) is the source of truth for which values dev ships with and where they live; comments there are kept short and point at the full field-by-field reference instead of repeating it: [Environment Configuration](../environment/README.md) (split across [Backend Settings](../environment/backend.md), [Frontend Build Settings](../environment/frontend.md), and [Compose-Only Settings](../environment/compose.md)). `frontend/.env.example` only matters if you run the frontend locally with `npm run dev` instead of Docker.
+[`env/mystic_auth/.env.dev.example`](../../../env/mystic_auth/.env.dev.example) is the source of truth for which values dev ships with and where they live; comments there are kept short and point at the full field-by-field reference instead of repeating it: [Environment Configuration](../environment/README.md) (split across [Backend Settings](../environment/backend.md), [Frontend Build Settings](../environment/frontend.md), and [Compose-Only Settings](../environment/compose.md)). `frontend/.env.example` only matters if you run the frontend locally with `npm run dev` instead of Docker.
 
-To rename the app: set `APP_NAME` in `env/mystic_auth/.env`, then `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml up --build`. `docker-compose.dev.yml` aliases `VITE_APP_NAME` from that same `APP_NAME` (the frontend value is baked in at build time), so there's only one setting to change, not two. Nothing else hardcodes a product name. CI keeps using its own placeholder `APP_NAME` regardless; that's expected, not something to sync.
+To rename the app: set `APP_NAME` in `env/mystic_auth/.env.dev`, then rebuild with the normal paired Compose command or `dev-up` helper. `docker-compose.dev.yml` aliases `VITE_APP_NAME` from that same `APP_NAME` (the frontend value is baked in at build time), so there's only one setting to change, not two. Nothing else hardcodes a product name. CI keeps using its own placeholder `APP_NAME` regardless; that's expected, not something to sync.
 
-To change the default brand color: set `BRAND_COLOR` in `env/mystic_auth/.env` the same way, aliased to `VITE_BRAND_COLOR`. See [Appearance: Per-User Brand Color](../appearance/overview.md#default-brand-color).
+To change the default brand color: set `BRAND_COLOR` in `env/mystic_auth/.env.dev` the same way, aliased to `VITE_BRAND_COLOR`. See [Appearance: Per-User Brand Color](../appearance/overview.md#default-brand-color).
 
 Both `APP_NAME` and `BRAND_COLOR` need to be set again in whichever other
-`env/mystic_auth/.env.*.example`-derived files you actually use (`env/mystic_auth/.env.prod`,
+mode-specific template-derived files you actually use (`env/mystic_auth/.env.prod`,
 `env/mystic_auth/.env.local-prod-cloudflare`, etc.) - each mode reads its own separate
-env file, so the value you set in `env/mystic_auth/.env` only affects the dev stack.
+env file, so the value you set in `env/mystic_auth/.env.dev` only affects the dev stack.
 `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (see [Quickstart](#quickstart) above)
 applies the same value to every file it creates in one pass, so this only
 matters if you set these by hand instead.
@@ -102,7 +102,7 @@ matters if you set these by hand instead.
 If you'll ever run this fork on the same machine as another mystic-auth
 fork (another "Use this template" project, yours or someone else's), also
 set `COMPOSE_PROJECT_NAME`, the `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the
-`*_STATIC_IP` vars in `env/mystic_auth/.env` (and in whichever other `env/mystic_auth/.env.*` files
+`*_STATIC_IP` vars in `env/mystic_auth/.env.dev` (and in whichever other `env/mystic_auth/.env.*` files
 you use) to something unique to this fork - every fork otherwise defaults
 to the exact same Compose project name, host ports, and Docker network
 subnet, and the two collide. The built frontend image name derives
@@ -115,9 +115,18 @@ setting. See
 
 ## OAuth setup (Google)
 
+For local development, create an External OAuth app in Testing status and add
+your Google account as a test user. For a deployed application, complete the
+consent-screen and publishing steps in the [downstream launch
+checklist](downstream-launch-checklist.md#google-oauth-setup-testing-and-verification).
+The application currently requests only `openid email profile`, Google's basic
+identity scopes, rather than Gmail or other Google data.
+
 1. Create an OAuth 2.0 Client ID in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (Web application type).
 2. Add an authorized redirect URI matching `GOOGLE_REDIRECT_URI` exactly (scheme, host, path, trailing slash all matter).
-3. Fill in `env/mystic_auth/.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (e.g. `http://localhost:8000/auth/oauth2/callback/google` locally).
+3. Fill in `env/mystic_auth/.env.dev`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` (e.g. `http://localhost:8000/auth/oauth2/callback/google` locally).
+4. For production, use the production hostname and HTTPS callback. Do not put
+   `GOOGLE_CLIENT_SECRET` in frontend code or commit it.
 
 See [OAuth2 / PKCE](../authentication/oauth2-pkce.md) for the mechanics and troubleshooting.
 

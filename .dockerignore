@@ -41,25 +41,12 @@ frontend/dist/
 # image. Neither Dockerfile currently copies the repo root.
 .env
 env/mystic_auth/.env
-env/mystic_auth/.env.local-prod-cloudflare
-env/mystic_auth/.env.local-prod-ngrok
-env/mystic_auth/.env.local-prod-tailscale
-env/mystic_auth/.env.prod
-env/mystic_auth/.env.bak
-env/mystic_auth/.env.prod.bak
-env/mystic_auth/.env.local-prod-cloudflare.bak
-env/mystic_auth/.env.local-prod-ngrok.bak
-env/mystic_auth/.env.local-prod-tailscale.bak
+env/mystic_auth/.env.*
+!env/mystic_auth/.env.*.example
+.codex/
 env/app/.env
-env/app/.env.local-prod-cloudflare
-env/app/.env.local-prod-ngrok
-env/app/.env.local-prod-tailscale
-env/app/.env.prod
-env/app/.env.bak
-env/app/.env.prod.bak
-env/app/.env.local-prod-cloudflare.bak
-env/app/.env.local-prod-ngrok.bak
-env/app/.env.local-prod-tailscale.bak
+env/app/.env.*
+!env/app/.env.*.example
 frontend/.env
 frontend/.env.bak
 # Real credentials for local-scripts/mystic_auth/{dev,local-prod-*,prod}/create-system-user.*;

@@ -23,8 +23,8 @@ cd "$REPO_ROOT"
 DC=(docker compose \
   -f docker/mystic_auth/compose/docker-compose.dev.yml \
   -f docker/app/compose/docker-compose.dev.yml \
-  --env-file env/mystic_auth/.env \
-  --env-file env/app/.env)
+  --env-file env/mystic_auth/.env.dev \
+  --env-file env/app/.env.dev)
 
 # frontend has no healthcheck in docker-compose.dev.yml, so "Up" is as
 # ready as it gets. Every other long-running service does have one.

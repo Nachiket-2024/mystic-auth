@@ -5,7 +5,7 @@
 
 This project started because I got tired of rebuilding the same authentication and authorization pieces for different startup take-home assignments.
 
-During 2025, while applying to startups, many take-home projects needed similar foundations with slightly different expectations: one needed email/password authentication, another needed OAuth2, another wanted RBAC. Each time, the actual product logic was slowed down because much time went into rebuilding the same authentication foundation.
+During 2025, while applying to startups, many take-home projects needed similar foundations with slightly different expectations: one needed email/password authentication, another needed OAuth2, another wanted role-based access control. Each time, the actual product logic was slowed down because much time went into rebuilding the same authentication foundation.
 
 The original idea was simple:
 

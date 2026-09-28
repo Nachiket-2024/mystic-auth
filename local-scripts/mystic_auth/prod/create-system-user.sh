@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Non-interactively bootstraps the system superuser against the prod stack.
-# Fill in local-scripts/prod/system-user.env first, with a real production
+# Fill in local-scripts/mystic_auth/prod/system-user.env first, with a real production
 # email/password, not the dev placeholder.
 # Assumes a fresh account: pipes a fixed 3-line stdin (email, name, password)
 # matching create_system_user.py's "brand new account" prompt. If the account

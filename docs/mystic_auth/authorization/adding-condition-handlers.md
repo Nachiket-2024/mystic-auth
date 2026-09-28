@@ -16,11 +16,62 @@ flowchart TD
 ```
 ---
 
-Adding a new condition type **never** requires touching `PolicyEvaluationEngine` or `ConditionEvaluationService`: only two new/edited files, plus the validator.
+Downstream projects must keep their condition handlers and validators under
+`backend/app/`. Do not edit the registry, validator, evaluator, or any other
+file under the upstream-owned `backend/mystic_auth/` tree. The template
+provides `register_condition_type()` through `backend/app/sdk.py` and calls
+`register_extensions()` from the app-owned `backend/app/app_sdk.py` before
+serving requests.
+
+If an existing condition type is sufficient, use it (see [Common
+Patterns](common-patterns.md)). If the app genuinely needs a new condition
+type, add it entirely in the app tree:
+
+```python
+# backend/app/authorization/conditions/project_scope.py
+from app.sdk import ConditionHandler
+
+
+class ProjectScopeCondition(ConditionHandler):
+    def evaluate(self, condition_value, user_email, resource, context) -> bool:
+        try:
+            return (context or {}).get("project_id") == condition_value.get("project_id")
+        except Exception:
+            return False
+
+
+def validate_project_scope(value) -> list[str]:
+    if not isinstance(value, dict) or not isinstance(value.get("project_id"), str):
+        return ["'project_scope.project_id' must be a string"]
+    return []
+```
+
+Then register it from the app-owned SDK hook:
+
+```python
+# backend/app/app_sdk.py
+from .authorization.conditions.project_scope import ProjectScopeCondition, validate_project_scope
+from .sdk import register_condition_type
+
+
+def register_extensions() -> None:
+    register_condition_type("project_scope", ProjectScopeCondition(), validate_project_scope)
+```
+
+`backend/app/main.py` calls `register_extensions()` during startup. The
+registration updates both write-time validation and runtime evaluation.
+The handler must be synchronous, cheap, and fail closed. The app's route and
+policy UI can use the new key without any MysticAuth file changes.
+
+For an upstream MysticAuth feature maintained in this repository, adding a
+new condition type **never** requires touching `PolicyEvaluationEngine` or
+`ConditionEvaluationService`: add the handler, registry entry, and validator
+alongside the corresponding tests. Downstream projects should use the
+app-owned registration hook above instead.
 
 ---
 
-## 1. Create the handler class
+## 1. Create the handler class (upstream contributors only)
 
 Add a new file beside the other condition implementations, for example `backend/mystic_auth/authorization/conditions/condition_types/device_trust_condition.py`. Do not put condition-specific logic in `condition_registry.py`, `condition_validator.py`, or `condition_evaluation_service.py`; those files are the framework the handlers plug into.
 
@@ -57,7 +108,7 @@ class DeviceTrustCondition(ConditionHandler):
 
 ---
 
-## 2. Register it with the registry
+## 2. Register it with the registry (upstream contributors only)
 
 Edit `backend/mystic_auth/authorization/conditions/condition_registry.py`:
 
@@ -67,11 +118,11 @@ from .condition_types.device_trust_condition import DeviceTrustCondition
 default_condition_registry.register("device_trust", DeviceTrustCondition())
 ```
 
-This is the **only** place a new condition type needs to be wired in for evaluation to work. `ConditionEvaluationService` looks handlers up by key from this registry: it has no other knowledge of what condition types exist.
+This is the upstream-only wiring point. `ConditionEvaluationService` looks handlers up by key from this registry: it has no other knowledge of what condition types exist. Downstream projects must use the app-owned `register_condition_type()` example above instead.
 
 ---
 
-## 3. Add validation
+## 3. Add validation (upstream contributors only)
 
 Edit `backend/mystic_auth/authorization/conditions/condition_validator.py`: add both the key and its validator function, so a malformed `device_trust` block is rejected at `POST`/`PUT /authorization/policies` time rather than only failing safe at evaluation time:
 

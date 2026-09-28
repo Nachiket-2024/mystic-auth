@@ -38,9 +38,11 @@ $MysticAuthTargets = @{
         Write-Host "make.ps1 superuser               create/promote the system superuser (dev stack)"
         Write-Host "make.ps1 backup                  dump the dev database (needs bash, see below)"
         Write-Host "make.ps1 restore-drill           prove the dev database's dump actually restores (needs bash)"
+        Write-Host "make.ps1 backup-freshness        verify required backups are recent and non-empty (needs bash)"
         Write-Host "make.ps1 sync                    pull in upstream template updates"
         Write-Host "make.ps1 test-tooling            regression suite for env-tools scripts (needs bash)"
         Write-Host "make.ps1 test-sync               regression suite for sync-upstream.sh (needs bash)"
+        Write-Host "make.ps1 test-backup-freshness   regression suite for backup freshness checks (needs bash)"
         Write-Host "make.ps1 lint-paths              check every scripts/ path reference resolves (needs bash)"
         Write-Host "make.ps1 lint-split              check for stale pre-split docker/env/scripts references (needs bash)"
         Write-Host "make.ps1 lint                    run lint-paths and lint-split together (needs bash)"
@@ -64,9 +66,11 @@ $MysticAuthTargets = @{
     }
     "backup" = { Invoke-Bash "scripts/mystic_auth/db/db_backup.sh" }
     "restore-drill" = { Invoke-Bash "scripts/mystic_auth/db/db_restore_drill.sh" }
+    "backup-freshness" = { Invoke-Bash "scripts/mystic_auth/db/check_backup_freshness.sh" }
     "sync" = { & .\scripts\mystic_auth\upstream-sync\sync-upstream.ps1 }
     "test-tooling" = { Invoke-Bash "tests/scripts/mystic_auth/env-tools/test-env-tooling.sh" }
     "test-sync" = { Invoke-Bash "tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh" }
+    "test-backup-freshness" = { Invoke-Bash "tests/scripts/mystic_auth/db/test-backup-freshness.sh" }
     "lint-paths" = { Invoke-Bash "tests/scripts/mystic_auth/lint/check-script-paths.sh" }
     "lint-split" = { Invoke-Bash "tests/scripts/mystic_auth/lint/check-split-paths.sh" }
     "lint" = {

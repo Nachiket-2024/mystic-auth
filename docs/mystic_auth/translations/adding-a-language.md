@@ -9,11 +9,19 @@ formatting, the language store, the toggle, and backend error codes) this tutori
 Say you want to add Tamil (`ta`). Every step below is additive - nothing here requires touching
 component logic, only data files (plus the four language-scoped modules).
 
+This walkthrough changes the template's built-in language set, so it is for
+upstream/template contributors. A downstream project must not edit
+`frontend/src/mystic_auth/` to add a language. App-owned pages can add their
+own namespace with `translations.addResourceBundle`, as the existing files in
+`frontend/src/app/translations/` demonstrate; adding a language to the shared
+MysticAuth shell requires an upstream contribution (or a deliberate frontend
+replacement).
+
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     S1["1. Add the language code\ntranslations.ts"]
-    S2["2. Add a locale folder\nall 13 namespace files"]
+    S2["2. Add the 12 shared locale files"]
     S3["3. Add month names\nmonthNames.ts"]
     S4["4. Add digit glyphs\nnumerals.ts (or null for ASCII)"]
     S5["5. Add time-of-day formatting\ntimeOfDay.ts"]
@@ -55,31 +63,38 @@ export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
 
 ---
 
-## 2. Add a locale folder with all thirteen namespace files
+## 2. Add a locale folder with the twelve shared namespace files
 
-Copy `frontend/src/mystic_auth/translations/languages/en/` to a new `languages/ta/` folder (same 13
-filenames: `ui_text.json`, `layout.json`, `auth.json`, ..., `rate_limits.json`, `legal.json`), then translate every value - keep every
-key identical to the English source, only the values change. Missing keys silently fall back to
+Copy the twelve shared files from `frontend/src/mystic_auth/translations/languages/en/` to a new
+`languages/ta/` folder (`ui_text.json`, `layout.json`, `auth.json`, `users.json`, `policies.json`,
+`permissions.json`, `authorization.json`, `audit_log.json`, `account_settings.json`, `dashboard.json`,
+`rate_limits.json`, and `errors.json`), then translate every value - keep every key identical to the
+English source, only the values change. Missing keys silently fall back to
 `fallbackLng: "en"` (see `translations.ts`'s `i18next.init()` call), so a partial translation
 degrades gracefully rather than crashing, but treat that as a to-do, not a shipped state. (The
 `i18next.init()` call referenced above is `react-i18next`'s own API name; this repo's wrapper
 around it is `translations.ts`.)
 
-Then import and register all thirteen files in `translations.ts`, following the existing `hi`/`mr`/`gu`
+Then import and register the twelve shared files in `translations.ts`, following the existing `hi`/`mr`/`gu`
 blocks:
 
 ```ts
 import taUiText from "./languages/ta/ui_text.json";
 import taLayout from "./languages/ta/layout.json";
-// ...all thirteen
+// ...the other ten shared namespaces
 
 // inside translations.use(initReactI18next).init({ resources: { ... } }):
 ta: {
     ui_text: taUiText,
     layout: taLayout,
-    // ...all thirteen
+    // ...the other ten shared namespaces
 },
 ```
+
+The three app-content files (`landing.json`, `status_pages.json`, and `legal.json`) are separate
+from this shared registration. If the downstream app uses those pages, add the Tamil JSON files and
+extend the corresponding app-owned registration modules under `frontend/src/app/translations/`.
+Do not add those namespaces to `mystic_auth/translations/translations.ts`.
 
 ---
 

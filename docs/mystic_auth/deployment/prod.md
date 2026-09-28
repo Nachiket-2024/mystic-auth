@@ -15,6 +15,12 @@ Not sure this is the mode you want? See the
 [dev vs. local-prod vs. prod comparison](guide.md#1-deployment-modes) in the
 Deployment Guide.
 
+Use the `prod-up` helper when possible: it passes both the upstream and
+app-owned Compose/env files. For a manual `docker compose` command, always
+include `docker/app/compose/docker-compose.prod.yml` and
+`--env-file env/app/.env.prod` after their `mystic_auth` counterparts so your
+downstream services and settings are loaded.
+
 ---
 
 ## Getting started
@@ -66,7 +72,7 @@ this copy (and every other mode's) in one pass, generating a distinct
 random secret per password field, so most of "Also rotate ..." below is
 already done for a freshly created file.
 
-`env/mystic_auth/.env.prod.example` is the prod template for `docker/mystic_auth/compose/docker-compose.prod.yml`.
+`env/mystic_auth/.env.prod.example` and `env/app/.env.prod.example` are the prod templates for the upstream Compose file and its app-owned override, `docker/mystic_auth/compose/docker-compose.prod.yml` plus `docker/app/compose/docker-compose.prod.yml`.
 `ENVIRONMENT=production` and empty `VITE_API_BASE_URL` are already set correctly for
 the bundled Caddy to frontend nginx to backend route. `TRUSTED_PROXY_IPS` isn't set
 directly there - `docker-compose.prod.yml` derives it from `FRONTEND_STATIC_IP`/
@@ -113,7 +119,7 @@ placeholder or a host port already in use, before you spend a `--build`
 finding out the hard way.
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod up -d --build
 ```
 
 Only Caddy (ports 80/443) is published to the host. `postgres`, `valkey`,
@@ -130,7 +136,7 @@ Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
 command as written. Re-run Step 3 with the profile added instead:
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --profile geoip up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with

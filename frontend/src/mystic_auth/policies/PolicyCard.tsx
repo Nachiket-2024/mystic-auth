@@ -221,7 +221,7 @@ const PolicyCard: React.FC<PolicyCardProps> = ({
               <div>
                 {/* Every PROTECTED_POLICY_NAMES entry, not just
                                     system_superuser: the backend rejects
-                                    deactivating self_service/user_administration
+                                    deactivating self_service/user_management
                                     too (same PROTECTED_POLICY_NAMES the Delete
                                     button below is already gated on) - this used
                                     to only special-case system_superuser, so the

@@ -10,15 +10,14 @@ something directly, but this repo's own files, folders, and variables use "trans
 
 One [i18next namespace](https://www.i18next.com/principles/namespaces) per feature folder under
 `frontend/src/mystic_auth/`, so translation files stay small and map 1:1 to code ownership instead
-of one giant JSON. The one exception is `ui_text`, which holds vocabulary genuinely shared across
-every feature (button labels like Save/Cancel/Delete, loading/saving states, pagination text,
-error-boundary text) rather than belonging to any single folder:
+of one giant JSON. The shared MysticAuth set has twelve namespaces; `ui_text` is the one special
+case within that set because it holds vocabulary genuinely shared across every feature (button
+labels like Save/Cancel/Delete, loading/saving states, pagination text, error-boundary text):
 
 ```ts
 export const NAMESPACES = [
     "ui_text", "layout", "auth", "users", "policies", "authorization",
-    "audit_log", "account_settings", "dashboard", "rate_limits", "status_pages",
-    "errors", "legal",
+    "audit_log", "account_settings", "dashboard", "rate_limits", "errors",
 ] as const;
 
 export const SUPPORTED_LANGUAGES = ["en", "hi", "mr", "gu"] as const;
@@ -32,9 +31,14 @@ export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
 };
 ```
 
-Each language's translations live in `frontend/src/mystic_auth/translations/languages/<lang>/<namespace>.json`
-- e.g. `languages/hi/layout.json`. All thirteen namespace files are statically imported and registered
-for all four languages in `translations.ts`'s `resources` object.
+The twelve shared language files live in
+`frontend/src/mystic_auth/translations/languages/<lang>/<namespace>.json`, for example
+`languages/hi/layout.json`. English is initialized there immediately; Hindi, Marathi, and Gujarati
+are lazy-loaded by `loadLanguage()` when selected. The three app-content files in the same locale
+folder - `landing.json`, `status_pages.json`, and `legal.json` - are deliberately outside the shared
+`NAMESPACES` list and are registered by `frontend/src/app/translations/registerLandingTranslations.ts`,
+`registerStatusPagesTranslations.ts`, and `registerLegalTranslations.ts`. They are downstream-owned
+copy; their JSON values may be edited, but the registration and component code should not be.
 
 Components read strings the normal `react-i18next` way:
 

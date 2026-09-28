@@ -18,7 +18,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
@@ -62,7 +62,7 @@ async def _create_verified_user(client, created_emails, email, policy_names):
 async def _create_system_user(client, created_emails, email):
     return await _create_verified_user(
         client, created_emails, email,
-        [SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
+        [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
     )
 
 
@@ -144,12 +144,12 @@ async def test_policy_assign_and_revoke_write_audit_entries(client, created_emai
 
     assign_resp = await client.post(
         f"/authorization/users/{email}/policies",
-        json={"policy_name": USER_ADMINISTRATION_POLICY_NAME},
+        json={"policy_name": USER_MANAGEMENT_POLICY_NAME},
     )
     assert assign_resp.status_code == 200
 
     revoke_resp = await client.delete(
-        f"/authorization/users/{email}/policies/{USER_ADMINISTRATION_POLICY_NAME}",
+        f"/authorization/users/{email}/policies/{USER_MANAGEMENT_POLICY_NAME}",
     )
     assert revoke_resp.status_code == 200
 
@@ -162,13 +162,13 @@ async def test_policy_assign_and_revoke_write_audit_entries(client, created_emai
     assert matching["policy_assigned"]["success"] is True
     assert matching["policy_assigned"]["event_metadata"] == {
         "assigned_by": system_email,
-        "policy_name": USER_ADMINISTRATION_POLICY_NAME,
+        "policy_name": USER_MANAGEMENT_POLICY_NAME,
     }
     assert "policy_revoked" in matching
     assert matching["policy_revoked"]["success"] is True
     assert matching["policy_revoked"]["event_metadata"] == {
         "revoked_by": system_email,
-        "policy_name": USER_ADMINISTRATION_POLICY_NAME,
+        "policy_name": USER_MANAGEMENT_POLICY_NAME,
     }
 
 

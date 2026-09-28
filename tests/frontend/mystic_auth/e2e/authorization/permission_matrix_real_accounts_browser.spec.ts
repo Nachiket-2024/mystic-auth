@@ -7,6 +7,7 @@
 // when the seed matrix changes. The test compares sets, so API ordering is not
 // part of the contract.
 import { expect, test } from "../../../../../frontend/e2e/playwright";
+import { API_BASE_URL } from "../support/authenticatedMysticAuthApiRoutes";
 
 const PASSWORD = "MatrixPassw0rd!";
 
@@ -83,7 +84,7 @@ test.describe("permission matrix - real seeded accounts, real backend", () => {
       page,
     }) => {
       const loginResponse = await page.request.post(
-        "http://localhost:8000/auth/login",
+        `${API_BASE_URL}/auth/login`,
         { data: { email: bucket.email, password: PASSWORD } },
       );
       test.skip(
@@ -97,26 +98,33 @@ test.describe("permission matrix - real seeded accounts, real backend", () => {
           "in docs/mystic_auth/testing/browser-e2e.md, not a real permission bug)",
       ).toBe(200);
 
-      // WebKit can race the cookie commit immediately after page.request.post.
-      // One retry absorbs that browser timing issue without masking a bad login.
-      let meResponse = await page.request.get("http://localhost:8000/auth/me");
-      if (meResponse.status() !== 200) {
-        await page.waitForTimeout(150);
-        meResponse = await page.request.get("http://localhost:8000/auth/me");
-      }
-      expect(
-        meResponse.status(),
-        `/auth/me for ${bucket.email} failed unexpectedly after a successful login`,
-      ).toBe(200);
-      const actualPermissions: string[] =
-        (await meResponse.json()).permissions ?? [];
+      // page.request and the browser page share a context, but WebKit and
+      // Firefox can expose the response before the Set-Cookie commit is
+      // observable to a subsequent request. Poll the actual authentication
+      // contract instead of sleeping for an arbitrary duration.
+      let actualPermissions: string[] = [];
+      await expect
+        .poll(
+          async () => {
+            const meResponse = await page.request.get(`${API_BASE_URL}/auth/me`);
+            if (meResponse.status() !== 200) return null;
+            actualPermissions = (await meResponse.json()).permissions ?? [];
+            return actualPermissions;
+          },
+          {
+            message: `/auth/me for ${bucket.email} did not become authenticated after login`,
+            intervals: [100, 200, 500],
+            timeout: 5_000,
+          },
+        )
+        .not.toBeNull();
       expect(
         new Set(actualPermissions),
         `${bucket.email} DB grants changed since this test was written`,
       ).toEqual(new Set(bucket.expectedPermissions));
 
       await page.goto("/dashboard");
-      await page.waitForLoadState("networkidle");
+      await expect(page.locator("main")).toBeVisible();
 
       const routeExpectations = [
         ["/users", has(actualPermissions, "users:list_all")],
@@ -131,11 +139,6 @@ test.describe("permission matrix - real seeded accounts, real backend", () => {
 
       for (const [path, allowed] of routeExpectations) {
         await page.goto(path);
-        await page.waitForTimeout(300);
-        if (page.url().includes("/login")) {
-          await page.goto(path);
-          await page.waitForTimeout(300);
-        }
         if (allowed) {
           await expect(page.locator("main")).toBeVisible();
           await expect(page).not.toHaveURL(/not-authorized/);
@@ -145,7 +148,6 @@ test.describe("permission matrix - real seeded accounts, real backend", () => {
       }
 
       await page.goto("/audit-log");
-      await page.waitForTimeout(300);
       await expect(
         page.getByRole("heading", { name: /audit log/i }),
       ).toBeVisible();

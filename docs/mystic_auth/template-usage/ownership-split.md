@@ -10,8 +10,8 @@ Both backend and frontend are split into two trees, and every file in the repo f
 
 | Tier | Files | Who edits it | Why |
 |---|---|---|---|
-| **Upstream-owned: never edit** | `backend/mystic_auth/`, `backend/app/sdk.py`, `frontend/src/mystic_auth/`, `frontend/src/app/sdk.ts`, `docs/mystic_auth/`, `screenshots/mystic_auth/`, `scripts/mystic_auth/`, `agent-prompts/mystic_auth/`, `local-scripts/mystic_auth/`, `docker/mystic_auth/`, `env/mystic_auth/`, `makefiles/mystic_auth/`, root `Makefile`/`make.ps1` | Only upstream | This is the template's actual implementation. Since you never touch it, every `scripts/mystic_auth/upstream-sync/sync-upstream.sh` merge applies here cleanly because there's nothing of yours for it to conflict with. |
-| **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `frontend/src/app/theme.ts`, `docs/app/`, `screenshots/app/`, `scripts/app/`, `agent-prompts/app/`, `local-scripts/app/`, `docker/app/`, `env/app/`, `makefiles/app/`, root `README.md`, `SECURITY.md`, `CONTRIBUTING.md` | Only you | Upstream ships these once (`app_sdk.*`/`theme.ts` empty, the READMEs as generic starting points, `app/` script/prompt/compose/env/makefiles folders empty) and never edits them again in any future release. Since only you write to them, they never conflict either. |
+| **Upstream-owned: never edit** | `backend/mystic_auth/`, `backend/app/sdk.py`, `frontend/src/mystic_auth/`, `frontend/src/app/sdk.ts`, `docs/mystic_auth/`, `screenshots/mystic_auth/`, `scripts/mystic_auth/`, `agent-prompts/mystic_auth/`, `local-scripts/mystic_auth/`, tracked `docker/mystic_auth/`, tracked `env/mystic_auth/*.example`, `makefiles/mystic_auth/`, root `Makefile`/`make.ps1` | Only upstream | This is the template's source. Since you never hand-edit it, upstream syncs can replace it cleanly. The untracked runtime env copies under `env/mystic_auth/` are deployment state and are intentionally edited by the project owner; keep app-only variables in `env/app/`. |
+| **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `frontend/src/app/app_sdk.ts`, `frontend/src/app/theme.ts`, `docs/app/`, `screenshots/app/`, `scripts/app/`, `agent-prompts/app/`, `local-scripts/app/`, `docker/app/`, `env/app/`, `makefiles/app/`, root `README.md`, `SECURITY.md`, `CONTRIBUTING.md` | Only you | Upstream ships these once (`app_sdk.*`/`theme.ts` near-empty, with the backend hook and frontend theme override ready for additions; the READMEs as generic starting points; `app/` script/prompt/compose/env/makefiles folders empty) and never edits them again in any future release. Since only you write to them, they never conflict either. |
 | **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `backend/alembic.ini`, `backend/pyproject.toml`, `.github/workflows/ci.yml`, `.vscode/settings.json`, `pytest.ini`, `CLAUDE.md`, `.gitignore`, `.dockerignore`, `docker/tailscale-serve-config.json` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a CI pipeline, ignore rules, a JSON config a tool expects at one specific path with no include mechanism of its own), so they can't start empty the way `app_sdk.*` does, and each has to stay a single file per its own tool's convention rather than splitting into `app/`/`mystic_auth/` folders. You're expected to extend them (register your own router, add your own `<Route>`, add your own CI job, ignore your own generated paths, add your own Tailscale serve handler), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
 
 ---
@@ -27,7 +27,7 @@ flowchart TB
         ENTRY["main.py / App.tsx\n entry point, ships working"]
     end
     subgraph yours["Yours: upstream never touches again"]
-        APPSDK["app_sdk.py / app_sdk.ts\n your re-exports:\n shipped empty"]
+        APPSDK["app_sdk.py / app_sdk.ts\n your re-exports and hooks:\n shipped near-empty"]
         FEATURES["your feature folders\n e.g. app/projects/"]
         DOCSAPP["docs/app/\n your own docs"]
     end
@@ -47,9 +47,26 @@ Your own new feature folders (`backend/app/projects/`, `frontend/src/app/project
 
 The diagram above only shows code files, since it's tracing import relationships; the shared config files from the table above (`package.json`, `requirements.txt`) don't import anything, but they're in the same "Shared" tier as `main.py`/`App.tsx` for the same reason: you're expected to add your own entries, and upstream may add or change its own later. See [Syncing Upstream Template Updates](syncing-upstream/README.md) for what a conflict in one of these actually looks like.
 
-Compose files and env files aren't in that tier at all: each got the same `mystic_auth/`/`app/` split as everything else (`docker/mystic_auth/compose/` + `docker/app/compose/`, `env/mystic_auth/` + `env/app/`), so a sync never conflicts on them either. Every `docker compose` invocation in this template's own scripts passes both `-f` flags and both `--env-file` flags (mystic_auth's, then app's, so an app-declared value wins on overlap) - see [Docker: Compose Modes](../docker/compose-modes.md).
+Compose source files and env templates aren't in the Shared tier: each got the same `mystic_auth/`/`app/` split as everything else (`docker/mystic_auth/compose/` + `docker/app/compose/`, `env/mystic_auth/` + `env/app/`). Do not edit tracked `docker/mystic_auth/` files; put Compose changes in the matching `docker/app/compose/` override. Runtime copies such as `env/mystic_auth/.env.prod` are local deployment state, not upstream source, and may be edited. Every template script passes both `-f` flags and both `--env-file` flags (mystic_auth's, then app's, so an app-declared value wins on overlap) - see [Docker: Compose Modes](../docker/compose-modes.md).
 
 The same split reaches the rest of `docker/` too:
+
+### One intentional content exception
+
+The app-content translation files are the only tracked files below an
+upstream-owned path that a downstream operator is expected to rewrite:
+
+`frontend/src/mystic_auth/translations/languages/<lang>/{landing,status_pages,legal}.json`
+
+These namespaces are registered from the app layer because their content is
+deployment-specific, but the current translation layout keeps their JSON beside
+the other language namespaces so language completeness can be checked as a
+single set. Treat these files as **downstream-owned content with an
+upstream-owned location**: edit their values when deploying, never edit the
+surrounding MysticAuth translation code, and expect an upstream sync to report a
+conflict if the same file changed upstream. Resolve that conflict by retaining
+your reviewed deployment content and manually incorporating any new template
+keys. Do not silently accept upstream copy without reviewing it.
 
 - `docker/mystic_auth/dockerfiles/` + `docker/app/dockerfiles/`: upstream's `backend.Dockerfile`/`frontend.Dockerfile`/`backend-entrypoint.sh` versus your own, for a whole new service (not just tweaking an existing one - that's a rare enough need to treat as a "Shared, extend in place" edit on the upstream file directly). Compose lets an override file introduce a brand-new service name, not just override an existing one, so your own `docker/app/compose/docker-compose.<mode>.yml` can add a service that builds from `docker/app/dockerfiles/your-service.Dockerfile` and it merges in cleanly alongside every upstream service - see `docker/app/dockerfiles/README.md` for the exact shape.
 - `docker/mystic_auth/postgres-init/` + `docker/app/postgres-init/`: Postgres bootstrap scripts. Postgres only scans files directly inside `/docker-entrypoint-initdb.d/`, not subdirectories, so a fork's own init script needs an explicit per-file mount in its own `docker/app/compose/docker-compose.<mode>.yml` rather than just dropping a file in - see `docker/app/postgres-init/README.md` for the exact mount syntax.

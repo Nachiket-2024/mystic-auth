@@ -1,3 +1,5 @@
+from typing import Literal
+
 from sqlalchemy import tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -164,7 +166,7 @@ class UserPermissionRepository:
                         conditions=item.conditions, assigned_by=assigned_by,
                     )
                 )
-            status = "already_held" if already_held else "success"
+            status: Literal["success", "already_held"] = "already_held" if already_held else "success"
             results.append(BulkItemResult(user_email=user.email, identifier=item.action, status=status))
 
         try:

@@ -28,8 +28,8 @@ from mystic_auth.user_session.session_model import UserSession  # noqa: F401
 # every docker-compose invocation in this template's own scripts.
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 _env_file_values = {
-    **dotenv_values(os.path.join(_REPO_ROOT, 'env', 'mystic_auth', '.env')),
-    **dotenv_values(os.path.join(_REPO_ROOT, 'env', 'app', '.env')),
+    **dotenv_values(os.path.join(_REPO_ROOT, 'env', 'mystic_auth', '.env.dev')),
+    **dotenv_values(os.path.join(_REPO_ROOT, 'env', 'app', '.env.dev')),
 }
 for _key, _value in _env_file_values.items():
     if _value is not None:

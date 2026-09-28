@@ -27,8 +27,8 @@ ENTRY = {
     "resource_type": "users",
     "resource_identifier": None,
     "allowed": True,
-    "candidate_policy_names": ["user_administration"],
-    "granting_policy_names": ["user_administration"],
+    "candidate_policy_names": ["user_management"],
+    "granting_policy_names": ["user_management"],
     "failed_conditions": None,
     "context": {"ip_address": "203.0.113.7"},
 }

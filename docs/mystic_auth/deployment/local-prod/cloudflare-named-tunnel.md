@@ -11,7 +11,7 @@ stable-URL Cloudflare Named Tunnel walkthrough, start to finish.
 
 | File | Why it matters |
 |---|---|
-| `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` | Runs the same local-prod stack as Quick Tunnel, but with the `cloudflared` command changed to Named Tunnel mode. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` plus `docker/app/compose/docker-compose.local-prod-cloudflare.yml` | The upstream file defines the stack; your app override changes the `cloudflared` command to Named Tunnel mode without editing upstream. |
 | `env/mystic_auth/.env.local-prod-cloudflare.example` | Source template for Cloudflare local-prod settings, including `TUNNEL_TOKEN`. |
 | `env/mystic_auth/.env.local-prod-cloudflare` | Your local, gitignored copy with the tunnel token, public hostname, Google callback, and secrets. |
 | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.*` | Compose helpers that always pass the Cloudflare env file. |
@@ -20,6 +20,9 @@ stable-URL Cloudflare Named Tunnel walkthrough, start to finish.
 ---
 
 ## Platform setup
+
+This guide uses the app-owned Compose override. Keep the tracked
+`docker/mystic_auth/` file unchanged so future upstream syncs remain clean.
 
 Requires a domain added to a free Cloudflare account. The domain's DNS
 zone must live in *your own* Cloudflare account for tunnel routing to
@@ -67,14 +70,15 @@ flowchart TD
 
 ---
 
-**Step 1: Copy the env file.**
+**Step 1: Copy both env files.**
 
 ```bash
 cp env/mystic_auth/.env.local-prod-cloudflare.example env/mystic_auth/.env.local-prod-cloudflare
+cp env/app/.env.local-prod-cloudflare.example env/app/.env.local-prod-cloudflare
 ```
 
 Same file as [Cloudflare Quick Tunnel](cloudflare-quick-tunnel.md): see Step 1 there for what it
-preconfigures. Do not start local-prod from `env/mystic_auth/.env.example`; that file is for
+preconfigures. Do not start local-prod from `env/mystic_auth/.env.dev.example`; that file is for
 the dev stack.
 
 ---
@@ -123,21 +127,31 @@ same redirect URI. It must match byte-for-byte, or login fails with
 
 ---
 
-**Step 6: Switch the compose file to Named Tunnel mode.**
+**Step 6: Switch the app Compose override to Named Tunnel mode.**
 
-Edit `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml`'s `cloudflared` service `command:`
-from the Quick Tunnel form to:
+Edit `docker/app/compose/docker-compose.local-prod-cloudflare.yml` to:
 
 ```yaml
-command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+services:
+  cloudflared:
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${TUNNEL_TOKEN}
 ```
+
+This override replaces only the upstream service command. The matching
+`local-prod-cloudflare-up` helper already passes both Compose files and both
+env files.
 
 ---
 
 **Step 7: Start (or restart) the stack.**
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare up -d --build
 # or: ./scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh
 ```
 
@@ -157,7 +171,7 @@ Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
 command as written. Re-run Step 7 with the profile added instead:
 
 ```bash
-docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --profile geoip up -d --build
+docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare --profile geoip up -d --build
 ```
 
 Without it, Manage Sessions' Location column silently shows "Unknown" with

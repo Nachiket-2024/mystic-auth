@@ -89,7 +89,7 @@ async def _timed(coro) -> Result:
     try:
         resp = await coro
         return Result(status=resp.status_code, seconds=time.perf_counter() - start)
-    except Exception as exc:  # network errors count as failures, not crashes
+    except Exception as exc:  # noqa: BLE001 - network errors count as failures, not crashes
         return Result(status=None, seconds=time.perf_counter() - start, error=str(exc))
 
 

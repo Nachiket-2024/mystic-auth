@@ -43,7 +43,7 @@ sed_inplace() {
   # Portable `sed -i` across GNU and BSD sed, via a temp file rather than
   # `-i.bak`: that flag's fixed ".bak" suffix would collide with (and
   # delete) a same-named backup a caller made on purpose, e.g. the
-  # env/mystic_auth/.env.bak convention scripts/mystic_auth/env-tools/copy-env-values/ expects.
+  # env/mystic_auth/.env.dev.bak convention scripts/mystic_auth/env-tools/copy-env-values/ expects.
   local tmp
   tmp="$(mktemp)"
   sed "$1" "$2" > "$tmp" && mv "$tmp" "$2"

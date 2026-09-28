@@ -1,4 +1,5 @@
 import { expect, test } from "../../../../../frontend/e2e/playwright";
+import { API_BASE_URL } from "../support/authenticatedMysticAuthApiRoutes";
 import { deleteBrowserSystemUser, SEEDED_PASSWORD, seedBrowserSystemUser, seededSystemEmail } from "../support/disposableSystemUser";
 
 test.describe("auth and routing in a real browser", () => {
@@ -26,9 +27,10 @@ test.describe("auth and routing in a real browser", () => {
     // redirect. Abort those unrelated requests so a backend 401 cannot make
     // the axios session interceptor log this test back out, and malformed
     // placeholder JSON cannot trip the app error boundary.
-    await page.route("http://localhost:8000/**", (route) =>
-      route.abort("blockedbyclient"),
-    );
+    await page.route(`${API_BASE_URL}/**`, (route) => {
+      if (new URL(route.request().url()).pathname === "/auth/login") return route.fallback();
+      return route.abort("blockedbyclient");
+    });
     await page.route("**/auth/login", async (route) => {
       loginAttempts += 1;
       if (loginAttempts === 1) {

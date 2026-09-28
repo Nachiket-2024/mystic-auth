@@ -175,7 +175,7 @@ describe('UsersPage bulk permission actions', () => {
     mock.onGet('/authorization/users/me/policies').reply(200, {
       user_email: 'admin@example.com',
       policies: [
-        { id: 1, name: 'user_administration', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
+        { id: 1, name: 'user_management', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
       ],
     });
     mock.onGet('/authorization/users/me/permissions').reply(200, { user_email: 'admin@example.com', permissions: [] });

@@ -3,7 +3,7 @@ $ErrorActionPreference = "Continue"
 
 # PowerShell counterpart to local-prod-cloudflare-up.sh. Always passes
 # --env-file env/mystic_auth/.env.local-prod-cloudflare, so this stack never
-# accidentally reads dev's env/mystic_auth/.env.
+# accidentally reads dev's env/mystic_auth/.env.dev.
 #
 # Usage: .\scripts\mystic_auth\docker\local-prod-cloudflare\local-prod-cloudflare-up.ps1 up -d --build
 #        .\scripts\mystic_auth\docker\local-prod-cloudflare\local-prod-cloudflare-up.ps1 logs -f frontend

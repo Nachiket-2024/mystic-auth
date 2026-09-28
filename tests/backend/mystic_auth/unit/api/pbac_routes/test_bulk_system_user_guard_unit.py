@@ -199,7 +199,7 @@ async def test_bulk_remove_policies_rejects_system_user_but_applies_other_items(
     consulted for a rejected item."""
     system_user = _make_user("system@example.com", role=UserRole.system)
     normal_user = _make_user("normal@example.com")
-    policy = _make_policy(name="user_administration")
+    policy = _make_policy(name="user_management")
 
     mocker.patch(
         f"{POLICY_ROUTES_MODULE}.user_crud.get_by_emails", new_callable=AsyncMock,

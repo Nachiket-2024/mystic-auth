@@ -3,7 +3,7 @@ $ErrorActionPreference = "Continue"
 
 # PowerShell counterpart to local-prod-ngrok-up.sh. Always passes
 # --env-file env/mystic_auth/.env.local-prod-ngrok, so this stack never accidentally
-# reads dev's env/mystic_auth/.env.
+# reads dev's env/mystic_auth/.env.dev.
 #
 # Usage: .\scripts\mystic_auth\docker\local-prod-ngrok\local-prod-ngrok-up.ps1 up -d --build
 #        .\scripts\mystic_auth\docker\local-prod-ngrok\local-prod-ngrok-up.ps1 logs -f frontend

@@ -1,16 +1,18 @@
 Sync this app with the latest mystic-auth template
 (https://github.com/Nachiket-2024/mystic-auth) and do the full integration:
 
-1. Read only the COMPOSE_PROJECT_NAME line from env/mystic_auth/.env (or whichever
-   env file exists) to get this project's own name/image prefix - use
-   that value anywhere below that needs it, don't ask me for it. Don't
-   read, print, or otherwise touch any other field in that file.
+1. Read only the COMPOSE_PROJECT_NAME, APP_NAME, and BRAND_COLOR lines from
+   env/mystic_auth/.env.dev (or the matching existing dev env file). Use the
+   project name wherever the steps below need the name/image prefix, and use
+   the app name/brand color when setup-env asks its prompts. These three
+   fields are not secrets; do not read, print, or otherwise touch any other
+   field in that file.
 2. Check how far behind upstream we are and whether upstream did any
    structural reorg (moved/renamed top-level dirs, config files, or
    scripts) since our last sync - check the top-level tree diff directly,
    don't just trust the sync script to handle it silently.
 3. Run scripts/mystic_auth/upstream-sync/sync-upstream.sh. If it hard-fails on any
-   shared config file (docker-compose*, .env*.example, Dockerfiles)
+   upstream source config file (docker-compose*, .env*.example, Dockerfiles)
    because upstream relocated it, re-diff excluding those paths, apply
    that, then hand-port our app-specific additions into upstream's new
    file/location yourself.
@@ -18,21 +20,34 @@ Sync this app with the latest mystic-auth template
    upstream's wording; a real conflict in main.py/App.tsx (the only files
    in the "shared, extend in place" tier that upstream can keep changing)
    gets both sides merged. Never hand-edit anything under
-   backend/mystic_auth/, frontend/src/mystic_auth/, docs/mystic_auth/,
+   backend/mystic_auth/, docs/mystic_auth/,
    screenshots/mystic_auth/, backend/app/sdk.py, or
    frontend/src/app/sdk.ts - a conflict in any of those means something
    went wrong upstream of this step, not something to merge by hand.
+   The one content exception is
+   frontend/src/mystic_auth/translations/languages/*/legal.json: those JSON
+   values are downstream-owned legal content even though the files remain in
+   the shared language tree. If one conflicts, preserve the deployment's
+   reviewed wording and manually add any new upstream keys; do not accept
+   legal wording blindly. Never hand-edit the surrounding mystic_auth
+   translation code.
+   Downstream runtime env files such as env/mystic_auth/.env.dev and
+   env/mystic_auth/.env.prod are local deployment state, not upstream source;
+   preserve their values through the env workflow. Put app-only configuration
+   in env/app/ and app-owned settings code, never in MysticAuth internals.
 5. Grep our own app-side code/tests for any import path pointing into a
    now-renamed mystic_auth internal module, and fix those.
 6. Regenerate every real env file without reading any of its old secret
    values yourself:
-   a. Rename each one aside with a .bak suffix (env/mystic_auth/.env to
-      env/mystic_auth/.env.bak, etc.) - never delete.
+   a. Rename each existing file in both env/mystic_auth/ and env/app/ aside
+      with a matching .bak suffix (for example env/app/.env.prod to
+      env/app/.env.prod.bak) - never delete. Include frontend/.env if it
+      exists.
    b. Run scripts/mystic_auth/env-tools/setup-env/setup-env.sh to generate fresh files with
       newly generated secrets and this sync's latest fields.
-   c. For each pair, run
-      scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh env/mystic_auth/.env.bak env/mystic_auth/.env
-      (matching the other renamed files) to copy every field that isn't
+   c. For each old/new pair, run
+      scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW
+      to copy every field that isn't
       a freshly generated secret back from the old file into the new one.
       Its own output only prints field names, never values - don't read
       the .bak files with cat or anything else yourself.
@@ -49,7 +64,7 @@ Sync this app with the latest mystic-auth template
 8. Run scripts/mystic_auth/upstream-sync/check-alembic-heads.sh; if it reports
    multiple heads, write the merge migration yourself.
 9. Rebuild and run the full test suite in Docker (backend
-   unit/integration/security with the 85% coverage gate, frontend
+   unit/integration/security with the 90% cumulative coverage gate, frontend
    typecheck/lint/vitest/build). Fix anything broken in app-owned code; if
    a failure traces back to an upstream mystic-auth file/test, don't fix
    it - tell me exactly what's broken and why.
@@ -57,7 +72,9 @@ Sync this app with the latest mystic-auth template
     "currently synced to" line, if we keep one) and any other stale
     doc/README/CI references. Don't touch .mystic-auth-sync-state -
     sync-upstream.sh already updated it as part of step 3.
-11. No git commits, don't push - leave everything staged/uncommitted so I
-    can review before committing.
+11. The sync script creates its own single sync commit on a clean successful
+    run. Do not create additional commits and do not push. If the sync stops
+    on a conflict or migration-head problem, leave its staged/uncommitted
+    state for me to review and resolve; never delete or reset work.
 12. Do this yourself directly - no subagents/Task agents for any part of
     this. Work through it inline in this session.

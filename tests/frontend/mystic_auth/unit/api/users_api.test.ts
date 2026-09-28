@@ -103,11 +103,11 @@ describe('exportUsersApi', () => {
 describe('listUsersApi with policy/permission filters', () => {
   it('passes policy and permission through as query params', async () => {
     mock.onGet('/users/').reply((config) => {
-      expect(config.params).toMatchObject({ policy: 'user_administration', permission: 'users:list_all' });
+      expect(config.params).toMatchObject({ policy: 'user_management', permission: 'users:list_all' });
       return [200, []];
     });
 
-    const response = await listUsersApi({ policy: 'user_administration', permission: 'users:list_all' });
+    const response = await listUsersApi({ policy: 'user_management', permission: 'users:list_all' });
 
     expect(response.status).toBe(200);
   });

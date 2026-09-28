@@ -1,13 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 
 import {
-    updateUserApi,
     deleteUserApi,
     purgeUserApi,
     reactivateUserApi,
     updateUserRoleApi,
     exportUsersApi,
-    type UserUpdatePayload,
     type ManagedUserRead,
     type ListUsersParams,
 } from "../../api/users_api";
@@ -20,21 +18,6 @@ import { USERS_QUERY_KEY } from "./userQueries";
  * Management page's table is a TanStack Query cache read, not local state,
  * so a management action here is reflected everywhere that list is rendered.
  */
-export function useUpdateUserMutation() {
-    return useMutation<ManagedUserRead, Error, { userEmail: string; payload: UserUpdatePayload }>({
-        mutationFn: async ({ userEmail, payload }) => {
-            try {
-                return (await updateUserApi(userEmail, payload)).data;
-            } catch (error) {
-                throw new Error(extractApiErrorMessage(error, "Failed to update user"), { cause: error });
-            }
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
-        },
-    });
-}
-
 export function useDeleteUserMutation() {
     return useMutation<void, Error, { userEmail: string }>({
         mutationFn: async ({ userEmail }) => {

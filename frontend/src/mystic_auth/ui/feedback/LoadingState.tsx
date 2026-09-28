@@ -20,8 +20,10 @@ const LoadingState: React.FC<LoadingStateProps> = ({ message, fullScreen = false
                 fullScreen ? "h-screen bg-bg-canvas" : "h-full py-12"
             )}
         >
-            <Loader2 className="size-8 animate-spin text-brand-solid" aria-hidden="true" />
-            <span className="ml-4 text-lg text-fg-muted">{message}</span>
+            <div className="flex items-center">
+                <Loader2 className="size-8 animate-spin text-brand-solid" aria-hidden="true" />
+                <span className="ml-4 text-lg text-fg-muted">{message}</span>
+            </div>
         </div>
     );
 };

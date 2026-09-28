@@ -5,7 +5,7 @@ import { fulfillUnauthenticatedAuthJson } from "../support/unauthenticatedAuthAp
 test.describe("password reset browser behavior", () => {
   test("reset request posts only to the stubbed reset endpoint and starts cooldown", async ({ page }) => {
     let resetRequests = 0;
-    await page.route("http://localhost:8000/auth/password-reset/request", async (route) => {
+    await page.route("**/auth/password-reset/request", async (route) => {
       resetRequests += 1;
       expect(route.request().postDataJSON()).toEqual({ email: "reset-browser@example.com" });
       return fulfillUnauthenticatedAuthJson(route, { message: "Password reset link sent." });
@@ -26,7 +26,7 @@ test.describe("password reset browser behavior", () => {
 
   test("reset confirmation validates locally and redeems URL tokens through the stubbed endpoint", async ({ page }) => {
     let confirmRequests = 0;
-    await page.route("http://localhost:8000/auth/password-reset/confirm", async (route) => {
+    await page.route("**/auth/password-reset/confirm", async (route) => {
       confirmRequests += 1;
       expect(route.request().postDataJSON()).toEqual({ token: "reset-token", new_password: "ValidPass123" });
       return fulfillUnauthenticatedAuthJson(route, { message: "Password reset.", sessions_revoked: true });
@@ -50,7 +50,7 @@ test.describe("password reset browser behavior", () => {
   });
 
   test("reset confirmation supports manual token entry when the URL has no token", async ({ page }) => {
-    await page.route("http://localhost:8000/auth/password-reset/confirm", async (route) => {
+    await page.route("**/auth/password-reset/confirm", async (route) => {
       expect(route.request().postDataJSON()).toEqual({ token: "manual-token", new_password: "ValidPass123" });
       return fulfillUnauthenticatedAuthJson(route, { message: "Password reset.", sessions_revoked: false });
     });

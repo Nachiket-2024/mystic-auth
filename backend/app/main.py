@@ -1,10 +1,11 @@
 import asyncio
+import os
 import signal
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -12,9 +13,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-_ = load_dotenv(dotenv_path=BASE_DIR / "env" / ".env")
 
-from .sdk import (  # noqa: E402, must follow load_dotenv() above, since sdk.py reads env-dependent settings at import time
+# Local Python runs use the same two development env files as the Compose
+# stack. Process variables still win, so CI/Compose can inject another mode
+# without this fallback changing it. App values are loaded last, matching
+# Compose's mystic_auth-then-app precedence.
+for _key, _value in {
+    **dotenv_values(BASE_DIR / "env" / "mystic_auth" / ".env.dev"),
+    **dotenv_values(BASE_DIR / "env" / "app" / ".env.dev"),
+}.items():
+    if _value is not None:
+        os.environ.setdefault(_key, _value)
+
+from .app_sdk import register_extensions  # noqa: E402
+from .sdk import (  # noqa: E402, must follow the env fallback above, since sdk.py reads env-dependent settings at import time
     AppError,
     CorrelationIdMiddleware,
     LoggingMiddleware,
@@ -51,6 +63,11 @@ from .sdk import (  # noqa: E402, must follow load_dotenv() above, since sdk.py 
 )
 
 logger = get_logger("main")
+
+# The app-owned extension hook is a no-op in the template. Downstream projects
+# add handlers and other startup registration in backend/app/app_sdk.py
+# without editing backend/mystic_auth/.
+register_extensions()
 
 # Before the app starts serving requests, so every request from the very
 # first one onward is covered. A no-op when SENTRY_DSN is unset (see

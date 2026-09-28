@@ -13,7 +13,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
 from backend.mystic_auth.authorization.policies.default_policies import (
     SELF_SERVICE_POLICY_NAME,
     SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_ADMINISTRATION_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
 )
 from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
@@ -95,7 +95,7 @@ async def create_admin(client, created_emails, email: str):
     return await create_verified_user(
         client, created_emails, email,
         role=UserRole.admin,
-        policy_names=[SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME],
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME],
     )
 
 
@@ -103,7 +103,7 @@ async def create_system_user(client, created_emails, email: str):
     return await create_verified_user(
         client, created_emails, email,
         role=UserRole.system,
-        policy_names=[SELF_SERVICE_POLICY_NAME, USER_ADMINISTRATION_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
     )
 
 

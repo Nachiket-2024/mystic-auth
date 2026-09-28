@@ -66,19 +66,19 @@ def test_evaluate_detailed_lists_a_policy_as_rejected_with_its_failed_condition_
 def test_evaluate_detailed_reports_only_matching_action_resource_type_policies_as_evaluated_candidates():
     policies = [
         _policy(["users:read_own"], name="self_service"),
-        _policy(["users:list_all"], name="user_administration"),
+        _policy(["users:list_all"], name="user_management"),
     ]
 
     decision = PolicyEvaluationEngine.evaluate_detailed(
         policies, "users:list_all", "users", "admin@example.com"
     )
 
-    assert decision.matched_policies == ["user_administration"]
+    assert decision.matched_policies == ["user_management"]
     assert "self_service" not in decision.matched_policies
     assert "self_service" not in decision.rejected_policies
     # evaluated_policies is the superset: every policy the user held,
     # including ones that never even matched action/resource_type
-    assert decision.evaluated_policies == ["self_service", "user_administration"]
+    assert decision.evaluated_policies == ["self_service", "user_management"]
 
 
 def test_evaluate_detailed_denial_reason_is_no_matching_policy_when_nothing_matches_action():
