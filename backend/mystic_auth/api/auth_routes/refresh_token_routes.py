@@ -11,6 +11,7 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/auth/refresh", tags=["Refresh Token"])
 
 
+@router.post("", response_model=TokenPairResponseSchema)
 @router.post("/", response_model=TokenPairResponseSchema)
 async def refresh_tokens(request: Request, db: AsyncSession = Depends(database.get_session)):
     """

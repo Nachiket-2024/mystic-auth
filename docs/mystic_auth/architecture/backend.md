@@ -17,7 +17,7 @@ FastAPI application (`backend/mystic_auth/`, with the entry point and extension 
 | `auth/` | Authentication: signup, login, logout, logout-all, refresh-token rotation, password reset, account verification, Google OAuth2/PKCE, JWT/cookie handling; `auth/security/` holds `client_ip.py` (trusted-proxy-aware IP resolution), `security_headers_middleware.py`, `rate_limiter_service.py`, `login_protection_service.py`. See [Authentication Overview](../authentication/overview.md) |
 | `authorization/` | PBAC engine: policies, conditions, evaluator, caching, its own audit log. See [PBAC Architecture](../authorization/architecture/README.md) |
 | `audit_log/` | Security/session-event audit log (`security_audit_log` table), distinct from the PBAC audit log, see [Database Design](../database/design.md#why-two-audit-tables-not-one) |
-| `core/` | Cross-cutting config: `settings.py` (pydantic-settings, env-driven) |
+| `core/` | Cross-cutting template config: `settings.py` (pydantic-settings, env-driven); app-owned settings live under the sibling `backend/app/core/` tree |
 | `database/` | `connection.py` for the async SQLAlchemy engine/session factory; `base.py` for the declarative base |
 | `emails/` | `email_template_service.py` for shared HTML email template rendering; `email_sender.py` for the SMTP transport boundary (swappable provider); `email_normalization.py` canonicalizes stored/looked-up email addresses |
 | `error_monitoring/` | `sentry_service.py` for error reporting via the Sentry SDK protocol (works against Sentry itself or a self-hosted compatible server, e.g. Bugsink, which runs by default). A complete no-op unless `SENTRY_DSN` is set. See [Error Monitoring](../error-monitoring/overview.md) |
@@ -59,7 +59,7 @@ In production (`ENVIRONMENT=production`), `/docs`, `/redoc`, and `/openapi.json`
 
 ## Configuration
 
-Template configuration is centralized in the upstream-owned `core/settings.py` (`pydantic-settings`); its fields are documented inline and its values come from the template env file plus the app env override. Downstream projects must keep their own settings in an app-owned module under `backend/app/` and their variables in the matching `env/app/.env.dev` or `env/app/.env.<mode>` file, rather than editing `core/settings.py` or reading environment variables throughout feature code. See [Building On This Template: Backend customization](../template-usage/customization.md#backend-customization) and [Environment Configuration](../environment/README.md#the-mystic_auth--app-split).
+Template configuration is centralized in the upstream-owned `core/settings.py` (`pydantic-settings`); its fields are documented inline and its values come from the template env file plus the app env override. Downstream projects must keep their own settings in the app-owned `backend/app/core/settings.py` (with related app-owned core modules alongside it), and their variables in the matching `env/app/.env.dev` or `env/app/.env.<mode>` file, rather than editing `core/settings.py` or reading environment variables throughout feature code. See [Building On This Template: Backend customization](../template-usage/customization.md#backend-customization) and [Environment Configuration](../environment/README.md#the-mystic_auth--app-split).
 
 ---
 

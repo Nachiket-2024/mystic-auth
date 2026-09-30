@@ -55,6 +55,16 @@ describe('AccountSettingsPage', () => {
     expect(screen.getByDisplayValue('Test User')).toBeInTheDocument();
   });
 
+  it('matches the User Access selected-state outline without the shared tab shadow', () => {
+    renderAccountSettings();
+
+    const profileTab = screen.getByRole('tab', { name: 'Profile' });
+    expect(profileTab).toHaveClass('focus-visible:!border-transparent');
+    expect(profileTab).toHaveClass('data-[state=active]:before:hidden');
+    expect(profileTab).toHaveClass('dark:data-[state=active]:!border-transparent');
+    expect(profileTab).toHaveClass('data-[state=active]:!shadow-[inset_0_0_0_2px_var(--brand-solid)]');
+  });
+
   it('renders effective policies on the Permissions tab', async () => {
     renderAccountSettings();
     const user = userEvent.setup();

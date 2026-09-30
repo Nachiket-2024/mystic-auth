@@ -20,6 +20,13 @@ Bugsink's own healthcheck hitting `/health/ready` every 10 seconds,
 forever, all mixed in with whatever you actually started the stack to look
 at. None of that is useful once the stack is actually up.
 
+For the optional debugger-friendly path that runs FastAPI on the host while
+Postgres and Valkey stay in Docker, use
+`scripts/mystic_auth/docker/dev/backend-host-run.sh` (`.ps1`/`.cmd`). It reads
+the configured `POSTGRES_HOST_PORT` and `VALKEY_HOST_PORT`, derives
+`localhost` URLs in memory, runs migrations, and starts Uvicorn with reload.
+The normal `dev-up` helper remains the Docker-first workflow.
+
 Use the helper for your shell:
 
 ```bash

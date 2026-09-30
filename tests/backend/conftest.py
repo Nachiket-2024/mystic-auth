@@ -34,13 +34,13 @@ def _read_env_value(key: str) -> str | None:
     return None
 
 
-# docker/mystic_auth/compose/docker-compose.dev.yml maps these to non-default host ports (5433, 6380) to
-# avoid colliding with a developer's own local Postgres/Valkey. Swapping only
-# the hostname (postgres -> localhost) and keeping the container's port would
-# silently connect to whatever else is listening on the real default port,
-# instead of failing loudly.
-_LOCAL_POSTGRES_PORT = "5433"
-_LOCAL_VALKEY_PORT = "6380"
+# docker/mystic_auth/compose/docker-compose.dev.yml maps these to non-default
+# host ports to avoid colliding with a developer's own local Postgres/Valkey.
+# Read the configured mappings so host-run tests follow custom .env overrides.
+# Swapping only the hostname and keeping the container's port would silently
+# connect to whatever else is listening on the real default port.
+_LOCAL_POSTGRES_PORT = _read_env_value("POSTGRES_HOST_PORT") or "5433"
+_LOCAL_VALKEY_PORT = _read_env_value("VALKEY_HOST_PORT") or "6380"
 
 if "DATABASE_URL" not in os.environ:
     _docker_db_url = _read_env_value("DATABASE_URL")
@@ -51,7 +51,7 @@ if "DATABASE_URL" not in os.environ:
 
 # database/connection.py's `database` singleton (the engine every integration
 # test hits via the `client` fixture) prefers APP_DATABASE_URL over
-# DATABASE_URL (see settings.py's docstring on the least-privilege app DB
+# DATABASE_URL (see mystic_auth/core/settings.py's docstring on the least-privilege app DB
 # role). .env sets APP_DATABASE_URL too, still pointed at the docker-internal
 # "postgres" hostname, so it needs the same localhost rewrite. Without this,
 # tests run from the host fail on the first real query with "Temporary

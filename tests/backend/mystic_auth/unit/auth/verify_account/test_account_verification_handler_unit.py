@@ -116,7 +116,7 @@ async def test_verification_email_request_always_returns_generic_200(mocker):
 
 
 @pytest.mark.asyncio
-async def test_verification_email_request_logs_only_when_email_is_sent(mocker):
+async def test_verification_email_request_logs_successful_delivery(mocker):
     mocker.patch(
         f"{MODULE}.account_verification_service.send_verification_email_if_needed",
         return_value=True,
@@ -129,10 +129,11 @@ async def test_verification_email_request_logs_only_when_email_is_sent(mocker):
 
     assert response.status_code == 200
     log_mock.assert_awaited_once()
+    assert log_mock.await_args.kwargs["success"] is True
 
 
 @pytest.mark.asyncio
-async def test_verification_email_request_does_not_log_unsent_request(mocker):
+async def test_verification_email_request_logs_unsent_request_without_email_identity(mocker):
     mocker.patch(
         f"{MODULE}.account_verification_service.send_verification_email_if_needed",
         return_value=False,
@@ -144,4 +145,6 @@ async def test_verification_email_request_does_not_log_unsent_request(mocker):
     )
 
     assert response.status_code == 200
-    log_mock.assert_not_called()
+    log_mock.assert_awaited_once()
+    assert log_mock.await_args.kwargs["success"] is False
+    assert log_mock.await_args.kwargs["user_email"] is None

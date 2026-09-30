@@ -28,11 +28,12 @@ flowchart TD
 ## 1. First-time setup
 
 1. **`setup-env/setup-env.sh`**: bootstraps every `env/mystic_auth/.env*` and `env/app/.env*` file (plus `frontend/.env`) from its `.example` in one run.
+   - The PowerShell counterpart supports `-NonInteractive` for automation and CI; it uses the same canonical defaults as the Bash helper.
    - Skips any file that already exists - safe to re-run.
    - Generates a distinct random secret per password field, per file (a leaked dev secret never compromises prod).
    - Keeps `DATABASE_URL`/`APP_DATABASE_URL` in sync with the freshly generated password.
    - Prompts once for an app name and brand color, applies both everywhere.
-   - Deliberately leaves `VALKEY_PASSWORD` blank - see [Valkey authentication](../security/hardening-infra.md#valkey-authentication) for why that one needs a manual step.
+   - Generates a distinct `VALKEY_PASSWORD` per env file and embeds it in that file's `VALKEY_URL`.
 2. **`quickstart/quickstart.sh`**: the fastest path for a brand-new clone. Runs `setup-env` only if `env/mystic_auth/.env.dev` is missing, brings the dev stack up (reusing `dev-up`'s own readiness wait via a `DEV_UP_TAIL=0` toggle), offers to create the system superuser inline, then tails logs. See [Template Usage: Quickstart](../template-usage/quickstart.md).
 
 ---

@@ -18,8 +18,110 @@ mystic_auth/-owned UI without editing it directly. See
 
 - **New domain/resource**: a new top-level package under `backend/app/` (sibling to `mystic_auth/`) with its own model/schema/CRUD/router, mounted in `backend/app/main.py`, importing from `backend/app/sdk.py`. See [Backend Architecture](../architecture/backend.md#module-layout) for the shape to follow.
 - **Database changes**: an Alembic migration under `backend/alembic/versions/`: no `create_all()`. See [Database Design](../database/design.md#migrations).
-- **Configuration**: template settings live in the upstream-owned `backend/mystic_auth/core/settings.py` and are re-exported from `sdk.py` as `settings`; do not add downstream fields there. Put your app's variables in the matching `env/app/.env.dev` or `env/app/.env.<mode>` file and read them from an app-owned settings/config module under `backend/app/` (for example, a `BaseSettings` class in `backend/app/config.py`). Compose loads both env-file halves, and `extra="ignore"` on the template settings lets app-only variables coexist without editing MysticAuth. See [Environment Configuration](../environment/README.md#the-mystic_auth--app-split).
+- **Configuration**: template settings live in the upstream-owned `backend/mystic_auth/core/settings.py` and are re-exported from `sdk.py` as `settings`; do not add downstream fields there. Put your app's variables in the matching `env/app/.env.dev` or `env/app/.env.<mode>` file and read them from the app-owned `backend/app/core/settings.py` (extend that `BaseSettings` class) or another app-owned settings module under `backend/app/core/`. Compose loads both env-file halves, and `extra="ignore"` on the template settings lets app-only variables coexist without editing MysticAuth. See [Environment Configuration](../environment/README.md#the-mystic_auth--app-split).
 - **Authorization condition extensions**: keep a custom handler and validator under `backend/app/` and register them from `backend/app/app_sdk.py` with `register_condition_type()`; do not edit the registry or validator under `backend/mystic_auth/`. See [Adding Condition Handlers](../authorization/adding-condition-handlers.md).
+
+## First-feature tutorial
+
+This small example adds a product-owned `projects` resource without editing
+the template internals. Replace the names with your own domain; the locations
+and direction of the imports are the important part.
+
+### 1. Create the app-owned folders
+
+```text
+backend/app/projects/
+  __init__.py
+  models.py
+  schemas.py
+  repository.py
+  routes.py
+frontend/src/app/projects/
+  ProjectsPage.tsx
+tests/backend/app/projects/
+  test_projects_routes.py
+tests/frontend/app/projects/
+  ProjectsPage.test.tsx
+```
+
+Keep reusable authentication and PBAC implementation in `mystic_auth/`. Your
+project imports the stable backend surface from `backend/app/sdk.py` (or
+`app.sdk` inside Docker), and the stable frontend surface from
+`frontend/src/app/sdk.ts`.
+
+### 2. Add app-owned configuration, if needed
+
+Add a field to `backend/app/core/settings.py`, not to
+`backend/mystic_auth/core/settings.py`:
+
+```python
+class AppSettings(BaseSettings):
+    PROJECTS_PAGE_SIZE: int = 50
+```
+
+Add the value only to the matching app env files, for example
+`env/app/.env.dev` and `env/app/.env.prod`. The template env files are not the
+place for product-specific settings. In code, import `app_settings` from
+`backend.app.core.settings` in native tests and `app.core.settings` in the
+container, or expose the value through your own app module.
+
+### 3. Protect the route through PBAC
+
+```python
+from fastapi import APIRouter, Depends
+from app.sdk import Permission, database, require_authorization
+
+router = APIRouter(prefix="/projects", tags=["Projects"])
+
+@router.get("")
+async def list_projects(
+    current_user=Depends(require_authorization("projects:read", "projects")),
+    db=Depends(database.get_session),
+):
+    return await project_repository.list_for_user(db, current_user["email"])
+```
+
+Register the router in the shared `backend/app/main.py` entry point. Add an
+app-owned migration under `backend/alembic/versions/` for tables and an
+app-owned seed/policy path for the first `projects:read` grant. Do not add the
+action to the template permission catalog unless it becomes reusable
+MysticAuth behavior.
+
+### 4. Add the frontend route through the app shell
+
+Import `ProtectedRoute`, `useCan`/`useAuthorization`, and shared UI from
+`frontend/src/app/sdk.ts`. Add the page and route in the shared
+`frontend/src/app/App.tsx`; add an app-owned navigation item through the
+documented extension point where possible. The frontend may hide a control,
+but the backend authorization dependency remains authoritative.
+
+### 5. Test the complete boundary
+
+Add route tests under `tests/backend/app/` and UI tests under
+`tests/frontend/app/`. Cover an allowed request, a denied request, an
+unassigned user, and the app setting's default/override behavior. Before
+opening a PR, run the backend unit suite, frontend tests, `ruff`, `mypy`, and
+the split/path checks listed in the [command cheat sheet](cheatsheet.md).
+
+### 6. Add deployment overrides only when necessary
+
+If the feature needs a service or volume, add it in
+`docker/app/compose/docker-compose.<mode>.yml`; do not copy and edit the
+whole MysticAuth Compose file. If it needs a script, add it under
+`scripts/app/`. Start the stack with both Compose files and both env files, in
+this order:
+
+```bash
+docker compose \
+  -f docker/mystic_auth/compose/docker-compose.dev.yml \
+  -f docker/app/compose/docker-compose.dev.yml \
+  --env-file env/mystic_auth/.env.dev \
+  --env-file env/app/.env.dev \
+  up -d --build
+```
+
+This is the repeatable downstream workflow: app code and configuration stay in
+the app tree, while MysticAuth remains replaceable by a future upstream sync.
 
 ---
 

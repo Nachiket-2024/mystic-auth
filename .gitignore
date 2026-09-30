@@ -126,3 +126,6 @@ design/
 # report itself (an Artifact) is the durable record; this is its backing data,
 # same reasoning as security-audit-*/ above.
 audit-evidence/
+
+# Scratch output of an audit pass (scripts, probes, overrides, raw logs).
+audit-out/

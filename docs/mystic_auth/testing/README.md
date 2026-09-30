@@ -24,7 +24,7 @@ focused page for the test type.
 
 - [Backend test map](backend.md): explains the backend layers and collection
   commands.
-- [Backend unit tests](backend-unit.md): 105 isolated modules, grouped by
+- [Backend unit tests](backend-unit.md): 106 isolated modules, grouped by
   authentication, PBAC, users, infrastructure, and workers.
 - [Backend integration tests](backend-integration.md): 48 database- and
   Valkey-backed endpoint and workflow modules.
@@ -41,11 +41,12 @@ focused page for the test type.
 
 - [Frontend test map](frontend.md): explains the frontend layers and how the
   runners differ.
-- [Frontend unit tests](frontend-unit.md): 96 focused hooks, API clients,
+- [Frontend unit tests](frontend-unit.md): 101 MysticAuth modules plus three
+  app-wrapper modules covering hooks, API clients,
   stores, components, and pure helpers.
 - [Frontend integration tests](frontend-integration.md): 33 rendered page
   modules using controlled API responses, plus the app-owned Vitest tests.
-- [Frontend browser E2E tests](frontend-e2e.md): all 26 Playwright specs,
+- [Frontend browser E2E tests](frontend-e2e.md): all 27 Playwright specs,
   including their mocked, disposable-account, real-matrix, and live modes.
 - [Frontend authorization test detail](frontend-authorization.md): exact
   client-side permission, route, mocked-matrix, and real-matrix behavior.

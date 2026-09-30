@@ -95,7 +95,7 @@ Review these settings before sharing a production-shaped deployment:
 6. Set `JWT_ISSUER` and `JWT_AUDIENCE`, normally to the backend origin for this deployment.
 7. Set `TRUSTED_PROXY_IPS` to the reverse-proxy hop that should be trusted for `X-Forwarded-For`. For the bundled prod/local-prod-* Compose files this is derived automatically from `FRONTEND_STATIC_IP`/the tunnel's `*_STATIC_IP` var - see [Routing: Trusted proxy IPs](routing.md#2-trusted-proxy-ips) - so review those vars instead of `TRUSTED_PROXY_IPS` directly.
 8. Leave `VITE_API_BASE_URL` empty for the bundled same-origin nginx proxy, or set it only when the frontend is deployed separately.
-9. Set `DEFAULT_APP_POLICIES` only when downstream app policies should be assigned to every verified user.
+9. Set the app-owned `DEFAULT_APP_POLICIES` in the matching `env/app/.env.<mode>` file only when downstream app policies should be assigned to every verified user. Do not add it to `env/mystic_auth`.
 10. Configure `SENTRY_DSN` and `VITE_SENTRY_DSN` only when error monitoring is enabled.
 11. Configure `GEOIP_DB_PATH` and `GEOIPUPDATE_*` only when enabling the `geoip` Compose profile.
 12. Keep `USER_EXPORT_MAX_ROWS` sized for the largest safe CSV export your deployment can handle.
@@ -103,7 +103,7 @@ Review these settings before sharing a production-shaped deployment:
 
 ---
 
-## 6. Running the backend without Docker
+## 6. Optional: Running the backend without Docker
 
 ---
 
@@ -112,15 +112,12 @@ reload loop than the Dockerized `dev` target gives you. Postgres and Valkey
 still run in Docker either way; only the FastAPI process itself moves to
 the host.
 
-1. Bring up just the data services: `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d postgres valkey`.
-2. In `env/mystic_auth/.env.dev`, swap `DATABASE_URL` and `VALKEY_URL` for their commented-out `localhost` alternatives already shipped right below each one (`postgres:5432` -> `localhost:5433`, `valkey:6379` -> `localhost:6380`, the host ports the dev Compose file maps to avoid colliding with a developer's own local Postgres/Valkey).
-3. From the repo root, create a virtualenv and install both dependency files: `pip install -r backend/requirements.txt -r backend/requirements-dev.txt`.
-4. Run migrations once: `cd backend && alembic upgrade head`.
-5. Start the app: `uvicorn app.main:app --reload` from `backend/`. `--reload` gives a faster edit loop than rebuilding the Docker image.
+1. From the repo root, create a virtualenv and install both dependency files: `pip install -r backend/requirements.txt -r backend/requirements-dev.txt`.
+2. Run `scripts/mystic_auth/docker/dev/backend-host-run.sh` (`.ps1`/`.cmd`). It starts only Postgres and Valkey, reads `POSTGRES_HOST_PORT`/`VALKEY_HOST_PORT`, derives the host-reachable URLs in memory, runs migrations, and starts Uvicorn with `--reload`. Pass extra Uvicorn arguments after the script path when needed.
 
-`Settings` (`backend/mystic_auth/core/settings.py`) reads `env/mystic_auth/.env.dev` and `env/app/.env.dev` directly when a variable isn't already in the process environment, so no manual `export` is needed as long as you're running from a checkout with those files in place - only real-value overrides (an IDE launch config, a shell you've already exported into) take priority over the files.
+`Settings` (`backend/mystic_auth/core/settings.py`) reads `env/mystic_auth/.env.dev` and `env/app/.env.dev` directly when a variable isn't already in the process environment. The host-run helper supplies only the rewritten connection URLs and leaves the env files unchanged, so a single host-port edit works for both Docker and host-run workflows.
 
-Running the whole suite this way? `tests/backend/conftest.py` does the same `postgres`/`valkey` -> `localhost` derivation automatically from `env/mystic_auth/.env.dev` when `DATABASE_URL`/`VALKEY_URL` aren't already set, so `pytest` from the repo root needs no extra setup once step 1 above is running. See [Testing Overview](../testing/overview.md).
+Running the whole suite this way? `tests/backend/conftest.py` does the same `postgres`/`valkey` -> `localhost` derivation automatically from `env/mystic_auth/.env.dev` when `DATABASE_URL`/`VALKEY_URL` aren't already set, so `pytest` from the repo root needs no extra URL setup once the data services are running. See [Testing Overview](../testing/overview.md).
 
 ---
 

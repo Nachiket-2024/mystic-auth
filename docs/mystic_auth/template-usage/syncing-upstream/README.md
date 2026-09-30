@@ -47,7 +47,7 @@ flowchart TD
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
-Silent partial apply, conflict, and multiple alembic heads are safety nets, not expected steps - see [Troubleshooting](troubleshooting.md) for each. Most syncs go straight down the right-hand "Clean" path.
+Silent partial apply, conflict, and multiple alembic heads are safety nets, not expected steps - see [Troubleshooting](troubleshooting.md) for each. If upstream removes or moves a file, the script prints an explicit `DELETE`/`MOVE` plan before asking for confirmation; the old upstream-owned path is included in the patch and is not silently retained. App-owned paths are normally outside upstream changes; if one appears unexpectedly, stop and inspect it before accepting the sync. Most syncs go straight down the right-hand "Clean" path.
 
 ---
 

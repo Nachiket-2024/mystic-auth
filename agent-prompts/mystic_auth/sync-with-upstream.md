@@ -74,7 +74,7 @@ Sync this app with the latest mystic-auth template
     sync-upstream.sh already updated it as part of step 3.
 11. The sync script creates its own single sync commit on a clean successful
     run. Do not create additional commits and do not push. If the sync stops
-    on a conflict or migration-head problem, leave its staged/uncommitted
+    on a conflict or migration-head problem, leave its staged/pending
     state for me to review and resolve; never delete or reset work.
 12. Do this yourself directly - no subagents/Task agents for any part of
     this. Work through it inline in this session.

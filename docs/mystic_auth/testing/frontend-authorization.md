@@ -106,11 +106,11 @@ switching to Security Events, the “All users” tab is checked against
 `security_audit_access`, and `user_lifecycle`, so the
 new Security Events frontend gate is exercised by real backend accounts.
 
-The seed creates 40 role/policy/direct-grant combinations and 96 accounts,
-but only verified-active representatives are browser-login buckets. The
-status plan intentionally leaves unverified and deactivated accounts for
-backend/lifecycle coverage. `system_superuser` is not added to this ordinary
-account matrix.
+The seed creates 40 role/policy/direct-grant combinations with a variable
+number of disposable copies per combination. Only verified-active
+representatives are browser-login buckets. The status plan intentionally
+leaves unverified and deactivated accounts for backend/lifecycle coverage.
+`system_superuser` is not added to this ordinary account matrix.
 
 ---
 

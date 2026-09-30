@@ -2,7 +2,7 @@
 
 ---
 
-This is the current repository tree as of 29 September, 2026. It reflects the established
+This is the current repository tree as of 1 October, 2026. It reflects the established
 `app/` and `mystic_auth/` ownership split, the PBAC implementation, the shadcn/Radix frontend,
 the separated test suites, the five Docker deployment modes, and the exact template extension
 points. Generated files, local secrets, build output, and test caches are omitted.
@@ -15,6 +15,8 @@ mystic-auth/
       main.py
       sdk.py
       app_sdk.py
+      core/
+        settings.py               # app-owned BaseSettings extension point
     mystic_auth/                # upstream-owned package
       api/
         audit_log_routes/
@@ -104,16 +106,22 @@ mystic-auth/
   docs/
     app/                          # project-owned docs
     mystic_auth/                  # upstream docs: api, appearance, architecture,
-                                   # authentication, authorization, background-workers,
-                                   # cicd, concerns, database, deployment, docker,
-                                   # environment, error-monitoring, geolocation, glossary,
-                                   # legal, project-story, security, template-usage,
-                                   # testing, translations
+                                  # authentication, authorization, background-workers,
+                                  # cicd, concerns, database, deployment, docker,
+                                  # environment, error-monitoring, geolocation, glossary,
+                                  # legal, project-story, security, template-usage,
+                                  # testing, translations
+      project-story/
+        timeline/
+          2026-oct.md
   tests/
     backend/
       app/
+        test_settings.py
       mystic_auth/
         unit/
+          auth/security/
+            test_rate_limiter_dashboard_edge_cases_unit.py
         integration/
         security/
         performance/
@@ -122,9 +130,28 @@ mystic-auth/
         e2e/
       mystic_auth/
         unit/
+          audit_log/security_log/
+            securityAccessChangeDetails.test.ts
+          store/
+            fontSizeStore.test.ts
+          ui/
+            routing/
+              RouteSkeleton.test.tsx
+            shadcn/
+              button.test.tsx
+            shared_components.test.tsx
         integration/
         e2e/
-    scripts/                     # script/tooling tests
+    scripts/                     # script/tooling tests, including host-run port derivation
+      mystic_auth/
+        db/
+          test-backup-compose-network.sh
+          test-backup-freshness.sh
+          test-backup-roundtrip.sh
+        docker/
+          test-backend-host-run.sh
+        env-tools/
+          test-setup-env.ps1
   agent-prompts/
     app/                         # project-owned prompts
     mystic_auth/                 # upstream prompts
@@ -132,15 +159,23 @@ mystic-auth/
       sync-with-upstream.md
   scripts/
     app/                         # project-owned scripts
+      env-tools/
+        rotate-secrets/fields.env.example
+        set-env-field/shared-values.env.example
     mystic_auth/                 # upstream scripts
       db/
       docker/
+        dev/
+          backend-host-run.sh
+          backend-host-run.ps1
+          backend-host-run.cmd
       env-tools/
       load-test/
       testing/                   # disposable test-account seeding (e.g. accessibility scans)
       upstream-sync/
   local-scripts/
     app/                         # project-owned local scripts
+      seed-user-permission-matrix.py
     mystic_auth/                 # upstream local scripts
       dev/
       local-prod-cloudflare/
@@ -174,6 +209,7 @@ mystic-auth/
         backend-entrypoint.sh
         frontend.Dockerfile
         db-backup.Dockerfile
+        db-backup-entrypoint.sh
       postgres-init/
         init-bugsink-db.sh
   screenshots/
@@ -183,6 +219,8 @@ mystic-auth/
     workflows/
       ci.yml
     PULL_REQUEST_TEMPLATE.md
+  .project/
+    project_story.md
   makefiles/
     app/                         # project-owned make/make.ps1 targets, ships empty
       Makefile
@@ -191,7 +229,7 @@ mystic-auth/
       Makefile
       make.ps1
   env/
-    app/                         # project-owned env fields, ships empty
+    app/                         # project-owned env fields; default-policy hook included
       .env.dev.example
       .env.local-prod-cloudflare.example
       .env.local-prod-ngrok.example

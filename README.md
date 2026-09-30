@@ -5,7 +5,7 @@
 **📖 Documentation Site: [https://nachiket-2024.github.io/mystic-auth-docs/](https://nachiket-2024.github.io/mystic-auth-docs/)**
 
 ![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-green?logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.142+-green?logo=fastapi)
 ![React](https://img.shields.io/badge/React-19+-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
@@ -206,9 +206,9 @@ What a signed-in user without the required permission sees when opening a protec
 - **i18n:** English, Hindi, Marathi, and Gujarati via `react-i18next`. See [Translations](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/translations/overview).
 - **Data/Infra:** PostgreSQL for durable state, Valkey for derived state and token/rate-limit counters, Procrastinate for PostgreSQL-backed background jobs.
 - **Error Monitoring:** Self-hosted Bugsink using the Sentry SDK protocol for backend and frontend exception reporting.
-- **Backups:** Scheduled `pg_dump` sidecar in local-prod and prod, with `pg_restore --list` verification, optional Backblaze B2 upload through `rclone`, Bugsink failure alerts, a freshness check, and a restore drill that restores into a scratch database and compares row counts. See [Migrations and Backups](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/migrations-and-backups) and [Known Issues](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) for setup and remaining PITR gaps.
+- **Backups:** Scheduled encrypted `pg_dump` sidecar in local-prod and prod, with `pg_restore --list` verification, required off-host upload configuration through `rclone` (or another command), Bugsink failure alerts, a freshness check, and a restore drill that restores into a scratch database and compares row counts. See [Migrations and Backups](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/migrations-and-backups) and [Known Issues](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/concerns) for setup and remaining PITR gaps.
 - **Deployment:** Docker dev mode, local-prod tunnel mode through Cloudflare/ngrok/Tailscale, and server-hosted prod mode behind Caddy-managed TLS.
-- **Browser E2E:** Playwright tests cover the app and MysticAuth UI split under `tests/frontend/app/e2e/` and `tests/frontend/mystic_auth/e2e/`, including authentication, dashboards, account settings, permission-protected pages, responsive layouts, no-email stubbed flows, keyboard and dialog focus behavior, a WCAG 2.1 AA accessibility scan (`@axe-core/playwright`) across every major page, and an opt-in live-deployment smoke test that makes real requests against an already-running deployment. A human keyboard and screen-reader listening pass still needs a graphical desktop with working audio. See [Browser E2E Tests](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/testing/browser-e2e)
+- **Browser E2E:** Playwright tests cover the app and MysticAuth UI split under `tests/frontend/app/e2e/` and `tests/frontend/mystic_auth/e2e/`, including authentication, dashboards, account settings, permission-protected pages, responsive layouts, no-email stubbed flows, keyboard and dialog focus behavior, a WCAG 2.1 AA accessibility scan (`@axe-core/playwright`) across every major page, and an opt-in live-deployment smoke test that makes real requests against an already-running deployment. A human keyboard and screen-reader listening pass still needs a graphical desktop with working audio. See [Frontend Browser E2E Tests](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/testing/frontend-e2e)
 
 ### Verification matrix
 
@@ -275,13 +275,20 @@ Skip the steps below. After cloning your new repo, hand your agent [`agent-promp
 
 ---
 
-   This is the whole setup in one command: it generates every `env/mystic_auth/.env*` file (plus `frontend/.env`) from its `.example` if `env/mystic_auth/.env.dev` doesn't exist yet (distinct random secret per password field, one app name/brand color prompt applied everywhere), brings the dev stack up and waits for it to be healthy, offers to create the system superuser right there, then tails logs. On the first run, Docker may need to pull the PostgreSQL, Valkey, and Bugsink images and build the local backend/worker/frontend images, so startup can take several minutes and depends on Docker Hub and Docker Desktop network speed. Later starts reuse those images and named volumes and are normally much faster. Safe to re-run any time. Prefer to see and run each step yourself? See [Using This Repository as a Template: Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart) for the same steps run individually (`setup-env`, `dev-up`, `create_system_user`), and for what each remaining field (Google OAuth, SMTP, a real domain, tunnel tokens) means.
+   This is the whole setup in one command: it generates both `env/mystic_auth/.env*` and `env/app/.env*` files (plus `frontend/.env`) from their `.example` files if the runtime copies do not exist yet (distinct random secret per password field, one app name/brand color prompt applied everywhere), brings the dev stack up and waits for it to be healthy, offers to create the system superuser right there, then tails logs. On the first run, Docker may need to pull the PostgreSQL, Valkey, and Bugsink images and build the local backend/worker/frontend images, so startup can take several minutes and depends on Docker Hub and Docker Desktop network speed. Later starts reuse those images and named volumes and are normally much faster. Safe to re-run any time. Prefer to see and run each step yourself? See [Using This Repository as a Template: Quickstart](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart) for the same steps run individually (`setup-env`, `dev-up`, `create_system_user`), and for what each remaining field (Google OAuth, SMTP, a real domain, tunnel tokens) means.
 
 3. Once it's up, open:
 
    - **Frontend:** http://localhost:5173
    - **Backend / API docs:** http://localhost:8000/docs
    - **Bugsink (error monitoring):** http://localhost:8010
+
+   These are the default host ports. To run another MysticAuth stack beside
+   this one, use a separate multi-project port configuration by changing
+   `POSTGRES_HOST_PORT`, `VALKEY_HOST_PORT`,
+   `BACKEND_HOST_PORT`, `FRONTEND_HOST_PORT`, and `BUGSINK_HOST_PORT` in
+   `env/mystic_auth/.env.dev`; the Compose mappings and backend host-run setup
+   use those values automatically.
 
 For running without Docker, the local-prod and prod modes, keeping secrets rotated (`scripts/mystic_auth/env-tools/check-env/`, `scripts/mystic_auth/env-tools/rotate-secrets/`), and a full list of environment variables, see [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview), [Deployment Guide](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/guide), and [System Superuser: Bootstrapping and Promotion](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser).
 

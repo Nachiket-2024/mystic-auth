@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Cookie, Depends, Request
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...audit_log.audit_log_service import SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED, log_security_event
 from ...auth.current_user.current_user_handler import current_user_handler
 from ...auth.login.login_handler import login_handler
 from ...auth.login.login_schema import LoginSchema
@@ -26,7 +27,8 @@ from ...auth.verify_account.account_verification_handler import account_verifica
 from ...auth.verify_account.verify_account_schema import VerifyAccountRequestSchema, VerifyAccountSchema
 from ...core.settings import settings
 from ...database.connection import database
-from ...user_session.session_events import session_event_stream
+from ...error_monitoring.sentry_service import capture_security_alert
+from ...user_session.session_events import acquire_session_event_lease, session_event_stream
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -132,7 +134,11 @@ async def get_current_user(
 
 
 @router.get("/session-events")
-async def session_events(access_token: str = Cookie(None), db: AsyncSession = Depends(database.get_session)):
+async def session_events(
+    request: Request,
+    access_token: str = Cookie(None),
+    db: AsyncSession = Depends(database.get_session),
+):
     """
     Server-Sent Events stream: nudges this caller's other open tabs/devices
     the instant their session is revoked (logout-all, password change, a
@@ -141,14 +147,35 @@ async def session_events(access_token: str = Cookie(None), db: AsyncSession = De
     See user_session/session_events.py for what actually gets published/sent.
 
     Not `@rate_limited`: that decorator is built around short request/
-    response calls within a rolling window, not one connection a client is
-    expected to hold open for its whole session - counting each SSE
-    reconnect as a "request" would make the limit fire on ordinary use, not
-    abuse.
+    response calls within a rolling window. Long-lived connections are
+    instead admitted through a Valkey-backed lease with independent per-
+    account and per-IP concurrency caps, so normal reconnects do not consume
+    a permanent request budget and a client cannot open unbounded streams.
     """
     current_user = await current_user_handler.get_current_user(access_token, db=db)
+    client_ip = get_client_ip(request) or "unknown"
+    lease_token = await acquire_session_event_lease(current_user["email"], client_ip)
+    if lease_token is None:
+        metadata = {
+            "account_limit": settings.SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT,
+            "ip_limit": settings.SESSION_EVENT_MAX_CONNECTIONS_PER_IP,
+        }
+        await log_security_event(
+            SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED,
+            db,
+            user_email=current_user["email"],
+            success=False,
+            request=request,
+            metadata=metadata,
+        )
+        await capture_security_alert(
+            SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED,
+            metadata=metadata,
+        )
+        raise HTTPException(status_code=429, detail="Too many session event connections")
+
     return StreamingResponse(
-        session_event_stream(current_user["email"]),
+        session_event_stream(current_user["email"], client_ip, lease_token),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

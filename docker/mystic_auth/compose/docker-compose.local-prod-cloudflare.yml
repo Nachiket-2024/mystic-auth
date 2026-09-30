@@ -23,7 +23,8 @@
 # token; see env/mystic_auth/.env.local-prod-cloudflare.example's Cloudflare Tunnel
 # Config block.
 #
-# frontend and backend still publish host ports for local debugging only.
+# frontend and backend publish localhost-only ports for local debugging only;
+# the tunnel is the only externally reachable entrypoint.
 #
 # Explicit project name so this stack's containers/network/volumes don't
 # collide with the other compose files, including the ngrok/tailscale
@@ -31,10 +32,14 @@
 # docs/mystic_auth/docker/compose-modes.md.
 name: ${COMPOSE_PROJECT_NAME}
 
+x-container-hardening: &container_hardening
+  cap_drop: [ALL]
+
 services:
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    <<: *container_hardening
+    image: cloudflare/cloudflared@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
     restart: unless-stopped
     # Quick Tunnel (see file header for the Named Tunnel alternative).
     command: tunnel --no-autoupdate --url http://frontend:80
@@ -54,8 +59,13 @@ services:
           memory: 256M
 
   postgres:
-    image: postgres:15
+    <<: *container_hardening
+    image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
     restart: unless-stopped
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    # Keep database traffic on the isolated backend network while giving the
+    # uploader a separate egress-capable network for B2/rclone.
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -80,12 +90,15 @@ services:
           memory: 2G
 
   valkey:
-    image: valkey/valkey:9.1.2-alpine
+    <<: *container_hardening
+    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: unless-stopped
+    cap_add: [SETUID, SETGID]
+    networks: [backend_net]
     # VALKEY_PASSWORD should always be set in production.
-    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:-}"]
+    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"]
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:-}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}\" --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -96,11 +109,14 @@ services:
           memory: 512M
 
   backend:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
       target: runtime
     restart: unless-stopped
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    networks: [default, backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -109,6 +125,7 @@ services:
     # never drift out of sync with the actual pinned addresses below.
     environment:
       TRUSTED_PROXY_IPS: ${FRONTEND_STATIC_IP},${CLOUDFLARED_STATIC_IP}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:?EMAIL_ENABLED must be set explicitly}
     # Wait up to ~10s for bugsink-seed to write the (container-to-container)
     # SENTRY_DSN, only when Bugsink is configured.
     command: |
@@ -146,7 +163,7 @@ services:
       - geoip_data:/usr/share/GeoIP:ro
     ports:
       # Non-default port so this can run alongside dev's backend (8000:8000).
-      - "${BACKEND_HOST_PORT}:8000"
+      - "127.0.0.1:${BACKEND_HOST_PORT}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 10s
@@ -160,6 +177,7 @@ services:
           memory: 1G
 
   frontend:
+    <<: *container_hardening
     # Distinct image name (derived from COMPOSE_PROJECT_NAME) so building
     # this doesn't overwrite prod's, dev's, or the other local-prod
     # variants' frontend images, or another mystic-auth fork's.
@@ -190,9 +208,10 @@ services:
       default:
         ipv4_address: ${FRONTEND_STATIC_IP}
     restart: unless-stopped
+    cap_add: [NET_BIND_SERVICE]
     ports:
       # Non-default port so this can run alongside prod's Caddy (80/443).
-      - "${FRONTEND_HOST_PORT}:80"
+      - "127.0.0.1:${FRONTEND_HOST_PORT}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -212,16 +231,20 @@ services:
   # cron). Procrastinate's worker runs its own periodic-task scheduler
   # internally, so no separate scheduler container is needed.
   procrastinate_worker:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
       target: runtime
     restart: unless-stopped
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
+      EMAIL_ENABLED: ${EMAIL_ENABLED:?EMAIL_ENABLED must be set explicitly}
       # The `procrastinate` console-script doesn't add the working directory
       # to sys.path like uvicorn does, so without this the app fails to load
       # and the container restart-loops.
@@ -248,6 +271,7 @@ services:
   # One-shot migration runner. No restart policy because restarting it
   # would just re-apply an already-applied migration in a loop.
   alembic:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
@@ -255,6 +279,8 @@ services:
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
+    networks: [backend_net]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     command: alembic upgrade head
     depends_on:
       postgres:
@@ -265,8 +291,10 @@ services:
   # `--profile geoip` after setting GEOIPUPDATE_ACCOUNT_ID/LICENSE_KEY and
   # GEOIP_DB_PATH. See docs/mystic_auth/geolocation/overview.md.
   geoipupdate:
-    image: ghcr.io/maxmind/geoipupdate:latest
+    <<: *container_hardening
+    image: ghcr.io/maxmind/geoipupdate@sha256:51e70ddf16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
     restart: unless-stopped
+    networks: [backend_net]
     profiles: ["geoip"]
     environment:
       GEOIPUPDATE_ACCOUNT_ID: ${GEOIPUPDATE_ACCOUNT_ID:-}
@@ -285,14 +313,21 @@ services:
   # above). Dumps both POSTGRES_DB (the app) and bugsink (error monitoring),
   # since they're separate databases on the same server. See
   # docker-compose.prod.yml's identical db_backup service and
-  # docs/mystic_auth/deployment/migrations-and-backups.md: dumps remain local
-  # unless the optional upload hook is configured. Applies here too, since cloudflared above can
+  # docs/mystic_auth/deployment/migrations-and-backups.md: dumps are encrypted
+  # and off-host upload is required. Applies here too, since cloudflared above can
   # make this a real internet-facing deployment, not just a local test.
   db_backup:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/db-backup.Dockerfile
     restart: unless-stopped
+    # The entrypoint drops to UID/GID 10001 after fixing the bind mount.
+    user: root
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    # Keep database traffic on the isolated backend network while giving the
+    # uploader a separate egress-capable network for B2/rclone.
+    networks: [backend_net, backup_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -302,8 +337,9 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set}
       # Backblaze B2 uses rclone's native backend. See docs/mystic_auth/deployment/migrations-and-backups.md.
-      BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:-}
+      BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:?BACKUP_UPLOAD_COMMAND must be set}
       BACKUP_SENTRY_DSN: ${BACKUP_SENTRY_DSN:-}
       B2_BUCKET: ${B2_BUCKET:-}
       RCLONE_CONFIG_B2_TYPE: b2
@@ -315,7 +351,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    entrypoint: []
+    entrypoint: ["/usr/local/bin/db-backup-entrypoint"]
     command: |
       sh -c '
       set -e
@@ -324,16 +360,19 @@ services:
         TIMESTAMP="$$(date +%Y%m%d-%H%M%S)"
         UPLOAD_FAILED=0
         for DB in "$$POSTGRES_DB" bugsink; do
-          DUMP_FILE="/backups/$${DB}-$${TIMESTAMP}.dump"
-          echo "[db_backup] Dumping $${DB} to $${DUMP_FILE}"
-          pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$DUMP_FILE" "$$DB" || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_dump failed for $$DB"; exit $$rc; }
-          pg_restore --list "$$DUMP_FILE" >/dev/null || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_restore --list failed for $$DUMP_FILE"; exit $$rc; }
-          echo "[db_backup] Wrote $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
+          DUMP_FILE="/backups/$${DB}-$${TIMESTAMP}.dump.enc"
+          PLAINTEXT_FILE="/tmp/$${DB}-$${TIMESTAMP}.dump"
+          echo "[db_backup] Dumping and encrypting $${DB} to $${DUMP_FILE}"
+          pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$PLAINTEXT_FILE" "$$DB" || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_dump failed for $$DB"; exit $$rc; }
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$$PLAINTEXT_FILE" -out "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY || { rc=$$?; rm -f "$$PLAINTEXT_FILE"; /usr/local/bin/backup-failure-alert "backup encryption failed for $$DB"; exit $$rc; }
+          rm -f "$$PLAINTEXT_FILE"
+          openssl enc -d -aes-256-cbc -pbkdf2 -in "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY | pg_restore --list >/dev/null || { rc=$$?; /usr/local/bin/backup-failure-alert "encrypted backup verification failed for $$DUMP_FILE"; exit $$rc; }
+          echo "[db_backup] Wrote encrypted $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
           if [ -n "$$BACKUP_UPLOAD_COMMAND" ]; then
             echo "[db_backup] Running BACKUP_UPLOAD_COMMAND for $${DUMP_FILE}"
             /usr/local/bin/run-backup-upload "$$DUMP_FILE" || { UPLOAD_FAILED=1; /usr/local/bin/backup-failure-alert "off-host upload failed for $$DUMP_FILE"; }
           fi
-          find /backups -maxdepth 1 \( -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
+          find /backups -maxdepth 1 \( -name "$${DB}-*.dump.enc" -o -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
         done
         if [ "$$UPLOAD_FAILED" -eq 1 ]; then
           echo "[db_backup] One or more off-host uploads failed; local dumps retained for the next retry"
@@ -349,8 +388,10 @@ services:
 
   # Self-hosted error monitoring, on by default in this file too.
   bugsink:
-    image: bugsink/bugsink:2
+    <<: *container_hardening
+    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     restart: unless-stopped
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -426,10 +467,12 @@ services:
 
   # One-shot, idempotent Bugsink project seeder. No restart policy.
   bugsink-seed:
-    image: bugsink/bugsink:2
+    <<: *container_hardening
+    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     # Root, since Docker creates a fresh named volume root-owned and the
     # non-root "bugsink" user can't write the DSN file into it otherwise.
     user: root
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -481,3 +524,6 @@ networks:
     ipam:
       config:
         - subnet: ${DOCKER_SUBNET}
+  backend_net:
+    internal: true
+  backup_egress_net: {}

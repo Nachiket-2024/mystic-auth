@@ -92,14 +92,29 @@ test.describe("live deployment smoke test - real requests, no stubs", () => {
     await context.close();
   });
 
-  test("every admin-only route redirects a non-admin visitor away", async ({ browser }) => {
+  test("protected routes respect the account's actual permissions", async ({ browser }) => {
     const context = await browser.newContext({ extraHTTPHeaders: { "ngrok-skip-browser-warning": "true" } });
     const page = await signupAndLogin(context, email, "Live Smoke Test");
 
-    for (const route of ["/users", "/policies", "/permissions", "/rate-limits"]) {
+    const meResponse = await page.request.get(`${BASE_URL}/auth/me`);
+    expect(meResponse.ok(), "authenticated /auth/me request failed").toBe(true);
+    const me = await meResponse.json() as { permissions?: string[] };
+    const permissions = new Set(me.permissions ?? []);
+    const protectedRoutes: Array<[string, string]> = [
+      ["/users", "users:list_all"],
+      ["/policies", "policies:read"],
+      ["/permissions", "permissions:read"],
+      ["/rate-limits", "rate_limits:read"],
+    ];
+
+    for (const [route, requiredPermission] of protectedRoutes) {
       await page.goto(`${BASE_URL}${route}`);
-      await page.waitForURL(/\/not-authorized$/, { timeout: 10_000 });
-      expect(page.url(), `${route} did not redirect a non-admin away`).toContain("not-authorized");
+      if (permissions.has(requiredPermission)) {
+        expect(page.url(), `${route} was denied despite ${requiredPermission}`).not.toContain("not-authorized");
+      } else {
+        await page.waitForURL(/\/not-authorized$/, { timeout: 10_000 });
+        expect(page.url(), `${route} did not deny a user without ${requiredPermission}`).toContain("not-authorized");
+      }
     }
     await context.close();
   });

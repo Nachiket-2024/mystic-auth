@@ -9,7 +9,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for details on any of these.
 - [ ] Tests added or updated for the change (backend: pytest, frontend: Vitest)
 - [ ] Docs updated in this same PR, not left for a follow-up
 - [ ] Ran the relevant local checks and they're green: ruff/mypy (backend), typecheck/lint (frontend) - see [CI/CD Overview: Local equivalents](../docs/mystic_auth/cicd/overview.md#local-equivalents)
-- [ ] Change respects the `app/`/`mystic_auth/` ownership split (no new files added under `app/`) - see [ownership-split.md](../docs/mystic_auth/template-usage/ownership-split.md)
+- [ ] Change respects the `app/`/`mystic_auth/` ownership split (app-specific files belong under `app/`; upstream template files belong under `mystic_auth/`) - see [ownership-split.md](../docs/mystic_auth/template-usage/ownership-split.md)
 
 ## Test plan
 

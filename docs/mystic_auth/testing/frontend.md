@@ -37,7 +37,7 @@ These tests protect the boundary between the host application and the
 
 ## Unit tests
 
-The 96 files under `tests/frontend/mystic_auth/unit/` cover API request
+The 101 files under `tests/frontend/mystic_auth/unit/` cover API request
 construction, auth state, PBAC visibility helpers, audit-log presentation,
 stores, theme behavior, shared controls, and small page helpers. They should
 be used for a single rule such as “this control is hidden without a
@@ -63,7 +63,7 @@ boundaries, even though they live outside the MysticAuth integration tree.
 
 ## Browser E2E tests
 
-The 26 Playwright specs verify user-visible behavior in a real browser. Most
+The 27 Playwright specs verify user-visible behavior in a real browser. Most
 use mocked API responses to make UI behavior repeatable. The login/logout flow
 uses a disposable account. The real permission-matrix spec uses seeded
 accounts and checks `/auth/me`, route gates, authorization-log scope, and the

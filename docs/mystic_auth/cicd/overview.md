@@ -5,24 +5,25 @@
 
 ## Workflow
 
-`.github/workflows/ci.yml` triggers on every push and pull request targeting
-`main`. It declares top-level `permissions: contents: read` because none of the
+`.github/workflows/ci.yml` triggers on pushes to `develop` or `main`, and on
+pull requests targeting `main`. It declares top-level `permissions: contents: read` because none of the
 jobs push commits, comment on PRs, or need write access. A compromised action
 dependency in this workflow can only read the checkout.
 
-There are six independent jobs. The first five run on every push and PR. The
-sixth runs only on a push to `main`.
+There are seven independent jobs. The first six run on every push and PR. The
+seventh runs only on a push to `main`.
 
 ---
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Trigger(["Push / PR\n to main"])
+    Trigger(["Push to develop/main\n or PR to main"])
     TriggerMain(["Push to\n main only"])
     Trigger --> Backend["backend\n lint, type-check, bandit,\n pip-audit, pytest\n (90% cov gate)"]
     Trigger --> Frontend["frontend\n typecheck, lint,\n test:coverage, build"]
     Trigger --> Secrets["secrets-scan\n gitleaks,\n full git history"]
     Trigger --> Tooling["tooling-tests\n path-lint scripts,\n env-tools + upstream-sync\n regression suites"]
+    Trigger --> Windows["windows-tooling\n PowerShell setup-env\n regression suite"]
     Trigger --> DockerBuild["docker-build,\n build both images,\n boot + seed the dev stack,\n restore-drill, browser E2E"]
     DockerBuild ~~~ TriggerMain
     TriggerMain --> DockerFullSuite["docker-full-suite\n full backend + frontend suites,\n run inside the actual containers"]
@@ -173,7 +174,7 @@ flowchart TD
 - Path-lint scripts (stale `scripts/`/`local-scripts/` path references, stale pre-split `docker`/`env`/`scripts` references) and the env-tools/upstream-sync regression suites, all against throwaway copies, never this repo's own real files.
 - Both Docker images still build, and (on every PR) the actual dev compose stack boots and serves traffic.
 - Every built runtime image has a validated SPDX JSON SBOM retained as a CI artifact, tied to the commit and local image ID used to generate it.
-- On every push to `main`: the entire backend + frontend test suites, re-run a second time inside the real containers rather than a bare runner.
+- On every push to `main`: the entire backend + frontend test suites, re-run a second time inside the real containers rather than a bare runner. Pushes to `develop` run the native validation jobs without this duplicate container pass.
 - Dependency vulnerability scanning on every push/PR: `pip-audit` (backend, blocking) and `npm audit --audit-level=high` (frontend, blocking). There is no scheduled/automated dependency-update bot in this repo; dependency bumps are a manual, deliberate action (see the header comment in `backend/requirements.txt`), not something that opens PRs on its own.
 - Secret scanning across full git history (`gitleaks`), independent of the backend/frontend jobs.
 
@@ -200,7 +201,7 @@ Everything CI runs can be run locally:
 # `cd`: kept a single self-contained line so it doesn't change your shell's
 # directory afterward.
 (cd backend && ruff check app mystic_auth alembic ../tests/backend)
-mypy --config-file backend/pyproject.toml backend/app backend/mystic_auth
+(cd backend && mypy app mystic_auth)
 bandit -r backend/app backend/mystic_auth -c backend/pyproject.toml
 alembic -c backend/alembic.ini check
 

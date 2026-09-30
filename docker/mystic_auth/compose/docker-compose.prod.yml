@@ -17,11 +17,19 @@
 # Set in env/mystic_auth/.env.prod - see docs/mystic_auth/docker/compose-modes.md.
 name: ${COMPOSE_PROJECT_NAME}
 
+x-container-hardening: &container_hardening
+  cap_drop: [ALL]
+
 services:
 
   postgres:
-    image: postgres:15
+    <<: *container_hardening
+    image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
     restart: unless-stopped
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    # Keep database traffic on the isolated backend network while giving the
+    # uploader a separate egress-capable network for B2/rclone.
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -44,11 +52,14 @@ services:
           memory: 1G
 
   valkey:
-    image: valkey/valkey:9.1.2-alpine
+    <<: *container_hardening
+    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: unless-stopped
-    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:-}"]
+    cap_add: [SETUID, SETGID]
+    networks: [backend_net]
+    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for production}"]
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:-}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for production}\" --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -59,11 +70,14 @@ services:
           memory: 256M
 
   backend:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
       target: runtime
     restart: unless-stopped
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    networks: [default, backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -72,6 +86,7 @@ services:
     # with the actual pinned addresses below.
     environment:
       TRUSTED_PROXY_IPS: ${FRONTEND_STATIC_IP},${CADDY_STATIC_IP}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:?EMAIL_ENABLED must be set explicitly}
     command: |
       sh -c "if [ -n \"$$BUGSINK_SUPERUSER_EMAIL\" ]; then
         for i in $$(seq 1 20); do
@@ -118,6 +133,7 @@ services:
           memory: 512M
 
   frontend:
+    <<: *container_hardening
     # Distinct image name (derived from COMPOSE_PROJECT_NAME) so building
     # this doesn't overwrite dev's or any local-prod variant's frontend
     # image, or another mystic-auth fork's.
@@ -147,6 +163,7 @@ services:
       default:
         ipv4_address: ${FRONTEND_STATIC_IP}
     restart: unless-stopped
+    cap_add: [NET_BIND_SERVICE]
     # No host port published; Caddy is the only public entrypoint.
     depends_on:
       backend:
@@ -167,8 +184,10 @@ services:
   # docker/mystic_auth/Caddyfile. PUBLIC_DOMAIN must already point at this host in DNS
   # before first start, or certificate issuance fails.
   caddy:
-    image: caddy:2-alpine
+    <<: *container_hardening
+    image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
     restart: unless-stopped
+    cap_add: [NET_BIND_SERVICE]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -203,16 +222,20 @@ services:
   # cron). Procrastinate's worker runs its own periodic-task scheduler
   # internally, so no separate scheduler container is needed.
   procrastinate_worker:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
       target: runtime
     restart: unless-stopped
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
+      EMAIL_ENABLED: ${EMAIL_ENABLED:?EMAIL_ENABLED must be set explicitly}
       # The `procrastinate` console-script doesn't add the working directory
       # to sys.path like uvicorn does, so without this the app fails to load
       # and the container restart-loops.
@@ -237,6 +260,7 @@ services:
           memory: 512M
 
   alembic:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
@@ -244,6 +268,8 @@ services:
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
+    networks: [backend_net]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     command: alembic upgrade head
     depends_on:
       postgres:
@@ -254,8 +280,10 @@ services:
   # `--profile geoip` after setting GEOIPUPDATE_ACCOUNT_ID/LICENSE_KEY and
   # GEOIP_DB_PATH. See docs/mystic_auth/geolocation/overview.md.
   geoipupdate:
-    image: ghcr.io/maxmind/geoipupdate:latest
+    <<: *container_hardening
+    image: ghcr.io/maxmind/geoipupdate@sha256:51e70ddf16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
     restart: unless-stopped
+    networks: [backend_net]
     profiles: ["geoip"]
     environment:
       GEOIPUPDATE_ACCOUNT_ID: ${GEOIPUPDATE_ACCOUNT_ID:-}
@@ -273,18 +301,24 @@ services:
   # Scheduled Postgres custom-format dumps to ./backups, on by default (unlike geoipupdate
   # below) so a real deployment always has a backup running. Dumps both
   # POSTGRES_DB (the app) and bugsink (error monitoring), since they're
-  # separate databases on the same server. Dumps remain local unless the
-  # optional upload hook is configured, see docs/mystic_auth/deployment/migrations-and-backups.md. Talks
+  # separate databases on the same server. Dumps are encrypted before they
+  # touch the host backup directory; off-host upload is required for production. Talks
   # to postgres:5432 directly instead of reusing scripts/mystic_auth/db/db_backup.sh,
   # which shells out to `docker compose exec` and has no access to the host.
-  # If BACKUP_UPLOAD_COMMAND is configured, each verified dump is also shipped
-  # off-host by the backup container.
+  # Each verified encrypted dump is shipped off-host by the backup container.
   # from in here.
   db_backup:
+    <<: *container_hardening
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/db-backup.Dockerfile
     restart: unless-stopped
+    # The entrypoint drops to UID/GID 10001 after fixing the bind mount.
+    user: root
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    # Keep database traffic on the isolated backend network while giving the
+    # uploader a separate egress-capable network for B2/rclone.
+    networks: [backend_net, backup_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -295,8 +329,9 @@ services:
       # Defaults to once a day, keep two weeks.
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set}
       # Backblaze B2 uses rclone's native backend. See docs/mystic_auth/deployment/migrations-and-backups.md.
-      BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:-}
+      BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:?BACKUP_UPLOAD_COMMAND must be set for production}
       BACKUP_SENTRY_DSN: ${BACKUP_SENTRY_DSN:-}
       B2_BUCKET: ${B2_BUCKET:-}
       RCLONE_CONFIG_B2_TYPE: b2
@@ -315,7 +350,7 @@ services:
     # (visible in `docker compose ps`/logs) rather than skip silently. An
     # upload failure is reported and retried on the next scheduled cycle while
     # the verified local dump is retained.
-    entrypoint: []
+    entrypoint: ["/usr/local/bin/db-backup-entrypoint"]
     command: |
       sh -c '
       set -e
@@ -324,16 +359,19 @@ services:
         TIMESTAMP="$$(date +%Y%m%d-%H%M%S)"
         UPLOAD_FAILED=0
         for DB in "$$POSTGRES_DB" bugsink; do
-          DUMP_FILE="/backups/$${DB}-$${TIMESTAMP}.dump"
-          echo "[db_backup] Dumping $${DB} to $${DUMP_FILE}"
-          pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$DUMP_FILE" "$$DB" || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_dump failed for $$DB"; exit $$rc; }
-          pg_restore --list "$$DUMP_FILE" >/dev/null || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_restore --list failed for $$DUMP_FILE"; exit $$rc; }
-          echo "[db_backup] Wrote $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
+          DUMP_FILE="/backups/$${DB}-$${TIMESTAMP}.dump.enc"
+          PLAINTEXT_FILE="/tmp/$${DB}-$${TIMESTAMP}.dump"
+          echo "[db_backup] Dumping and encrypting $${DB} to $${DUMP_FILE}"
+          pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$PLAINTEXT_FILE" "$$DB" || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_dump failed for $$DB"; exit $$rc; }
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$$PLAINTEXT_FILE" -out "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY || { rc=$$?; rm -f "$$PLAINTEXT_FILE"; /usr/local/bin/backup-failure-alert "backup encryption failed for $$DB"; exit $$rc; }
+          rm -f "$$PLAINTEXT_FILE"
+          openssl enc -d -aes-256-cbc -pbkdf2 -in "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY | pg_restore --list >/dev/null || { rc=$$?; /usr/local/bin/backup-failure-alert "encrypted backup verification failed for $$DUMP_FILE"; exit $$rc; }
+          echo "[db_backup] Wrote encrypted $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
           if [ -n "$$BACKUP_UPLOAD_COMMAND" ]; then
             echo "[db_backup] Running BACKUP_UPLOAD_COMMAND for $${DUMP_FILE}"
             /usr/local/bin/run-backup-upload "$$DUMP_FILE" || { UPLOAD_FAILED=1; /usr/local/bin/backup-failure-alert "off-host upload failed for $$DUMP_FILE"; }
           fi
-          find /backups -maxdepth 1 \( -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
+          find /backups -maxdepth 1 \( -name "$${DB}-*.dump.enc" -o -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
         done
         if [ "$$UPLOAD_FAILED" -eq 1 ]; then
           echo "[db_backup] One or more off-host uploads failed; local dumps retained for the next retry"
@@ -348,8 +386,10 @@ services:
           memory: 256M
 
   bugsink:
-    image: bugsink/bugsink:2
+    <<: *container_hardening
+    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     restart: unless-stopped
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -417,8 +457,10 @@ services:
           memory: 512M
 
   bugsink-seed:
-    image: bugsink/bugsink:2
+    <<: *container_hardening
+    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     user: root
+    networks: [backend_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -472,3 +514,6 @@ networks:
     ipam:
       config:
         - subnet: ${DOCKER_SUBNET}
+  backend_net:
+    internal: true
+  backup_egress_net: {}

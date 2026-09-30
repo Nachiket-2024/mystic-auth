@@ -12,7 +12,7 @@
 | Frontend | Vite dev server, HMR, bind-mounted source | nginx serving the baked-in static build | nginx serving the baked-in static build, reached through Caddy |
 | Backend/worker | `--reload`, bind-mounted `./backend:/app` | No reload, code baked into the image | No reload, code baked into the image |
 | Restart policy | `restart: always` for Postgres/Valkey only | `unless-stopped` on every long-running service | `unless-stopped` on every long-running service |
-| Ports exposed | 5433 (Postgres), 6380 (Valkey), 8000 (backend), 5173 (frontend), 8010 (Bugsink), all on localhost-friendly dev ports | backend/frontend/Bugsink published for local debugging, offset per tunnel variant (8001/8080/8011 cloudflare, 8101/8180/8111 ngrok, 8201/8280/8211 tailscale) so any of them can run alongside dev and each other | Only 80/443 on Caddy. Postgres, Valkey, backend, and frontend are internal-only |
+| Ports exposed | 5433 (Postgres), 6380 (Valkey), 8000 (backend), 5173 (frontend), 8010 (Bugsink) by default, all on localhost-friendly dev ports; host mappings are configurable through the env file | backend/frontend/Bugsink published for local debugging, offset per tunnel variant (8001/8080/8011 cloudflare, 8101/8180/8111 ngrok, 8201/8280/8211 tailscale) so any of them can run alongside dev and each other | Only 80/443 on Caddy. Postgres, Valkey, backend, and frontend are internal-only |
 | TLS | None | Terminates at the tunnel provider's edge | Caddy with automatic Let's Encrypt certificates |
 | `backend` startup gate | Postgres and Valkey healthy | Postgres and Valkey healthy, plus `alembic: service_completed_successfully` | Postgres and Valkey healthy, plus `alembic: service_completed_successfully` |
 | `procrastinate_worker` startup gate | Postgres healthy | Postgres healthy, plus `alembic: service_completed_successfully` | Postgres healthy, plus `alembic: service_completed_successfully` |
@@ -113,7 +113,7 @@ The isolation above only covers the five compose files *within one checkout*. It
 two separate downstream projects that each independently started from mystic-auth via "Use this
 template":
 
-- Both inherit the exact same literal `name:` defaults above, the exact same host ports (`5433`, `6380`, `8000`, `5173`, `8010` for dev; `8001`/`8080`, `8101`/`8180`, `8201`/`8280` for the local-prod tunnel variants), and the exact same Docker network subnets (`172.27-31.0.0/24`, one per file).
+- Both inherit the same `name:` defaults above, the same default host ports (`5433`, `6380`, `8000`, `5173`, `8010` for dev; `8001`/`8080`, `8101`/`8180`, `8201`/`8280` for the local-prod tunnel variants), and the same Docker network subnets (`172.27-31.0.0/24`, one per file). Host mappings can be changed through the matching env file.
 - If both forks ever run on the same machine, they collide on all three fronts exactly like the same-checkout case described above - one fork's `docker compose` commands, or its containers on the host network, can silently target the other fork's stack.
 - This isn't hypothetical: it happened during this fix's own verification, between two real forks on one machine.
 
@@ -122,7 +122,7 @@ reads from an env var with no fallback (`${COMPOSE_PROJECT_NAME}`, `${POSTGRES_H
 `${DOCKER_SUBNET}`, `${FRONTEND_STATIC_IP}`, etc.), set in the matching
 `env/mystic_auth/.env*.example` to the same literal value the compose file used to hardcode.
 
-- A fork that needs to coexist with another on one machine changes `COMPOSE_PROJECT_NAME`, the relevant `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the `*_STATIC_IP` vars in its own `env/mystic_auth/.env*` file - see the top of each `env/mystic_auth/.env*.example`.
+- A fork that needs to coexist with another on one machine uses a separate multi-project port configuration: change `COMPOSE_PROJECT_NAME`, the relevant `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the `*_STATIC_IP` vars in its own `env/mystic_auth/.env*` file - see the top of each `env/mystic_auth/.env*.example`.
 - The production/local-prod variants also derive `TRUSTED_PROXY_IPS` (a security-relevant anti-spoofing setting - see [get_client_ip()](../../../backend/mystic_auth/auth/security/client_ip.py)) straight from those same static-IP vars in the compose file itself, rather than setting it independently in the env file, so the two can never drift out of sync.
 - This is also called out in [overview.md](overview.md)'s fork checklist.
 

@@ -27,6 +27,7 @@ $MysticAuthTargets = @{
     "help" = {
         Write-Host "make.ps1 quickstart              fresh clone -> working login, one command"
         Write-Host "make.ps1 dev                     bring the dev stack up"
+        Write-Host "make.ps1 backend-host            run FastAPI on the host with Docker data services"
         Write-Host "make.ps1 prod                    bring docker-compose.prod.yml up"
         Write-Host "make.ps1 local-prod-cloudflare   local-prod behind a Cloudflare tunnel"
         Write-Host "make.ps1 local-prod-ngrok        local-prod behind an ngrok tunnel"
@@ -51,6 +52,7 @@ $MysticAuthTargets = @{
     }
     "quickstart" = { & .\scripts\mystic_auth\env-tools\quickstart\quickstart.ps1 }
     "dev" = { & .\scripts\mystic_auth\docker\dev\dev-up.ps1 }
+    "backend-host" = { & .\scripts\mystic_auth\docker\dev\backend-host-run.ps1 }
     "prod" = { & .\scripts\mystic_auth\docker\prod\prod-up.ps1 }
     "local-prod-cloudflare" = { & .\scripts\mystic_auth\docker\local-prod-cloudflare\local-prod-cloudflare-up.ps1 }
     "local-prod-ngrok" = { & .\scripts\mystic_auth\docker\local-prod-ngrok\local-prod-ngrok-up.ps1 }

@@ -52,19 +52,19 @@ EOF
 pass() { echo "PASS: $1"; }
 fail() { echo "FAIL: $1"; exit 1; }
 
-echo "=== Executable bit: every scripts/**/*.sh must be tracked as 755 in THIS repo's git index ==="
+echo "=== Executable bit: every tracked shell script must be tracked as 755 in THIS repo's git index ==="
 # Checked against the git index, not the working tree: core.filemode=false
 # (common on Windows) never flags a local `chmod +x` as a diff, so a script
 # can run fine locally while staying non-executable for every other clone.
 # The scenarios below all `chmod +x` their fake-repo copies explicitly, so
 # none of them would catch this -- only checking this repo's own tracked
 # mode does.
-NON_EXEC_SH="$(cd "$REPO_ROOT" && git ls-files -s -- 'scripts/**/*.sh' | awk '$1 != "100755" { print }')"
+NON_EXEC_SH="$(cd "$REPO_ROOT" && git ls-files -s -- '*.sh' | awk '$1 != "100755" { print }')"
 if [ -n "$NON_EXEC_SH" ]; then
-  fail "executable bit: found scripts/**/*.sh tracked without mode 755:
+  fail "executable bit: found tracked shell scripts without mode 755:
 $NON_EXEC_SH"
 fi
-pass "executable bit: every tracked scripts/**/*.sh is mode 755"
+pass "executable bit: every tracked shell script is mode 755"
 
 echo "=== Setting up fake upstream ==="
 mkdir upstream && cd upstream
@@ -111,6 +111,7 @@ echo "=== Upstream ships release 2: unrelated file change + new file + new line 
 cd "$BASE/upstream"
 echo "core v2" > mystic_auth/core.py
 echo "new_feature = True" > mystic_auth/new_feature.py
+echo "remove me in the next release" > mystic_auth/obsolete.py
 cat > app/main.py <<'EOF'
 app.include_router(health_router)
 app.include_router(billing_router)  # upstream's, inserted in the middle
@@ -134,6 +135,8 @@ yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/upstream" >/de
 pass "sync 2: unrelated upstream-owned file updated cleanly"
 [ -f mystic_auth/new_feature.py ] || fail "sync 2: new upstream file missing"
 pass "sync 2: new upstream file added"
+[ -f mystic_auth/obsolete.py ] || fail "sync 2: fixture for later upstream deletion missing"
+pass "sync 2: later-deleted upstream file added"
 grep -q "billing_router" app/main.py || fail "sync 2: upstream's new router line missing"
 grep -q "my_projects_router" app/main.py || fail "sync 2: consumer's router line lost on second sync"
 grep -q "<<<<<<<" app/main.py && fail "sync 2: got a phantom conflict on a non-overlapping edit" || pass "sync 2: shared file auto-merged both sides cleanly, no phantom conflict"
@@ -149,17 +152,20 @@ app.include_router(billing_router)  # upstream's, inserted in the middle
 app.include_router(auth_router)
 app.include_router(admin_router)    # upstream's, appended at the same spot consumer appended theirs
 EOF
+rm mystic_auth/obsolete.py
 git add -A && git commit -q -m "upstream commit 3: admin router appended right where consumer also appended"
 cd "$BASE/consumer"
 
 echo ""
 echo "=== SYNC 3 (expect a real conflict) ==="
 set +e
-yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/upstream" >/dev/null 2>&1
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/upstream" >/tmp/sync3.log 2>&1
 SYNC3_EXIT=$?
 set -e
 [ "$SYNC3_EXIT" -ne 0 ] || fail "sync 3: expected non-zero exit on conflict"
 pass "sync 3: script exits non-zero on conflict"
+grep -q "DELETE mystic_auth/obsolete.py" /tmp/sync3.log || fail "sync 3: upstream deletion was not shown before confirmation"
+pass "sync 3: upstream deletion shown explicitly before confirmation"
 grep -q "<<<<<<<" app/main.py || fail "sync 3: no conflict markers found"
 pass "sync 3: conflict markers present for genuine same-line collision"
 git diff --cached --name-only | grep -q ".mystic-auth-sync-state" || fail "sync 3: state file not staged despite conflict"
@@ -176,6 +182,8 @@ app.include_router(my_projects_router)  # mine, kept
 EOF
 git add app/main.py
 git commit -q -m "Sync upstream template updates (resolved conflict)"
+[ ! -e mystic_auth/obsolete.py ] || fail "final: upstream-deleted file was retained"
+pass "final: upstream-deleted file removed from mystic_auth"
 
 # Deliberately NOT --all: refs/remotes/upstream/* legitimately contains
 # upstream's commits (that's just the fetched remote-tracking branch) --

@@ -1,7 +1,7 @@
 # Sets one or more fields across every real env file that already declares
 # each key, leaving every other field untouched. For a value that's the
 # same everywhere on purpose (SUPPORT_EMAIL, GOOGLE_CLIENT_ID,
-# DEFAULT_APP_POLICIES, ...), instead of opening and editing five files by
+# ...), instead of opening and editing five files by
 # hand, one field at a time.
 #
 # Two ways to use it:

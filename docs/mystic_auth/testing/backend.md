@@ -38,7 +38,7 @@ or distort every route-level failure.
 
 ## Unit tests
 
-The 105 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
+The 106 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
 services, repositories, schemas, middleware, and pure policy logic. They are
 the fastest way to identify which decision or transformation changed. The
 [Backend Unit Tests](backend-unit.md) page names each module and explains its

@@ -79,7 +79,7 @@ class UserUpdate(BaseModel):
     @classmethod
     def _validate_hex_color(cls, value: str | None) -> str | None:
         if value is not None and not _HEX_COLOR_RE.match(value):
-            raise ValueError("must be a hex color like #d97706")
+            raise ValueError("must be a hex color like #b5533c")
         return value
 
 

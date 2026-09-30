@@ -29,7 +29,13 @@ npm run typecheck    # tsc --noEmit across app/node/test tsconfigs
 npm run lint         # eslint over frontend/ and tests/frontend/
 npm run test          # vitest run (no coverage)
 npm run test:coverage # vitest run --coverage (thresholds enforced)
+npm run test:browser  # Playwright browser matrix against the running stack
 ```
+
+Vitest coverage enforces a 90% floor for statements, branches, functions, and
+lines. Browser-owned route and layout composition is covered by Playwright;
+see the [frontend testing overview](../docs/mystic_auth/testing/overview.md)
+for the boundary and the required stack setup.
 
 ---
 

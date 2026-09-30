@@ -8,6 +8,7 @@ from ....valkey.client import valkey_client
 from .rate_limiter_service import RateLimiterService
 
 logger = get_logger(__name__)
+_NON_STRING_KEY_PREFIXES = frozenset({"session_event_leases"})
 
 
 class RateLimitDashboardService:
@@ -46,7 +47,7 @@ class RateLimitDashboardService:
         # param. Only delete keys matching list_active_limits' own
         # <endpoint>:<ip|account|email>:<identifier> shape.
         parts = key.rsplit(":", 2)
-        if len(parts) != 3 or parts[1] not in ("ip", "account", "email"):
+        if not RateLimitDashboardService._is_rate_limit_key(key):
             return
         # Custom application endpoints may use the shared rate limiter without
         # being part of MysticAuth's built-in catalog. The structural shape is
@@ -84,6 +85,15 @@ class RateLimitDashboardService:
     # requests a consistent view to slice.
     _SCAN_SNAPSHOT_TTL_SECONDS: float = 5.0
     _scan_snapshot_cache: dict[str, tuple[float, list[str], bool]] = {}
+
+    @staticmethod
+    def _is_rate_limit_key(key: str) -> bool:
+        parts = key.rsplit(":", 2)
+        return (
+            len(parts) == 3
+            and parts[1] in ("ip", "account", "email")
+            and parts[0] not in _NON_STRING_KEY_PREFIXES
+        )
 
     @staticmethod
     async def list_active_limits(
@@ -147,10 +157,7 @@ class RateLimitDashboardService:
             # Valkey (e.g. the authz cache). Filter those out before
             # computing total/slicing, or a page could render empty on
             # non-rate-limit keys while a later page had real rows.
-            matched_keys = [
-                key for key in matched_keys
-                if len(key.rsplit(":", 2)) == 3 and key.rsplit(":", 2)[1] in ("ip", "account", "email")
-            ]
+            matched_keys = [key for key in matched_keys if RateLimitDashboardService._is_rate_limit_key(key)]
 
             matched_keys.sort()
             # Opportunistically drop expired snapshots so the cache doesn't
@@ -191,7 +198,7 @@ class RateLimitDashboardService:
             # valkey/client.py), so this is always str at runtime; the cast
             # is only to satisfy the client library's bytes-by-default stubs.
             parts = str(key).rsplit(":", 2)
-            if len(parts) != 3 or parts[1] not in ("ip", "account", "email"):
+            if not RateLimitDashboardService._is_rate_limit_key(str(key)):
                 # Shouldn't happen given the MATCH pattern above, but a key
                 # that doesn't parse cleanly is skipped rather than shown
                 # with garbage endpoint/identifier fields.
@@ -259,10 +266,7 @@ class RateLimitDashboardService:
                 logger.error("Error scanning rate limiter summary:\n%s", traceback.format_exc())
                 return {"total": 0, "at_limit": 0, "login_lockouts": 0, "by_endpoint": {}, "by_scope": {}, "truncated": False}
 
-            matched_keys = [
-                key for key in matched_keys
-                if len(key.rsplit(":", 2)) == 3 and key.rsplit(":", 2)[1] in ("ip", "account", "email")
-            ]
+            matched_keys = [key for key in matched_keys if RateLimitDashboardService._is_rate_limit_key(key)]
             matched_keys.sort()
             RateLimitDashboardService._scan_snapshot_cache[pattern] = (now, matched_keys, truncated)
 

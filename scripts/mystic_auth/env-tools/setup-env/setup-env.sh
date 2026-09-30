@@ -36,8 +36,8 @@ sed_inplace() {
 
 read -rp "App name [MysticAuth]: " APP_NAME_INPUT || true
 APP_NAME_INPUT="${APP_NAME_INPUT:-MysticAuth}"
-read -rp "Brand color hex [#d97706]: " BRAND_COLOR_INPUT || true
-BRAND_COLOR_INPUT="${BRAND_COLOR_INPUT:-#d97706}"
+read -rp "Brand color hex [#b5533c]: " BRAND_COLOR_INPUT || true
+BRAND_COLOR_INPUT="${BRAND_COLOR_INPUT:-#b5533c}"
 
 # Optional: the two things nothing else in this script can generate for
 # you. Skippable (default No) since it's fine to fill these in later by
@@ -136,12 +136,19 @@ for pair in "${PAIRS[@]}"; do
     sed_inplace "s|^BUGSINK_SUPERUSER_PASSWORD=.*|BUGSINK_SUPERUSER_PASSWORD=$(gen_secret 24)|" "$dst"
   fi
 
-  echo "created: $dst"
+  if grep -q '^VALKEY_PASSWORD=' "$dst"; then
+    VALKEY_PW="$(gen_secret 32)"
+    sed_inplace "s|^VALKEY_PASSWORD=.*|VALKEY_PASSWORD=${VALKEY_PW}|" "$dst"
+    if grep -q '^VALKEY_URL=' "$dst"; then
+      sed_inplace "s|^VALKEY_URL=.*|VALKEY_URL=redis://:${VALKEY_PW}@valkey:6379/0|" "$dst"
+    fi
+  fi
 
-  # VALKEY_PASSWORD is deliberately left blank: it's optional hardening, and
-  # setting it also requires manually rewriting VALKEY_URL to embed it (see
-  # docs/mystic_auth/security/hardening-infra.md#valkey-authentication) -
-  # not something safe to script blindly.
+  if grep -q '^BACKUP_ENCRYPTION_KEY=' "$dst"; then
+    sed_inplace "s|^BACKUP_ENCRYPTION_KEY=.*|BACKUP_ENCRYPTION_KEY=$(gen_secret 64)|" "$dst"
+  fi
+
+  echo "created: $dst"
 
   placeholders="$(grep -oE '<your[a-z_-]*>|<your-domain>' "$dst" | sort -u || true)"
   if [ -n "$placeholders" ]; then

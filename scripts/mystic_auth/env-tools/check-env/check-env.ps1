@@ -38,6 +38,8 @@ $PlaceholderSecrets = @{
     "POSTGRES_PASSWORD" = "POSTGRES_PASSWORD=change_me_in_production"
     "APP_DB_PASSWORD" = "APP_DB_PASSWORD=change_me_in_production"
     "BUGSINK_SUPERUSER_PASSWORD" = "BUGSINK_SUPERUSER_PASSWORD=change_me_in_production"
+    "VALKEY_PASSWORD" = "VALKEY_PASSWORD=change_me_in_production"
+    "BACKUP_ENCRYPTION_KEY" = "BACKUP_ENCRYPTION_KEY=change_me_in_production"
 }
 
 function Test-PortInUse([int]$Port) {

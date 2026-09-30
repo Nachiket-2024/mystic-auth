@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restores a .dump or legacy .sql backup into the `postgres`
+# Restores an encrypted .dump.enc, a .dump, or legacy .sql backup into the `postgres`
 # Docker Compose service. This is destructive because it overwrites rows and
 # tables defined by the dump, so it asks for confirmation unless -y/--yes is passed.
 # The target database is taken from the dump's filename (<db>-<timestamp>.dump,
@@ -75,6 +75,10 @@ fi
 if [ -z "${POSTGRES_DB:-}" ]; then
   POSTGRES_DB="$(grep -hm1 '^POSTGRES_DB=' "$APP_ENV_FILE" "$ENV_FILE" 2>/dev/null | head -n1 | cut -d= -f2-)"
 fi
+if [ -z "${BACKUP_ENCRYPTION_KEY:-}" ]; then
+  BACKUP_ENCRYPTION_KEY="$(grep -hm1 '^BACKUP_ENCRYPTION_KEY=' "$APP_ENV_FILE" "$ENV_FILE" 2>/dev/null | head -n1 | cut -d= -f2-)"
+  export BACKUP_ENCRYPTION_KEY
+fi
 
 : "${POSTGRES_USER:?POSTGRES_USER must be set (check $ENV_FILE)}"
 : "${POSTGRES_DB:?POSTGRES_DB must be set (check $ENV_FILE)}"
@@ -87,7 +91,7 @@ for f in "${ENV_FILES[@]}"; do DC_ARGS+=(--env-file "$f"); done
 # "bugsink-*.dump" or legacy "bugsink-*.sql" restores into "bugsink" rather than always landing
 # in POSTGRES_DB. Falls back to POSTGRES_DB for non-conforming filenames.
 BASENAME="$(basename "$BACKUP_FILE")"
-if [[ "$BASENAME" =~ ^(.+)-[0-9]{8}-[0-9]{6}\.(dump|sql)$ ]]; then
+if [[ "$BASENAME" =~ ^(.+)-[0-9]{8}-[0-9]{6}\.(dump\.enc|dump|sql)$ ]]; then
   TARGET_DB="${BASH_REMATCH[1]}"
 else
   TARGET_DB="$POSTGRES_DB"
@@ -103,6 +107,13 @@ fi
 
 echo "Restoring '${TARGET_DB}' from ${BACKUP_FILE} via ${COMPOSE_FILES[*]}..."
 case "$BACKUP_FILE" in
+  *.dump.enc)
+    : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set to restore encrypted backups}"
+    openssl enc -d -aes-256-cbc -pbkdf2 -in "$BACKUP_FILE" \
+      -pass env:BACKUP_ENCRYPTION_KEY | \
+      docker compose "${DC_ARGS[@]}" exec -T postgres \
+        pg_restore -U "$POSTGRES_USER" --clean --if-exists --dbname "$TARGET_DB"
+    ;;
   *.dump)
     docker compose "${DC_ARGS[@]}" exec -T postgres \
       pg_restore -U "$POSTGRES_USER" --clean --if-exists --dbname "$TARGET_DB" < "$BACKUP_FILE"

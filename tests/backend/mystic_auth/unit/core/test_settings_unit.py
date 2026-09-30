@@ -56,7 +56,6 @@ _ALL_FIELDS = {
     "GEOIP_DB_PATH": "",
     "SENTRY_DSN": "",
     "SENTRY_ENVIRONMENT": "",
-    "DEFAULT_APP_POLICIES": "",
     "ACCOUNT_PURGE_GRACE_DAYS": 30,
     "SESSION_ROW_RETENTION_HOURS": 1,
     "REFRESH_TOKEN_REUSE_GRACE_SECONDS": 10,
@@ -188,26 +187,6 @@ def test_cors_allowed_origins_deduplicates_a_repeated_origin():
     settings = Settings(_env_file=None, **payload)
 
     assert settings.cors_allowed_origins == ["http://localhost:5173", "https://www.example.com"]
-
-
-# ---------------------------- default_app_policy_names ----------------------------
-
-
-def test_default_app_policy_names_is_empty_when_unset():
-    settings = Settings(_env_file=None, **_ALL_FIELDS)
-
-    assert settings.default_app_policy_names == []
-
-
-def test_default_app_policy_names_parses_deduplicates_and_trims():
-    payload = {
-        **_ALL_FIELDS,
-        "DEFAULT_APP_POLICIES": " billing_admin , support_agent, billing_admin ,",
-    }
-
-    settings = Settings(_env_file=None, **payload)
-
-    assert settings.default_app_policy_names == ["billing_admin", "support_agent"]
 
 
 def test_refresh_token_reuse_grace_seconds_defaults_to_ten_when_missing(monkeypatch):

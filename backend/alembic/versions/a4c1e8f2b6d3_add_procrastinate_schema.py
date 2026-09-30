@@ -8,7 +8,7 @@ Applies Procrastinate's own packaged schema SQL (procrastinate_jobs,
 procrastinate_events, procrastinate_periodic_defers and their supporting
 functions/triggers), read directly from the installed `procrastinate`
 package rather than hand-transcribed, so it always matches the pinned
-version's actual schema. Corresponds to procrastinate==3.9.0's
+version's actual schema. Corresponds to procrastinate==3.10.0's
 `procrastinate/sql/schema.sql`.
 
 Replaces taskiq (Valkey Streams): background jobs now live as rows in this

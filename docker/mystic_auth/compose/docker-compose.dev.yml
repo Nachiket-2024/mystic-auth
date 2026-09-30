@@ -8,7 +8,7 @@ name: ${COMPOSE_PROJECT_NAME}
 services:
 
   postgres:
-    image: postgres:15
+    image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
     restart: always
     env_file:
       - ../../../env/mystic_auth/.env.dev
@@ -35,7 +35,7 @@ services:
       retries: 5
 
   valkey:
-    image: valkey/valkey:9.1.2-alpine
+    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: always
     # Empty VALKEY_PASSWORD (local-dev default) makes --requirepass a no-op.
     # Set it in .env to require auth. VALKEY_URL must include it too.
@@ -56,6 +56,7 @@ services:
       # everyone else gets the default runtime image.
       target: ${BACKEND_BUILD_TARGET:-runtime}
     working_dir: /app
+    user: root
     env_file:
       - ../../../env/mystic_auth/.env.dev
       - ../../../env/app/.env.dev
@@ -74,6 +75,7 @@ services:
       BACKEND_BASE_URL: http://localhost:8000
       FRONTEND_BASE_URL: http://localhost:5173
       ENVIRONMENT: development
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       # Needed so scripts/mystic_auth/docker/dev/backend-exec.sh, which runs with -w /repo
       # instead of /app, can still resolve the bare `mystic_auth`/`app`
       # imports the app code uses.
@@ -171,12 +173,14 @@ services:
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
       target: runtime
     working_dir: /app
+    user: root
     env_file:
       - ../../../env/mystic_auth/.env.dev
       - ../../../env/app/.env.dev
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
-      - PYTHONPATH=/app
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      PYTHONPATH: /app
     depends_on:
       postgres:
         condition: service_healthy
@@ -200,6 +204,7 @@ services:
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
       target: runtime
     working_dir: /app
+    user: root
     env_file:
       - ../../../env/mystic_auth/.env.dev
       - ../../../env/app/.env.dev
@@ -217,7 +222,7 @@ services:
   # docs/mystic_auth/error-monitoring/overview.md. SENTRY_DSN is what
   # actually turns error reporting on, independent of this container running.
   bugsink:
-    image: bugsink/bugsink:2
+    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     restart: always
     env_file:
       - ../../../env/mystic_auth/.env.dev
@@ -294,7 +299,7 @@ services:
   # into bugsink_dsn for backend/frontend to read at startup, avoiding a
   # manual "create a project, copy the DSN" step.
   bugsink-seed:
-    image: bugsink/bugsink:2
+    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     # Root, since Docker creates a fresh named volume root-owned and the
     # non-root "bugsink" user can't write the DSN file into it otherwise.
     user: root

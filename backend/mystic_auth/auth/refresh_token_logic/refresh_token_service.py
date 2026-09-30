@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Refresh token reuse is likely theft, not a routine expired/invalid refresh:
 # see _handle_reuse_detected.
 from ...audit_log.audit_log_service import REFRESH_TOKEN_REUSE_DETECTED, log_security_event
+from ...error_monitoring.sentry_service import capture_security_alert
 from ...logging.logging_config import get_logger
 from ...user_session.session_events import publish_session_revoked
 from ...user_session.session_service import session_service
@@ -294,6 +295,7 @@ class RefreshTokenService:
             request=request,
             metadata=metadata,
         )
+        await capture_security_alert(REFRESH_TOKEN_REUSE_DETECTED, metadata=metadata)
 
 
 refresh_token_service = RefreshTokenService()

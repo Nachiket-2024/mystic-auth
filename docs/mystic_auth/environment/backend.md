@@ -7,7 +7,7 @@ These are the template's fields, declared in the upstream-owned
 `backend/mystic_auth/core/settings.py`. Pydantic loads them from the process
 environment or the mode's `env/mystic_auth/.env.dev` plus `env/app/.env.dev` files.
 For downstream-only fields, add an app-owned settings class under
-`backend/app/` and document those fields with the app rather than changing this
+`backend/app/core/` and document those fields with the app rather than changing this
 table or `core/settings.py`; see [Building On This Template](../template-usage/customization.md#backend-customization).
 
 | Variable | Type | Required | Actual use |
@@ -48,6 +48,11 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `LOGIN_LOCKOUT_TIME_PER_IP` | integer seconds | yes | IP lockout duration after too many failed login attempts across accounts. |
 | `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` | integer | yes | Failed login threshold per IP. |
 | `ACTION_RESERVATION_TIME` | integer seconds | no, defaults to `60` | Valkey reservation lifetime used to serialize concurrent password-reset, verification, and account-deletion confirmations. Keep it longer than the slowest expected mutation, but shorter than the user-facing lockout window. |
+| `REFRESH_TOKEN_REUSE_GRACE_SECONDS` | integer seconds | no, defaults to `10` | Same-client duplicate refresh grace window. A reused token outside the window revokes its chain. |
+| `SESSION_ROW_RETENTION_HOURS` | integer hours | no, defaults to `1` | Retention buffer for naturally expired session rows before the daily cleanup job removes them. |
+| `SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT` | integer | no, defaults to `5` | Global maximum concurrent authenticated SSE session-event streams for one account. |
+| `SESSION_EVENT_MAX_CONNECTIONS_PER_IP` | integer | no, defaults to `20` | Global maximum concurrent authenticated SSE session-event streams for one client IP. |
+| `SESSION_EVENT_LEASE_GRACE_SECONDS` | integer seconds | no, defaults to `30` | Crash-recovery cushion after the 15-minute SSE lease expires. |
 | `MAX_REQUESTS_PER_WINDOW` | integer | yes | Shared request count for the generic auth route rate limiter. |
 | `REQUEST_WINDOW_SECONDS` | integer seconds | yes | Shared fixed-window length for the generic auth route rate limiter. |
 | `LOG_LEVEL` | string | yes | Application logger level. Used by `logging_config.py`. |
@@ -56,7 +61,9 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `GEOIP_DB_PATH` | filesystem path | yes, can be empty | MaxMind GeoLite2-City `.mmdb` path. Empty disables session geolocation and shows "Unknown". |
 | `SENTRY_DSN` | DSN string | yes, can be empty | Backend Sentry-protocol DSN. Empty disables backend error monitoring. |
 | `SENTRY_ENVIRONMENT` | string | yes, can be empty | Backend error-monitoring environment tag. Empty falls back to `ENVIRONMENT`. |
-| `DEFAULT_APP_POLICIES` | comma-separated policy names | yes, can be empty | Extra policy names assigned to each verified user alongside `self_service`. Parsed, trimmed, and deduplicated. |
+| `SECURITY_ALERT_WEBHOOK_URL` | URL, optional | no, defaults empty | HTTPS `POST` endpoint supplied by an incident gateway or generic webhook receiver. Empty disables direct delivery. See [Direct security-alert webhook](../error-monitoring/overview.md#direct-security-alert-webhook). |
+| `SECURITY_ALERT_WEBHOOK_TOKEN` | secret, optional | no, defaults empty | Bearer credential issued by that receiver; sent only in the `Authorization` header and never logged. |
+| `SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS` | number, optional | no, defaults `2` | Maximum wait for the receiver. Delivery is best effort and never blocks authentication. |
 | `ACCOUNT_PURGE_GRACE_DAYS` | integer days | yes | Grace period before the scheduled purge job hard-deletes soft-deleted accounts. |
 | `USER_EXPORT_MAX_ROWS` | integer | yes | Maximum rows returned by `GET /users/export`; larger filtered exports return `400 EXPORT_TOO_LARGE`. |
 
@@ -70,5 +77,14 @@ as `BUGSINK_*`, tunnel credentials, and backup settings. See
 ---
 
 See [Environment Configuration](README.md) for the full index.
+
+## App-owned extension setting
+
+`DEFAULT_APP_POLICIES` is deliberately not part of the upstream `Settings`
+model. It is declared by `backend/app/core/settings.py` and configured in the
+matching `env/app/.env.<mode>` file. It contains comma-separated policy names
+assigned to each verified user alongside `self_service`; names are trimmed and
+deduplicated. Downstream projects extend `backend/app/core/settings.py` for their
+own settings instead of editing `backend/mystic_auth/core/settings.py`.
 
 ---

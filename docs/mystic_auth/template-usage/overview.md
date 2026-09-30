@@ -26,6 +26,10 @@ Already set up and just need a reminder of which script does what? See the **[Co
 
 Every file in the repo falls into exactly one of three ownership tiers, so a future `sync-upstream.sh` run stays low-conflict. See **[The `app/` + `mystic_auth/` Split](ownership-split.md)** for the full tiering table and diagram.
 
+The shortest rule is: put product code in an `app` tree, consume MysticAuth through its SDK, and keep template internals unchanged. For a backend feature, that normally means `backend/app/<feature>/` plus an app-owned migration, policy, settings field in `backend/app/core/settings.py`, and tests under `tests/backend/app/` (create a test subdirectory only when the feature needs several test files). For a frontend feature, use `frontend/src/app/<feature>/` and import shared template capabilities from `frontend/src/app/sdk.ts`. Put deployment-specific values in the matching `env/app/.env.<mode>` file and Compose overrides in `docker/app/compose/`.
+
+If you are starting from a fresh clone, follow this order: [Quickstart](quickstart.md) → [ownership split](ownership-split.md) → the [first-feature tutorial](customization.md#first-feature-tutorial) → [launch checklist](downstream-launch-checklist.md). That path tells you what to copy, what to edit, and what must remain upstream-owned.
+
 ---
 
 ## Building on this template

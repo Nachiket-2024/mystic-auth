@@ -187,6 +187,11 @@ The PBAC route files above live in
 
 ## Infrastructure, users, and workers
 
+The user-schema unit coverage includes the current brand-color validation
+example and the full normalization/error contract. Backend host-test fixtures
+also read the configured Postgres and Valkey host-port variables, so native
+tests remain valid when another local project uses the defaults.
+
 - `audit_log/test_audit_log_repository_unit.py` verifies audit persistence
   queries, filters, pagination, and metadata handling.
 - `audit_log/test_security_audit_service_unit.py` verifies security-event

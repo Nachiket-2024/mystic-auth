@@ -44,6 +44,8 @@ PLACEHOLDER_SECRETS=(
   "POSTGRES_PASSWORD=change_me_in_production"
   "APP_DB_PASSWORD=change_me_in_production"
   "BUGSINK_SUPERUSER_PASSWORD=change_me_in_production"
+  "VALKEY_PASSWORD=change_me_in_production"
+  "BACKUP_ENCRYPTION_KEY=change_me_in_production"
 )
 
 port_in_use() {

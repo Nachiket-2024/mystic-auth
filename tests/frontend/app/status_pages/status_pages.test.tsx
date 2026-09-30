@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import i18next from 'i18next';
 
@@ -27,6 +27,13 @@ describe('NotFoundPage', () => {
     expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Go Home/i })).toBeInTheDocument();
   });
+
+  it('navigates back and home from both actions', () => {
+    renderPage(<NotFoundPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    fireEvent.click(screen.getByRole('button', { name: /Go Home/i }));
+    expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
+  });
 });
 
 describe('NotAuthorizedPage', () => {
@@ -41,6 +48,13 @@ describe('NotAuthorizedPage', () => {
     expect(screen.getByRole('button', { name: /switch to (light|dark) mode/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Go Home/i })).toBeInTheDocument();
+  });
+
+  it('handles both navigation actions', () => {
+    renderPage(<NotAuthorizedPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    fireEvent.click(screen.getByRole('button', { name: /Go Home/i }));
+    expect(screen.getByText('403')).toBeInTheDocument();
   });
 });
 

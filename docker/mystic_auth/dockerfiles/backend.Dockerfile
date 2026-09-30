@@ -1,6 +1,6 @@
 # Compiles native extensions into a venv so build tools never ship in the
 # runtime image.
-FROM python:3.14-alpine AS builder
+FROM python:3.14-alpine@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01 AS builder
 
 WORKDIR /app
 
@@ -22,6 +22,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install test-only dependencies while pip is still available in the builder
+# venv. The runtime stage deliberately strips pip/setuptools, and relying on
+# ensurepip to restore them later makes the test image sensitive to changes in
+# the Python base image's bootstrap packaging.
+FROM builder AS test-deps
+
+COPY backend/requirements-dev.txt .
+RUN pip install --no-cache-dir -r requirements-dev.txt
+
 # Slim final image: interpreter, runtime libraries, venv, and app source.
 # The one image dev, local-prod, and prod all deploy from. Named so the
 # `test` stage can build on it explicitly; still the default target.
@@ -29,7 +38,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Alpine over Debian for the CVE count: Trivy found python:3.14-alpine at
 # 0 High/Critical on this app's built image vs. python:3.14-slim at 50+,
 # all unpatched Debian OS packages unrelated to app code.
-FROM python:3.14-alpine AS runtime
+FROM python:3.14-alpine@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01 AS runtime
 
 WORKDIR /app
 
@@ -71,6 +80,7 @@ RUN mkdir -p /app/logs \
 # owner, so this is a no-op there.
 COPY docker/mystic_auth/dockerfiles/backend-entrypoint.sh /usr/local/bin/backend-entrypoint.sh
 RUN chmod +x /usr/local/bin/backend-entrypoint.sh
+USER app
 ENTRYPOINT ["/usr/local/bin/backend-entrypoint.sh"]
 
 EXPOSE 8000
@@ -88,10 +98,8 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-acc
 # Selected via BACKEND_BUILD_TARGET in docker-compose.yml.
 FROM runtime AS test
 
-# Already root here (runtime's default, since its entrypoint needs root to
-# drop privileges itself - see backend-entrypoint.sh). Restoring
-# pip/setuptools (stripped from the venv above) just to install test-only
-# deps is fine since this stage isn't shipped.
-RUN /opt/venv/bin/python -m ensurepip --upgrade
-COPY backend/requirements-dev.txt .
-RUN /opt/venv/bin/python -m pip install --no-cache-dir -r requirements-dev.txt
+# Replace the runtime venv with the builder-derived test venv, which already
+# contains the test-only dependencies and still has pip available. This keeps
+# pip/setuptools out of the shipped runtime image without depending on
+# ensurepip in the mutable Python base image.
+COPY --from=test-deps /opt/venv /opt/venv

@@ -1,8 +1,11 @@
 import asyncio
 import os
 import re
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import sentry_sdk
 from fastapi import Request
 
@@ -146,6 +149,52 @@ async def capture_exception(exc: Exception, request: Request | None = None) -> N
         sentry_sdk.set_context("request", {"method": request.method, "path": request.url.path})
 
     sentry_sdk.capture_exception(exc)
+
+
+async def capture_security_alert(
+    event_type: str, metadata: Mapping[str, str | bool | int] | None = None
+) -> None:
+    """Send a security event to configured real-time alert sinks.
+
+    The durable audit log remains the source of truth. This complementary
+    Sentry/Bugsink event and optional internal webhook are metadata-only so
+    alerting cannot become a second secret or token store. The webhook makes
+    the delivery contract explicit for PagerDuty, Slack, Opsgenie, or an
+    organization's internal incident gateway. Its short timeout and
+    fail-open handling ensure monitoring outages never turn authentication
+    into a 5xx.
+    """
+    payload = {
+        "event_type": event_type,
+        "environment": settings.SENTRY_ENVIRONMENT or settings.ENVIRONMENT,
+        "occurred_at": datetime.now(UTC).isoformat(),
+        "metadata": metadata or {},
+    }
+
+    if settings.SECURITY_ALERT_WEBHOOK_URL:
+        headers = {"content-type": "application/json"}
+        if settings.SECURITY_ALERT_WEBHOOK_TOKEN:
+            headers["authorization"] = f"Bearer {settings.SECURITY_ALERT_WEBHOOK_TOKEN}"
+        try:
+            async with httpx.AsyncClient(timeout=settings.SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS) as client:
+                response = await client.post(settings.SECURITY_ALERT_WEBHOOK_URL, json=payload, headers=headers)
+                response.raise_for_status()
+        except Exception:
+            startup_logger.critical(
+                "Security alert webhook failed for %s; inspect the durable audit event and webhook health",
+                event_type,
+                exc_info=True,
+            )
+
+    try:
+        with sentry_sdk.new_scope() as scope:
+            scope.set_level("error")
+            scope.set_tag("security_event", event_type)
+            if metadata:
+                scope.set_extra("security_event_metadata", metadata)
+            sentry_sdk.capture_message(f"Security alert: {event_type}", level="error")
+    except Exception:
+        startup_logger.warning("Unable to publish security alert %s", event_type, exc_info=True)
 
 
 async def _resolve_caller_email(request: Request) -> str | None:

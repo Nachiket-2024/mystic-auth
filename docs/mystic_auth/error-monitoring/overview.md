@@ -128,8 +128,130 @@ Written for whoever's never touched Bugsink (or Sentry, or any error tracker lik
 | Frontend | An uncaught render error anywhere in the component tree | `frontend/src/mystic_auth/ui/routing/ErrorBoundary.tsx` calls `core/errorMonitoring.ts::reportError` |
 | Frontend (manual) | Anything your own component/hook code catches but still wants tracked | `reportError`, re-exported from `frontend/src/app/sdk.ts` |
 | Frontend (automatic) | Uncaught `window.onerror`/unhandled promise rejections | Sentry SDK's own default browser instrumentation, once initialized |
+| Security alerting | Refresh-token replay detection and SSE connection-cap violations | `capture_security_alert()` sends a tagged error event (`security_event`) to Bugsink/Sentry and, when configured, a JSON POST to the direct webhook; the durable audit log remains the source of truth |
 
 ---
+
+## Direct security-alert webhook
+
+The direct webhook is an optional second notification route for operators who
+already have an incident gateway or alerting service that accepts authenticated
+HTTP webhooks. It is not required for normal operation. If it is left blank,
+the application still writes the durable audit event and still sends the
+security event to Bugsink/Sentry when `SENTRY_DSN` is configured.
+
+### What it detects
+
+The application sends one alert when it detects either of these high-signal
+events:
+
+- `refresh_token_reuse_detected`: a refresh token was presented again outside
+  the normal duplicate-request grace period. The token chain is revoked when
+  possible, and the event records whether revocation was confirmed.
+- `session_event_connection_limit_exceeded`: an account or client IP reached
+  the maximum number of live session-event (SSE) connections.
+
+These are not ordinary login failures or routine `403`/`404` responses. They
+can indicate token theft, automation, abuse, or a broken client opening streams
+repeatedly.
+
+### What to put in the environment file
+
+The settings belong in the matching mode file, for example
+`env/mystic_auth/.env.prod`:
+
+```dotenv
+# The HTTPS POST endpoint supplied by your incident gateway.
+SECURITY_ALERT_WEBHOOK_URL=https://alerts.example.com/hooks/mystic-auth
+
+# Optional bearer credential issued by that gateway.
+SECURITY_ALERT_WEBHOOK_TOKEN=<gateway-issued-token>
+
+# Seconds to wait for the gateway. 2 is the normal default.
+SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS=2
+```
+
+Use a separate URL and token for production, staging, and development when
+those environments notify different destinations. Do not put a Bugsink DSN,
+Slack signing secret, database password, JWT secret, or user password in
+`SECURITY_ALERT_WEBHOOK_TOKEN`. It must be the bearer credential expected by
+the receiving HTTP endpoint.
+
+If you do not already have an incident gateway, leave all three settings at
+their shipped empty/default values. This repository does not create a webhook
+endpoint or provision an account with PagerDuty, Slack, Opsgenie, or another
+provider.
+
+### Where the URL and token come from
+
+The URL comes from the receiving system's **incoming webhook**, **generic HTTP
+receiver**, or an internal service owned by your operations team. The token
+comes from that same system when it supports bearer authentication. Ask the
+system administrator for:
+
+1. an HTTPS endpoint that accepts `POST` requests with `Content-Type:
+   application/json`;
+2. the bearer token, if authentication is enabled; and
+3. the expected success response (this application treats any `2xx` response
+   as success).
+
+Provider-specific incoming webhooks are not automatically interchangeable.
+For example, a Slack or PagerDuty integration may require its own payload
+shape rather than this generic JSON shape. Use a provider's generic webhook
+receiver or put a small adapter/internal gateway in front of it. The adapter
+can translate this payload into the provider's required format.
+
+### What the application sends
+
+For every detected event, the application sends a JSON body like this:
+
+```json
+{
+  "event_type": "refresh_token_reuse_detected",
+  "environment": "production",
+  "occurred_at": "2026-01-15T03:04:05.000000+00:00",
+  "metadata": {
+    "chain_id": "example-chain-id",
+    "revocation_confirmed": true
+  }
+}
+```
+
+The second event type has `account_limit` and `ip_limit` in `metadata` instead.
+The metadata is deliberately limited: the webhook does not receive passwords,
+refresh tokens, access tokens, or request bodies. The optional token is sent
+only in the HTTP `Authorization: Bearer ...` header and is never included in
+the JSON body or application logs.
+
+### Delivery and failure behavior
+
+The backend makes one HTTP `POST` per security event. It uses the configured
+timeout, defaults to two seconds, and treats delivery as best effort. A timeout,
+network error, or non-`2xx` response is logged as a webhook failure but does
+not turn the authentication request into a `5xx` response. The database audit
+event remains the source of truth, and Bugsink/Sentry reporting is independent
+of the direct webhook.
+
+Before connecting the application, you can verify that your receiver accepts
+the contract with a harmless sample request:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -X POST 'https://alerts.example.com/hooks/mystic-auth' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <gateway-issued-token>' \
+  --data '{
+    "event_type": "webhook_configuration_test",
+    "environment": "production",
+    "occurred_at": "2026-01-15T03:04:05.000000+00:00",
+    "metadata": {"source": "manual-test"}
+  }'
+```
+
+Then set the variables in the relevant env file and restart/recreate the
+backend service so it receives the new values. Check the receiver's delivery
+log and the backend logs after a real security event. Do not use a real token
+in shell history or paste one into tickets or chat.
 
 **Not reported automatically**: a normal `403`/`404`/validation error: those are expected API responses handled by the calling code (a toast, an inline `FormAlert`), not exceptions. Reporting every expected error response would drown out the events that actually indicate a bug.
 
@@ -158,6 +280,7 @@ The backend attaches the caller's email (read from their `access_token` cookie, 
 - **Traces are 0% sampled** (`traces_sample_rate: 0` / `tracesSampleRate: 0`): this integration is error capture only, not performance monitoring/tracing. No request-body/timing data is sent beyond what an actual captured exception includes.
 - **`SECRET_KEY` vs. `BUGSINK_SECRET_KEY`**: these are two unrelated secrets for two unrelated purposes (this app's JWT signing key vs. Bugsink's own Django secret key): never reuse one for the other.
 - **A typo'd `SENTRY_DSN` can't take the app down.** `init_sentry()` runs at import time, before the app itself really exists: it deliberately catches any failure from `sentry_sdk.init()` (verified directly: a malformed DSN string does raise from the SDK) and logs a warning instead of letting it propagate, so a mistake in this one *optional* setting degrades to "monitoring is off" rather than "nothing works." See [Security Decisions](../security/decisions-infra.md#a-malformed-sentry_dsn-must-never-crash-the-app).
+- **Configure a notification rule for `security_event`, or use the direct webhook.** Refresh-token replay and SSE-cap violations are written to the database audit log and emitted as tagged error events to the configured Bugsink/Sentry endpoint. `SECURITY_ALERT_WEBHOOK_URL` can additionally deliver a metadata-only JSON event directly to an internal incident gateway; `SECURITY_ALERT_WEBHOOK_TOKEN` supplies bearer authentication. Production operators must configure and test at least one notification integration. The application deliberately does not send security data by email or include tokens in the event.
 
 ---
 

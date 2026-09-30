@@ -17,7 +17,7 @@ AUDIT_LOG_RETRY = ExponentialBackoffWithJitter(max_attempts=3, base_delay=2, max
 # imports this task under a different root than the real worker, and an
 # unpinned name would register a job the worker can't resolve
 # ("TaskNotFound").
-@app.task(  # type: ignore[call-overload]
+@app.task(
     name="mystic_auth.procrastinate_tasks.audit_log_tasks.log_authorization_decision_task",
     retry=AUDIT_LOG_RETRY,
 )

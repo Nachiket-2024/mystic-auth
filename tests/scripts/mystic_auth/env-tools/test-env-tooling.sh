@@ -34,11 +34,21 @@ chmod +x "$BASE"/scripts/mystic_auth/env-tools/*/*.sh
 cd "$BASE"
 
 echo "=== setup-env: bootstraps every file, skips none that don't exist yet ==="
-printf 'TestApp\n#123456\n' | scripts/mystic_auth/env-tools/setup-env/setup-env.sh >/dev/null
+printf 'TestApp\n\n' | scripts/mystic_auth/env-tools/setup-env/setup-env.sh >/dev/null
 for f in env/mystic_auth/.env.dev env/mystic_auth/.env.prod env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale frontend/.env; do
   [ -f "$f" ] || fail "setup-env: $f was not created"
 done
 pass "setup-env: created every expected file"
+
+for f in env/mystic_auth/.env.dev env/mystic_auth/.env.prod env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale env/app/.env.dev env/app/.env.prod frontend/.env; do
+  if grep -q '^BRAND_COLOR=' "$f"; then
+    grep -q '^BRAND_COLOR=#b5533c$' "$f" || fail "setup-env: $f has the wrong default BRAND_COLOR"
+  fi
+  if grep -q '^VITE_BRAND_COLOR=' "$f"; then
+    grep -q '^VITE_BRAND_COLOR=#b5533c$' "$f" || fail "setup-env: $f has the wrong default VITE_BRAND_COLOR"
+  fi
+done
+pass "setup-env: default brand color matches the canonical MysticAuth color"
 
 DEV_SECRET_1="$(grep '^SECRET_KEY=' env/mystic_auth/.env.dev | cut -d= -f2)"
 PROD_SECRET="$(grep '^SECRET_KEY=' env/mystic_auth/.env.prod | cut -d= -f2)"

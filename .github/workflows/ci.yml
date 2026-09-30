@@ -1,10 +1,11 @@
 name: CI
 
-# Runs on pushes and PRs targeting main. The Docker full-suite job only runs
-# on pushes to main since it repeats the native suites inside containers.
+# Runs on pushes to develop/main and PRs targeting main. The Docker full-suite
+# job only runs on pushes to main since it repeats the native suites inside
+# containers.
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
   pull_request:
     branches: [main]
 
@@ -19,9 +20,9 @@ jobs:
 
     services:
       postgres:
-        # ECR Public mirror of the Docker Official image avoids Docker Hub
-        # anonymous-pull rate limits on GitHub-hosted runners.
-        image: public.ecr.aws/docker/library/postgres:15
+        # GitHub-hosted runners are exempt from Docker Hub's anonymous-pull
+        # rate limit; Public ECR's shared anonymous data quota can be exhausted.
+        image: docker.io/library/postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -35,9 +36,9 @@ jobs:
           --health-retries 5
 
       valkey:
-        # Use the same pinned Valkey image as the Compose environments, via
-        # Valkey's ECR Public namespace to avoid Docker Hub pull limits.
-        image: public.ecr.aws/valkey/valkey:9.1.2-alpine
+        # Use the same pinned Valkey image as the Compose environments. Docker
+        # Hub is reliable for public images on GitHub-hosted runners.
+        image: docker.io/valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
         ports:
           - 6379:6379
         options: >-
@@ -238,6 +239,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Run JWT-aware Trivy secret scan
+        run: >-
+          docker run --rm
+          -v "${GITHUB_WORKSPACE}:/repo:ro"
+          aquasec/trivy:0.68.1@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b
+          fs --scanners secret --exit-code 1 --no-progress /repo
+
   tooling-tests:
     name: Tooling regression tests (env-tools, upstream-sync, script/split paths)
     runs-on: ubuntu-latest
@@ -259,6 +267,23 @@ jobs:
 
       - name: Run backup-freshness regression suite
         run: tests/scripts/mystic_auth/db/test-backup-freshness.sh
+
+      - name: Check production backup network isolation
+        run: tests/scripts/mystic_auth/db/test-backup-compose-network.sh
+
+      - name: Run host-backend port derivation regression suite
+        run: tests/scripts/mystic_auth/docker/test-backend-host-run.sh
+
+  windows-tooling:
+    name: Windows PowerShell tooling regression tests
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run PowerShell setup-env regression test
+        shell: pwsh
+        run: ./tests/scripts/mystic_auth/env-tools/test-setup-env.ps1
 
   docker-build:
     name: Docker image build verification
@@ -310,10 +335,13 @@ jobs:
           cp env/app/.env.local-prod-tailscale.example env/app/.env.local-prod-tailscale
           cp env/app/.env.prod.example env/app/.env.prod
           docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev config > /dev/null
-          docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare config > /dev/null
-          docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok config > /dev/null
-          docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml -f docker/app/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --env-file env/app/.env.local-prod-tailscale config > /dev/null
-          docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod config > /dev/null
+          # The examples intentionally leave the off-host backup command blank
+          # because it is deployment-specific. Supply a harmless interpolation
+          # value for config validation only; it is never used to start a stack.
+          BACKUP_UPLOAD_COMMAND=true docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare config > /dev/null
+          BACKUP_UPLOAD_COMMAND=true docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok config > /dev/null
+          BACKUP_UPLOAD_COMMAND=true docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml -f docker/app/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --env-file env/app/.env.local-prod-tailscale config > /dev/null
+          BACKUP_UPLOAD_COMMAND=true docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod config > /dev/null
 
       - name: Build backend image
         run: docker build --target runtime -f docker/mystic_auth/dockerfiles/backend.Dockerfile -t backend:ci .
@@ -403,6 +431,13 @@ jobs:
           touch env/mystic_auth/.env.dev.ci-created
           sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.dev
           sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/mystic_auth/.env.dev
+          # Keep template-owned browser tests independent of a fork's app
+          # default policies. The disposable CI copy is the only file changed.
+          if grep -q '^DEFAULT_APP_POLICIES=' env/app/.env.dev; then
+            sed -i 's/^DEFAULT_APP_POLICIES=.*/DEFAULT_APP_POLICIES=/' env/app/.env.dev
+          else
+            printf '\nDEFAULT_APP_POLICIES=\n' >> env/app/.env.dev
+          fi
           # The browser matrix intentionally makes more than 100 authenticated
           # requests from one runner IP. Keep production's default limit intact
           # while giving this disposable CI stack enough headroom to test the
@@ -436,6 +471,9 @@ jobs:
             && echo "OK: backend /health/ready reports ok through the actual image"
           curl -sf http://localhost:5173 | grep -qi '<div id="root">' \
             && echo "OK: frontend dev server serves the app shell through the actual image"
+
+      - name: "Backup: create encrypted dumps and verify freshness"
+        run: tests/scripts/mystic_auth/db/test-backup-roundtrip.sh
 
       - name: "Restore-drill: prove the backup path actually restores"
         run: tests/scripts/mystic_auth/db/test-restore-drill.sh
@@ -490,6 +528,13 @@ jobs:
           touch env/mystic_auth/.env.dev.ci-created
           sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.dev
           sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/mystic_auth/.env.dev
+          # Keep template-owned backend tests independent of a fork's app
+          # default policies. The disposable CI copy is the only file changed.
+          if grep -q '^DEFAULT_APP_POLICIES=' env/app/.env.dev; then
+            sed -i 's/^DEFAULT_APP_POLICIES=.*/DEFAULT_APP_POLICIES=/' env/app/.env.dev
+          else
+            printf '\nDEFAULT_APP_POLICIES=\n' >> env/app/.env.dev
+          fi
           docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build postgres valkey alembic backend procrastinate_worker
 
       - name: Wait for backend to report healthy

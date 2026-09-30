@@ -10,6 +10,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pythonjsonlogger import json as jsonlogger
 
 from backend.mystic_auth.logging.logging_config import (
+    PiiRedactionFilter,
     _make_access_handler,
     disable_uvicorn_access_logger,
     get_logger,
@@ -18,6 +19,32 @@ from backend.mystic_auth.logging.logging_config import (
 )
 
 MODULE = "backend.mystic_auth.logging.logging_config"
+
+
+def test_pii_filter_redacts_email_addresses_with_a_stable_keyed_fingerprint():
+    filter_ = PiiRedactionFilter()
+    first = logging.LogRecord("test", logging.INFO, __file__, 1, "login for %s", ("User@Example.com",), None)
+    second = logging.LogRecord("test", logging.INFO, __file__, 1, "login for %s", ("user@example.com",), None)
+
+    assert filter_.filter(first) is True
+    assert filter_.filter(second) is True
+    assert "User@Example.com" not in first.getMessage()
+    assert first.getMessage() == second.getMessage()
+    assert "<email:" in first.getMessage()
+
+
+def test_pii_filter_leaves_messages_without_email_addresses_unchanged():
+    filter_ = PiiRedactionFilter()
+    record = logging.LogRecord("test", logging.INFO, __file__, 1, "refresh completed", (), None)
+
+    assert filter_.filter(record) is True
+    assert record.getMessage() == "refresh completed"
+
+
+def test_regular_logger_handlers_have_pii_redaction_filters():
+    logger = get_logger("test_logging_config_pii_filters")
+
+    assert all(any(isinstance(filter_, PiiRedactionFilter) for filter_ in handler.filters) for handler in logger.handlers)
 
 
 def test_access_log_handler_falls_back_when_log_path_is_not_writable(mocker):

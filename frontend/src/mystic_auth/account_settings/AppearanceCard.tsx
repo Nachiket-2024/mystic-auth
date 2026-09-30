@@ -198,7 +198,7 @@ const AppearanceCard: React.FC = () => {
                     )}
                 </div>
 
-                {!isBrandValid && <FormAlert size="lg" status="error">Enter a valid hex color, e.g. #d97706</FormAlert>}
+                {!isBrandValid && <FormAlert size="lg" status="error">Enter a valid hex color, e.g. #b5533c</FormAlert>}
 
                 <div className={cn("min-h-10", isBrandValid && brandLowContrast ? "visible" : "invisible")}>
                     <FormAlert size="md" status="warning">{t("appearance.contrastWarning")}</FormAlert>

@@ -3,13 +3,14 @@
 # app's after this one, so an app target of the same name wins. See
 # docs/mystic_auth/template-usage/cheatsheet.md for the full command list
 # and docs/mystic_auth/template-usage/ownership-split.md for the split.
-.PHONY: help quickstart dev prod local-prod-cloudflare local-prod-ngrok local-prod-tailscale \
+.PHONY: help quickstart dev backend-host prod local-prod-cloudflare local-prod-ngrok local-prod-tailscale \
 	setup-env check-env rotate-secrets set-env-field superuser backup restore-drill backup-freshness sync \
 	test-tooling test-sync test-backup-freshness lint-paths lint-split lint
 
 help:
 	@echo "make quickstart              fresh clone -> working login, one command"
 	@echo "make dev                     bring the dev stack up"
+	@echo "make backend-host            run FastAPI on the host with Docker data services"
 	@echo "make prod                    bring docker-compose.prod.yml up"
 	@echo "make local-prod-cloudflare   local-prod behind a Cloudflare tunnel"
 	@echo "make local-prod-ngrok        local-prod behind an ngrok tunnel"
@@ -37,6 +38,9 @@ quickstart:
 
 dev:
 	./scripts/mystic_auth/docker/dev/dev-up.sh
+
+backend-host:
+	./scripts/mystic_auth/docker/dev/backend-host-run.sh
 
 prod:
 	./scripts/mystic_auth/docker/prod/prod-up.sh

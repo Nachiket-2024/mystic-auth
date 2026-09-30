@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 96 Vitest modules isolate one frontend rule, API client, hook, store,
+These 101 MysticAuth Vitest modules, plus three app-wrapper modules, isolate one frontend rule, API client, hook, store,
 component, or helper. They are intentionally narrower than page integration
 tests. A passing unit test means the named client-side contract works with
 controlled inputs; it does not mean that the backend accepted a request.
@@ -16,6 +16,19 @@ controlled inputs; it does not mean that the backend accepted a request.
   detection, navigation blocking, and confirmation behavior.
 - `active_sessions/parseUserAgent.test.ts` verifies browser/device parsing for
   the session list, including unknown and incomplete user agents.
+
+## Shared UI, stores, and security-log presentation
+
+- `store/fontSizeStore.test.ts` verifies persisted font-size selection and
+  clamping at the supported boundaries.
+- `ui/shared_components.test.tsx` verifies the public behavior of shared
+  badges, buttons, cards, inputs, links, loading states, stat tiles,
+  collapsible sections, breadcrumbs, and page slots.
+- `ui/shadcn/` covers the shared shadcn/Radix primitives used by the feature
+  pages.
+- `audit_log/security_log/securityAccessChangeDetails.test.ts` verifies
+  access-change detail rendering for complete, partial, blank, and unknown
+  event metadata.
 
 ## API clients
 

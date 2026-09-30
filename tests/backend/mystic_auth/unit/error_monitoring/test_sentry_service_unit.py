@@ -75,6 +75,47 @@ def test_init_sentry_logs_a_warning_when_the_dsn_is_malformed(mocker):
 
 
 @pytest.mark.asyncio
+async def test_capture_security_alert_emits_tagged_error_event(mocker):
+    scope = MagicMock()
+    scope_context = MagicMock()
+    scope_context.__enter__.return_value = scope
+    scope_context.__exit__.return_value = False
+    mocker.patch(f"{MODULE}.sentry_sdk.new_scope", return_value=scope_context)
+    capture_mock = mocker.patch(f"{MODULE}.sentry_sdk.capture_message")
+
+    await sentry_service.capture_security_alert(
+        "refresh_token_reuse_detected", {"scope": "account", "revocation_confirmed": False}
+    )
+
+    scope.set_level.assert_called_once_with("error")
+    scope.set_tag.assert_called_once_with("security_event", "refresh_token_reuse_detected")
+    scope.set_extra.assert_called_once()
+    capture_mock.assert_called_once_with("Security alert: refresh_token_reuse_detected", level="error")
+
+
+@pytest.mark.asyncio
+async def test_capture_security_alert_posts_metadata_only_to_configured_webhook(mocker):
+    mocker.patch(f"{MODULE}.settings.SECURITY_ALERT_WEBHOOK_URL", "https://alerts.example.test/security")
+    mocker.patch(f"{MODULE}.settings.SECURITY_ALERT_WEBHOOK_TOKEN", "webhook-secret")
+    client = mocker.AsyncMock()
+    response = mocker.Mock()
+    response.raise_for_status.return_value = None
+    client.post.return_value = response
+    async_client = mocker.patch(f"{MODULE}.httpx.AsyncClient")
+    async_client.return_value.__aenter__.return_value = client
+    mocker.patch(f"{MODULE}.sentry_sdk.new_scope")
+    mocker.patch(f"{MODULE}.sentry_sdk.capture_message")
+
+    await sentry_service.capture_security_alert("session_event_connection_limit_exceeded", {"ip_limit": 20})
+
+    client.post.assert_awaited_once()
+    _, kwargs = client.post.call_args
+    assert kwargs["headers"]["authorization"] == "Bearer webhook-secret"
+    assert kwargs["json"]["event_type"] == "session_event_connection_limit_exceeded"
+    assert kwargs["json"]["metadata"] == {"ip_limit": 20}
+
+
+@pytest.mark.asyncio
 async def test_capture_exception_reports_without_a_request(mocker):
     capture_mock = mocker.patch(f"{MODULE}.sentry_sdk.capture_exception")
     set_user_mock = mocker.patch(f"{MODULE}.sentry_sdk.set_user")

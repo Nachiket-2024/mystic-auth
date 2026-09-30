@@ -1,8 +1,14 @@
 import asyncio
+import hashlib
 import json
+import time
 import traceback
 from collections.abc import AsyncIterator
+from uuid import uuid4
 
+from ..audit_log.audit_log_service import SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED
+from ..core.settings import settings
+from ..error_monitoring.sentry_service import capture_security_alert
 from ..logging.logging_config import get_logger
 from ..valkey.client import valkey_client
 
@@ -24,6 +30,86 @@ _HEARTBEAT_SECONDS = 20
 # that reconnects are rare, short enough to never block a deploy's
 # shutdown timeout.
 _MAX_CONNECTION_SECONDS = 15 * 60
+_LEASE_TTL_SECONDS = _MAX_CONNECTION_SECONDS + settings.SESSION_EVENT_LEASE_GRACE_SECONDS
+_LEASE_KEY_PREFIX = "session_event_leases"
+
+# Sorted sets allow expired leases to be removed atomically before admission.
+# The Lua script makes cleanup, capacity checks, and both inserts one atomic
+# Valkey operation across every API worker in a multi-process deployment.
+_ACQUIRE_LEASE_SCRIPT = """
+local now = tonumber(ARGV[1])
+local expires = tonumber(ARGV[2])
+local account_limit = tonumber(ARGV[3])
+local ip_limit = tonumber(ARGV[4])
+local token = ARGV[5]
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
+redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now)
+if redis.call('ZCARD', KEYS[1]) >= account_limit then return 0 end
+if redis.call('ZCARD', KEYS[2]) >= ip_limit then return 0 end
+redis.call('ZADD', KEYS[1], expires, token)
+redis.call('ZADD', KEYS[2], expires, token)
+redis.call('EXPIRE', KEYS[1], ARGV[6])
+redis.call('EXPIRE', KEYS[2], ARGV[6])
+return 1
+"""
+
+_RELEASE_LEASE_SCRIPT = """
+redis.call('ZREM', KEYS[1], ARGV[1])
+redis.call('ZREM', KEYS[2], ARGV[1])
+if redis.call('ZCARD', KEYS[1]) == 0 then redis.call('DEL', KEYS[1]) end
+if redis.call('ZCARD', KEYS[2]) == 0 then redis.call('DEL', KEYS[2]) end
+return 1
+"""
+
+
+def _lease_key(scope: str, value: str) -> str:
+    """Hash identifiers before storing them as inspectable Valkey keys."""
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
+    return f"{_LEASE_KEY_PREFIX}:{scope}:{digest}"
+
+
+async def acquire_session_event_lease(email: str, client_ip: str) -> str | None:
+    """Reserve one globally-counted SSE slot or fail closed.
+
+    The live-update stream is optional. If Valkey is unavailable, rejecting
+    this channel avoids accepting unbounded long-lived sockets while normal
+    authenticated API requests continue to use their existing failure policy.
+    """
+    token = uuid4().hex
+    now = int(time.time())
+    expires = now + _MAX_CONNECTION_SECONDS
+    try:
+        admitted = await valkey_client.eval(
+            _ACQUIRE_LEASE_SCRIPT,
+            2,
+            _lease_key("account", email),
+            _lease_key("ip", client_ip),
+            now,
+            expires,
+            settings.SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT,
+            settings.SESSION_EVENT_MAX_CONNECTIONS_PER_IP,
+            token,
+            _LEASE_TTL_SECONDS,
+        )
+    except Exception:
+        logger.error("Unable to reserve session-event connection capacity:\n%s", traceback.format_exc())
+        return None
+
+    return token if int(admitted) == 1 else None
+
+
+async def release_session_event_lease(email: str, client_ip: str, token: str) -> None:
+    """Release only this stream's lease; expiry remains the crash recovery path."""
+    try:
+        await valkey_client.eval(
+            _RELEASE_LEASE_SCRIPT,
+            2,
+            _lease_key("account", email),
+            _lease_key("ip", client_ip),
+            token,
+        )
+    except Exception:
+        logger.warning("Unable to release session-event connection lease:\n%s", traceback.format_exc())
 
 # Set from main.py's lifespan shutdown, right before it disposes the DB pool
 # and closes valkey_client. Lets every open session_event_stream() loop
@@ -103,7 +189,9 @@ async def publish_permissions_changed(email: str) -> None:
         logger.warning("Failed to publish permissions-changed event for %s:\n%s", email, traceback.format_exc())
 
 
-async def session_event_stream(email: str) -> AsyncIterator[str]:
+async def session_event_stream(
+    email: str, client_ip: str = "unknown", lease_token: str | None = None
+) -> AsyncIterator[str]:
     """
     Yields Server-Sent-Events-formatted lines on `email`'s own channel
     until the client disconnects. One Valkey Pub/Sub subscription per open
@@ -137,6 +225,19 @@ async def session_event_stream(email: str) -> AsyncIterator[str]:
     once per _MAX_CONNECTION_SECONDS, or once, ever, per process shutdown -
     ordinary long-lived connections are unaffected in between.
     """
+    owns_lease = lease_token is None
+    if owns_lease:
+        lease_token = await acquire_session_event_lease(email, client_ip)
+        if lease_token is None:
+            await capture_security_alert(
+                SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED,
+                metadata={
+                    "account_limit": settings.SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT,
+                    "ip_limit": settings.SESSION_EVENT_MAX_CONNECTIONS_PER_IP,
+                },
+            )
+            return
+
     channel = _CHANNEL_TEMPLATE.format(email=email)
     pubsub = valkey_client.pubsub()
     loop = asyncio.get_running_loop()
@@ -197,3 +298,5 @@ async def session_event_stream(email: str) -> AsyncIterator[str]:
     finally:
         await pubsub.unsubscribe(channel)
         await pubsub.aclose()
+        if owns_lease and lease_token is not None:
+            await release_session_event_lease(email, client_ip, lease_token)

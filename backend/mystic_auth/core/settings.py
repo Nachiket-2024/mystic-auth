@@ -71,13 +71,17 @@ class Settings(BaseSettings):
 
     SENTRY_DSN: str                                 # Optional Sentry-protocol DSN (Sentry itself, or a compatible self-hosted server like Bugsink). Empty = error monitoring disabled, no SDK call is made
     SENTRY_ENVIRONMENT: str                         # Optional tag reported with every event (e.g. "production", "staging"). Empty falls back to ENVIRONMENT
-
-    DEFAULT_APP_POLICIES: str                       # Optional comma-separated policy names auto-assigned to every verified user, alongside self_service. Empty = self_service only
+    SECURITY_ALERT_WEBHOOK_URL: str = ""            # Optional incident/webhook endpoint for high-signal security alerts
+    SECURITY_ALERT_WEBHOOK_TOKEN: str = ""          # Optional bearer token for SECURITY_ALERT_WEBHOOK_URL; never logged
+    SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS: float = 2.0  # Short fail-open timeout so monitoring cannot block authentication
 
     ACCOUNT_PURGE_GRACE_DAYS: int                   # Days a soft-deleted account is kept before the daily purge job hard-deletes it
 
     REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = 10     # A refresh token presented again within this many seconds of its first use, from the same client IP, is treated as a benign duplicate (two tabs, or a response lost to a reload) and gets a fresh pair instead of a chain revoke. 0 disables. Defaulted, not in .env*
     SESSION_ROW_RETENTION_HOURS: int = 1           # Hours past expires_at a user_sessions row is kept before the daily sweep (session_cleanup_tasks.py) hard-deletes it. Buffer, not a deployment knob (defaulted, not in .env*): revoked sessions delete immediately on revoke, this only covers ones that lapsed without an explicit revoke
+    SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT: int = 5  # Maximum concurrent authenticated SSE streams for one account, enforced globally through Valkey
+    SESSION_EVENT_MAX_CONNECTIONS_PER_IP: int = 20      # Maximum concurrent authenticated SSE streams for one client IP, enforced globally through Valkey
+    SESSION_EVENT_LEASE_GRACE_SECONDS: int = 30         # Expiry cushion if a worker dies before its SSE cleanup runs
 
     USER_EXPORT_MAX_ROWS: int                       # Hard ceiling on GET /users/export's row count (that endpoint has no offset/limit). A request matching more rows is rejected instead of loaded into memory in one query
 
@@ -129,12 +133,5 @@ class Settings(BaseSettings):
         PsycopgConnector expects. Procrastinate opens its own psycopg
         connection pool, separate from the SQLAlchemy engine."""
         return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
-
-    @property
-    def default_app_policy_names(self) -> list[str]:
-        """Parsed, deduplicated DEFAULT_APP_POLICIES. Empty list when unset."""
-        names = (name.strip() for name in self.DEFAULT_APP_POLICIES.split(","))
-        return list(dict.fromkeys(name for name in names if name))
-
 
 settings = Settings()

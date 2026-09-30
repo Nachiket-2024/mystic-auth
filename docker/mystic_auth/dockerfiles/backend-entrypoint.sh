@@ -7,6 +7,13 @@
 # volume already has the right owner, so this is a no-op there.
 set -e
 
+# Production images declare the non-root app user. Development Compose mounts
+# host-owned source/log volumes and explicitly runs this entrypoint as root so
+# it can normalize those mounts before dropping privileges.
+if [ "$(id -u)" -ne 0 ]; then
+    exec "$@"
+fi
+
 for dir in /app/logs /repo/backend/logs; do
     [ -d "$dir" ] && chown -R app:app "$dir"
 done

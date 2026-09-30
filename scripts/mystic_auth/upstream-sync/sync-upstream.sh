@@ -85,10 +85,35 @@ if [ -z "$INCOMING" ]; then
   exit 0
 fi
 
+if [ -n "$LAST_SYNCED_SHA" ]; then
+  UPSTREAM_PATH_CHANGES="$(git diff --name-status -M "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}")"
+else
+  UPSTREAM_PATH_CHANGES="$(git diff --name-status -M --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}")"
+fi
+
 echo ""
 echo "Incoming commits from upstream/${UPSTREAM_BRANCH}:"
 echo "$INCOMING"
 echo ""
+
+REMOVAL_OR_RENAME_CHANGES="$(printf '%s\n' "$UPSTREAM_PATH_CHANGES" | awk '$1 == "D" || $1 ~ /^R[0-9]+$/')"
+if [ -n "$REMOVAL_OR_RENAME_CHANGES" ]; then
+  echo "Upstream file removals/renames in this sync (old paths will not be kept):"
+  printf '%s\n' "$REMOVAL_OR_RENAME_CHANGES" | while IFS= read -r change; do
+    case "$change" in
+      D$'\t'*) printf '  DELETE %s\n' "${change#*$'\t'}" ;;
+      R*$'\t'*)
+        old_path="${change#*$'\t'}"
+        new_path="${old_path#*$'\t'}"
+        old_path="${old_path%%$'\t'*}"
+        printf '  MOVE   %s -> %s\n' "$old_path" "$new_path"
+        ;;
+    esac
+  done
+  echo "These upstream-owned paths are included in the sync and will be removed or moved as shown."
+  echo "The ownership split normally keeps app-owned paths out of upstream changes; inspect any app-owned path if one appears unexpectedly."
+  echo ""
+fi
 
 read -r -p "Sync these into the current branch now? [y/N] " CONFIRM
 case "$CONFIRM" in

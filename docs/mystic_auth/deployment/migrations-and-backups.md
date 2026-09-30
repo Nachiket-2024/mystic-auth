@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
-Deployment operations for Alembic migrations, database dumps, restore commands, and backup limitations.
+Deployment operations for Alembic migrations, encrypted database dumps, restore commands, and recovery checks.
 
 ---
 
@@ -26,7 +26,7 @@ Migrations run with `DATABASE_URL`, normally the Postgres superuser. Runtime app
 ## 2. Backup scripts
 ---
 
-`scripts/mystic_auth/db/db_backup.sh` and `scripts/mystic_auth/db/db_restore.sh` wrap Docker Compose, `pg_dump`, and `psql`. Production-shaped Compose files use a custom Postgres client image with `rclone` and `curl` installed. The intended off-host target is Backblaze B2, using rclone's native B2 backend.
+`scripts/mystic_auth/db/db_backup.sh` and `scripts/mystic_auth/db/db_restore.sh` wrap Docker Compose, `pg_dump`, and `psql`. Production-shaped Compose files use a custom Postgres client image with `openssl`, `rclone`, and `curl` installed. Backups are encrypted with AES-256-CBC using PBKDF2 before they are written to `./backups`; the key is never stored beside the backup files. The manual script accepts `BACKUP_DIR=/path/to/writable/dir` when the scheduled sidecar owns the default bind-mounted directory as UID 10001.
 
 Run `scripts/mystic_auth/db/check_backup_freshness.sh` from an external
 monitoring scheduler to verify that every required database has a recent,
@@ -49,11 +49,11 @@ scripts/mystic_auth/db/db_backup.sh
 # Dump a production-shaped stack
 scripts/mystic_auth/db/db_backup.sh docker-compose.local-prod-ngrok.yml
 
-# Restore a dump, with confirmation
-scripts/mystic_auth/db/db_restore.sh backups/mystic_auth-20260717-120000.sql
+# Restore an encrypted dump, with confirmation
+scripts/mystic_auth/db/db_restore.sh backups/mystic_auth-20260717-120000.dump.enc
 
 # Restore without confirmation
-scripts/mystic_auth/db/db_restore.sh -y backups/mystic_auth-20260717-120000.sql
+scripts/mystic_auth/db/db_restore.sh -y backups/mystic_auth-20260717-120000.dump.enc
 ```
 
 ### Backblaze B2 off-host copies
@@ -92,6 +92,8 @@ B2_BUCKET=mystic-auth-production-backups
 RCLONE_CONFIG_B2_ACCOUNT=<keyID>
 RCLONE_CONFIG_B2_KEY=<applicationKey>
 BACKUP_UPLOAD_COMMAND=rclone copyto "$${DUMP_FILE}" "b2:mystic-auth-production-backups/$$(basename "$${DUMP_FILE}")"
+# Keep this in a secret manager and separately from ./backups.
+BACKUP_ENCRYPTION_KEY=<64-character-secret>
 ```
 
 The doubled dollar signs are required in a Compose environment file so
@@ -113,7 +115,8 @@ After configuring the bucket, verify both directions:
 make restore-drill
 scripts/mystic_auth/db/db_backup.sh docker-compose.prod.yml
 rclone lsjson "b2:${B2_BUCKET}"
-pg_restore --list <(rclone cat "b2:${B2_BUCKET}/<dump-name>.dump")
+openssl enc -d -aes-256-cbc -pbkdf2 -in <(rclone cat "b2:${B2_BUCKET}/<dump-name>.dump.enc") \
+  -pass env:BACKUP_ENCRYPTION_KEY | pg_restore --list
 ```
 
 The restore drill in the repository checks a local dump. A deployment
@@ -194,10 +197,15 @@ behavior. See the fixed line's own comment in either script for the detail.
 |---|---|
 | `BACKUP_INTERVAL_HOURS` | Hours between scheduled dumps. |
 | `BACKUP_RETENTION_DAYS` | Local retention window for old dump files. |
-| `BACKUP_UPLOAD_COMMAND` | Shell command run after each verified dump, with `DUMP_FILE` exported to it, to ship the dump off-host. Configure it for B2 before treating the deployment as protected. |
+| `BACKUP_ENCRYPTION_KEY` | Required secret used to encrypt/decrypt `.dump.enc` files. Store it in a secret manager, not with the backups. |
+| `BACKUP_UPLOAD_COMMAND` | Required in production-shaped modes; runs after each verified encrypted dump, with `DUMP_FILE` exported to it, to ship the dump off-host. |
 | `./backups` | Host directory where dumps are written. |
 
-This is a periodic `pg_dump` loop. It is a baseline, not a production-grade backup system. `scripts/mystic_auth/db/db_backup.sh` (manual/on-demand backups) honors the same `BACKUP_UPLOAD_COMMAND` for parity.
+This is a periodic `pg_dump` loop with encryption, structural verification, and a fail-fast off-host upload requirement in production-shaped modes. `scripts/mystic_auth/db/db_backup.sh` (manual/on-demand backups) honors the same encryption and upload settings for parity.
+
+The backup sidecar remains attached to the private `backend_net` for Postgres
+access and also uses a separate non-internal `backup_egress_net` solely for
+off-host upload. Application services remain on the internal network.
 
 The scheduled backup image includes `rclone` and uses the B2 environment
 variables above. A host running the manual script needs `rclone` installed
@@ -208,11 +216,11 @@ locally.
 ## 5. Backup limitations
 ---
 
-Known limitations:
+Operational boundaries:
 
-1. Dumps live on the same host by default, unless `BACKUP_UPLOAD_COMMAND` is set.
+1. Production-shaped Compose modes fail to start without both `BACKUP_ENCRYPTION_KEY` and `BACKUP_UPLOAD_COMMAND`; this prevents an unprotected deployment from appearing healthy.
 2. There is no point-in-time recovery - periodic full dumps only, so worst-case data loss is up to `BACKUP_INTERVAL_HOURS` of writes.
-3. Failure events are sent to Bugsink when its generated DSN is available, but an operator should still monitor backup freshness and B2 bucket contents.
+3. Encryption protects backup confidentiality, but losing `BACKUP_ENCRYPTION_KEY` makes recovery impossible. Escrow it separately and test recovery with the restore drill.
 
 Each dump is already verified with `pg_restore --list` immediately after writing, so a corrupt dump is caught before it's trusted, not after a restore is attempted. Beyond that structural check, run [the restore drill](#3-restore-drill) periodically against production data to confirm the whole pipeline, not just the dump file, works end to end.
 

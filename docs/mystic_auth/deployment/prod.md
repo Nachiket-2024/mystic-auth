@@ -94,7 +94,7 @@ Before starting, replace every `<your-domain>` placeholder in the copied
 Also rotate before starting:
 
 - `SECRET_KEY`, `POSTGRES_PASSWORD`, `BUGSINK_SECRET_KEY`, and `BUGSINK_SUPERUSER_PASSWORD`.
-- `VALKEY_PASSWORD` is optional (blank ships as a working default since Valkey has no host port exposed in this mode); set one only if you want it, and rewrite `VALKEY_URL` to embed it too, since setting `VALKEY_PASSWORD` alone does nothing - see [Valkey authentication](../security/hardening-infra.md#valkey-authentication).
+- `VALKEY_PASSWORD` is required. `setup-env` generates it and embeds it in `VALKEY_URL`; production Compose refuses to start if it is missing - see [Valkey authentication](../security/hardening-infra.md#valkey-authentication).
 - `APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s, if you keep the least-privilege app role enabled (the default; see [Deployment Guide: Database migrations](migrations-and-backups.md#1-database-migrations)).
 
 Also configure before opening the app to real users:

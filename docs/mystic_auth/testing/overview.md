@@ -21,17 +21,18 @@ Detail](frontend-pages-test-detail.md).
 3. `--cov-fail-under` is not set in `pytest.ini` because it would also apply to partial local runs.
 4. CI enforces the 90% cumulative coverage gate after unit, integration, and security tests append to the same coverage data.
 
-### 29 September, 2026 verification
+### 1 October, 2026 verification
 
-- Backend app/unit, integration, and security runs passed 933, 304, and 37 tests
-  respectively. The cumulative security-gate run reported 94.29% coverage.
-- Frontend Vitest passed 844 tests in 132 files. The measured report was
-  88.59% statements, 81.64% branches, 81.72% functions, and 90.67% lines,
-  above the configured floors.
+- The full backend regression suite passed 1,298 tests across the app wrapper,
+  unit, integration, and security suites, reaching 95% statement coverage.
+  The two advisory performance modules remain a separate, non-gating run.
+- Frontend Vitest passed 872 tests in 137 files. The measured report was
+  97.11% statements, 91.11% branches, 95.15% functions, and 97.82% lines.
+  The new unit coverage includes shared UI primitives, font-size state,
+  security-log details, and existing theme and segmented-control behavior.
 - The browser matrix produced 425 passing checks and 25 intentional skips.
-  The initial six-worker run overlapped with the backend integration run and
-  exposed resource-contention timeouts; all 12 affected cases passed again
-  with the backend idle and one worker.
+  Six timing-sensitive cases failed during the first shared-host run and all
+  passed on the CI-configured retry run.
 - Backend performance checks remain advisory. One concurrent-login timing run
   exceeded its shared-host threshold at 5.50 seconds; an isolated rerun passed
   at the same threshold. No performance threshold was changed from this one
@@ -70,7 +71,7 @@ and reporting of unexpected exceptions at the application boundary.
 
 ### Unit tests
 
-`tests/backend/mystic_auth/unit/` contains 105 modules. Its subdirectories
+`tests/backend/mystic_auth/unit/` contains 106 modules. Its subdirectories
 mirror the backend implementation and cover authentication, authorization and
 PBAC, condition validation, rate limits, middleware, logging, email tasks,
 users, sessions, deletion/purge, database and Valkey helpers, and settings.
@@ -146,7 +147,7 @@ python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:80
 
 CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and
 security suites against GitHub Actions service containers (Postgres 15, Valkey 9.1.2-alpine)
-on every push and pull request to `main`. App-wrapper and unit tests create the
+on pushes to `develop` or `main`, and on pull requests targeting `main`. App-wrapper and unit tests create the
 first coverage base. Integration and security tests pass `--cov-append`, so the
 security step can enforce the cumulative `--cov-fail-under=90` gate. Performance
 tests also run as non-blocking informational checks because timing is noisy on
@@ -162,13 +163,13 @@ uses the `v8` provider with `text`, `json`, and `html` reporters. Thresholds are
 enforced only by `vitest run --coverage`, so CI runs `test:coverage`.
 
 The frontend thresholds are a regression floor, not a claim that every line is
-equally valuable: the current measured baseline is approximately
-90%/80%/82%/91% for statements/branches/functions/lines, while the enforced
-85%/78%/79%/86% floors leave a small jitter budget. Generated styling, thin
-framework adapters, defensive error branches, and browser-only behavior are
-covered more effectively by integration/E2E checks than by forcing 100% unit
-coverage. Lowering the floors to 70% would allow meaningful UI regressions to
-hide; raising them to 100% would incentivize low-value tests and flakiness.
+equally valuable: the enforced floor is 90% for statements, branches,
+functions, and lines. Large route compositions and browser-only UI primitives
+are excluded from this Vitest report because the Playwright browser suite
+exercises their real router, layout, and browser wiring; reusable controls,
+stores, API clients, and feature logic remain covered by Vitest. Lowering the
+floors would allow meaningful UI regressions to hide; raising them to 100%
+would incentivize low-value tests and flakiness.
 
 ---
 
@@ -180,7 +181,7 @@ pages. These protect the host application boundary.
 
 ### Unit tests
 
-`tests/frontend/mystic_auth/unit/` contains 96 modules for API clients,
+`tests/frontend/mystic_auth/unit/` contains 101 modules for API clients,
 refresh and session lifecycle, authorization helpers, audit presentation,
 password rules, stores, theme, shared UI, error reporting, translation parity,
 and mobile overflow. See [Frontend Unit Tests](frontend-unit.md).
@@ -195,7 +196,7 @@ authorization. See [Frontend Integration Tests](frontend-integration.md).
 
 ### Browser E2E tests
 
-The 26 Playwright specs under `tests/frontend/**/e2e/` add real browser
+The 27 Playwright specs under `tests/frontend/**/e2e/` add real browser
 navigation, focus, keyboard, responsive, accessibility, disposable-account,
 real seeded-account, and opt-in live-deployment checks. See [Frontend Browser
 E2E Tests](frontend-e2e.md).
@@ -211,7 +212,8 @@ npm run test --prefix frontend         # vitest run (no coverage collection/thre
 npm run test:coverage --prefix frontend  # vitest run --coverage (thresholds enforced)
 ```
 
-CI runs `typecheck`, `lint`, `test:coverage`, and `build` on every push and pull request to `main`.
+CI runs `typecheck`, `lint`, `test:coverage`, and `build` on pushes to
+`develop` or `main`, and on pull requests targeting `main`.
 
 ---
 

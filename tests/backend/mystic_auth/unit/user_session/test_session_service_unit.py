@@ -175,3 +175,68 @@ async def test_revoke_chain_is_fail_open_on_repository_error(mocker):
 
     # Session tracking must never turn a successful authentication flow into
     # an outage when the auxiliary row cannot be updated.
+
+
+@pytest.mark.asyncio
+async def test_rotate_session_and_chain_skip_without_database(mocker):
+    rotate_mock = mocker.patch(f"{MODULE}.session_repository.rotate", new_callable=AsyncMock)
+    chain_mock = mocker.patch(f"{MODULE}.session_repository.rotate_by_chain_id", new_callable=AsyncMock)
+
+    await SessionService.rotate_session(None, "old", "new", "chain", 1_800_000_000)
+    await SessionService.rotate_session_by_chain(None, "chain", "new", 1_800_000_000)
+
+    rotate_mock.assert_not_awaited()
+    chain_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_rotate_session_handles_repository_failure_without_raising(mocker):
+    mocker.patch(
+        f"{MODULE}.session_repository.rotate",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("database unavailable"),
+    )
+    warning_mock = mocker.patch(f"{MODULE}.logger.warning")
+
+    await SessionService.rotate_session(object(), "old", "new", "chain", 1_800_000_000)
+
+    warning_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_rotate_session_by_chain_backfills_legacy_row(mocker):
+    mocker.patch(f"{MODULE}.session_repository.rotate_by_chain_id", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=SimpleNamespace(id=12))
+    create_mock = mocker.patch(f"{MODULE}.session_repository.create", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.get_client_ip", return_value="198.51.100.20")
+    mocker.patch(f"{MODULE}.resolve_city_country", return_value=("Melbourne", "Australia"))
+    request = MagicMock()
+    request.headers.get.return_value = "browser/2.0"
+
+    await SessionService.rotate_session_by_chain(
+        object(), "chain", "new", 1_800_000_000, "user@example.com", request
+    )
+
+    create_mock.assert_awaited_once()
+    assert create_mock.await_args.args[1:4] == (12, "new", "chain")
+
+
+@pytest.mark.asyncio
+async def test_revoke_all_sessions_handles_missing_user_and_database(mocker):
+    revoke_mock = mocker.patch(f"{MODULE}.session_repository.revoke_all_for_user", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=None)
+
+    await SessionService.revoke_all_sessions(object(), "missing@example.com")
+    await SessionService.revoke_all_sessions(None, "user@example.com")
+
+    revoke_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_revoke_one_session_returns_none_for_missing_owner_or_target(mocker):
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=None)
+    assert await SessionService.revoke_one_session(object(), "missing@example.com", 1) is None
+
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=SimpleNamespace(id=2))
+    mocker.patch(f"{MODULE}.session_repository.get_by_id", new_callable=AsyncMock, return_value=None)
+    assert await SessionService.revoke_one_session(object(), "user@example.com", 1) is None

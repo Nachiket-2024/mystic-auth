@@ -108,14 +108,17 @@ class AccountVerificationHandler:
         try:
             email_sent = await self.account_verification_service.send_verification_email_if_needed(email, db)
 
-            if email_sent:
-                await log_security_event(
-                    ACCOUNT_VERIFICATION_REQUESTED,
-                    db,
-                    user_email=email,
-                    success=True,
-                    request=request,
-                )
+            await log_security_event(
+                ACCOUNT_VERIFICATION_REQUESTED,
+                db,
+                # Do not retain an arbitrary unknown email from an
+                # enumeration-resistant request. Known successful delivery
+                # requests retain the account identity for investigation.
+                user_email=email if email_sent else None,
+                success=email_sent,
+                request=request,
+                metadata={"delivery_queued": email_sent},
+            )
 
             return JSONResponse(
                 content={

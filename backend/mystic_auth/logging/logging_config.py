@@ -1,5 +1,8 @@
+import hashlib
+import hmac
 import logging
 import os
+import re
 from logging.handlers import TimedRotatingFileHandler
 
 from pythonjsonlogger import json as jsonlogger
@@ -21,6 +24,34 @@ class HealthCheckFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         return "/health/ready" not in record.getMessage()
+
+
+class PiiRedactionFilter(logging.Filter):
+    """Remove raw email addresses from every application log sink.
+
+    A stable, keyed fingerprint preserves the ability to correlate events for
+    one account without making the email address itself available to anyone
+    with log access. Redaction happens at the handler boundary so it also
+    covers third-party/library errors and future call sites.
+    """
+
+    _EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+
+    @staticmethod
+    def _fingerprint(match: re.Match[str]) -> str:
+        normalized = match.group(0).strip().lower().encode("utf-8")
+        digest = hmac.new(settings.SECRET_KEY.encode("utf-8"), normalized, hashlib.sha256).hexdigest()[:16]
+        return f"<email:{digest}>"
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        redacted = self._EMAIL_RE.sub(self._fingerprint, message)
+        if redacted != message:
+            # Materialize the message so handlers cannot format the original
+            # args again after this filter has run.
+            record.msg = redacted
+            record.args = ()
+        return True
 
 
 def disable_uvicorn_access_logger() -> None:
@@ -107,14 +138,17 @@ def get_logger(name: str = "base_logger") -> logging.Logger:
         )
 
         request_id_filter = RequestIdFilter()
+        pii_filter = PiiRedactionFilter()
 
         access_handler = _make_access_handler(logging.INFO, file_formatter)
         access_handler.addFilter(request_id_filter)
+        access_handler.addFilter(pii_filter)
 
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.WARNING)
         stream_handler.setFormatter(stream_formatter)
         stream_handler.addFilter(request_id_filter)
+        stream_handler.addFilter(pii_filter)
 
         logger.addHandler(access_handler)
         logger.addHandler(stream_handler)
@@ -149,14 +183,17 @@ def get_worker_logger(name: str = "worker") -> logging.Logger:
         )
 
         request_id_filter = RequestIdFilter()
+        pii_filter = PiiRedactionFilter()
 
         access_handler = _make_access_handler(logging.INFO, file_formatter)
         access_handler.addFilter(request_id_filter)
+        access_handler.addFilter(pii_filter)
 
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.INFO)
         stream_handler.setFormatter(stream_formatter)
         stream_handler.addFilter(request_id_filter)
+        stream_handler.addFilter(pii_filter)
 
         logger.addHandler(access_handler)
         logger.addHandler(stream_handler)

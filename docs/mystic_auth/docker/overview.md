@@ -22,7 +22,7 @@ day-to-day workflow.
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy. It creates the "MysticAuth" team/project idempotently and writes seeded DSNs into the `bugsink_dsn` volume. Locally, both backend and frontend DSN forms are written and read at startup. In prod, only the backend form is written because `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time |
 | `cloudflared` / `ngrok` / `tailscale` | Pulled, not built | The public tunnel, one per `docker-compose.local-prod-*.yml` variant. Proxies `frontend:80` to a public URL and terminates TLS at the provider's edge. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want) |
 | `geoipupdate` | `ghcr.io/maxmind/geoipupdate:latest` (pulled, not built) | Optional, off by default (`geoip` Compose profile): keeps `backend`'s GeoLite2-City `.mmdb` file current. See [Session Geolocation](../geolocation/overview.md) |
-| `db_backup` | `postgres:15` (same image as `postgres`, different `command:`) | On by default in every production-style Compose file: dumps both databases to `./backups` on a loop. See [Deployment Guide: Backups](../deployment/migrations-and-backups.md) |
+| `db_backup` | `docker/mystic_auth/dockerfiles/db-backup.Dockerfile` | On by default in every production-style Compose file: dumps both databases to `./backups` on a loop. Its dump/upload loop runs as UID/GID 10001 after a short root-owned bind-mount normalization step. See [Deployment Guide: Backups](../deployment/migrations-and-backups.md) |
 
 ---
 
@@ -34,6 +34,12 @@ across all three roles.
 The `postgres` service mounts `docker/mystic_auth/postgres-init/` to
 `/docker-entrypoint-initdb.d/`. On a fresh volume, it creates the separate
 `bugsink` database, so Bugsink does not need a second Postgres container.
+
+Production-style Compose modes put `postgres`, Valkey, workers, migrations,
+monitoring, and the backup sidecar on an internal `backend_net`. The public
+frontend or tunnel remains on the default network, while `backend` is the only
+application service attached to both networks. This prevents the public-facing
+frontend from reaching the database or cache directly.
 
 ---
 

@@ -9,6 +9,12 @@
 #
 # See docs/mystic_auth/template-usage/overview.md for what's still yours to
 # fill in after this runs.
+param(
+    [string]$AppName,
+    [string]$BrandColor,
+    [switch]$NonInteractive
+)
+
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "../../../..")
 
@@ -19,10 +25,10 @@ function New-Secret([int]$Length) {
     return $raw.Substring(0, [Math]::Min($Length, $raw.Length))
 }
 
-$AppName = Read-Host "App name [MysticAuth]"
+if (-not $NonInteractive) { $AppName = Read-Host "App name [MysticAuth]" }
 if ([string]::IsNullOrWhiteSpace($AppName)) { $AppName = "MysticAuth" }
-$BrandColor = Read-Host "Brand color hex [#d97706]"
-if ([string]::IsNullOrWhiteSpace($BrandColor)) { $BrandColor = "#d97706" }
+if (-not $NonInteractive) { $BrandColor = Read-Host "Brand color hex [#b5533c]" }
+if ([string]::IsNullOrWhiteSpace($BrandColor)) { $BrandColor = "#b5533c" }
 
 # Optional: the two things nothing else in this script can generate for
 # you. Skippable (default No) since it's fine to fill these in later by
@@ -30,7 +36,7 @@ if ([string]::IsNullOrWhiteSpace($BrandColor)) { $BrandColor = "#d97706" }
 # see docs/mystic_auth/template-usage/quickstart.md.
 $GoogleClientId = ""
 $GoogleClientSecret = ""
-$SetupOAuth = Read-Host "Set up Google OAuth now? [y/N]"
+$SetupOAuth = if ($NonInteractive) { "" } else { Read-Host "Set up Google OAuth now? [y/N]" }
 if ($SetupOAuth -match '^[Yy]') {
     $GoogleClientId = Read-Host "  GOOGLE_CLIENT_ID"
     $GoogleClientSecret = Read-Host "  GOOGLE_CLIENT_SECRET"
@@ -38,7 +44,7 @@ if ($SetupOAuth -match '^[Yy]') {
 
 $FromEmail = ""
 $GmailAppPassword = ""
-$SetupEmail = Read-Host "Set up email sending now (Gmail)? [y/N]"
+$SetupEmail = if ($NonInteractive) { "" } else { Read-Host "Set up email sending now (Gmail)? [y/N]" }
 if ($SetupEmail -match '^[Yy]') {
     $FromEmail = Read-Host "  FROM_EMAIL (Gmail address)"
     $GmailAppPassword = Read-Host "  GMAIL_APP_PASSWORD (from https://myaccount.google.com/apppasswords)"
@@ -123,13 +129,20 @@ foreach ($pair in $Pairs) {
         $content = $content -replace '(?m)^BUGSINK_SUPERUSER_PASSWORD=.*', "BUGSINK_SUPERUSER_PASSWORD=$(New-Secret 24)"
     }
 
+    if ($content -match '(?m)^VALKEY_PASSWORD=') {
+        $valkeyPw = New-Secret 32
+        $content = $content -replace '(?m)^VALKEY_PASSWORD=.*', "VALKEY_PASSWORD=$valkeyPw"
+        if ($content -match '(?m)^VALKEY_URL=') {
+            $content = $content -replace '(?m)^VALKEY_URL=.*', "VALKEY_URL=redis://:$valkeyPw@valkey:6379/0"
+        }
+    }
+
+    if ($content -match '(?m)^BACKUP_ENCRYPTION_KEY=') {
+        $content = $content -replace '(?m)^BACKUP_ENCRYPTION_KEY=.*', "BACKUP_ENCRYPTION_KEY=$(New-Secret 64)"
+    }
+
     Set-Content -Path $dst -Value $content -NoNewline
     Write-Host "created: $dst"
-
-    # VALKEY_PASSWORD is deliberately left blank: it's optional hardening, and
-    # setting it also requires manually rewriting VALKEY_URL to embed it (see
-    # docs/mystic_auth/security/hardening-infra.md#valkey-authentication) -
-    # not something safe to script blindly.
 
     $placeholders = [regex]::Matches($content, '<your[a-z_-]*>|<your-domain>') |
         ForEach-Object { $_.Value } | Sort-Object -Unique

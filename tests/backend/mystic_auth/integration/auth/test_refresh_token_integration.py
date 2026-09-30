@@ -49,6 +49,19 @@ async def test_refresh_token_rotates_and_old_token_is_rejected(client, created_e
 
 
 @pytest.mark.asyncio
+async def test_refresh_endpoint_accepts_canonical_path_without_redirect(client, created_emails):
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    refresh_token = login_resp.cookies["refresh_token"]
+
+    client.cookies.set("refresh_token", refresh_token, domain=TEST_COOKIE_DOMAIN, path="/auth")
+    response = await client.post("/auth/refresh", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert "location" not in response.headers
+
+
+@pytest.mark.asyncio
 async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, created_emails, strict_reuse):
     # Regression guard for the refresh-token double-spend race: two requests
     # firing concurrently with the identical still-valid refresh token must

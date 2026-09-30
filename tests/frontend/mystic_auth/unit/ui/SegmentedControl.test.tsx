@@ -53,4 +53,53 @@ describe('SegmentedControl', () => {
     );
     expect(screen.getByRole('group', { name: 'Result' })).toBeInTheDocument();
   });
+
+  it('supports tab semantics, panel relationships, and optional result dots', () => {
+    render(
+      <SegmentedControl
+        ariaLabel="Audit view"
+        value="denied"
+        onChange={vi.fn()}
+        tabRole
+        tabPanelIds={['tabpanel-summary', 'tabpanel-details']}
+        options={[
+          { value: 'allowed', label: 'Allowed', dotClassName: 'bg-success' },
+          { value: 'denied', label: 'Denied' },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole('tablist', { name: 'Audit view' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Allowed' })).toHaveAttribute('aria-controls', 'tabpanel-summary');
+    expect(screen.getByRole('tab', { name: 'Allowed' })).toHaveAttribute('id', 'tab-summary');
+    expect(screen.getByRole('tab', { name: 'Allowed' })).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByRole('tab', { name: 'Denied' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Allowed' }).querySelector('[aria-hidden="true"]')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['ArrowRight', 'allowed', 'denied'],
+    ['ArrowDown', 'allowed', 'denied'],
+    ['End', 'allowed', 'denied'],
+    ['ArrowLeft', 'denied', 'allowed'],
+    ['ArrowUp', 'denied', 'allowed'],
+    ['Home', 'denied', 'allowed'],
+  ])('moves selection with %s', async (key, startValue, expectedValue) => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl
+        ariaLabel="Result"
+        value={startValue}
+        onChange={onChange}
+        options={[
+          { value: 'allowed', label: 'Allowed' },
+          { value: 'denied', label: 'Denied' },
+        ]}
+      />
+    );
+
+    screen.getByRole('button', { name: startValue === 'allowed' ? 'Allowed' : 'Denied' }).focus();
+    await userEvent.keyboard(`[${key}]`);
+    expect(onChange).toHaveBeenCalledWith(expectedValue);
+  });
 });

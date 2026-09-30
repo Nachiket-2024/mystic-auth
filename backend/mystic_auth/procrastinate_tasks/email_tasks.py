@@ -17,7 +17,7 @@ EMAIL_RETRY = ExponentialBackoffWithJitter(max_attempts=3, base_delay=5, max_del
 # `name=` is pinned since test code imports this task under a different
 # root than the real worker, and an unpinned name would register a
 # test-deferred job the worker can't resolve ("TaskNotFound").
-@app.task(  # type: ignore[call-overload]
+@app.task(
     name="mystic_auth.procrastinate_tasks.email_tasks.send_email_task",
     retry=EMAIL_RETRY,
 )

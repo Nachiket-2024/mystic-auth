@@ -2,12 +2,12 @@
 # root (unlike `production` below): it npm installs into a bind-mounted
 # frontend/, and a non-root UID would fight host/container UID mismatches
 # on that mount.
-FROM node:22.23.2-bookworm AS dev
+FROM node:22.23.2-bookworm@sha256:dd5847a04b0deee391fa145f1f4c6d214196668b6bcc7988ebed67249f226844 AS dev
 
 WORKDIR /app
 
 # Required to compile native optional dependencies for Rollup / esbuild
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
     g++ \
@@ -23,7 +23,7 @@ CMD ["npm", "run", "dev", "--", "--host"]
 
 # Produces the static production bundle (frontend/dist). Only reached with
 # --target production; dev never builds this far.
-FROM node:22.23.2-bookworm AS builder
+FROM node:22.23.2-bookworm@sha256:dd5847a04b0deee391fa145f1f4c6d214196668b6bcc7988ebed67249f226844 AS builder
 
 WORKDIR /app
 
@@ -56,7 +56,7 @@ RUN npm run build
 
 # Serves the static build via nginx: no Node.js, dev dependencies, or
 # source maps, just the compiled assets. Used via `build.target: production`.
-FROM nginx:stable-alpine AS production
+FROM nginx:stable-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS production
 
 COPY docker/mystic_auth/nginx.frontend.conf /etc/nginx/conf.d/default.conf
 # Your own nginx location blocks, if any - see docker/app/nginx/README.md.

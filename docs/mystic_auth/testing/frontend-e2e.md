@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 26 Playwright specs exercise the application in a real browser. “Mocked”
+These 27 Playwright specs exercise the application in a real browser. “Mocked”
 means the browser receives deterministic route fixtures. “Real disposable
 account” means the test creates or uses a short-lived account against the local
 stack. “Real seeded accounts” means the test depends on the PBAC matrix seeded

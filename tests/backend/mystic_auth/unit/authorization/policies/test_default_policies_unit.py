@@ -14,7 +14,7 @@ class _FakePolicy:
 
 @pytest.mark.asyncio
 async def test_assign_app_default_policies_is_a_noop_when_unset(mocker):
-    mocker.patch(f"{MODULE}.settings.DEFAULT_APP_POLICIES", "")
+    mocker.patch(f"{MODULE}.app_settings.DEFAULT_APP_POLICIES", "")
     get_by_name_mock = mocker.patch(f"{MODULE}.policy_repository.get_by_name", new_callable=AsyncMock)
     assign_mock = mocker.patch(f"{MODULE}.policy_repository.assign_policy_to_user", new_callable=AsyncMock)
 
@@ -26,7 +26,7 @@ async def test_assign_app_default_policies_is_a_noop_when_unset(mocker):
 
 @pytest.mark.asyncio
 async def test_assign_app_default_policies_assigns_every_configured_policy(mocker):
-    mocker.patch(f"{MODULE}.settings.DEFAULT_APP_POLICIES", "extra_policy_one,extra_policy_two")
+    mocker.patch(f"{MODULE}.app_settings.DEFAULT_APP_POLICIES", "extra_policy_one,extra_policy_two")
     mocker.patch(
         f"{MODULE}.policy_repository.get_by_name",
         new_callable=AsyncMock,
@@ -45,7 +45,7 @@ async def test_assign_app_default_policies_assigns_every_configured_policy(mocke
 async def test_assign_app_default_policies_skips_a_missing_policy_without_raising(mocker):
     # A misconfigured DEFAULT_APP_POLICIES name must log, not raise: this runs
     # inline in the verify/login path and shouldn't 500 the user's request.
-    mocker.patch(f"{MODULE}.settings.DEFAULT_APP_POLICIES", "does_not_exist")
+    mocker.patch(f"{MODULE}.app_settings.DEFAULT_APP_POLICIES", "does_not_exist")
     mocker.patch(f"{MODULE}.policy_repository.get_by_name", new_callable=AsyncMock, return_value=None)
     assign_mock = mocker.patch(f"{MODULE}.policy_repository.assign_policy_to_user", new_callable=AsyncMock)
 

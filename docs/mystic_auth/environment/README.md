@@ -34,8 +34,9 @@ same `mystic_auth`/`app` split used everywhere else in this template (see
   real `.env` files are local, gitignored deployment state and are expected to
   be edited by the project owner. A sync regenerates/updates the examples, not
   your secrets or deployment values.
-- `env/app/.env.dev<mode-suffix>` - yours, ships empty. Add your own fork's
-  extra variables here; upstream never edits this file again. App values win
+- `env/app/.env.dev<mode-suffix>` - yours, ships with the app-owned default
+  policy extension point and is where you add your fork's extra variables;
+  upstream never edits this file again. App values win
   when the same variable is present in both files.
 
 Both files feed the same running stack: each Compose service lists both in
@@ -51,7 +52,7 @@ for the Compose side of this.
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart LR
     MA["env/mystic_auth/.env.dev or .env.<mode>\nupstream-owned"]
-    APP["env/app/.env.dev or .env.<mode>\nyours, ships empty"]
+    APP["env/app/.env.dev or .env.<mode>\nyours, app-owned settings"]
     SVC["Compose service\nenv_file: [MA, APP]"]
     MA --> SVC
     APP --> SVC
@@ -62,7 +63,7 @@ flowchart LR
 
 ## Pages
 
-- [Backend Settings](backend.md): fields read by `backend/mystic_auth/core/settings.py`.
+- [Backend Settings](backend.md): template fields read by `backend/mystic_auth/core/settings.py`; app-owned fields are read by `backend/app/core/settings.py`.
 - [Frontend Build Settings](frontend.md): `VITE_*` values baked into the static bundle at build time.
 - [Compose-Only Settings](compose.md): values read by Docker Compose, entrypoints, or helper scripts, not by the app itself.
 - [Environment Tooling](tooling.md): the `scripts/mystic_auth/env-tools/` scripts that set up, maintain, and sync these files for you.
@@ -92,18 +93,17 @@ flowchart LR
   prod/local-prod-* Compose files derive and inject it there); `alembic` and
   `procrastinate_worker` read the same env file directly, never use this
   setting, and fall back to the default instead of failing to start.
-1. `VALKEY_PASSWORD` alone does nothing: `valkey-py` authenticates through the
-  connection URL, not a separate password kwarg, so `VALKEY_URL` must also be
-  rewritten by hand to embed it (`redis://:<VALKEY_PASSWORD>@valkey:6379/0`).
-  Setting one without the other either leaves Valkey unauthenticated or breaks
-  every service's connection. See
+1. `VALKEY_PASSWORD` is required in production-shaped modes. `setup-env`
+  generates it and embeds the same value in `VALKEY_URL`
+  (`redis://:<VALKEY_PASSWORD>@valkey:6379/0`), so the server and clients
+  cannot silently disagree. See
   [Valkey authentication](../security/hardening-infra.md#valkey-authentication).
 1. `tests/backend/mystic_auth/unit/core/test_env_examples_parity_unit.py`
-  checks every required `Settings` field against each backend-consuming
-  `env/mystic_auth/.env*.example` file, so a field that's required but missing from a
-  shipped example (or the reverse: given a default it no longer needs)
-  fails CI instead of surfacing later as a runtime crash for whoever
-  deploys that mode first.
+  checks every required `Settings` field against each paired
+  `env/mystic_auth/.env*.example` plus `env/app/.env*.example` file, so a field
+  that's required but missing from a shipped pair fails CI instead of surfacing
+  later as a runtime crash for whoever deploys that mode first. It also guards
+  app-owned `DEFAULT_APP_POLICIES` from drifting back into the upstream split.
 1. A `<file>.bak` left behind by the sync workflow (see
   [Environment Tooling](tooling.md#what-happens-to-the-bak-files-afterward))
   is never deleted automatically. `check-env/check-env.sh` warns if it

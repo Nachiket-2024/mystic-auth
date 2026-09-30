@@ -2,7 +2,9 @@
 # (conditions/*.py, evaluation-time) agree on the same JSON shape per condition type.
 # Each canonical payload below must pass validation and be understood correctly by
 # its handler, not silently ignored.
-from backend.mystic_auth.authorization.conditions.condition_handler import ConditionHandler
+from backend.mystic_auth.authorization.conditions.condition_handler import (
+    ConditionHandler,
+)
 from backend.mystic_auth.authorization.conditions.condition_registry import (
     default_condition_registry,
     register_condition_type,

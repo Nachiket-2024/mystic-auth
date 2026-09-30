@@ -49,7 +49,7 @@ fi
 find_latest_backup() {
   local database="$1"
   find "$BACKUP_DIR" -maxdepth 1 -type f \
-    \( -name "${database}-*.dump" -o -name "${database}-*.sql" \) \
+    \( -name "${database}-*.dump.enc" -o -name "${database}-*.dump" -o -name "${database}-*.sql" \) \
     -printf '%T@ %p\n' | sort -nr | head -n1 | cut -d' ' -f2-
 }
 

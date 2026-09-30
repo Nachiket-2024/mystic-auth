@@ -24,6 +24,7 @@ ACCOUNT_VERIFICATION_REQUESTED = "account_verification_requested"
 ACCOUNT_VERIFIED = "account_verified"
 ACCOUNT_LOCKED = "account_locked"
 REFRESH_TOKEN_REUSE_DETECTED = "refresh_token_reuse_detected"
+SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED = "session_event_connection_limit_exceeded"
 SESSION_REVOKED = "session_revoked"           # One specific session ended via the Manage Sessions card
 ACCOUNT_DELETED = "account_deleted"           # Soft delete (reversible), admin-initiated
 ACCOUNT_DELETED_SELF = "account_deleted_self"  # Soft delete (reversible), self-initiated via DELETE /users/me

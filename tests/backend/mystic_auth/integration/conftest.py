@@ -1,6 +1,6 @@
 # tests/backend/mystic_auth/integration/conftest.py
 #
-# Forces settings.DEFAULT_APP_POLICIES = "" for this suite. Several
+# Forces app_settings.DEFAULT_APP_POLICIES = "" for this suite. Several
 # integration tests assert an exact policy/permission set after
 # create_verified_user(...), which goes through the real signup -> verify
 # flow and really calls assign_app_default_policies. If a downstream app
@@ -9,6 +9,6 @@
 # their exact-set assertions, for a reason unrelated to what each test is
 # actually checking. Forcing it empty decouples this suite from whatever a
 # downstream app configures.
-from backend.mystic_auth.core.settings import settings
+from backend.app.core.settings import app_settings
 
-settings.DEFAULT_APP_POLICIES = ""
+app_settings.DEFAULT_APP_POLICIES = ""

@@ -62,6 +62,28 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument();
   });
 
+  it('reloads the document when the fallback action is activated', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const originalLocation = window.location;
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...originalLocation, assign },
+    });
+
+    try {
+      render(
+          <ErrorBoundary>
+            <Bomb />
+          </ErrorBoundary>
+      );
+      screen.getByRole('button', { name: 'Reload' }).click();
+      expect(assign).toHaveBeenCalledWith('/');
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+    }
+  });
+
   it('reports the caught error for error monitoring', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 

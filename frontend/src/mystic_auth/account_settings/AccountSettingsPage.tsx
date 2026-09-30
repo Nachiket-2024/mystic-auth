@@ -46,17 +46,23 @@ interface AccountSettingsPageProps {
 }
 
 const SETTINGS_TAB_CLASSNAME =
-    // Keep the same segment treatment as ui/filters/QuickFilterSegment.tsx;
-    // the min size and desktop flex are intentional for the settings nav's
-    // larger touch targets and full-width layout.
-    "min-h-10 min-w-[8rem] flex-none shrink-0 rounded-none border-l border-border-strong px-3 py-2 text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] first:border-l-0 !text-fg-muted !bg-transparent hover:!bg-brand-subtle hover:!text-brand-fg data-[state=active]:!bg-brand-tile-subtle data-[state=active]:!text-brand-fg data-[state=active]:!shadow-[inset_0_0_0_2px_var(--brand-solid)] lg:flex-1";
+    // Match the UserAccessDialog Details/Policies/Permissions strip: the
+    // selected tab gets one inset brand outline and tint, while the shared
+    // TabsTrigger shadow and dark-mode active border are explicitly replaced
+    // so neither can add a second visible edge. Keep the left separator
+    // stable while hovering; changing the whole border would animate that
+    // separator and create a brief flash while moving between tabs. The min
+    // size and desktop flex are intentional for the settings nav's larger
+    // touch targets and full-width layout.
+    "relative min-h-10 min-w-[8rem] flex-none shrink-0 rounded-none px-3 py-2 text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border-strong first:before:hidden data-[state=active]:before:hidden !text-fg-muted !bg-transparent hover:!bg-brand-subtle hover:!text-brand-fg data-[state=active]:!border-transparent dark:data-[state=active]:!border-transparent data-[state=active]:!bg-brand-tile-subtle data-[state=active]:!text-brand-fg data-[state=active]:!shadow-[inset_0_0_0_2px_var(--brand-solid)] lg:flex-1";
 
 const DANGER_TAB_CLASSNAME =
     // Unlike SETTINGS_TAB_CLASSNAME, red stays on at rest (!text-red-fg, not
     // !text-fg-muted) - same "red instant logout"-style preference as the
     // rest of the app: a destructive tab reads as destructive immediately,
-    // not only once hovered or selected.
-    "min-h-10 min-w-[8rem] flex-none shrink-0 rounded-none border-l border-border-strong px-3 py-2 text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] first:border-l-0 !text-red-fg !bg-transparent hover:!bg-red-subtle data-[state=active]:!bg-red-subtle data-[state=active]:!shadow-[inset_0_0_0_2px_var(--red-600)] lg:flex-1";
+    // not only once hovered or selected. Its selected outline follows the
+    // same UserAccessDialog tab treatment in red.
+    "relative min-h-10 min-w-[8rem] flex-none shrink-0 rounded-none px-3 py-2 text-sm font-semibold cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border-strong first:before:hidden data-[state=active]:before:hidden !text-red-fg !bg-transparent hover:!bg-red-subtle data-[state=active]:!border-transparent dark:data-[state=active]:!border-transparent data-[state=active]:!bg-red-subtle data-[state=active]:!shadow-[inset_0_0_0_2px_var(--red-600)] lg:flex-1";
 
 /**
  * AccountSettingsPage (nav label/route: "Account Settings")
@@ -160,11 +166,10 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                     // group-data-[orientation=horizontal]/tabs:h-9 beats a
                     // plain h-auto, fixing this container at 36px against
                     // each trigger's 40px min-h-10 - the 2px of trigger
-                    // clipped off top and bottom by overflow-y-hidden landed
-                    // exactly on the active trigger's colored inset border,
-                    // so only its unclipped left edge ever showed (see
-                    // SETTINGS_TAB_CLASSNAME) instead of the full box
-                    // QuickFilterSegment draws on the Permissions page.
+                    // clipped off top and bottom by overflow-y-hidden could
+                    // cut off the trigger-level active outline, so the
+                    // explicit inset outline matches the strip's visible
+                    // bounds instead of relying on the shared tab shadow.
                     className="-mx-4 !h-auto w-[calc(100%+2rem)] flex-nowrap justify-start overflow-x-auto overflow-y-hidden rounded-lg border border-border-strong bg-bg-surface p-0 lg:mx-0 lg:w-full"
                 >
                     <TabsTrigger value="profile" className={SETTINGS_TAB_CLASSNAME}><UserRound size={15} aria-hidden="true" />{t("tabs.profile")}</TabsTrigger>

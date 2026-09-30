@@ -55,8 +55,9 @@ color choice everywhere.
 
 `env/mystic_auth/.env.dev.example` is the template half for
 `docker/mystic_auth/compose/docker-compose.dev.yml`; `env/app/.env.dev.example`
-is the downstream override half. The app example is empty, and the MysticAuth
-defaults are enough to boot the stack as-is. It uses localhost URLs, development mode,
+is the downstream override half. It ships with the empty app-owned
+`DEFAULT_APP_POLICIES` extension point, and the MysticAuth defaults are enough
+to boot the stack as-is. It uses localhost URLs, development mode,
 Docker service names for internal database and Valkey access, and placeholder
 third-party credentials.
 
@@ -132,8 +133,9 @@ API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## Environment variables
 
-`env/mystic_auth/.env.dev.example` is the source of truth for dev values. It includes localhost
-URLs, Docker service names, development mode, and placeholders for Google,
+The paired `env/mystic_auth/.env.dev.example` and `env/app/.env.dev.example`
+files are the source of truth for dev values. They include localhost URLs,
+Docker service names, development mode, and placeholders for Google,
 SMTP, and Bugsink.
 
 Dev values are read at container startup. If you change backend, database,
@@ -154,8 +156,8 @@ All published to `localhost` for direct access:
 |---|---|
 | frontend (Vite dev server, HMR) | 5173 |
 | backend | 8000 |
-| postgres | 5433 |
-| valkey | 6380 |
+| postgres | 5433 by default (`POSTGRES_HOST_PORT`) |
+| valkey | 6380 by default (`VALKEY_HOST_PORT`) |
 | bugsink | 8010 |
 
 ---

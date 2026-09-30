@@ -61,6 +61,17 @@ def test_user_update_rejects_whitespace_only_name():
         UserUpdate(name="   ")
 
 
+def test_user_update_accepts_hex_brand_color_and_allows_reset():
+    assert UserUpdate(brand_color="#b5533c").brand_color == "#b5533c"
+    assert UserUpdate(brand_color=None).brand_color is None
+
+
+@pytest.mark.parametrize("brand_color", ["b5533c", "#b5533", "#gggggg", "red"])
+def test_user_update_rejects_invalid_brand_color(brand_color):
+    with pytest.raises(ValidationError):
+        UserUpdate(brand_color=brand_color)
+
+
 def test_user_read_has_password_true_when_hash_present():
     user = UserRead(
         id=1,

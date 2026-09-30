@@ -5,12 +5,34 @@ from unittest.mock import AsyncMock
 import pytest
 
 from backend.mystic_auth.user_session.session_events import (
+    acquire_session_event_lease,
     publish_session_revoked,
+    release_session_event_lease,
     session_event_stream,
     signal_shutdown,
 )
 
 MODULE = "backend.mystic_auth.user_session.session_events"
+
+
+@pytest.mark.asyncio
+async def test_session_event_lease_is_atomic_and_released_by_token(mocker):
+    eval_mock = mocker.patch(f"{MODULE}.valkey_client.eval", new_callable=AsyncMock, return_value=1)
+
+    token = await acquire_session_event_lease("lease@example.com", "127.0.0.1")
+    assert token
+    await release_session_event_lease("lease@example.com", "127.0.0.1", token)
+
+    assert eval_mock.await_count == 2
+    acquire_args = eval_mock.await_args_list[0].args
+    release_args = eval_mock.await_args_list[1].args
+    assert acquire_args[0].startswith("\nlocal now")
+    assert acquire_args[1] == 2
+    assert acquire_args[2] != acquire_args[3]
+    assert release_args[1] == 2
+    assert release_args[2] == acquire_args[2]
+    assert release_args[3] == acquire_args[3]
+    assert release_args[4] == token
 
 
 @pytest.fixture(autouse=True)

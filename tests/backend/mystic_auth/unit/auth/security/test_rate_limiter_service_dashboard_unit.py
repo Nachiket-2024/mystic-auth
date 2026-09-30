@@ -236,12 +236,21 @@ async def test_list_active_limits_filters_login_lockouts_as_a_server_side_view(m
 
 @pytest.mark.asyncio
 async def test_list_active_limits_skips_unparseable_keys(mocker):
-    _patch_scan(mocker, 0, ["not-a-rate-limit-key"])
+    _patch_scan(mocker, 0, ["not-a-rate-limit-key", "session_event_leases:account:hashed-user"])
     _patch_pipeline(mocker, ["1", 10])
 
     entries, _, _ = await rate_limit_dashboard_service.list_active_limits()
 
     assert entries == []
+
+
+@pytest.mark.asyncio
+async def test_reset_counter_rejects_non_string_session_lease_key(mocker):
+    delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
+
+    await rate_limit_dashboard_service.reset_counter("session_event_leases:account:hashed-user")
+
+    delete_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

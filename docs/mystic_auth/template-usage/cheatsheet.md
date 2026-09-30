@@ -11,6 +11,7 @@
 | `./scripts/mystic_auth/env-tools/quickstart/quickstart.sh` | Fresh clone, want a working login in one command. See [Quickstart](quickstart.md). |
 | `./scripts/mystic_auth/env-tools/setup-env/setup-env.sh` | Just the env-file bootstrap step, without bringing the stack up. Prompts for app name, brand color, and optionally Google OAuth/Gmail credentials. Safe to re-run, skips files that already exist. |
 | `./scripts/mystic_auth/docker/dev/dev-up.sh` | Bring the dev stack up (or back up after a reboot). Waits for every service to become healthy, then tails `backend`/`frontend`/`procrastinate_worker` logs. |
+| `./scripts/mystic_auth/docker/dev/backend-host-run.sh` | Optional backend debugging path: keep Postgres/Valkey in Docker, derive their host URLs from the configured multi-project port mappings, run migrations, and run FastAPI on the host with reload. |
 
 ## Day two and after
 

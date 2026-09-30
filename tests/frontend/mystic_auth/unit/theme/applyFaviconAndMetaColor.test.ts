@@ -4,11 +4,14 @@ import { getBrandIconDataUri } from '@/theme/brandIcon';
 
 function setDom() {
   document.head.innerHTML =
-    '<link rel="icon" href="/favicon.svg" /><meta name="theme-color" content="#d97706" />';
+    '<link rel="icon" href="/favicon.svg" /><meta name="theme-color" content="#b5533c" />';
 }
 
 async function importWithFaviconUrl(url: string | undefined) {
-  vi.doMock('@/core/settings', () => ({ APP_FAVICON_URL: url }));
+  vi.doMock('@/core/settings', () => ({
+    APP_FAVICON_URL: url,
+    BRAND_COLOR: '#b5533c',
+  }));
   return import('@/theme/applyFaviconAndMetaColor');
 }
 
