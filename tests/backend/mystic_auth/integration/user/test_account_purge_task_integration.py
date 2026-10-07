@@ -9,7 +9,10 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 
+from backend.mystic_auth.audit_log.audit_log_model import AuditLog
+from backend.mystic_auth.audit_log.audit_log_service import ACCOUNT_PURGED
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.procrastinate_tasks.account_purge_tasks import (
     purge_expired_soft_deleted_accounts,
@@ -97,3 +100,35 @@ async def test_purge_job_revokes_sessions_of_purged_accounts(client, created_ema
 
     refresh_resp = await post_with_refresh_cookie(client, "/auth/refresh/", refresh_token)
     assert refresh_resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_purge_job_anonymizes_past_history_but_keeps_its_own_purge_record_reviewable(client, created_emails, mocker):
+    """Regression for the self-erasure bug: anonymize_for_user matches every
+    row with the purged email, with no exception for rows written moments
+    earlier in the same purge. The account's pre-purge history (e.g. its
+    login event) must end up with user_email=None, but the ACCOUNT_PURGED
+    row the purge itself writes must still carry the real email -- that's
+    the one record whose whole job is to answer "who got purged," and it
+    must survive the anonymization sweep that runs right alongside it."""
+    mocker.patch(
+        "backend.mystic_auth.procrastinate_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 7
+    )
+
+    email = unique_email()
+    await create_verified_user(client, created_emails, email)  # writes a login_success row for `email`
+    await _soft_delete_with_deleted_at(email, datetime.now(UTC) - timedelta(days=10))
+
+    purged_count = await purge_expired_soft_deleted_accounts(timestamp=0)
+    assert purged_count == 1
+
+    async with database.async_session() as session:
+        result = await session.execute(select(AuditLog).where(AuditLog.event_type == ACCOUNT_PURGED))
+        purge_rows = [row for row in result.scalars().all() if row.event_metadata and row.event_metadata.get("purged_by")]
+        matching = [row for row in purge_rows if row.user_email == email]
+        assert matching, "ACCOUNT_PURGED row for this email was anonymized away instead of surviving the purge"
+
+        result = await session.execute(
+            select(AuditLog).where(AuditLog.event_type != ACCOUNT_PURGED, AuditLog.user_email == email)
+        )
+        assert result.scalars().all() == [], "pre-purge history for this email was not anonymized"

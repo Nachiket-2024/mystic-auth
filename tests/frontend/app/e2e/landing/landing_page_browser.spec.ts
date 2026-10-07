@@ -5,12 +5,16 @@ test.describe("app landing page browser behavior", () => {
   test("landing page renders and keeps auth actions reachable", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page).toHaveTitle(/MysticAuth/);
+    const brandHome = page.locator('header a[aria-label]').first();
+    const brandHomeLabel = await brandHome.getAttribute("aria-label");
+    const title = await page.title();
+
+    expect(title).not.toBe("");
+    expect(brandHomeLabel).toContain(title);
     await expect(page.getByRole("link", { name: /log in/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /sign up/i }).first()).toBeVisible();
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /auth & authorization/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /what's included/i })).toBeVisible();
+    await expect(page.getByRole("heading").first()).toBeVisible();
   });
 
   test("supports keyboard skip navigation and remains usable at 125% and 150% zoom", async ({ page }) => {

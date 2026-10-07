@@ -195,7 +195,7 @@ After a 3-month gap, the biggest single change in the project's history: 364 fil
 
 - `scripts/dev-up.sh` added (99 lines) as the quieter default startup path.
 - A Bugsink Gunicorn timeout fixed.
-- The executable bit restored on `db_backup.sh`/`db_restore.sh`/`sync-upstream.sh`/`test-sync-upstream.sh`: script permissions had silently reverted, the first appearance of the `core.filemode=false` problem this repo's sync tooling would later check for automatically.
+- The executable bit restored on `database-backup.sh`/`database-restore.sh`/`sync-upstream.sh`/`test-sync-upstream.sh`: script permissions had silently reverted, the first appearance of the `core.filemode=false` problem this repo's sync tooling would later check for automatically.
 
 *15 files changed · +259/-16 lines*
 

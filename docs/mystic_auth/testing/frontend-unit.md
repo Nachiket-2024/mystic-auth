@@ -163,6 +163,11 @@ controlled inputs; it does not mean that the backend accepted a request.
 - `translations/translation_key_parity.test.ts` verifies every locale has the
   same translation-key set as the source locale.
 
+Status-page tests read the configured frontend `APP_NAME` rather than asserting
+the template's default `MysticAuth` label. They accept either the configured
+wordmark text or the accessible custom-logo image, so downstream branding and
+`VITE_APP_LOGO_URL` remain valid test configurations.
+
 ## Rate limits and shared UI
 
 - `rate_limits/RateLimitsFilterBar.test.tsx` verifies filter controls, values,

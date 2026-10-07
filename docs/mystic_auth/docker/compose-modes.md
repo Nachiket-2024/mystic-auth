@@ -55,8 +55,8 @@ docker compose \
 ```
 
 Every script in this template (`dev-up.sh`, `prod-up.sh`,
-`local-prod-*-up.sh`, `quickstart.sh`, `backend-exec.sh`, `db_backup.sh`,
-`db_restore.sh`) already passes both pairs, so day-to-day use never needs
+`local-prod-*-up.sh`, `quickstart.sh`, `backend-exec.sh`, `database-backup.sh`,
+`database-restore.sh`) already passes both pairs, so day-to-day use never needs
 this spelled out by hand - it matters when you're scripting your own
 `docker compose` invocation, or wondering why a fork's own service isn't in
 `docker compose ps`.
@@ -84,9 +84,12 @@ for the env-file side of this.
 
 ## Each compose file is its own Compose project
 
-All five files declare a top-level `name:` (`mystic-auth-dev`,
+All five files declare a top-level `name: ${COMPOSE_PROJECT_NAME}`. The
+shipped examples set `COMPOSE_PROJECT_NAME` to `mystic-auth-dev`,
 `mystic-auth-local-prod-cloudflare`, `mystic-auth-local-prod-ngrok`,
-`mystic-auth-local-prod-tailscale`, `mystic-auth-prod`).
+`mystic-auth-local-prod-tailscale`, or `mystic-auth-prod` for their matching
+mode. A downstream project that shares a host with another fork must change
+this value in its matching env file, along with the ports and subnet values.
 
 - Without it, Compose derives the project name from the directory (`mystic-auth` for every file here, since they all live in the same directory), which means every container, network, and **named volume** (`postgres_data`, `backend_logs`, ...) from any of the five files collides on the exact same name.
 - Two of these stacks running "side by side" then aren't actually isolated: they silently share one Postgres volume, so a command that looks scoped to one stack (`docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v`, or even just recreating a volume to fix a stale password) can wipe what's actually a different stack's real data.

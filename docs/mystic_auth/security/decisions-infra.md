@@ -140,12 +140,12 @@ Taskiq (see above) was later replaced in full with [Procrastinate](https://procr
 **Why**: a real, reproducible incident, not a hypothetical.
 
 1. A dev-stack `procrastinate_worker` container ran for 47 minutes logging 801 `ConnectorException` errors, then was killed.
-2. **Root cause**: `tests/backend/conftest.py`'s `_procrastinate_app_lifecycle` fixture deletes every row from `procrastinate_jobs` after each test, and every integration test run against the same live database that container was also watching (same Postgres, whether reached via the internal `postgres` hostname from inside the Docker network or `localhost:5433` from the host).
+2. **Root cause**: the historical `_procrastinate_app_lifecycle` fixture deleted every row from `procrastinate_jobs` after each test, while a worker was still processing jobs in the same database (same Postgres, whether reached via the internal `postgres` hostname from inside the Docker network or `localhost:5433` from the host). The fixture now deletes only terminal rows and leaves `todo`/`doing` jobs for the worker to finish.
 3. A real worker picking up a test-deferred job (most commonly an audit-log write, since every protected route logs one) would sometimes lose the race: it finished processing successfully, but by the time it tried to persist `status='succeeded'` back onto that job's row, the test's own teardown had already deleted it out from under it. "Job was not found or not in doing/todo status" was logged, then repeated on the next job, and the next, until something (most likely WSL2's own memory manager, given `OOMKilled` was `false` in Docker's own accounting) killed the container.
 
-**Why a separate database, not a narrower fix to the delete query**:
+**Why the dedicated database remains necessary even with the narrower cleanup**:
 
-1. Scoping the teardown's `DELETE` to only completed jobs would have closed this one specific race, but the underlying problem, a test suite and a live, independently-running application sharing one database's tables, is a broader hazard than just this one symptom.
+1. Scoping the teardown's `DELETE` to only completed jobs closes the known in-flight-job race, but the underlying problem, a test suite and a live, independently-running application sharing one database's tables, is a broader hazard than just this one symptom.
 2. The same class of collision could show up anywhere else a test's cleanup fixture deletes by a query rather than by exact ownership (e.g. `_cleanup_users`, `_cleanup_audit_log`).
 3. A dedicated database removes the shared tables entirely, which is the only fix that also protects against variants of this bug nobody has hit yet.
 

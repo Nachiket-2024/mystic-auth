@@ -135,11 +135,13 @@ def _status_label(is_active: bool, deleted_at) -> str:
     return "active" if is_active else "inactive"
 
 
-# CSV/formula injection guard (OWASP CSV Injection): `name` is free-form,
-# attacker-controlled text. A name like "=cmd|'/c calc'!A1" is inert as CSV
-# but runs as a live formula the instant an admin opens the export in Excel.
-# Prefixing a leading trigger character with a single quote keeps the
-# visible value unchanged while forcing spreadsheets to treat it as text.
+# CSV/formula injection guard (OWASP CSV Injection): `name` and `email` are
+# both attacker-controlled (EmailStr's RFC 5322 local-part allows a leading
+# "=", "+", "-", or "@", so "=1+1@example.com" is a valid, signup-able
+# address). A value like "=cmd|'/c calc'!A1" is inert as CSV but runs as a
+# live formula the instant an admin opens the export in Excel. Prefixing a
+# leading trigger character with a single quote keeps the visible value
+# unchanged while forcing spreadsheets to treat it as text.
 _CSV_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
 
 
@@ -208,7 +210,7 @@ async def export_users(
         writer.writerow([
             user.id,
             _csv_safe(user.name),
-            user.email,
+            _csv_safe(user.email),
             user.role.value if user.role else "",
             user.is_verified,
             user.is_active,

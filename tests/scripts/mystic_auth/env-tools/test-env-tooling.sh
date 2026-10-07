@@ -96,6 +96,26 @@ else
 fi
 rm -f /tmp/check-env-out2.$$ env/mystic_auth/.env.prod.broken
 
+echo "=== check-env: fails early on incomplete production backup configuration ==="
+cp env/mystic_auth/.env.prod env/mystic_auth/.env.prod.backup-test
+sed -i.tmp 's/^BACKUP_ENCRYPTION_KEY=.*/BACKUP_ENCRYPTION_KEY=/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
+sed -i.tmp 's/^BACKUP_UPLOAD_COMMAND=.*/BACKUP_UPLOAD_COMMAND=/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
+if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.prod.backup-test > /tmp/check-env-backup.$$ 2>&1; then
+  fail "check-env: should have failed on blank production backup prerequisites"
+fi
+grep -q "BACKUP_ENCRYPTION_KEY is blank" /tmp/check-env-backup.$$ || fail "check-env: did not identify blank BACKUP_ENCRYPTION_KEY"
+grep -q "BACKUP_UPLOAD_COMMAND is blank" /tmp/check-env-backup.$$ || fail "check-env: did not identify blank BACKUP_UPLOAD_COMMAND"
+pass "check-env: fails early with actionable production backup errors"
+sed -i.tmp 's/^BACKUP_ENCRYPTION_KEY=.*/BACKUP_ENCRYPTION_KEY=generated-test-key/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
+sed -i.tmp 's/^BACKUP_UPLOAD_COMMAND=.*/BACKUP_UPLOAD_COMMAND=rclone copy "$${DUMP_FILE}" b2:example\/backups/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
+if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.prod.backup-test > /tmp/check-env-backup-valid.$$ 2>&1; then
+  pass "check-env: accepts a production backup command that references DUMP_FILE"
+else
+  cat /tmp/check-env-backup-valid.$$ >&2
+  fail "check-env: rejected a valid DUMP_FILE-referencing backup command"
+fi
+rm -f /tmp/check-env-backup.$$ /tmp/check-env-backup-valid.$$ env/mystic_auth/.env.prod.backup-test
+
 echo "=== check-env: warns about a leftover .bak file ==="
 cp env/mystic_auth/.env.dev env/mystic_auth/.env.dev.bak
 if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.dev > /tmp/check-env-out3.$$; then
@@ -176,6 +196,16 @@ grep -qx "SUPPORT_EMAIL=copied-value@example.com" env/mystic_auth/.env.dev || fa
 grep -qx "SECRET_KEY=SHOULD_NOT_SURVIVE" env/mystic_auth/.env.dev && fail "copy-env-values: copied an excluded (freshly generated) field" || pass "copy-env-values: excluded field left untouched"
 pass "copy-env-values: non-excluded field copied from old file into new one"
 rm -f env/mystic_auth/.env.dev.bak
+
+cp env/mystic_auth/.env.prod.example env/mystic_auth/.env.prod.old-default-test
+cp env/mystic_auth/.env.prod.example env/mystic_auth/.env.prod.new-default-test
+sed -i.tmp 's/^BACKUP_UPLOAD_COMMAND=.*/BACKUP_UPLOAD_COMMAND=/' env/mystic_auth/.env.prod.old-default-test && rm -f env/mystic_auth/.env.prod.old-default-test.tmp
+sed -i.tmp 's|^BACKUP_UPLOAD_COMMAND=.*|BACKUP_UPLOAD_COMMAND=rclone copyto "\$${DUMP_FILE}" b2:example/backups|' env/mystic_auth/.env.prod.new-default-test && rm -f env/mystic_auth/.env.prod.new-default-test.tmp
+scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh env/mystic_auth/.env.prod.old-default-test env/mystic_auth/.env.prod.new-default-test >/tmp/copy-env-default-test.log
+grep -q 'BACKUP_UPLOAD_COMMAND' /tmp/copy-env-default-test.log || fail "copy-env-values: preserved default was not reported"
+grep -q 'rclone copyto' env/mystic_auth/.env.prod.new-default-test || fail "copy-env-values: blank old hook overwrote new default"
+pass "copy-env-values: blank old backup hook preserves new default"
+rm -f env/mystic_auth/.env.prod.old-default-test env/mystic_auth/.env.prod.new-default-test /tmp/copy-env-default-test.log
 
 echo ""
 echo "All env-tooling regression checks passed."

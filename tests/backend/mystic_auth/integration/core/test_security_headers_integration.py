@@ -41,6 +41,11 @@ async def test_docs_page_gets_a_csp_that_allows_its_cdn_assets(client):
     # loaded (200) but rendered as a blank page in a real browser.
     resp = await client.get("/docs")
 
+    from backend.mystic_auth.core.settings import settings
+    if settings.ENVIRONMENT == "production":
+        assert resp.status_code == 404
+        return
+
     assert resp.status_code == 200
     csp = resp.headers["Content-Security-Policy"]
     assert "cdn.jsdelivr.net" in csp
@@ -50,6 +55,11 @@ async def test_docs_page_gets_a_csp_that_allows_its_cdn_assets(client):
 @pytest.mark.asyncio
 async def test_redoc_page_gets_a_csp_that_allows_its_cdn_assets(client):
     resp = await client.get("/redoc")
+
+    from backend.mystic_auth.core.settings import settings
+    if settings.ENVIRONMENT == "production":
+        assert resp.status_code == 404
+        return
 
     assert resp.status_code == 200
     csp = resp.headers["Content-Security-Policy"]
@@ -72,6 +82,16 @@ async def test_security_headers_present_even_on_error_responses(client):
 
     assert resp.status_code == 404
     assert resp.headers["X-Frame-Options"] == "DENY"
+
+
+@pytest.mark.asyncio
+async def test_security_headers_present_when_trusted_host_rejects_request(client):
+    resp = await client.get("/health", headers={"host": "evil.example"})
+
+    assert resp.status_code == 400
+    assert resp.headers["X-Content-Type-Options"] == "nosniff"
+    assert resp.headers["X-Frame-Options"] == "DENY"
+    assert resp.headers["Content-Security-Policy"] == "default-src 'none'; frame-ancestors 'none'"
 
 
 @pytest.mark.asyncio

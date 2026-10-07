@@ -42,6 +42,15 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$REPO_ROOT"
 
+# The sync uses the existing index as its merge/apply workspace and commits
+# that index at the end. Staged downstream work would therefore be swept into
+# the sync commit, so fail before fetching or changing anything.
+if ! git diff --cached --quiet --ignore-submodules --; then
+  echo "ERROR: the Git index contains staged changes." >&2
+  echo "Commit or unstage downstream work before running sync-upstream.sh; the sync commit must contain sync changes only." >&2
+  exit 1
+fi
+
 git config rerere.enabled true
 
 SYNC_STATE_FILE=".mystic-auth-sync-state"
@@ -91,6 +100,69 @@ else
   UPSTREAM_PATH_CHANGES="$(git diff --name-status -M --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}")"
 fi
 
+# A fork-owned path must never arrive from upstream. Shared files such as
+# backend/app/main.py remain intentionally extend-in-place and are not in this
+# list. Blocking here catches an accidental upstream edit before a merge can
+# silently overwrite downstream product code.
+#
+# Reference tests that shipped in an older template may already live under
+# tests/**/app/. If the same test path was present in the recorded upstream
+# baseline (or in both trees during a first sync), an upstream fix to that
+# inherited test is a legitimate template update. Three-way apply still
+# exposes downstream customization as a conflict; newly added downstream
+# tests remain blocked.
+if [ -n "$LAST_SYNCED_SHA" ]; then
+  APP_OWNED_DIFF="$(git diff --name-only "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}")"
+else
+  # Unrelated first-sync histories show consumer-only files as deletions on
+  # the upstream side. They are not incoming changes and must not be reported
+  # as ownership violations (especially when an app split was stashed).
+  APP_OWNED_DIFF="$(git diff --name-only --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}")"
+fi
+APP_OWNED_PATH_CHANGES=""
+while IFS= read -r changed_path; do
+  [ -z "$changed_path" ] && continue
+
+  if [[ "$changed_path" == tests/*/app/* ]]; then
+    if [ -n "$LAST_SYNCED_SHA" ]; then
+      git cat-file -e "${LAST_SYNCED_SHA}:${changed_path}" 2>/dev/null &&
+        git cat-file -e "upstream/${UPSTREAM_BRANCH}:${changed_path}" 2>/dev/null &&
+        continue
+    else
+      git cat-file -e "HEAD:${changed_path}" 2>/dev/null &&
+        git cat-file -e "upstream/${UPSTREAM_BRANCH}:${changed_path}" 2>/dev/null &&
+        continue
+    fi
+  fi
+
+  case "$changed_path" in
+    backend/app/main.py|backend/app/sdk.py|frontend/src/app/App.tsx|frontend/src/app/sdk.ts)
+      continue
+      ;;
+    backend/app/*|frontend/src/app/*|tests/*/app/*|docs/app/*|screenshots/app/*|scripts/app/*|agent-prompts/app/*|local-scripts/app/*|docker/app/*|env/app/*|makefiles/app/*)
+      APP_OWNED_PATH_CHANGES+="${changed_path}"$'\n'
+      ;;
+  esac
+done <<< "$APP_OWNED_DIFF"
+APP_OWNED_PATH_CHANGES="${APP_OWNED_PATH_CHANGES%$'\n'}"
+if [ -n "$APP_OWNED_PATH_CHANGES" ]; then
+  echo "ERROR: upstream attempted to change downstream-owned paths:" >&2
+  printf '%s\n' "$APP_OWNED_PATH_CHANGES" | sed 's/^/  /' >&2
+  echo "Resolve the ownership violation upstream before syncing; this script will not apply it." >&2
+  exit 1
+fi
+
+# Root README/security/contribution files are downstream-owned starting
+# points, but upstream's own copies may still improve over time. Preserve the
+# downstream copies while allowing unrelated upstream changes to sync; the
+# filtered diff below excludes them from both the expected-file check and the
+# applied patch.
+IGNORED_ROOT_DOC_CHANGES="$(git diff --name-only "$([ -n "$LAST_SYNCED_SHA" ] && echo "$LAST_SYNCED_SHA" || echo HEAD)" "upstream/${UPSTREAM_BRANCH}" -- README.md SECURITY.md CONTRIBUTING.md)"
+if [ -n "$IGNORED_ROOT_DOC_CHANGES" ]; then
+  echo "Ignoring upstream changes to downstream-owned root docs (local copies preserved):"
+  printf '%s\n' "$IGNORED_ROOT_DOC_CHANGES" | sed 's/^/  /'
+fi
+
 echo ""
 echo "Incoming commits from upstream/${UPSTREAM_BRANCH}:"
 echo "$INCOMING"
@@ -115,6 +187,54 @@ if [ -n "$REMOVAL_OR_RENAME_CHANGES" ]; then
   echo ""
 fi
 
+# A normal 3-way patch is the wrong primitive for an upstream-owned rename or
+# deletion: git apply can require the old path to exist in the consumer index,
+# even when the consumer already removed it locally. Handle these structural
+# changes from the upstream tree after applying the ordinary patch. The
+# ownership guard above has already rejected app-owned paths; root docs are
+# intentionally preserved and therefore stay in the ordinary exclusion list.
+STRUCTURAL_PATH_ARGS=()
+if [ -n "$LAST_SYNCED_SHA" ]; then
+  while IFS=$'\t' read -r change_status old_path new_path; do
+    [ -n "$change_status" ] || continue
+    case "$change_status" in
+      D)
+        structural_path="$old_path"
+        ;;
+      R[0-9]*)
+        structural_path="$old_path"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+    case "$structural_path" in
+      README.md|SECURITY.md|CONTRIBUTING.md) continue ;;
+    esac
+    if [[ "$change_status" == D ]] \
+      && git ls-files --error-unmatch -- "$old_path" >/dev/null 2>&1 \
+      && ! git diff --quiet "$LAST_SYNCED_SHA" -- "$old_path"; then
+      # A locally modified deletion must remain on the normal patch path so
+      # git can surface a conflict instead of silently discarding the edit.
+      continue
+    fi
+    # If the old rename source still exists in the consumer index, let the
+    # normal 3-way apply surface a conflict/hard failure so local edits cannot
+    # be overwritten implicitly. Direct handling is only for a source path
+    # that is already absent, the case git apply cannot represent reliably.
+    if [[ "$change_status" == R* ]] && git ls-files --error-unmatch -- "$old_path" >/dev/null 2>&1; then
+      continue
+    fi
+    STRUCTURAL_PATH_ARGS+=(":!$structural_path")
+    if [[ "$change_status" == R* ]]; then
+      case "$new_path" in
+        README.md|SECURITY.md|CONTRIBUTING.md) continue ;;
+      esac
+      STRUCTURAL_PATH_ARGS+=(":!$new_path")
+    fi
+  done <<< "$UPSTREAM_PATH_CHANGES"
+fi
+
 read -r -p "Sync these into the current branch now? [y/N] " CONFIRM
 case "$CONFIRM" in
   [yY]|[yY][eE][sS]) ;;
@@ -123,9 +243,31 @@ esac
 
 SYNC_LOG="$(mktemp)"
 PATCH_FILE="$(mktemp)"
-trap 'rm -f "$SYNC_LOG" "$PATCH_FILE"' EXIT
-
 CONFLICT=0
+WORKTREE_STASH_CREATED=0
+WORKTREE_STASH_NAME=""
+
+restore_worktree_stash() {
+  [ "$WORKTREE_STASH_CREATED" -eq 1 ] || return 0
+  echo "Restoring downstream work saved before the sync..."
+  if git stash pop; then
+    WORKTREE_STASH_CREATED=0
+  else
+    echo "ERROR: the sync commit succeeded, but the saved downstream work could not be restored cleanly." >&2
+    echo "Resolve the restore conflict, then remove the retained stash with: git stash drop" >&2
+    return 1
+  fi
+}
+
+cleanup() {
+  local exit_status=$?
+  if ! restore_worktree_stash; then
+    exit_status=1
+  fi
+  rm -f "$SYNC_LOG" "$PATCH_FILE"
+  exit "$exit_status"
+}
+trap cleanup EXIT
 
 # What the diff says should change, computed before the apply/merge touches
 # anything -- compared against reality afterward to catch a file that
@@ -135,9 +277,47 @@ if [ -z "$LAST_SYNCED_SHA" ]; then
   # would list every file that only exists on our side (e.g. this script)
   # as "deleted" -- but the squash-merge doesn't actually delete those, it
   # unions both sides. --diff-filter=ACMR (no D) matches that.
-  EXPECTED_FILES="$(git diff --name-only --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}" | sort -u)"
+  EXPECTED_FILES="$(git diff --name-only --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' | sort -u)"
 else
-  EXPECTED_FILES="$(git diff --name-only "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" | sort -u)"
+  EXPECTED_FILES="$(git diff --name-only "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' "${STRUCTURAL_PATH_ARGS[@]}" | sort -u)"
+fi
+
+# The index must be clean because the sync commits it, but downstream users
+# often have an app split in the working tree during their first sync. A
+# squash merge cannot use HEAD as its index baseline while those unstaged
+# deletions or untracked app files are present. Save that work temporarily,
+# including untracked app files, apply upstream against a clean tree, then
+# restore it after the sync commit. Ignored files such as real env files are
+# deliberately excluded from the stash.
+if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+  WORKTREE_STASH_NAME="mystic-auth-sync-worktree-$(date +%s)"
+  echo "Saving unstaged downstream work while applying the sync: $WORKTREE_STASH_NAME"
+  git stash push --include-untracked --message "$WORKTREE_STASH_NAME" >/dev/null
+  WORKTREE_STASH_CREATED=1
+fi
+
+# A downstream app split can also have removed an upstream-owned path in a
+# committed change. In that case the working tree stash is not enough: the
+# three-way apply still needs the path's last upstream version in the index.
+# Recreate only missing paths that exist in the recorded upstream baseline.
+# New files need no base, and structural deletes or renames are handled by
+# the direct tree operation below.
+if [ -n "$LAST_SYNCED_SHA" ]; then
+  while IFS=$'\t' read -r change_status old_path new_path; do
+    [ -n "$change_status" ] || continue
+    case "$change_status" in
+      M|M[0-9]*|C[0-9]*) baseline_path="$old_path" ;;
+      *) continue ;;
+    esac
+    case "$baseline_path" in
+      README.md|SECURITY.md|CONTRIBUTING.md) continue ;;
+    esac
+    if ! git ls-files --error-unmatch -- "$baseline_path" >/dev/null 2>&1 \
+      && git cat-file -e "${LAST_SYNCED_SHA}:${baseline_path}" 2>/dev/null; then
+      echo "Restoring missing upstream baseline path for three-way apply: $baseline_path"
+      git restore --source="$LAST_SYNCED_SHA" --staged --worktree -- "$baseline_path"
+    fi
+  done <<< "$UPSTREAM_PATH_CHANGES"
 fi
 
 if [ -z "$LAST_SYNCED_SHA" ]; then
@@ -152,7 +332,7 @@ if [ -z "$LAST_SYNCED_SHA" ]; then
     cat "$SYNC_LOG"
   fi
 else
-  git diff --binary "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" > "$PATCH_FILE"
+  git diff --binary "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' "${STRUCTURAL_PATH_ARGS[@]}" > "$PATCH_FILE"
   if ! git apply --3way --index "$PATCH_FILE" >"$SYNC_LOG" 2>&1; then
     cat "$SYNC_LOG"
     # `git apply --3way` leaves unmerged index entries for genuine conflicts,
@@ -189,6 +369,38 @@ else
   else
     cat "$SYNC_LOG"
   fi
+fi
+
+if [ -n "$LAST_SYNCED_SHA" ] && [ "${#STRUCTURAL_PATH_ARGS[@]}" -gt 0 ]; then
+  echo "Applying upstream-owned removals/renames directly from upstream..."
+  while IFS=$'\t' read -r change_status old_path new_path; do
+    [ -n "$change_status" ] || continue
+    case "$change_status" in
+      D)
+        case "$old_path" in
+          README.md|SECURITY.md|CONTRIBUTING.md) continue ;;
+        esac
+        if git ls-files --error-unmatch -- "$old_path" >/dev/null 2>&1 \
+          && ! git diff --quiet "$LAST_SYNCED_SHA" -- "$old_path"; then
+          continue
+        fi
+        echo "  DELETE $old_path"
+        git rm -f --ignore-unmatch -- "$old_path"
+        ;;
+      R[0-9]*)
+        case "$old_path:$new_path" in
+          README.md:*|SECURITY.md:*|CONTRIBUTING.md:*) continue ;;
+          *:README.md|*:SECURITY.md|*:CONTRIBUTING.md) continue ;;
+        esac
+        if git ls-files --error-unmatch -- "$old_path" >/dev/null 2>&1; then
+          continue
+        fi
+        echo "  MOVE   $old_path -> $new_path"
+        git restore --source="upstream/${UPSTREAM_BRANCH}" --staged --worktree -- "$new_path"
+        git rm -f --ignore-unmatch -- "$old_path"
+        ;;
+    esac
+  done <<< "$UPSTREAM_PATH_CHANGES"
 fi
 
 # Everything that actually shows up as changed: staged (the normal case),

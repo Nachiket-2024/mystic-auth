@@ -105,8 +105,9 @@ command as written. Re-run Step 2 with the profile added instead:
 docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare --profile geoip up -d --build
 ```
 
-Without it, Manage Sessions' Location column silently shows "Unknown" with
-nothing in the logs to say why. See
+Without it, the updater is not started and Manage Sessions' Location column
+shows "Unknown". When the profile is enabled, the updater healthcheck now
+requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.
 
@@ -173,8 +174,9 @@ JWT_AUDIENCE=<that URL>
 
 (`FRONTEND_BASE_URL` is also baked into verification/password-reset email
 links and the CORS allow-list, so keeping it current matters even beyond
-Google login. `BACKEND_BASE_URL` must be *set* for the app to boot, but
-nothing reads it at runtime, so it never needs to track the tunnel URL.
+Google login. `BACKEND_BASE_URL` must identify the backend/API origin because
+the backend uses its hostname for trusted-host validation. With the
+same-origin proxy setup it normally matches `FRONTEND_BASE_URL`.
 `JWT_ISSUER`/`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for
 tokens to work (they're only checked against themselves, see
 [Authentication Overview](../../authentication/overview.md)), but a Quick
@@ -217,6 +219,6 @@ also free and also give you a stable URL.
 | Public URL shows Cloudflare 502 | `cloudflared` can reach the tunnel edge but cannot reach `frontend:80`. | Check `docker compose ... ps`, then `docker compose ... logs frontend backend`. Recreate `frontend` and `backend` together if backend was restarted. |
 | Password login works locally but not through the tunnel | `FRONTEND_BASE_URL`, CORS, or cookie origin settings are stale. | Set `FRONTEND_BASE_URL` to the active Quick Tunnel URL and recreate `backend` and `frontend`. |
 | Google login returns `redirect_uri_mismatch` | Google has a different callback URL than `GOOGLE_REDIRECT_URI`. | Register the current `<quick-url>/auth/oauth2/callback/google` in Google Cloud Console and update `GOOGLE_REDIRECT_URI`. |
-| Manage Sessions location shows `Unknown` | GeoIP profile was not enabled or the `.mmdb` file is missing. | Start with `--profile geoip` after setting `GEOIPUPDATE_ACCOUNT_ID`, `GEOIPUPDATE_LICENSE_KEY`, and `GEOIP_DB_PATH`. |
+| Manage Sessions location shows `Unknown` | GeoIP profile was not enabled, the updater is still downloading, or the `.mmdb` file is missing. | Start with `--profile geoip`, inspect `geoipupdate` health/logs, and verify the non-empty `.mmdb` file after setting `GEOIPUPDATE_ACCOUNT_ID`, `GEOIPUPDATE_LICENSE_KEY`, and `GEOIP_DB_PATH`. |
 
 ---

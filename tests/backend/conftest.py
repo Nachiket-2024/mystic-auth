@@ -200,18 +200,17 @@ async def _procrastinate_app_lifecycle():
     loop. Opening and closing the connector fresh around every test avoids
     that "Future attached to a different loop" failure.
 
-    Also deletes every row from `procrastinate_jobs` on teardown: real
-    integration tests (signup, verify, password-reset, account-deletion) hit
-    the real ASGI app with no mocking, so `.defer_async()` genuinely inserts
-    a job row each time, and rows would otherwise accumulate across runs.
-    Safe to wipe unconditionally now that this suite runs against its own
-    dedicated mystic_auth_test database: no other process shares this table,
-    so there's no risk of deleting a row a real dev-stack worker still has
-    in flight."""
+    Terminal queue rows are pruned on teardown, but `todo`/`doing` rows are
+    deliberately left alone until the worker has finished them. Deleting an
+    in-flight row races the worker's status update and can lose an audit-log
+    job; that was the source of intermittent missing successful
+    `users:list_all` entries after a broad integration run."""
     await procrastinate_app.open_async()
     yield
     async with database.async_session() as session:
-        await session.execute(text("DELETE FROM procrastinate_jobs"))
+        await session.execute(
+            text("DELETE FROM procrastinate_jobs WHERE status IN ('succeeded', 'failed')")
+        )
         await session.commit()
     await procrastinate_app.close_async()
 

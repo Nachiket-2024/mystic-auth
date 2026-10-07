@@ -71,6 +71,7 @@ timeline
                    : Frontend migrated to shadcn/Radix
                    : Backblaze B2 backup verification, boot-shell, mobile LCP fixes
     October 2026: Coverage increase, backend tooling, backup, sync hardening
+                  : Durable token revocation, lifecycle event queue, backup HMAC verification
 ```
 
 ---
@@ -82,7 +83,7 @@ timeline
 - [February-July 2026](2026-feb-jul.md): commits 37-53, 21 February, 2026 to 29 July, 2026.
 - [August 2026](2026-aug.md): commits 54-69, 2 August, 2026 to 29 August, 2026.
 - [September 2026](2026-sep.md): commits 70-77, 4 September, 2026 to 29 September, 2026.
-- [October 2026](2026-oct.md): commit 78, 1 October, 2026.
+- [October 2026](2026-oct.md): commits 78-79, 1 October, 2026 to 8 October, 2026.
 
 ---
 

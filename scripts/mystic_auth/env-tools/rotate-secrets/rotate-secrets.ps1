@@ -36,7 +36,15 @@ Set-Location (Join-Path $PSScriptRoot "../../../..")
 
 function New-Secret([int]$Length) {
     $bytes = New-Object byte[] ($Length * 2)
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    # Windows PowerShell 5.1's .NET Framework does not expose the static
+    # RandomNumberGenerator.Fill API that newer PowerShell versions have.
+    $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $generator.GetBytes($bytes)
+    }
+    finally {
+        $generator.Dispose()
+    }
     $raw = [Convert]::ToBase64String($bytes) -replace '[^A-Za-z0-9]', ''
     return $raw.Substring(0, [Math]::Min($Length, $raw.Length))
 }

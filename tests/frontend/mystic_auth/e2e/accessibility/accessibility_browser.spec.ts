@@ -10,7 +10,10 @@ import { installAuthenticatedMysticAuthApiRoutes } from "../support/authenticate
 test.describe("accessibility - pre-auth pages", () => {
   test("landing page has no WCAG 2.1 AA violations", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /auth & authorization/i })).toBeVisible();
+    // The landing page is app-owned and downstream applications may replace
+    // its copy and product name. Accessibility coverage only needs a stable
+    // heading landmark, not template-specific marketing text.
+    await expect(page.getByRole("heading").first()).toBeVisible();
     await expectNoAccessibilityViolations(page);
   });
 

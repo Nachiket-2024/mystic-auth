@@ -9,6 +9,8 @@ from ...authorization.models.policy_model import Policy, UserPolicy
 from ...authorization.models.user_permission_model import UserPermission
 from ...core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
 from ...emails.email_normalization import normalize_email
+from ...user_lifecycle.account_lifecycle_events import AccountLifecycleEvent
+from ...user_lifecycle.account_lifecycle_outbox_model import AccountLifecycleOutbox
 from ..user_model import UserRole
 
 UserStatus = Literal["active", "inactive", "deleted"]
@@ -222,8 +224,17 @@ class UserBaseCRUD:
         # policy history); this one previously read the whole table
         # unconditionally.
         stmt = self._apply_filters(
-            select(self.model), search, role, is_verified, status, policy, permission, permission_source,
-            last_login, last_login_from, last_login_to,
+            select(self.model),
+            search,
+            role,
+            is_verified,
+            status,
+            policy,
+            permission,
+            permission_source,
+            last_login,
+            last_login_from,
+            last_login_to,
         )
         stmt = stmt.order_by(*self._order_by(sort_by, sort_dir)).limit(limit).offset(offset)
         result = await db.execute(stmt)
@@ -250,8 +261,16 @@ class UserBaseCRUD:
         _apply_filters)."""
         stmt = self._apply_filters(
             select(func.count(func.distinct(self.model.id))).select_from(self.model),
-            search, role, is_verified, status, policy, permission, permission_source,
-            last_login, last_login_from, last_login_to,
+            search,
+            role,
+            is_verified,
+            status,
+            policy,
+            permission,
+            permission_source,
+            last_login,
+            last_login_from,
+            last_login_to,
         )
         result = await db.execute(stmt)
         return result.scalar_one()
@@ -281,10 +300,22 @@ class UserBaseCRUD:
         await db.refresh(db_obj)
         return db_obj
 
-    async def delete(self, db_obj, db: AsyncSession):
+    async def delete(self, db_obj, db: AsyncSession, lifecycle_event: AccountLifecycleEvent | None = None):
         if not db_obj:
             return False
 
+        outbox_id = None
+        if lifecycle_event is not None:
+            outbox = AccountLifecycleOutbox(
+                **lifecycle_event.as_payload() | {"occurred_at": lifecycle_event.occurred_at}
+            )
+            db.add(outbox)
+            await db.flush()
+            outbox_id = outbox.id
         await db.delete(db_obj)
         await db.commit()
+        if lifecycle_event is not None:
+            from ...user_lifecycle.account_lifecycle_events import queue_account_lifecycle_event
+
+            await queue_account_lifecycle_event(lifecycle_event, outbox_id=outbox_id)
         return True

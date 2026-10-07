@@ -44,6 +44,7 @@ env/mystic_auth/.env
 env/mystic_auth/.env.*
 !env/mystic_auth/.env.*.example
 .codex/
+.local/
 env/app/.env
 env/app/.env.*
 !env/app/.env.*.example
@@ -75,9 +76,9 @@ CLAUDE.md
 AGENTS.md
 TODO.md
 audit-evidence/
-audit-out/
 
 # ---------------------------- General ----------------------------
 .DS_Store
 *.swp
 design/
+SECRETS-TO-ROTATE.md

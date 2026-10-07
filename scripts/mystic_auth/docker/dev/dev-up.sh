@@ -29,6 +29,23 @@ DC=(docker compose \
 # frontend has no healthcheck in docker-compose.dev.yml, so "Up" is as
 # ready as it gets. Every other long-running service does have one.
 LONG_RUNNING_SERVICES=(postgres valkey bugsink backend procrastinate_worker frontend)
+
+# GeoIP is opt-in. When the dev env requests it, include the Compose profile
+# automatically so the updater provisions the shared database before login
+# tests; a configured path without the profile would leave readiness unhealthy.
+if awk -F= '$1 == "GEOIP_DB_PATH" && $2 != "" { found=1 } END { exit !found }' env/mystic_auth/.env.dev; then
+  if ! awk -F= '
+    $1 == "GEOIPUPDATE_ACCOUNT_ID" && $2 != "" { account=1 }
+    $1 == "GEOIPUPDATE_LICENSE_KEY" && $2 != "" { license=1 }
+    END { exit !(account && license) }
+  ' env/mystic_auth/.env.dev; then
+    echo "ERROR: GEOIP_DB_PATH is set in env/mystic_auth/.env.dev, but GEOIPUPDATE_ACCOUNT_ID and GEOIPUPDATE_LICENSE_KEY are both required for the GeoIP updater." >&2
+    echo "Set both MaxMind credentials or clear GEOIP_DB_PATH before running dev-up.sh." >&2
+    exit 1
+  fi
+  DC+=(--profile geoip)
+  LONG_RUNNING_SERVICES+=(geoipupdate)
+fi
 TIMEOUT_SECONDS=180
 POLL_INTERVAL=2
 TAIL_SINCE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

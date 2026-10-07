@@ -264,6 +264,10 @@ describe('UsersPage list controls', () => {
     // useExportUsersMutation); fake them for this test only.
     const createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
     const revokeObjectURL = vi.fn();
+    // jsdom cannot perform a real document navigation when the download
+    // anchor is clicked. Mock the browser primitive at the boundary; the
+    // assertions below still cover the request, filename, and blob cleanup.
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
 
     seed(['users:list_all']);
@@ -282,7 +286,9 @@ describe('UsersPage list controls', () => {
     await waitFor(() => expect(mock.history.get.some((r) => r.url === '/users/export')).toBe(true));
     await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+    expect(click).toHaveBeenCalled();
 
+    click.mockRestore();
     vi.unstubAllGlobals();
   });
 

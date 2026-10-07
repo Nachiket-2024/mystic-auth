@@ -57,7 +57,11 @@ async def assign_policies(email: str, policy_names: list[str]) -> None:
         for policy_name in policy_names:
             policy = await policy_repository.get_by_name(policy_name, session)
             await policy_repository.assign_policy_to_user(
-                user_id=user.id, policy_id=policy.id, db=session, assigned_by="test"
+                user_id=user.id,
+                policy_id=policy.id,
+                db=session,
+                assigned_by="test",
+                user_email=email,
             )
 
 
@@ -126,5 +130,9 @@ async def create_roleless_user(created_emails, email: str, policy_names: list[st
         for policy_name in policy_names:
             policy = await policy_repository.get_by_name(policy_name, session)
             await policy_repository.assign_policy_to_user(
-                user_id=user.id, policy_id=policy.id, db=session, assigned_by="test"
+                user_id=user.id,
+                policy_id=policy.id,
+                db=session,
+                assigned_by="test",
+                user_email=email,
             )

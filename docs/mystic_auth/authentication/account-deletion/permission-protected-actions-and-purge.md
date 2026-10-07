@@ -31,12 +31,13 @@ the one routine both purge paths call, so they can never drift apart:
    `TokenVersionUnavailableError` and nothing past this step runs - no audit write, no delete. See
    [Bump failure handling](../session-management/token-lifecycle.md#bump-failure-handling) for why this one path is
    the exception to "the primary action still succeeds."
-2. Write the `account_purged` security audit event, **before** the row is deleted, since that event
+2. Anonymize the account's historical security and authorization audit rows. The event types,
+   actions, outcomes, and timestamps remain, but the email, IP, user-agent, and authorization
+   context that could identify the account are stripped or replaced with a deleted-account sentinel.
+3. Write the `account_purged` security audit event, **before** the row is deleted, since that event
    is what makes the irreversible action reviewable afterward.
-3. Hard-delete the row. `user_policies` rows cascade-delete (`ON DELETE CASCADE`);
-   `authorization_audit_log`/`security_audit_log` rows are untouched, since they store `user_email`
-   as a snapshot string rather than a foreign key, so the historical record of what the account did
-   survives the account itself.
+4. Hard-delete the row. `user_policies` rows cascade-delete (`ON DELETE CASCADE`); the anonymized
+   audit rows remain as aggregate history rather than a foreign-key dependency on the deleted user.
 
 ---
 

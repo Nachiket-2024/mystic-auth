@@ -19,11 +19,11 @@ class UserSession(Base):
     jti currently represents this session, updated in place on each
     rotation (see session_repository.rotate), while `id` stays the stable
     identifier shown to and revoked by the client, and `chain_id` is the
-    identity Valkey actually keys revocation off (see below).
+    identity used to key the revocation cache (see below).
 
-    Real token validity is governed entirely by Valkey version counters
+    Real token validity is governed by durable Postgres version counters
     (jwt_service.py: `account_ver:{email}` account-wide, `chain_ver:
-    {email}:{chain_id}` per-session), not by anything in this table. This
+    {email}:{chain_id}` per-session), with Valkey as a cache, not by anything in this table. This
     table is a best-effort mirror for display and for knowing which
     chain_id to bump when a specific session is revoked by id. A row here
     going missing or stale never affects login/refresh correctness (see

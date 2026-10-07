@@ -31,14 +31,37 @@ def _seconds_until(decision) -> float:
 
 @pytest.mark.asyncio
 async def test_send_email_task_returns_true_on_success(mocker):
+    # Tests always force EMAIL_ENABLED=False (see settings.py), so the
+    # "real SMTP" label is covered separately below rather than here.
     mocker.patch(f"{MODULE}.email_sender.send", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.settings.EMAIL_ENABLED", True)
     info_mock = mocker.patch(f"{MODULE}.logger.info")
 
     result = await send_email_task(to_email="user@example.com", subject="Hi", body="Body")
 
     assert result is True
-    info_mock.assert_any_call("Sending email to %s", "user@example.com")
-    info_mock.assert_any_call("Email sent successfully to %s", "user@example.com")
+    info_mock.assert_any_call("Sending email to %s [%s]", "user@example.com", "real SMTP")
+    info_mock.assert_any_call("Email task finished for %s [%s]", "user@example.com", "real SMTP")
+
+
+@pytest.mark.asyncio
+async def test_send_email_task_log_names_dry_run_mode_when_email_disabled(mocker):
+    # Regression guard for the 2026-10-05 security audit's F-003: this
+    # task's own terminal-visible log previously said "Email sent
+    # successfully" regardless of whether EMAIL_ENABLED was true or false -
+    # NullEmailSender's "not sending" log lives on a different, file-only
+    # logger, so with email disabled the terminal showed a false-positive-
+    # looking "sent successfully" line for what was actually a no-op.
+    mocker.patch(f"{MODULE}.email_sender.send", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.settings.EMAIL_ENABLED", False)
+    info_mock = mocker.patch(f"{MODULE}.logger.info")
+
+    result = await send_email_task(to_email="user@example.com", subject="Hi", body="Body")
+
+    assert result is True
+    dry_run_label = "dry-run (EMAIL_ENABLED=false)"
+    info_mock.assert_any_call("Sending email to %s [%s]", "user@example.com", dry_run_label)
+    info_mock.assert_any_call("Email task finished for %s [%s]", "user@example.com", dry_run_label)
 
 
 @pytest.mark.asyncio

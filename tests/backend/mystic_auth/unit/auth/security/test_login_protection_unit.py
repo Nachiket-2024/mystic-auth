@@ -131,6 +131,23 @@ async def test_begin_protected_action_denies_when_reservation_is_taken(mocker):
 
 
 @pytest.mark.asyncio
+async def test_begin_protected_action_denies_when_key_is_already_locked(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="5")
+    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
+
+    assert await login_protection_service.begin_protected_action("key") is False
+    set_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_begin_protected_action_fails_closed_when_reservation_write_errors(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, side_effect=RuntimeError("down"))
+
+    assert await login_protection_service.begin_protected_action("key") is False
+
+
+@pytest.mark.asyncio
 async def test_finish_protected_action_records_failure_and_releases_reservation(mocker):
     record_mock = mocker.patch(f"{MODULE}.LoginProtectionService.check_and_record_action", new_callable=AsyncMock, return_value=True)
     delete_mock = mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock)
@@ -139,6 +156,27 @@ async def test_finish_protected_action_records_failure_and_releases_reservation(
 
     record_mock.assert_awaited_once_with("key", success=False)
     delete_mock.assert_awaited_once_with("key:inflight")
+
+
+@pytest.mark.asyncio
+async def test_release_protected_action_swallows_valkey_errors(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock, side_effect=RuntimeError("down"))
+
+    await login_protection_service.release_protected_action("key")
+
+
+@pytest.mark.asyncio
+async def test_reset_failed_attempts_swallows_valkey_errors(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.delete", new_callable=AsyncMock, side_effect=RuntimeError("down"))
+
+    await login_protection_service.reset_failed_attempts("key")
+
+
+@pytest.mark.asyncio
+async def test_check_and_record_action_returns_false_when_increment_fails(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.incr", new_callable=AsyncMock, side_effect=RuntimeError("down"))
+
+    assert await login_protection_service.check_and_record_action("key", success=False) is False
 
 @pytest.mark.asyncio
 async def test_check_and_record_action_resets_on_success(mocker):

@@ -101,6 +101,10 @@ Also configure before opening the app to real users:
 
 - SMTP before opening password signup to users, because unverified password accounts cannot log in.
 - Google OAuth2 before showing Google login.
+- `BACKUP_ENCRYPTION_KEY` and `BACKUP_UPLOAD_COMMAND` before starting the
+  production-shaped stack. The backup sidecar refuses to start without both;
+  use the [off-host backup guide](migrations-and-backups.md#backblaze-b2-off-host-copies)
+  to configure the upload command in the gitignored runtime env file.
 - The CLI-created system superuser can sign in without Google or SMTP because the script marks it verified. See [System Superuser](../authentication/system-superuser/README.md) for the interactive command, or `local-scripts/mystic_auth/prod/create-system-user.*` for a non-interactive version (fill in non-dev credentials, not the dev placeholder).
 
 See also
@@ -116,7 +120,10 @@ Run `scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.p
 It fails if a secret in that file still equals the shipped placeholder
 while `ENVIRONMENT=production`, and warns on any remaining `<your_...>`
 placeholder or a host port already in use, before you spend a `--build`
-finding out the hard way.
+finding out the hard way. It also fails early if `BACKUP_ENCRYPTION_KEY` or
+`BACKUP_UPLOAD_COMMAND` is blank, or if the upload command does not reference
+`$DUMP_FILE`; this prevents Compose interpolation from being the first place
+an incomplete backup configuration is discovered.
 
 ```bash
 docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod up -d --build
@@ -139,8 +146,9 @@ command as written. Re-run Step 3 with the profile added instead:
 docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod --profile geoip up -d --build
 ```
 
-Without it, Manage Sessions' Location column silently shows "Unknown" with
-nothing in the logs to say why. See
+Without it, the updater is not started and Manage Sessions' Location column
+shows "Unknown". When the profile is enabled, the updater healthcheck now
+requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.
 
@@ -212,7 +220,7 @@ TLS terminator.
 
 These are the same across every Compose file. See
 [Deployment Guide](migrations-and-backups.md#1-database-migrations) for migrations, backups
-(`scripts/mystic_auth/db/db_backup.sh docker-compose.prod.yml`), graceful shutdown, and
+(`scripts/mystic_auth/db/database-backup/database-backup.sh docker-compose.prod.yml`), graceful shutdown, and
 known limitations of this deployment approach.
 
 ---

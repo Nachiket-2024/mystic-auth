@@ -174,8 +174,9 @@ command as written. Re-run Step 7 with the profile added instead:
 docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare --profile geoip up -d --build
 ```
 
-Without it, Manage Sessions' Location column silently shows "Unknown" with
-nothing in the logs to say why. See
+Without it, the updater is not started and Manage Sessions' Location column
+shows "Unknown". When the profile is enabled, the updater healthcheck now
+requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.
 

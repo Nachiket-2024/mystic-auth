@@ -19,6 +19,10 @@ if [ "$#" -eq 0 ]; then
   set -- up -d --build
 fi
 
+scripts/mystic_auth/env-tools/check-env/check-env.sh \
+  env/mystic_auth/.env.local-prod-cloudflare \
+  env/app/.env.local-prod-cloudflare
+
 exec docker compose \
   -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml \
   -f docker/app/compose/docker-compose.local-prod-cloudflare.yml \

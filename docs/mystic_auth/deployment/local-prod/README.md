@@ -130,6 +130,17 @@ a leftover placeholder secret or an already-bound host port. Review
 `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP,
 rate-limit, Valkey, and error-monitoring values before sharing the service.
 
+Production-shaped local-prod modes also fail closed until both backup values
+are set: `BACKUP_ENCRYPTION_KEY` and `BACKUP_UPLOAD_COMMAND`. The upstream
+examples include a generic B2/rclone upload command; fill in `B2_BUCKET`, the
+B2 credentials, and the encryption key in the gitignored runtime env file.
+The upload command must reference `$DUMP_FILE` and ship the verified encrypted
+dump and its detached HMAC to an off-host destination; the [backup guide](../migrations-and-backups.md#backblaze-b2-off-host-copies)
+shows the same `rclone` form. Set the command in the gitignored runtime env file
+if your destination differs, then run the matching Compose config or helper
+before starting the tunnel. This is required even when the tunnel is only
+being used for a short local-production check.
+
 Build-time values must be final before you run `--build`:
 
 - `VITE_API_BASE_URL`: keep empty for the bundled nginx same-origin proxy.

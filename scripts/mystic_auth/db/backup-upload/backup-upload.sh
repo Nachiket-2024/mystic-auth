@@ -9,3 +9,10 @@ UPLOAD_COMMAND="$(printf '%s' "${BACKUP_UPLOAD_COMMAND:-}" | sed 's/\$\$/\$/g')"
 
 [ -n "$UPLOAD_COMMAND" ] || exit 0
 DUMP_FILE="$DUMP_FILE" sh -c "$UPLOAD_COMMAND"
+
+# Ship the detached HMAC tag (see backup-hmac.sh) alongside the ciphertext -
+# database-restore.sh needs it present at the same remote location to verify a
+# downloaded backup wasn't tampered with before decrypting it.
+if [ -f "${DUMP_FILE}.hmac" ]; then
+  DUMP_FILE="${DUMP_FILE}.hmac" sh -c "$UPLOAD_COMMAND"
+fi

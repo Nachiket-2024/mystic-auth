@@ -11,6 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -68,6 +69,12 @@ logger = get_logger("main")
 # add handlers and other startup registration in backend/app/app_sdk.py
 # without editing backend/mystic_auth/.
 register_extensions()
+
+# Import configured downstream task modules only after the public SDK has
+# finished initializing. A downstream task is allowed to import `app.sdk`;
+# loading it from procrastinate_app.py during the SDK import would expose a
+# partially initialized module and make the API unhealthy at startup.
+procrastinate_app.perform_import_paths()
 
 # Before the app starts serving requests, so every request from the very
 # first one onward is covered. A no-op when SENTRY_DSN is unset (see
@@ -146,6 +153,16 @@ app = FastAPI(
     docs_url=None if _is_production else "/docs",
     redoc_url=None if _is_production else "/redoc",
     openapi_url=None if _is_production else "/openapi.json",
+    # Starlette's default trailing-slash redirect builds its Location from
+    # request.url, which is always http:// here (nginx proxies to this
+    # backend over plain HTTP, and nothing restores the original scheme) -
+    # so a client hitting e.g. POST /auth/login/ got redirected to
+    # http://..., leaking the request body (credentials) in plaintext if
+    # the client actually followed it. No real caller relies on the
+    # trailing-slash form, so disabling it entirely (404 instead of a
+    # same-method/body redirect) removes the downgrade without needing a
+    # trusted-proxy scheme middleware.
+    redirect_slashes=False,
 )
 
 # Starlette applies middleware in reverse of add order: the LAST one added
@@ -170,8 +187,19 @@ app.add_middleware(
 
 app.add_middleware(LoggingMiddleware)
 
-# Security-hardening response headers (X-Frame-Options, CSP, HSTS, etc.), see
-# security_headers_middleware.py for per-header reasoning.
+# Rejects a request whose Host header doesn't match FRONTEND_BASE_URL/
+# FRONTEND_ADDITIONAL_BASE_URLS (plus localhost, for the in-container
+# healthcheck and local direct-port debugging - see settings.trusted_hosts).
+# nginx and the local-prod tunnels already enforce their own Host
+# expectations, but hitting the backend's own localhost-only port directly
+# bypassed both with nothing in the app itself checking - this is that
+# missing layer, not a replacement for either.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+
+# Security headers must wrap TrustedHostMiddleware: rejected Host responses
+# otherwise return before this middleware gets a chance to add the browser
+# hardening headers. See security_headers_middleware.py for per-header
+# reasoning.
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Added last so it becomes outermost (see note above).

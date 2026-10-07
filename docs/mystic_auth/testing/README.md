@@ -24,7 +24,7 @@ focused page for the test type.
 
 - [Backend test map](backend.md): explains the backend layers and collection
   commands.
-- [Backend unit tests](backend-unit.md): 106 isolated modules, grouped by
+- [Backend unit tests](backend-unit.md): 112 isolated modules, grouped by
   authentication, PBAC, users, infrastructure, and workers.
 - [Backend integration tests](backend-integration.md): 48 database- and
   Valkey-backed endpoint and workflow modules.

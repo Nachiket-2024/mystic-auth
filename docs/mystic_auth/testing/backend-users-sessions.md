@@ -102,6 +102,9 @@ prove that route permissions and transaction effects use it correctly.
   parsing and privacy-safe missing-location fallback.
 - `unit/user_session/test_session_events_unit.py` verifies real-time event
   payloads for revocation and permission changes.
+- `unit/user_session/test_session_events_failure_unit.py` verifies fail-closed
+  lease admission, invalid access tokens, buffered events, publisher failures,
+  and cleanup when the stream shuts down unexpectedly.
 - `integration/user_session/test_session_geolocation_integration.py` verifies
   city/country persistence when geolocation is available and null fields when
   it is disabled.

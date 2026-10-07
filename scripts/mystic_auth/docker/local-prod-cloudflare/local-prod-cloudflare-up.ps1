@@ -14,6 +14,11 @@ Set-Location $RepoRoot
 
 $ComposeArgs = if ($args.Count -eq 0) { @("up", "-d", "--build") } else { $args }
 
+& "$RepoRoot/scripts/mystic_auth/env-tools/check-env/check-env.ps1" `
+  "env/mystic_auth/.env.local-prod-cloudflare" `
+  "env/app/.env.local-prod-cloudflare"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 docker compose `
   -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml `
   -f docker/app/compose/docker-compose.local-prod-cloudflare.yml `

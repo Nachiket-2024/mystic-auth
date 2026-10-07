@@ -10,6 +10,12 @@ background state. The purpose is to prove that separately correct units still
 behave correctly when transactions, persistence, cache invalidation, and
 concurrent requests interact.
 
+Test-account helpers that assign policies directly through the repository pass
+the affected user's email so the authorization cache is invalidated exactly as
+it is for an API assignment. This is required before issuing requests as the
+newly privileged account; otherwise a cached pre-assignment policy list can
+produce a misleading `403` in an otherwise valid integration test.
+
 ---
 
 ## Audit log

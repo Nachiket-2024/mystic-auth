@@ -28,17 +28,18 @@ Sessions Test Detail](backend-users-sessions.md).
 
 ## Application wrapper
 
-`tests/backend/app/test_main_global_exception_handler_unit.py` covers the thin
-FastAPI application wrapper. It verifies that unexpected exceptions become a
-safe public 500 response and are reported without leaking internal details.
-This is separate from MysticAuth domain tests because a failure here can hide
-or distort every route-level failure.
+The five modules under `tests/backend/app/` cover the thin FastAPI application
+wrapper, settings boundaries, SDK identity, and lifecycle signal handling.
+They verify that unexpected exceptions become safe public 500 responses, app
+settings remain valid, and startup/shutdown behavior is observable without
+leaking internal details. This is separate from MysticAuth domain tests because
+a failure here can hide or distort every route-level failure.
 
 ---
 
 ## Unit tests
 
-The 106 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
+The 112 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
 services, repositories, schemas, middleware, and pure policy logic. They are
 the fastest way to identify which decision or transformation changed. The
 [Backend Unit Tests](backend-unit.md) page names each module and explains its

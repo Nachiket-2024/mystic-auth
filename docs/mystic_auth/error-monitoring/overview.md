@@ -128,7 +128,7 @@ Written for whoever's never touched Bugsink (or Sentry, or any error tracker lik
 | Frontend | An uncaught render error anywhere in the component tree | `frontend/src/mystic_auth/ui/routing/ErrorBoundary.tsx` calls `core/errorMonitoring.ts::reportError` |
 | Frontend (manual) | Anything your own component/hook code catches but still wants tracked | `reportError`, re-exported from `frontend/src/app/sdk.ts` |
 | Frontend (automatic) | Uncaught `window.onerror`/unhandled promise rejections | Sentry SDK's own default browser instrumentation, once initialized |
-| Security alerting | Refresh-token replay detection and SSE connection-cap violations | `capture_security_alert()` sends a tagged error event (`security_event`) to Bugsink/Sentry and, when configured, a JSON POST to the direct webhook; the durable audit log remains the source of truth |
+| Security alerting | Refresh-token replay, SSE connection-cap, and login lockout threshold events | `capture_security_alert()` sends a tagged error event (`security_event`) to Bugsink/Sentry and, when configured, a JSON POST to the direct webhook; the durable audit log remains the source of truth |
 
 ---
 
@@ -142,7 +142,7 @@ security event to Bugsink/Sentry when `SENTRY_DSN` is configured.
 
 ### What it detects
 
-The application sends one alert when it detects either of these high-signal
+The application sends one alert when it detects one of these high-signal
 events:
 
 - `refresh_token_reuse_detected`: a refresh token was presented again outside
@@ -150,10 +150,16 @@ events:
   possible, and the event records whether revocation was confirmed.
 - `session_event_connection_limit_exceeded`: an account or client IP reached
   the maximum number of live session-event (SSE) connections.
+- `account_locked`: a login failure crossed either the per-account or
+  per-source-IP lockout threshold. The application emits one alert when the
+  threshold is crossed; repeated requests while the account/IP is already
+  locked are recorded in the durable audit log but do not generate an alert
+  storm. Metadata identifies the lock scope, target email, source IP, and
+  correlation request ID, never a password or token.
 
-These are not ordinary login failures or routine `403`/`404` responses. They
-can indicate token theft, automation, abuse, or a broken client opening streams
-repeatedly.
+These are not ordinary individual login failures or routine `403`/`404`
+responses. They can indicate token theft, credential spraying, deliberate
+account lockout, abuse, or a broken client opening streams repeatedly.
 
 ### What to put in the environment file
 

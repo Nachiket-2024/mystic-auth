@@ -18,8 +18,9 @@ class JWTService:
     Creates, verifies, and revokes access/refresh JWTs.
 
     Revocation is version-based, not identity-based: a token is valid only
-    if its own embedded account_ver and chain_ver still match Valkey's
-    current values (see ACCOUNT_VERSION_KEY/CHAIN_VERSION_KEY above).
+    if its own embedded account_ver and chain_ver still match the durable
+    revocation store's current values (Valkey is only a cache; see
+    ACCOUNT_VERSION_KEY/CHAIN_VERSION_KEY above).
     Rotation replay protection (a refresh token must only ever be redeemed
     once) is a separate, narrower concern - see claim_jti_for_rotation -
     solved by a short-lived per-jti marker, since versioning alone can't
@@ -31,9 +32,7 @@ class JWTService:
         expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         jti = uuid.uuid4().hex
 
-        account_ver, chain_ver = await asyncio.gather(
-            self.get_account_version(email), self.get_chain_version(email, chain_id)
-        )
+        account_ver, chain_ver = await self.get_token_versions(email, chain_id)
 
         # "iat" is a float (now.timestamp()), not the datetime object
         # itself: PyJWT truncates a datetime-valued exp/iat/nbf claim to
@@ -73,9 +72,7 @@ class JWTService:
         expire = now + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
         jti = uuid.uuid4().hex
 
-        account_ver, chain_ver = await asyncio.gather(
-            self.get_account_version(email), self.get_chain_version(email, chain_id)
-        )
+        account_ver, chain_ver = await self.get_token_versions(email, chain_id)
 
         payload = {
             "email": email,
@@ -300,17 +297,18 @@ class JWTService:
         return aud is None or aud == settings.JWT_AUDIENCE
 
     # Account/chain version reads and bumps live in token_version_store.py
-    # (Valkey-backed revocation bookkeeping), re-exported here as bound
+    # (Postgres-backed revocation bookkeeping), re-exported here as bound
     # methods so every existing `jwt_service.get_account_version(...)`-style
     # call site keeps working unchanged.
     get_account_version = token_version_store.get_account_version
     get_chain_version = token_version_store.get_chain_version
+    get_token_versions = token_version_store.get_versions
     bump_account_version = token_version_store.bump_account_version
     bump_chain_version = token_version_store.bump_chain_version
 
     async def is_current_version(self, payload: dict) -> bool:
         """False (revoked) if either the token's embedded account_ver or
-        chain_ver has fallen behind Valkey's current value. True (including
+        chain_ver has fallen behind the durable store's current value. True (including
         for a token minted before this feature shipped, carrying neither
         claim) whenever there's nothing to compare - same "nothing to check
         against, so don't reject" reasoning as the jti-less early return in

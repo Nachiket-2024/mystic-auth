@@ -84,7 +84,10 @@ flowchart LR
 1. `APP_DATABASE_URL` can be blank. When set, the app and Procrastinate task
   bodies use it for CRUD work, while Alembic still uses `DATABASE_URL` for DDL.
 1. `GEOIP_DB_PATH` alone does not download a database. Docker downloads the
-  MaxMind file only when `geoipupdate` is enabled with `--profile geoip`.
+  MaxMind file only when `geoipupdate` is enabled with `--profile geoip` and
+  both `GEOIPUPDATE_ACCOUNT_ID` and `GEOIPUPDATE_LICENSE_KEY` are set. The dev
+  wrapper enables the profile automatically when the path is set, but fails
+  before startup if either credential is missing.
 1. `EMAIL_ENABLED=false` lets flows enqueue and render email content without
   contacting SMTP, but users still need the resulting token/link through logs
   or tests to finish verification or reset flows.

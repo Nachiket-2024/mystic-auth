@@ -37,6 +37,10 @@ lines. Browser-owned route and layout composition is covered by Playwright;
 see the [frontend testing overview](../docs/mystic_auth/testing/overview.md)
 for the boundary and the required stack setup.
 
+Browser-only operations such as file downloads are mocked at the jsdom
+boundary in Vitest. Their request, filename, and cleanup behavior remain
+covered without asking jsdom to navigate to a new document.
+
 ---
 
 ## 3. Documentation

@@ -63,6 +63,11 @@ erDiagram
 
 `authorization_audit_log` and `security_audit_log` are deliberately left off this diagram entirely, not just undrawn relationship lines: both key off `user_email` as a snapshot string, not a foreign key to `users.id`, so the audit trail survives even after the user row is purged. See [Why two audit tables, not one](#why-two-audit-tables-not-one) and each table's own section below for their full column lists.
 
+`account_lifecycle_outbox` is also omitted from the relationship diagram because
+it stores a durable event snapshot rather than a foreign key. Its `user_id` is
+nullable by design: purge removes the user row, but the queued event must remain
+deliverable. See [Account lifecycle](#account-lifecycle).
+
 ---
 
 ## Tables
@@ -129,6 +134,32 @@ One row per login session, backing the "Manage Sessions" dashboard card. `curren
 
 ---
 
+### `account_lifecycle_outbox`
+
+The transactional handoff for downstream account-transition notifications. A
+soft delete, reactivation, or purge writes an event snapshot in the same
+transaction as the account mutation, then submits a Procrastinate job. The
+worker updates `queued_at` after submission and `delivered_at` after all
+registered listeners succeed. If queue submission fails, the five-minute
+reconciler retries rows whose `queued_at` and `delivered_at` are both `NULL`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | int, PK | Durable event identifier for operational tracking. |
+| `event_type` | string, indexed | `soft_deleted`, `reactivated`, or `purged`. |
+| `user_id` | int, nullable | Snapshot of the account id; nullable because purge removes the user row. |
+| `user_email` | string, indexed | Snapshot used by downstream reconciliation after purge. |
+| `actor` / `source` | string | Who caused the transition and whether it came from admin, self-service, or scheduled purge. |
+| `occurred_at` | timestamp | When the state transition was built. |
+| `queued_at` / `delivered_at` | timestamp, nullable | Queue submission and successful listener-delivery markers. |
+
+Delivery is at-least-once. A worker crash after listeners succeed but before
+`delivered_at` is committed can repeat an event, so downstream listeners must
+be idempotent. The table is template-owned infrastructure; product delivery
+behavior and deduplication storage belong under `backend/app/`.
+
+---
+
 ## Why two audit tables, not one
 
 `authorization_audit_log` answers "was this specific action on this specific resource allowed, and by which policy": a PBAC evaluation record. `security_audit_log` answers "what happened to this account": a broader identity/session timeline (including things that have no policy evaluation at all, like a failed login attempt against a nonexistent email). They're queried by different audiences for different questions and were kept as two focused tables rather than one table with an ever-growing set of nullable, event-type-specific columns.
@@ -156,7 +187,7 @@ Three operations, two permissions, deliberately separate:
 
 ---
 
-**Purge** (`DELETE /users/{email}/purge`, or the daily automatic job below) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`); `authorization_audit_log`/`security_audit_log` rows are untouched (string snapshot, not FK, see above), so the historical record of what the account did survives even though the account itself is gone. The manual route is gated by `users:delete_any`, a distinct and more sensitive permission from `users:deactivate_any`, granted only by the seeded `system_superuser` policy, never `user_management`. An admin who can delete accounts day-to-day cannot irreversibly destroy one. Both the manual route and the automatic job call the same `purge_user_account()` (`backend/mystic_auth/user_lifecycle/user_purge_service.py`) so the revoke → audit → delete sequence can never drift between the two call sites.
+**Purge** (`DELETE /users/{email}/purge`, or the daily automatic job below) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`). Before the purge event is written, the historical `authorization_audit_log` and `security_audit_log` rows are anonymized: account-identifying email, IP, user-agent, and authorization context are stripped or replaced with a deleted-account sentinel, while event types, actions, outcomes, and timestamps remain for aggregate review. The `account_purged` event itself remains reviewable. The manual route is gated by `users:delete_any`, a distinct and more sensitive permission from `users:deactivate_any`, granted only by the seeded `system_superuser` policy, never `user_management`. An admin who can delete accounts day-to-day cannot irreversibly destroy one. Both the manual route and the automatic job call the same `purge_user_account()` (`backend/mystic_auth/user_lifecycle/user_purge_service.py`) so the revoke → anonymize history → audit → delete sequence can never drift between the two call sites.
 
 ---
 

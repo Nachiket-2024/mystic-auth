@@ -6,7 +6,7 @@
 #
 # A few targets (test-tooling, test-sync, lint-paths, lint-split, backup)
 # only have a `.sh` implementation - the regression suites and
-# db_backup.sh are dev tooling that assumes a POSIX shell, unlike every
+# database-backup.sh are dev tooling that assumes a POSIX shell, unlike every
 # user-facing script, which ships `.sh`/`.ps1`/`.cmd`. Those shell out to
 # `bash` here, which Git for Windows already provides
 # (`C:\Program Files\Git\bin\bash.exe` on PATH as `bash`) if you have Git
@@ -66,9 +66,9 @@ $MysticAuthTargets = @{
             -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml `
             exec -it backend python -m mystic_auth.scripts.create_system_user
     }
-    "backup" = { Invoke-Bash "scripts/mystic_auth/db/db_backup.sh" }
-    "restore-drill" = { Invoke-Bash "scripts/mystic_auth/db/db_restore_drill.sh" }
-    "backup-freshness" = { Invoke-Bash "scripts/mystic_auth/db/check_backup_freshness.sh" }
+    "backup" = { Invoke-Bash "scripts/mystic_auth/db/database-backup/database-backup.sh" }
+    "restore-drill" = { Invoke-Bash "scripts/mystic_auth/db/database-restore/database-restore-drill.sh" }
+    "backup-freshness" = { Invoke-Bash "scripts/mystic_auth/db/backup-verification/backup-freshness-check.sh" }
     "sync" = { & .\scripts\mystic_auth\upstream-sync\sync-upstream.ps1 }
     "test-tooling" = { Invoke-Bash "tests/scripts/mystic_auth/env-tools/test-env-tooling.sh" }
     "test-sync" = { Invoke-Bash "tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh" }

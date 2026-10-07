@@ -159,7 +159,7 @@ JWT_AUDIENCE=https://mystic-auth.<tailnet>.ts.net
 ```
 
 - `FRONTEND_BASE_URL` is baked into verification/password-reset email links and the CORS allow-list too, so it matters even if you never enable Google login.
-- `BACKEND_BASE_URL` must be *set* for the app to boot, but nothing reads it at runtime, so it can stay the same value.
+- `BACKEND_BASE_URL` must identify the backend/API origin because the backend uses its hostname for trusted-host validation. It normally matches `FRONTEND_BASE_URL` when Tailscale exposes the same-origin proxy.
 - `JWT_ISSUER`/`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for tokens to work (they're only checked against themselves, see [Authentication Overview](../../authentication/overview.md)), but leaving them at the placeholder default means every deployment that copies this tutorial mints tokens with the same `iss`/`aud`, so update them to this deployment's real domain too.
 
 ---
@@ -206,8 +206,9 @@ the profile added instead:
 docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml -f docker/app/compose/docker-compose.local-prod-tailscale.yml --env-file env/mystic_auth/.env.local-prod-tailscale --env-file env/app/.env.local-prod-tailscale --profile geoip up -d --build
 ```
 
-Without it, Manage Sessions' Location column silently shows "Unknown" with
-nothing in the logs to say why. See
+Without it, the updater is not started and Manage Sessions' Location column
+shows "Unknown". When the profile is enabled, the updater healthcheck now
+requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.
 

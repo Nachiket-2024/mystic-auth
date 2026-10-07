@@ -30,7 +30,8 @@ from ...user.user_schema import UserRead
 # UserRole is only used for target-account guards such as protecting the
 # reserved system account from generic endpoints. It is resource metadata, not
 # caller authorization; PBAC policies still decide access.
-from ...user_lifecycle.user_purge_service import purge_user_account
+from ...user_lifecycle.account_lifecycle_events import build_account_lifecycle_event
+from ...user_lifecycle.user_purge_service import AccountNoLongerEligibleForPurgeError, purge_user_account
 from ..get_or_404.get_or_404 import get_or_404
 
 # Account state transitions (delete/purge/reactivate) on another user's
@@ -80,7 +81,10 @@ async def delete_any_user(
             detail="Cannot delete your own account through this endpoint"
         )
 
-    await user_crud.soft_delete(db_obj=user, db=db)
+    lifecycle_event = build_account_lifecycle_event(
+        "soft_deleted", user, actor=current_user["email"], source="admin"
+    )
+    await user_crud.soft_delete(db_obj=user, db=db, lifecycle_event=lifecycle_event)
 
     # is_active=False already blocks login, but refresh_tokens() is
     # Valkey/JWT-only and doesn't check the database, so a still-valid
@@ -113,7 +117,6 @@ async def delete_any_user(
             "sessions_revoked_confirmed": sessions_revoked_confirmed,
         },
     )
-
     return {"detail": f"User {user_email} deleted successfully"}
 
 
@@ -128,8 +131,9 @@ async def purge_user(
     Deliberately a separate, more sensitive action from users:deactivate_any (see
     permissions.py) since this is irreversible and cascades: policy
     assignments are removed via users.id -> policy_model.py's ON DELETE
-    CASCADE, while audit log rows reference user_email as a snapshot string
-    (not a foreign key), so audit history survives even a purge.
+    CASCADE. Historical audit rows are anonymized before the purge event is
+    written, then survive as non-identifying snapshot history rather than as
+    a foreign-key dependency on the deleted user.
     """
     user_email = normalize_email(user_email)
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
@@ -151,7 +155,7 @@ async def purge_user(
         )
 
     # Shared with the scheduled grace-period purge job so both use the same
-    # revoke -> audit -> delete sequence.
+    # revoke -> anonymize-history -> audit -> delete sequence.
     #
     # Unlike the reversible soft-delete paths, this revokes BEFORE the
     # irreversible hard delete: a TokenVersionUnavailableError here
@@ -164,6 +168,12 @@ async def purge_user(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             code="SESSION_REVOCATION_UNAVAILABLE",
             detail="Could not confirm existing sessions were revoked; purge was not performed. Please try again shortly",
+        ) from exc
+    except AccountNoLongerEligibleForPurgeError as exc:
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="USER_NOT_DELETED",
+            detail="User was reactivated and is no longer eligible for purge",
         ) from exc
     return {"detail": f"User {user_email} permanently removed"}
 
@@ -189,7 +199,10 @@ async def reactivate_user(
 
     # Policy assignments were never touched by soft delete, so access returns
     # exactly as it was, so no re-granting needed.
-    restored_user = await user_crud.reactivate(db_obj=user, db=db)
+    lifecycle_event = build_account_lifecycle_event(
+        "reactivated", user, actor=current_user["email"], source="admin"
+    )
+    restored_user = await user_crud.reactivate(db_obj=user, db=db, lifecycle_event=lifecycle_event)
 
     await log_security_event(
         ACCOUNT_REACTIVATED,
@@ -199,5 +212,4 @@ async def reactivate_user(
         request=request,
         metadata={"reactivated_by": current_user["email"]},
     )
-
     return restored_user

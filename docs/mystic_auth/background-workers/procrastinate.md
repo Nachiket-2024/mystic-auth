@@ -29,6 +29,7 @@ app = App(
     import_paths=[
         "mystic_auth.procrastinate_tasks.email_tasks",
         "mystic_auth.procrastinate_tasks.account_purge_tasks",
+        "mystic_auth.procrastinate_tasks.account_lifecycle_tasks",
     ],
 )
 ```
@@ -36,6 +37,15 @@ app = App(
 `settings.procrastinate_database_url` (`core/settings.py`) translates `DATABASE_URL`'s SQLAlchemy `postgresql+asyncpg://` dialect prefix into the bare `postgresql://` DSN Procrastinate's `PsycopgConnector` expects. The connector opens its own psycopg connection pool, entirely separate from the SQLAlchemy engine `database/connection.py` builds: two independent pools onto the same database, not a shared one.
 
 The FastAPI process itself needs this connector open too, since request handlers call `.defer_async(...)` directly: `backend/app/main.py`'s lifespan opens it (`await procrastinate_app.open_async()`) before serving traffic and closes it on shutdown, the same pattern as the Valkey client and the SQLAlchemy engine.
+
+The API imports the configured task modules from `main.py`, after the public
+`app.sdk` module has finished initializing. Configured worker middleware is
+also loaded lazily. This ordering is deliberate: downstream task and
+middleware modules are allowed to import `app.sdk`, so importing them from
+`procrastinate_app.py` while the SDK is still loading would create a
+partial-module circular import. The Procrastinate worker performs its
+configured task imports when the worker starts and loads middleware on its
+first job.
 
 ```python
 @app.task(retry=EMAIL_RETRY)
@@ -59,6 +69,79 @@ flowchart TD
 
 Unlike taskiq's `ValkeyStreamBroker` + separate `TaskiqScheduler` process, there's a single container role here: `procrastinate_worker` runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker`, which both executes jobs *and* runs the periodic-task deferrer (`@app.periodic`-registered tasks) as an internal asyncio task of the same worker process. No second scheduler container exists, and none is needed: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why that used to be a single point of failure and structurally can't be one now.
 
+## Downstream task and worker extensions
+
+Downstream projects must keep their task modules under `backend/app/` and
+register them through the app-owned env file. Do not edit
+`mystic_auth/procrastinate_tasks/procrastinate_app.py` or add an app import to
+the template's fixed task list.
+
+Set this in each app-owned environment file used by that deployment:
+
+```dotenv
+PROCRASTINATE_TASK_IMPORT_PATHS=app.background_tasks
+```
+
+The module is imported by both the API process and the worker. It can define
+tasks against the public app SDK:
+
+```python
+from app.sdk import procrastinate_app
+
+
+@procrastinate_app.task(name="app.background_tasks.reconcile_records")
+async def reconcile_records() -> None:
+    ...
+```
+
+The same module can register safe lifecycle observers for metrics, delivery
+records, or alerts. Events are emitted once per execution attempt and contain
+only job metadata, never task arguments:
+
+```python
+from app.sdk import TaskLifecycleEvent, register_task_lifecycle_listener
+
+
+async def record_worker_event(event: TaskLifecycleEvent) -> None:
+    # Persist or export event.task_name, event.outcome, and duration here.
+    ...
+
+
+register_task_lifecycle_listener(record_worker_event)
+```
+
+An email task's `defer_async(...)` call returns its integer job ID. Store that
+ID with the downstream delivery record, then query its status through
+`await get_procrastinate_job_status(job_id)` from `app.sdk`. The lifecycle
+observer reports each retry attempt; the status query reports the durable final
+state (`todo`, `doing`, `succeeded`, `failed`, or another Procrastinate status).
+Listeners are best-effort and cannot change whether the task succeeds. They
+must be idempotent, avoid task arguments, and handle their own persistence or
+telemetry failures.
+
+Account state transitions have a separate queued lifecycle contract. Register
+`register_account_lifecycle_listener` from `app.sdk` to receive
+`soft_deleted`, `reactivated`, and `purged` events. Manual and scheduled purge
+use the same event shape; `source` distinguishes `admin` from
+`scheduled_grace_period_purge`. Delivery runs in Procrastinate with five
+attempts of exponential backoff and re-raises listener errors so a transient
+downstream outage is retried. Listeners must be idempotent and should record
+the event's identifiers and timestamp as their deduplication key.
+
+The account mutation and its outbox row commit together. If queue insertion
+fails, the row remains unqueued and the five-minute periodic reconciler
+submits it again. Delivery is at-least-once: downstream listeners must be
+idempotent, because a worker crash after delivery but before the outbox update
+can cause a duplicate attempt. Operators can monitor
+`account_lifecycle_outbox.queued_at` and `delivered_at` for backlog and
+completion.
+
+For worker-wide Procrastinate middleware, set
+`PROCRASTINATE_WORKER_MIDDLEWARE_PATHS` to comma-separated callable paths.
+Middleware runs around every job and must be async, preserve exceptions, and
+never log `context.job.task_kwargs` because those arguments may contain
+credentials or one-time tokens.
+
 ---
 
 ## Tasks
@@ -67,6 +150,8 @@ Unlike taskiq's `ValkeyStreamBroker` + separate `TaskiqScheduler` process, there
 |---|---|---|
 | `send_email_task(to_email, subject, body, is_html=True)` | `auth/verify_account/account_verification_service.py`, `auth/password_logic/password_reset_service.py`, `user_lifecycle/account_deletion_service.py` | Sends email from the Procrastinate worker via the configured SMTP sender (`aiosmtplib`) |
 | `purge_expired_soft_deleted_accounts(timestamp)` | `@app.periodic(cron="0 3 * * *")`, deferred automatically by the worker's internal `PeriodicDeferrer` | Daily hard-purge of accounts past their soft-delete grace period; see [Account Deletion](../authentication/account-deletion/README.md) |
+| `deliver_account_lifecycle_event_task(event, outbox_id)` | Account soft-delete, reactivation, purge, or the outbox reconciler | Delivers generic downstream lifecycle notifications with retry and marks the durable outbox row delivered |
+| `dispatch_pending_account_lifecycle_events(timestamp)` | `@app.periodic(cron="*/5 * * * *")` | Re-enqueues lifecycle outbox rows that have not reached the worker queue |
 
 `send_email_task` itself doesn't talk to SMTP directly: it delegates to `emails/email_sender.py::email_sender` (an `EmailSender` protocol with one concrete `SMTPEmailSender` implementation). This is not a plugin system: swapping providers (e.g. SES, SendGrid, Postmark) means writing one new class and pointing `email_sender` at it, without touching the Procrastinate task or its callers.
 
@@ -115,6 +200,11 @@ FROM procrastinate_jobs
 WHERE status = 'failed';
 ```
 
+Downstream code should use the public `get_procrastinate_job_status(job_id)`
+helper instead of querying Procrastinate tables directly. SQL remains useful
+for operator investigations and bulk reporting, but keeping application code
+behind the SDK avoids coupling it to queue-table details.
+
 That's the dead-letter queue this template has: no separate infrastructure or UI, just a queryable table. An operator (or a monitoring query against this same Postgres instance) can watch it directly; nothing pages anyone automatically today, which is left as a deployment-specific follow-up, same as before.
 
 **Why no separate scheduler process is needed anymore**: taskiq's `SmartRetryMiddleware` wrote each retry's due-time to a Valkey-backed `schedule_source`, and only a separate `TaskiqScheduler` process polled that store back out and re-enqueued due retries: if that process was down, the first attempt's failure still logged, but the scheduled retry silently never fired. Procrastinate has no equivalent split: a retry's `scheduled_at` is written directly onto the same `procrastinate_jobs` row, and the worker's own job-fetch query (`WHERE status = 'todo' AND scheduled_at <= now()`) picks it up the moment it's due, in the same process that runs everything else. There's nothing to poll and nothing separate to be down.
@@ -123,7 +213,7 @@ That's the dead-letter queue this template has: no separate infrastructure or UI
 
 ## Testing
 
-`tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly (the success path, the failure-raises-for-retry path) and `EMAIL_RETRY` directly (the exponential-backoff-plus-jitter formula, the 3-attempt cap). `tests/backend/mystic_auth/unit/procrastinate_tasks/test_account_purge_tasks_unit.py` covers the periodic task's cron registration and its CRUD/service wiring with mocked collaborators; `tests/backend/mystic_auth/integration/user/test_account_purge_task_integration.py` covers the same job end-to-end against real Postgres. The call sites (`account_verification_service.py`, `password_reset_service.py`, `account_deletion_service.py`) are separately tested with `send_email_task.defer_async` mocked/patched. See [Testing Overview](../testing/overview.md).
+`tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly (the success path, the failure-raises-for-retry path) and `EMAIL_RETRY` directly (the exponential-backoff-plus-jitter formula, the 3-attempt cap). `tests/backend/mystic_auth/unit/procrastinate_tasks/test_account_purge_tasks_unit.py` covers the periodic task's cron registration and its CRUD/service wiring with mocked collaborators; `tests/backend/mystic_auth/unit/procrastinate_tasks/test_procrastinate_app_unit.py` covers worker lifecycle observers and safe failure handling; `tests/backend/mystic_auth/unit/user_lifecycle/test_account_lifecycle_events_unit.py` covers event payloads and listener retry behavior; `tests/backend/mystic_auth/integration/user/test_account_purge_task_integration.py` covers the same job end-to-end against real Postgres. The call sites (`account_verification_service.py`, `password_reset_service.py`, `account_deletion_service.py`) are separately tested with `send_email_task.defer_async` mocked/patched. See [Testing Overview](../testing/overview.md).
 
 `tests/backend/conftest.py`'s `_procrastinate_app_lifecycle` fixture opens and closes `procrastinate_app`'s connector fresh around every test, the same per-event-loop reasoning as the Postgres/Valkey pool fixtures beside it: pytest-asyncio hands each test its own event loop, and a psycopg connection pool opened in one test's loop isn't safe to reuse from another's. That same file also points tests at a dedicated `mystic_auth_test` database rather than the real one a running dev stack's own `procrastinate_worker` container reads from - see [Testing Overview: Dedicated test database](../testing/overview.md#dedicated-test-database) for why.
 

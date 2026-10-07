@@ -211,9 +211,9 @@ provide PITR.
 
 Short for Software Bill of Materials: a machine-readable inventory of packages
 included in a built artifact. CI generates SPDX JSON SBOMs for the exact
-backend and frontend runtime images it builds, then stores them as a 90-day
-artifact. An SBOM is an inventory for vulnerability response; it is not a
-signature, proof that an image is safe, or a backup.
+backend, frontend, and database-backup runtime images it builds, then stores
+them as a 90-day artifact. An SBOM is an inventory for vulnerability
+response; it is not a signature, proof that an image is safe, or a backup.
 
 ---
 

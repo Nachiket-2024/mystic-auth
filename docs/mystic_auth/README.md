@@ -75,7 +75,7 @@ Read the docs in this order if you are new to the repository:
 
 ## Background Email Delivery
 
-- [Background Email Delivery](background-workers/procrastinate.md): Procrastinate worker setup, Postgres-backed job queue, backoff retries, failure handling
+- [Background Email Delivery](background-workers/procrastinate.md): Procrastinate worker setup, downstream task/lifecycle extensions, Postgres-backed job queue, backoff retries, failure handling
 
 ---
 
@@ -84,6 +84,7 @@ Read the docs in this order if you are new to the repository:
 - [Security Decisions](security/decisions.md): index of the *why* behind non-obvious security choices, plus known accepted gaps, split into [Auth & Session](security/decisions-auth.md), [Infrastructure](security/decisions-infra.md), and [Product](security/decisions-product.md)
 - [Security Hardening](security/hardening.md): rate limiting, lockout, security headers, CORS, cookie flags, consolidated
 - [Rate Limits](security/hardening-abuse-prevention.md#rate-limiting): the generic per-IP/per-account limiter, brute-force lockout, and the permission-protected Rate Limit Dashboard (`GET /rate-limits/`, `frontend/src/mystic_auth/rate_limits/`) for viewing and resetting active limits
+- [Downstream Integration Secrets](security/integration-secrets.md): provider boundary, external storage, rotation, and background-job handling rules
 - [SECURITY.md](../../SECURITY.md): how to report a vulnerability privately (not via a public GitHub Issue)
 
 ---
@@ -121,7 +122,7 @@ Read the docs in this order if you are new to the repository:
 
 ## Testing
 
-- [Testing Overview](testing/overview.md): backend pytest suites, frontend vitest suites, coverage state, how to run
+- [Testing Overview](testing/overview.md): backend pytest suites, frontend vitest suites, the CI coverage gate, and how to run
 - [Manual Accessibility Checklist](testing/accessibility-manual-checklist.md): keyboard-only and screen-reader acceptance checks beyond axe automation
 
 ---

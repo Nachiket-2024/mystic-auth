@@ -1,5 +1,7 @@
 import traceback
+from datetime import UTC, datetime, timedelta
 
+from ..core.settings import settings
 from ..database.connection import database
 from ..logging.logging_config import get_worker_logger
 from .procrastinate_app import ExponentialBackoffWithJitter, app
@@ -51,3 +53,42 @@ async def log_authorization_decision_task(entry: dict) -> None:
             traceback.format_exc(),
         )
         raise
+
+
+@app.periodic(cron="30 3 * * *")
+@app.task(name="mystic_auth.procrastinate_tasks.audit_log_tasks.anonymize_expired_audit_log_entries")
+async def anonymize_expired_audit_log_entries(timestamp: int) -> int:
+    """Daily retention backstop for security_audit_log/authorization_audit_log:
+    strips email/IP/user-agent from any row older than
+    settings.AUDIT_LOG_RETENTION_DAYS, independent of whether the account
+    was ever deleted. purge_user_account (user_purge_service.py) already
+    anonymizes a purged account's rows immediately; this job is what keeps
+    the tables from accumulating PII forever for accounts that are simply
+    never deleted, and is also the eventual backstop if a direct DB edit or
+    an old account somehow predates that purge-time anonymization. Runs at
+    03:30 UTC, offset from purge_expired_soft_deleted_accounts' 03:00 so
+    the two daily jobs don't contend for the same connection pool at once.
+
+    `timestamp` is the scheduled cron tick Procrastinate calls this with;
+    unused here since the cutoff is computed from the current time, not the
+    tick time (same reasoning as purge_expired_soft_deleted_accounts).
+    """
+    # Imported here, not at module scope: same circular-import avoidance as
+    # log_authorization_decision_task above (this module is itself imported
+    # by procrastinate_app's task-discovery, which the authorization package
+    # transitively imports back through).
+    from ..audit_log.audit_log_repository import audit_log_repository
+    from ..authorization.repositories.authorization_audit_log_repository import authorization_audit_log_repository
+
+    cutoff = datetime.now(UTC) - timedelta(days=settings.AUDIT_LOG_RETENTION_DAYS)
+
+    async with database.async_session() as session:
+        security_rows = await audit_log_repository.anonymize_older_than(cutoff, session)
+        authz_rows = await authorization_audit_log_repository.anonymize_older_than(cutoff, session)
+
+    logger.info(
+        "Audit log retention: anonymized %s security_audit_log row(s) and %s authorization_audit_log "
+        "row(s) older than %s days",
+        security_rows, authz_rows, settings.AUDIT_LOG_RETENTION_DAYS,
+    )
+    return security_rows + authz_rows

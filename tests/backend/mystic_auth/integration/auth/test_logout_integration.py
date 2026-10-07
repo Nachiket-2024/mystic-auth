@@ -4,6 +4,8 @@
 # PostgreSQL, and real Valkey (see conftest.py).
 import pytest
 
+from backend.mystic_auth.valkey.client import valkey_client
+
 from .auth_test_accounts import (
     PASSWORD,
     get_me_with_access_token,
@@ -95,3 +97,17 @@ async def test_logout_all_immediately_invalidates_already_issued_access_tokens(c
     assert fresh_login.status_code == 200
     fresh_access = fresh_login.cookies["access_token"]
     assert (await get_me_with_access_token(client, fresh_access)).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_logout_all_survives_valkey_flush(client, created_emails):
+    """Revocation authority is durable; cache loss must not resurrect JWTs."""
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    old_access = login_resp.cookies["access_token"]
+
+    assert (await get_me_with_access_token(client, old_access)).status_code == 200
+    assert (await client.post("/auth/logout/all")).status_code == 200
+    await valkey_client.flushall()
+
+    assert (await get_me_with_access_token(client, old_access)).status_code == 401

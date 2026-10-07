@@ -1,5 +1,6 @@
 import traceback
 
+from ..core.settings import settings
 from ..emails.email_sender import email_sender
 from ..logging.logging_config import get_worker_logger
 from .procrastinate_app import ExponentialBackoffWithJitter, app
@@ -29,10 +30,21 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
     permanently-failed job lands as a `procrastinate_jobs` row with
     `status='failed'`, queryable directly, no separate dead-letter needed.
     """
-    logger.info("Sending email to %s", to_email)
+    # EMAIL_ENABLED=false routes this through NullEmailSender (see
+    # email_sender.py), which logs its own "not sending" line - but on a
+    # different, file-only logger (get_logger, not get_worker_logger), so it
+    # never reaches this terminal-visible stream. Without naming the mode
+    # here too, this task's own "sent successfully" line looks identical
+    # whether a real SMTP connection just opened or nothing happened at all,
+    # which is exactly backwards for anyone watching `docker compose logs`
+    # to confirm a dry run (local dev, CI, or an audit) really didn't send
+    # real mail. Found live during the 2026-10-05 security audit's
+    # email-off verification (F-003).
+    mode = "dry-run (EMAIL_ENABLED=false)" if not settings.EMAIL_ENABLED else "real SMTP"
+    logger.info("Sending email to %s [%s]", to_email, mode)
     try:
         await email_sender.send(to_email, subject, body, is_html)
-        logger.info("Email sent successfully to %s", to_email)
+        logger.info("Email task finished for %s [%s]", to_email, mode)
         return True
 
     except Exception:

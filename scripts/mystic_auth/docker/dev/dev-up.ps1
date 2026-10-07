@@ -32,6 +32,28 @@ $LongRunningServices = @(
     "procrastinate_worker",
     "frontend"
 )
+
+# GeoIP is opt-in. When the dev env requests it, include the Compose profile
+# automatically so the updater provisions the shared database before login
+# tests; a configured path without the profile would leave readiness unhealthy.
+$GeoIpConfigured = Get-Content "env/mystic_auth/.env.dev" | Where-Object {
+    $_ -match '^GEOIP_DB_PATH=.+$'
+} | Select-Object -First 1
+if ($null -ne $GeoIpConfigured) {
+    $GeoIpAccount = Get-Content "env/mystic_auth/.env.dev" | Where-Object {
+        $_ -match '^GEOIPUPDATE_ACCOUNT_ID=.+$'
+    } | Select-Object -First 1
+    $GeoIpLicense = Get-Content "env/mystic_auth/.env.dev" | Where-Object {
+        $_ -match '^GEOIPUPDATE_LICENSE_KEY=.+$'
+    } | Select-Object -First 1
+    if ($null -eq $GeoIpAccount -or $null -eq $GeoIpLicense) {
+        Write-Error "GEOIP_DB_PATH is set in env/mystic_auth/.env.dev, but GEOIPUPDATE_ACCOUNT_ID and GEOIPUPDATE_LICENSE_KEY are both required for the GeoIP updater. Set both MaxMind credentials or clear GEOIP_DB_PATH before running dev-up.ps1."
+        exit 1
+    }
+    $DC += "--profile"
+    $DC += "geoip"
+    $LongRunningServices += "geoipupdate"
+}
 $TimeoutSeconds = 180
 $PollIntervalSeconds = 2
 $TailSince = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")

@@ -61,10 +61,12 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `GEOIP_DB_PATH` | filesystem path | yes, can be empty | MaxMind GeoLite2-City `.mmdb` path. Empty disables session geolocation and shows "Unknown". |
 | `SENTRY_DSN` | DSN string | yes, can be empty | Backend Sentry-protocol DSN. Empty disables backend error monitoring. |
 | `SENTRY_ENVIRONMENT` | string | yes, can be empty | Backend error-monitoring environment tag. Empty falls back to `ENVIRONMENT`. |
-| `SECURITY_ALERT_WEBHOOK_URL` | URL, optional | no, defaults empty | HTTPS `POST` endpoint supplied by an incident gateway or generic webhook receiver. Empty disables direct delivery. See [Direct security-alert webhook](../error-monitoring/overview.md#direct-security-alert-webhook). |
+| `SECURITY_ALERT_WEBHOOK_URL` | URL, optional | no, defaults empty | HTTPS `POST` endpoint supplied by an incident gateway or generic webhook receiver. It receives refresh-token reuse, SSE-cap, and account-lockout alerts. Empty disables direct delivery. See [Direct security-alert webhook](../error-monitoring/overview.md#direct-security-alert-webhook). |
 | `SECURITY_ALERT_WEBHOOK_TOKEN` | secret, optional | no, defaults empty | Bearer credential issued by that receiver; sent only in the `Authorization` header and never logged. |
 | `SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS` | number, optional | no, defaults `2` | Maximum wait for the receiver. Delivery is best effort and never blocks authentication. |
 | `ACCOUNT_PURGE_GRACE_DAYS` | integer days | yes | Grace period before the scheduled purge job hard-deletes soft-deleted accounts. |
+| `PROCRASTINATE_TASK_IMPORT_PATHS` | comma-separated module paths | no, defaults empty | Downstream task modules imported by the worker and API process. Use app-owned modules only, for example `app.background_tasks`. A module may define `@procrastinate_app.task` tasks or register lifecycle listeners. |
+| `PROCRASTINATE_WORKER_MIDDLEWARE_PATHS` | comma-separated callable paths | no, defaults empty | Optional worker-wide Procrastinate middleware, loaded from app-owned modules. Paths may use `module:function` or `module.function` syntax. Middleware must not log task arguments. |
 | `USER_EXPORT_MAX_ROWS` | integer | yes | Maximum rows returned by `GET /users/export`; larger filtered exports return `400 EXPORT_TOO_LARGE`. |
 
 ---

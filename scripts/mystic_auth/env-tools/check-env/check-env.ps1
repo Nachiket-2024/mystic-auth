@@ -80,6 +80,23 @@ foreach ($f in $Files) {
                 $HasError = $true
             }
         }
+
+        $backupKeyLine = ($content -split "`n" | Where-Object { $_ -match '^BACKUP_ENCRYPTION_KEY=' } | Select-Object -First 1)
+        $backupKey = if ($null -ne $backupKeyLine) { $backupKeyLine -replace '^BACKUP_ENCRYPTION_KEY=', '' } else { '' }
+        if (-not $backupKeyLine -or -not $backupKey.Trim()) {
+            Write-Host "  ERROR: BACKUP_ENCRYPTION_KEY is blank, but ENVIRONMENT=production. Set a high-entropy key before starting backups."
+            $HasError = $true
+        }
+
+        $backupUploadLine = ($content -split "`n" | Where-Object { $_ -match '^BACKUP_UPLOAD_COMMAND=' } | Select-Object -First 1)
+        $backupUpload = if ($null -ne $backupUploadLine) { $backupUploadLine -replace '^BACKUP_UPLOAD_COMMAND=', '' } else { '' }
+        if (-not $backupUploadLine -or -not $backupUpload.Trim()) {
+            Write-Host "  ERROR: BACKUP_UPLOAD_COMMAND is blank, but ENVIRONMENT=production. Set a command that uploads the encrypted dump and its .hmac sidecar off-host. The command must reference `$DUMP_FILE."
+            $HasError = $true
+        } elseif ($backupUpload -notmatch 'DUMP_FILE') {
+            Write-Host "  ERROR: BACKUP_UPLOAD_COMMAND must reference `$DUMP_FILE so the backup hook uploads the generated dump (and its .hmac sidecar)."
+            $HasError = $true
+        }
     }
 
     $placeholderMatches = [regex]::Matches($content, '<your[a-z_-]*>|<your-domain>') |

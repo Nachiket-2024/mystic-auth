@@ -55,7 +55,7 @@ Coverage measures what percentage of the codebase's lines actually ran during th
 
 ## smoke test
 
-A quick, shallow check that the app actually boots and responds, not a thorough correctness check. CI's `docker-build` job builds both images, boots the dev stack, and smoke-tests it before anything more thorough runs. See [CI/CD Overview](../cicd/overview.md).
+A quick, shallow check that the app actually boots and responds, not a thorough correctness check. CI's `docker-build` job builds the runtime images, boots the dev stack, and smoke-tests it before anything more thorough runs. See [CI/CD Overview](../cicd/overview.md).
 
 ---
 

@@ -19,11 +19,38 @@ name: ${COMPOSE_PROJECT_NAME}
 
 x-container-hardening: &container_hardening
   cap_drop: [ALL]
+  # no-new-privileges blocks a process from gaining more than it started
+  # with via a setuid/setgid binary, independent of the capability set
+  # above. pids_limit caps fork-bomb-style resource exhaustion (a runaway
+  # or compromised process spawning children until the host's PID table
+  # fills) - the CPU/memory limits below don't cover process count.
+  # pids_limit (the top-level Compose field) can't live here: it conflicts
+  # with every service's own `deploy.resources.limits` block below
+  # ("can't set distinct values on 'pids_limit' and
+  # 'deploy.resources.limits.pids'", confirmed live against this file) -
+  # each service sets its own `pids:` under its own deploy block instead
+  # (see each service's own comment on that line). Caught by actually
+  # running Docker Bench for Security (CIS Docker Benchmark) against the
+  # live stack rather than a manual `docker inspect` sweep (which also
+  # confirmed `.HostConfig.SecurityOpt` was empty on every container
+  # before this was added) - audit finding F-003, 2026-10-06.
+  security_opt: [no-new-privileges:true]
+  # Bounds each container's own json-file log driver so a noisy or
+  # attacked service can't fill the host disk - confirmed live via
+  # `docker inspect .HostConfig.LogConfig` returning no limit before
+  # this was added (audit finding F-006, 2026-10-05).
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 
 services:
 
   postgres:
     <<: *container_hardening
+    read_only: true
+    tmpfs: [/tmp, /var/run/postgresql]
     image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
@@ -50,12 +77,18 @@ services:
         limits:
           cpus: "1"
           memory: 1G
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 256
 
   valkey:
     <<: *container_hardening
+    read_only: true
+    tmpfs: [/tmp, /data]
     image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: unless-stopped
-    cap_add: [SETUID, SETGID]
+    cap_add: [CHOWN, SETUID, SETGID]
     networks: [backend_net]
     command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for production}"]
     healthcheck:
@@ -68,16 +101,28 @@ services:
         limits:
           cpus: "0.5"
           memory: 256M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 32
 
   backend:
     <<: *container_hardening
+    read_only: true
+    tmpfs: [/tmp]
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
       target: runtime
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
-    networks: [default, backend_net]
+    # app_egress_net: Google OAuth token/userinfo endpoints and outbound
+    # SMTP both need a real route to the internet; backend_net/frontend_proxy
+    # are both internal:true (DB/cache/proxy isolation), so without this,
+    # OAuth login and email sending silently fail outbound (confirmed live,
+    # audit finding F-001, 2026-10-06). Mirrors db_backup's existing
+    # backup_egress_net pattern below rather than dropping internal:true.
+    networks: [frontend_proxy, backend_net, app_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -85,7 +130,7 @@ services:
     # FRONTEND_STATIC_IP/CADDY_STATIC_IP so it can never drift out of sync
     # with the actual pinned addresses below.
     environment:
-      TRUSTED_PROXY_IPS: ${FRONTEND_STATIC_IP},${CADDY_STATIC_IP}
+      TRUSTED_PROXY_IPS: ${FRONTEND_PROXY_STATIC_IP},${CADDY_STATIC_IP}
       EMAIL_ENABLED: ${EMAIL_ENABLED:?EMAIL_ENABLED must be set explicitly}
     command: |
       sh -c "if [ -n \"$$BUGSINK_SUPERUSER_EMAIL\" ]; then
@@ -131,9 +176,18 @@ services:
         limits:
           cpus: "1"
           memory: 512M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 128
 
   frontend:
     <<: *container_hardening
+    read_only: true
+    tmpfs:
+      - /tmp:uid=101,gid=101,mode=1777
+      - /var/cache/nginx:uid=101,gid=101,mode=0755
+      - /var/run:uid=101,gid=101,mode=0755
     # Distinct image name (derived from COMPOSE_PROJECT_NAME) so building
     # this doesn't overwrite dev's or any local-prod variant's frontend
     # image, or another mystic-auth fork's.
@@ -162,6 +216,16 @@ services:
     networks:
       default:
         ipv4_address: ${FRONTEND_STATIC_IP}
+      # Pinned here (not just on `default` above): backend never joins
+      # the `default` network, so FRONTEND_STATIC_IP is not an address
+      # backend can ever see as a TCP peer - TRUSTED_PROXY_IPS needs
+      # frontend's address on the network backend actually shares with
+      # it instead (confirmed live, audit finding F-002, 2026-10-06:
+      # without this, get_client_ip() never trusts anything, so every
+      # real caller's IP collapses onto one constant value for
+      # rate-limiting/audit/PBAC purposes).
+      frontend_proxy:
+        ipv4_address: ${FRONTEND_PROXY_STATIC_IP}
     restart: unless-stopped
     cap_add: [NET_BIND_SERVICE]
     # No host port published; Caddy is the only public entrypoint.
@@ -179,6 +243,10 @@ services:
         limits:
           cpus: "0.5"
           memory: 256M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 32
 
   # Terminates TLS, the only service reachable from outside this host. See
   # docker/mystic_auth/Caddyfile. PUBLIC_DOMAIN must already point at this host in DNS
@@ -188,6 +256,13 @@ services:
     image: caddy:2-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
     restart: unless-stopped
     cap_add: [NET_BIND_SERVICE]
+    # Not read_only this pass: unlike postgres/valkey/backend/frontend/etc.
+    # above (verified live against docker-compose.local-prod-ngrok.yml, see
+    # audit finding F-011), this mode needs a real public domain/ACME
+    # account to boot caddy at all, which wasn't available to live-test this
+    # session. caddy_data/caddy_config are already named volumes (writable
+    # regardless of read_only), so this is likely just a /tmp tmpfs away
+    # from working the same way - verify live before relying on it.
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -217,12 +292,18 @@ services:
         limits:
           cpus: "0.5"
           memory: 256M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 64
 
   # Runs both background jobs (send_email_task, the daily account-purge
   # cron). Procrastinate's worker runs its own periodic-task scheduler
   # internally, so no separate scheduler container is needed.
   procrastinate_worker:
     <<: *container_hardening
+    read_only: true
+    tmpfs: [/tmp]
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
@@ -250,7 +331,12 @@ services:
     healthcheck:
       test: ["CMD", "procrastinate", "--app=mystic_auth.procrastinate_tasks.procrastinate_app.app", "healthchecks"]
       interval: 30s
-      timeout: 5s
+      # 8s leaves real margin: the command (new Python process start + a DB
+      # round trip) measured 3.5-4.2s in practice on a dev machine, and a
+      # prod-shaped container under its own resource limits has less
+      # headroom, not more -- 5s was already too tight (see dev.yml for the
+      # original 3s timeout, which failed outright every single run).
+      timeout: 8s
       retries: 3
       start_period: 10s
     deploy:
@@ -258,9 +344,15 @@ services:
         limits:
           cpus: "1"
           memory: 512M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 64
 
   alembic:
     <<: *container_hardening
+    read_only: true
+    tmpfs: [/tmp]
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
@@ -281,29 +373,47 @@ services:
   # GEOIP_DB_PATH. See docs/mystic_auth/geolocation/overview.md.
   geoipupdate:
     <<: *container_hardening
-    image: ghcr.io/maxmind/geoipupdate@sha256:51e70ddf16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
+    read_only: true
+    tmpfs: [/tmp]
+    image: ghcr.io/maxmind/geoipupdate@sha256:51e70dd6f16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
     restart: unless-stopped
-    networks: [backend_net]
+    # app_egress_net: see backend's own networks: comment above - the
+    # updater needs a real route to updates.maxmind.com, which backend_net
+    # alone (internal:true) cannot provide (confirmed live, audit finding
+    # F-xxx, 2026-10-06).
+    networks: [backend_net, app_egress_net]
     profiles: ["geoip"]
+    dns: [1.1.1.1, 8.8.8.8]
     environment:
       GEOIPUPDATE_ACCOUNT_ID: ${GEOIPUPDATE_ACCOUNT_ID:-}
       GEOIPUPDATE_LICENSE_KEY: ${GEOIPUPDATE_LICENSE_KEY:-}
       GEOIPUPDATE_EDITION_IDS: GeoLite2-City
+      GEOIPUPDATE_DATABASE_DIRECTORY: /usr/share/GeoIP
       GEOIPUPDATE_FREQUENCY: "72"
     volumes:
       - geoip_data:/usr/share/GeoIP
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /usr/share/GeoIP/GeoLite2-City.mmdb"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
           cpus: "0.25"
           memory: 128M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 16
 
   # Scheduled Postgres custom-format dumps to ./backups, on by default (unlike geoipupdate
   # below) so a real deployment always has a backup running. Dumps both
   # POSTGRES_DB (the app) and bugsink (error monitoring), since they're
   # separate databases on the same server. Dumps are encrypted before they
   # touch the host backup directory; off-host upload is required for production. Talks
-  # to postgres:5432 directly instead of reusing scripts/mystic_auth/db/db_backup.sh,
+  # to postgres:5432 directly instead of reusing scripts/mystic_auth/db/database-backup/database-backup.sh,
   # which shells out to `docker compose exec` and has no access to the host.
   # Each verified encrypted dump is shipped off-host by the backup container.
   # from in here.
@@ -316,6 +426,12 @@ services:
     # The entrypoint drops to UID/GID 10001 after fixing the bind mount.
     user: root
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    read_only: true
+    # Disk-backed, not tmpfs: the entrypoint writes the plaintext pg_dump
+    # output to /tmp before encrypting it, and tmpfs is RAM/cgroup-memory
+    # backed - a large database dump landing there could OOM-kill the
+    # backup job against this container's memory limit below. A real
+    # dump on disk has no such ceiling (see the volumes: list below).
     # Keep database traffic on the isolated backend network while giving the
     # uploader a separate egress-capable network for B2/rclone.
     networks: [backend_net, backup_egress_net]
@@ -339,9 +455,10 @@ services:
       RCLONE_CONFIG_B2_KEY: ${RCLONE_CONFIG_B2_KEY:-}
     volumes:
       # Bind-mounted (not a named volume) so it's the same ./backups
-      # directory scripts/mystic_auth/db/db_backup.sh and db_restore.sh use.
+      # directory scripts/mystic_auth/db/database-backup/database-backup.sh and database-restore.sh use.
       - ../../../backups:/backups
       - bugsink_dsn:/shared/bugsink-dsn:ro
+      - db_backup_tmp:/tmp
     depends_on:
       postgres:
         condition: service_healthy
@@ -366,12 +483,13 @@ services:
           openssl enc -aes-256-cbc -pbkdf2 -salt -in "$$PLAINTEXT_FILE" -out "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY || { rc=$$?; rm -f "$$PLAINTEXT_FILE"; /usr/local/bin/backup-failure-alert "backup encryption failed for $$DB"; exit $$rc; }
           rm -f "$$PLAINTEXT_FILE"
           openssl enc -d -aes-256-cbc -pbkdf2 -in "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY | pg_restore --list >/dev/null || { rc=$$?; /usr/local/bin/backup-failure-alert "encrypted backup verification failed for $$DUMP_FILE"; exit $$rc; }
+          /usr/local/bin/backup-hmac tag "$$DUMP_FILE" "$$BACKUP_ENCRYPTION_KEY" || { rc=$$?; /usr/local/bin/backup-failure-alert "HMAC tagging failed for $$DUMP_FILE"; exit $$rc; }
           echo "[db_backup] Wrote encrypted $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
           if [ -n "$$BACKUP_UPLOAD_COMMAND" ]; then
             echo "[db_backup] Running BACKUP_UPLOAD_COMMAND for $${DUMP_FILE}"
             /usr/local/bin/run-backup-upload "$$DUMP_FILE" || { UPLOAD_FAILED=1; /usr/local/bin/backup-failure-alert "off-host upload failed for $$DUMP_FILE"; }
           fi
-          find /backups -maxdepth 1 \( -name "$${DB}-*.dump.enc" -o -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
+          find /backups -maxdepth 1 \( -name "$${DB}-*.dump.enc" -o -name "$${DB}-*.dump.enc.hmac" -o -name "$${DB}-*.dump" -o -name "$${DB}-*.sql" \) -mtime "+$${BACKUP_RETENTION_DAYS}" -print -delete
         done
         if [ "$$UPLOAD_FAILED" -eq 1 ]; then
           echo "[db_backup] One or more off-host uploads failed; local dumps retained for the next retry"
@@ -384,9 +502,15 @@ services:
         limits:
           cpus: "0.5"
           memory: 256M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 64
 
   bugsink:
     <<: *container_hardening
+    read_only: true
+    tmpfs: [/tmp, /app/run]
     image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     restart: unless-stopped
     networks: [backend_net]
@@ -455,9 +579,15 @@ services:
         limits:
           cpus: "1"
           memory: 512M
+          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
+          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # the shared x-container-hardening anchor - see its own comment).
+          pids: 128
 
   bugsink-seed:
     <<: *container_hardening
+    read_only: true
+    tmpfs: [/tmp, /app/run]
     image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     user: root
     networks: [backend_net]
@@ -504,6 +634,9 @@ volumes:
   # Shared between geoipupdate (writer) and backend (reader), persists so
   # backend isn't left without a database while geoipupdate re-downloads.
   geoip_data:
+  # db_backup's own scratch /tmp under read_only: true - see that
+  # service's comment for why this is disk-backed rather than tmpfs.
+  db_backup_tmp:
 
 networks:
   # Distinct subnet so any local-prod variant can run alongside this one
@@ -516,4 +649,17 @@ networks:
         - subnet: ${DOCKER_SUBNET}
   backend_net:
     internal: true
+  frontend_proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${FRONTEND_PROXY_SUBNET}
   backup_egress_net: {}
+  # Non-internal on purpose: backend needs this for Google OAuth token/
+  # userinfo calls and outbound SMTP, geoipupdate needs it for MaxMind -
+  # none of that is reachable from backend_net/frontend_proxy alone
+  # (both internal:true). Scope stays as narrow as Docker Compose's own
+  # networking model allows (a dedicated network only the services that
+  # need egress join); an egress allowlist/proxy restricting it to
+  # exactly those hosts is a further hardening step, not yet built.
+  app_egress_net: {}

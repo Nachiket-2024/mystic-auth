@@ -19,10 +19,18 @@ with the sequence of each path made explicit.
 | Self-service services | `backend/mystic_auth/user_lifecycle/user_self_deletion_service.py`, `account_deletion_service.py`, `account_deletion_confirm_handler.py` | Shared soft-delete routine, deletion-confirmation token issue/verify, confirm-endpoint handler |
 | Permission-protected routes | `backend/mystic_auth/api/user_routes/user_lifecycle_routes.py` | `DELETE /users/{email}`, `DELETE /users/{email}/purge`, `PATCH /users/{email}/reactivate` |
 | Purge routine | `backend/mystic_auth/user_lifecycle/user_purge_service.py` | `purge_user_account()`, shared by the manual purge route and the scheduled job |
+| Lifecycle outbox | `backend/mystic_auth/user_lifecycle/account_lifecycle_events.py`, `account_lifecycle_outbox_model.py`, `backend/alembic/versions/f1a2b3c4d5e6_add_account_lifecycle_outbox.py` | Durable downstream event snapshot and at-least-once worker delivery |
 | Soft-delete mechanics | `backend/mystic_auth/user/user_crud_modules/user_lifecycle_crud.py` | `soft_delete`, `reactivate`, `get_deleted_before(cutoff)` |
 | Scheduled job | `backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py` | Daily 03:00 UTC purge of accounts past their grace period |
+
 | Frontend | `frontend/src/mystic_auth/account_settings/DeleteAccountCard.tsx`, `confirm_delete/ConfirmDeleteAccountPage.tsx` | Delete UI, password re-confirm, "check your email" state, the public `/confirm-delete` landing page |
 | Tests | `tests/backend/mystic_auth/integration/user/`, `tests/backend/mystic_auth/unit/user_lifecycle/`, matching frontend suites under `tests/frontend/mystic_auth/` | End-to-end and unit coverage for every path below |
+
+Each soft-delete, reactivation, and purge also queues a generic downstream
+account-lifecycle event. Purge anonymizes historical audit identity fields
+before writing the surviving `account_purged` event. See [Background Email Delivery: downstream lifecycle
+extensions](../../background-workers/procrastinate.md#downstream-task-and-worker-extensions)
+for the event contract and retry behavior.
 
 ---
 

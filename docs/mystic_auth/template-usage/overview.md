@@ -28,6 +28,25 @@ Every file in the repo falls into exactly one of three ownership tiers, so a fut
 
 The shortest rule is: put product code in an `app` tree, consume MysticAuth through its SDK, and keep template internals unchanged. For a backend feature, that normally means `backend/app/<feature>/` plus an app-owned migration, policy, settings field in `backend/app/core/settings.py`, and tests under `tests/backend/app/` (create a test subdirectory only when the feature needs several test files). For a frontend feature, use `frontend/src/app/<feature>/` and import shared template capabilities from `frontend/src/app/sdk.ts`. Put deployment-specific values in the matching `env/app/.env.<mode>` file and Compose overrides in `docker/app/compose/`.
 
+The setup and sync scripts may create, refresh, or preserve the upstream runtime files under
+`env/mystic_auth/` because the template still owns its required authentication and infrastructure
+configuration. That is automation and deployment state, not a downstream customization location:
+product code, product settings, product secrets, integrations, tests, scripts, and Compose changes
+belong in the corresponding `app/` trees. Downstream users should not hand-edit `mystic_auth/`
+source files or tracked `.example` files.
+
+Background work follows the same split. Put downstream tasks and lifecycle
+observers under `backend/app/`, list their import modules in the app-owned env
+file, and consume the supported task APIs from `app.sdk`. This lets a future
+upstream sync replace `backend/mystic_auth/` without requiring edits to task
+registration internals. See [Background-task extensions](../background-workers/procrastinate.md#downstream-task-and-worker-extensions).
+
+Integration credentials follow the same boundary: product secret providers
+belong under `backend/app/` (with tests under `tests/backend/app/`), while
+Mystic Auth supplies only the generic provider contract through `app.sdk`.
+Downstream projects never edit `backend/mystic_auth/`. See [Downstream
+Integration Secrets](../security/integration-secrets.md).
+
 If you are starting from a fresh clone, follow this order: [Quickstart](quickstart.md) → [ownership split](ownership-split.md) → the [first-feature tutorial](customization.md#first-feature-tutorial) → [launch checklist](downstream-launch-checklist.md). That path tells you what to copy, what to edit, and what must remain upstream-owned.
 
 ---

@@ -96,9 +96,16 @@ test.describe("live deployment smoke test - real requests, no stubs", () => {
     const context = await browser.newContext({ extraHTTPHeaders: { "ngrok-skip-browser-warning": "true" } });
     const page = await signupAndLogin(context, email, "Live Smoke Test");
 
-    const meResponse = await page.request.get(`${BASE_URL}/auth/me`);
-    expect(meResponse.ok(), "authenticated /auth/me request failed").toBe(true);
-    const me = await meResponse.json() as { permissions?: string[] };
+    // Use the page's browser context rather than page.request here. The live
+    // production frontend may have a relative API base URL, and the browser
+    // fetch is the authoritative check that the cookies set during login are
+    // sent through the same origin/proxy path the UI uses.
+    const meResponse = await page.evaluate(async () => {
+      const response = await fetch("/auth/me", { credentials: "include" });
+      return { ok: response.ok, status: response.status, body: await response.json() };
+    });
+    expect(meResponse.ok, `authenticated /auth/me request failed (${meResponse.status})`).toBe(true);
+    const me = meResponse.body as { permissions?: string[] };
     const permissions = new Set(me.permissions ?? []);
     const protectedRoutes: Array<[string, string]> = [
       ["/users", "users:list_all"],

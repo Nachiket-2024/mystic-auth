@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...audit_log.audit_log_service import ACCOUNT_LOCKED, LOGIN_FAILURE, LOGIN_SUCCESS, log_security_event
+from ...error_monitoring.sentry_service import capture_security_alert
 from ...logging.logging_config import get_logger
 from ..security.login_protection_service import login_protection_service
 from ..token_logic.token_cookie_handler import token_cookie_handler
@@ -120,6 +121,16 @@ class LoginHandler:
             if not email_allowed or not ip_allowed:
                 await log_security_event(
                     ACCOUNT_LOCKED, db, user_email=email, success=False, request=request
+                )
+                lock_scope = "account" if not email_allowed else "ip"
+                await capture_security_alert(
+                    ACCOUNT_LOCKED,
+                    metadata={
+                        "lock_scope": lock_scope,
+                        "target_email": email,
+                        "source_ip": client_ip,
+                        "request_id": getattr(request.state, "request_id", "") if request else "",
+                    },
                 )
                 # Whichever counter just tripped the lockout (email checked
                 # first, arbitrarily - both are independently enforced, so

@@ -13,12 +13,14 @@ from alembic import context
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from mystic_auth.audit_log.audit_log_model import AuditLog  # noqa: F401
+from mystic_auth.auth.token_logic.token_revocation_version_model import TokenRevocationVersion  # noqa: F401
 from mystic_auth.authorization.models.authorization_audit_log_model import AuthorizationAuditLog  # noqa: F401
 from mystic_auth.authorization.models.policy_history_model import PolicyHistory  # noqa: F401
 from mystic_auth.authorization.models.policy_model import Policy, UserPolicy  # noqa: F401
 from mystic_auth.authorization.models.user_permission_model import UserPermission  # noqa: F401
 from mystic_auth.database.base import Base
 from mystic_auth.user.user_model import User  # noqa: F401
+from mystic_auth.user_lifecycle.account_lifecycle_outbox_model import AccountLifecycleOutbox  # noqa: F401
 from mystic_auth.user_session.session_model import UserSession  # noqa: F401
 
 # Relative to repo root: alembic runs with cwd=backend/ from CI/conftest,

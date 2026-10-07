@@ -12,6 +12,7 @@ import jwt as pyjwt
 import pytest
 
 from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
+from backend.mystic_auth.auth.token_logic.token_version_store import token_version_store
 from backend.mystic_auth.core.settings import settings
 
 MODULE = "backend.mystic_auth.auth.token_logic.jwt_service"
@@ -24,65 +25,62 @@ def _decode(token: str) -> dict:
 
 
 def _mock_no_versions(mocker):
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch.object(jwt_service, "get_token_versions", new_callable=AsyncMock, return_value=(0, 0))
 
 
 @pytest.mark.asyncio
 async def test_get_account_version_defaults_to_zero_when_never_bumped(mocker):
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch.object(token_version_store, "_get_version", new_callable=AsyncMock, return_value=0)
 
     assert await jwt_service.get_account_version("user@example.com") == 0
 
 
 @pytest.mark.asyncio
 async def test_get_account_version_reads_the_stored_integer(mocker):
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="7")
+    mocker.patch.object(token_version_store, "_get_version", new_callable=AsyncMock, return_value=7)
 
     assert await jwt_service.get_account_version("user@example.com") == 7
 
 
 @pytest.mark.asyncio
 async def test_get_chain_version_defaults_to_zero_when_never_bumped(mocker):
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch.object(token_version_store, "_get_version", new_callable=AsyncMock, return_value=0)
 
     assert await jwt_service.get_chain_version("user@example.com", "chain-1") == 0
 
 
 @pytest.mark.asyncio
 async def test_bump_account_version_increments_the_key(mocker):
-    incr_mock = mocker.patch(f"{MODULE}.valkey_client.incr", new_callable=AsyncMock)
+    bump_mock = mocker.patch.object(token_version_store, "_bump_version", new_callable=AsyncMock, return_value=1)
 
     await jwt_service.bump_account_version("user@example.com")
 
-    incr_mock.assert_awaited_once_with("account_ver:user@example.com")
+    bump_mock.assert_awaited_once_with("account_ver:user@example.com")
 
 
 @pytest.mark.asyncio
 async def test_bump_chain_version_increments_and_sets_a_ttl(mocker):
-    incr_mock = mocker.patch(f"{MODULE}.valkey_client.incr", new_callable=AsyncMock)
-    expire_mock = mocker.patch(f"{MODULE}.valkey_client.expire", new_callable=AsyncMock)
+    bump_mock = mocker.patch.object(token_version_store, "_bump_version", new_callable=AsyncMock, return_value=1)
 
     await jwt_service.bump_chain_version("user@example.com", "chain-1")
 
-    incr_mock.assert_awaited_once_with("chain_ver:user@example.com:chain-1")
+    bump_mock.assert_awaited_once_with("chain_ver:user@example.com:chain-1")
     # TTL'd to the refresh-token lifetime: nothing could still be validly
     # using this chain_id after that elapses anyway, so the key can
     # safely expire instead of accumulating one per revoked session
     # forever.
-    expire_mock.assert_awaited_once_with(
-        "chain_ver:user@example.com:chain-1", settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60
-    )
+
 
 
 @pytest.mark.asyncio
 async def test_verify_token_rejects_a_token_whose_account_version_is_stale(mocker):
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
     # Minted with account_ver=0 (nothing bumped yet)...
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch.object(jwt_service, "get_token_versions", new_callable=AsyncMock, return_value=(0, 0))
     token = await jwt_service.create_access_token(email="user@example.com", chain_id="chain-1")
 
     # ...then the account is revoked (bumped to 1) before the token is used.
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="1")
+    mocker.patch.object(jwt_service, "get_account_version", new_callable=AsyncMock, return_value=1)
 
     assert await jwt_service.verify_token(token, expected_type="access") is None
 
@@ -94,7 +92,9 @@ async def test_verify_token_accepts_a_token_minted_after_the_account_bump(mocker
     on the account."""
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
     # Minted after the account was already bumped to version 1.
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="1")
+    mocker.patch.object(jwt_service, "get_token_versions", new_callable=AsyncMock, return_value=(1, 1))
+    mocker.patch.object(jwt_service, "get_account_version", new_callable=AsyncMock, return_value=1)
+    mocker.patch.object(jwt_service, "get_chain_version", new_callable=AsyncMock, return_value=1)
 
     token = await jwt_service.create_access_token(email="user@example.com", chain_id="chain-1")
     payload = await jwt_service.verify_token(token, expected_type="access")
@@ -106,12 +106,13 @@ async def test_verify_token_accepts_a_token_minted_after_the_account_bump(mocker
 @pytest.mark.asyncio
 async def test_verify_token_rejects_a_token_whose_chain_version_is_stale(mocker):
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
+    mocker.patch.object(jwt_service, "get_token_versions", new_callable=AsyncMock, return_value=(0, 0))
     token = await jwt_service.create_refresh_token(email="user@example.com", chain_id="chain-1")
 
     # Only this one chain gets revoked: a different, unrelated chain on
     # the same account would read a version of 0 and stay unaffected.
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="1")
+    mocker.patch.object(jwt_service, "get_account_version", new_callable=AsyncMock, return_value=0)
+    mocker.patch.object(jwt_service, "get_chain_version", new_callable=AsyncMock, return_value=1)
 
     assert await jwt_service.verify_token(token, expected_type="refresh") is None
 

@@ -61,6 +61,12 @@ SecurityHeadersMiddleware = _m("auth.security.security_headers_middleware").Secu
 
 # Database: Depends(database.get_session) in a route signature
 database = _m("database.connection").database
+# Bootstrap/policy assignment helpers: app-owned setup scripts may use these
+# through this stable surface instead of importing Mystic Auth repositories
+# directly. Keep the repository objects behind sdk.py so upstream can preserve
+# their implementation paths without forcing downstream code to change.
+policy_repository = _m("authorization.repositories.policy_repository").policy_repository
+user_crud = _m("user.user_crud_collector").user_crud
 # Settings: read template settings from here. Do not add downstream fields to
 # the upstream Settings model; define app-owned configuration under app/.
 settings = _m("core.settings").settings
@@ -136,6 +142,23 @@ valkey_client = _m("valkey.client").valkey_client
 # `.defer_async()` calls from request handlers need its connector's psycopg
 # pool already open.
 procrastinate_app = _m("procrastinate_tasks.procrastinate_app").app
+TaskLifecycleEvent = _m("procrastinate_tasks.procrastinate_app").TaskLifecycleEvent
+register_task_lifecycle_listener = _m("procrastinate_tasks.procrastinate_app").register_task_lifecycle_listener
+AccountLifecycleEvent = _m("user_lifecycle.account_lifecycle_events").AccountLifecycleEvent
+build_account_lifecycle_event = _m("user_lifecycle.account_lifecycle_events").build_account_lifecycle_event
+queue_account_lifecycle_event = _m("user_lifecycle.account_lifecycle_events").queue_account_lifecycle_event
+register_account_lifecycle_listener = _m("user_lifecycle.account_lifecycle_registry").register_account_lifecycle_listener
+SecretProvider = _m("core.secret_provider").SecretProvider
+EnvironmentSecretProvider = _m("core.secret_provider").EnvironmentSecretProvider
+require_secret = _m("core.secret_provider").require_secret
+
+
+async def get_procrastinate_job_status(job_id: int) -> str:
+    """Return a queued job's current status for downstream delivery records."""
+    if job_id <= 0:
+        raise ValueError("job_id must be positive")
+    status = await procrastinate_app.job_manager.get_job_status_async(job_id)
+    return status.value
 
 # Logging/observability middleware and helpers, wired up in main.py
 LoggingMiddleware = _m("logging.logging_middleware").LoggingMiddleware
@@ -171,6 +194,8 @@ __all__ = [
     "get_current_user",
     "SecurityHeadersMiddleware",
     "database",
+    "policy_repository",
+    "user_crud",
     "settings",
     "ConditionHandler",
     "register_condition_type",
@@ -217,6 +242,16 @@ __all__ = [
     "UserPermissionsRead",
     "valkey_client",
     "procrastinate_app",
+    "TaskLifecycleEvent",
+    "register_task_lifecycle_listener",
+    "get_procrastinate_job_status",
+    "AccountLifecycleEvent",
+    "build_account_lifecycle_event",
+    "queue_account_lifecycle_event",
+    "register_account_lifecycle_listener",
+    "SecretProvider",
+    "EnvironmentSecretProvider",
+    "require_secret",
     "LoggingMiddleware",
     "CorrelationIdMiddleware",
     "get_logger",

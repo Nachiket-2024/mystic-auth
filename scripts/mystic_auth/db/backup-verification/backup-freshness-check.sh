@@ -6,13 +6,13 @@
 # upload its output. It is intended for an external scheduler or monitoring
 # agent and exits non-zero when backup protection cannot be established.
 #
-# Usage: check_backup_freshness.sh [backup-directory] [max-age-hours]
+# Usage: backup-freshness-check.sh [backup-directory] [max-age-hours]
 # Defaults: ./backups, BACKUP_MAX_AGE_HOURS, and twice BACKUP_INTERVAL_HOURS.
 # Required databases default to POSTGRES_DB and bugsink.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../" && pwd)"
 DEFAULT_BACKUP_DIR="$REPO_ROOT/backups"
 BACKUP_DIR="${1:-${BACKUP_DIR:-$DEFAULT_BACKUP_DIR}}"
 

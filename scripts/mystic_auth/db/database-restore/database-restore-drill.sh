@@ -7,18 +7,18 @@
 # a broken backup or restore path fails loudly instead of only being
 # discovered during a real incident.
 #
-# db_backup.sh already verifies a dump's *structure* with `pg_restore
+# database-backup.sh already verifies a dump's *structure* with `pg_restore
 # --list`; this goes one step further and proves the dump's *contents* come
 # back as a real, queryable database.
 #
-# Usage: scripts/mystic_auth/db/db_restore_drill.sh [compose-file]
+# Usage: scripts/mystic_auth/db/database-restore/database-restore-drill.sh [compose-file]
 #   compose-file defaults to docker-compose.dev.yml, and can be given as
 #   just a basename (looked up under docker/mystic_auth/compose/) or a full
 #   path. Needs a running `postgres` service on that compose file.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../" && pwd)"
 cd "$REPO_ROOT"
 
 COMPOSE_ARG="${1:-docker-compose.dev.yml}"
@@ -28,7 +28,7 @@ case "$COMPOSE_ARG" in
   *) COMPOSE_FILES=("docker/mystic_auth/compose/$COMPOSE_BASENAME" "docker/app/compose/$COMPOSE_BASENAME") ;;
 esac
 
-# Same env-file resolution as db_backup.sh/db_restore.sh - see their own
+# Same env-file resolution as database-backup.sh/database-restore.sh - see their own
 # comments for why this is done by name, not `source`.
 MODE="${COMPOSE_BASENAME#docker-compose.}"
 MODE="${MODE%.yml}"
@@ -75,7 +75,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "1/5  Dumping '${POSTGRES_DB}'..."
-# No --file=-: see db_backup.sh's own comment on this same line - it
+# No --file=-: see database-backup.sh's own comment on this same line - it
 # produces a 0-byte dump on this image's pg_dump build instead of writing
 # to stdout. Omitting --file defaults to stdout, which this redirect
 # captures.

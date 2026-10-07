@@ -87,16 +87,50 @@ git config user.email me@test.com; git config user.name Consumer
 cp -r ../upstream/mystic_auth .
 cp -r ../upstream/app .
 cp ../upstream/README.md .
+mkdir -p backend/app
+echo "downstream-only app code" > backend/app/local_only.py
 git add -A && git commit -q -m "Initial commit from template"
 install_script "$BASE/consumer"
 git add -A && git commit -q -m "Add sync script (part of template)"
 
+echo "=== Sync refuses to mix staged downstream work into its commit ==="
+echo "downstream staged work" > staged-downstream.txt
+git add staged-downstream.txt
+set +e
+./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/upstream" >/tmp/dirty-index-sync.log 2>&1
+DIRTY_INDEX_EXIT=$?
+set -e
+[ "$DIRTY_INDEX_EXIT" -ne 0 ] || fail "dirty index: sync should refuse staged work"
+grep -q "Git index contains staged changes" /tmp/dirty-index-sync.log || fail "dirty index: refusal was not actionable"
+pass "dirty index: sync refuses staged downstream work"
+git restore --staged staged-downstream.txt
+rm -f staged-downstream.txt /tmp/dirty-index-sync.log
+
+echo "ignored-secret.env" > .gitignore
+git add .gitignore && git commit -q -m "Ignore local secret fixture"
+echo "local secret fixture" > ignored-secret.env
+
 echo ""
 echo "=== SYNC 1 (first ever, no state file -> squash path; tree already == upstream) ==="
+echo "downstream-only app code that is not committed yet" > backend/app/uncommitted_only.py
+rm mystic_auth/core.py
 yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/upstream" >/dev/null 2>&1 || true
 
 [ -f .mystic-auth-sync-state ] || fail "sync 1: state file not created"
 pass "sync 1: state file created"
+[ -f backend/app/local_only.py ] || fail "sync 1: downstream-only app path was lost"
+pass "sync 1: downstream-only app path was preserved"
+[ -f backend/app/uncommitted_only.py ] || fail "sync 1: unstaged downstream app path was lost"
+pass "sync 1: unstaged downstream app path was restored"
+[ ! -e mystic_auth/core.py ] || fail "sync 1: unstaged downstream deletion was overwritten"
+pass "sync 1: unstaged downstream deletion was restored"
+[ -f ignored-secret.env ] || fail "sync 1: ignored downstream file was lost"
+pass "sync 1: ignored downstream file was preserved"
+# Put the fixture back into its normal post-sync shape before exercising the
+# later incremental-sync scenarios.
+git restore mystic_auth/core.py
+git rm -q mystic_auth/core.py
+git commit -q -m "Move an upstream file into the app split"
 git log --oneline | grep -qi "upstream commit 1" && fail "sync 1: upstream commit message leaked into consumer history" || pass "sync 1: no upstream commit text in consumer log"
 
 echo "=== Consumer makes their own edits (after their first sync, like a real user would) ==="
@@ -129,10 +163,14 @@ echo "$PREVIEW" | grep -q "upstream commit 1" && fail "preview: stale commit 1 r
 
 echo ""
 echo "=== SYNC 2 (incremental diff/apply path) ==="
-yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/upstream" >/dev/null 2>&1 || true
+echo "downstream-only app code added before an incremental sync" > backend/app/uncommitted_incremental.py
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/upstream" >/tmp/sync2.log 2>&1 || true
 
+[ -f mystic_auth/core.py ] || { cat /tmp/sync2.log; fail "sync 2: missing upstream baseline path was not restored"; }
 [ "$(cat mystic_auth/core.py)" = "core v2" ] || fail "sync 2: untouched upstream file didn't update"
 pass "sync 2: unrelated upstream-owned file updated cleanly"
+[ -f mystic_auth/core.py ] || fail "sync 2: missing upstream baseline path was not restored"
+pass "sync 2: missing upstream baseline path was restored before apply"
 [ -f mystic_auth/new_feature.py ] || fail "sync 2: new upstream file missing"
 pass "sync 2: new upstream file added"
 [ -f mystic_auth/obsolete.py ] || fail "sync 2: fixture for later upstream deletion missing"
@@ -142,6 +180,9 @@ grep -q "my_projects_router" app/main.py || fail "sync 2: consumer's router line
 grep -q "<<<<<<<" app/main.py && fail "sync 2: got a phantom conflict on a non-overlapping edit" || pass "sync 2: shared file auto-merged both sides cleanly, no phantom conflict"
 [ "$(cat app/app_sdk.py)" = "my sdk exports" ] || fail "sync 2: consumer file clobbered"
 pass "sync 2: consumer-only file still untouched"
+[ -f backend/app/uncommitted_incremental.py ] || fail "sync 2: unstaged downstream app path was lost"
+pass "sync 2: unstaged downstream app path was restored"
+rm -f /tmp/sync2.log
 
 echo ""
 echo "=== Upstream ships release 3: inserts a line at the SAME spot consumer appended theirs -> real conflict ==="
@@ -199,6 +240,7 @@ git init -q -b main
 git config user.email old@test.com; git config user.name OldConsumer
 cp -r "$BASE/upstream/mystic_auth" .
 cp -r "$BASE/upstream/app" .
+cp "$BASE/upstream/README.md" .
 git add -A && git commit -q -m "Initial commit from template"
 install_script "$BASE/old-consumer"
 git add -A && git commit -q -m "Sync upstream template updates (mystic-auth@oldsha)" --allow-empty
@@ -244,8 +286,8 @@ cd "$BASE/shim-consumer"
 # simulating a clean-looking apply that silently dropped a file (in the
 # real world, usually a binary one).
 REAL_GIT="$(command -v git)"
-mkdir -p fake-bin
-cat > fake-bin/git <<EOF
+mkdir -p "$BASE/fake-bin"
+cat > "$BASE/fake-bin/git" <<EOF
 #!/usr/bin/env bash
 if [ "\$1" = "apply" ]; then
   echo "Applied patch to 'mystic_auth/core.py' cleanly."
@@ -253,10 +295,10 @@ if [ "\$1" = "apply" ]; then
 fi
 exec "$REAL_GIT" "\$@"
 EOF
-chmod +x fake-bin/git
+chmod +x "$BASE/fake-bin/git"
 
 set +e
-yes | env PATH="$BASE/shim-consumer/fake-bin:$PATH" ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/shim-upstream" >/tmp/shim-sync.log 2>&1
+yes | env PATH="$BASE/fake-bin:$PATH" ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/shim-upstream" >/tmp/shim-sync.log 2>&1
 SHIM_EXIT=$?
 set -e
 
@@ -268,6 +310,34 @@ pass "silent-apply guard: script exits non-zero"
 pass "silent-apply guard: no bogus commit landed"
 [ "$(cat mystic_auth/core.py)" = "core v1" ] || fail "silent-apply guard: working tree shouldn't have moved"
 pass "silent-apply guard: working tree untouched"
+
+echo "=== Worktree-restore failure: keep the sync commit and retained stash ==="
+mkdir -p backend/app
+echo "downstream work awaiting restoration" > backend/app/restore_pending.py
+RESTORE_BASELINE="$(git rev-parse HEAD)"
+mkdir -p "$BASE/restore-fake-bin"
+cat > "$BASE/restore-fake-bin/git" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "stash" ] && [ "\$2" = "pop" ]; then
+  echo "simulated stash restore failure" >&2
+  exit 1
+fi
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$BASE/restore-fake-bin/git"
+set +e
+yes | env PATH="$BASE/restore-fake-bin:$PATH" ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/shim-upstream" >/tmp/restore-sync.log 2>&1
+RESTORE_EXIT=${PIPESTATUS[1]}
+set -e
+[ "$RESTORE_EXIT" -ne 0 ] || fail "worktree restore: sync hid the restore failure"
+grep -q "saved downstream work could not be restored cleanly" /tmp/restore-sync.log || fail "worktree restore: failure was not actionable"
+pass "worktree restore: sync returned non-zero with actionable recovery"
+[ "$(git rev-parse HEAD)" != "$RESTORE_BASELINE" ] || fail "worktree restore: successful sync commit was lost"
+pass "worktree restore: sync commit was retained"
+[ -n "$(git stash list)" ] || fail "worktree restore: failed restore did not retain the stash"
+pass "worktree restore: failed restore retained the stash"
+git stash drop >/dev/null
+rm -f /tmp/restore-sync.log
 
 echo ""
 echo "=== Alembic branch-detection: template and app both add a migration on the same fork point ==="
@@ -403,6 +473,144 @@ pass "relocated-file guard: suggests the re-diff-and-exclude recipe"
 pass "relocated-file guard: sync exits non-zero"
 [ -z "$(git diff --cached --name-only)" ] || fail "relocated-file guard: something got staged despite the hard failure"
 pass "relocated-file guard: nothing staged/committed despite the hard failure"
+
+echo "=== Upstream-owned script renames: apply even when the old path is already absent ==="
+cd "$BASE"
+mkdir script-rename-upstream && cd script-rename-upstream
+git init -q -b main
+git config user.email up@test.com; git config user.name Upstream
+mkdir -p scripts/mystic_auth/db scripts/mystic_auth/testing
+printf '#!/usr/bin/env bash\necho backup\n' > scripts/mystic_auth/db/backup_failure_alert.sh
+printf '#!/usr/bin/env bash\necho restore\n' > scripts/mystic_auth/db/db_restore.sh
+printf '#!/usr/bin/env bash\necho seed\n' > scripts/mystic_auth/testing/seed-codex-accessibility-user.sh
+chmod +x scripts/mystic_auth/db/*.sh scripts/mystic_auth/testing/*.sh
+git add -A && git commit -q -m "script-rename-upstream base"
+cd "$BASE"
+mkdir script-rename-consumer && cd script-rename-consumer
+git init -q -b main
+git config user.email me@test.com; git config user.name Consumer
+cp -r "$BASE/script-rename-upstream/scripts" .
+git add -A && git commit -q -m "Initial commit from template"
+install_script "$BASE/script-rename-consumer"
+git add -A && git commit -q -m "Add sync script"
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/script-rename-upstream" >/dev/null 2>&1 || true
+
+# The consumer removed the old source path independently before the upstream
+# rename arrived. This is the exact case that made git apply require a path
+# that no longer existed in the index.
+git rm -q scripts/mystic_auth/db/backup_failure_alert.sh
+git commit -q -m "Consumer removes obsolete backup helper"
+cd "$BASE/script-rename-upstream"
+git mv scripts/mystic_auth/db/backup_failure_alert.sh scripts/mystic_auth/db/database-backup-failure-alert.sh
+mkdir -p scripts/mystic_auth/db/database-backup scripts/mystic_auth/db/database-restore tests/scripts/mystic_auth/accessibility
+git mv scripts/mystic_auth/db/database-backup-failure-alert.sh scripts/mystic_auth/db/database-backup/database-backup-failure-alert.sh
+git mv scripts/mystic_auth/db/db_restore.sh scripts/mystic_auth/db/database-restore/database-restore.sh
+git mv scripts/mystic_auth/testing/seed-codex-accessibility-user.sh tests/scripts/mystic_auth/accessibility/seed-accessibility-user.sh
+git add -A && git commit -q -m "upstream: reorganize maintenance scripts"
+cd "$BASE/script-rename-consumer"
+
+printf 'y\n' | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/script-rename-upstream" >/tmp/script-rename-sync.log 2>&1 \
+  || fail "script rename: sync failed when an old source path was absent"
+[ -f scripts/mystic_auth/db/database-backup/database-backup-failure-alert.sh ] || fail "script rename: backup target missing"
+[ -f scripts/mystic_auth/db/database-restore/database-restore.sh ] || fail "script rename: restore target missing"
+[ -f tests/scripts/mystic_auth/accessibility/seed-accessibility-user.sh ] || fail "script rename: seed target missing"
+[ ! -e scripts/mystic_auth/db/backup_failure_alert.sh ] || fail "script rename: old backup path retained"
+[ ! -e scripts/mystic_auth/db/db_restore.sh ] || fail "script rename: old restore path retained"
+[ -f .mystic-auth-sync-state ] || fail "script rename: sync state was not updated"
+git log -1 --format=%s | grep -q "Sync upstream template updates" \
+  || fail "script rename: sync did not create its commit"
+pass "script rename: upstream-owned renames applied and committed"
+
+echo "=== Ownership guard: upstream touching a fork-owned path must block the sync ==="
+cd "$BASE"
+mkdir own-upstream && cd own-upstream
+git init -q -b main
+git config user.email up@test.com; git config user.name Upstream
+mkdir -p mystic_auth backend/app frontend/src/app tests/backend/app docs/app
+echo "core v1" > mystic_auth/core.py
+echo "main v1" > backend/app/main.py
+echo "sdk v1" > backend/app/sdk.py
+echo "App v1" > frontend/src/app/App.tsx
+echo "sdk v1" > frontend/src/app/sdk.ts
+echo "downstream test v1" > tests/backend/app/test_downstream.py
+echo "readme v1" > docs/app/README.md
+echo "root readme v1" > README.md
+git add -A && git commit -q -m "own-upstream base"
+cd "$BASE"
+mkdir own-consumer && cd own-consumer
+git init -q -b main
+git config user.email me@test.com; git config user.name Consumer
+cp -r "$BASE/own-upstream/mystic_auth" .
+cp -r "$BASE/own-upstream/backend" .
+cp -r "$BASE/own-upstream/frontend" .
+cp -r "$BASE/own-upstream/tests" .
+cp -r "$BASE/own-upstream/docs" .
+cp "$BASE/own-upstream/README.md" .
+git add -A && git commit -q -m "Initial commit from template"
+install_script "$BASE/own-consumer"
+git add -A && git commit -q -m "Add sync script"
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/dev/null 2>&1 || true
+
+# Upstream, after that first sync, commits to a fork-owned path it should
+# never touch again (backend/app/custom_route.py, not one of the extend-in-
+# place exceptions) alongside an innocuous template-owned change.
+cd "$BASE/own-upstream"
+echo "owned by the fork, upstream must not add this" > backend/app/custom_route.py
+echo "upstream must not add this" > tests/backend/app/test_upstream_accident.py
+echo "template reference test update" >> tests/backend/app/test_downstream.py
+echo "core v2" > mystic_auth/core.py
+echo "root readme v2 -- upstream must not touch this" > README.md
+git add -A && git commit -q -m "upstream: accidentally ships into backend/app/"
+cd "$BASE/own-consumer"
+
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync.log 2>&1
+OWN_SYNC_EXIT=${PIPESTATUS[1]}
+set -e
+
+grep -q "downstream-owned paths" /tmp/own-sync.log || fail "ownership guard: didn't report the violation"
+pass "ownership guard: reports the violation"
+grep -q "backend/app/custom_route.py" /tmp/own-sync.log || fail "ownership guard: didn't name the offending path"
+pass "ownership guard: names the offending path"
+grep -q "tests/backend/app/test_upstream_accident.py" /tmp/own-sync.log || fail "ownership guard: didn't name the downstream test path"
+pass "ownership guard: names downstream test paths"
+[ "$OWN_SYNC_EXIT" -ne 0 ] || fail "ownership guard: sync should have exited non-zero"
+pass "ownership guard: sync exits non-zero"
+[ -z "$(git diff --cached --name-only)" ] || fail "ownership guard: something got staged despite the violation"
+pass "ownership guard: nothing staged despite the violation"
+[ "$(cat mystic_auth/core.py)" = "core v1" ] || fail "ownership guard: template-owned file changed despite the blocked sync"
+pass "ownership guard: template-owned change also withheld until the violation is resolved"
+
+echo "=== Ownership guard: extend-in-place exceptions must NOT be blocked ==="
+cd "$BASE/own-upstream"
+git rm -q backend/app/custom_route.py
+git rm -q tests/backend/app/test_upstream_accident.py
+git commit -q -m "upstream: revert the accidental backend/app/ ship"
+echo "main v2 -- extended in place" > backend/app/main.py
+echo "App v2 -- extended in place" > frontend/src/app/App.tsx
+git add -A && git commit -q -m "upstream: legitimate edits to the shared extend-in-place files"
+cd "$BASE/own-consumer"
+
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-2.log 2>&1
+# PIPESTATUS[1], not $?: `yes` gets SIGPIPE (141) the instant the script
+# below it exits and stops reading, and with pipefail set that can win over
+# the script's own (successful) exit status depending on timing -- the
+# script's actual code is always the second element.
+OWN_SYNC_EXIT_2=${PIPESTATUS[1]}
+set -e
+
+grep -q "downstream-owned paths" /tmp/own-sync-2.log && fail "ownership guard: flagged an extend-in-place exception as a violation"
+pass "ownership guard: backend/app/main.py and frontend/src/app/App.tsx stay unblocked"
+[ "$OWN_SYNC_EXIT_2" -eq 0 ] || fail "ownership guard: sync of the legitimate exception-only change should have succeeded"
+pass "ownership guard: sync succeeds once the violation is gone"
+[ "$(cat backend/app/main.py)" = "main v2 -- extended in place" ] || fail "ownership guard: main.py extend-in-place edit didn't land"
+pass "ownership guard: extend-in-place edit lands normally"
+[ "$(cat README.md)" = "root readme v1" ] || fail "ownership guard: upstream README change overwrote the downstream copy"
+pass "ownership guard: upstream README change was ignored and downstream copy preserved"
+grep -q "template reference test update" tests/backend/app/test_downstream.py \
+  || fail "ownership guard: inherited reference test update did not land"
+pass "ownership guard: inherited reference test update lands normally"
 
 echo ""
 echo "=== ALL CHECKS PASSED ==="

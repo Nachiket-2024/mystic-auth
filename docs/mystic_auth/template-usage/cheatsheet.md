@@ -17,15 +17,15 @@
 
 | Command | When to run it |
 |---|---|
-| `./scripts/mystic_auth/env-tools/check-env/check-env.sh` | Before starting any mode, dev included. Fails if a secret is still the shipped placeholder under `ENVIRONMENT=production`; warns on remaining `<your_...>` placeholders, a host port already in use, or a blank/invalid `BUGSINK_SUPERUSER_EMAIL` (which crash-loops Bugsink and takes backend/frontend down with it). |
+| `./scripts/mystic_auth/env-tools/check-env/check-env.sh` | Before starting any mode, dev included. Fails if a secret is still the shipped placeholder under `ENVIRONMENT=production`, or if production backup encryption/upload configuration is incomplete (`BACKUP_UPLOAD_COMMAND` must reference `$DUMP_FILE`); warns on remaining `<your_...>` placeholders, a host port already in use, or a blank/invalid `BUGSINK_SUPERUSER_EMAIL` (which crash-loops Bugsink and takes backend/frontend down with it). |
 | `./scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh` | You need to change one value (a contact address, a shared rate limit) across every env file at once, instead of opening five files by hand. |
 | `./scripts/mystic_auth/env-tools/rotate-secrets/rotate-secrets.sh` | Rotate `SECRET_KEY`/`BUGSINK_SECRET_KEY` (or your own `env/app/` fields listed in a copied `scripts/app/env-tools/rotate-secrets/fields.env.example`) in an existing env file. Logs everyone out; see the script's own header for what it deliberately does *not* rotate. |
 | `./scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW` | Carrying real values (OAuth secret, SMTP password) from an old env file into a freshly regenerated one, without ever printing them. |
 | `docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -it backend python -m mystic_auth.scripts.create_system_user` | One-time: bootstrap or promote the reserved system superuser account. See [System Superuser](../authentication/system-superuser/README.md). |
 | `./scripts/mystic_auth/docker/dev/backend-exec.sh <command>` | Run a one-off command inside the running `backend` container (tests, `alembic heads`, a shell), with the Windows/Linux path-handling workarounds already applied. |
-| `./scripts/mystic_auth/db/db_backup.sh [compose-file]` | Dump the app database and the Bugsink database to timestamped `.dump` files under `backups/`. |
-| `./scripts/mystic_auth/db/check_backup_freshness.sh [backup-dir] [max-age-hours]` | Fail if the required database backups are missing, empty, or older than the configured age. |
-| `./scripts/mystic_auth/db/db_restore.sh <backup-file> [compose-file]` | Restore a `.dump`/`.sql` backup. Destructive: asks for confirmation unless you pass `-y`. |
+| `./scripts/mystic_auth/db/database-backup/database-backup.sh [compose-file]` | Dump the app database and the Bugsink database to timestamped `.dump` files under `backups/`. |
+| `./scripts/mystic_auth/db/backup-verification/backup-freshness-check.sh [backup-dir] [max-age-hours]` | Fail if the required database backups are missing, empty, or older than the configured age. |
+| `./scripts/mystic_auth/db/database-restore/database-restore.sh <backup-file> [compose-file]` | Restore a `.dump`/`.sql` backup. Destructive: asks for confirmation unless you pass `-y`. |
 
 ## Deploying
 
@@ -53,6 +53,7 @@
 | `tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh` | After touching `sync-upstream.sh`. Regression suite against throwaway fake repos. Runs in CI too. |
 | `tests/scripts/mystic_auth/lint/check-script-paths.sh` | After any rename/restructure. Checks every script/doc's own `scripts/`/`local-scripts/` path references actually resolve. Runs in CI too. |
 | `tests/scripts/mystic_auth/lint/check-split-paths.sh` | After any rename/restructure. Checks for a stale pre-split `docker/`/`env/`/`scripts/` path reference (one that's missing its `mystic_auth/`/`app/` segment) anywhere in source, scripts, or docs. Runs in CI too. |
+| `tests/scripts/mystic_auth/lint/check-image-digests.sh` | After pinning or updating any `@sha256:...` image digest in a compose file. Checks every pinned digest is a syntactically valid 64-character sha256. Runs in CI too. |
 
 ## Makefile shortcuts
 

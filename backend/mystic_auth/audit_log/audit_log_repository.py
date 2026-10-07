@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
-from sqlalchemy import Column, Select, asc, case, desc, func
+from sqlalchemy import Column, Select, asc, case, desc, func, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql.elements import UnaryExpression
@@ -179,6 +181,56 @@ class AuditLogRepository:
         stmt = _apply_filters(stmt, None, event_type, ip_address, success, from_, to)
         result = await db.execute(stmt)
         return result.scalar_one()
+
+    @staticmethod
+    async def anonymize_for_user(user_email: str, db: AsyncSession) -> int:
+        """Strips this account's PII (email, IP, user-agent) from its own
+        historical rows in place. Called once from purge_user_account right
+        after the user row itself is hard-deleted, so "deleted" actually
+        means the account's identity stops being readable here too, not
+        just that the `users` row is gone while every login/logout/
+        password-reset event it ever made keeps a plaintext email and IP
+        forever (see docs/mystic_auth/concerns - this closes that gap).
+
+        Keeps event_type/success/created_at/metadata/request_id: those
+        carry no PII and still have aggregate security value (login trend
+        charts, event counts) even with no account left to tie them to.
+        user_email -> NULL reuses the same state already used for events
+        with no resolvable account (e.g. a failed login against an
+        unregistered email) - a purged account's history becomes
+        indistinguishable from one of those going forward, which is the
+        intent.
+
+        Also called by the scheduled retention job (audit_log_tasks.py) for
+        rows past settings.AUDIT_LOG_RETENTION_DAYS regardless of whether
+        the account was ever deleted, so this table doesn't accumulate PII
+        forever even for accounts that are never purged.
+
+        Returns the number of rows anonymized (for logging only)."""
+        stmt = (
+            update(AuditLog)
+            .where(AuditLog.user_email == user_email)
+            .values(user_email=None, ip_address=None, user_agent=None)
+        )
+        result = cast(CursorResult, await db.execute(stmt))
+        await db.commit()
+        return result.rowcount or 0
+
+    @staticmethod
+    async def anonymize_older_than(cutoff: datetime, db: AsyncSession) -> int:
+        """Retention backstop: strips PII from every row older than
+        `cutoff`, independent of account status. Only touches rows that
+        still have a user_email set, so re-running this doesn't keep
+        re-"anonymizing" already-null rows forever."""
+        stmt = (
+            update(AuditLog)
+            .where(AuditLog.created_at < cutoff)
+            .where(AuditLog.user_email.is_not(None))
+            .values(user_email=None, ip_address=None, user_agent=None)
+        )
+        result = cast(CursorResult, await db.execute(stmt))
+        await db.commit()
+        return result.rowcount or 0
 
     @staticmethod
     async def get_login_trend(

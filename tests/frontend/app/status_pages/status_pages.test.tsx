@@ -6,11 +6,17 @@ import i18next from 'i18next';
 
 import NotFoundPage from '@app/status_pages/NotFoundPage';
 import NotAuthorizedPage from '@app/status_pages/NotAuthorizedPage';
+import { APP_NAME } from '@/core/settings';
 
 function renderPage(ui: ReactElement) {
   return render(
       <MemoryRouter>{ui}</MemoryRouter>
   );
+}
+
+function expectConfiguredBranding() {
+  const brand = screen.queryByText(APP_NAME) ?? screen.queryByRole('img', { name: APP_NAME });
+  expect(brand).not.toBeNull();
 }
 
 // Regression guard for design review bug 7: 403/404 used to render on a bare
@@ -22,7 +28,7 @@ describe('NotFoundPage', () => {
 
     expect(screen.getByText('404')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
-    expect(screen.getByText('MysticAuth')).toBeInTheDocument();
+    expectConfiguredBranding();
     expect(screen.getByRole('button', { name: /switch to (light|dark) mode/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Go Home/i })).toBeInTheDocument();
@@ -44,7 +50,7 @@ describe('NotAuthorizedPage', () => {
     expect(screen.getByRole('heading', { name: "You don't have access to this page" })).toBeInTheDocument();
     // E3: an explicit hint, not just the bare permission message.
     expect(screen.getByText(/ask an administrator/i)).toBeInTheDocument();
-    expect(screen.getByText('MysticAuth')).toBeInTheDocument();
+    expectConfiguredBranding();
     expect(screen.getByRole('button', { name: /switch to (light|dark) mode/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Go Home/i })).toBeInTheDocument();

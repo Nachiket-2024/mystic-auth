@@ -13,6 +13,11 @@ Set-Location $RepoRoot
 
 $ComposeArgs = if ($args.Count -eq 0) { @("up", "-d", "--build") } else { $args }
 
+& "$RepoRoot/scripts/mystic_auth/env-tools/check-env/check-env.ps1" `
+  "env/mystic_auth/.env.prod" `
+  "env/app/.env.prod"
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 docker compose `
   -f docker/mystic_auth/compose/docker-compose.prod.yml `
   -f docker/app/compose/docker-compose.prod.yml `

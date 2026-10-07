@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -76,6 +77,13 @@ class Settings(BaseSettings):
     SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS: float = 2.0  # Short fail-open timeout so monitoring cannot block authentication
 
     ACCOUNT_PURGE_GRACE_DAYS: int                   # Days a soft-deleted account is kept before the daily purge job hard-deletes it
+    AUDIT_LOG_RETENTION_DAYS: int = 400              # Rows in security_audit_log/authorization_audit_log older than this get their email/IP/user-agent stripped (not deleted) by the daily retention job, independent of whether the account was ever purged. ~13 months: covers a yearly security review with room to spare; shorten if that's more PII retention than your deployment needs
+
+    # Comma-separated dotted module paths imported by the Procrastinate app
+    # before workers start. Downstream projects use this to register their
+    # own tasks and worker hooks without editing template task files.
+    PROCRASTINATE_TASK_IMPORT_PATHS: str = ""
+    PROCRASTINATE_WORKER_MIDDLEWARE_PATHS: str = ""
 
     REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = 10     # A refresh token presented again within this many seconds of its first use, from the same client IP, is treated as a benign duplicate (two tabs, or a response lost to a reload) and gets a fresh pair instead of a chain revoke. 0 disables. Defaulted, not in .env*
     SESSION_ROW_RETENTION_HOURS: int = 1           # Hours past expires_at a user_sessions row is kept before the daily sweep (session_cleanup_tasks.py) hard-deletes it. Buffer, not a deployment knob (defaulted, not in .env*): revoked sessions delete immediately on revoke, this only covers ones that lapsed without an explicit revoke
@@ -120,6 +128,45 @@ class Settings(BaseSettings):
         # dict.fromkeys, not set(): keeps a deterministic order for logging;
         # CORS matching itself doesn't care about order.
         return list(dict.fromkeys([self.FRONTEND_BASE_URL, *(o for o in extra if o)]))
+
+    @property
+    def trusted_hosts(self) -> list[str]:
+        """Hostnames (no scheme/port) TrustedHostMiddleware should accept on
+        the Host header. Reset/verify links are already built from
+        FRONTEND_BASE_URL alone, never from the request (see
+        account_verification_service.py), so this isn't what keeps those
+        links honest - it closes the separate gap that nothing at the app
+        layer itself rejects a spoofed Host, which previously meant a
+        request straight to the backend's own localhost-only port (bypassing
+        nginx/the tunnel, both of which enforce their own Host expectations)
+        was accepted with no app-level check at all.
+
+        Derived from cors_allowed_origins' hostnames, since nginx forwards
+        the original client Host unchanged (`proxy_set_header Host $host`
+        in nginx.frontend.conf), so real traffic's Host always matches one
+        of those. "localhost"/"127.0.0.1" are always included too: every
+        compose mode's backend healthcheck runs
+        `curl http://localhost:8000/health/ready` from inside the
+        container, and local direct-port debugging (documented in each
+        local-prod compose file) hits the backend the same way.
+        TrustedHostMiddleware compares only the hostname, so "localhost:8000"
+        already matches a bare "localhost" entry; the port needs no separate
+        listing.
+        """
+        hosts = {urlsplit(origin).hostname for origin in self.cors_allowed_origins}
+        # The API may be hosted on a separate origin from the frontend. CORS
+        # origins describe browser callers, not every valid Host header the
+        # backend itself must serve.
+        hosts.add(urlsplit(self.BACKEND_BASE_URL).hostname)
+        hosts.update({"localhost", "127.0.0.1"})
+        # httpx/Starlette's AsyncClient(transport=ASGITransport(...)) test
+        # harness defaults to this exact hostname (see tests/backend/
+        # conftest.py's `client` fixture) - the same convention Django's own
+        # ALLOWED_HOSTS ships by default, for the same reason: nothing on
+        # the real internet resolves "testserver", so allowing it here never
+        # widens what a real request can spoof.
+        hosts.add("testserver")
+        return sorted(h for h in hosts if h)
 
     @property
     def secure_cookies(self) -> bool:

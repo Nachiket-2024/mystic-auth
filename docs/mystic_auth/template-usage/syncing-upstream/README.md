@@ -12,14 +12,40 @@ Prefer to hand this whole process to an AI coding agent (Claude Code, Codex, or 
 
 ---
 
+## Before you start
+
+Run the command from the root of the downstream project created from this template. Do not run it from a separate clone of the upstream template. Confirm the following first:
+
+- You know which downstream branch should receive the sync.
+- `git status` has been reviewed and any staged work has been committed or stashed.
+- You have a recent backup of important local work.
+- Docker is available if you plan to run the post-sync rebuild and tests.
+
+The script requires a clean Git index (`git diff --cached` must be empty). A completely clean working tree is still the recommended starting point. If unstaged or untracked downstream work exists, the script temporarily stashes it, including an app split, applies upstream against a clean tree, and restores the work after the sync commit. Ignored files, such as real env files, are not included. If restoration conflicts, the sync commit remains and the retained stash must be resolved manually.
+
+Before making a preparatory stash, confirm that the current
+`scripts/mystic_auth/upstream-sync/sync-upstream.sh` exists in the working
+tree. On an older downstream checkout it may exist locally without being in
+`HEAD`; preserve that current file and exclude it from any stash of the other
+work. If it is staged, unstage only the script without discarding its contents.
+Never replace it with an older copy recovered from a stash. If the script is
+already inside a preserved stash, restore only that exact path, or restore it
+from the fetched upstream branch. Leave the rest of the split stash untouched.
+Files from an app split that are absent from `HEAD` do not block a first sync
+between unrelated histories.
+
+The sync is pull-only. It fetches from the `upstream` remote, applies approved upstream file changes, and creates one local sync commit. It never pushes to `origin`, changes root downstream documentation, or copies secret values into the agent's context.
+
+---
+
 ## Step by step
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    S1["Step 1: git status clean\n(commit or stash first)"]
+    S1["Step 1: review status\n(clear index first)"]
     S2["Step 2: run sync-upstream.sh"]
-    S3{"Step 3: incoming commits\nshown - sync now?"}
+    S3{"Step 3: incoming commits\nshown, sync now?"}
     Wait["Nothing changed,\nrun again later"]
     S4["Step 4: script applies\nupstream's changes"]
     Outcome{"Outcome"}
@@ -47,7 +73,18 @@ flowchart TD
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
-Silent partial apply, conflict, and multiple alembic heads are safety nets, not expected steps - see [Troubleshooting](troubleshooting.md) for each. If upstream removes or moves a file, the script prints an explicit `DELETE`/`MOVE` plan before asking for confirmation; the old upstream-owned path is included in the patch and is not silently retained. App-owned paths are normally outside upstream changes; if one appears unexpectedly, stop and inspect it before accepting the sync. Most syncs go straight down the right-hand "Clean" path.
+Silent partial apply, conflict, and multiple alembic heads are safety nets, not expected steps. See [Troubleshooting](troubleshooting.md) for each. If upstream removes or moves a file, the script prints an explicit `DELETE`/`MOVE` plan before asking for confirmation. Intentional upstream-owned deletions and renames are applied directly from the fetched tree, even if the old path is already absent from the downstream index.
+
+For an upstream-owned file that still exists in the recorded upstream baseline but is missing from the downstream `HEAD`, the script restores that baseline file to the index before applying the three-way patch. This gives Git the base it needs for a later upstream edit. True upstream deletions and renames skip that step and use the explicit structural operation instead.
+
+The ownership guard runs before any patch is applied. It blocks the entire sync if upstream changes downstream-owned product code, tests, or app folders. It protects `backend/app/`, `frontend/src/app/`, every `tests/**/app/` tree, and the `app/` folders under `docs/`, `screenshots/`, `scripts/`, `agent-prompts/`, `local-scripts/`, `docker/`, `env/`, and `makefiles/`, except for the documented shared SDK and entry point files. Older template reference tests may be grandfathered when the same path exists in the recorded upstream baseline; newly added downstream tests remain blocked. On a first sync between unrelated histories, downstream-only paths, including app files temporarily absent because the app split was stashed, are not treated as incoming changes or ownership violations.
+
+If a downstream checkout has the pre-grandfathering sync script, preserve the
+pending work, verify the inherited test path existed at the last sync, replace
+only that upstream-owned script with the fetched upstream version, and rerun.
+Do not force the sync, skip the ownership check, or weaken it for new tests.
+
+Root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` are downstream-owned starting points too. If upstream changed them, the script reports and excludes those changes so the local copies are preserved while unrelated upstream fixes continue. Most syncs go straight down the right-hand “Clean” path.
 
 ---
 
@@ -57,7 +94,7 @@ Silent partial apply, conflict, and multiple alembic heads are safety nets, not 
 git status
 ```
 
-If this lists any files, save your work first: either commit it normally, or run `git stash` to set it aside temporarily. Why: the next steps will write changes into your project files, and if you also have your *own* unsaved changes sitting there at the same time, it gets confusing to tell which change came from where. Starting clean avoids that.
+If this lists any files, save your work first when practical: either commit it normally, or run `git stash` to set it aside. The sync specifically refuses a dirty index (`git diff --cached`), even if the staged changes are unrelated, because the index is the sync's merge/apply workspace and commit boundary. Unstaged and untracked work can be preserved automatically, but starting clean makes the resulting sync commit and any recovery straightforward.
 
 ---
 
@@ -95,7 +132,7 @@ That's the list of what's new upstream since you last synced (or ever, if this i
 
 ### Step 4: The script copies upstream's changes into your files
 
-This step is fully automatic: you don't type or decide anything here. For almost every file, this just quietly works: your code and upstream's code are kept in separate files/folders by design (see [overview.md](../ownership-split.md)'s ownership table), so there's usually nothing to fight over. When it's done, one of four things will have happened, checked automatically in this order:
+This step is fully automatic: you don't type or decide anything here. For almost every file, this just quietly works: your code and upstream's code are kept in separate files and folders by design. See the [ownership split](../ownership-split.md) for the table. When it's done, one of four things will have happened, checked automatically in this order:
 
 1. **Something silently failed to apply** (rare): go to [If it reports a silent partial apply](troubleshooting.md#if-it-reports-a-silent-partial-apply).
 2. **It hit what's called a "conflict"**: go to [Step 6](troubleshooting.md#step-6-conflict-resolve-it).
@@ -108,7 +145,26 @@ Most syncs hit none of 1-3 and go straight to Step 5. The two "rare" cases are s
 
 ### Step 5: Clean sync: you're basically done
 
-You'll see normal `git commit` output on screen, ending with a message confirming the sync succeeded. There's no Step 6 here; that number belongs to the conflict-resolution path in [Troubleshooting](troubleshooting.md#step-6-conflict-resolve-it), which a clean sync skips entirely. Continue to [Step 7: Rebuild and test](rebuild-and-push.md#step-7-rebuild-and-test-before-you-trust-any-of-it).
+You'll see normal `git commit` output on screen, ending with a message confirming the sync succeeded. The commit contains the upstream changes and `.mystic-auth-sync-state`; it must not contain unrelated staged downstream work. There's no Step 6 here; that number belongs to the conflict-resolution path in [Troubleshooting](troubleshooting.md#step-6-conflict-resolve-it), which a clean sync skips entirely. Continue to [Step 7: Rebuild and test](rebuild-and-push.md#step-7-rebuild-and-test-before-you-trust-any-of-it).
+
+If you want to review the sync before keeping its commit, run this immediately after a successful sync:
+
+```bash
+git reset --soft HEAD^    # remove only the generated sync commit
+git diff --cached --stat  # review the staged sync changes
+```
+
+Commit the staged result when it is approved. Do not use `git reset --hard`, and do not run another sync while these changes remain staged. This review workflow does not commit or expose downstream secrets.
+
+If a sync stops on a conflict or multiple Alembic heads, do not start another
+sync. Resolve the existing staged changes, verify the migration graph, and
+commit that pending sync result first. The state file is already staged by the
+script and must remain aligned with the reviewed sync.
+
+The same rule applies after the optional soft-reset review. If `HEAD` is older
+than the staged sync result and `.mystic-auth-sync-state` is staged but not
+committed, finish that review and commit it before syncing again. Do not stash
+the staged result or let the next run fall back to a fresh first sync.
 
 ---
 

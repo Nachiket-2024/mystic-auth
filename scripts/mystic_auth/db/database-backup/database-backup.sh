@@ -4,14 +4,14 @@
 # to timestamped encrypted .dump.enc files under backups/. Reads POSTGRES_USER/POSTGRES_DB
 # from the env file matching the given compose file.
 #
-# Usage: scripts/mystic_auth/db/db_backup.sh [compose-file]
+# Usage: scripts/mystic_auth/db/database-backup/database-backup.sh [compose-file]
 #   compose-file defaults to docker-compose.dev.yml, and can be given as
 #   just a basename (looked up under docker/mystic_auth/compose/) or a full
 #   path.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../" && pwd)"
 cd "$REPO_ROOT"
 
 COMPOSE_ARG="${1:-docker-compose.dev.yml}"
@@ -67,7 +67,7 @@ if [ ! -w "$BACKUP_DIR" ]; then
 fi
 
 alert_backup_failure() {
-  "$REPO_ROOT/scripts/mystic_auth/db/backup_failure_alert.sh" "$1" || true
+  "$REPO_ROOT/scripts/mystic_auth/db/database-backup/database-backup-failure-alert.sh" "$1" || true
 }
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
@@ -79,7 +79,7 @@ for DB in "$POSTGRES_DB" bugsink; do
   # No --file=-: on this image's pg_dump build, "-" as a literal filename
   # argument produces a 0-byte file instead of writing to stdout (a real
   # bug caught building the restore-drill test, see
-  # scripts/mystic_auth/db/db_restore_drill.sh). Omitting --file entirely
+  # scripts/mystic_auth/db/database-restore/database-restore-drill.sh). Omitting --file entirely
   # defaults to stdout, which this redirect already captures, and works
   # portably regardless of that behavior.
   if ! docker compose "${DC_ARGS[@]}" exec -T postgres \
@@ -97,15 +97,27 @@ for DB in "$POSTGRES_DB" bugsink; do
     alert_backup_failure "pg_restore --list failed for $BACKUP_FILE"
     exit 1
   fi
+  # AES-256-CBC has no authenticated-encryption mode of its own (openssl
+  # enc's AEAD ciphers aren't supported by the enc subcommand at all - see
+  # backup-hmac.sh's own comment). This detached HMAC-SHA256 tag is the
+  # tamper-evidence CBC alone doesn't provide; database-restore.sh verifies it
+  # before decrypting a real restore.
+  if ! "$REPO_ROOT/scripts/mystic_auth/db/backup-verification/backup-hmac.sh" tag "$TEMP_BACKUP_FILE" "$BACKUP_ENCRYPTION_KEY"; then
+    rm -f -- "$TEMP_BACKUP_FILE"
+    alert_backup_failure "HMAC tagging failed for $BACKUP_FILE"
+    exit 1
+  fi
   mv -f -- "$TEMP_BACKUP_FILE" "$BACKUP_FILE"
+  mv -f -- "$TEMP_BACKUP_FILE.hmac" "$BACKUP_FILE.hmac"
   echo "Backup written to $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
 
   # Same optional off-host upload hook as the db_backup Compose service
   # (docker-compose.prod.yml and the local-prod-* variants), so a manual
-  # backup ships off-host the same way a scheduled one does.
+  # backup ships off-host the same way a scheduled one does. Uploads the
+  # .hmac tag alongside the ciphertext - see backup-upload.sh.
   if [ -n "${BACKUP_UPLOAD_COMMAND:-}" ]; then
     echo "Running BACKUP_UPLOAD_COMMAND for encrypted $BACKUP_FILE..."
-    if ! DUMP_FILE="$BACKUP_FILE" sh -c "$BACKUP_UPLOAD_COMMAND"; then
+    if ! "$REPO_ROOT/scripts/mystic_auth/db/backup-upload/backup-upload.sh" "$BACKUP_FILE"; then
       alert_backup_failure "off-host upload failed for $BACKUP_FILE"
       exit 1
     fi

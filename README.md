@@ -33,6 +33,16 @@ The `users.role` column is presentation metadata. Runtime authorization decision
 
 Use this template when the application should own its account database and authorization model instead of delegating both concerns to an external identity provider. The implementation favors explicit server-side checks, httpOnly cookies, revocable refresh-token chains, durable audit records, and testable authorization policies.
 
+When using this repository as a downstream base, the regression tests follow the
+configured application identity: browser title and status-page checks use
+`APP_NAME`, and backup/restore checks use `POSTGRES_DB`. Downstream projects can
+therefore rebrand the app or choose a different PostgreSQL database name
+without editing upstream-owned tests.
+
+The restore drill and its CI regression test also use `POSTGRES_USER` from the
+active environment. A downstream deployment may use a project-specific role;
+the scripts do not assume the PostgreSQL superuser is named `postgres`.
+
 ---
 
 ### Why this exists
@@ -60,7 +70,17 @@ flowchart TD
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
-One backend image (`docker/mystic_auth/dockerfiles/backend.Dockerfile`) runs as three containers with different commands: `backend` (the API), `procrastinate_worker` (async email + the daily account-purge job), and `alembic` (migrations only, exits after running). PostgreSQL is the only system of record; Valkey holds nothing that needs to survive a restart. See [System Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/architecture/system-overview) for the full component breakdown, the PBAC authorization pipeline, and a request-lifecycle sequence diagram.
+One backend image (`docker/mystic_auth/dockerfiles/backend.Dockerfile`) runs as three containers with different commands: `backend` (the API), `procrastinate_worker` (async email, account-lifecycle delivery, audit-retention, and the daily account-purge job), and `alembic` (migrations only, exits after running). PostgreSQL is the only system of record; Valkey holds nothing that needs to survive a restart. See [System Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/architecture/system-overview) for the full component breakdown, the PBAC authorization pipeline, and a request-lifecycle sequence diagram.
+
+Downstream projects can add their own Procrastinate tasks, worker lifecycle
+telemetry, and delivery tracking from `backend/app/` through the public
+`app.sdk` surface. Register task modules with the app-owned
+`PROCRASTINATE_TASK_IMPORT_PATHS` setting; do not edit the template task list.
+See [Background-task extensions](docs/mystic_auth/background-workers/procrastinate.md#downstream-task-and-worker-extensions).
+
+Account lifecycle events are delivered through the same worker with retries,
+and integration secrets use an app-owned provider backed by the deployment's
+secret manager. See [Downstream Integration Secrets](docs/mystic_auth/security/integration-secrets.md).
 
 ---
 
@@ -221,6 +241,15 @@ spoofing, malformed and oversized condition payloads, batch abuse, tampering,
 and concurrency. Generated coverage and browser artifacts are ignored by both
 Git and Docker.
 
+CI enforces a 90% cumulative backend coverage gate after the app-wrapper, unit,
+integration, and security suites append coverage. Coverage totals are generated
+per run rather than maintained as a hand-updated README metric.
+
+The GitHub workflow also has a Windows-only PowerShell tooling job and a
+main-branch-only Docker full-suite job. A local production-readiness pass
+should exercise those platform-specific and container-specific checks from
+their native environments when possible; see [CI/CD Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/cicd/overview).
+
 ```bash
 pytest --no-cov -q tests/backend/mystic_auth/security
 pytest --no-cov -q tests/backend/mystic_auth/integration/authorization
@@ -230,6 +259,13 @@ npm run test:browser --prefix frontend -- --project=chromium-mobile
 npm run test:browser --prefix frontend -- --project=firefox-desktop
 npm run test:browser --prefix frontend -- --project=webkit-desktop
 python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:8000 --scenario health --requests 500 --concurrency 50 --workers 4
+```
+
+From Windows PowerShell, run the Windows-specific regression directly on the
+host:
+
+```powershell
+.\tests\scripts\mystic_auth\env-tools\test-setup-env.ps1
 ```
 
 ---
@@ -255,6 +291,18 @@ See [Auth Flow](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_aut
 ## Quickstart (Docker)
 
 This section assumes Docker is installed. The dev Compose stack starts the backend, frontend, PostgreSQL, Valkey, Procrastinate worker, Alembic migration runner, and Bugsink.
+
+### Host and shell support
+
+The repository supports native Windows with Docker Desktop, WSL2, Git Bash,
+Linux, and macOS. On Windows, use the `.ps1` helpers from Windows PowerShell;
+use the `.sh` helpers from WSL2, Git Bash, Linux, or macOS; and use the `.cmd`
+helpers from Command Prompt. WSL2 is a shell and filesystem environment, not a
+replacement for the Windows PowerShell runner: the Windows-only CI regression
+must be run from the Windows host with
+`tests\scripts\mystic_auth\env-tools\test-setup-env.ps1`. Docker Desktop must
+be running, with WSL integration enabled when Docker commands are issued from
+WSL2.
 
 **Setting up with an AI coding agent (Claude Code, Codex, or similar)?**
 

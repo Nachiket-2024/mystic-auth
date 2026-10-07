@@ -5,7 +5,7 @@ from ..core.settings import settings
 from ..database.connection import database
 from ..logging.logging_config import get_worker_logger
 from ..user.user_crud_collector import user_crud
-from ..user_lifecycle.user_purge_service import purge_user_account
+from ..user_lifecycle.user_purge_service import AccountNoLongerEligibleForPurgeError, purge_user_account
 from .procrastinate_app import app
 
 logger = get_worker_logger(__name__)
@@ -50,6 +50,13 @@ async def purge_expired_soft_deleted_accounts(timestamp: int) -> int:
                 logger.error(
                     "Grace-period purge: skipped %s, session revocation could not be confirmed "
                     "(Valkey unavailable); will retry on a future run",
+                    user.email,
+                )
+            except AccountNoLongerEligibleForPurgeError:
+                skipped_count += 1
+                logger.info(
+                    "Grace-period purge: skipped %s, account was reactivated (or already purged) "
+                    "after this batch was read",
                     user.email,
                 )
 

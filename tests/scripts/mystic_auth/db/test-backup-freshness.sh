@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Deterministic regression tests for check_backup_freshness.sh.
+# Deterministic regression tests for backup-freshness-check.sh.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-SCRIPT="$REPO_ROOT/scripts/mystic_auth/db/check_backup_freshness.sh"
+SCRIPT="$REPO_ROOT/scripts/mystic_auth/db/backup-verification/backup-freshness-check.sh"
 TEST_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEST_DIR"' EXIT
 

@@ -103,29 +103,14 @@ scripts/mystic_auth/env-tools/set-env-field/shared-values.env
 scripts/app/env-tools/set-env-field/shared-values.env
 scripts/app/env-tools/rotate-secrets/fields.env
 
-# ---------------------------- Security audit / pentest scratch output ----------------------------
-# Local, point-in-time scan dumps (Bandit/ZAP/Trivy/semgrep/gitleaks/pip-audit/npm audit) and manual
-# pentest notes. Regenerated on demand, not meant to live in git history; durable findings get
-# folded into docs/mystic_auth/security/ and docs/mystic_auth/concerns/README.md instead.
-security-audit-*/
-
-# ---------------------------- Personal notes ----------------------------
-# Point-in-time ratings/reviews/scratch to-do notes, not meant to live in git history; durable
-# findings get folded into docs/mystic_auth/concerns/README.md or the project-story timeline instead.
-TODO.md
-
 # ---------------------------- Local Development Tools ----------------------------
 .claude/
 .codex/
+.local/
 # Git matching is case-sensitive on Linux CI, unlike Windows and macOS.
 .project/
 design/
 
 # Raw evidence files (ZAP/nikto/sqlmap/ffuf output, screenshots) from a manual
-# audit pass, dated per run. Not meant to live in git history - the audit
-# report itself (an Artifact) is the durable record; this is its backing data,
-# same reasoning as security-audit-*/ above.
+# audit pass, dated per run.
 audit-evidence/
-
-# Scratch output of an audit pass (scripts, probes, overrides, raw logs).
-audit-out/

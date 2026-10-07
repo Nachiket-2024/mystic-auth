@@ -6,6 +6,7 @@ from ..auth.refresh_token_logic.refresh_token_service import refresh_token_servi
 from ..auth.token_logic.token_version_store import TokenVersionUnavailableError
 from ..logging.logging_config import get_logger
 from ..user.user_crud_collector import user_crud
+from .account_lifecycle_events import build_account_lifecycle_event
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,8 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
     already-successful deletion into a reported error.
     """
     email = user.email
-    await user_crud.soft_delete(db_obj=user, db=db)
+    lifecycle_event = build_account_lifecycle_event("soft_deleted", user, actor=email, source="self_service")
+    await user_crud.soft_delete(db_obj=user, db=db, lifecycle_event=lifecycle_event)
 
     # Same reasoning as delete_any_user/purge_user_account: is_active=False
     # alone doesn't stop an already-issued refresh token from minting fresh
@@ -65,5 +67,4 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
             "sessions_revoked_confirmed": sessions_revoked_confirmed,
         },
     )
-
     return revoked_count

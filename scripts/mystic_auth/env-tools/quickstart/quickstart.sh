@@ -15,10 +15,15 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$REPO_ROOT"
 
-if [ ! -f env/mystic_auth/.env.dev ]; then
-  echo "No env/mystic_auth/.env.dev found: running first-time setup."
+if [ ! -f env/mystic_auth/.env.dev ] || [ ! -f env/app/.env.dev ]; then
+  echo "Runtime env files are incomplete: running setup."
   echo
   ./scripts/mystic_auth/env-tools/setup-env/setup-env.sh
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "Environment setup failed; the dev stack was not started." >&2
+    exit "$status"
+  fi
   echo
 fi
 
@@ -38,6 +43,25 @@ DC=(docker compose \
   --env-file env/mystic_auth/.env.dev \
   --env-file env/app/.env.dev)
 
+env_value() {
+  local key="$1"
+  local value=""
+  local candidate
+  for file in env/mystic_auth/.env.dev env/app/.env.dev; do
+    [ -f "$file" ] || continue
+    candidate="$(awk -F= -v wanted="$key" '$1 == wanted { sub(/^[^=]*=/, ""); value=$0 } END { print value }' "$file")"
+    [ -n "$candidate" ] && value="$candidate"
+  done
+  printf '%s' "$value"
+}
+
+FRONTEND_HOST_PORT="$(env_value FRONTEND_HOST_PORT)"
+FRONTEND_HOST_PORT="${FRONTEND_HOST_PORT:-5173}"
+BACKEND_HOST_PORT="$(env_value BACKEND_HOST_PORT)"
+BACKEND_HOST_PORT="${BACKEND_HOST_PORT:-8000}"
+BUGSINK_HOST_PORT="$(env_value BUGSINK_HOST_PORT)"
+BUGSINK_HOST_PORT="${BUGSINK_HOST_PORT:-8010}"
+
 echo
 read -rp "Create the system superuser now? [Y/n] " create_su
 create_su="${create_su:-Y}"
@@ -47,9 +71,9 @@ fi
 
 echo
 echo "--- Ready ---"
-echo "Frontend:  http://localhost:5173"
-echo "API docs:  http://localhost:8000/docs"
-echo "Bugsink:   http://localhost:8010 (error monitoring)"
+echo "Frontend:  http://localhost:${FRONTEND_HOST_PORT}"
+echo "API docs:  http://localhost:${BACKEND_HOST_PORT}/docs"
+echo "Bugsink:   http://localhost:${BUGSINK_HOST_PORT} (error monitoring)"
 echo
 echo "Still need real values for Google OAuth / SMTP / anything else?"
 echo "See docs/mystic_auth/template-usage/overview.md."

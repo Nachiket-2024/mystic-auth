@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Creates or refreshes the local-only operator used for Codex browser and
+# Creates or refreshes the local-only operator used for browser and
 # accessibility checks. This is not a production bootstrap command.
 set -euo pipefail
 
@@ -12,21 +12,21 @@ COMPOSE=(docker compose
   --env-file env/mystic_auth/.env.dev
   --env-file env/app/.env.dev)
 
-CODEX_ACCESSIBILITY_ENV_FILE="${CODEX_ACCESSIBILITY_ENV_FILE:-$REPO_ROOT/.codex/mystic-auth-accessibility.env}"
-if [ ! -r "$CODEX_ACCESSIBILITY_ENV_FILE" ]; then
-  echo "Missing $CODEX_ACCESSIBILITY_ENV_FILE. Create it with CODEX_ACCESSIBILITY_EMAIL and CODEX_ACCESSIBILITY_PASSWORD." >&2
+ACCESSIBILITY_OPERATOR_ENV_FILE="${ACCESSIBILITY_OPERATOR_ENV_FILE:-$REPO_ROOT/.local/accessibility-operator.env}"
+if [ ! -r "$ACCESSIBILITY_OPERATOR_ENV_FILE" ]; then
+  echo "Missing $ACCESSIBILITY_OPERATOR_ENV_FILE. Create it with ACCESSIBILITY_OPERATOR_EMAIL and ACCESSIBILITY_OPERATOR_PASSWORD." >&2
   exit 1
 fi
 # shellcheck disable=SC1090
-. "$CODEX_ACCESSIBILITY_ENV_FILE"
-: "${CODEX_ACCESSIBILITY_EMAIL:?CODEX_ACCESSIBILITY_EMAIL is missing}"
-: "${CODEX_ACCESSIBILITY_PASSWORD:?CODEX_ACCESSIBILITY_PASSWORD is missing}"
-export CODEX_ACCESSIBILITY_EMAIL CODEX_ACCESSIBILITY_PASSWORD
+. "$ACCESSIBILITY_OPERATOR_ENV_FILE"
+: "${ACCESSIBILITY_OPERATOR_EMAIL:?ACCESSIBILITY_OPERATOR_EMAIL is missing}"
+: "${ACCESSIBILITY_OPERATOR_PASSWORD:?ACCESSIBILITY_OPERATOR_PASSWORD is missing}"
+export ACCESSIBILITY_OPERATOR_EMAIL ACCESSIBILITY_OPERATOR_PASSWORD
 
 "${COMPOSE[@]}" exec -T \
   -e EMAIL_ENABLED=false \
-  -e CODEX_ACCESSIBILITY_EMAIL \
-  -e CODEX_ACCESSIBILITY_PASSWORD \
+  -e ACCESSIBILITY_OPERATOR_EMAIL \
+  -e ACCESSIBILITY_OPERATOR_PASSWORD \
   backend python - <<'PY'
 import asyncio
 import os
@@ -44,12 +44,12 @@ from mystic_auth.user.user_model import UserRole
 
 
 async def main():
-    email = os.environ["CODEX_ACCESSIBILITY_EMAIL"]
-    password = os.environ["CODEX_ACCESSIBILITY_PASSWORD"]
+    email = os.environ["ACCESSIBILITY_OPERATOR_EMAIL"]
+    password = os.environ["ACCESSIBILITY_OPERATOR_PASSWORD"]
     async for db in database.get_session():
         user = await user_crud.get_by_email(email, db)
         values = {
-            "name": "Codex Accessibility Operator",
+            "name": "Accessibility Test Operator",
             "email": email,
             "hashed_password": await password_service.hash_password(password),
             "role": UserRole.system,
@@ -69,7 +69,7 @@ async def main():
             if policy is None:
                 raise RuntimeError(f"default policy missing: {policy_name}")
             await policy_repository.assign_policy_to_user(
-                user.id, policy.id, db, assigned_by="codex-seed", user_email=email
+                user.id, policy.id, db, assigned_by="accessibility-seed", user_email=email
             )
         await db.commit()
         print(f"seeded {email} as system user with 3 default policies")

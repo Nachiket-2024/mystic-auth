@@ -21,22 +21,27 @@ Detail](frontend-pages-test-detail.md).
 3. `--cov-fail-under` is not set in `pytest.ini` because it would also apply to partial local runs.
 4. CI enforces the 90% cumulative coverage gate after unit, integration, and security tests append to the same coverage data.
 
-### 1 October, 2026 verification
+### 8 October, 2026 verification
 
-- The full backend regression suite passed 1,298 tests across the app wrapper,
-  unit, integration, and security suites, reaching 95% statement coverage.
-  The two advisory performance modules remain a separate, non-gating run.
-- Frontend Vitest passed 872 tests in 137 files. The measured report was
-  97.11% statements, 91.11% branches, 95.15% functions, and 97.82% lines.
+- The backend cumulative coverage audit exceeded the unchanged 90% CI gate. It
+  includes the app wrapper, unit, integration, and security suites plus focused tests
+  for lifecycle events/tasks, session-event failure paths, app lifecycle,
+  token-version models, and login protection. The two advisory performance
+  modules remain a separate, non-gating run.
+- Frontend Vitest passed 873 tests in 137 files. The measured report was
+  97.33% statements, 91.20% branches, 95.71% functions, and 97.96% lines.
   The new unit coverage includes shared UI primitives, font-size state,
   security-log details, and existing theme and segmented-control behavior.
-- The browser matrix produced 425 passing checks and 25 intentional skips.
-  Six timing-sensitive cases failed during the first shared-host run and all
-  passed on the CI-configured retry run.
-- Backend performance checks remain advisory. One concurrent-login timing run
-  exceeded its shared-host threshold at 5.50 seconds; an isolated rerun passed
-  at the same threshold. No performance threshold was changed from this one
-  host measurement.
+- The browser matrix produced 424 passing checks and 25 intentional skips.
+  One WebKit language-selector timeout occurred during the shared-host run;
+  the exact test passed when rerun in isolation with one worker.
+- The Windows PowerShell setup-env regression is a host-level check. Run it
+  from native Windows PowerShell; WSL2's absence of `pwsh` does not mean the
+  Windows host lacks PowerShell.
+- Backend performance checks remain advisory. The concurrent-login check uses
+  a 10-second ceiling for 25 real Argon2 verifications: the previous 5-second
+  ceiling produced false alarms on WSL2 and shared GitHub runners even after
+  the login path's database connection amplification was fixed.
 
 The backend 90% gate is deliberately below 100%: defensive exception
 branches, framework wiring, and deployment-only paths are valuable to review
@@ -55,9 +60,13 @@ glue. A 70% gate would allow too much untested product behavior to regress.
 
 **Why this exists**: a shared database was a real, reproducible bug.
 
-1. A test's own teardown fixture (`_procrastinate_app_lifecycle` below) deletes every row from `procrastinate_jobs` after each test.
+1. A test's own teardown fixture (`_procrastinate_app_lifecycle` below) used to delete every row from `procrastinate_jobs` after each test.
 2. This used to race a real dev-stack `procrastinate_worker` still mid-write on a job the test itself deferred (an audit-log entry, most commonly): it lost the row it needed to persist "succeeded" against, logged a `ConnectorException`, and enough of those repeated eventually took the container down.
 3. A dedicated database removes the shared table entirely, not just this one symptom of sharing it.
+4. Teardown now deletes only terminal (`succeeded`/`failed`) jobs. In-flight
+   `todo`/`doing` rows are left for the worker to finish, preventing the same
+   race within one dedicated test database and making successful authorization
+   audit entries deterministic after a broad suite run.
 
 **Skipped when `CI` is set** (GitHub Actions and effectively every CI provider sets this by convention): CI already provisions its own dedicated, single-purpose `mystic_auth_ci` Postgres service per run (see `.github/workflows/ci.yml`), so there's nothing else there to collide with.
 
@@ -66,12 +75,12 @@ glue. A 70% gate would allow too much untested product behavior to regress.
 ### App wrapper
 
 `tests/backend/app/` contains one unit module,
-`test_main_global_exception_handler_unit.py`. It verifies safe 500 responses
-and reporting of unexpected exceptions at the application boundary.
+the five modules under `tests/backend/app/`. They verify safe 500 responses,
+settings and SDK boundaries, and application lifecycle signal handling.
 
 ### Unit tests
 
-`tests/backend/mystic_auth/unit/` contains 106 modules. Its subdirectories
+`tests/backend/mystic_auth/unit/` contains 112 modules. Its subdirectories
 mirror the backend implementation and cover authentication, authorization and
 PBAC, condition validation, rate limits, middleware, logging, email tasks,
 users, sessions, deletion/purge, database and Valkey helpers, and settings.

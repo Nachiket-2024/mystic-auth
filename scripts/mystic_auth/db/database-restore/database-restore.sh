@@ -6,14 +6,14 @@
 # e.g. "bugsink-20260901-020000.dump" restores into "bugsink"), falling back to
 # POSTGRES_DB for files that don't follow that naming convention.
 #
-# Usage: scripts/mystic_auth/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]
+# Usage: scripts/mystic_auth/db/database-restore/database-restore.sh <backup-file> [compose-file] [-y|--yes]
 #   compose-file defaults to docker-compose.dev.yml, and can be given as
 #   just a basename (looked up under docker/mystic_auth/compose/) or a full
 #   path.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../" && pwd)"
 cd "$REPO_ROOT"
 
 BACKUP_FILE=""
@@ -35,7 +35,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$BACKUP_FILE" ]; then
-  echo "Usage: scripts/mystic_auth/db/db_restore.sh <backup-file> [compose-file] [-y|--yes]" >&2
+  echo "Usage: scripts/mystic_auth/db/database-restore/database-restore.sh <backup-file> [compose-file] [-y|--yes]" >&2
   exit 1
 fi
 
@@ -109,6 +109,19 @@ echo "Restoring '${TARGET_DB}' from ${BACKUP_FILE} via ${COMPOSE_FILES[*]}..."
 case "$BACKUP_FILE" in
   *.dump.enc)
     : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set to restore encrypted backups}"
+    # Verify the detached HMAC tag (see backup-hmac.sh) before decrypting -
+    # AES-256-CBC alone has no tamper-evidence of its own. A backup made
+    # before this check existed has no .hmac file; warn instead of hard
+    # failing so an older legitimate backup can still be restored, but a
+    # present-and-wrong tag (actual tampering or corruption) always aborts.
+    HMAC_STATUS=0
+    "$REPO_ROOT/scripts/mystic_auth/db/backup-verification/backup-hmac.sh" verify "$BACKUP_FILE" "$BACKUP_ENCRYPTION_KEY" || HMAC_STATUS=$?
+    if [ "$HMAC_STATUS" -eq 1 ]; then
+      echo "FAIL: ${BACKUP_FILE}.hmac does not match this file's contents - it may be corrupted or tampered with. Refusing to restore." >&2
+      exit 1
+    elif [ "$HMAC_STATUS" -eq 2 ]; then
+      echo "WARNING: no ${BACKUP_FILE}.hmac tag found (backup predates tamper-evidence support) - proceeding without integrity verification." >&2
+    fi
     openssl enc -d -aes-256-cbc -pbkdf2 -in "$BACKUP_FILE" \
       -pass env:BACKUP_ENCRYPTION_KEY | \
       docker compose "${DC_ARGS[@]}" exec -T postgres \

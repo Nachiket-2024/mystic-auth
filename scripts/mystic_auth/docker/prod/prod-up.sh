@@ -21,6 +21,10 @@ if [ "$#" -eq 0 ]; then
   set -- up -d --build
 fi
 
+scripts/mystic_auth/env-tools/check-env/check-env.sh \
+  env/mystic_auth/.env.prod \
+  env/app/.env.prod
+
 exec docker compose \
   -f docker/mystic_auth/compose/docker-compose.prod.yml \
   -f docker/app/compose/docker-compose.prod.yml \

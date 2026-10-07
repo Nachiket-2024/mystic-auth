@@ -61,6 +61,14 @@ to boot the stack as-is. It uses localhost URLs, development mode,
 Docker service names for internal database and Valkey access, and placeholder
 third-party credentials.
 
+To test session geolocation in dev, set `GEOIPUPDATE_ACCOUNT_ID`,
+`GEOIPUPDATE_LICENSE_KEY`, and
+`GEOIP_DB_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb`. The `dev-up.sh` and
+PowerShell wrappers automatically enable the `geoip` Compose profile when
+that path is non-empty; the MaxMind updater then fills the shared volume
+before the backend is considered ready. Raw `docker compose` commands must
+include `--profile geoip` themselves. See [Geolocation](../geolocation/overview.md).
+
 Use a different template if you are not running dev:
 
 - Local-prod: copy one of `env/mystic_auth/.env.local-prod-{cloudflare,ngrok,tailscale}.example`

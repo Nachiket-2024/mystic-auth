@@ -9,11 +9,11 @@ the change is visible at a glance instead of only described in prose, followed b
 the differences.
 
 The "then" tree lists only files and folders that were actually committed. The "now" tree lists
-tracked files plus the current additions present in the repository on 1 October;
+tracked files plus the current additions present in the repository on 8 October;
 it still omits `__pycache__`, `node_modules`, build output, coverage reports, and anything else
 covered by `.gitignore`. The "then" tree is the real commit tree at
 [`946e384`](../../../..), the last commit of the manual, ChatGPT-assisted era, on 14 April, 2026. The
-"now" tree reflects the repository as verified on 1 October, 2026.
+"now" tree reflects the repository as verified on 8 October, 2026.
 
 ---
 
@@ -39,8 +39,10 @@ covered by `.gitignore`. The "then" tree is the real commit tree at
   the thing access decisions are made from. See [PBAC Architecture](../../authorization/architecture/README.md).
 - **New backend modules**: `audit_log/` (security/session audit trail), `emails/` (template
   rendering, sending, address normalization), `error_monitoring/` (Sentry-protocol error
-  reporting), `procrastinate_tasks/` (replaced `taskiq_tasks/`, itself a replacement for the
-  original Celery setup), `user_lifecycle/` (self-service deletion and admin purge),
+  reporting), and `core/` (settings, shared primitives, and the downstream secret-provider boundary),
+  `procrastinate_tasks/` (replaced `taskiq_tasks/`, itself a replacement for the
+  original Celery setup), `user_lifecycle/` (self-service deletion, admin purge, and
+  durable account-lifecycle events),
   `user_session/` (the Manage Sessions dashboard and real-time session events). `user_crud/` and
   `user_table/` were renamed and merged into `user/`.
 - **New frontend modules**: `account_settings/`, `audit_log/`, `authorization/`, `layout/`,
@@ -67,6 +69,8 @@ covered by `.gitignore`. The "then" tree is the real commit tree at
   prompts for setting up a new project from this template and syncing with upstream. `docs/mystic_auth/`
   gained `environment/` (env file and tooling docs) and `glossary/` (per-area terms glossary), and
   `docker/` gained `tailscale-serve-config.json` and `docker/mystic_auth/dockerfiles/backend-entrypoint.sh`.
+  Backup delivery also gained detached HMAC verification, and the current project story records
+  the account-lifecycle outbox and downstream integration boundaries.
 - **Frontend tests gained an `e2e/` suite** alongside `unit/` and `integration/`, matching the
   Playwright E2E setup added for both `tests/frontend/app/` and `tests/frontend/mystic_auth/`.
 - **`scripts/`, `agent-prompts/`, and `local-scripts/` gained the `app/`/`mystic_auth/` split too**,

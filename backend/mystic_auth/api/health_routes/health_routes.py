@@ -1,8 +1,12 @@
+import asyncio
+from pathlib import Path
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.settings import settings
 from ...database.connection import database
 from ...logging.logging_config import get_logger
 from ...valkey.client import valkey_client
@@ -10,6 +14,11 @@ from ...valkey.client import valkey_client
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["Health"])
+
+
+def _geoip_database_available(path: str) -> bool:
+    geoip_path = Path(path)
+    return geoip_path.is_file() and geoip_path.stat().st_size > 0
 
 
 @router.get("/health")
@@ -45,7 +54,21 @@ async def health_ready(db: AsyncSession = Depends(database.get_session)):
         logger.error("Readiness check: valkey connectivity failed", exc_info=True)
         checks["valkey"] = "error"
 
-    all_ok = all(status == "ok" for status in checks.values())
+    # An explicitly configured GeoIP database is a runtime dependency for
+    # session-location capture. Do not advertise readiness while the updater
+    # has failed or the mounted database is empty.
+    if settings.GEOIP_DB_PATH:
+        try:
+            if not await asyncio.to_thread(_geoip_database_available, settings.GEOIP_DB_PATH):
+                raise FileNotFoundError(settings.GEOIP_DB_PATH)
+            checks["geoip"] = "ok"
+        except Exception:
+            logger.error("Readiness check: GeoIP database is unavailable", exc_info=True)
+            checks["geoip"] = "error"
+    else:
+        checks["geoip"] = "disabled"
+
+    all_ok = all(status in {"ok", "disabled"} for status in checks.values())
     return JSONResponse(
         content={"status": "ok" if all_ok else "error", "checks": checks},
         status_code=200 if all_ok else 503,

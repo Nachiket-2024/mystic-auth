@@ -18,6 +18,13 @@ so a failure can be understood without opening the source module.
 
 - `tests/backend/app/test_main_global_exception_handler_unit.py` verifies safe
   conversion and reporting of unexpected application exceptions.
+- `tests/backend/app/test_main_lifecycle_unit.py` verifies signal relay and
+  application lifespan startup/shutdown behavior.
+- `tests/backend/app/test_core_settings.py` and
+  `tests/backend/app/test_settings.py` verify settings boundaries and
+  environment-derived configuration.
+- `tests/backend/app/test_app_sdk_module_identity.py` verifies the app SDK
+  module identity boundary.
 - `tests/backend/mystic_auth/unit/api/audit_log_routes/test_audit_log_me_route_unit.py`
   verifies the current-user audit-log route and its self-scope response.
 - `tests/backend/mystic_auth/unit/api/audit_log_routes/test_user_security_audit_log_route_unit.py`
@@ -121,6 +128,8 @@ The PBAC route files above live in
   attributes, clearing, and environment-aware flags.
 - `auth/token_logic/test_token_version_store_unit.py` verifies token-version
   reads and writes used to invalidate sessions.
+- `auth/token_logic/test_token_revocation_version_model_unit.py` verifies the
+  token-revocation-version model metadata and column contract.
 - `auth/security/test_client_ip_unit.py` verifies trusted proxy and client-IP
   extraction rules.
 - `auth/security/test_login_protection_unit.py` verifies account/IP lockout
@@ -215,8 +224,14 @@ tests remain valid when another local project uses the defaults.
   configuration.
 - `logging/test_logging_middleware_unit.py` verifies access logging and
   sensitive-field handling.
+- `core/test_secret_provider_unit.py` verifies the one-secret provider boundary,
+  invalid environment-name rejection, and missing-secret failures.
 - `procrastinate_tasks/test_account_purge_tasks_unit.py` verifies purge-task
   scheduling and idempotent account cleanup.
+- `procrastinate_tasks/test_account_lifecycle_tasks_unit.py` verifies lifecycle
+  event delivery and dispatcher retry behavior.
+- `procrastinate_tasks/test_procrastinate_app_unit.py` verifies worker lifecycle
+  metadata, retry-preserving failures, and best-effort observer handling.
 - `procrastinate_tasks/test_audit_log_tasks_unit.py` verifies background audit
   log work and retry behavior.
 - `procrastinate_tasks/test_email_tasks_unit.py` verifies queued email task
@@ -241,12 +256,17 @@ tests remain valid when another local project uses the defaults.
   deletion-confirmation request handling.
 - `user_lifecycle/test_account_deletion_service_unit.py` verifies deletion
   authorization and state transition decisions.
+- `user_lifecycle/test_account_lifecycle_events_unit.py` verifies lifecycle
+  payload round-tripping, listener delivery, and retry-visible failures.
 - `user_lifecycle/test_user_purge_service_unit.py` verifies irreversible purge
   ordering and cleanup scope.
 - `user_lifecycle/test_user_self_deletion_service_unit.py` verifies the
   self-service deletion path and protected-user guards.
 - `user_session/test_session_events_unit.py` verifies session event payloads
   for the live session stream.
+- `user_session/test_session_events_failure_unit.py` verifies fail-closed lease
+  admission, publisher failures, invalid tokens, buffered events, and stream
+  cleanup on unexpected errors or shutdown.
 - `user_session/test_session_geolocation_unit.py` verifies geolocation parsing
   and privacy-safe fallback behavior.
 - `user_session/test_session_repository_unit.py` verifies session queries,

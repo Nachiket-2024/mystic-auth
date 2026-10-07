@@ -23,16 +23,16 @@ For a native run without an already booted frontend container, set
 `PLAYWRIGHT_USE_PREVIEW=1` to build once and serve the production bundle via
 Vite preview, avoiding dev-server HMR noise during the browser matrix.
 
-## Persistent local Codex operator
+## Persistent local accessibility operator
 
 For manual browser, keyboard, and Lighthouse checks against the local dev
-stack, run `scripts/mystic_auth/testing/seed-codex-accessibility-user.sh` once
+stack, run `tests/scripts/mystic_auth/accessibility/seed-accessibility-user.sh` once
 after the stack is up. It creates or refreshes this local-only account and
 assigns the self-service, user-management, and system-superuser policies:
 
 The email and password are stored only in the ignored local file
-`.codex/mystic-auth-accessibility.env`. Create that file with
-`CODEX_ACCESSIBILITY_EMAIL` and `CODEX_ACCESSIBILITY_PASSWORD` before running
+`.local/accessibility-operator.env`. Create that file with
+`ACCESSIBILITY_OPERATOR_EMAIL` and `ACCESSIBILITY_OPERATOR_PASSWORD` before running
 the seed command. It is not copied into Docker images or Compose environment
 files.
 
@@ -60,11 +60,11 @@ docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml \
   -f docker/app/compose/docker-compose.dev.yml \
   --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev \
   exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
-  "SELECT u.email, u.role, u.is_verified, u.is_active, count(up.policy_id) AS policy_count FROM users u LEFT JOIN user_policies up ON up.user_id = u.id WHERE u.name = 'Codex Accessibility Operator' GROUP BY u.email, u.role, u.is_verified, u.is_active;"
+  "SELECT u.email, u.role, u.is_verified, u.is_active, count(up.policy_id) AS policy_count FROM users u LEFT JOIN user_policies up ON up.user_id = u.id WHERE u.name = 'Accessibility Test Operator' GROUP BY u.email, u.role, u.is_verified, u.is_active;"
 ```
 
 The expected result is one verified, active `system` user with three assigned
-policies. The account is intentionally persistent for repeated Codex sessions;
+policies. The account is intentionally persistent for repeated local browser sessions;
 remove it from the local database when it is no longer needed.
 
 ---
@@ -72,7 +72,10 @@ remove it from the local database when it is no longer needed.
 ## App and public pages
 
 - `tests/frontend/app/e2e/landing/landing_page_browser.spec.ts` verifies the
-  public landing route, visible content, and responsive browser rendering.
+  public landing route, visible content, and responsive browser rendering. Its
+  title check follows the configured `APP_NAME` through the landing page's
+  brand link, so downstream applications can use their own name instead of
+  inheriting a literal `MysticAuth` assertion.
 - `tests/frontend/app/e2e/legal/legal_pages_browser.spec.ts` verifies each
   legal page in real browser projects and checks navigation/rendering.
 - `tests/frontend/app/e2e/status_pages/status_pages_browser.spec.ts` verifies
@@ -156,9 +159,24 @@ remove it from the local database when it is no longer needed.
   Run it with `RUN_FRONTEND_PERF=1`; optional `FRONTEND_LCP_BUDGET_MS` and
   `FRONTEND_INP_BUDGET_MS` turn measured budgets into assertions. It is not a
   blocking CI gate because local lab measurements are not production RUM.
-- `live/live_deployment_smoke.spec.ts` verifies signup/login, inert stored XSS,
-  protected redirects, and 390px overflow against `LIVE_BASE_URL`. It is
-  skipped unless the live environment variables are supplied.
+- `live/live_deployment_smoke.spec.ts` verifies real signup/login, inert stored
+  XSS, protected redirects, and 390px overflow against `LIVE_BASE_URL`. It is
+  skipped unless the live environment variables are supplied. Run it against a
+  disposable local-prod stack with the Chromium project explicitly selected:
+
+  ```bash
+  LIVE_BASE_URL=http://127.0.0.1:8180 \
+  LIVE_POSTGRES_CONTAINER=mystic-auth-local-prod-ngrok-postgres-1 \
+  npm exec --prefix frontend playwright -- test \
+    tests/frontend/mystic_auth/e2e/live/live_deployment_smoke.spec.ts \
+    --config=frontend/playwright.config.ts --project=chromium-desktop --workers=1
+  ```
+
+  The permission assertion uses a browser `fetch` with `credentials: "include"`
+  so it validates the same cookie/proxy path used by the UI, including when the
+  production bundle uses a relative API base URL. The test creates disposable
+  accounts and updates verification state only in the specified local Postgres
+  container; never point it at production data.
 
 ---
 

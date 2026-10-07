@@ -60,7 +60,11 @@ async def create_verified_user(client, created_emails, email, policy_names):
         for policy_name in policy_names:
             policy = await policy_repository.get_by_name(policy_name, session)
             await policy_repository.assign_policy_to_user(
-                user_id=user.id, policy_id=policy.id, db=session, assigned_by="test", user_email=email
+                user_id=user.id,
+                policy_id=policy.id,
+                db=session,
+                assigned_by="test",
+                user_email=email,
             )
 
     login_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})

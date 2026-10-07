@@ -124,9 +124,9 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}/backend:${{ github.workspace }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.14.6"
           cache: pip
@@ -173,7 +173,8 @@ jobs:
       - name: Run backend security tests
         run: python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=90
 
-      # Non-blocking because timing can be noisy on shared runners.
+      # Non-blocking because Argon2 timing can be noisy on shared runners;
+      # the test still reports real connection/serialization regressions.
       - name: Run backend performance tests (non-blocking)
         continue-on-error: true
         run: python -m pytest tests/backend/mystic_auth/performance -q
@@ -183,9 +184,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           # React Router 8 requires Node 22.22.0 or newer.
           node-version: "22.22.0"
@@ -229,13 +230,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # gitleaks scans history, not just the working tree.
           fetch-depth: 0
 
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -247,17 +248,32 @@ jobs:
           fs --scanners secret --exit-code 1 --no-progress /repo
 
   tooling-tests:
-    name: Tooling regression tests (env-tools, upstream-sync, script/split paths)
+    name: Tooling regression tests (env-tools, upstream-sync, script/split paths, image digests)
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Check every scripts/local-scripts path reference resolves
         run: tests/scripts/mystic_auth/lint/check-script-paths.sh
 
       - name: Check for stale pre-split docker/env/scripts path references
         run: tests/scripts/mystic_auth/lint/check-split-paths.sh
+
+      - name: Check operator-facing scripts have all platform wrappers
+        run: tests/scripts/mystic_auth/lint/check-platform-wrappers.sh
+
+      - name: Check every pinned compose image digest is a valid sha256
+        run: tests/scripts/mystic_auth/lint/check-image-digests.sh
+
+      - name: Check every compose service sets log rotation
+        run: tests/scripts/mystic_auth/lint/check-log-rotation.sh
+
+      - name: Check every CI action is pinned by commit SHA
+        run: tests/scripts/mystic_auth/lint/check-ci-action-pinning.sh
+
+      - name: Check production-shaped services run with a read-only rootfs
+        run: tests/scripts/mystic_auth/lint/check-readonly-rootfs.sh
 
       - name: Run env-tools regression suite
         run: tests/scripts/mystic_auth/env-tools/test-env-tooling.sh
@@ -279,7 +295,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Run PowerShell setup-env regression test
         shell: pwsh
@@ -289,13 +305,13 @@ jobs:
     name: Docker image build verification
     runs-on: ubuntu-latest
 
-    # Builds both images, then boots and smoke-tests the real dev Compose stack.
+    # Builds all runtime images, then boots and smoke-tests the real dev Compose stack.
     # The full test suite inside containers is handled by docker-full-suite.
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           # React Router 8 requires Node 22.22.0 or newer.
           node-version: "22.22.0"
@@ -349,6 +365,24 @@ jobs:
       - name: Build frontend production image
         run: docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dockerfile -t frontend:ci .
 
+      # The backup container has its own dependency surface (rclone, curl,
+      # the postgres:15 base) that drifts independently of backend/frontend -
+      # confirmed by audit finding F-001 (2026-10-05): it carried Critical/
+      # High CVEs while backend/frontend scanned clean, entirely unnoticed
+      # because nothing built or scanned it in CI. Build and scan it too.
+      - name: Build db_backup image
+        run: docker build -f docker/mystic_auth/dockerfiles/db-backup.Dockerfile -t db-backup:ci .
+
+      - name: Scan built images for known-critical/high vulnerabilities (Trivy)
+        run: |
+          for image in backend:ci frontend:ci db-backup:ci; do
+            echo "::group::Trivy - $image"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy:0.68.1@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b \
+              image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed "$image"
+            echo "::endgroup::"
+          done
+
       # Generate SBOMs from the exact images built above, not just from the
       # source manifests. This describes what a deployment would actually
       # run, including the Alpine/nginx/Python runtime packages and the
@@ -380,25 +414,39 @@ jobs:
           upload-release-assets: false
           syft-version: v1.52.0
 
+      - name: Generate db_backup runtime SBOM (SPDX JSON)
+        uses: anchore/sbom-action@8e94d75ddd33f69f691467e42275782e4bfefe84
+        with:
+          image: db-backup:ci
+          format: spdx-json
+          output-file: sbom/db-backup-runtime.spdx.json
+          artifact-name: sbom-db-backup-runtime
+          upload-artifact: false
+          upload-release-assets: false
+          syft-version: v1.52.0
+
       - name: Validate and package image SBOMs
         env:
           GIT_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json; do
+          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json sbom/db-backup-runtime.spdx.json; do
             test -s "$sbom"
             jq -e '(.spdxVersion | type == "string") and (.packages | type == "array" and length > 0)' "$sbom" >/dev/null
           done
 
           backend_image_id="$(docker image inspect backend:ci --format '{{.Id}}')"
           frontend_image_id="$(docker image inspect frontend:ci --format '{{.Id}}')"
+          db_backup_image_id="$(docker image inspect db-backup:ci --format '{{.Id}}')"
           jq -n \
             --arg commit "$GIT_COMMIT" \
             --arg backend_id "$backend_image_id" \
             --arg frontend_id "$frontend_image_id" \
+            --arg db_backup_id "$db_backup_image_id" \
             '{schemaVersion: 1, generatedForCommit: $commit, images: {
               backend: {tag: "backend:ci", localImageId: $backend_id, sbom: "backend-runtime.spdx.json"},
-              frontend: {tag: "frontend:ci", localImageId: $frontend_id, sbom: "frontend-runtime.spdx.json"}
+              frontend: {tag: "frontend:ci", localImageId: $frontend_id, sbom: "frontend-runtime.spdx.json"},
+              db_backup: {tag: "db-backup:ci", localImageId: $db_backup_id, sbom: "db-backup-runtime.spdx.json"}
             }}' > sbom/manifest.json
 
       - name: Upload image SBOMs
@@ -508,7 +556,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # Same CI-only Bugsink DSN wait shortcut as docker-build.
       # BACKEND_BUILD_TARGET=test builds the backend from the Dockerfile's

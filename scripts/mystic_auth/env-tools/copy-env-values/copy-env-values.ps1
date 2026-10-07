@@ -44,6 +44,7 @@ if (Test-Path $AppFieldsFile) {
 $newContent = Get-Content $NewFile -Raw
 $copied = @()
 $notInNew = @()
+$preservedNewDefaults = @()
 
 foreach ($line in Get-Content $OldFile) {
     $trimmed = $line.Trim()
@@ -55,6 +56,15 @@ foreach ($line in Get-Content $OldFile) {
     $value = $trimmed.Substring($idx + 1)
 
     if ($ExcludedKeys -contains $key) { continue }
+
+    # Keep a newly introduced production default when the old env file is blank.
+    if ($key -eq "BACKUP_UPLOAD_COMMAND" -and $value -eq "") {
+        $newLine = Get-Content $NewFile | Where-Object { $_ -match "^$([regex]::Escape($key))=" } | Select-Object -First 1
+        if ($null -ne $newLine -and $newLine.Substring($newLine.IndexOf("=") + 1) -ne "") {
+            $preservedNewDefaults += $key
+            continue
+        }
+    }
 
     $pattern = "(?m)^$([regex]::Escape($key))=.*"
     if ($newContent -match $pattern) {
@@ -102,3 +112,6 @@ if ($allFields.Count -eq 0) {
 
 Write-Host ""
 Write-Host "Not copied on purpose (freshly generated/prompted by setup-env): $($ExcludedKeys -join ' ')"
+if ($preservedNewDefaults.Count -gt 0) {
+    Write-Host "Preserved non-blank defaults because the old value was blank (review): $($preservedNewDefaults -join ' ')"
+}

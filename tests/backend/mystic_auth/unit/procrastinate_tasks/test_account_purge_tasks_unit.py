@@ -18,6 +18,9 @@ from backend.mystic_auth.procrastinate_tasks.account_purge_tasks import (
     purge_expired_soft_deleted_accounts,
 )
 from backend.mystic_auth.procrastinate_tasks.procrastinate_app import app
+from backend.mystic_auth.user_lifecycle.user_purge_service import (
+    AccountNoLongerEligibleForPurgeError,
+)
 
 MODULE = "backend.mystic_auth.procrastinate_tasks.account_purge_tasks"
 
@@ -104,3 +107,34 @@ async def test_purge_task_skips_an_account_whose_revocation_cant_be_confirmed_bu
     # abort after the first user's failure.
     assert result == 1
     assert purge_mock.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_purge_task_skips_an_account_reactivated_after_the_batch_was_read_but_continues(mocker):
+    """F-001 regression: purge_user_account's own row-lock re-check raises
+    AccountNoLongerEligibleForPurgeError for a user reactivated between this
+    batch's get_deleted_before read and its turn in the loop. That must be
+    treated as a skip (same shape as the Valkey-outage skip above), not an
+    unhandled error that aborts the whole day's batch."""
+    fake_session = MagicMock()
+    fake_session_cm = MagicMock()
+    fake_session_cm.__aenter__ = AsyncMock(return_value=fake_session)
+    fake_session_cm.__aexit__ = AsyncMock(return_value=False)
+    mocker.patch(f"{MODULE}.database.async_session", return_value=fake_session_cm)
+
+    reactivated_user = _FakeUser("reactivated-mid-batch@example.com")
+    healthy_user = _FakeUser("healthy@example.com")
+    mocker.patch(
+        f"{MODULE}.user_crud.get_deleted_before",
+        new_callable=AsyncMock,
+        return_value=[reactivated_user, healthy_user],
+    )
+    mocker.patch(
+        f"{MODULE}.purge_user_account",
+        new_callable=AsyncMock,
+        side_effect=[AccountNoLongerEligibleForPurgeError(reactivated_user.email), None],
+    )
+
+    result = await purge_expired_soft_deleted_accounts(timestamp=0)
+
+    assert result == 1

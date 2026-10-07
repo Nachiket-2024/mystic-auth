@@ -84,8 +84,8 @@ class UserCRUDCollector:
     async def update(self, db_obj, update_data: dict, db: AsyncSession):
         return await self.base.update(db_obj, update_data, db)
 
-    async def delete(self, db_obj, db: AsyncSession):
-        return await self.base.delete(db_obj, db)
+    async def delete(self, db_obj, db: AsyncSession, lifecycle_event=None):
+        return await self.base.delete(db_obj, db, lifecycle_event=lifecycle_event)
 
     async def get_by_email(self, email: str, db: AsyncSession):
         return await self.email.get_by_email(email, db)
@@ -102,14 +102,17 @@ class UserCRUDCollector:
     async def bulk_update_role(self, valid_items: list[tuple[User, UserRole]], db: AsyncSession):
         return await self.role.bulk_update_role(valid_items, db)
 
-    async def soft_delete(self, db_obj, db: AsyncSession):
-        return await self.lifecycle.soft_delete(db_obj, db)
+    async def soft_delete(self, db_obj, db: AsyncSession, lifecycle_event=None):
+        return await self.lifecycle.soft_delete(db_obj, db, lifecycle_event=lifecycle_event)
 
-    async def reactivate(self, db_obj, db: AsyncSession):
-        return await self.lifecycle.reactivate(db_obj, db)
+    async def reactivate(self, db_obj, db: AsyncSession, lifecycle_event=None):
+        return await self.lifecycle.reactivate(db_obj, db, lifecycle_event=lifecycle_event)
 
     async def get_deleted_before(self, cutoff, db: AsyncSession):
         return await self.lifecycle.get_deleted_before(cutoff, db)
+
+    async def lock_by_id(self, user_id: int, db: AsyncSession):
+        return await self.lifecycle.lock_by_id(user_id, db)
 
 
 # Always import this instance (not the class) wherever CRUD operations are needed.

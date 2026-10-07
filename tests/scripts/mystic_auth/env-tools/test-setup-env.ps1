@@ -24,11 +24,16 @@ try {
     New-Item -ItemType Directory -Path (Split-Path $SetupScript) -Force | Out-Null
     Copy-Item (Join-Path $RepoRoot "scripts/mystic_auth/env-tools/setup-env/setup-env.ps1") $SetupScript
 
-    & $SetupScript -NonInteractive
-    # setup-env.ps1 intentionally works relative to the repository root; move
-    # back before cleanup so PowerShell does not keep the temporary tree open
-    # as its current working directory.
-    Set-Location $RepoRoot
+    # setup-env.ps1 intentionally changes its working directory to the
+    # temporary repository copy. Restore the caller's location in a finally
+    # block before cleanup, including when setup itself fails.
+    $CallerLocation = (Get-Location).Path
+    try {
+        & $SetupScript -NonInteractive
+    }
+    finally {
+        Set-Location -LiteralPath $CallerLocation
+    }
 
     $MysticAuthFiles = Get-ChildItem (Join-Path $TempRoot "env/mystic_auth") -Filter ".env*.example" |
         ForEach-Object { Join-Path $TempRoot ("env/mystic_auth/" + $_.Name.Substring(0, $_.Name.Length - ".example".Length)) }
@@ -44,5 +49,18 @@ try {
     Write-Host "PASS: setup-env.ps1 creates canonical default brand colors"
 }
 finally {
-    if (Test-Path $TempRoot) { Remove-Item $TempRoot -Recurse -Force }
+    if (Test-Path $TempRoot) {
+        [GC]::Collect()
+        [GC]::WaitForPendingFinalizers()
+        for ($Attempt = 1; $Attempt -le 5; $Attempt++) {
+            try {
+                Remove-Item $TempRoot -Recurse -Force -ErrorAction Stop
+                break
+            }
+            catch {
+                if ($Attempt -eq 5) { throw }
+                Start-Sleep -Milliseconds 200
+            }
+        }
+    }
 }

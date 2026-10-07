@@ -26,7 +26,7 @@ help:
 	@echo "make sync                    pull in upstream template updates"
 	@echo "make test-tooling            regression suite for env-tools scripts"
 	@echo "make test-sync               regression suite for sync-upstream.sh"
-	@echo "make test-backup-freshness   regression suite for check_backup_freshness.sh"
+	@echo "make test-backup-freshness   regression suite for backup-freshness-check.sh"
 	@echo "make lint-paths              check every scripts/ path reference resolves"
 	@echo "make lint-split              check for stale pre-split docker/env/scripts references"
 	@echo "make lint                    run lint-paths and lint-split together"
@@ -72,13 +72,13 @@ superuser:
 	  exec -it backend python -m mystic_auth.scripts.create_system_user
 
 backup:
-	./scripts/mystic_auth/db/db_backup.sh
+	./scripts/mystic_auth/db/database-backup/database-backup.sh
 
 restore-drill:
-	./scripts/mystic_auth/db/db_restore_drill.sh
+	./scripts/mystic_auth/db/database-restore/database-restore-drill.sh
 
 backup-freshness:
-	./scripts/mystic_auth/db/check_backup_freshness.sh
+	./scripts/mystic_auth/db/backup-verification/backup-freshness-check.sh
 
 sync:
 	./scripts/mystic_auth/upstream-sync/sync-upstream.sh

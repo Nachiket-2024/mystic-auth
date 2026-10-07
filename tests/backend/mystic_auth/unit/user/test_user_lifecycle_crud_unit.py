@@ -65,3 +65,41 @@ async def test_reactivate_returns_none_when_there_is_no_target_row():
     result = await crud.reactivate(None, AsyncMock())
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_lock_by_id_returns_the_row_when_it_still_exists():
+    db_obj = _FakeModel(id=7, is_active=False, deleted_at=datetime.now(UTC))
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=db_obj)))
+    crud = UserLifecycleCRUD(_FakeModel)
+
+    result = await crud.lock_by_id(7, db)
+
+    assert result is db_obj
+
+
+@pytest.mark.asyncio
+async def test_lock_by_id_returns_the_current_row_regardless_of_deleted_at():
+    """lock_by_id itself has no deleted_at opinion: an admin's ad-hoc purge
+    of a still-active account is a legitimate call shape. The
+    deleted_at-regression check belongs to purge_user_account, not here."""
+    db_obj = _FakeModel(id=7, is_active=True, deleted_at=None)
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=db_obj)))
+    crud = UserLifecycleCRUD(_FakeModel)
+
+    result = await crud.lock_by_id(7, db)
+
+    assert result is db_obj
+
+
+@pytest.mark.asyncio
+async def test_lock_by_id_returns_none_when_row_no_longer_exists():
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
+    crud = UserLifecycleCRUD(_FakeModel)
+
+    result = await crud.lock_by_id(999, db)
+
+    assert result is None

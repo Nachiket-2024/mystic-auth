@@ -175,7 +175,7 @@ async def session_events(
         raise HTTPException(status_code=429, detail="Too many session event connections")
 
     return StreamingResponse(
-        session_event_stream(current_user["email"], client_ip, lease_token),
+        session_event_stream(current_user["email"], client_ip, lease_token, access_token),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

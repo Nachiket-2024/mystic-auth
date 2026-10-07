@@ -5,9 +5,23 @@
 # docs/mystic_auth/docker/compose-modes.md.
 name: ${COMPOSE_PROJECT_NAME}
 
+# Bounds each service's own json-file log driver so a noisy container can't
+# fill the host disk - confirmed live via `docker inspect .HostConfig.LogConfig`
+# returning no limit before this was added (audit finding F-006, 2026-10-05).
+# The local-prod-*/prod compose files keep the equivalent inside their own
+# x-container-hardening anchor; dev has no such shared anchor today, so this
+# gets its own and is merged into every service below.
+x-logging: &logging_defaults
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
 
   postgres:
+    <<: *logging_defaults
     image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
     restart: always
     env_file:
@@ -35,6 +49,7 @@ services:
       retries: 5
 
   valkey:
+    <<: *logging_defaults
     image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: always
     # Empty VALKEY_PASSWORD (local-dev default) makes --requirepass a no-op.
@@ -49,6 +64,7 @@ services:
       retries: 5
 
   backend:
+    <<: *logging_defaults
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
@@ -99,6 +115,8 @@ services:
       - backend_logs:/repo/backend/logs
       # Read-only: only bugsink-seed writes here.
       - bugsink_dsn:/shared/bugsink-dsn:ro
+      # Read-only: geoipupdate writes the database when the geoip profile is enabled.
+      - geoip_data:/usr/share/GeoIP:ro
     ports:
       - "${BACKEND_HOST_PORT}:8000"
     healthcheck:
@@ -111,6 +129,7 @@ services:
       start_period: 30s
 
   frontend:
+    <<: *logging_defaults
     # Distinct image name (derived from COMPOSE_PROJECT_NAME) so building
     # this doesn't overwrite the other compose files' frontend images, or
     # another mystic-auth fork's.
@@ -168,6 +187,7 @@ services:
   # cron). Procrastinate's worker runs its own periodic-task scheduler
   # internally, so no separate scheduler container is needed.
   procrastinate_worker:
+    <<: *logging_defaults
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
@@ -194,11 +214,20 @@ services:
     healthcheck:
       test: ["CMD", "procrastinate", "--app=mystic_auth.procrastinate_tasks.procrastinate_app.app", "healthchecks"]
       interval: 10s
-      timeout: 3s
+      # The command itself (new Python process start + a DB round trip)
+      # measured 3.5-4.2s in practice, consistently over the previous 3s
+      # timeout: Docker was killing it as a timeout failure on every single
+      # run despite the check always actually succeeding, so this container
+      # could never report healthy at all (confirmed via `docker inspect`:
+      # FailingStreak climbing indefinitely, output showing "OK" on every
+      # line). 8s leaves real margin instead of sitting right at the
+      # observed worst case.
+      timeout: 8s
       retries: 5
       start_period: 10s
 
   alembic:
+    <<: *logging_defaults
     build:
       context: ../../..
       dockerfile: docker/mystic_auth/dockerfiles/backend.Dockerfile
@@ -218,10 +247,36 @@ services:
     volumes:
       - ../../../backend:/app
 
+  # Optional: provision the GeoLite2-City database for dev session-location
+  # testing. dev-up enables this profile automatically when GEOIP_DB_PATH is
+  # non-empty; raw Compose users should pass --profile geoip themselves.
+  geoipupdate:
+    <<: *logging_defaults
+    image: ghcr.io/maxmind/geoipupdate@sha256:51e70dd6f16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    profiles: ["geoip"]
+    environment:
+      GEOIPUPDATE_ACCOUNT_ID: ${GEOIPUPDATE_ACCOUNT_ID:-}
+      GEOIPUPDATE_LICENSE_KEY: ${GEOIPUPDATE_LICENSE_KEY:-}
+      GEOIPUPDATE_EDITION_IDS: GeoLite2-City
+      GEOIPUPDATE_DATABASE_DIRECTORY: /usr/share/GeoIP
+      GEOIPUPDATE_FREQUENCY: "72"
+    volumes:
+      - geoip_data:/usr/share/GeoIP
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /usr/share/GeoIP/GeoLite2-City.mmdb"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
   # Self-hosted error monitoring (Sentry SDK compatible), on by default. See
   # docs/mystic_auth/error-monitoring/overview.md. SENTRY_DSN is what
   # actually turns error reporting on, independent of this container running.
   bugsink:
+    <<: *logging_defaults
     image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     restart: always
     env_file:
@@ -299,6 +354,7 @@ services:
   # into bugsink_dsn for backend/frontend to read at startup, avoiding a
   # manual "create a project, copy the DSN" step.
   bugsink-seed:
+    <<: *logging_defaults
     image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     # Root, since Docker creates a fresh named volume root-owned and the
     # non-root "bugsink" user can't write the DSN file into it otherwise.
@@ -345,6 +401,8 @@ volumes:
   # Docker-managed, not a host bind mount, so /app/logs gets image-owned
   # permissions instead of the host checkout's.
   backend_logs:
+  # Shared between geoipupdate (writer) and backend (reader).
+  geoip_data:
 
 networks:
   # Pinned subnet so this can run alongside the prod/local-prod-* stacks

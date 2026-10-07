@@ -2,7 +2,7 @@
 
 ---
 
-This is the current repository tree as of 1 October, 2026. It reflects the established
+This is the current repository tree as of 8 October, 2026. It reflects the established
 `app/` and `mystic_auth/` ownership split, the PBAC implementation, the shadcn/Radix frontend,
 the separated test suites, the five Docker deployment modes, and the exact template extension
 points. Generated files, local secrets, build output, and test caches are omitted.
@@ -11,6 +11,9 @@ points. Generated files, local secrets, build output, and test caches are omitte
 mystic-auth/
   backend/
     alembic/
+      versions/
+        a7b8c9d0e1f2_add_durable_token_revocation_versions.py
+        f1a2b3c4d5e6_add_account_lifecycle_outbox.py
     app/                        # thin, project-owned shell
       main.py
       sdk.py
@@ -54,15 +57,22 @@ mystic-auth/
         schemas/
         services/
       core/
+        secret_provider.py         # downstream secret-provider boundary
       database/
       emails/
       error_monitoring/
       logging/
       procrastinate_tasks/
+        account_lifecycle_tasks.py
       valkey/
       scripts/
+        create_system_user.py
+        create_unconditioned_policies.py
       user/
       user_lifecycle/
+        account_lifecycle_events.py
+        account_lifecycle_outbox_model.py
+        account_lifecycle_registry.py
       user_session/
     requirements.txt
     requirements-dev.txt
@@ -114,14 +124,24 @@ mystic-auth/
       project-story/
         timeline/
           2026-oct.md
+      security/
+        integration-secrets.md
   tests/
     backend/
       app/
+        test_app_sdk_module_identity.py
         test_settings.py
+        test_core_settings.py
       mystic_auth/
         unit/
           auth/security/
             test_rate_limiter_dashboard_edge_cases_unit.py
+          core/
+            test_secret_provider_unit.py
+          procrastinate_tasks/
+            test_procrastinate_app_unit.py
+          user_lifecycle/
+            test_account_lifecycle_events_unit.py
         integration/
         security/
         performance/
@@ -148,6 +168,15 @@ mystic-auth/
           test-backup-compose-network.sh
           test-backup-freshness.sh
           test-backup-roundtrip.sh
+        accessibility/
+          invoke-bash.ps1
+          seed-accessibility-user.sh / .ps1 / .cmd
+        lint/
+          check-ci-action-pinning.sh
+          check-image-digests.sh
+          check-log-rotation.sh
+          check-platform-wrappers.sh
+          check-readonly-rootfs.sh
         docker/
           test-backend-host-run.sh
         env-tools/
@@ -164,6 +193,18 @@ mystic-auth/
         set-env-field/shared-values.env.example
     mystic_auth/                 # upstream scripts
       db/
+        invoke-bash.ps1
+        database-backup/
+          database-backup.sh / .ps1 / .cmd
+          database-backup-failure-alert.sh / .ps1 / .cmd
+        database-restore/
+          database-restore.sh / .ps1 / .cmd
+          database-restore-drill.sh / .ps1 / .cmd
+        backup-verification/
+          backup-hmac.sh / .ps1 / .cmd
+          backup-freshness-check.sh / .ps1 / .cmd
+        backup-upload/
+          backup-upload.sh / .ps1 / .cmd
       docker/
         dev/
           backend-host-run.sh
@@ -219,8 +260,6 @@ mystic-auth/
     workflows/
       ci.yml
     PULL_REQUEST_TEMPLATE.md
-  .project/
-    project_story.md
   makefiles/
     app/                         # project-owned make/make.ps1 targets, ships empty
       Makefile

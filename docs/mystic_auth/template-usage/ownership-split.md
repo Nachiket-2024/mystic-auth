@@ -43,6 +43,13 @@ flowchart TB
 
 `sdk.py`/`sdk.ts` re-export the pieces you're meant to build on (`require_authorization`, `Permission`, `useAuthorization`, `ProtectedRoute`, the shared `api` client, and more): import from there, not from internal `mystic_auth/` paths directly.
 
+The root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` are maintained in
+the upstream repository as part of its own documentation, but a downstream
+project owns its copies after the template is created. `sync-upstream.sh`
+reports and excludes changes to those three root files, so upstream can keep
+improving its source README without overwriting a downstream project's
+product documentation.
+
 Your own new feature folders (`backend/app/projects/`, `frontend/src/app/projects/`) are effectively a fourth, unlisted case: upstream has no idea they exist, so they behave like the "yours" tier automatically, with no path convention needed.
 
 The diagram above only shows code files, since it's tracing import relationships; the shared config files from the table above (`package.json`, `requirements.txt`) don't import anything, but they're in the same "Shared" tier as `main.py`/`App.tsx` for the same reason: you're expected to add your own entries, and upstream may add or change its own later. See [Syncing Upstream Template Updates](syncing-upstream/README.md) for what a conflict in one of these actually looks like.
@@ -55,10 +62,10 @@ The same split reaches the rest of `docker/` too:
 
 Use this decision path before creating or editing a file:
 
-1. Is it reusable authentication, PBAC, session, audit, database, or shared UI behavior? It belongs under `backend/mystic_auth/` or `frontend/src/mystic_auth/`; use the SDK from your app code and propose template changes upstream rather than editing it in a downstream project.
+1. Is it reusable authentication, PBAC, session, audit, database, or shared UI behavior? Consume it through the SDK from your app code. If the reusable template behavior is missing or needs a fix, propose that upstream; do not edit `backend/mystic_auth/` or `frontend/src/mystic_auth/` in a downstream project.
 2. Is it product behavior, product configuration, a custom resource, custom policy/action, branding, legal copy, or project-specific integration? Put it under `backend/app/` or `frontend/src/app/`. App-owned backend cross-cutting configuration belongs specifically in `backend/app/core/settings.py`, mirroring `backend/mystic_auth/core/settings.py`; app-owned frontend shared configuration belongs in `frontend/src/app/core/`.
 3. Is it a deployment or environment change? Put it in the corresponding `docker/app/`, `env/app/`, `scripts/app/`, or `makefiles/app/` location. Merge both Compose files and both env files; the app file is loaded last, so its values win on overlap.
-4. Is it a test? Put template regression tests under `tests/**/mystic_auth/` and downstream feature tests under `tests/**/app/`, mirroring the code they cover.
+4. Is it a test? Put template regression tests under `tests/**/mystic_auth/` and downstream feature tests under `tests/**/app/`, mirroring the code they cover. Some reference-app tests shipped with this template predate a downstream split and may already live under `tests/**/app/`; identify those from the upstream baseline rather than treating every inherited test as downstream product code. If such a test hard-codes a configurable default, fix the test upstream and keep the downstream product configuration unchanged.
 
 There is one deliberate bridge: the reusable default-policy hook reads `app.core.settings.app_settings` so a downstream project can configure `DEFAULT_APP_POLICIES` without editing MysticAuth auth flows. Treat that as an extension point, not as permission to add product fields to `backend/mystic_auth/core/settings.py`.
 

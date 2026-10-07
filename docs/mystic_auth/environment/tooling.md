@@ -46,6 +46,7 @@ flowchart TD
    - Skips a file missing a given key rather than adding it. Prints a numbered table (`Field` / `Updated: Yes|No`), never the values themselves.
 2. **`check-env/check-env.sh`**: preflight check for a real env file, run before starting local-prod or prod.
    - Fails if `ENVIRONMENT=production` but a secret still equals its shipped placeholder.
+   - Fails if production backup encryption is blank, or if `BACKUP_UPLOAD_COMMAND` is blank or does not reference `$DUMP_FILE`.
    - Warns on a remaining `<your_...>` placeholder or a host port already bound by something else.
    - Never writes anything.
 3. **`rotate-secrets/rotate-secrets.sh`**: regenerates `SECRET_KEY` and/or `BUGSINK_SECRET_KEY` in place - the only two secrets safe to change by editing the file alone.

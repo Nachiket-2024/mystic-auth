@@ -81,8 +81,10 @@ Production-shaped frontend values are baked into the static bundle by `docker/my
 
 `scripts/mystic_auth/env-tools/check-env/check-env.sh <file>` (`.ps1`/`.cmd`) automates the part
 of this review a script can check: it fails if `ENVIRONMENT=production` but
-a secret still equals the shipped placeholder, and warns on remaining
-`<your_...>` placeholders or a host port already bound by something else.
+a secret still equals the shipped placeholder, or the required backup key/upload
+command is blank or the upload command does not reference `$DUMP_FILE`; it warns
+on remaining `<your_...>` placeholders or a host port already bound by
+something else.
 Run it before `up`, then review the rest of this list by hand:
 
 Review these settings before sharing a production-shaped deployment:

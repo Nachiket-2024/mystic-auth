@@ -74,6 +74,23 @@ for f in "${FILES[@]}"; do
         HAS_ERROR=1
       fi
     done
+
+    backup_key_line="$(grep -m1 '^BACKUP_ENCRYPTION_KEY=' "$f" || true)"
+    backup_key="${backup_key_line#BACKUP_ENCRYPTION_KEY=}"
+    if [ -z "$backup_key_line" ] || [ -z "$backup_key" ]; then
+      echo "  ERROR: BACKUP_ENCRYPTION_KEY is blank, but ENVIRONMENT=production. Set a high-entropy key before starting backups."
+      HAS_ERROR=1
+    fi
+
+    backup_upload_line="$(grep -m1 '^BACKUP_UPLOAD_COMMAND=' "$f" || true)"
+    backup_upload="${backup_upload_line#BACKUP_UPLOAD_COMMAND=}"
+    if [ -z "$backup_upload_line" ] || [ -z "$backup_upload" ]; then
+      echo "  ERROR: BACKUP_UPLOAD_COMMAND is blank, but ENVIRONMENT=production. Set a command that uploads the encrypted dump and its .hmac sidecar off-host. The command must reference \$DUMP_FILE."
+      HAS_ERROR=1
+    elif ! printf '%s' "$backup_upload" | grep -q 'DUMP_FILE'; then
+      echo "  ERROR: BACKUP_UPLOAD_COMMAND must reference \$DUMP_FILE so the backup hook uploads the generated dump (and its .hmac sidecar)."
+      HAS_ERROR=1
+    fi
   fi
 
   placeholders="$(grep -oE '<your[a-z_-]*>|<your-domain>' "$f" | sort -u || true)"

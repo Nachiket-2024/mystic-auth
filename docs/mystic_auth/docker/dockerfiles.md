@@ -18,6 +18,16 @@
   - `builder` (compiles the production bundle; takes `VITE_API_BASE_URL`/`VITE_APP_NAME`/`VITE_SENTRY_DSN`/`VITE_SENTRY_ENVIRONMENT` as build args, since this stage has no bind-mounted `frontend/.env` to read them from the way `dev` does: wired from that mode's `env/` file via each production-style Compose file's `build.args`, see [Deployment Guide](../deployment/environment.md#5-required-production-review)).
   - `production` (`nginx:stable-alpine`, `apk upgrade`d for the same reason as the backend's above, serving the static build as a non-root `nginx` user, port 80, `HEALTHCHECK` via `wget`).
 
+- **`docker/mystic_auth/dockerfiles/db-backup.Dockerfile`**: a separate
+  production-only image based on the pinned Postgres 15 Alpine image. It
+  compiles a checksum-pinned rclone release with a current Go toolchain, adds
+  only `curl`, OpenSSL, CA certificates, `su-exec`, and the backup helper
+  scripts, then runs the backup loop as UID/GID 10001. The Compose entrypoint
+  briefly starts as root only when it needs to normalize a bind-mounted backup
+  directory, then drops privileges. CI builds, scans, and generates an SBOM
+  for this image separately because its Postgres/rclone dependency surface is
+  independent of the backend and frontend images.
+
 Both `runtime` and `production` re-run their package-manager upgrade on every build rather than pinning to a snapshot, so a rebuild always picks up whatever Alpine security patches have been published since the base image tag was last republished, rather than waiting on the next `python`/`nginx` tag release.
 - **`docker/mystic_auth/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, and `Strict-Transport-Security`). Sends HSTS itself, unlike the backend's own copy of this header set which gates it on `ENVIRONMENT == "production"`: this stage only ever ships in a production-shaped deployment, so it can send it unconditionally, and needs to since the local-prod-ngrok/cloudflare/tailscale tunnel modes have no other layer in front of it that would (see [Security Hardening: HTTP Layer](../security/hardening-http.md#security-response-headers)).
 - **`.dockerignore`** (repo root: the build context for both Dockerfiles above is `.`, not `backend/`/`frontend/` individually, so its patterns are written relative to the repo root): excludes `backend/logs/` (real local request logs, previously leaking into the backend image: a real bug, not a hypothetical one, see [Security Decisions](../security/decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images)) and `**/`-recursive patterns for `__pycache__/`/`*.pyc`/`.pytest_cache/` (bare patterns without the `**/` prefix looked like they should already match at any depth but empirically didn't).
@@ -26,9 +36,9 @@ Both `runtime` and `production` re-run their package-manager upgrade on every bu
 
 ## Why `frontend` sets `pull_policy: build`
 
-- `frontend` is the only service in any of the five compose files with both `image:` (`mystic-auth-dev-frontend` / `mystic-auth-local-prod-cloudflare-frontend` / `mystic-auth-local-prod-ngrok-frontend` / `mystic-auth-local-prod-tailscale-frontend` / `mystic-auth-prod-frontend`, one per file so building one never overwrites another's image) and `build:` set.
+- `frontend` is the only service in any of the five compose files with both `image:` (`${COMPOSE_PROJECT_NAME}-frontend`, one per Compose project so building one never overwrites another's image) and `build:` set. The shipped env examples provide the mode specific default project names.
 - Every other service either only has `build:` (nothing to pull) or only has `image:` (postgres, valkey, bugsink, genuinely pulled from a registry).
-- Without `pull_policy: build`, Compose attempts a pull of `image:` first on every run, which always fails (`pull access denied for mystic-auth-dev-frontend, repository does not exist`) since these tags are never published, before falling back to building anyway. Harmless but noisy on every startup.
+- Without `pull_policy: build`, Compose attempts a pull of `image:` first on every run. That pull fails because these local tags are not published, before Compose falls back to building. This is harmless but noisy on every startup.
 - `pull_policy: build` skips straight to building.
 
 ---

@@ -13,6 +13,15 @@ dependency in this workflow can only read the checkout.
 There are seven independent jobs. The first six run on every push and PR. The
 seventh runs only on a push to `main`.
 
+For local parity, run the Bash/Linux-equivalent jobs from the repository's
+normal development shell, run the `windows-tooling` command from native
+Windows PowerShell, and run `docker-full-suite` against a disposable Compose
+project. WSL2 can run the Linux and Docker checks, but it is not a substitute
+for the Windows runner when validating PowerShell behavior. If a host lacks
+the Windows runner, browser dependencies, production credentials, or another
+GitHub-hosted capability, record that exact limitation instead of calling the
+entire workflow passed.
+
 ---
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
@@ -24,7 +33,7 @@ flowchart TD
     Trigger --> Secrets["secrets-scan\n gitleaks,\n full git history"]
     Trigger --> Tooling["tooling-tests\n path-lint scripts,\n env-tools + upstream-sync\n regression suites"]
     Trigger --> Windows["windows-tooling\n PowerShell setup-env\n regression suite"]
-    Trigger --> DockerBuild["docker-build,\n build both images,\n boot + seed the dev stack,\n restore-drill, browser E2E"]
+    Trigger --> DockerBuild["docker-build,\n build and scan runtime images,\n boot + seed the dev stack,\n restore-drill, browser E2E"]
     DockerBuild ~~~ TriggerMain
     TriggerMain --> DockerFullSuite["docker-full-suite\n full backend + frontend suites,\n run inside the actual containers"]
     linkStyle default stroke:#334155,stroke-width:2px
@@ -75,31 +84,49 @@ flowchart TD
 
 ---
 
-### `tooling-tests`: Tooling regression tests (env-tools, upstream-sync, script/split paths)
+### `tooling-tests`: Tooling regression tests (paths, env, sync, Compose hardening)
 
 - Runs `tests/scripts/mystic_auth/lint/check-script-paths.sh` and
   `check-split-paths.sh`: no live stack needed, just static path resolution
   against the checked-out tree. Added after a stale path in `quickstart.sh`
   broke the README's own first command; together they've since caught 30+
   further stale-path instances the same way.
+- Runs `tests/scripts/mystic_auth/lint/check-image-digests.sh`: asserts
+  every `@sha256:...`-pinned image in `docker/{mystic_auth,app}/compose/*.yml`
+  is a syntactically valid 64-character digest. Added after a 2026-10-05
+  security audit found a one-character-short digest on the `geoipupdate`
+  image, copy-pasted into all four production-shaped compose files, that
+  failed `docker pull` outright on a clean host (`docker compose config`
+  does not validate digest length, only that the field parses as a string).
+- Runs `check-log-rotation.sh`, `check-ci-action-pinning.sh`, and
+  `check-readonly-rootfs.sh` to enforce bounded Compose logs, immutable CI
+  action references, and read-only root filesystems for production-shaped
+  services. These are static checks; they do not replace a live container
+  smoke test.
 - Runs the env-tools regression suite
-  (`tests/scripts/mystic_auth/env-tools/test-env-tooling.sh`) and the
+  (`tests/scripts/mystic_auth/env-tools/test-env-tooling.sh`), the
   upstream-sync regression suite
-  (`tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh`), both
-  against a throwaway copy of the relevant files under a temp directory, never
-  this repo's own real env files.
+  (`tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh`), and the
+  backup-freshness regression suite
+  (`tests/scripts/mystic_auth/db/test-backup-freshness.sh`), all against a
+  throwaway copy of the relevant files under a temp directory, never this
+  repo's own real env files.
 
 ---
 
 ### `docker-build`: Docker image build verification
 
-- Builds `docker/mystic_auth/dockerfiles/backend.Dockerfile` and `docker/mystic_auth/dockerfiles/frontend.Dockerfile --target production` to confirm both images still build cleanly.
-- Generates pinned-tool SPDX JSON SBOMs from the exact `backend:ci` and
-  `frontend:ci` images that were just built. The artifacts include the image
-  runtime contents and are uploaded for 90 days with a manifest containing the
-  commit and local image IDs they describe. The frontend report is intentionally
-  nginx-only: Node/npm build dependencies are not present in the shipped image.
-  The step validates that both SBOMs are non-empty before upload. It does not
+- Builds the backend runtime, frontend production, and `db-backup` images. The
+  backup image is a separate dependency surface built from
+  `docker/mystic_auth/dockerfiles/db-backup.Dockerfile`; it is not covered by
+  the backend image build even though it runs database tooling.
+- Scans all three built images with Trivy for unfixed critical/high
+  vulnerabilities, then generates SPDX JSON SBOMs from those exact images.
+  The artifacts include the image runtime contents and are uploaded for 90
+  days with a manifest containing the commit and local image IDs they
+  describe. The frontend report is intentionally nginx-only: Node/npm build
+  dependencies are not present in the shipped image. The step validates that
+  all three SBOMs are non-empty before upload. It does not
   claim image signing or provenance attestation; those require a registry
   publish/signing workflow and remain outside this template's deployment scope.
 - Validates all five modes' Compose file pairs (`docker/mystic_auth/compose/` + `docker/app/compose/`) parse: `docker-compose.dev.yml`, `docker-compose.local-prod-cloudflare.yml`, `docker-compose.local-prod-ngrok.yml`, `docker-compose.local-prod-tailscale.yml`, and `docker-compose.prod.yml`.
@@ -172,7 +199,7 @@ flowchart TD
 - A backup restore drill: dumps the real database, restores it into a disposable scratch database, and checks the schema and a real table came back intact, not just that a dump file exists.
 - A deterministic backup-freshness regression suite covering missing, stale, empty, and fresh backup artifacts.
 - Path-lint scripts (stale `scripts/`/`local-scripts/` path references, stale pre-split `docker`/`env`/`scripts` references) and the env-tools/upstream-sync regression suites, all against throwaway copies, never this repo's own real files.
-- Both Docker images still build, and (on every PR) the actual dev compose stack boots and serves traffic.
+- All three runtime images build and pass the CI vulnerability scan, and (on every PR) the actual dev compose stack boots and serves traffic.
 - Every built runtime image has a validated SPDX JSON SBOM retained as a CI artifact, tied to the commit and local image ID used to generate it.
 - On every push to `main`: the entire backend + frontend test suites, re-run a second time inside the real containers rather than a bare runner. Pushes to `develop` run the native validation jobs without this duplicate container pass.
 - Dependency vulnerability scanning on every push/PR: `pip-audit` (backend, blocking) and `npm audit --audit-level=high` (frontend, blocking). There is no scheduled/automated dependency-update bot in this repo; dependency bumps are a manual, deliberate action (see the header comment in `backend/requirements.txt`), not something that opens PRs on its own.
@@ -218,8 +245,10 @@ gitleaks detect --source . -v
 # Tooling regression tests (from repo root; no live stack needed)
 tests/scripts/mystic_auth/lint/check-script-paths.sh
 tests/scripts/mystic_auth/lint/check-split-paths.sh
+tests/scripts/mystic_auth/lint/check-image-digests.sh
 tests/scripts/mystic_auth/env-tools/test-env-tooling.sh
 tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh
+tests/scripts/mystic_auth/db/test-backup-freshness.sh
 
 # Docker image builds (from repo root)
 docker build --target runtime -f docker/mystic_auth/dockerfiles/backend.Dockerfile -t backend:local .

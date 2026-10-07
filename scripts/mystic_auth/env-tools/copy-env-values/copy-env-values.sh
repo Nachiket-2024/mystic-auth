@@ -66,6 +66,7 @@ is_excluded() {
 
 copied=()
 not_in_new=()
+preserved_new_defaults=()
 
 tmp="$(mktemp)"
 cp "$NEW_FILE" "$tmp"
@@ -79,6 +80,16 @@ while IFS= read -r line || [ -n "$line" ]; do
   value="${line#*=}"
 
   is_excluded "$key" && continue
+
+  # Keep a newly introduced production default when the old env file is blank.
+  if [ "$key" = "BACKUP_UPLOAD_COMMAND" ] && [ -z "$value" ]; then
+    new_line="$(grep -m1 "^${key}=" "$tmp" || true)"
+    new_value="${new_line#*=}"
+    if [ -n "$new_line" ] && [ -n "$new_value" ]; then
+      preserved_new_defaults+=("$key")
+      continue
+    fi
+  fi
 
   if grep -q "^${key}=" "$tmp"; then
     awk -v key="$key" -v val="$value" '
@@ -131,3 +142,6 @@ fi
 
 echo
 echo "Not copied on purpose (freshly generated/prompted by setup-env): ${EXCLUDED_KEYS[*]}"
+if [ "${#preserved_new_defaults[@]}" -gt 0 ]; then
+  echo "Preserved non-blank defaults because the old value was blank (review): ${preserved_new_defaults[*]}"
+fi

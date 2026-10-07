@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from uuid import uuid4
 
 from ..audit_log.audit_log_service import SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED
+from ..auth.token_logic.jwt_service import jwt_service
 from ..core.settings import settings
 from ..error_monitoring.sentry_service import capture_security_alert
 from ..logging.logging_config import get_logger
@@ -190,7 +191,7 @@ async def publish_permissions_changed(email: str) -> None:
 
 
 async def session_event_stream(
-    email: str, client_ip: str = "unknown", lease_token: str | None = None
+    email: str, client_ip: str = "unknown", lease_token: str | None = None, access_token: str | None = None
 ) -> AsyncIterator[str]:
     """
     Yields Server-Sent-Events-formatted lines on `email`'s own channel
@@ -224,6 +225,18 @@ async def session_event_stream(
     with the client racing to reconnect the whole time. These fire at most
     once per _MAX_CONNECTION_SECONDS, or once, ever, per process shutdown -
     ordinary long-lived connections are unaffected in between.
+
+    `access_token` (optional, passed by the route) is re-verified on every
+    heartbeat cycle (at most once per _HEARTBEAT_SECONDS): without this, a
+    connection opened with a valid token stayed open and kept its lease/
+    pubsub slot for up to _MAX_CONNECTION_SECONDS even after that token was
+    revoked mid-connection (logout-all, password change, a targeted
+    revoke). The channel only ever carries a generic "something changed, go
+    check" signal, never session/permission data, so the leaked-slot/stale-
+    connection gap was defense-in-depth, not a data exposure - this closes
+    it anyway rather than relying solely on the hard cap. None (no token
+    passed, e.g. in a test that constructs the generator directly) skips
+    the check, matching the old behavior.
     """
     owns_lease = lease_token is None
     if owns_lease:
@@ -283,6 +296,14 @@ async def session_event_stream(
             message = get_message_task.result()
 
             if message is None:
+                if access_token is not None and await jwt_service.verify_token(access_token, "access") is None:
+                    # The token that opened this connection is no longer
+                    # valid (revoked, expired, version-bumped). End the
+                    # stream instead of sending another heartbeat;
+                    # EventSource reconnects on its own and the route's own
+                    # GET /auth/session-events auth check rejects the
+                    # reconnect if the client has nothing valid left either.
+                    return
                 # Nothing arrived within the heartbeat window: a comment
                 # line (SSE ignores lines starting with ":"), not a real
                 # event, purely to keep the connection alive.

@@ -5,6 +5,7 @@
 # and account-setup helpers as test_user_list_and_update_integration.py.
 import csv
 import io
+import uuid
 
 import pytest
 
@@ -124,6 +125,44 @@ async def test_export_neutralizes_csv_formula_injection_in_name(client, created_
     name_col_index = header.index("name")
     assert len(data_rows) == 1
     assert data_rows[0][name_col_index] == f"'{payload_name}"
+
+
+@pytest.mark.asyncio
+async def test_export_neutralizes_csv_formula_injection_in_email(client, created_emails):
+    """F-001: EmailStr's RFC 5322 local-part allows a leading "=", "+",
+    "-", or "@" (unlike name, there's no app-level charset restriction
+    stopping it either), so a self-registered account can land a formula
+    trigger in the email column too. Must get the same `_csv_safe`
+    treatment as name, or opening the export in Excel/Sheets/LibreOffice
+    runs it as a live formula (OWASP CSV Injection)."""
+    admin_email = unique_email("admin")
+    await create_admin(client, created_emails, admin_email)
+
+    # Still unique per run (uuid in the local-part after the trigger char)
+    # without going through unique_email(), whose fixed prefix would land
+    # after the "=" and defeat the point of this test.
+    unique_part = uuid.uuid4().hex
+    target_email = f"=1+1-{unique_part}@example.com"
+    signup_resp = await client.post(
+        "/auth/signup", json={"name": "CSV Email Test", "email": target_email, "password": PASSWORD}
+    )
+    assert signup_resp.status_code == 200
+    created_emails.append(target_email)
+    token = await account_verification_service.create_verification_token(target_email)
+    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    verify_resp = await client.post("/auth/verify-account", json={"token": token})
+    assert verify_resp.status_code == 200
+    await assign_policies(target_email, [SELF_SERVICE_POLICY_NAME])
+
+    await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
+    resp = await client.get("/users/export", params={"search": unique_part})
+
+    assert resp.status_code == 200
+    rows = list(csv.reader(io.StringIO(resp.text)))
+    header, *data_rows = rows
+    email_col_index = header.index("email")
+    assert len(data_rows) == 1
+    assert data_rows[0][email_col_index] == f"'{target_email}"
 
 
 @pytest.mark.asyncio

@@ -15,13 +15,28 @@ define which boundary is authoritative and which checks are informational.
 - `tests/scripts/mystic_auth/env-tools/test-env-tooling.sh` verifies
   environment-tool behavior and safe handling of configured values.
 - `tests/scripts/mystic_auth/db/test-restore-drill.sh` verifies disposable
-  database restore-drill behavior and cleanup.
+  database restore-drill behavior and cleanup, including a configured
+  project-specific `POSTGRES_USER` rather than a hardcoded `postgres` role.
 - `tests/scripts/mystic_auth/lint/check-script-paths.sh` verifies repository
   path references in scripts and tests remain resolvable.
 - `tests/scripts/mystic_auth/lint/check-split-paths.sh` verifies split-file
   references and generated paths remain usable.
+- `tests/scripts/mystic_auth/lint/check-image-digests.sh` verifies every
+  `@sha256:...`-pinned image digest in `docker/{mystic_auth,app}/compose/*.yml`
+  is a syntactically valid 64-character digest, so a malformed pin fails CI
+  instead of `docker pull`/`docker compose up` on a clean host.
+- `tests/scripts/mystic_auth/lint/check-log-rotation.sh` verifies every
+  Compose service sets bounded `json-file` log rotation.
+- `tests/scripts/mystic_auth/lint/check-ci-action-pinning.sh` verifies every
+  third-party GitHub Actions reference uses a commit SHA instead of a mutable
+  tag.
+- `tests/scripts/mystic_auth/lint/check-readonly-rootfs.sh` verifies the
+  production-shaped services declare `read_only: true`; services that need a
+  writable location use an explicit volume or tmpfs instead.
 - `tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh` verifies
   upstream synchronization checks and safe handling of changed files.
+- `tests/scripts/mystic_auth/db/test-backup-freshness.sh` verifies the
+  backup-freshness check script correctly flags a stale or missing backup.
 
 ---
 

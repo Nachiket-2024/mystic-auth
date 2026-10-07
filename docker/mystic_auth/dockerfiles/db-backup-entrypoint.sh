@@ -10,4 +10,4 @@ fi
 
 mkdir -p /backups
 chown 10001:10001 /backups
-exec gosu 10001:10001 "$@"
+exec su-exec 10001:10001 "$@"

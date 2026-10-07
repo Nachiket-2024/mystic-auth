@@ -1,4 +1,5 @@
 import json
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -126,6 +127,39 @@ async def test_correct_password_is_still_rejected_once_locked(mocker):
     response = await login_handler.handle_login(email="test@example.com", password="Test123!")
 
     assert response.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_new_lockout_emits_one_real_time_security_alert(mocker):
+    mocker.patch(
+        "backend.mystic_auth.auth.login.login_handler.login_protection_service.is_locked",
+        return_value=False,
+    )
+    mocker.patch(
+        "backend.mystic_auth.auth.login.login_handler.login_protection_service.check_and_record_action",
+        return_value=False,
+    )
+    mocker.patch(
+        "backend.mystic_auth.auth.login.login_handler.login_service.login",
+        return_value=None,
+    )
+    alert_mock = mocker.patch(
+        "backend.mystic_auth.auth.login.login_handler.capture_security_alert",
+        new_callable=AsyncMock,
+    )
+
+    response = await login_handler.handle_login(email="victim@example.com", password="wrong-password")
+
+    assert response.status_code == 429
+    alert_mock.assert_awaited_once_with(
+        "account_locked",
+        metadata={
+            "lock_scope": "account",
+            "target_email": "victim@example.com",
+            "source_ip": "unknown",
+            "request_id": "",
+        },
+    )
 
 
 @pytest.mark.asyncio

@@ -21,9 +21,8 @@ def _decode(token: str) -> dict:
 
 
 def _mock_no_versions(mocker):
-    """Valkey GET always returns None: every version check reads as 0 (never
-    revoked), the default state for a fresh account/chain."""
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
+    """A fresh account/chain reads version zero from the durable store."""
+    mocker.patch.object(jwt_service, "get_token_versions", new_callable=AsyncMock, return_value=(0, 0))
 
 
 @pytest.mark.asyncio
@@ -53,14 +52,7 @@ async def test_create_access_token_carries_an_iat_claim(mocker):
 
 @pytest.mark.asyncio
 async def test_create_access_token_embeds_current_account_and_chain_versions(mocker):
-    def fake_get(key):
-        if key == "account_ver:user@example.com":
-            return "3"
-        if key == "chain_ver:user@example.com:chain-1":
-            return "5"
-        return None
-
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, side_effect=fake_get)
+    mocker.patch.object(jwt_service, "get_token_versions", new_callable=AsyncMock, return_value=(3, 5))
 
     token = await jwt_service.create_access_token(email="user@example.com", chain_id="chain-1")
 

@@ -1,6 +1,9 @@
 import traceback
 
+from sqlalchemy import text
+
 from ...core.settings import settings
+from ...database.connection import database
 from ...logging.logging_config import get_logger
 from ...valkey.client import valkey_client
 
@@ -8,92 +11,113 @@ logger = get_logger(__name__)
 
 
 class TokenVersionUnavailableError(Exception):
-    """Raised by bump_account_version/bump_chain_version's callers when a
-    version bump could not be confirmed (Valkey unreachable). A revoke that
-    cannot bump the version has not actually revoked anything - every
-    existing token still matches - so this must never be swallowed into a
-    silent "it worked" the way a stale-version read safely can be."""
+    """Raised when the durable revocation version cannot be committed/read."""
 
 
-# Valkey key for a user's account-wide token version (see jwt_service.py's
-# create_access_token/create_refresh_token). Bumping it is "logout
-# everywhere" in one atomic INCR, no per-token bookkeeping. Never expires:
-# it must keep meaning the same thing for as long as the account exists.
+# These are also used as Valkey cache keys. Postgres is the authority.
 ACCOUNT_VERSION_KEY = "account_ver:{email}"
-
-# Valkey key for one login's version, scoped to its chain_id (see
-# jwt_service.py's create_refresh_token). TTL'd to the refresh-token
-# lifetime on bump: past that, nothing could still validly use this
-# chain_id, so the key can expire instead of accumulating forever.
 CHAIN_VERSION_KEY = "chain_ver:{email}:{chain_id}"
 
 
 class TokenVersionStore:
+    """Durable account/chain token-version bookkeeping.
+
+    Revocation versions live in Postgres so a cache restart, eviction, or
+    operator FLUSHALL cannot resurrect a token. Valkey is refreshed only as a
+    best-effort cache and is never consulted for an authorization decision.
     """
-    Valkey-backed account/chain token-version bookkeeping that
-    jwt_service.py's revocation checks (is_current_version) and every
-    revoke-everything/revoke-one-session caller (RefreshTokenService,
-    SessionService) read and bump. Split out of jwt_service.py, which owns
-    JWT encode/decode/verify itself but delegates every version read/bump to
-    this class.
-    """
+
+    async def _get_version(self, key: str) -> int:
+        async with database.async_session() as session:
+            result = await session.execute(
+                text("SELECT version FROM token_revocation_versions WHERE key = :key"),
+                {"key": key},
+            )
+            row = result.first()
+            return int(row[0]) if row is not None else 0
+
+    async def get_versions(self, email: str, chain_id: str) -> tuple[int, int]:
+        """Read account and chain versions using one database connection."""
+        account_key = ACCOUNT_VERSION_KEY.format(email=email)
+        chain_key = CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id)
+        try:
+            async with database.async_session() as session:
+                result = await session.execute(
+                    text(
+                        "SELECT key, version FROM token_revocation_versions "
+                        "WHERE key IN (:account_key, :chain_key)"
+                    ),
+                    {"account_key": account_key, "chain_key": chain_key},
+                )
+                versions = {str(row.key): int(row.version) for row in result}
+                return versions.get(account_key, 0), versions.get(chain_key, 0)
+        except Exception as error:
+            logger.error(
+                "Failed to read durable token versions for %s/%s:\n%s",
+                email,
+                chain_id,
+                traceback.format_exc(),
+            )
+            raise TokenVersionUnavailableError("durable token revocation store unavailable") from error
+
+    async def _bump_version(self, key: str) -> int:
+        async with database.async_session() as session:
+            result = await session.execute(
+                text(
+                    "INSERT INTO token_revocation_versions (key, version) VALUES (:key, 1) "
+                    "ON CONFLICT (key) DO UPDATE SET version = token_revocation_versions.version + 1, "
+                    "updated_at = now() RETURNING version"
+                ),
+                {"key": key},
+            )
+            version = int(result.scalar_one())
+            await session.commit()
+            return version
+
+    async def _cache_version(self, key: str, version: int, *, ttl: int | None = None) -> None:
+        """Refresh cache after commit; cache failure must not undo revocation."""
+        try:
+            await valkey_client.set(key, version)
+            if ttl is not None:
+                await valkey_client.expire(key, ttl)
+        except Exception:
+            logger.warning("Failed to refresh token-version cache for %s:\n%s", key, traceback.format_exc())
 
     async def get_account_version(self, email: str) -> int:
-        """Current account-wide version, 0 if it has never been bumped
-        (i.e. this account has never had a whole-account revoke)."""
         try:
-            raw = await valkey_client.get(ACCOUNT_VERSION_KEY.format(email=email))
-            return int(raw) if raw is not None else 0
-        except Exception:
-            logger.warning("Failed to read account version for %s:\n%s", email, traceback.format_exc())
-            return 0
+            return await self._get_version(ACCOUNT_VERSION_KEY.format(email=email))
+        except Exception as error:
+            logger.error("Failed to read durable account version for %s:\n%s", email, traceback.format_exc())
+            raise TokenVersionUnavailableError("durable account revocation store unavailable") from error
 
     async def get_chain_version(self, email: str, chain_id: str) -> int:
-        """Current version for one chain, 0 if it has never been bumped
-        (i.e. this specific session has never been individually revoked)."""
         try:
-            raw = await valkey_client.get(CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id))
-            return int(raw) if raw is not None else 0
-        except Exception:
-            logger.warning(
-                "Failed to read chain version for %s/%s:\n%s", email, chain_id, traceback.format_exc()
+            return await self._get_version(CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id))
+        except Exception as error:
+            logger.error(
+                "Failed to read durable chain version for %s/%s:\n%s", email, chain_id, traceback.format_exc()
             )
-            return 0
+            raise TokenVersionUnavailableError("durable chain revocation store unavailable") from error
 
     async def bump_account_version(self, email: str) -> bool:
-        """The whole-account revoke: logout-all, password change, account
-        deactivation/purge, and reuse-detection on a token with no chain
-        claim of its own (unknown lineage, so the maximally-safe response).
-        Every token on the account, minted before this call, stops
-        matching on its very next use.
-
-        Returns True once the bump is confirmed, False if Valkey could not
-        be reached. Callers must treat False as "nothing was revoked", not
-        as success - see TokenVersionUnavailableError."""
         try:
-            await valkey_client.incr(ACCOUNT_VERSION_KEY.format(email=email))
+            key = ACCOUNT_VERSION_KEY.format(email=email)
+            version = await self._bump_version(key)
+            await self._cache_version(key, version)
             return True
         except Exception:
-            logger.warning("Failed to bump account version for %s:\n%s", email, traceback.format_exc())
+            logger.error("Failed to bump durable account version for %s:\n%s", email, traceback.format_exc())
             return False
 
     async def bump_chain_version(self, email: str, chain_id: str) -> bool:
-        """The single-session revoke: logout (this device only), a
-        targeted Manage Sessions "End session", and reuse-detection scoped
-        to the compromised chain specifically. Every token sharing this
-        chain_id, minted before this call, stops matching on its next use;
-        every other chain on the account is completely unaffected.
-
-        Returns True once the bump is confirmed, False if Valkey could not
-        be reached - same contract as bump_account_version above."""
         try:
             key = CHAIN_VERSION_KEY.format(email=email, chain_id=chain_id)
-            await valkey_client.incr(key)
-            await valkey_client.expire(key, settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60)
+            version = await self._bump_version(key)
+            await self._cache_version(key, version, ttl=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60)
             return True
         except Exception:
-            logger.warning(
-                "Failed to bump chain version for %s/%s:\n%s", email, chain_id, traceback.format_exc()
+            logger.error(
+                "Failed to bump durable chain version for %s/%s:\n%s", email, chain_id, traceback.format_exc()
             )
             return False
 
