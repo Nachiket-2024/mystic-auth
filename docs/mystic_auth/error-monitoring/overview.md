@@ -193,7 +193,7 @@ provider.
 The URL comes from the receiving system's **incoming webhook**, **generic HTTP
 receiver**, or an internal service owned by your operations team. The token
 comes from that same system when it supports bearer authentication. Ask the
-system administrator for:
+operations owner for:
 
 1. an HTTPS endpoint that accepts `POST` requests with `Content-Type:
    application/json`;

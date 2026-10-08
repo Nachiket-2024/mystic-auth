@@ -77,7 +77,7 @@ const BulkUserAccessDialog: React.FC<Props> = ({ isOpen, userEmails, initialTab 
 
   useEffect(() => { if (isOpen) setTab(initialTab); }, [isOpen, initialTab]);
   // Initialize the groups once per dialog data lifecycle. A catalog refresh
-  // must not reopen a group the administrator deliberately collapsed while
+  // must not reopen a group the permission holder deliberately collapsed while
   // selecting permissions.
   const initializedCatalogRef = useRef(false);
   useEffect(() => {
@@ -93,7 +93,7 @@ const BulkUserAccessDialog: React.FC<Props> = ({ isOpen, userEmails, initialTab 
     }
   }, [isOpen]);
   // Keep the selection/configuration dialog intact and present the per-user
-  // outcomes in a separate dialog. This gives administrators a focused
+  // outcomes in a separate dialog. This gives permission holders a focused
   // report without losing the operation context underneath.
   useEffect(() => { if (result) setResultOpen(true); }, [result]);
 

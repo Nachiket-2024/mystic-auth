@@ -2,7 +2,7 @@
 
 ---
 
-This is the current repository tree as of 8 October, 2026. It reflects the established
+This is the current repository tree as of 9 October, 2026. It reflects the established
 `app/` and `mystic_auth/` ownership split, the PBAC implementation, the shadcn/Radix frontend,
 the separated test suites, the five Docker deployment modes, and the exact template extension
 points. Generated files, local secrets, build output, and test caches are omitted.
@@ -14,6 +14,7 @@ mystic-auth/
       versions/
         a7b8c9d0e1f2_add_durable_token_revocation_versions.py
         f1a2b3c4d5e6_add_account_lifecycle_outbox.py
+        f4a1c2e8b7d6_normalize_user_lifecycle_permission.py
     app/                        # thin, project-owned shell
       main.py
       sdk.py
@@ -162,6 +163,8 @@ mystic-auth/
             shared_components.test.tsx
         integration/
         e2e/
+          performance/
+            management_responsiveness_browser.spec.ts
     scripts/                     # script/tooling tests, including host-run port derivation
       mystic_auth/
         db/
@@ -216,8 +219,8 @@ mystic-auth/
       upstream-sync/
   local-scripts/
     app/                         # project-owned local scripts
-      seed-user-permission-matrix.py
     mystic_auth/                 # upstream local scripts
+      seed-user-permission-matrix.py
       dev/
       local-prod-cloudflare/
       local-prod-ngrok/
@@ -258,7 +261,11 @@ mystic-auth/
     mystic_auth/                 # upstream screenshots
   .github/
     workflows/
-      ci.yml
+  ci/
+    app/                          # project-owned CI entry points and checks
+      backend.sh / frontend.sh / frontend-e2e.sh
+    mystic_auth/                  # upstream CI entry points and tooling guards
+      backend.sh / frontend.sh / frontend-e2e.sh / tooling.sh / tooling.ps1
     PULL_REQUEST_TEMPLATE.md
   makefiles/
     app/                         # project-owned make/make.ps1 targets, ships empty

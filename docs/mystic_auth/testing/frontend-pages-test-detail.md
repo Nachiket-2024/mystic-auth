@@ -51,7 +51,7 @@ and accessibility behavior.
 - `users_page_access_dialog_policy_actions.test.tsx` covers action-level policy
   mutation and follow-up state.
 - `users_page_access_dialog_self_protection.test.tsx` covers protection against
-  removing the current administrator's own required access.
+  removing the current caller's own required access.
 - `users_page_bulk_actions.test.tsx` covers selection, confirmation, success,
   partial failure, and list refresh.
 - `users_page_bulk_permission_actions.test.tsx` covers bulk direct grants and

@@ -6,9 +6,9 @@
 # line 1 for every new user. Nothing caught that until someone actually ran
 # it by hand.
 #
-# Scans every script (.sh/.ps1/.cmd/.bat), every Makefile (root and
-# makefiles/*/), and every doc (.md) for a path token containing
-# `scripts/` or `local-scripts/` and ending in
+# Scans every CI, script (.sh/.ps1/.cmd/.bat), Makefile (root and
+# makefiles/*/), and doc (.md) for a path token containing `ci/`,
+# `scripts/`, or `local-scripts/` and ending in
 # .sh/.py/.ps1/.cmd/.bat (forward-slash or backslash), and asserts the
 # target file actually exists. Matches the whole contiguous path token
 # (e.g. `backend/mystic_auth/scripts/create_system_user.py`), not just the
@@ -48,7 +48,7 @@ while IFS= read -r -d '' f; do
   esac
   FILES+=("$f")
 done < <(
-  find scripts local-scripts tests/scripts docs agent-prompts makefiles -type f \
+  find ci scripts local-scripts tests/scripts docs agent-prompts makefiles -type f \
     \( -name "*.sh" -o -name "*.ps1" -o -name "*.cmd" -o -name "*.bat" -o -name "*.md" -o -name "Makefile" \) \
     -print0
   find . -maxdepth 1 \( -name "*.md" -o -name "Makefile" -o -name "make.ps1" \) -print0
@@ -59,10 +59,10 @@ MISSING=()
 for f in "${FILES[@]}"; do
   while IFS= read -r token; do
     [ -n "$token" ] || continue
-    # Only tokens that actually contain a scripts/ or local-scripts/ path
+#     Only tokens that actually contain a ci/, scripts/, or local-scripts/ path
     # component (forward or backslash) are in scope.
     case "$token" in
-      *scripts/*|*scripts\\*) ;;
+      *ci/*|*ci\\*|*scripts/*|*scripts\\*) ;;
       *) continue ;;
     esac
     normalized="${token#./}"
@@ -86,8 +86,28 @@ while IFS= read -r -d '' f; do
   done < <(grep -oP '^\s*COPY\s+(?!--from)\K\S+' "$f" 2>/dev/null | sort -u)
 done < <(find docker -type f \( -iname "*.Dockerfile" -o -iname "Dockerfile" -o -iname "Dockerfile.*" \) -print0)
 
+# A fresh GitHub checkout invokes CI entry points directly. The filesystem
+# mode may look executable in a local WSL working tree while the Git index
+# still records 100644, which makes the same command fail after checkout.
+NON_EXECUTABLE_SHELL_FILES=()
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  NON_EXECUTABLE_SHELL_FILES+=("$path")
+done < <(
+  git ls-files -s -- '*.sh' \
+    | awk '$1 != "100755" { print $4 }'
+)
+
+if [ "${#NON_EXECUTABLE_SHELL_FILES[@]}" -ne 0 ]; then
+  echo "ERROR: ${#NON_EXECUTABLE_SHELL_FILES[@]} tracked shell script(s) are not executable in the Git index:"
+  printf '  %s\n' "${NON_EXECUTABLE_SHELL_FILES[@]}"
+  echo
+  echo "Run chmod +x on each file, stage the mode change, and re-run this check."
+  exit 1
+fi
+
 if [ "${#MISSING[@]}" -eq 0 ]; then
-  echo "OK: every scripts/local-scripts path reference and Dockerfile COPY source resolves to a real file."
+  echo "OK: every path reference resolves and every tracked shell script is executable in the Git index."
   exit 0
 fi
 

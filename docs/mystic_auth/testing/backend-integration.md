@@ -106,10 +106,10 @@ produce a misleading `403` in an otherwise valid integration test.
 - `user/test_user_account_lifecycle_integration.py` verifies deletion,
   reactivation, and lifecycle permissions across persisted state.
 - `user/test_user_admin_lifecycle_valkey_outage_integration.py` verifies safe
-  admin lifecycle behavior when Valkey is unavailable.
-- `user/test_user_admin_listing_integration.py` verifies admin listing,
+  permission-protected lifecycle behavior when Valkey is unavailable.
+- `user/test_user_admin_listing_integration.py` verifies permission-protected listing,
   filtering, pagination, and effective access data.
-- `user/test_user_admin_management_integration.py` verifies admin profile,
+- `user/test_user_admin_management_integration.py` verifies permission-protected profile,
   role, status, and permission-management operations.
 - `user/test_user_export_integration.py` verifies authorized export contents,
   filtering, and data handling.

@@ -7,7 +7,7 @@ These 27 Playwright specs exercise the application in a real browser. “Mocked�
 means the browser receives deterministic route fixtures. “Real disposable
 account” means the test creates or uses a short-lived account against the local
 stack. “Real seeded accounts” means the test depends on the PBAC matrix seeded
-by `local-scripts/app/seed-user-permission-matrix.py`. “Live” is opt-in.
+by `local-scripts/mystic_auth/seed-user-permission-matrix.py`. “Live” is opt-in.
 
 The CI browser run uses two workers and two retries. Mocked UI and authorization
 checks run in all four browser projects. The real-account matrix runs
@@ -22,6 +22,12 @@ deliberately validating on a larger runner; the browser fixture also accepts
 For a native run without an already booted frontend container, set
 `PLAYWRIGHT_USE_PREVIEW=1` to build once and serve the production bundle via
 Vite preview, avoiding dev-server HMR noise during the browser matrix.
+
+If the browser frontend is served from a non-default host/port, set matching
+`FRONTEND_BASE_URL`/`FRONTEND_ADDITIONAL_BASE_URLS` and `VITE_API_BASE_URL` in
+Compose. The backend must allow the actual browser origin; otherwise a valid
+login is followed by an apparent `/login` redirect and the later audit-log
+layout failure is only a downstream symptom.
 
 ## Persistent local accessibility operator
 
@@ -151,7 +157,7 @@ remove it from the local database when it is no longer needed.
 
 ## Performance and live deployment
 
-- `performance/admin_responsiveness_browser.spec.ts` checks delayed management
+- `performance/management_responsiveness_browser.spec.ts` checks delayed permission-management
   tables, repeated destructive confirmation, filtering, sorting, and browser
   responsiveness in Chromium desktop and mobile. Backend mode: mocked API.
 - `performance/core_web_vitals_browser.spec.ts` is an opt-in Chromium baseline

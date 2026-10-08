@@ -196,3 +196,8 @@ def test_refresh_token_reuse_grace_seconds_defaults_to_ten_when_missing(monkeypa
     settings = Settings(_env_file=None, **payload)
 
     assert settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS == 10
+
+
+def test_secret_key_validation_rejects_short_values():
+    with pytest.raises(ValidationError, match="SECRET_KEY must be at least 32 characters"):
+        Settings(_env_file=None, **{**_ALL_FIELDS, "SECRET_KEY": "too-short"})

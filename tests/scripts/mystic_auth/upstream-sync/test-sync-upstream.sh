@@ -526,13 +526,14 @@ cd "$BASE"
 mkdir own-upstream && cd own-upstream
 git init -q -b main
 git config user.email up@test.com; git config user.name Upstream
-mkdir -p mystic_auth backend/app frontend/src/app tests/backend/app docs/app
+mkdir -p mystic_auth backend/app frontend/src/app tests/backend/app ci/mystic_auth docs/app
 echo "core v1" > mystic_auth/core.py
 echo "main v1" > backend/app/main.py
 echo "sdk v1" > backend/app/sdk.py
 echo "App v1" > frontend/src/app/App.tsx
 echo "sdk v1" > frontend/src/app/sdk.ts
 echo "downstream test v1" > tests/backend/app/test_downstream.py
+echo "template CI v1" > ci/mystic_auth/backend.sh
 echo "readme v1" > docs/app/README.md
 echo "root readme v1" > README.md
 git add -A && git commit -q -m "own-upstream base"
@@ -544,6 +545,7 @@ cp -r "$BASE/own-upstream/mystic_auth" .
 cp -r "$BASE/own-upstream/backend" .
 cp -r "$BASE/own-upstream/frontend" .
 cp -r "$BASE/own-upstream/tests" .
+cp -r "$BASE/own-upstream/ci" .
 cp -r "$BASE/own-upstream/docs" .
 cp "$BASE/own-upstream/README.md" .
 git add -A && git commit -q -m "Initial commit from template"
@@ -551,12 +553,28 @@ install_script "$BASE/own-consumer"
 git add -A && git commit -q -m "Add sync script"
 yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/dev/null 2>&1 || true
 
+# Projects created before the CI split receive the three app entrypoints once.
+cd "$BASE/own-upstream"
+mkdir -p ci/app
+echo "app backend CI v1" > ci/app/backend.sh
+echo "app frontend CI v1" > ci/app/frontend.sh
+echo "app browser CI v1" > ci/app/frontend-e2e.sh
+git add -A && git commit -q -m "upstream: introduce split app CI entrypoints"
+cd "$BASE/own-consumer"
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/dev/null 2>&1 || true
+[ -f ci/app/backend.sh ] || fail "ownership bootstrap: app backend CI entrypoint was not adopted"
+[ -f ci/app/frontend.sh ] || fail "ownership bootstrap: app frontend CI entrypoint was not adopted"
+[ -f ci/app/frontend-e2e.sh ] || fail "ownership bootstrap: app browser CI entrypoint was not adopted"
+pass "ownership bootstrap: pre-split consumer adopted the three app CI entrypoints"
+echo "downstream app CI" > ci/app/custom_checks.sh
+
 # Upstream, after that first sync, commits to a fork-owned path it should
 # never touch again (backend/app/custom_route.py, not one of the extend-in-
 # place exceptions) alongside an innocuous template-owned change.
 cd "$BASE/own-upstream"
 echo "owned by the fork, upstream must not add this" > backend/app/custom_route.py
 echo "upstream must not add this" > tests/backend/app/test_upstream_accident.py
+echo "upstream must not add this" > ci/app/upstream_accident.sh
 echo "template reference test update" >> tests/backend/app/test_downstream.py
 echo "core v2" > mystic_auth/core.py
 echo "root readme v2 -- upstream must not touch this" > README.md
@@ -574,6 +592,8 @@ grep -q "backend/app/custom_route.py" /tmp/own-sync.log || fail "ownership guard
 pass "ownership guard: names the offending path"
 grep -q "tests/backend/app/test_upstream_accident.py" /tmp/own-sync.log || fail "ownership guard: didn't name the downstream test path"
 pass "ownership guard: names downstream test paths"
+grep -q "ci/app/upstream_accident.sh" /tmp/own-sync.log || fail "ownership guard: didn't name the downstream CI path"
+pass "ownership guard: names downstream CI paths"
 [ "$OWN_SYNC_EXIT" -ne 0 ] || fail "ownership guard: sync should have exited non-zero"
 pass "ownership guard: sync exits non-zero"
 [ -z "$(git diff --cached --name-only)" ] || fail "ownership guard: something got staged despite the violation"
@@ -585,6 +605,7 @@ echo "=== Ownership guard: extend-in-place exceptions must NOT be blocked ==="
 cd "$BASE/own-upstream"
 git rm -q backend/app/custom_route.py
 git rm -q tests/backend/app/test_upstream_accident.py
+git rm -q ci/app/upstream_accident.sh
 git commit -q -m "upstream: revert the accidental backend/app/ ship"
 echo "main v2 -- extended in place" > backend/app/main.py
 echo "App v2 -- extended in place" > frontend/src/app/App.tsx

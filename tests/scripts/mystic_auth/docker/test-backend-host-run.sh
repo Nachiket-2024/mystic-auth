@@ -13,8 +13,8 @@ mkdir -p "$TMP/bin" "$TMP/backend" "$TMP/env/mystic_auth" "$TMP/env/app"
 cat > "$TMP/env/mystic_auth/.env.dev" <<'EOF'
 POSTGRES_HOST_PORT=15432
 VALKEY_HOST_PORT=16379
-DATABASE_URL=postgresql+asyncpg://postgres:12345@postgres:5432/mystic_auth
-APP_DATABASE_URL=postgresql+asyncpg://mystic_auth_app:67890@postgres:5432/mystic_auth
+DATABASE_URL=postgresql+asyncpg://postgres:12345@postgres:5432/example_app_db
+APP_DATABASE_URL=postgresql+asyncpg://mystic_auth_app:67890@postgres:5432/example_app_db
 VALKEY_URL=redis://valkey:6379/0
 EOF
 touch "$TMP/env/app/.env.dev"
@@ -27,11 +27,11 @@ EOF
 cat > "$TMP/bin/alembic" <<'EOF'
 #!/usr/bin/env bash
 case "$DATABASE_URL" in
-  postgresql+asyncpg://postgres:12345@localhost:15432/mystic_auth) ;;
+  postgresql+asyncpg://postgres:12345@localhost:15432/example_app_db) ;;
   *) exit 1 ;;
 esac
 case "$APP_DATABASE_URL" in
-  postgresql+asyncpg://mystic_auth_app:67890@localhost:15432/mystic_auth) ;;
+  postgresql+asyncpg://mystic_auth_app:67890@localhost:15432/example_app_db) ;;
   *) exit 1 ;;
 esac
 case "$VALKEY_URL" in

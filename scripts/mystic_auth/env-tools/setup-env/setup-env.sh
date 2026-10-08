@@ -34,10 +34,51 @@ sed_inplace() {
   sed "$1" "$2" > "$tmp" && mv "$tmp" "$2"
 }
 
-read -rp "App name [MysticAuth]: " APP_NAME_INPUT || true
-APP_NAME_INPUT="${APP_NAME_INPUT:-MysticAuth}"
-read -rp "Brand color hex [#b5533c]: " BRAND_COLOR_INPUT || true
-BRAND_COLOR_INPUT="${BRAND_COLOR_INPUT:-#b5533c}"
+env_value_from_file() {
+  local file="$1" key="$2"
+  [ -f "$file" ] || return 0
+  awk -F= -v wanted="$key" '$1 == wanted { sub(/^[^=]*=/, ""); value=$0 } END { print value }' "$file"
+}
+
+configured_value() {
+  local key="$1" value file
+  # During an upstream sync the real env files are temporarily .bak files.
+  # Prefer the app-owned copy, then the MysticAuth copy, so regeneration does
+  # not silently revert a downstream brand or database name to the template
+  # defaults before copy-env-values restores the remaining fields.
+  for file in env/app/.env.dev.bak env/mystic_auth/.env.dev.bak \
+              env/app/.env.dev env/mystic_auth/.env.dev; do
+    value="$(env_value_from_file "$file" "$key")"
+    if [ -n "$value" ]; then
+      printf '%s' "$value"
+      return 0
+    fi
+  done
+}
+
+rewrite_database_urls() {
+  local file="$1" database_name="$2" tmp
+  tmp="$(mktemp)"
+  awk -F= -v db="$database_name" '
+    /^[# ]*(DATABASE_URL|APP_DATABASE_URL)=/ {
+      prefix = substr($0, 1, index($0, "="))
+      url = substr($0, index($0, "=") + 1)
+      sub(/\/[^\/[:space:]#]+$/, "/" db, url)
+      print prefix url
+      next
+    }
+    { print }
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
+APP_NAME_DEFAULT="$(configured_value APP_NAME)"
+APP_NAME_DEFAULT="${APP_NAME_DEFAULT:-MysticAuth}"
+BRAND_COLOR_DEFAULT="$(configured_value BRAND_COLOR)"
+BRAND_COLOR_DEFAULT="${BRAND_COLOR_DEFAULT:-#b5533c}"
+read -rp "App name [$APP_NAME_DEFAULT]: " APP_NAME_INPUT || true
+APP_NAME_INPUT="${APP_NAME_INPUT:-$APP_NAME_DEFAULT}"
+read -rp "Brand color hex [$BRAND_COLOR_DEFAULT]: " BRAND_COLOR_INPUT || true
+BRAND_COLOR_INPUT="${BRAND_COLOR_INPUT:-$BRAND_COLOR_DEFAULT}"
 
 # Optional: the two things nothing else in this script can generate for
 # you. Skippable (default No) since it's fine to fill these in later by
@@ -122,6 +163,15 @@ for pair in "${PAIRS[@]}"; do
     APP_PW="$(gen_secret 24)"
     sed_inplace "s|^APP_DB_PASSWORD=.*|APP_DB_PASSWORD=${APP_PW}|" "$dst"
     sed_inplace "s|mystic_auth_app:change_me_in_production@|mystic_auth_app:${APP_PW}@|g" "$dst"
+  fi
+
+  # The database name is configuration, not a MysticAuth namespace. Keep
+  # every active and commented local DATABASE_URL spelling aligned with the
+  # POSTGRES_DB chosen in this file (including non-default names such as
+  # example_app_db). Password replacement above intentionally remains separate.
+  POSTGRES_DB_VALUE="$(env_value_from_file "$dst" POSTGRES_DB)"
+  if [ -n "$POSTGRES_DB_VALUE" ]; then
+    rewrite_database_urls "$dst" "$POSTGRES_DB_VALUE"
   fi
 
   if grep -q '^SECRET_KEY=' "$dst"; then

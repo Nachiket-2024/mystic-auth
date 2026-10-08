@@ -8,7 +8,7 @@ import {
 
 const FILTER_SETTLE_BUDGET_MS = process.env.CI ? 2500 : 1600;
 
-test.describe("admin responsiveness", () => {
+test.describe("management responsiveness", () => {
   test.beforeEach(async ({ page }) => {
     await installAuthenticatedMysticAuthApiRoutes(page);
   });

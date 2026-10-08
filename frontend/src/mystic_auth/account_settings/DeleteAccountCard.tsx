@@ -19,7 +19,7 @@ interface DeleteAccountCardProps {
 /**
  * DeleteAccountCard
  * ----------------------------
- * Self-service counterpart to the admin "Delete user" action on UsersPage: a
+ * Self-service counterpart to the permission-protected "Delete user" action on UsersPage: a
  * ConfirmDialog step since this is destructive, gated by the same
  * current-password re-confirmation ChangePasswordCard uses when the account
  * has a password. Deliberately soft-delete only, never immediate: the copy

@@ -11,7 +11,7 @@ export interface ManagedUserRead {
     updated_at: string;
     deleted_at: string | null;
     /** Set on every successful sign-in. null means this account has never
-     * signed in (e.g. created by an admin but not yet used). */
+     * signed in (e.g. created by a permission holder but not yet used). */
     last_login_at: string | null;
     has_password: boolean;
     /** Per-user brand color override (#rrggbb). null = using the app

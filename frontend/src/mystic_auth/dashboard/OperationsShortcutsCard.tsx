@@ -132,10 +132,10 @@ const OperationShortcutTile: React.FC<TileProps> = ({ icon, label, value, isLoad
 /**
  * OperationsShortcutsCard
  * ----------------------------
- * Shortcut tiles to the admin areas (Users/Policies/Permissions/Rate Limits/
+ * Shortcut tiles to the permission-protected areas (Users/Policies/Permissions/Rate Limits/
  * Security Events) the current viewer holds permission for - independently,
- * one fine-grained PBAC permission per tile (this app has no admin "role"
- * with special dashboard access; role is profile metadata only, see
+ * one fine-grained PBAC permission per tile (role metadata has no special
+ * dashboard access; it is profile metadata only, see
  * backend/mystic_auth/authorization/permissions.py). A viewer holding none
  * of these five permissions sees no card at all.
  *

@@ -136,21 +136,25 @@ jobs:
         run: pip install --no-cache-dir -r backend/requirements.txt -r backend/requirements-dev.txt
 
       - name: Audit Python dependencies for known vulnerabilities
-        run: |
-          pip install --no-cache-dir pip-audit
-          pip-audit -r backend/requirements.txt
+        run: ci/mystic_auth/backend.sh audit-dependencies
 
-      - name: Lint (ruff)
-        working-directory: backend
-        run: ruff check app mystic_auth alembic ../tests/backend
+      - name: Lint MysticAuth backend (ruff)
+        run: ci/mystic_auth/backend.sh lint
 
-      - name: Type-check (mypy)
-        working-directory: backend
-        run: mypy app mystic_auth
+      - name: Lint app backend (ruff)
+        run: ci/app/backend.sh lint
 
-      - name: Security scan (bandit)
-        working-directory: backend
-        run: bandit -r app mystic_auth -c pyproject.toml
+      - name: Type-check MysticAuth backend (mypy)
+        run: ci/mystic_auth/backend.sh typecheck
+
+      - name: Type-check app backend (mypy)
+        run: ci/app/backend.sh typecheck
+
+      - name: Security scan MysticAuth backend (bandit)
+        run: ci/mystic_auth/backend.sh security
+
+      - name: Security scan app backend (bandit)
+        run: ci/app/backend.sh security
 
       - name: Run database migrations
         working-directory: backend
@@ -161,23 +165,27 @@ jobs:
         working-directory: backend
         run: alembic check
 
-      # app/ wrapper tests and mystic_auth unit tests share one coverage base.
-      - name: Run backend unit tests
-        run: python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q
+      # app/ wrapper tests and mystic_auth tests run separately but share the
+      # same pytest coverage base through pytest.ini.
+      - name: Run app backend unit tests
+        run: ci/app/backend.sh unit
+
+      - name: Run MysticAuth backend unit tests
+        run: ci/mystic_auth/backend.sh unit
 
       # --cov-append makes the final gate cumulative across backend suites.
       - name: Run backend integration tests
-        run: python -m pytest tests/backend/mystic_auth/integration -q --cov-append
+        run: ci/mystic_auth/backend.sh integration
 
       # Regression gate. See docs/mystic_auth/testing/overview.md for coverage state.
       - name: Run backend security tests
-        run: python -m pytest tests/backend/mystic_auth/security -q --cov-append --cov-fail-under=90
+        run: ci/mystic_auth/backend.sh security-tests
 
       # Non-blocking because Argon2 timing can be noisy on shared runners;
       # the test still reports real connection/serialization regressions.
       - name: Run backend performance tests (non-blocking)
         continue-on-error: true
-        run: python -m pytest tests/backend/mystic_auth/performance -q
+        run: ci/mystic_auth/backend.sh performance
 
   frontend:
     name: Frontend (typecheck + lint + test + build)
@@ -205,25 +213,20 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Audit npm dependencies for known vulnerabilities
-        working-directory: frontend
-        run: npm audit --audit-level=high
+        run: ci/app/frontend.sh audit
 
       - name: Type-check
-        working-directory: frontend
-        run: npm run typecheck
+        run: ci/app/frontend.sh typecheck
 
       - name: Lint
-        working-directory: frontend
-        run: npm run lint
+        run: ci/app/frontend.sh lint
 
       # test:coverage evaluates vitest.config.ts coverage thresholds.
       - name: Run tests (with coverage threshold gate)
-        working-directory: frontend
-        run: npm run test:coverage
+        run: ci/app/frontend.sh test-coverage
 
       - name: Build
-        working-directory: frontend
-        run: npm run build
+        run: ci/app/frontend.sh build
 
   secrets-scan:
     name: Secrets scan (gitleaks)
@@ -254,41 +257,41 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Check every scripts/local-scripts path reference resolves
-        run: tests/scripts/mystic_auth/lint/check-script-paths.sh
+      - name: Check every ci/scripts/local-scripts path reference resolves
+        run: ci/mystic_auth/tooling.sh script-paths
 
       - name: Check for stale pre-split docker/env/scripts path references
-        run: tests/scripts/mystic_auth/lint/check-split-paths.sh
+        run: ci/mystic_auth/tooling.sh split-paths
 
       - name: Check operator-facing scripts have all platform wrappers
-        run: tests/scripts/mystic_auth/lint/check-platform-wrappers.sh
+        run: ci/mystic_auth/tooling.sh platform-wrappers
 
       - name: Check every pinned compose image digest is a valid sha256
-        run: tests/scripts/mystic_auth/lint/check-image-digests.sh
+        run: ci/mystic_auth/tooling.sh image-digests
 
       - name: Check every compose service sets log rotation
-        run: tests/scripts/mystic_auth/lint/check-log-rotation.sh
+        run: ci/mystic_auth/tooling.sh log-rotation
 
       - name: Check every CI action is pinned by commit SHA
-        run: tests/scripts/mystic_auth/lint/check-ci-action-pinning.sh
+        run: ci/mystic_auth/tooling.sh action-pinning
 
       - name: Check production-shaped services run with a read-only rootfs
-        run: tests/scripts/mystic_auth/lint/check-readonly-rootfs.sh
+        run: ci/mystic_auth/tooling.sh readonly-rootfs
 
       - name: Run env-tools regression suite
-        run: tests/scripts/mystic_auth/env-tools/test-env-tooling.sh
+        run: ci/mystic_auth/tooling.sh env-tools
 
       - name: Run sync-upstream regression suite
-        run: tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh
+        run: ci/mystic_auth/tooling.sh upstream-sync
 
       - name: Run backup-freshness regression suite
-        run: tests/scripts/mystic_auth/db/test-backup-freshness.sh
+        run: ci/mystic_auth/tooling.sh backup-freshness
 
       - name: Check production backup network isolation
-        run: tests/scripts/mystic_auth/db/test-backup-compose-network.sh
+        run: ci/mystic_auth/tooling.sh backup-network
 
       - name: Run host-backend port derivation regression suite
-        run: tests/scripts/mystic_auth/docker/test-backend-host-run.sh
+        run: ci/mystic_auth/tooling.sh host-backend
 
   windows-tooling:
     name: Windows PowerShell tooling regression tests
@@ -299,7 +302,7 @@ jobs:
 
       - name: Run PowerShell setup-env regression test
         shell: pwsh
-        run: ./tests/scripts/mystic_auth/env-tools/test-setup-env.ps1
+        run: ./ci/mystic_auth/tooling.ps1
 
   docker-build:
     name: Docker image build verification
@@ -508,7 +511,7 @@ jobs:
           --env-file env/mystic_auth/.env.dev
           --env-file env/app/.env.dev
           exec -T -w /repo backend
-          python local-scripts/app/seed-user-permission-matrix.py
+          python local-scripts/mystic_auth/seed-user-permission-matrix.py
 
       - name: Wait for frontend dev server to respond
         run: timeout 60 sh -c 'until curl -sf http://localhost:5173 >/dev/null 2>&1; do sleep 3; done'
@@ -521,18 +524,24 @@ jobs:
             && echo "OK: frontend dev server serves the app shell through the actual image"
 
       - name: "Backup: create encrypted dumps and verify freshness"
-        run: tests/scripts/mystic_auth/db/test-backup-roundtrip.sh
+        run: ci/mystic_auth/tooling.sh backup-roundtrip
 
       - name: "Restore-drill: prove the backup path actually restores"
-        run: tests/scripts/mystic_auth/db/test-restore-drill.sh
+        run: ci/mystic_auth/tooling.sh restore-drill
 
-      - name: Run browser E2E tests
+      - name: Run MysticAuth browser E2E tests
         env:
           EMAIL_ENABLED: "false"
           # Exercise the built frontend artifact; Vite's dev-server HMR can
           # invalidate lazy route modules during the full cross-browser matrix.
           PLAYWRIGHT_USE_PREVIEW: "1"
-        run: npm run test:browser --prefix frontend
+        run: ci/mystic_auth/frontend-e2e.sh
+
+      - name: Run app browser E2E tests
+        env:
+          EMAIL_ENABLED: "false"
+          PLAYWRIGHT_USE_PREVIEW: "1"
+        run: ci/app/frontend-e2e.sh
 
       # Prints container logs only when a previous step failed.
       - name: Show container logs (only runs on failure)

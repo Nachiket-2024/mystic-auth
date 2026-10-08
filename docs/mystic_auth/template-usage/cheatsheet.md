@@ -51,7 +51,7 @@
 |---|---|
 | `tests/scripts/mystic_auth/env-tools/test-env-tooling.sh` | After touching any `env-tools/` script. Regression suite against a throwaway copy of `env/`, never touches your real files. Runs in CI too. |
 | `tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh` | After touching `sync-upstream.sh`. Regression suite against throwaway fake repos. Runs in CI too. |
-| `tests/scripts/mystic_auth/lint/check-script-paths.sh` | After any rename/restructure. Checks every script/doc's own `scripts/`/`local-scripts/` path references actually resolve. Runs in CI too. |
+| `tests/scripts/mystic_auth/lint/check-script-paths.sh` | After any rename/restructure. Checks every CI, script, and doc path reference actually resolves. Runs through `ci/mystic_auth/tooling.sh` in CI too. |
 | `tests/scripts/mystic_auth/lint/check-split-paths.sh` | After any rename/restructure. Checks for a stale pre-split `docker/`/`env/`/`scripts/` path reference (one that's missing its `mystic_auth/`/`app/` segment) anywhere in source, scripts, or docs. Runs in CI too. |
 | `tests/scripts/mystic_auth/lint/check-image-digests.sh` | After pinning or updating any `@sha256:...` image digest in a compose file. Checks every pinned digest is a syntactically valid 64-character sha256. Runs in CI too. |
 

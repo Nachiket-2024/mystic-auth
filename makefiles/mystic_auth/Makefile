@@ -27,7 +27,7 @@ help:
 	@echo "make test-tooling            regression suite for env-tools scripts"
 	@echo "make test-sync               regression suite for sync-upstream.sh"
 	@echo "make test-backup-freshness   regression suite for backup-freshness-check.sh"
-	@echo "make lint-paths              check every scripts/ path reference resolves"
+	@echo "make lint-paths              check every ci/scripts/local-scripts path reference resolves"
 	@echo "make lint-split              check for stale pre-split docker/env/scripts references"
 	@echo "make lint                    run lint-paths and lint-split together"
 	@echo
@@ -84,18 +84,18 @@ sync:
 	./scripts/mystic_auth/upstream-sync/sync-upstream.sh
 
 test-tooling:
-	tests/scripts/mystic_auth/env-tools/test-env-tooling.sh
+	ci/mystic_auth/tooling.sh env-tools
 
 test-sync:
-	tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh
+	ci/mystic_auth/tooling.sh upstream-sync
 
 test-backup-freshness:
-	tests/scripts/mystic_auth/db/test-backup-freshness.sh
+	ci/mystic_auth/tooling.sh backup-freshness
 
 lint-paths:
-	tests/scripts/mystic_auth/lint/check-script-paths.sh
+	ci/mystic_auth/tooling.sh script-paths
 
 lint-split:
-	tests/scripts/mystic_auth/lint/check-split-paths.sh
+	ci/mystic_auth/tooling.sh split-paths
 
 lint: lint-paths lint-split

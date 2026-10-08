@@ -30,7 +30,7 @@ Migrations run with `DATABASE_URL`, normally the Postgres superuser. Runtime app
 
 The application database name is always taken from `POSTGRES_DB` in the
 selected mode's environment files. It is not required to be `mystic_auth`:
-downstream applications may use a name such as `manifest_cv`. The encrypted
+downstream applications may use a name such as `example_app_db`. The encrypted
 backup round-trip test and restore-drill regression check follow the same
 setting and check the configured application database plus the separate
 `bugsink` database, so template and downstream runs exercise the same

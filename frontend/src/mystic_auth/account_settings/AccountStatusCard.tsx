@@ -46,11 +46,11 @@ const StatusSection: React.FC<StatusSectionProps> = ({ heading, isLoading, isErr
  * Read-only view of the caller's own full authorization picture: assigned
  * policies, effective permissions (the fanned-out union of every policy's
  * actions and direct grants, via the same buildEffectivePermissionList
- * UserDetailsDialog's admin "View" panel uses), and direct grants
+ * UserDetailsDialog's permission-management "View" panel uses), and direct grants
  * specifically. Password status/change lives on its own Password tab
  * instead, since it isn't part of authorization. All three sections come
  * from the self-service /me endpoints (auth-only, no extra permission
- * needed), so this works for any authenticated user, not just admins who
+ * needed), so this works for any authenticated user, not just users with management permissions who
  * can open UserDetailsDialog on the Users page.
  *
  * Both permission lists run through dedupeAgainstWildcards before
@@ -87,7 +87,7 @@ const AccountStatusCard: React.FC = () => {
     // UserDetailsDialog's canReadEffectivePermissions).
     const bothLoaded = !policiesLoading && !policiesError && !permissionsLoading && !permissionsError;
     // Carries policy-name/"Direct" source labels, same as UserDetailsDialog's
-    // admin-facing equivalent, so AccessResourceCards can show WHY the
+    // permission-management equivalent, so AccessResourceCards can show WHY the
     // caller holds each grant, not just what they hold.
     const effectiveWithSource = bothLoaded
         ? dedupeAgainstWildcards(buildEffectiveGrantsWithSource(policies, rawDirectPermissions))
@@ -166,7 +166,7 @@ const AccountStatusCard: React.FC = () => {
                     {/* Union of every action the caller holds either way (policies
                         and direct grants), not just the raw direct grants in the
                         left column, so this reads as "everything I can actually do".
-                        Same shape as UserDetailsDialog's admin-facing equivalent. */}
+                        Same shape as UserDetailsDialog's permission-management equivalent. */}
                     <StatusSection
                         heading={t("accountStatus.effectivePermissions")}
                         isLoading={policiesLoading || permissionsLoading}

@@ -35,7 +35,7 @@ focused page for the test type.
 - [Backend authentication test detail](backend-authentication.md): login,
   tokens, refresh, logout, reset, OAuth, and verification scenarios.
 - [Backend users and sessions test detail](backend-users-sessions.md):
-  lifecycle, administration, export, purge, and session scenarios.
+  lifecycle, permission management, export, purge, and session scenarios.
 
 ### Frontend
 

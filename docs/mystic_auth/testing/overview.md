@@ -1,6 +1,10 @@
 # Testing Overview
 ---
 
+The `admin` text in some fixture names describes role metadata or a test account,
+not an authorization decision. Access is always derived from PBAC permissions
+and policies.
+
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
 The [Testing Map](README.md) maps each source test file to its execution
@@ -113,6 +117,9 @@ and Performance](backend-security-performance.md).
 These are two different kinds of "load" and only one of them lives in this suite:
 
 - **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory: e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race, concurrent-identical-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_login_lockout_race_integration.py` (failed-login lockout counter under a concurrent burst), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_admin_management_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/`. Add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
+  The `admin` text in those fixture names describes role metadata or a test
+  account, not an authorization decision; access is always PBAC permission- and
+  policy-derived.
 - **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. `scripts/mystic_auth/load-test/load_test.py` is a small `httpx`-based script for this, run by hand against a local-prod/staging stack before a release, not on every push. See its own header comment for usage and the per-IP rate-limit budget it needs to stay under to measure real capacity rather than the rate limiter.
 
 The local audit run on 2026-09-23 exercised 500 `/health/ready` requests at
@@ -143,11 +150,13 @@ python -m pytest tests/backend/mystic_auth/performance -q
 # docs/mystic_auth/docker/dev-workflow.md#running-a-one-off-command-inside-a-container.
 scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/
 
-# Browser matrix: Chromium desktop/mobile, Firefox desktop, WebKit desktop.
-npm run test:browser --prefix frontend -- --project=chromium-desktop
-npm run test:browser --prefix frontend -- --project=chromium-mobile
-npm run test:browser --prefix frontend -- --project=firefox-desktop
-npm run test:browser --prefix frontend -- --project=webkit-desktop
+# Browser suites: MysticAuth and app ownership boundaries.
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/mystic_auth/frontend-e2e.sh
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/app/frontend-e2e.sh
+
+# Optional individual browser projects, using the same ownership entrypoints.
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/mystic_auth/frontend-e2e.sh --project=chromium-desktop
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/app/frontend-e2e.sh --project=chromium-desktop
 
 # Local capacity baseline, against a running Docker stack.
 python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:8000 \
@@ -156,7 +165,9 @@ python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:80
 
 CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and
 security suites against GitHub Actions service containers (Postgres 15, Valkey 9.1.2-alpine)
-on pushes to `develop` or `main`, and on pull requests targeting `main`. App-wrapper and unit tests create the
+on pushes to `develop` or `main`, and on pull requests targeting `main`. The
+workflow calls `ci/app/` and `ci/mystic_auth/` entrypoints so the failing
+ownership boundary is visible in Actions. App-wrapper and unit tests create the
 first coverage base. Integration and security tests pass `--cov-append`, so the
 security step can enforce the cumulative `--cov-fail-under=90` gate. Performance
 tests also run as non-blocking informational checks because timing is noisy on

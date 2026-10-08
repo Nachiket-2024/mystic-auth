@@ -63,7 +63,7 @@ export function useUsersPageFilters() {
     };
     // Relative bucket only (today/7d/30d/90d/never) - design/users.html's
     // custom date-range option is left out here, the bucket presets cover
-    // the same admin-console pattern (Okta/Auth0/Workspace) at far less UI.
+    // the same permission-management pattern (Okta/Auth0/Workspace) at far less UI.
     const setLastLogin = (value: string) => update({ lastLogin: value });
     const sort = { key: sortKey, direction: sortDir };
     const toggleSort = (key: string) => {

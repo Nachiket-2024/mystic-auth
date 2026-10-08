@@ -46,7 +46,7 @@ export function useSessionEventsStream(): void {
                 // /auth/me (pages using keepPreviousData would otherwise flash stale
                 // data before their 403 landed).
                 //
-                // Skipped if this tab caused the change itself (e.g. an admin
+                // Skipped if this tab caused the change itself (e.g. a caller
                 // granting themselves a permission): it already knows the true
                 // outcome from its own mutation response, so zeroing here would read
                 // as a live revoke and bounce it before resetQueries() below restores

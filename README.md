@@ -241,9 +241,16 @@ spoofing, malformed and oversized condition payloads, batch abuse, tampering,
 and concurrency. Generated coverage and browser artifacts are ignored by both
 Git and Docker.
 
+The disposable accounts for that live matrix are seeded by the upstream-owned
+`local-scripts/mystic_auth/seed-user-permission-matrix.py` helper during CI.
+Downstream projects keep `local-scripts/app/` for their own local scripts, so
+an upstream sync does not overwrite project-owned helpers.
+
 CI enforces a 90% cumulative backend coverage gate after the app-wrapper, unit,
-integration, and security suites append coverage. Coverage totals are generated
-per run rather than maintained as a hand-updated README metric.
+integration, and security suites append coverage. The ownership-specific CI
+commands live under `ci/mystic_auth/` and `ci/app/`, while the shared workflow
+keeps the job orchestration and combined Docker checks. Coverage totals are
+generated per run rather than maintained as a hand-updated README metric.
 
 The GitHub workflow also has a Windows-only PowerShell tooling job and a
 main-branch-only Docker full-suite job. A local production-readiness pass
@@ -254,10 +261,10 @@ their native environments when possible; see [CI/CD Overview](https://nachiket-2
 pytest --no-cov -q tests/backend/mystic_auth/security
 pytest --no-cov -q tests/backend/mystic_auth/integration/authorization
 npm run test --prefix frontend -- --run
-npm run test:browser --prefix frontend -- --project=chromium-desktop
-npm run test:browser --prefix frontend -- --project=chromium-mobile
-npm run test:browser --prefix frontend -- --project=firefox-desktop
-npm run test:browser --prefix frontend -- --project=webkit-desktop
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/mystic_auth/frontend-e2e.sh --project=chromium-desktop
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/mystic_auth/frontend-e2e.sh --project=chromium-mobile
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/app/frontend-e2e.sh --project=chromium-desktop
+CI=true PLAYWRIGHT_USE_PREVIEW=1 ci/app/frontend-e2e.sh --project=chromium-mobile
 python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:8000 --scenario health --requests 500 --concurrency 50 --workers 4
 ```
 

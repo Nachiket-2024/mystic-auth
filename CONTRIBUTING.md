@@ -35,7 +35,9 @@ the full walkthrough.
 ## Making a change
 
 - **Follow the existing ownership split.** `backend/mystic_auth/`, `frontend/src/mystic_auth/`,
-  `docs/mystic_auth/`, `scripts/mystic_auth/`, `docker/mystic_auth/`, and `env/mystic_auth/`
+  `docs/mystic_auth/`, `ci/mystic_auth/`, `scripts/mystic_auth/`,
+  `agent-prompts/mystic_auth/`, `local-scripts/mystic_auth/`,
+  `docker/mystic_auth/`, and `env/mystic_auth/`
   are this template's own implementation, the actual surface a PR here touches.
   The parallel `app/` folders exist for template *consumers'* own code and stay
   empty in this repo; a PR shouldn't add anything there. See
@@ -63,11 +65,13 @@ Docker image builds). At minimum:
 
 ```bash
 # Backend
-cd backend && ruff check app mystic_auth alembic ../tests/backend && mypy app mystic_auth
-python -m pytest tests/backend/app tests/backend/mystic_auth/unit -q
+ci/mystic_auth/backend.sh lint && ci/app/backend.sh lint
+ci/mystic_auth/backend.sh typecheck && ci/app/backend.sh typecheck
+ci/app/backend.sh unit && ci/mystic_auth/backend.sh unit
 
 # Frontend
-cd frontend && npm run typecheck && npm run lint && npm run test:coverage
+ci/app/frontend.sh typecheck && ci/app/frontend.sh lint
+ci/app/frontend.sh test-coverage
 ```
 
 A PR that fails CI on something the local checks above would have caught gets

@@ -1,12 +1,12 @@
 // Tracks whether THIS tab just granted/revoked a policy or permission against its own
 // account (PolicyFormDialog/UserPoliciesDialog/UserPermissionsDialog and their bulk
-// equivalents, when the acting admin's own email is among the targets).
+// equivalents, when the acting caller's own email is among the targets).
 //
 // Why: the backend's "permissions_changed" SSE event looks identical whether the
-// change came from this tab or another admin/session. useSessionEventsStream.ts reacts
+// change came from this tab or another session. useSessionEventsStream.ts reacts
 // to it by synchronously zeroing the permissions list (dropPermissions()) so a tab
 // that genuinely lost access fails closed instantly. But firing that wipe for a change
-// THIS tab just made itself (e.g. an admin granting themselves a permission) would
+// THIS tab just made itself (e.g. a caller granting themselves a permission) would
 // momentarily zero a permission the route still holds, and ProtectedRoute would read
 // that as a live revoke and bounce to /dashboard before the refetch corrects it.
 //
@@ -18,7 +18,7 @@
 // Consumed on first read, not just time-windowed: the SSE event carries no detail
 // about which permission changed or who changed it, so there's no way to confirm an
 // incoming event actually is this tab's own echo versus a coincidentally-timed
-// unrelated change from another admin. A plain elapsed-time check would swallow every
+// unrelated change from another session. A plain elapsed-time check would swallow every
 // event in the window, not just the one echo it exists to cover. Clearing the flag
 // after one check bounds the exposure to at most one skipped event per self-mutation.
 let lastSelfMutationAt: number | null = null;

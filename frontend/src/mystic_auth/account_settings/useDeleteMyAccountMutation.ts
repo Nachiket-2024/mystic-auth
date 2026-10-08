@@ -12,7 +12,7 @@ import { clearMyAccountSessionCaches } from "../auth/session_lifecycle/clearMyAc
  * useDeleteMyAccountMutation
  * ----------------------------
  * DELETE /users/me. For a password-holding account this soft-deletes the
- * caller's account immediately (revoked sessions, recoverable by an admin
+ * caller's account immediately (revoked sessions, recoverable by a permission holder
  * for ACCOUNT_PURGE_GRACE_DAYS, then permanently purged, see
  * DeleteAccountCard.tsx's copy and docs/mystic_auth/security/decisions.md).
  * The route already revokes every session including this one, so on success

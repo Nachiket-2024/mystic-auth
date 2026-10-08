@@ -14,7 +14,7 @@ COMPOSE_FILE="${BACKUP_TEST_COMPOSE_FILE:-docker-compose.dev.yml}"
 
 # Keep the regression test aligned with database-backup.sh: downstream apps
 # may deliberately use a different application database name (for example,
-# `manifest_cv`). The backup script already reads POSTGRES_DB from the mode's
+# `example_app_db`). The backup script already reads POSTGRES_DB from the mode's
 # env files, so the test must inspect the same value instead of assuming the
 # MysticAuth template default.
 COMPOSE_BASENAME="$(basename "$COMPOSE_FILE")"

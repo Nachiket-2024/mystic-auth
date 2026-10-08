@@ -4,7 +4,7 @@
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
 These tests cover user data and lifecycle state after authentication. They
-separate self-service permissions from administrator permissions, soft delete
+separate self-service permissions from account-management permissions, soft delete
 from irreversible purge, and session invalidation from ordinary profile
 updates.
 
@@ -53,33 +53,33 @@ prove that route permissions and transaction effects use it correctly.
 
 ---
 
-## Administrator listing and management
+## Permission-protected listing and management
 
 - `integration/user/test_user_list_and_update_integration.py` verifies
   unauthenticated denial, ordinary-user denial, same-role/different-policy
-  behavior, policy-derived admin capability, roleless policy capability, and
+  behavior, policy-derived management capability, roleless policy capability, and
   list limits.
 - `integration/user/test_user_admin_listing_integration.py` verifies listing,
   total-count headers, name/email search, role/verification/status filters,
   policy and permission filters, direct-grant holders, and email sorting.
 - `integration/user/test_user_admin_management_integration.py` verifies normal
   updates and blocks system-user mutation, deletion, role changes, assigning
-  the system role, and self-role changes; it also verifies admin-to-user and
-  user-to-admin role changes through the role endpoint.
+  the system role, and self-role changes; it also verifies `admin`-to-`user`
+  and `user`-to-`admin` role metadata changes through the role endpoint.
 - `integration/user/test_user_account_lifecycle_integration.py` verifies
-  system-role assignment, admin soft delete, self-delete protection, deleted
+  system-role assignment, permission-protected soft delete, self-delete protection, deleted
   login denial, active-session revocation, password-change session effects,
   purge permissions and self/system guards, system-user purge, reactivation,
   and reactivation error cases.
 - `integration/user/test_user_admin_lifecycle_valkey_outage_integration.py`
-  verifies admin password changes report whether session revocation was
+  verifies permission-protected password changes report whether session revocation was
   confirmed when Valkey is healthy versus unavailable.
 
 ---
 
 ## Export, purge, and irreversible cleanup
 
-- `integration/user/test_user_export_integration.py` verifies auth and admin
+- `integration/user/test_user_export_integration.py` verifies auth and permission-protected
   permission gates, CSV contents, status filtering/deleted markers, formula
   injection neutralization, and configured maximum result size.
 - `integration/user/test_account_purge_task_integration.py` verifies only

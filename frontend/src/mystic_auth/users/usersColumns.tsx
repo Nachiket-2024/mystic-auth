@@ -144,7 +144,7 @@ export function buildUsersColumns({
             // Deactivated wins outright rather than stacking alongside
             // verified/unverified: a deactivated account can't sign in
             // either way, so whether it was ever verified isn't the thing
-            // an admin scanning this column needs to see first. One pill,
+            // a permission holder scanning this column needs to see first. One pill,
             // not two, since there's no longer a second line to align
             // against.
             render: (u) =>

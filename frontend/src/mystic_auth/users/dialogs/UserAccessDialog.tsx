@@ -79,7 +79,7 @@ const UserAccessDialog: React.FC<UserAccessDialogProps> = ({
   const policyQuery = state.polQuery.trim().toLowerCase();
   // Keep the catalog order stable while toggles refresh assignment state.
   // Sorting assigned policies to the top made the row jump immediately
-  // after a click, forcing administrators to relocate the item they just
+  // after a click, forcing permission holders to relocate the item they just
   // changed. The filter still controls visibility; assignment should not.
   const policyRows = allPolicies
     .filter(

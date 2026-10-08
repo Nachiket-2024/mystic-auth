@@ -49,7 +49,7 @@ describe('NotAuthorizedPage', () => {
     expect(screen.getByText('403')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: "You don't have access to this page" })).toBeInTheDocument();
     // E3: an explicit hint, not just the bare permission message.
-    expect(screen.getByText(/ask an administrator/i)).toBeInTheDocument();
+    expect(screen.getByText(/ask someone with the required permission/i)).toBeInTheDocument();
     expectConfiguredBranding();
     expect(screen.getByRole('button', { name: /switch to (light|dark) mode/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();

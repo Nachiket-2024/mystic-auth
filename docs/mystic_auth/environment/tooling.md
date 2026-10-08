@@ -31,8 +31,8 @@ flowchart TD
    - The PowerShell counterpart supports `-NonInteractive` for automation and CI; it uses the same canonical defaults as the Bash helper.
    - Skips any file that already exists - safe to re-run.
    - Generates a distinct random secret per password field, per file (a leaked dev secret never compromises prod).
-   - Keeps `DATABASE_URL`/`APP_DATABASE_URL` in sync with the freshly generated password.
-   - Prompts once for an app name and brand color, applies both everywhere.
+   - Keeps `DATABASE_URL`/`APP_DATABASE_URL` in sync with both the freshly generated password and that file's `POSTGRES_DB`; it never substitutes the technical `mystic_auth` name for a configured database.
+   - Prompts once for an app name and brand color, applies both everywhere. During an upstream sync, existing `.bak` values become the prompt defaults so regeneration does not reset downstream branding.
    - Generates a distinct `VALKEY_PASSWORD` per env file and embeds it in that file's `VALKEY_URL`.
 2. **`quickstart/quickstart.sh`**: the fastest path for a brand-new clone. Runs `setup-env` only if `env/mystic_auth/.env.dev` is missing, brings the dev stack up (reusing `dev-up`'s own readiness wait via a `DEV_UP_TAIL=0` toggle), offers to create the system superuser inline, then tails logs. See [Template Usage: Quickstart](../template-usage/quickstart.md).
 
@@ -73,6 +73,11 @@ Until you do, a `.bak` file is a second plaintext copy of everything that was in
 ## 4. Regression tests
 
 **`tests/scripts/mystic_auth/env-tools/test-env-tooling.sh`**: regression suite for all six scripts above, run against a throwaway copy of `env/` under a temp dir - never touches this repo's own real env files. Run it after touching any of them, the same way [`tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh`](../template-usage/syncing-upstream/README.md) guards the sync script.
+
+The regression suite also exercises a non-default database name
+(`example_app_db`)
+and verifies that generated URLs follow it. The PowerShell companion covers the
+same bootstrap contract on Windows.
 
 ---
 

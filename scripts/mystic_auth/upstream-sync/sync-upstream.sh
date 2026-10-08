@@ -120,6 +120,27 @@ else
   APP_OWNED_DIFF="$(git diff --name-only --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}")"
 fi
 APP_OWNED_PATH_CHANGES=""
+
+# The CI split was introduced after some downstream projects already existed.
+# Allow the three initial app CI entrypoints to be added once when neither the
+# consumer's current tree nor its recorded sync baseline has them. After that
+# first adoption, normal app-owned protection applies and upstream cannot edit
+# them.
+is_ci_app_bootstrap_path() {
+  local path="$1"
+  case "$path" in
+    ci/app/backend.sh|ci/app/frontend.sh|ci/app/frontend-e2e.sh) ;;
+    *) return 1 ;;
+  esac
+
+  if [ -n "$LAST_SYNCED_SHA" ]; then
+    git cat-file -e "${LAST_SYNCED_SHA}:${path}" 2>/dev/null && return 1
+  else
+    git cat-file -e "HEAD:${path}" 2>/dev/null && return 1
+  fi
+  return 0
+}
+
 while IFS= read -r changed_path; do
   [ -z "$changed_path" ] && continue
 
@@ -138,6 +159,9 @@ while IFS= read -r changed_path; do
   case "$changed_path" in
     backend/app/main.py|backend/app/sdk.py|frontend/src/app/App.tsx|frontend/src/app/sdk.ts)
       continue
+      ;;
+    ci/app/*)
+      is_ci_app_bootstrap_path "$changed_path" || APP_OWNED_PATH_CHANGES+="${changed_path}"$'\n'
       ;;
     backend/app/*|frontend/src/app/*|tests/*/app/*|docs/app/*|screenshots/app/*|scripts/app/*|agent-prompts/app/*|local-scripts/app/*|docker/app/*|env/app/*|makefiles/app/*)
       APP_OWNED_PATH_CHANGES+="${changed_path}"$'\n'

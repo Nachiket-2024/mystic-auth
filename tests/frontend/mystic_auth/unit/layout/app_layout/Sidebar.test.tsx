@@ -51,7 +51,7 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Account Settings' })).toBeInTheDocument();
   });
 
-  it('hides Users and Policies links for a caller with no admin permissions', () => {
+  it('hides Users and Policies links for a caller with no matching permissions', () => {
     renderSidebar();
 
     expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();

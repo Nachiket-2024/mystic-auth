@@ -76,7 +76,7 @@ and the real-account browser matrix.
 - `rate_limits/rate_limits_page.test.tsx` verifies rate-limit data, filters,
   reset behavior, loading/errors, and permission gates.
 
-## Users and administration
+## Users and permission management
 
 - `users/users_page.test.tsx` verifies user listing, filtering, pagination,
   row actions, and page-level permission gates.
@@ -89,7 +89,7 @@ and the real-account browser matrix.
 - `users/users_page_access_dialog_policy_actions.test.tsx` verifies action-
   level policy changes and the resulting follow-up state.
 - `users/users_page_access_dialog_self_protection.test.tsx` verifies that an
-  administrator cannot remove the access needed to protect the current user.
+  a permission holder cannot remove the access needed to protect the current user.
 - `users/users_page_bulk_actions.test.tsx` verifies selection, confirmation,
   success, partial failure, and refresh for bulk user actions.
 - `users/users_page_bulk_permission_actions.test.tsx` verifies bulk direct

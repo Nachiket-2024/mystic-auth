@@ -33,10 +33,32 @@ function New-Secret([int]$Length) {
     return $raw.Substring(0, [Math]::Min($Length, $raw.Length))
 }
 
-if (-not $NonInteractive) { $AppName = Read-Host "App name [MysticAuth]" }
-if ([string]::IsNullOrWhiteSpace($AppName)) { $AppName = "MysticAuth" }
-if (-not $NonInteractive) { $BrandColor = Read-Host "Brand color hex [#b5533c]" }
-if ([string]::IsNullOrWhiteSpace($BrandColor)) { $BrandColor = "#b5533c" }
+function Get-EnvValue([string]$File, [string]$Key) {
+    if (-not (Test-Path $File)) { return "" }
+    $line = Get-Content $File | Where-Object { $_ -match "^$([regex]::Escape($Key))=" } | Select-Object -Last 1
+    if ($line) { return $line.Substring($Key.Length + 1) }
+    return ""
+}
+
+function Get-ConfiguredValue([string]$Key) {
+    foreach ($file in @(
+        "env/app/.env.dev.bak", "env/mystic_auth/.env.dev.bak",
+        "env/app/.env.dev", "env/mystic_auth/.env.dev"
+    )) {
+        $value = Get-EnvValue $file $Key
+        if (-not [string]::IsNullOrWhiteSpace($value)) { return $value }
+    }
+    return ""
+}
+
+$AppNameDefault = Get-ConfiguredValue "APP_NAME"
+if ([string]::IsNullOrWhiteSpace($AppNameDefault)) { $AppNameDefault = "MysticAuth" }
+$BrandColorDefault = Get-ConfiguredValue "BRAND_COLOR"
+if ([string]::IsNullOrWhiteSpace($BrandColorDefault)) { $BrandColorDefault = "#b5533c" }
+if (-not $NonInteractive) { $AppName = Read-Host "App name [$AppNameDefault]" }
+if ([string]::IsNullOrWhiteSpace($AppName)) { $AppName = $AppNameDefault }
+if (-not $NonInteractive) { $BrandColor = Read-Host "Brand color hex [$BrandColorDefault]" }
+if ([string]::IsNullOrWhiteSpace($BrandColor)) { $BrandColor = $BrandColorDefault }
 
 # Optional: the two things nothing else in this script can generate for
 # you. Skippable (default No) since it's fine to fill these in later by
@@ -123,6 +145,15 @@ foreach ($pair in $Pairs) {
         $appPw = New-Secret 24
         $content = $content -replace '(?m)^APP_DB_PASSWORD=.*', "APP_DB_PASSWORD=$appPw"
         $content = $content -replace 'mystic_auth_app:change_me_in_production@', "mystic_auth_app:$appPw@"
+    }
+
+    $postgresDb = Get-EnvValue $dst "POSTGRES_DB"
+    if (-not [string]::IsNullOrWhiteSpace($postgresDb)) {
+        $content = [regex]::Replace(
+            $content,
+            "(?m)^([# ]*(?:DATABASE_URL|APP_DATABASE_URL)=[^/]*/)[^\s#]+",
+            "`${1}$postgresDb"
+        )
     }
 
     if ($content -match '(?m)^SECRET_KEY=') {

@@ -33,6 +33,14 @@ cp -r "$REPO_ROOT"/scripts/mystic_auth/env-tools/setup-env "$REPO_ROOT"/scripts/
 chmod +x "$BASE"/scripts/mystic_auth/env-tools/*/*.sh
 cd "$BASE"
 
+# A downstream project may choose a product database name. Generation must
+# derive URL paths from POSTGRES_DB rather than preserving the template's
+# technical default.
+sed -i.tmp 's/^POSTGRES_DB=.*/POSTGRES_DB=example_app_db/' env/mystic_auth/.env.dev.example
+rm -f env/mystic_auth/.env.dev.example.tmp
+sed -i.tmp 's/^APP_NAME=.*/APP_NAME=Example App/' env/mystic_auth/.env.dev.example
+rm -f env/mystic_auth/.env.dev.example.tmp
+
 echo "=== setup-env: bootstraps every file, skips none that don't exist yet ==="
 printf 'TestApp\n\n' | scripts/mystic_auth/env-tools/setup-env/setup-env.sh >/dev/null
 for f in env/mystic_auth/.env.dev env/mystic_auth/.env.prod env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale frontend/.env; do
@@ -58,6 +66,10 @@ pass "setup-env: SECRET_KEY is distinct per file"
 PG_PW="$(grep '^POSTGRES_PASSWORD=' env/mystic_auth/.env.dev | cut -d= -f2)"
 grep -q "postgres:${PG_PW}@" <(grep '^DATABASE_URL=' env/mystic_auth/.env.dev) || fail "setup-env: DATABASE_URL password out of sync with POSTGRES_PASSWORD"
 pass "setup-env: DATABASE_URL password matches generated POSTGRES_PASSWORD"
+grep -q '^DATABASE_URL=.*\/example_app_db$' env/mystic_auth/.env.dev || fail "setup-env: DATABASE_URL did not use POSTGRES_DB"
+grep -q '^APP_DATABASE_URL=.*\/example_app_db$' env/mystic_auth/.env.dev || fail "setup-env: APP_DATABASE_URL did not use POSTGRES_DB"
+pass "setup-env: database URLs use the configured POSTGRES_DB"
+grep -q '^APP_NAME=TestApp$' env/mystic_auth/.env.dev || fail "setup-env: explicit branding prompt was not applied"
 
 echo "=== setup-env: never overwrites an existing file ==="
 BEFORE_DEV_FILE="$(cat env/mystic_auth/.env.dev)"

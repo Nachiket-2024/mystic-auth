@@ -238,7 +238,7 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('does not render the Operations shortcuts card for a viewer with no admin permissions', async () => {
+  it('does not render the Operations shortcuts card for a viewer with no matching permissions', async () => {
     seedPermissions([]);
     mock.onGet('/auth/me').reply(200, testUser);
     mock.onGet('/audit/security-log/me').reply(200, []);
@@ -247,7 +247,7 @@ describe('DashboardPage', () => {
     renderDashboard();
 
     await screen.findByText('Test User');
-    expect(screen.queryByText('Administration')).toBeNull();
+    expect(screen.queryByText('Management')).toBeNull();
     expect(screen.queryByText('Operator Overview')).toBeNull();
   });
 
@@ -266,7 +266,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByText(/unverified/)).toBeNull();
   });
 
-  it('renders only the Administration tiles matching the held permissions', async () => {
+  it('renders only the Management tiles matching the held permissions', async () => {
     seedPermissions(['users:list_all']);
     mock.onGet('/auth/me').reply(200, {
       name: 'Admin User',
@@ -284,7 +284,7 @@ describe('DashboardPage', () => {
     renderDashboard();
 
     await screen.findByText('Admin User');
-    expect(await screen.findByRole('heading', { name: 'Administration' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Management' })).toBeInTheDocument();
     expect(await screen.findByText('Users')).toBeInTheDocument();
     expect(await screen.findByText('42')).toBeInTheDocument();
     expect(screen.queryByText('Policies')).toBeNull();
@@ -293,7 +293,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Security Events')).toBeNull();
   });
 
-  it('renders every permitted Administration tile and handles each destination', async () => {
+  it('renders every permitted Management tile and handles each destination', async () => {
     const permissions = [
       'users:list_all',
       'policies:read',
@@ -314,7 +314,7 @@ describe('DashboardPage', () => {
 
     renderDashboard();
 
-    await screen.findByRole('heading', { name: 'Administration' });
+    await screen.findByRole('heading', { name: 'Management' });
     for (const label of ['Users', 'Policies', 'Permissions', 'Rate Limits', 'Security Events']) {
       const tile = screen.getByRole('button', { name: new RegExp(label) });
       expect(tile).toBeInTheDocument();

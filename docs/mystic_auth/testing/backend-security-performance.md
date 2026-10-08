@@ -41,7 +41,7 @@ tests and should not be used as a capacity guarantee.
   never be removed.
 - `tests/backend/mystic_auth/security/test_privilege_escalation_security.py`
   combines role, policy, direct-grant, and protected-user operations to verify
-  that ordinary users cannot become administrators. No ordinary caller may
+  that ordinary callers cannot grant themselves privileged capabilities. No ordinary caller may
   mint, assign, roll back, or repoint a policy into an unheld sensitive action.
 
 Together these files protect input validation, authorization context, grant

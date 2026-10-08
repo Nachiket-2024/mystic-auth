@@ -60,7 +60,7 @@ test.describe("dashboard page browser behavior", () => {
     await expect(page.getByRole("heading", { name: "Playwright System" })).toBeVisible();
     await expect(page.getByRole("button", { name: /change password/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /log out everywhere/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Administration" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Management" })).toBeVisible();
 
     for (const width of [390, 360]) {
       await page.setViewportSize({ width, height: 844 });
@@ -70,14 +70,14 @@ test.describe("dashboard page browser behavior", () => {
     }
   });
 
-  test("wide screens cap the content width and keep the administration tiles on one row", async ({ page }, testInfo) => {
+  test("wide screens cap the content width and keep the management tiles on one row", async ({ page }, testInfo) => {
     // Desktop widths only: the mobile project emulates a phone (Pixel 7), and
     // forcing a 1280px+ viewport onto it isn't a real-world combination.
     test.skip(testInfo.project.name === "chromium-mobile", "desktop-width layout check");
     // Registered after the shared routes, so it takes precedence.
     await page.route(`${API_BASE_URL}/auth/sessions**`, (route) => fulfillJson(route, SESSIONS));
     const identityHeading = page.getByRole("heading", { name: "Playwright System" });
-    const adminHeading = page.getByRole("heading", { name: "Administration" });
+    const managementHeading = page.getByRole("heading", { name: "Management" });
     // Tiles are the buttons inside the Operations shortcuts card's grid.
     const tiles = page.locator("main").getByRole("button").filter({ has: page.locator("p", { hasText: /^(Users|Policies|Permissions|Rate Limits|Security Events)$/ }) });
 
@@ -98,8 +98,8 @@ test.describe("dashboard page browser behavior", () => {
       await expect(async () => {
         // Cards stack at every width.
         const identity = await identityHeading.boundingBox();
-        const admin = await adminHeading.boundingBox();
-        expect(admin!.y).toBeGreaterThan(identity!.y + 100);
+    const management = await managementHeading.boundingBox();
+    expect(management!.y).toBeGreaterThan(identity!.y + 100);
 
         // All five tiles share one row at every desktop width. Below about
         // 1440px they switch to the compact tile style to fit.

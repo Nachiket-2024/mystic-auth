@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import DataTable, { type DataTableColumn } from '@/ui/DataTable/DataTable';
@@ -60,6 +60,54 @@ describe('DataTable', () => {
     renderTable({ rows: [], emptyMessage: 'Nothing here yet' });
 
     expect(screen.getByText('Nothing here yet')).toBeInTheDocument();
+  });
+
+  it('exposes sortable header state and handles keyboard sorting', () => {
+    const onSortChange = vi.fn();
+    const sortableColumns: DataTableColumn<Row>[] = [
+      { key: 'id', header: 'ID', sortable: true, render: (row) => row.id },
+      { key: 'name', header: 'Name', render: (row) => row.name },
+    ];
+
+    render(
+      <DataTable
+        columns={sortableColumns}
+        rows={[{ id: 1, name: 'Alice' }]}
+        rowKey={(row) => row.id}
+        sort={{ key: 'id', direction: 'desc' }}
+        onSortChange={onSortChange}
+      />
+    );
+
+    const idHeader = screen.getByRole('columnheader', { name: /ID/ });
+    const nameHeader = screen.getByRole('columnheader', { name: 'Name' });
+    expect(idHeader).toHaveAttribute('aria-sort', 'descending');
+    expect(nameHeader).not.toHaveAttribute('aria-sort');
+
+    fireEvent.keyDown(idHeader, { key: 'Enter' });
+    fireEvent.keyDown(idHeader, { key: ' ' });
+    fireEvent.keyDown(idHeader, { key: 'Escape' });
+
+    expect(onSortChange).toHaveBeenCalledTimes(2);
+    expect(onSortChange).toHaveBeenCalledWith('id');
+  });
+
+  it('renders selection, row-number, alignment, truncation, and row-click header cells', () => {
+    renderTable({
+      columns: [
+        { key: 'name', header: 'A long name', truncate: true, align: 'end', render: (row) => row.name },
+      ],
+      rows: [{ id: 1, name: 'Alice' }],
+      startIndex: 10,
+      selectable: true,
+      selectedKeys: new Set(),
+      onSelectionChange: vi.fn(),
+      onRowClick: vi.fn(),
+    });
+
+    expect(screen.getByRole('checkbox', { name: /select all rows/i })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '#' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /A long name/ })).toHaveClass('text-right');
   });
 
   it('renders one row per item, using rowKey and each column render function', () => {

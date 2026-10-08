@@ -95,11 +95,11 @@ export const getSecurityAuditLogApi = (params: SecurityAuditLogListParams = {}) 
 export const getMySecurityAuditLogApi = (params: SecurityAuditLogListParams = {}) =>
     api.get<SecurityAuditLogEntryRead[]>("/audit/security-log/me", { params: toSecurityParams(params) });
 
-/** A specific user's security events - the admin counterpart to
+/** A specific user's security events - the permission-scoped counterpart to
  * getMySecurityAuditLogApi, gated on security_audit:read. Pass
  * eventType: "access_change" (a UI-only alias the backend expands, see
  * backend/mystic_auth/audit_log/audit_log_repository.py's _apply_filters) to get only the events that
- * represent an admin changing this user's access (policy/permission/role),
+ * represent a permission holder changing this user's access (policy/permission/role),
  * not their own auth activity - backs UserAccessDialog's Details tab. */
 export const getUserSecurityAuditLogApi = (userEmail: string, params: SecurityAuditLogListParams = {}) =>
     api.get<SecurityAuditLogEntryRead[]>(

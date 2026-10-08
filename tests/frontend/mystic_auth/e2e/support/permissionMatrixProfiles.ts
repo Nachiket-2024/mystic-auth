@@ -13,7 +13,7 @@ const matrixProfile = (name: string, permissions: string[]) => ({
 //
 // A 2026-09-24 audit session found this list was both incomplete (16 of the
 // 24 distinct verified/active role x policy-bundle x direct-grant
-// combinations local-scripts/app/seed-user-permission-matrix.py actually
+// combinations local-scripts/mystic_auth/seed-user-permission-matrix.py actually
 // seeds were never represented here at all) and, for the two entries below
 // that were meant to model real policy bundles, actually wrong:
 // matrix-user-management included users:delete_any/users:reactivate,

@@ -18,7 +18,8 @@ define which boundary is authoritative and which checks are informational.
   database restore-drill behavior and cleanup, including a configured
   project-specific `POSTGRES_USER` rather than a hardcoded `postgres` role.
 - `tests/scripts/mystic_auth/lint/check-script-paths.sh` verifies repository
-  path references in scripts and tests remain resolvable.
+  path references in CI, scripts, docs, and tests remain resolvable. The CI
+  entrypoint is `ci/mystic_auth/tooling.sh script-paths`.
 - `tests/scripts/mystic_auth/lint/check-split-paths.sh` verifies split-file
   references and generated paths remain usable.
 - `tests/scripts/mystic_auth/lint/check-image-digests.sh` verifies every
@@ -37,6 +38,15 @@ define which boundary is authoritative and which checks are informational.
   upstream synchronization checks and safe handling of changed files.
 - `tests/scripts/mystic_auth/db/test-backup-freshness.sh` verifies the
   backup-freshness check script correctly flags a stale or missing backup.
+- `tests/scripts/mystic_auth/docker/test-backend-host-run.sh` verifies the
+  host-run helper derives localhost service URLs from configured host ports
+  without rewriting the configured application database name; its fixture uses
+  `example_app_db` so a hardcoded `mystic_auth` suffix cannot pass unnoticed.
+
+The workflow-facing wrappers are split by ownership: `ci/mystic_auth/` owns
+template backend, browser, tooling, and backup checks; `ci/app/` owns app
+backend and frontend checks. `.github/workflows/ci.yml` remains the shared
+orchestrator for services and combined Docker/Compose checks.
 
 ---
 
@@ -49,20 +59,26 @@ are intentionally included in the frontend collection but documented
 separately from MysticAuth feature tests.
 
 The real-account permission matrix is an environment-dependent browser test:
-it needs the dev stack and the seeded accounts. The live deployment smoke is
-opt-in. A normal mocked browser run must not be interpreted as proof of backend
-authorization.
+it needs the dev stack and the seeded accounts. After migrations, seed those
+accounts with the upstream-owned
+`local-scripts/mystic_auth/seed-user-permission-matrix.py` helper. The complete
+Docker command sequence is in [CI/CD Overview](../cicd/overview.md#local-equivalents).
+Keep downstream project helpers under `local-scripts/app/`; the shared fixture
+must not be moved back into that downstream-owned directory. The live
+deployment smoke is opt-in. A normal mocked browser run must not be interpreted
+as proof of backend authorization.
 
 ---
 
 ## CI interpretation
 
-The CI workflows under `.github/workflows/` assemble lint, type checking,
-backend pytest, frontend Vitest, Playwright, shell regressions, and security
-checks. Read the job's working directory and test command together with its
-name. Performance checks are diagnostic and may be non-blocking; skipped live
-or deployment-specific checks are expected unless their environment is
-configured.
+The workflow under `.github/workflows/ci.yml` calls the ownership-specific
+entrypoints under `ci/mystic_auth/` and `ci/app/`, then assembles the shared
+lint, type checking, backend pytest, frontend Vitest, Playwright, shell
+regressions, Docker, and security checks. Read the job's ownership label and
+test command together with its name. Performance checks are diagnostic and
+may be non-blocking; skipped live or deployment-specific checks are expected
+unless their environment is configured.
 
 When a test changes, update the nearest catalogue page and the relevant
 cross-cutting coverage page if the behavior spans more than one layer. Keep

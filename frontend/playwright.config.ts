@@ -17,7 +17,7 @@ const SERVER_COMMAND = process.env.PLAYWRIGHT_USE_PREVIEW === "1"
 // Firefox, WebKit, and mobile multiplies backend contention without adding
 // authorization coverage: the mocked matrix already runs in every browser.
 const REAL_ACCOUNT_MATRIX = "**/authorization/permission_matrix_real_accounts_browser.spec.ts";
-const RESPONSIVENESS_TIMING = "**/performance/admin_responsiveness_browser.spec.ts";
+const RESPONSIVENESS_TIMING = "**/performance/management_responsiveness_browser.spec.ts";
 
 export default defineConfig({
   testDir: "../tests/frontend",

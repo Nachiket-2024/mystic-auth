@@ -52,7 +52,7 @@ Sync this app with the latest mystic-auth template
    against docs/mystic_auth/template-usage/ownership-split.md. The upstream-
    owned, never-hand-edit tier includes backend/mystic_auth/,
    frontend/src/mystic_auth/, docs/mystic_auth/, screenshots/mystic_auth/,
-   scripts/mystic_auth/, agent-prompts/mystic_auth/, local-scripts/mystic_auth/,
+   ci/mystic_auth/, scripts/mystic_auth/, agent-prompts/mystic_auth/, local-scripts/mystic_auth/,
    tracked docker/mystic_auth/, tracked env/mystic_auth/*.example,
    makefiles/mystic_auth/, root Makefile/make.ps1, backend/app/sdk.py, and
    frontend/src/app/sdk.ts. A conflict in one of these means the downstream
@@ -62,7 +62,7 @@ Sync this app with the latest mystic-auth template
    The downstream-owned, upstream-never-touches tier includes all of
    backend/app/ except main.py and sdk.py, all of frontend/src/app/ except
    App.tsx and sdk.ts, docs/app/, screenshots/app/, scripts/app/,
-   agent-prompts/app/, local-scripts/app/, docker/app/, env/app/,
+   ci/app/, agent-prompts/app/, local-scripts/app/, docker/app/, env/app/,
    makefiles/app/, every tests/**/app/ tree, and the root README.md,
    SECURITY.md, and CONTRIBUTING.md.
    The sync preserves downstream-owned root documentation; upstream changes
@@ -155,14 +155,27 @@ Sync this app with the latest mystic-auth template
    sentence or a downstream product name. For browser-only downloads, keep
    jsdom tests at the browser-API boundary so they do not trigger unsupported
    document navigation.
+   Setup-env now uses matching `.bak` values as prompt defaults during this
+   workflow and derives every generated database URL from that file's
+   `POSTGRES_DB`. Verify a non-default database name such as `example_app_db` and
+   a downstream `APP_NAME` survive regeneration before deleting the backups.
+   Keep host-run URL-derivation fixtures on a non-default database name such as
+   `example_app_db`, not the template default, so the test proves the helper
+   preserves configured database names while rewriting only host and port.
+   Run `alembic upgrade head` before running
+   `local-scripts/mystic_auth/seed-user-permission-matrix.py` for the
+   real-account browser matrix;
+   p4 accounts must expose `users:delete_any` (hard purge), not
+   `users:deactivate_any` (soft delete).
 8. Run scripts/mystic_auth/upstream-sync/check-alembic-heads.sh; if it reports
    multiple heads, write the merge migration yourself before testing. Also run
    `alembic check` after upgrading the database so model/migration drift is
    caught, not just migration-head collisions.
 9. Rebuild and run the current verification surface. At minimum run backend
    ruff/mypy, backend unit + integration + security tests with the cumulative
-   90% coverage gate, and the frontend typecheck/lint/test-coverage/build
-   commands from `.github/workflows/ci.yml`. Run the backend suite in Docker
+   90% coverage gate, and the frontend commands through
+   `ci/mystic_auth/backend.sh`, `ci/app/backend.sh`, and
+   `ci/app/frontend.sh`, matching `.github/workflows/ci.yml`. Run the backend suite in Docker
    as well when the dev stack is available. Run the repository lint/regression
    scripts for split paths, script paths, image digests, service log rotation,
    CI action pinning, read-only root filesystems, env tooling, backups, and

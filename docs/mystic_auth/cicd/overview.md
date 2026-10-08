@@ -22,6 +22,12 @@ the Windows runner, browser dependencies, production credentials, or another
 GitHub-hosted capability, record that exact limitation instead of calling the
 entire workflow passed.
 
+Ownership-specific CI commands live under `ci/mystic_auth/` and `ci/app/`.
+The workflow remains shared because GitHub Actions does not import arbitrary
+YAML from a root `ci/` directory. The scripts split native backend, frontend,
+tooling, and backup commands; Docker, Compose, browser, and container-suite
+checks remain in the workflow because they exercise the assembled application.
+
 ---
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
@@ -51,15 +57,20 @@ flowchart TD
   placeholder, not branding that a downstream project must keep in sync.
 - Installs `backend/requirements.txt` and `backend/requirements-dev.txt`, then
   runs `pip-audit -r backend/requirements.txt`.
-- Runs `ruff check`, `mypy`, and `bandit -c pyproject.toml` as separate steps so
-  the failing tool is obvious in the Actions UI.
+- Runs MysticAuth and app `ruff`, `mypy`, and `bandit -c pyproject.toml` checks
+  as separate steps through `ci/mystic_auth/backend.sh` and
+  `ci/app/backend.sh`, so the failing ownership area is obvious in the
+  Actions UI.
 - Runs `alembic upgrade head`, then `alembic check`. The check fails if models
   drift from what the migrations create.
-- Runs backend unit, integration, and security suites. The integration and
-  security steps use `--cov-append`, so the final 90% gate checks cumulative
-  coverage across all three suites. `pytest.ini` intentionally does not set
-  `--cov-fail-under` because that would break partial local runs. See
+- Runs app unit tests, then MysticAuth unit, integration, and security suites.
+  The integration and security steps use `--cov-append`, so the final 90% gate
+  checks cumulative coverage across all four suites. `pytest.ini` intentionally
+  does not set `--cov-fail-under` because that would break partial local runs. See
   [Testing Overview](../testing/overview.md).
+- The MysticAuth integration step is the blocking owner for audit-log behavior,
+  including protected-action entries such as `users:list_all`; failures are
+  reported separately from app-owned backend unit failures.
 - Runs `pytest tests/backend/mystic_auth/performance` as a non-blocking step
   because timing thresholds can be noisy on shared GitHub-hosted runners.
 
@@ -86,12 +97,14 @@ flowchart TD
 
 ### `tooling-tests`: Tooling regression tests (paths, env, sync, Compose hardening)
 
-- Runs `tests/scripts/mystic_auth/lint/check-script-paths.sh` and
-  `check-split-paths.sh`: no live stack needed, just static path resolution
-  against the checked-out tree. Added after a stale path in `quickstart.sh`
+- Runs `ci/mystic_auth/tooling.sh`, which invokes the template tooling checks,
+  including `check-script-paths.sh` and `check-split-paths.sh`: no live stack
+  needed, just static path resolution against the checked-out tree. The path
+  checker also validates `ci/` references. Added after a stale path in `quickstart.sh`
   broke the README's own first command; together they've since caught 30+
   further stale-path instances the same way.
-- Runs `tests/scripts/mystic_auth/lint/check-image-digests.sh`: asserts
+- Runs `check-image-digests.sh` through the MysticAuth tooling entrypoint:
+  asserts
   every `@sha256:...`-pinned image in `docker/{mystic_auth,app}/compose/*.yml`
   is a syntactically valid 64-character digest. Added after a 2026-10-05
   security audit found a one-character-short digest on the `geoipupdate`
@@ -136,7 +149,7 @@ flowchart TD
   server, and checks response bodies. This verifies the images and Compose
   wiring actually serve traffic.
 - Seeds the disposable PBAC permission-matrix accounts with
-  `local-scripts/app/seed-user-permission-matrix.py` through the backend
+  `local-scripts/mystic_auth/seed-user-permission-matrix.py` through the backend
   container's `/repo` bind mount before running browser E2E. The matrix test
   exercises real database grants; the stack's database volume is destroyed at
   the end of the job.
@@ -144,13 +157,17 @@ flowchart TD
   stack: dumps the real database, restores it into a disposable scratch
   database, and checks the schema and a real table came back intact, proving
   the backup path is actually restorable, not just that a dump file exists.
-- Runs the Playwright browser E2E suite (`npm run test:browser`,
-  `EMAIL_ENABLED=false`) against the booted dev stack, including the
-  accessibility scan. Mocked UI and authorization suites run in all four
-  browser projects. The exhaustive live permission matrix runs in Chromium
-  desktop, and responsiveness timing runs in Chromium desktop and mobile, so
-  real backend traffic is not multiplied across engines. Does not run the
-  backend's own pytest suite here,
+- Runs the Playwright browser E2E suites (`ci/mystic_auth/frontend-e2e.sh` and
+  `ci/app/frontend-e2e.sh`, with `EMAIL_ENABLED=false`) against the booted dev
+  stack, including the
+  accessibility scan. The workflow runs the MysticAuth-owned tests through
+  `ci/mystic_auth/frontend-e2e.sh` and app-owned tests through
+  `ci/app/frontend-e2e.sh`, so a template auth, permission, audit-log, or
+  accessibility regression is a clearly blocking MysticAuth failure. Mocked
+  UI and authorization suites run in all four browser projects. The exhaustive
+  live permission matrix runs in Chromium desktop, and responsiveness timing
+  runs in Chromium desktop and mobile, so real backend traffic is not
+  multiplied across engines. Does not run the backend's own pytest suite here,
   because that is handled by `docker-full-suite`. Does not run the opt-in
   live-deployment smoke test (`tests/frontend/mystic_auth/e2e/live/`), since
   that needs a real separate deployment and its own env vars to target.
@@ -223,32 +240,37 @@ Everything CI runs can be run locally:
 
 ```bash
 # Backend static analysis (from repo root; dev tools installed via requirements-dev.txt)
-# ruff's import-sorting/per-file-ignore rules are path-relative to its own
-# working directory, not to --config's location, so this one still needs a
-# `cd`: kept a single self-contained line so it doesn't change your shell's
-# directory afterward.
-(cd backend && ruff check app mystic_auth alembic ../tests/backend)
-(cd backend && mypy app mystic_auth)
-bandit -r backend/app backend/mystic_auth -c backend/pyproject.toml
+ci/mystic_auth/backend.sh lint
+ci/app/backend.sh lint
+ci/mystic_auth/backend.sh typecheck
+ci/app/backend.sh typecheck
+ci/mystic_auth/backend.sh security
+ci/app/backend.sh security
 alembic -c backend/alembic.ini check
 
 # Backend tests (from repo root, against local or Dockerized Postgres/Valkey)
-python -m pytest tests/backend/app tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security -q
-python -m pytest tests/backend/mystic_auth/performance -q
+ci/app/backend.sh unit
+ci/mystic_auth/backend.sh unit
+ci/mystic_auth/backend.sh integration
+ci/mystic_auth/backend.sh security-tests
+ci/mystic_auth/backend.sh performance
 
 # Frontend (from repo root)
-npm run typecheck --prefix frontend && npm run lint --prefix frontend && npm run test:coverage --prefix frontend && npm run build --prefix frontend
+ci/app/frontend.sh typecheck
+ci/app/frontend.sh lint
+ci/app/frontend.sh test-coverage
+ci/app/frontend.sh build
 
 # Secrets scan (from repo root; requires gitleaks installed, or run via Docker)
 gitleaks detect --source . -v
 
 # Tooling regression tests (from repo root; no live stack needed)
-tests/scripts/mystic_auth/lint/check-script-paths.sh
-tests/scripts/mystic_auth/lint/check-split-paths.sh
-tests/scripts/mystic_auth/lint/check-image-digests.sh
-tests/scripts/mystic_auth/env-tools/test-env-tooling.sh
-tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh
-tests/scripts/mystic_auth/db/test-backup-freshness.sh
+ci/mystic_auth/tooling.sh script-paths
+ci/mystic_auth/tooling.sh split-paths
+ci/mystic_auth/tooling.sh image-digests
+ci/mystic_auth/tooling.sh env-tools
+ci/mystic_auth/tooling.sh upstream-sync
+ci/mystic_auth/tooling.sh backup-freshness
 
 # Docker image builds (from repo root)
 docker build --target runtime -f docker/mystic_auth/dockerfiles/backend.Dockerfile -t backend:local .
@@ -270,14 +292,15 @@ curl -sf http://localhost:8000/health/ready   # wait/retry until it returns {"st
 curl -sf http://localhost:5173                # wait/retry until it responds
 
 # Seed the real-account permission matrix used by the browser E2E suite.
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T -w /repo backend python local-scripts/app/seed-user-permission-matrix.py
+docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T -w /repo backend python local-scripts/mystic_auth/seed-user-permission-matrix.py
 
 # Restore drill, the same thing docker-build runs against that booted stack
-tests/scripts/mystic_auth/db/test-restore-drill.sh
+ci/mystic_auth/tooling.sh restore-drill
 
-# Full Playwright browser E2E suite (including the accessibility scan),
+# Full Playwright browser E2E suites (including the accessibility scan),
 # the same thing docker-build runs against that booted stack
-CI=true PLAYWRIGHT_WORKERS=2 EMAIL_ENABLED=false npm run test:browser --prefix frontend
+CI=true PLAYWRIGHT_WORKERS=2 EMAIL_ENABLED=false ci/mystic_auth/frontend-e2e.sh
+CI=true PLAYWRIGHT_WORKERS=2 EMAIL_ENABLED=false ci/app/frontend-e2e.sh
 
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v && rm env/mystic_auth/.env.dev env/app/.env.dev
 

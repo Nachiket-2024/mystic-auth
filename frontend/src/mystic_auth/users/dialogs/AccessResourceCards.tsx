@@ -29,7 +29,7 @@ interface AccessResourceCardsProps {
  * collapsible card per resource type, each rendered as a DataTable
  * (Action/Source columns) - the exact same collapsed-header-plus-table
  * layout PermissionsPage uses for its own resource-type groups (same
- * chevron, same plain (non-mono) header/badge font), so an admin sees the
+ * chevron, same plain (non-mono) header/badge font), so a permission holder sees the
  * same shape and starts from the same collapsed state whether they're
  * browsing the permission catalog or a user's effective/direct grants.
  * Groups start expanded, unlike PermissionsPage's own resource-type groups:

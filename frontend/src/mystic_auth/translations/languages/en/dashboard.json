@@ -17,7 +17,7 @@
     "goToActiveSessions_other": "{{count}} active sessions, go to the sessions list",
     "noUserData": "No user data available",
     "administration": {
-        "heading": "Administration",
+        "heading": "Management",
         "loadError": "Couldn't load",
         "users": {
             "label": "Users",

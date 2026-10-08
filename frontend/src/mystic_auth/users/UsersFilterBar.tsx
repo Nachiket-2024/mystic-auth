@@ -225,7 +225,7 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
                 />
 
                 {/* Relative-bucket presets, same pattern as Okta/Auth0/
-                 * Workspace admin consoles (design/users.html's
+                 * Workspace permission-management consoles (design/users.html's
                  * lastLoginOpts): quick buckets cover the common cases at
                  * far less UI than a full custom date-range picker. */}
                 <StyledSelect

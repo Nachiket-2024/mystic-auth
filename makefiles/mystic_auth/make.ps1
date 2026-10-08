@@ -13,13 +13,17 @@
 # installed, same requirement as cloning this repo in the first place.
 
 function Invoke-Bash {
-    param([string]$ScriptPath)
+    param(
+        [string]$ScriptPath,
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
     $bash = Get-Command bash -ErrorAction SilentlyContinue
     if (-not $bash) {
         Write-Error "bash not found on PATH. Install Git for Windows (ships bash.exe) or run this from WSL/Git Bash instead."
         exit 1
     }
-    & bash $ScriptPath
+    & bash $ScriptPath @Arguments
     exit $LASTEXITCODE
 }
 
@@ -44,7 +48,7 @@ $MysticAuthTargets = @{
         Write-Host "make.ps1 test-tooling            regression suite for env-tools scripts (needs bash)"
         Write-Host "make.ps1 test-sync               regression suite for sync-upstream.sh (needs bash)"
         Write-Host "make.ps1 test-backup-freshness   regression suite for backup freshness checks (needs bash)"
-        Write-Host "make.ps1 lint-paths              check every scripts/ path reference resolves (needs bash)"
+        Write-Host "make.ps1 lint-paths              check every ci/scripts/local-scripts path reference resolves (needs bash)"
         Write-Host "make.ps1 lint-split              check for stale pre-split docker/env/scripts references (needs bash)"
         Write-Host "make.ps1 lint                    run lint-paths and lint-split together (needs bash)"
         Write-Host ""
@@ -70,13 +74,13 @@ $MysticAuthTargets = @{
     "restore-drill" = { Invoke-Bash "scripts/mystic_auth/db/database-restore/database-restore-drill.sh" }
     "backup-freshness" = { Invoke-Bash "scripts/mystic_auth/db/backup-verification/backup-freshness-check.sh" }
     "sync" = { & .\scripts\mystic_auth\upstream-sync\sync-upstream.ps1 }
-    "test-tooling" = { Invoke-Bash "tests/scripts/mystic_auth/env-tools/test-env-tooling.sh" }
-    "test-sync" = { Invoke-Bash "tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh" }
-    "test-backup-freshness" = { Invoke-Bash "tests/scripts/mystic_auth/db/test-backup-freshness.sh" }
-    "lint-paths" = { Invoke-Bash "tests/scripts/mystic_auth/lint/check-script-paths.sh" }
-    "lint-split" = { Invoke-Bash "tests/scripts/mystic_auth/lint/check-split-paths.sh" }
+    "test-tooling" = { Invoke-Bash "ci/mystic_auth/tooling.sh" "env-tools" }
+    "test-sync" = { Invoke-Bash "ci/mystic_auth/tooling.sh" "upstream-sync" }
+    "test-backup-freshness" = { Invoke-Bash "ci/mystic_auth/tooling.sh" "backup-freshness" }
+    "lint-paths" = { Invoke-Bash "ci/mystic_auth/tooling.sh" "script-paths" }
+    "lint-split" = { Invoke-Bash "ci/mystic_auth/tooling.sh" "split-paths" }
     "lint" = {
-        Invoke-Bash "tests/scripts/mystic_auth/lint/check-script-paths.sh"
-        Invoke-Bash "tests/scripts/mystic_auth/lint/check-split-paths.sh"
+        Invoke-Bash "ci/mystic_auth/tooling.sh" "script-paths"
+        Invoke-Bash "ci/mystic_auth/tooling.sh" "split-paths"
     }
 }

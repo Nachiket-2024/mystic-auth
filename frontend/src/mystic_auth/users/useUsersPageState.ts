@@ -103,7 +103,7 @@ export function useUsersPageState() {
     // change so a stale selection can't silently span rows no longer on screen.
     const [selectedUserIds, setSelectedUserIds] = useState<Set<string | number>>(new Set());
     // "Select all N matching filters" (BulkActionToolbar), as opposed to
-    // just the rows loaded on the current page: true once an admin commits
+    // just the rows loaded on the current page: true once a permission holder commits
     // to it, with the emails snapshotted at that moment in
     // allMatchingEmails since selectedUserIds can only ever hold ids of
     // rows actually rendered.
@@ -111,7 +111,7 @@ export function useUsersPageState() {
     const [allMatchingEmails, setAllMatchingEmails] = useState<string[]>([]);
     const [isSelectingAllMatching, setIsSelectingAllMatching] = useState(false);
     const [bulkDialog, setBulkDialog] = useState<"policy" | "permission" | "role" | null>(null);
-    // Off by default: clicking a row only selects it once the admin turns
+    // Off by default: clicking a row only selects it once the permission holder turns
     // this on, so normal text selection/copy still works otherwise.
     const [rowClickSelects, setRowClickSelects] = useState(false);
 
@@ -129,7 +129,7 @@ export function useUsersPageState() {
     const selectedUserEmails = selectAllMatching
         ? allMatchingEmails
         : (users ?? []).filter((u) => selectedUserIds.has(u.id)).map((u) => u.email);
-    // Once "select all matching" is on, the count an admin sees/acts on is
+    // Once "select all matching" is on, the count a permission holder sees/acts on is
     // the whole filtered set (data?.total), not just what's on screen.
     const selectedCount = selectAllMatching ? (data?.total ?? allMatchingEmails.length) : selectedUserIds.size;
 

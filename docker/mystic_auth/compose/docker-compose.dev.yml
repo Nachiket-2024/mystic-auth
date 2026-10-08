@@ -88,8 +88,9 @@ services:
       exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app --reload-dir mystic_auth --no-access-log"
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      BACKEND_BASE_URL: http://localhost:8000
-      FRONTEND_BASE_URL: http://localhost:5173
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://localhost:8000}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      FRONTEND_ADDITIONAL_BASE_URLS: ${FRONTEND_ADDITIONAL_BASE_URLS:-}
       ENVIRONMENT: development
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       # Needed so scripts/mystic_auth/docker/dev/backend-exec.sh, which runs with -w /repo
@@ -160,9 +161,9 @@ services:
       # docs/mystic_auth/deployment/dev.md. Not needed inside WSL2's own
       # filesystem.
       # CHOKIDAR_USEPOLLING: "true"
-      BACKEND_BASE_URL: http://localhost:8000
-      FRONTEND_BASE_URL: http://localhost:5173
-      VITE_API_BASE_URL: http://localhost:8000
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://localhost:8000}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
       # Reuses the backend vars instead of requiring VITE_-prefixed
       # duplicates in ./.env.
       VITE_APP_NAME: ${APP_NAME}

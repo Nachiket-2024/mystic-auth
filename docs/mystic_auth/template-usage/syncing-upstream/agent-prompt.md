@@ -103,7 +103,7 @@ The sync prompt reads only `COMPOSE_PROJECT_NAME`, `APP_NAME`, and
 identity when answering `setup-env`'s prompts. It never reads secret values.
 
 The sync script also enforces the ownership table before applying a patch:
-upstream changes to downstream-owned code or app folders block the whole sync,
+upstream changes to downstream-owned code, CI, or app folders block the whole sync,
 while root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` changes are
 reported, excluded, and preserved locally.
 The prompt therefore tells the agent to classify conflicts by ownership

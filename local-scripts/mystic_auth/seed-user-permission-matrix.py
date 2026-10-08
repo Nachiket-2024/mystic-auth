@@ -6,7 +6,7 @@ routes: it creates no verification or password-reset email jobs.  Re-running
 the script replaces only users whose email starts with ``matrix-``.
 
 Run from the backend container, for example:
-  python /repo/local-scripts/app/seed-user-permission-matrix.py
+  python /repo/local-scripts/mystic_auth/seed-user-permission-matrix.py
 """
 
 import asyncio
@@ -57,6 +57,14 @@ DIRECT_PERMISSION_BUNDLES = (
     (("users:read_own", "users"), ("policies:read", "policies")),
 )
 
+# The browser matrix's p4 accounts exercise lifecycle administration. Keep
+# this contract beside the seed definition so a stale migration cannot turn
+# a p4 account into a soft-delete account and make every real-account E2E test
+# fail with a misleading permission-matrix diff.
+REQUIRED_POLICY_ACTIONS = {
+    "user_lifecycle": {"users:delete_any", "users:reactivate"},
+}
+
 
 async def seed() -> None:
     hasher = PasswordHasher()
@@ -86,6 +94,22 @@ async def seed() -> None:
             missing = expected_policies - policies.keys()
             if missing:
                 raise RuntimeError(f"Missing active policies: {sorted(missing)}")
+            policy_actions = {
+                row.name: set(row.actions or [])
+                for row in (
+                    await session.execute(
+                        text("SELECT name, actions FROM policies WHERE is_active = true")
+                    )
+                ).mappings()
+            }
+            for policy_name, required_actions in REQUIRED_POLICY_ACTIONS.items():
+                actual_actions = policy_actions.get(policy_name, set())
+                if not required_actions.issubset(actual_actions):
+                    raise RuntimeError(
+                        f"Policy {policy_name!r} has {sorted(actual_actions)}; "
+                        f"expected at least {sorted(required_actions)}. "
+                        "Run alembic upgrade head before seeding the browser matrix."
+                    )
 
             count = 0
             # Vary the number of copies independently for each combination.

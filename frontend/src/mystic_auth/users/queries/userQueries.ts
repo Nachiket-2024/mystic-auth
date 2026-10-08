@@ -62,7 +62,7 @@ export function useUsersQuery(page: number, pageSize: number, filters: UsersFilt
  * through listUsersApi at its own max page size (1000) since there's no
  * "give me just the emails" endpoint, stopping once it has everything the
  * X-Total-Count header reports. Throws once collection would exceed
- * SELECT_ALL_MATCHING_MAX, so a caller can tell the admin to narrow the
+ * SELECT_ALL_MATCHING_MAX, so a caller can tell the permission holder to narrow the
  * filters instead of silently truncating who gets acted on. */
 export async function fetchAllMatchingUserEmails(filters: UsersFilters): Promise<string[]> {
     const PAGE_SIZE = 1000;

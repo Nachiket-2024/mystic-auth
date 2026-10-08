@@ -29,7 +29,7 @@ const PAGE_SIZE = 10;
 /**
  * RateLimitsPage
  * ----------------------------
- * Admin view of live Valkey-backed rate-limit counters (see
+ * Permission-protected view of live Valkey-backed rate-limit counters (see
  * rate_limiter_service.py), gated by rate_limits:read (resetting a counter
  * needs the separate rate_limits:reset action, see IfCan in
  * rateLimitsColumns.tsx). Numbered pagination like the audit log tables:

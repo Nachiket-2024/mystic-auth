@@ -57,7 +57,7 @@ const GREETING_REFRESH_MS = 60_000;
  * tiles, each independently gated on one fine-grained PBAC permission -
  * absent entirely for a viewer holding none of them), and
  * ActiveSessionsCard. Kept stacked on wide screens too: side by side, the
- * Administration tiles squeeze into a 2x2 grid, which reads worse than one
+ * Management tiles squeeze into a 2x2 grid, which reads worse than one
  * row. No login-trend chart here - that lives on the Security Log page.
  *
  * Own bare title/description (not PageContainer, which pairs its heading
