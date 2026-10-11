@@ -42,8 +42,8 @@ class MockEventSource {
 // @ts-expect-error - a minimal stand-in for tests, not a full EventSource implementation
 globalThis.EventSource = MockEventSource;
 
-// jsdom also has no ResizeObserver. The former Chakra/Ark popover components
-// (Select, Combobox; see LanguageToggle.tsx) used it via floating-ui to track their
+// jsdom also has no ResizeObserver. Radix's popover components (Select,
+// Combobox; see LanguageToggle.tsx) use it via floating-ui to track their
 // trigger's position while open, so opening one throws without this stand-in.
 class MockResizeObserver {
     observe(): void {}
@@ -53,8 +53,8 @@ class MockResizeObserver {
 
 globalThis.ResizeObserver = MockResizeObserver;
 
-// jsdom also has no Element.scrollTo. The former Chakra/Ark Select
-// (LanguageToggle.tsx) called it on selection to reset scroll position for next open.
+// jsdom also has no Element.scrollTo. Radix's Select (LanguageToggle.tsx)
+// calls it on selection to reset scroll position for next open.
 if (!Element.prototype.scrollTo) {
     Element.prototype.scrollTo = () => {};
 }

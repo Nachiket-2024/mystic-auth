@@ -46,8 +46,7 @@ async def test_send_email_task_returns_true_on_success(mocker):
 
 @pytest.mark.asyncio
 async def test_send_email_task_log_names_dry_run_mode_when_email_disabled(mocker):
-    # Regression guard for the 2026-10-05 security audit's F-003: this
-    # task's own terminal-visible log previously said "Email sent
+    # Regression guard: this task's own terminal-visible log previously said "Email sent
     # successfully" regardless of whether EMAIL_ENABLED was true or false -
     # NullEmailSender's "not sending" log lives on a different, file-only
     # logger, so with email disabled the terminal showed a false-positive-

@@ -71,3 +71,19 @@ async def test_health_ready_returns_503_when_configured_geoip_database_is_missin
     assert response.status_code == 503
     body = json.loads(response.body.decode())
     assert body["checks"] == {"database": "ok", "valkey": "ok", "geoip": "error"}
+
+
+@pytest.mark.asyncio
+async def test_health_ready_returns_503_when_configured_geoip_database_is_corrupt(mocker, tmp_path):
+    db = MagicMock()
+    db.execute = AsyncMock(return_value=None)
+    mocker.patch(f"{MODULE}.valkey_client.ping", new_callable=AsyncMock, return_value=True)
+    corrupt_db = tmp_path / "corrupt.mmdb"
+    corrupt_db.write_bytes(b"not a MaxMind database")
+    mocker.patch(f"{MODULE}.settings.GEOIP_DB_PATH", str(corrupt_db))
+
+    response = await health_ready(db=db)
+
+    assert response.status_code == 503
+    body = json.loads(response.body.decode())
+    assert body["checks"] == {"database": "ok", "valkey": "ok", "geoip": "error"}

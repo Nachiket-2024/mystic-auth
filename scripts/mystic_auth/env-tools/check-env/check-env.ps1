@@ -5,7 +5,12 @@
 #
 #   1. ERROR (exit 1): ENVIRONMENT=production in this file, but a secret
 #      still equals the shipped placeholder from its .example.
-#   2. WARNING (exit 0, printed): a <your_...>/<your-domain> placeholder is
+#   2. ERROR (exit 1): a real env file is readable by group/other users when
+#      PowerShell exposes Unix permission bits. Env files contain signing keys
+#      and database credentials and must be owner-only.
+#   3. ERROR (exit 1): a Tailscale env file declares TS_CERT_DOMAIN but its
+#      public origin/issuer/redirect host does not match that exact DNS name.
+#   4. WARNING (exit 0, printed): a <your_...>/<your-domain> placeholder is
 #      still present, or a host port this file declares is already bound.
 #
 # Usage: .\check-env.ps1 [env/mystic_auth/.env.dev ...]
@@ -59,6 +64,12 @@ function Test-PortInUse([int]$Port) {
     }
 }
 
+function Get-EnvValue([string]$Text, [string]$Name) {
+    $line = ($Text -split "`n" | Where-Object { $_ -match "^$Name=" } | Select-Object -First 1)
+    if ($null -eq $line) { return '' }
+    return ($line -replace "^$Name=", '').Trim()
+}
+
 $HasError = $false
 $HasWarning = $false
 
@@ -71,6 +82,37 @@ foreach ($f in $Files) {
     Write-Host "=== $f ==="
     $content = Get-Content $f -Raw
     $isProd = $content -match '(?m)^ENVIRONMENT=production$'
+
+    # PowerShell 7.3+ exposes Unix mode bits on Linux/macOS. On Windows the
+    # ACL model is different and remains the host administrator's responsibility;
+    # the shell preflight is authoritative where stat(2) is available.
+    if (Get-Command Get-UnixFileMode -ErrorAction SilentlyContinue) {
+        $fileMode = Get-UnixFileMode -Path $f
+        $forbidden = [System.IO.UnixFileMode]::GroupRead -bor
+            [System.IO.UnixFileMode]::GroupWrite -bor
+            [System.IO.UnixFileMode]::GroupExecute -bor
+            [System.IO.UnixFileMode]::OtherRead -bor
+            [System.IO.UnixFileMode]::OtherWrite -bor
+            [System.IO.UnixFileMode]::OtherExecute
+        $ownerRequired = [System.IO.UnixFileMode]::UserRead -bor [System.IO.UnixFileMode]::UserWrite
+        if (($fileMode -band $forbidden) -ne 0 -or ($fileMode -band $ownerRequired) -ne $ownerRequired) {
+            Write-Host "  ERROR: env file permissions must be owner read/write only (mode 600 or stricter)."
+            $HasError = $true
+        }
+    }
+
+    $tsCertDomain = Get-EnvValue $content 'TS_CERT_DOMAIN'
+    if ($tsCertDomain) {
+        $originNames = @('FRONTEND_BASE_URL', 'JWT_ISSUER', 'JWT_AUDIENCE', 'GOOGLE_REDIRECT_URI')
+        foreach ($originName in $originNames) {
+            $originValue = Get-EnvValue $content $originName
+            try { $originHost = ([Uri]$originValue).Host } catch { $originHost = '' }
+            if ($originHost -ne $tsCertDomain) {
+                Write-Host "  ERROR: $originName host does not match TS_CERT_DOMAIN. Keep all public auth origins on the exact Funnel DNSName."
+                $HasError = $true
+            }
+        }
+    }
 
     if ($isProd) {
         foreach ($key in $PlaceholderSecrets.Keys) {

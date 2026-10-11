@@ -5,7 +5,7 @@
 **📖 Documentation Site: [https://nachiket-2024.github.io/mystic-auth-docs/](https://nachiket-2024.github.io/mystic-auth-docs/)**
 
 ![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.142+-green?logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.143+-green?logo=fastapi)
 ![React](https://img.shields.io/badge/React-19+-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
@@ -62,15 +62,15 @@ flowchart TD
     Nginx["nginx\n (static frontend build)"]
     Backend["FastAPI backend\n (uvicorn)"]
     Nginx -->|"same-origin API proxy\n production/local-prod"| Backend
-    Backend --> Postgres[("PostgreSQL\n users, policies,\n audit logs")]
-    Backend --> Valkey[("Valkey\n rate limits, account/chain\n version counters, reset/verify\n tokens")]
+    Backend --> Postgres[("PostgreSQL\n users, policies, audit logs,\n durable token versions and replay claims")]
+    Backend --> Valkey[("Valkey\n rate limits, account/chain\n version cache, reset/verify\n tokens")]
     Backend --> Bugsink["Bugsink\n self-hosted error monitoring\n own DB on same Postgres server"]
     Browser -. "unhandled errors" .-> Bugsink
     Backend --> Procrastinate["Procrastinate worker\n (async email sending,\n same Postgres as job queue)"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
-One backend image (`docker/mystic_auth/dockerfiles/backend.Dockerfile`) runs as three containers with different commands: `backend` (the API), `procrastinate_worker` (async email, account-lifecycle delivery, audit-retention, and the daily account-purge job), and `alembic` (migrations only, exits after running). PostgreSQL is the only system of record; Valkey holds nothing that needs to survive a restart. See [System Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/architecture/system-overview) for the full component breakdown, the PBAC authorization pipeline, and a request-lifecycle sequence diagram.
+One backend image (`docker/mystic_auth/dockerfiles/backend.Dockerfile`) runs as three containers with different commands: `backend` (the API), `procrastinate_worker` (async email, account-lifecycle delivery, audit retention, expired session and refresh-claim cleanup, and the daily account-purge job), and `alembic` (migrations only, exits after running). PostgreSQL is the system of record; Valkey holds only ephemeral state and derived caches. See [System Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/architecture/system-overview) for the full component breakdown, the PBAC authorization pipeline, and a request-lifecycle sequence diagram.
 
 Downstream projects can add their own Procrastinate tasks, worker lifecycle
 telemetry, and delivery tracking from `backend/app/` through the public
@@ -219,7 +219,7 @@ What a signed-in user without the required permission sees when opening a protec
 
 ## Stack
 
-- **Backend:** FastAPI, SQLAlchemy 2.0 async ORM with `asyncpg`, Alembic migrations, Pydantic settings and schemas.
+- **Backend:** FastAPI, SQLAlchemy 2.1 async ORM with `asyncpg`, Alembic migrations, Pydantic settings and schemas.
 - **Authentication:** Argon2 password hashing, JWT access tokens, rotating refresh tokens, httpOnly cookies, Google OAuth2 with PKCE, server-side session revocation, password reset, account verification, and account lifecycle controls.
 - **Authorization:** Policy-Based Access Control with policy rows, direct user grants, typed condition handlers, policy history, privilege-escalation guards, and allow/deny audit records. See [PBAC Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/architecture).
 - **Frontend:** TypeScript, React 19 + Vite, Tailwind CSS v4 + shadcn/ui Radix primitives, Zustand + TanStack Query
@@ -246,8 +246,9 @@ The disposable accounts for that live matrix are seeded by the upstream-owned
 Downstream projects keep `local-scripts/app/` for their own local scripts, so
 an upstream sync does not overwrite project-owned helpers.
 
-CI enforces a 90% cumulative backend coverage gate after the app-wrapper, unit,
-integration, and security suites append coverage. The ownership-specific CI
+CI keeps a 90% cumulative backend coverage gate after the app-wrapper, unit,
+integration, and security suites append coverage; the current quality target is
+above 95% without raising that failure threshold. The ownership-specific CI
 commands live under `ci/mystic_auth/` and `ci/app/`, while the shared workflow
 keeps the job orchestration and combined Docker checks. Coverage totals are
 generated per run rather than maintained as a hand-updated README metric.

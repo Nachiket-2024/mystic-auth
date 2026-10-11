@@ -50,16 +50,15 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, ico
     // Copied directly from design/dashboard.html's own `.nav-item`/
     // `.nav-item:hover`/`.nav-item.active` rules rather than re-derived: a
     // translucent brand-500 wash at a handful of specific alphas (16%/22%
-    // hover, 24%/34% active - light/dark), not a solid former-Chakra color step.
-    // An earlier version used solid brand.200/800/900 steps instead, which
-    // landed on visibly different colors than the mockup's actual
-    // translucent fills - solid steps also can't self-adjust the way an
+    // hover, 24%/34% active - light/dark), not a solid color step. A solid
+    // brand.200/800/900 step lands on visibly different colors than the
+    // mockup's actual translucent fills, and can't self-adjust the way an
     // alpha wash does when layered over bg.sidebar's own brand tint.
     // color-mix keeps this tied to the live brand.solid token (works for
     // any brand color a fork/Appearance picks), same reasoning as
-    // AppLayout's canvas glow. NavLink's style prop can't use the former Chakra
-    // _dark condition (it's plain inline styles, not a styled-system
-    // prop), hence reading colorMode directly instead.
+    // AppLayout's canvas glow. NavLink's style prop is a plain inline
+    // style with no dark-mode variant syntax, hence reading colorMode
+    // directly instead.
     const hoverBg = `color-mix(in srgb, var(--brand-solid) ${isDark ? 22 : 16}%, transparent)`;
     const activeBg = `color-mix(in srgb, var(--brand-solid) ${isDark ? 34 : 24}%, transparent)`;
     // brand.fg already resolves to the mockup's own active-text colors:
@@ -108,8 +107,8 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, ico
                 fontWeight: isActive ? 600 : 500,
                 color: isActive ? activeColor : inactiveColor,
                 background: isActive ? activeBg : isHovered ? hoverBg : "transparent",
-                // Faster than the former Chakra default ~200ms transition, which reads
-                // as sluggish for hover feedback.
+                // A ~200ms transition reads as sluggish for hover feedback,
+                // hence the faster FAST_HOVER_TRANSITION here.
                 transition: FAST_HOVER_TRANSITION,
             })}
         >
@@ -154,20 +153,18 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
           )
         : NAV_ITEMS;
     return (
-        <>
-        {/* NavLink's `style` prop can't express :focus-visible, so a scoped
-            stylesheet gives this link the same brand-colored focus ring other
-            focusable controls get from their recipe. React 19 hoists/dedupes
-            <style> by href, so this is a no-op on re-render. */}
-        <style href="mystic-sidebar-link-focus" precedence="low">
-            {".mystic-sidebar-link:focus-visible { outline: 2px solid var(--brand-solid); outline-offset: 2px; }"}
-        </style>
+        // NavLink's `style` prop can't express :focus-visible, so
+        // .mystic-sidebar-link:focus-visible in theme/tailwind.css gives
+        // this link the same brand-colored focus ring other focusable
+        // controls get from their recipe - a real stylesheet rule now,
+        // not a runtime-injected <style> tag (a strict hash-only CSP
+        // can't allow one; see that file for the full rationale).
         <nav
             aria-label={t("mainNavigation")}
             className={cn(
-                // 13.875rem (222px, design/dashboard.html's
-                // `.sidebar{width:222px}`), not Chakra's w="60" (240px) -
-                // narrow enough of a gap to go unnoticed prop-by-prop, but
+                // 13.875rem (222px), matching design/dashboard.html's own
+                // `.sidebar{width:222px}` exactly - narrow enough of a gap
+                // from a round number to go unnoticed prop-by-prop, but
                 // visible side-by-side against the mockup.
                 "fixed md:sticky top-0 left-0 h-screen w-[13.875rem] shrink-0 bg-bg-sidebar border-r border-border-strong z-[1300] flex flex-col",
                 // md:translate-x-0 unconditionally (not just an override):
@@ -244,7 +241,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
                 </div>
             )}
         </nav>
-        </>
     );
 };
 

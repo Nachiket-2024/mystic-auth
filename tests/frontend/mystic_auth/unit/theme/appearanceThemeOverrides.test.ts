@@ -42,8 +42,8 @@ describe('deriveCanvasFrom', () => {
 });
 
 describe('deriveSidebar', () => {
-  // Regression test for a real bug: an earlier formula blended toward
-  // Chakra's generic gray.900 (#18181b, L=10), which floors every possible
+  // Regression test for a real bug: an earlier formula blended toward a
+  // stock generic gray.900 (#18181b, L=10), which floors every possible
   // blend output at least that light - it could never reach the design
   // canvas's actual chrome darkness (#160f0d, L=6.9) no matter the blend
   // weight, so Sidebar/Navbar rendered a visibly lighter, flatter dark-mode

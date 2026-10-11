@@ -21,8 +21,7 @@ function getInitialColorMode(): ColorMode {
 }
 
 // Tailwind's dark-mode selectors resolve against the `.dark` class on the
-// document root. This class toggle is the current color-mode mechanism; it
-// replaced the former Chakra v3 `_dark`/`_light` setup.
+// document root, so this is the color-mode mechanism.
 function applyColorModeClass(mode: ColorMode): void {
     document.documentElement.classList.toggle("dark", mode === "dark");
     document.documentElement.style.colorScheme = mode;

@@ -166,13 +166,13 @@ The irreversible hard delete of an account and its data from the database, run e
 
 ## jti
 
-Short for JWT ID: a unique identifier embedded in every refresh token, used to enforce that each one can be redeemed exactly once (`claim_jti_for_rotation`, an atomic Valkey `SET ... NX`). Two requests racing to redeem the same refresh token can never both win. See [Authentication Overview: Refresh token rotation](../authentication/overview.md#refresh-token-rotation).
+Short for JWT ID: a unique identifier embedded in every refresh token, used to enforce that each one can be redeemed exactly once (`claim_jti_for_rotation`, a unique Postgres claim in `consumed_refresh_tokens`). Two requests racing to redeem the same refresh token can never both win. See [Authentication Overview: Refresh token rotation](../authentication/overview.md#refresh-token-rotation).
 
 ---
 
 ## token revocation
 
-Ending a session's validity before its JWT would naturally expire. This app does it by version, not by blacklist: bumping a Valkey counter (`account_ver` or `chain_ver`) instantly invalidates every token that embedded an older version, with nothing to look up per token. See [Session Management: Source of truth](../authentication/session-management/README.md#source-of-truth).
+Ending a session's validity before its JWT would naturally expire. This app does it by version, not by blacklist: bumping a durable Postgres version (`account_ver` or `chain_ver`) instantly invalidates every token that embedded an older version, with nothing to look up per token. See [Session Management: Source of truth](../authentication/session-management/README.md#source-of-truth).
 
 ---
 

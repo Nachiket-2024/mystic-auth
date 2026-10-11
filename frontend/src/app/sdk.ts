@@ -141,7 +141,7 @@ export { toaster } from "../mystic_auth/ui/toaster/toasterInstance";
 
 // Generic UI primitives: no identity/PBAC coupling, reused as-is by your
 // own feature pages the same way this template's own pages do.
-// Button: Tailwind/shadcn replacement for Chakra's raw <Button>. Use its
+// Button: the app's standard button component. Use its
 // `variant` prop ("brand", "brand-outline", "destructive",
 // "destructive-outline", "brand-tinted-outline", "secondary", "icon",
 // "brand-subtle", "outline", "ghost", "link") instead of spreading a

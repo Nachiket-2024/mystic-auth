@@ -10,13 +10,11 @@ type CardProps = React.ComponentPropsWithoutRef<"div"> & {
 
 /**
  * The app's standard surface styling (theme tokens, rounded corners,
- * shadow) as a plain element instead of a Chakra Card.Root: bg-bg-surface/
- * border-border-card/rounded-card/shadow-card/p-[20px_22px] map 1:1 to the
- * old bg="bg.surface" borderColor="border.card" rounded="density.card"
- * shadow="density.card" p="density.cardPadding" props (see
- * theme/tailwind.css's --bg-surface/--border-card/--radius-card/
- * --shadow-card/--spacing-card-padding). Callers override via className
- * (twMerge in cn() lets a later class like "p-0" win over the default p).
+ * shadow) as a plain element: bg-bg-surface/border-border-card/
+ * rounded-card/shadow-card/p-[20px_22px] map 1:1 to theme/tailwind.css's
+ * --bg-surface/--border-card/--radius-card/--shadow-card/
+ * --spacing-card-padding. Callers override via className (twMerge in
+ * cn() lets a later class like "p-0" win over the default p).
  */
 const Card = React.forwardRef<HTMLDivElement | HTMLButtonElement, CardProps>(
     ({ as = "div", className, children, ...props }, ref) => {

@@ -129,7 +129,7 @@ async def test_export_neutralizes_csv_formula_injection_in_name(client, created_
 
 @pytest.mark.asyncio
 async def test_export_neutralizes_csv_formula_injection_in_email(client, created_emails):
-    """F-001: EmailStr's RFC 5322 local-part allows a leading "=", "+",
+    """EmailStr's RFC 5322 local-part allows a leading "=", "+",
     "-", or "@" (unlike name, there's no app-level charset restriction
     stopping it either), so a self-registered account can land a formula
     trigger in the email column too. Must get the same `_csv_safe`

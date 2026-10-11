@@ -117,9 +117,9 @@ The PBAC route files above live in
 - `auth/refresh_token_logic/test_refresh_token_unit.py` verifies rotation,
   expiry, replay detection, and token-chain revocation.
 - `auth/refresh_token_logic/test_refresh_token_valkey_unavailable_unit.py`
-  verifies fail-safe behavior when refresh state cannot reach Valkey.
+  verifies fail-closed behavior when token-version/revocation state is unavailable.
 - `auth/token_logic/test_jwt_service_jti_revocation_unit.py` verifies JTI
-  revocation checks and claims handling.
+  revocation checks and durable claims handling.
 - `auth/token_logic/test_jwt_service_revocation_unit.py` verifies token
   revocation and version invalidation.
 - `auth/token_logic/test_jwt_service_unit.py` verifies JWT creation,
@@ -238,10 +238,13 @@ tests remain valid when another local project uses the defaults.
   payloads and retry handling.
 - `procrastinate_tasks/test_session_cleanup_tasks_unit.py` verifies stale
   session cleanup scheduling.
-- `tests/backend/mystic_auth/unit/scripts/test_create_role-based access control_policies_unit.py`
-  verifies default role-based access control policy creation and repeatability.
 - `tests/backend/mystic_auth/unit/scripts/test_create_system_user_unit.py`
   verifies protected system-user creation and bootstrap safeguards.
+- `tests/backend/mystic_auth/unit/scripts/test_create_unconditioned_policies_unit.py`
+  verifies default role-based access policy creation and repeatability.
+- `tests/backend/mystic_auth/unit/scripts/test_authorization_maintenance_scripts_unit.py`
+  verifies targeted/all-user cache invalidation, duplicate-email reporting,
+  conditioned-grant conflict selection, and both CLI output paths.
 - `user/test_user_base_crud_filters_unit.py` verifies user filtering and
   scoped query predicates.
 - `user/test_user_base_crud_joins_and_crud_unit.py` verifies joins and common

@@ -57,45 +57,33 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, extraNavItems, extraNav
         // live brand-solid token (works for any brand color, not a hardcoded
         // hex) while still getting a real alpha-blended glow, which a solid
         // semantic token pair can't express on its own. Light/dark values
-        // are two separate inline `style`s (not Tailwind classes), one
-        // guarded by `.dark`, since arbitrary-value bg-[...] can't hold a
-        // gradient this long cleanly.
-        <>
-            <style href="mystic-app-layout-bg" precedence="low">
-                {`
-.mystic-app-layout-bg {
-    background-image: radial-gradient(1100px 480px at 12% -8%, color-mix(in srgb, var(--brand-solid) 8%, transparent), transparent 60%), radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--accent-solid) 6%, transparent), transparent 55%);
-}
-.dark .mystic-app-layout-bg {
-    background-image: radial-gradient(1100px 480px at 12% -8%, color-mix(in srgb, var(--brand-solid) 15%, transparent), transparent 60%), radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--accent-solid) 8%, transparent), transparent 55%);
-}
-`}
-            </style>
-            <div className="mystic-app-layout-bg flex min-h-screen bg-bg-canvas bg-fixed">
-                {/* Backdrop for the off-canvas sidebar on small screens */}
-                {mobileNavOpen && (
-                    <div
-                        className="fixed inset-0 bg-black/60 z-[1300] block md:hidden"
-                        onClick={() => setMobileNavOpen(false)}
-                        aria-hidden="true"
-                        data-testid="mobile-nav-backdrop"
-                    />
-                )}
+        // live in theme/tailwind.css as .mystic-app-layout-bg (one rule
+        // guarded by `.dark`), not an inline `style`/runtime `<style>` tag -
+        // see that file for why (a strict hash-only CSP can't allow one).
+        <div className="mystic-app-layout-bg flex min-h-screen bg-bg-canvas bg-fixed">
+            {/* Backdrop for the off-canvas sidebar on small screens */}
+            {mobileNavOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 z-[1300] block md:hidden"
+                    onClick={() => setMobileNavOpen(false)}
+                    aria-hidden="true"
+                    data-testid="mobile-nav-backdrop"
+                />
+            )}
 
-                <Sidebar isOpen={mobileNavOpen} onNavigate={() => setMobileNavOpen(false)} extraItems={extraNavItems} />
+            <Sidebar isOpen={mobileNavOpen} onNavigate={() => setMobileNavOpen(false)} extraItems={extraNavItems} />
 
-                <div className="flex flex-col flex-1 min-w-0">
-                    <Navbar
-                        onToggleSidebar={() => setMobileNavOpen((open) => !open)}
-                        extraContent={extraNavbarContent}
-                        onOpenCommandPalette={onOpenCommandPalette}
-                    />
-                    <main className="flex-1 min-w-0 w-full px-4 py-5 sm:px-6 md:px-8 md:py-7 [scrollbar-gutter:stable]">
-                        {children}
-                    </main>
-                </div>
+            <div className="flex flex-col flex-1 min-w-0">
+                <Navbar
+                    onToggleSidebar={() => setMobileNavOpen((open) => !open)}
+                    extraContent={extraNavbarContent}
+                    onOpenCommandPalette={onOpenCommandPalette}
+                />
+                <main className="flex-1 min-w-0 w-full px-4 py-5 sm:px-6 md:px-8 md:py-7 [scrollbar-gutter:stable]">
+                    {children}
+                </main>
             </div>
-        </>
+        </div>
     );
 };
 

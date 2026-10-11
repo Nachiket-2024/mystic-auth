@@ -137,6 +137,13 @@ Alembic startup itself rather than the app.
 Frontend: [http://localhost:5173](http://localhost:5173)
 API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
+The Vite dev server sends CSP, frame denial, `nosniff`, referrer, and
+permissions headers. Its CSP allows Vite's development-time inline/eval
+scripts and the configured API origin; this is dev-only policy, not the
+production frontend policy. HSTS is omitted because this endpoint uses
+plain HTTP. Keep the published port loopback-only. If you expose dev over
+HTTPS or a tunnel, put it behind the production frontend proxy instead.
+
 ---
 
 ## Environment variables

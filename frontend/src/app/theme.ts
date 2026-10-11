@@ -30,7 +30,7 @@ export interface AppThemeOverrides {
  * `cssVars` gets applied on top of them instead - the same "yours, upstream
  * never touches it again" pattern app_sdk.ts uses. A signed-in user's own
  * Appearance pick still overrides `brandColor` client-side for that user
- * only, same precedence the old Chakra-based system had.
+ * only.
  *
  * Ships empty in every release, so it never conflicts on a sync.
  *

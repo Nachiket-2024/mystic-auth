@@ -6,20 +6,23 @@
 # before committing an update), not incidentally as a side effect of an
 # unrelated change.
 
-fastapi==0.142.1
+fastapi==0.143.0
 uvicorn[standard]==0.54.0
 
-SQLAlchemy==2.0.54
-asyncpg==0.31.0
+# [asyncio] is required as of 2.1: SQLAlchemy used to pull in greenlet
+# unconditionally on supported platforms, but 2.1 made it extra-gated, and
+# this project's entire DB layer is async (asyncpg/psycopg async engines).
+SQLAlchemy[asyncio]==2.1.4
+asyncpg==0.32.0
 alembic==1.20.0
 # Transitive dep of alembic/procrastinate, pinned explicitly with [binary]:
 # plain psycopg's libpq loader doesn't work on musl/Alpine, [binary] bundles
 # its own libpq so it works on both glibc and musl.
 psycopg[binary]==3.3.6
 
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 pydantic-settings==2.15.0
-pydantic[email]==2.13.5
+pydantic[email]==2.14.0
 
 pyjwt==2.15.1
 argon2_cffi==25.1.0

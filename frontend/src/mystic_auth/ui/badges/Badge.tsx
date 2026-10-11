@@ -5,11 +5,9 @@ import { cn } from "../styles/classNames";
 
 /**
  * Chip styling per color x variant. Every variant (not just outline) keeps a
- * visible, matching-hue border - Chakra's stock Badge only borders outline,
- * but a borderless subtle/solid chip on this app's light bg.surface/
- * bg.canvas reads as a barely-there smudge for several colors (gray,
- * yellow), the same problem the old Chakra wrapper's unconditional
- * `borderColor="colorPalette.border"` fixed. brand/accent reuse the
+ * visible, matching-hue border: a borderless subtle/solid chip on this
+ * app's light bg.surface/bg.canvas reads as a barely-there smudge for
+ * several colors (gray, yellow) without one. brand/accent reuse the
  * semantic border/subtle/solid/fg tokens from theme/tailwind.css (so they
  * follow a signed-in user's own brand-color pick); the stock palettes below
  * use Tailwind's built-in scale directly, at the same 200/900 (subtle) and
@@ -78,7 +76,7 @@ const badgeVariants = cva("inline-flex w-fit items-center gap-1 whitespace-nowra
 export interface BadgeProps
     extends React.ComponentPropsWithoutRef<"span">,
         Omit<VariantProps<typeof badgeVariants>, "color"> {
-    /** Named "colorPalette" (not "color") to match every call site's existing Chakra prop name. */
+    /** Named "colorPalette" (not "color") for consistent naming across every call site. */
     colorPalette?: VariantProps<typeof badgeVariants>["color"];
 }
 

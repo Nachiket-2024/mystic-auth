@@ -1,7 +1,7 @@
-from sqlalchemy import asc, desc, func, or_
+from sqlalchemy import any_, asc, desc, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.sql.elements import UnaryExpression
+from sqlalchemy.sql.elements import OrderByList, UnaryExpression
 
 from ...core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
 from ..models.policy_model import Policy, UserPolicy
@@ -44,10 +44,12 @@ def _apply_filters(
     if is_active is not None:
         stmt = stmt.where(Policy.is_active == is_active)
     if contains_action:
-        # Policy.actions is a Postgres ARRAY(String); .any() emits
+        # Policy.actions is a Postgres ARRAY(String); any_() emits
         # `... = ANY(actions)`, an exact-value membership test against the
         # array - "which policies grant invoices:void" not a substring match.
-        stmt = stmt.where(Policy.actions.any(contains_action))  # type: ignore[arg-type]
+        # (the .any() comparator method used here previously is deprecated
+        # for removal as of SQLAlchemy 2.1; any_() is the modern form.)
+        stmt = stmt.where(contains_action == any_(Policy.actions))
     if destructive_only:
         # Keep this explicit and catalog-scoped. Custom application actions
         # remain outside MysticAuth's catalog and are not classified here.
@@ -63,7 +65,7 @@ def _apply_filters(
     return stmt
 
 
-def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression]:
+def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression | OrderByList]:
     column = getattr(Policy, sort_by, None) if sort_by in _SORTABLE_COLUMN_NAMES else None
     if column is None:
         column = Policy.id

@@ -6,10 +6,8 @@ import { useThemeStore } from "../store/themeStore";
 import appThemeOverrides from "../../app/theme";
 
 /**
- * Plain-CSS-variable theme implementation, replacing the old Chakra system
- * rebuild
- * (AppearanceThemeProvider.tsx/theme/system.ts, retired once every component
- * moved to Tailwind): writes --brand-50..900 plus the two light/dark pairs
+ * Plain-CSS-variable theme implementation: writes --brand-50..900 plus
+ * the two light/dark pairs
  * that don't derive automatically from those steps (--bg-canvas-from,
  * --bg-sidebar - see appearanceThemeOverrides.ts's deriveCanvasFrom/
  * deriveSidebar) onto <html>, from the signed-in user's own Appearance pick

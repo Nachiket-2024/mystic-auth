@@ -1,27 +1,23 @@
+// Covers mystic_auth-owned behavior only: the shared ControlCluster
+// component's interactive state (rendered via AuthLayout, not the
+// app-owned landing page), the login page's own legal-link wiring, and
+// the authenticated-root-redirect route guard. Landing page content,
+// legal document content, and the 404/404 status pages themselves are
+// app-owned (frontend/src/app/{landing_page,legal,status_pages}/) and
+// have their own app-neutral coverage under
+// tests/frontend/app/e2e/{landing,legal,status_pages}/ - this file must
+// never duplicate or hard-code assertions against that app-owned
+// content. See docs/mystic_auth/testing/frontend-e2e.md#app-and-public-pages.
 import { expect, test } from "../../../../../frontend/e2e/playwright";
 import { installAuthenticatedMysticAuthApiRoutes, leastPrivilegeProfile } from "../support/authenticatedMysticAuthApiRoutes";
 
-test.describe("public landing, legal, and status pages", () => {
-  test("landing navigation and skip link have observable keyboard behavior", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: /auth & authorization/i })).toBeVisible();
-
-    const skip = page.locator('a[href="#main-content"]');
-    await skip.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.locator("#main-content")).toBeFocused();
-
-    await page.getByRole("link", { name: /^sign up$/i }).first().focus();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/signup$/);
-    await page.goBack();
-    await page.getByRole("link", { name: /^log in$/i }).first().focus();
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/login$/);
-  });
-
+test.describe("public pages: mystic_auth-owned behavior", () => {
   test("display controls change state and close their menus with Escape", async ({ page }) => {
-    await page.goto("/");
+    // /login, not "/": AuthLayout (and therefore ControlCluster) is
+    // mystic_auth-owned regardless of which page renders it, but /login
+    // itself is unambiguously mystic_auth-owned too, so this test has no
+    // dependency on the app-owned landing page at all.
+    await page.goto("/login");
 
     const theme = page.getByRole("button", { name: /switch to dark mode|switch to light mode/i });
     const initialThemeLabel = await theme.getAttribute("aria-label");
@@ -46,20 +42,11 @@ test.describe("public landing, legal, and status pages", () => {
     await expect(language).toBeFocused();
   });
 
-  for (const [path, heading] of [["/privacy", /privacy policy/i], ["/terms", /terms of service/i]] as const) {
-    test(`${path} renders all document content and its Back button works`, async ({ page }) => {
-      await page.goto(path);
-      await expect(page.getByRole("heading", { name: heading })).toBeVisible();
-      await expect(page.locator("p").filter({ hasText: /^Last updated:/i })).toBeVisible();
-      const backButtons = page.getByRole("button", { name: /back/i });
-      await expect(backButtons).toHaveCount(2);
-      await backButtons.first().focus();
-      await page.keyboard.press("Enter");
-      await expect(page).toHaveURL(/\/$/);
-    });
-  }
-
-  test("fresh legal navigation falls back home and preserves the triggering route", async ({ page }) => {
+  test("login page's legal links navigate away and back, preserving the triggering route", async ({ page }) => {
+    // Asserts only the login page's own link wiring and browser-history
+    // behavior (both mystic_auth-owned) - never the legal page's
+    // destination content, which is app-owned and covered by
+    // tests/frontend/app/e2e/legal/legal_pages_browser.spec.ts.
     await page.goto("/login");
     await page.getByRole("link", { name: /terms of service/i }).click();
     await expect(page).toHaveURL(/\/terms$/);
@@ -69,27 +56,14 @@ test.describe("public landing, legal, and status pages", () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("404 buttons navigate home and back using keyboard activation", async ({ page }) => {
-    await page.goto("/this-route-does-not-exist");
-    await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
-    const home = page.getByRole("button", { name: /go home/i });
-    await home.focus();
-    await page.keyboard.press("Space");
-    await expect(page).toHaveURL(/\/$/);
-
-    await page.goto("/this-route-does-not-exist");
-    const back = page.getByRole("button", { name: /go back/i });
-    await back.click();
-    await expect(page).toHaveURL(/\/$/);
-  });
-
-  test("403 actions work for a least-privilege authenticated profile", async ({ page }) => {
+  test("an authenticated user visiting the public root is redirected to the dashboard", async ({ page }) => {
+    // The public-root-redirects-signed-in-users rule is mystic_auth's own
+    // routing behavior. Going straight to "/" while authenticated isolates
+    // that rule from the app-owned NotAuthorizedPage/LandingPage markup
+    // entirely, unlike the previous version of this test, which clicked
+    // through the 403 page's "Go Home" button and hard-coded its heading.
     await installAuthenticatedMysticAuthApiRoutes(page, leastPrivilegeProfile);
-    await page.goto("/not-authorized");
-    await expect(page.getByRole("heading", { name: "403" })).toBeVisible();
-    await page.getByRole("button", { name: /go home/i }).click();
-    // Authenticated users are sent to the app home, which is the dashboard;
-    // the public root intentionally redirects signed-in users there.
+    await page.goto("/");
     await expect(page).toHaveURL(/\/dashboard$/);
   });
 });

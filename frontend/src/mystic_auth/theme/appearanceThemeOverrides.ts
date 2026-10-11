@@ -5,16 +5,15 @@ import { generateBrandScale } from "./generateBrandScale";
 
 extend([mixPlugin]);
 
-// The former Chakra-compatible stock gray.900 (the dark canvas default in
-// tailwind.css).
-// Dark mode's canvasFrom is blended against this rather than a flat brand step.
+// A stock neutral gray.900. Dark mode's canvasFrom is blended against this
+// rather than a flat brand step.
 const GRAY_900 = "#18181b";
 
-// This app's own dark canvas value from tailwind.css, not
-// The former Chakra-compatible generic gray.900 - deriveSidebar blends toward this instead (see
-// its own comment for why): gray.900 (#18181b, L=10) floors every possible
-// blend result at least that light, which can never reach the mockup's
-// actual chrome darkness (L=6.9) no matter the blend weight.
+// This app's own dark canvas value from tailwind.css, not GRAY_900 -
+// deriveSidebar blends toward this instead (see its own comment for why):
+// GRAY_900 (#18181b, L=10) floors every possible blend result at least
+// that light, which can never reach the mockup's actual chrome darkness
+// (L=6.9) no matter the blend weight.
 const BG_CANVAS_DARK = "#0b0d12";
 
 /** The bg.canvasFrom pair for an arbitrary brand scale - shared with
@@ -47,17 +46,16 @@ export function deriveCanvasFrom(scale: ReturnType<typeof generateBrandScale>): 
  * are barely distinguishable - a whisper of brand hue, not a visibly
  * tinted panel. Measuring that mockup color directly: L=96.7/S=53% light,
  * L=6.9/S=26% dark - both nearly the *same lightness as bg.canvas itself*
- * (L=97 light, L=6 dark), unlike an earlier pass here that landed on L=88
- * light / a 0.45-weight dark blend, which read as a distinctly warm/rose
- * panel next to the white cards in front of it (the actual bug the design
- * canvas review flagged: "still using the old rose/tan tinted-everywhere
- * look"). This keeps `scale["600"]`'s saturation mostly intact (a trimmed
- * 85%, since high lightness already mutes it) but pushes lightness up to
- * L=96.5 - just one notch below bg.canvas, enough to read as its own
- * surface without becoming a colored block. Dark mixes BG_CANVAS_DARK (this
- * app's own bg.canvas dark value, not the old Chakra-compatible gray.900 - that
- * floored every blend at L=10, too light to ever reach the mockup's L=6.9
- * no matter the weight) with a deep, near-black step at 60% weight - tuned
+ * (L=97 light, L=6 dark). A lower lightness (L=88) with a 0.45-weight dark
+ * blend reads as a distinctly warm/rose panel next to the white cards in
+ * front of it, visibly "tinted" rather than barely-there - so this keeps
+ * `scale["600"]`'s saturation mostly intact (a trimmed 85%, since high
+ * lightness already mutes it) but pushes lightness up to L=96.5 - just one
+ * notch below bg.canvas, enough to read as its own surface without
+ * becoming a colored block. Dark mixes BG_CANVAS_DARK (this app's own
+ * bg.canvas dark value, not GRAY_900, which floors every blend at L=10,
+ * too light to ever reach the mockup's L=6.9 no matter the weight) with a
+ * deep, near-black step at 60% weight - tuned
  * so the *default* brand color's output lands within a couple RGB values of
  * the mockup's literal #160f0d, while staying a real brand-derived blend
  * for any other brand color a fork picks. */

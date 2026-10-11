@@ -27,7 +27,7 @@ the one routine both purge paths call, so they can never drift apart:
 
 1. Revoke every session on the account. Unlike every other revoke-adjacent path in the app, this
    one **fails closed**: revocation happens before the irreversible hard delete below, so if the
-   bump can't be confirmed (Valkey unreachable), `purge_user_account` raises
+   bump can't be confirmed (Postgres unavailable), `purge_user_account` raises
    `TokenVersionUnavailableError` and nothing past this step runs - no audit write, no delete. See
    [Bump failure handling](../session-management/token-lifecycle.md#bump-failure-handling) for why this one path is
    the exception to "the primary action still succeeds."
@@ -56,7 +56,7 @@ flowchart TD
     Query --> Purge
     Purge --> Revoke["Revoke sessions"]
     Revoke -- "confirmed" --> Audit["Audit: account_purged"] --> HardDelete["Hard delete row"]
-    Revoke -- "Valkey unreachable" --> Blocked["Raises, nothing deleted.\n Manual: 503 SESSION_REVOCATION_UNAVAILABLE.\n Scheduled: that account skipped,\n retried on tomorrow's run."]
+    Revoke -- "Postgres unavailable" --> Blocked["Raises, nothing deleted.\n Manual: 503 SESSION_REVOCATION_UNAVAILABLE.\n Scheduled: that account skipped,\n retried on tomorrow's run."]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 

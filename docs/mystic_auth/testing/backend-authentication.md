@@ -63,15 +63,14 @@ leak policy or credential-state detail.
   chain version reads/writes used to invalidate tokens.
 - `unit/auth/refresh_token_logic/test_refresh_token_unit.py` verifies valid
   rotation, malformed/wrong issuer/audience/type rejection, missing chain or
-  email handling, pre-chain versus chain-scoped replay revocation, duplicate
-  grace behavior, and garbage-token decoding.
+  email handling, pre-chain versus chain-scoped replay revocation, same-IP duplicate rejection without token branching, and garbage-token decoding.
 - `unit/auth/refresh_token_logic/test_refresh_token_handler_unit.py` verifies
   request orchestration and refresh-cookie responses.
 - `unit/auth/refresh_token_logic/test_refresh_token_valkey_unavailable_unit.py`
   verifies the fail-safe response when refresh state cannot be confirmed.
 - `integration/auth/test_refresh_token_integration.py` verifies rotation,
   replay-chain invalidation, cookies, persistence, and the concurrent
-  same-token double-spend rule.
+  same-token double-spend rule, including rejection after legacy Valkey marker removal.
 
 These tests distinguish cryptographic validity from revocation state. A valid
 JWT is not automatically an accepted session token.

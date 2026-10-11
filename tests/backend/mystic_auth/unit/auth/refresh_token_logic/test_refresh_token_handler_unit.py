@@ -111,8 +111,7 @@ async def test_rate_limit_and_lockout_use_distinct_valkey_keys(mocker):
 
 @pytest.mark.asyncio
 async def test_refresh_lockout_is_also_keyed_by_account_not_just_ip(mocker):
-    # Regression guard for the 2026-10-05 security audit's F-002: the
-    # lockout here used to be keyed on client IP only
+    # Regression guard: the lockout here used to be keyed on client IP only
     # ("refresh:lockout:ip:{ip}"), unlike the login flow's own lockout
     # (keyed on *both* IP and email). Consequence: a leaked/stolen refresh
     # token for one victim account, replayed from many different IPs,

@@ -5,7 +5,7 @@ from sqlalchemy import Select, asc, desc, func, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.sql.elements import UnaryExpression
+from sqlalchemy.sql.elements import OrderByList, UnaryExpression
 
 from ...core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
 from ..models.authorization_audit_log_model import AuthorizationAuditLog
@@ -28,7 +28,7 @@ _SORTABLE_COLUMNS = {
 }
 
 
-def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression]:
+def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression | OrderByList]:
     column = _SORTABLE_COLUMNS.get(sort_by or "", AuthorizationAuditLog.created_at)
     direction = asc if sort_dir == "asc" else desc
     return [direction(column), direction(AuthorizationAuditLog.id)]

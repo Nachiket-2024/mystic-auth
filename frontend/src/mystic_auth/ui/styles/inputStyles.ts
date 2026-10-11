@@ -7,8 +7,6 @@
 // security boundary on its own; the backend still enforces it independently.
 export const SEARCH_QUERY_MAX_LENGTH = 100;
 
-// SEARCH_INPUT_PROPS (the border/hover/focus treatment for every bordered
-// text input) used to live here as a Chakra spread props object. It's now
-// baked directly into ui/inputs/Input.tsx/ui/inputs/Textarea.tsx's Tailwind classes -
-// still shared by every plain form field, StyledSelect's trigger, etc., just
-// no longer something call sites need to import.
+// The border/hover/focus treatment for every bordered text input is baked
+// directly into ui/inputs/Input.tsx/ui/inputs/Textarea.tsx's Tailwind
+// classes, shared by every plain form field, StyledSelect's trigger, etc.

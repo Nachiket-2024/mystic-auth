@@ -137,6 +137,14 @@ for f in "${FILES[@]}"; do
 
   tmp="$(mktemp)"
   cp "$f" "$tmp"
+  # Preserve the source file's permission mode when replacing it. A plain
+  # cp/mv sequence applies the process umask to the temporary file and can
+  # silently turn a mode-600 credential file into mode 644, undoing the
+  # secret-hygiene preflight's protection after an otherwise safe field edit.
+  file_mode="$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || true)"
+  if [ -n "$file_mode" ]; then
+    chmod "$file_mode" "$tmp"
+  fi
 
   for key in "${KEY_ORDER[@]}"; do
     if grep -q "^${key}=" "$tmp"; then

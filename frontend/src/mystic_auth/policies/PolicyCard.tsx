@@ -29,7 +29,7 @@ import {
 import PolicyActionGroups from "./PolicyActionGroups";
 import type { PolicyRead } from "../api/policies_api";
 
-// colorPalette="green" (Chakra), not brand: design/policies.html's
+// A fixed status green, not brand: design/policies.html's
 // .switch[aria-checked="true"] is a fixed status green, not the
 // user-customizable brand color - this is a status/state (design.md: status
 // colors stay separate from brand), not a brand accent. shadcn's Switch

@@ -35,6 +35,12 @@ async def test_permissions_grant_only_cannot_grant_an_unheld_sensitive_action(cl
         json={"action": "users:delete_any", "resource_type": "users"},  # caller doesn't hold this
     )
     assert resp.status_code == 403
+    # Specifically the "you don't hold this action at all" guard, not just
+    # any 403 - a mutation that disables this exact check was once masked
+    # by a second, coincidentally-also-403 check further down the same
+    # function (CANNOT_GRANT_BROADER_CONDITIONS), so this test must pin the
+    # code, not just the status.
+    assert resp.json()["code"] == "CANNOT_GRANT_UNHELD_ACTION"
 
     # confirm it didn't take
     list_resp = await client.get("/authorization/users/me/permissions")

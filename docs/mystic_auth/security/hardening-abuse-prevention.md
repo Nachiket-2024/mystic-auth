@@ -48,7 +48,7 @@ flowchart TD
   2. This is the opposite tradeoff from the PBAC authorization cache, which fails open to the authoritative database on a Valkey error: see [PBAC Troubleshooting: Valkey cache management](../authorization/troubleshooting/valkey-and-logging.md#valkey-cache-management) for that contrast.
   3. Practical implication: a Valkey outage makes the API fully unusable for any rate-limited auth route, not just slower. See [Security Decisions](decisions-auth.md#rate-limiter-fails-closed-on-a-valkey-outage-reviewed-kept-intentionally) for why this was kept rather than changed.
 - **`reset_counter` only ever deletes an actual rate-limit key**:
-  1. `DELETE /rate-limits/{key}` (see [API Reference](../api/reference.md)) takes the key straight from the URL, but this same Valkey instance also holds unrelated security-critical keys (`revoked:{jti}` token-revocation entries, password-reset/verify/account-delete tokens, the PBAC policy cache, and more).
+  1. `DELETE /rate-limits/{key}` (see [API Reference](../api/reference.md)) takes the key straight from the URL, but this same Valkey instance also holds unrelated security-critical keys (legacy `revoked:{jti}` markers, password-reset/verify/account-delete tokens, the PBAC policy cache, and more; current replay claims are in Postgres).
   2. `reset_counter` rejects any key that doesn't match the `<endpoint>:<ip|account>:<identifier>` shape `list_active_limits` itself produces, so this endpoint can never be used to delete something outside the rate-limiter's own keyspace.
 
 ---

@@ -94,12 +94,12 @@ class PasswordResetService:
         such user, same password); once the new password is actually
         written, success is always True, even if the other-session revoke
         below couldn't be confirmed - blocking the reset on an unrelated
-        Valkey outage would be worse than the gap it protects against.
+        Postgres outage would be worse than the gap it protects against.
         sessions_revoked is None when no revoke was attempted (the reset
         itself failed first), True once confirmed, False if Valkey was
         unreachable for the bump - same contract as the self-service
         password-change path's own sessions_revoked field
-        (user_self_service_routes.py), so a Valkey outage never turns a real
+        (user_self_service_routes.py), so a Postgres outage never turns a real
         password reset into a reported "invalid token" failure.
         """
         valkey_key = f"password_reset:{token}"

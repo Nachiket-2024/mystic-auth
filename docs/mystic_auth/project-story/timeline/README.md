@@ -11,7 +11,12 @@ The commit history shows the real evolution, not a fully planned architecture fr
 first commit was on 18 August, 2025, and there's a 4-month gap between October 2025 and February
 2026.
 
-Each entry below follows the same convention:
+Completed entries below follow the same convention. Before a manual commit, the next change set
+is recorded as a prospective numbered entry: it has the next `### Commit N: <date>` heading, a
+quoted proposed subject, and concise bullets, but no hash or statistics until the commit exists.
+The preceding entry is then completed with the real hash and exact `git show --shortstat` output.
+
+Each completed entry below follows the same convention:
 
 - Its own `### Commit N: <date>` heading, numbered sequentially across the whole history in commit
   order regardless of which of the five pages it lands on. No grouping by date range, and no
@@ -73,6 +78,7 @@ timeline
     October 2026: Coverage increase, backend tooling, backup, sync hardening
                   : Durable token revocation, lifecycle event queue, backup HMAC verification
                   : Split CI ownership, downstream validation fixes
+                  : Runtime hardening, dependency notices, production validation, and documentation corrections
 ```
 
 ---
@@ -84,7 +90,7 @@ timeline
 - [February-July 2026](2026-feb-jul.md): commits 37-53, 21 February, 2026 to 29 July, 2026.
 - [August 2026](2026-aug.md): commits 54-69, 2 August, 2026 to 29 August, 2026.
 - [September 2026](2026-sep.md): commits 70-77, 4 September, 2026 to 29 September, 2026.
-- [October 2026](2026-oct.md): commits 78-80, 1 October, 2026 to 9 October, 2026.
+- [October 2026](2026-oct.md): commits 78-81, 1 October, 2026 to 11 October, 2026.
 
 ---
 

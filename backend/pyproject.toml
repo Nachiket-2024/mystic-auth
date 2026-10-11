@@ -28,7 +28,7 @@ known-first-party = ["app", "mystic_auth", "backend"]
 python_version = "3.14"
 # SQLAlchemy's plugin keeps ORM attributes and generated model constructors
 # visible to mypy.
-plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true

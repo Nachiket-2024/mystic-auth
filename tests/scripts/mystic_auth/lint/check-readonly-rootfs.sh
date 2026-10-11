@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
-# Regression guard for the 2026-10-05 infra security audit (claude_code_infra,
-# area G/O, F-011): no compose service ran with a read-only root filesystem -
-# confirmed live via Docker Bench for Security's CIS 5.13 check. Fixed for
-# the services where the fix was live-tested end to end against
-# docker-compose.local-prod-ngrok.yml (postgres, valkey, backend, frontend,
-# procrastinate_worker, alembic, geoipupdate, db_backup, bugsink,
-# bugsink-seed) and the same pattern carried to the other local-prod/prod
-# compose files.
+# Regression guard for production-shaped Compose services that should run
+# with a read-only root filesystem.
 #
 # Intentionally NOT required here: ngrok, cloudflared, tailscale, and caddy.
 # Each is a third-party vendor image whose internal entrypoint writes to

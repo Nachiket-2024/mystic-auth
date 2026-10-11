@@ -27,10 +27,10 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
     gone from every route's perspective either way (is_active gates every
     login/query path), so there's no recoverable failure to report back to
     the caller here, unlike password reset/change where a retry is still
-    meaningful. If the bump can't be confirmed (Valkey unreachable), that's
+    meaningful. If the bump can't be confirmed (Postgres unavailable), that's
     logged at critical (existing sessions may keep minting fresh tokens
-    until they naturally expire, since refresh_tokens() is Valkey/JWT-only
-    and never re-checks is_active) and recorded honestly in the audit trail
+    until they naturally expire, since refresh_tokens() checks token versions but does not re-check is_active)
+    and recorded honestly in the audit trail
     instead of letting TokenVersionUnavailableError propagate and turn an
     already-successful deletion into a reported error.
     """
@@ -40,8 +40,7 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
 
     # Same reasoning as delete_any_user/purge_user_account: is_active=False
     # alone doesn't stop an already-issued refresh token from minting fresh
-    # access tokens until it expires, since refresh_tokens() is Valkey/
-    # JWT-only and never re-checks the database.
+    # access tokens until it expires, since refresh_tokens() checks versions but never re-checks is_active.
     try:
         revoked_count = await refresh_token_service.revoke_all_tokens_for_user(email, db)
         sessions_revoked_confirmed = True

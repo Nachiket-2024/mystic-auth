@@ -86,8 +86,13 @@ remove it from the local database when it is no longer needed.
   legal page in real browser projects and checks navigation/rendering.
 - `tests/frontend/app/e2e/status_pages/status_pages_browser.spec.ts` verifies
   status, not-found, and not-authorized pages and their browser navigation.
-- `mystic_auth/e2e/public/public_pages_browser.spec.ts` verifies public auth
-  pages, zoom behavior, responsive widths, and horizontal-overflow safety.
+- `mystic_auth/e2e/public/public_pages_browser.spec.ts` verifies only
+  mystic_auth-owned behavior reachable from a public page: the shared
+  ControlCluster component's interactive state (theme/font-size/language),
+  the login page's own legal-link wiring and back-navigation, and the
+  authenticated-root-redirect route guard. It deliberately never asserts
+  against landing/legal/status-page content, since that's app-owned and
+  already covered by the three specs listed above it.
 
 ## Authentication and account settings
 
@@ -188,7 +193,6 @@ remove it from the local database when it is no longer needed.
 
 ## See also
 
-- [Frontend Test Map](frontend.md)
 - [Frontend Test Map](frontend.md)
 - [Frontend Integration Tests](frontend-integration.md)
 - [Testing Overview](overview.md)

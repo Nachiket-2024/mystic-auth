@@ -44,6 +44,8 @@
 
 The engine has **zero condition-specific logic**. It doesn't know what `"time"` or `"self_only"` mean: see [Adding New Condition Handlers](../adding-condition-handlers.md) for why that separation is deliberate.
 
+**A conditioned grant is not a hard ceiling on an action.** Step 4's "at least one" is a pure OR across *every* policy and direct permission a user holds for that `(action, resource_type)` pair, whether or not it's conditioned. So if a user holds both a conditioned grant (e.g. business-hours-only) and any other unconditioned grant for the identical action - a policy, a direct permission, added by a different admin, at a different time, for an unrelated reason - the conditioned one's restriction is silently moot for them, with no warning anywhere in the UI or API. Run `python -m mystic_auth.scripts.report_conditioned_grant_conflicts` to list every user this currently applies to; it's read-only and changes no authorization behavior.
+
 ---
 
 ### Condition Evaluation Service

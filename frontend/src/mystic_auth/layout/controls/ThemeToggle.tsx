@@ -12,8 +12,7 @@ const ICON_SWAP_TRANSITION = "opacity var(--duration-hover) var(--easing-hover),
 /**
  * Light/dark mode switch, backed by store/themeStore.ts (persists to
  * localStorage and toggles the `.dark` class consumed by Tailwind's dark-mode
- * selectors. The class-based approach is the successor to Chakra v3's former
- * `_dark`/`_light` mechanism; no provider is required.
+ * selectors; no provider is required.
  */
 const ThemeToggle: React.FC = () => {
     const { t } = useTranslation("layout");

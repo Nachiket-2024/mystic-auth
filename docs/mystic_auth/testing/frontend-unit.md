@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 101 MysticAuth Vitest modules, plus three app-wrapper modules, isolate one frontend rule, API client, hook, store,
+These 102 MysticAuth Vitest modules, plus three app-wrapper modules, isolate one frontend rule, API client, hook, store,
 component, or helper. They are intentionally narrower than page integration
 tests. A passing unit test means the named client-side contract works with
 controlled inputs; it does not mean that the backend accepted a request.
@@ -66,8 +66,9 @@ controlled inputs; it does not mean that the backend accepted a request.
   authorization filters, reset behavior, and controlled values.
 - `audit_log/authorization_log/authorizationLogColumns.test.tsx` verifies
   authorization actor, action, resource, outcome, and timestamp columns.
-- `audit_log/security_log/LoginTrendChart.test.tsx` verifies login-trend data
-  grouping, empty states, labels, and chart accessibility text.
+- `audit_log/security_log/LoginTrendChart.test.tsx` verifies login-trend
+  totals, empty and loading states, chart/table modes, failed-only scaling,
+  keyboard tooltips, long-range label thinning, and background refresh feedback.
 - `audit_log/security_log/SecurityDetailsDrawer.test.tsx` verifies security
   event details and safe rendering of event metadata.
 - `audit_log/security_log/SecurityFilterBar.test.tsx` verifies security-event
@@ -134,8 +135,8 @@ controlled inputs; it does not mean that the backend accepted a request.
 
 - `core/errorMonitoring.test.ts` verifies frontend error-monitoring setup and
   safe reporting behavior.
-- `layout/app_layout/AppLayout.test.tsx` verifies shell composition and route
-  outlet behavior.
+- `layout/app_layout/AppLayout.test.tsx` verifies shell composition, mobile
+  navigation dismissal, downstream navbar actions, and command-palette wiring.
 - `layout/app_layout/Logo.test.tsx` verifies logo rendering and accessible
   branding link behavior.
 - `layout/app_layout/Navbar.test.tsx` verifies navbar controls and responsive

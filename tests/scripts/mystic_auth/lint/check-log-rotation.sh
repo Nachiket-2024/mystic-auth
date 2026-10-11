@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# Regression guard for the 2026-10-05 infra security audit (claude_code_infra,
-# area P, F-006): no compose service anywhere set a `logging:` driver/
-# max-size/max-file, so every container used Docker's json-file default with
-# no rotation cap - confirmed live via `docker inspect .HostConfig.LogConfig`
-# returning `{"Type":"json-file","Config":{}}`. An unbounded container log is
-# its own disk-filling denial-of-service.
+# Regression guard for unbounded container logs. Each Compose service must
+# set a json-file rotation limit so logs cannot fill the host disk.
 #
 # Asserts every service in every docker/{mystic_auth,app}/compose/
 # docker-compose.*.yml resolves a `logging.options.max-size`, either set

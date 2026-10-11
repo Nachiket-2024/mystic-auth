@@ -2,9 +2,8 @@
 #
 # End-to-end refresh-token rotation/reuse-detection coverage, and the
 # real-time session-events (SSE) route's auth gate, against the real ASGI
-# app, real PostgreSQL, and real Valkey (see conftest.py). Unlike the mocked
-# unit suite, these exercise the real Valkey atomicity behavior
-# (claim_jti_for_rotation's SET...NX) that mocks can't surface.
+# app, real PostgreSQL, and real Valkey (see conftest.py). These exercise
+# durable PostgreSQL single-use claims and concurrent request behavior.
 import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -49,6 +48,24 @@ async def test_refresh_token_rotates_and_old_token_is_rejected(client, created_e
 
 
 @pytest.mark.asyncio
+async def test_refresh_replay_remains_rejected_after_legacy_valkey_marker_is_removed(client, created_emails):
+    email = unique_email()
+    login_resp = await signup_verify_login(client, created_emails, email)
+    old_refresh = login_resp.cookies["refresh_token"]
+
+    rotated = await refresh_with_cookie(client, old_refresh)
+    assert rotated.status_code == 200
+
+    # The durable Postgres claim must be sufficient even if all cache-side
+    # replay state disappears (as it would after FLUSHDB/restart).
+    from backend.mystic_auth.valkey.client import valkey_client
+
+    jti = pyjwt.decode(old_refresh, options={"verify_signature": False})["jti"]
+    await valkey_client.delete(f"revoked:{jti}")
+    assert (await refresh_with_cookie(client, old_refresh)).status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_refresh_endpoint_accepts_canonical_path_without_redirect(client, created_emails):
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
@@ -66,7 +83,7 @@ async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, 
     # Regression guard for the refresh-token double-spend race: two requests
     # firing concurrently with the identical still-valid refresh token must
     # not both be able to rotate it into a new pair. claim_jti_for_rotation's
-    # atomic Valkey SET...NX means only one can ever win, regardless of how
+    # atomic PostgreSQL unique insert means only one can ever win, regardless of how
     # the two requests interleave.
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
@@ -78,10 +95,14 @@ async def test_concurrent_refresh_with_the_same_token_only_one_succeeds(client, 
         client.post("/auth/refresh/"),
     )
 
-    statuses = sorted(resp.status_code for resp in responses)
-    # Exactly one of the two concurrent requests may win the claim; the
-    # other loses the atomic SET...NX and is treated as reuse (401).
-    assert statuses == [200, 401]
+    # The losing duplicate revokes the chain. Depending on scheduling, the
+    # first request may return before that revoke lands, but no child token
+    # from the raced pair may remain usable afterward.
+    assert all(resp.status_code in {200, 401} for resp in responses)
+    assert sum(resp.status_code == 200 for resp in responses) <= 1
+    for response in responses:
+        if response.status_code == 200:
+            assert (await refresh_with_cookie(client, response.cookies["refresh_token"])).status_code == 401
 
 
 @pytest.mark.asyncio
@@ -128,10 +149,8 @@ async def test_refresh_token_reuse_revokes_the_compromised_chain_only(client, cr
 
 
 @pytest.mark.asyncio
-async def test_duplicate_refresh_within_grace_gets_a_fresh_pair_without_revoking(client, created_emails):
-    # The false-positive this window exists for: a second tab (or a request
-    # whose response was lost to a reload) presenting the token that was just
-    # rotated. Same client, seconds apart: not theft.
+async def test_duplicate_refresh_within_grace_is_rejected_without_forking_chain(client, created_emails):
+    # Same-IP duplicate is denied without treating a likely browser retry as theft.
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
     old_refresh = login_resp.cookies["refresh_token"]
@@ -140,22 +159,21 @@ async def test_duplicate_refresh_within_grace_gets_a_fresh_pair_without_revoking
     duplicate = await refresh_with_cookie(client, old_refresh)
 
     assert first.status_code == 200
-    assert duplicate.status_code == 200
-    assert duplicate.cookies["refresh_token"] != first.cookies["refresh_token"]
+    assert duplicate.status_code == 401
 
-    # The chain was not revoked: both minted tokens still work.
-    assert (await refresh_with_cookie(client, duplicate.cookies["refresh_token"])).status_code == 200
+    # The first rotation remains valid; the duplicate never creates a branch.
+    assert (await refresh_with_cookie(client, first.cookies["refresh_token"])).status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_concurrent_refresh_with_the_same_token_both_succeed_within_grace(client, created_emails):
+async def test_concurrent_refresh_with_the_same_token_only_one_succeeds_within_grace(client, created_emails):
     email = unique_email()
     login_resp = await signup_verify_login(client, created_emails, email)
     client.cookies.set("refresh_token", login_resp.cookies["refresh_token"], domain=TEST_COOKIE_DOMAIN, path="/auth")
 
     responses = await asyncio.gather(client.post("/auth/refresh/"), client.post("/auth/refresh/"))
 
-    assert [resp.status_code for resp in responses] == [200, 200]
+    assert sorted(resp.status_code for resp in responses) == [200, 401]
 
 
 @pytest.mark.asyncio
@@ -164,11 +182,13 @@ async def test_duplicate_refresh_within_grace_keeps_a_single_session_row(client,
     login_resp = await signup_verify_login(client, created_emails, email)
     old_refresh = login_resp.cookies["refresh_token"]
 
-    await refresh_with_cookie(client, old_refresh)
-    latest = await refresh_with_cookie(client, old_refresh)
+    first = await refresh_with_cookie(client, old_refresh)
+    duplicate = await refresh_with_cookie(client, old_refresh)
+    assert first.status_code == 200
+    assert duplicate.status_code == 401
 
-    client.cookies.set("access_token", latest.cookies["access_token"], domain=TEST_COOKIE_DOMAIN)
-    client.cookies.set("refresh_token", latest.cookies["refresh_token"], domain=TEST_COOKIE_DOMAIN, path="/auth")
+    client.cookies.set("access_token", first.cookies["access_token"], domain=TEST_COOKIE_DOMAIN)
+    client.cookies.set("refresh_token", first.cookies["refresh_token"], domain=TEST_COOKIE_DOMAIN, path="/auth")
     sessions = await client.get("/auth/sessions")
     assert sessions.status_code == 200
     assert len(sessions.json()) == 1
@@ -183,11 +203,17 @@ async def test_reuse_after_the_grace_window_still_revokes_the_chain(client, crea
     rotated = await refresh_with_cookie(client, old_refresh)
     assert rotated.status_code == 200
 
-    # Age the claim marker past the window instead of sleeping.
-    from backend.mystic_auth.valkey.client import valkey_client
+    # Age the durable claim past the window instead of sleeping.
+    from sqlalchemy import text
+
+    from backend.mystic_auth.database.connection import database
     jti = pyjwt.decode(old_refresh, options={"verify_signature": False})["jti"]
-    ttl = await valkey_client.ttl(f"revoked:{jti}")
-    await valkey_client.set(f"revoked:{jti}", f"{datetime.now(UTC).timestamp() - 3600}|", ex=max(ttl, 5))
+    async with database.async_session() as session:
+        await session.execute(
+            text("UPDATE consumed_refresh_tokens SET consumed_at = now() - interval '1 hour' WHERE jti = :jti"),
+            {"jti": jti},
+        )
+        await session.commit()
 
     assert (await refresh_with_cookie(client, old_refresh)).status_code == 401
     # Chain is dead, including the legitimately rotated descendant.
@@ -202,10 +228,16 @@ async def test_duplicate_within_grace_from_a_different_ip_is_treated_as_reuse(cl
 
     assert (await refresh_with_cookie(client, old_refresh)).status_code == 200
 
-    from backend.mystic_auth.valkey.client import valkey_client
+    from sqlalchemy import text
+
+    from backend.mystic_auth.database.connection import database
     jti = pyjwt.decode(old_refresh, options={"verify_signature": False})["jti"]
-    ttl = await valkey_client.ttl(f"revoked:{jti}")
-    await valkey_client.set(f"revoked:{jti}", f"{datetime.now(UTC).timestamp()}|203.0.113.9", ex=max(ttl, 5))
+    async with database.async_session() as session:
+        await session.execute(
+            text("UPDATE consumed_refresh_tokens SET client_ip = '203.0.113.9' WHERE jti = :jti"),
+            {"jti": jti},
+        )
+        await session.commit()
 
     assert (await refresh_with_cookie(client, old_refresh)).status_code == 401
 

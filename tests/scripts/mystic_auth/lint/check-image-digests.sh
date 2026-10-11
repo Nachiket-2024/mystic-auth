@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Regression guard for the bug found live in the 2026-10-05 security audit
-# (claude_code_auth, area A/B/C, F-001): docker-compose.local-prod-ngrok.yml
-# pinned the geoipupdate image to a sha256 digest that was one hex character
-# short (63 chars instead of 64) - a typo copy-pasted into all four
+# Regression guard for malformed pinned-image digests:
+# docker-compose.local-prod-ngrok.yml once had a geoipupdate digest one hex
+# character short (63 chars instead of 64), copied into all four
 # production-shaped compose files. `docker pull`/`docker compose ...
 # --profile geoip up` fails outright on a clean host with "invalid checksum
 # digest length", and nothing short of actually pulling the image caught it:

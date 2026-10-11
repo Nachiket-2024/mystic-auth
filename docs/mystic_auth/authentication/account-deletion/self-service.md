@@ -25,7 +25,7 @@ flowchart TD
     Verify -- "correct" --> Finalize["finalize_self_deletion()\n soft-delete (always succeeds)"]
     Finalize --> Revoke["revoke sessions"]
     Revoke -- "confirmed" --> Audit["audit: sessions_revoked_confirmed true"]
-    Revoke -- "Valkey unreachable" --> Audit2["audit: sessions_revoked_confirmed false\n (logged critical)"]
+    Revoke -- "Postgres unavailable" --> Audit2["audit: sessions_revoked_confirmed false\n (logged critical)"]
     Audit --> ClearCookies["Clear access/refresh cookies"]
     Audit2 --> ClearCookies
     ClearCookies --> Done200["200, account soft-deleted now"]
@@ -46,7 +46,7 @@ flowchart TD
    This Postgres write always succeeds, independent of Valkey.
 2. Revokes every session on the account (`refresh_token_service.revoke_all_tokens_for_user`, one
    `account_ver` bump, see [Session Management](../session-management/README.md#source-of-truth)). If the
-   bump can't be confirmed (Valkey unreachable), that's logged at `critical` rather than raised: the
+   bump can't be confirmed (Postgres unavailable), that's logged at `critical` rather than raised: the
    soft-delete already happened, so there's no recoverable failure to report back to the caller,
    see [Bump failure handling](../session-management/token-lifecycle.md#bump-failure-handling).
 3. Writes an `account_deleted_self` security audit event, distinct from permission-protected

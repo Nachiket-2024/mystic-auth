@@ -24,7 +24,7 @@ focused page for the test type.
 
 - [Backend test map](backend.md): explains the backend layers and collection
   commands.
-- [Backend unit tests](backend-unit.md): 112 isolated modules, grouped by
+- [Backend unit tests](backend-unit.md): 115 isolated modules, grouped by
   authentication, PBAC, users, infrastructure, and workers.
 - [Backend integration tests](backend-integration.md): 48 database- and
   Valkey-backed endpoint and workflow modules.
@@ -41,7 +41,7 @@ focused page for the test type.
 
 - [Frontend test map](frontend.md): explains the frontend layers and how the
   runners differ.
-- [Frontend unit tests](frontend-unit.md): 101 MysticAuth modules plus three
+- [Frontend unit tests](frontend-unit.md): 102 MysticAuth modules plus three
   app-wrapper modules covering hooks, API clients,
   stores, components, and pure helpers.
 - [Frontend integration tests](frontend-integration.md): 33 rendered page

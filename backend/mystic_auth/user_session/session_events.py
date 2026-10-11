@@ -30,6 +30,20 @@ _HEARTBEAT_SECONDS = 20
 # connection that misses the shutdown signal a ceiling too. Long enough
 # that reconnects are rare, short enough to never block a deploy's
 # shutdown timeout.
+#
+# This TTL is also the only thing bounding an *abrupt* disconnect (a
+# closed laptop lid, a killed tab) rather than a clean one - worth asking
+# whether that's tightenable with an active server-side probe instead. It
+# deliberately isn't: see
+# session_event_stream's own docstring below for why polling
+# request.is_disconnected() was already tried and reverted here
+# specifically (it closed live connections within milliseconds under this
+# app's BaseHTTPMiddleware stack, silently dropping push events - a worse
+# bug than the slow release this TTL accepts). Shortening this constant
+# instead is still a reasonable, lower-risk option if a deployment's
+# connection count ever makes the current 15-minute worst case matter in
+# practice; nothing here makes that unsafe, there's just no evidence yet
+# that it's needed.
 _MAX_CONNECTION_SECONDS = 15 * 60
 _LEASE_TTL_SECONDS = _MAX_CONNECTION_SECONDS + settings.SESSION_EVENT_LEASE_GRACE_SECONDS
 _LEASE_KEY_PREFIX = "session_event_leases"

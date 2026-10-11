@@ -42,7 +42,7 @@ class UserSession(Base):
     current_jti: Mapped[str] = mapped_column(unique=True, index=True)
 
     # Stable per-login identity, unchanged across every rotation of this
-    # session - what actually gets revoked in Valkey (chain_ver), and what
+    # session - the durable revocation-version scope (chain_ver), and what
     # ties every row's rotations back to the one login that started it.
     # Nullable: rows created before this column existed carry none.
     chain_id: Mapped[str | None] = mapped_column(index=True)

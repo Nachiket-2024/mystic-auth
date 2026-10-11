@@ -39,16 +39,16 @@ a failure here can hide or distort every route-level failure.
 
 ## Unit tests
 
-The 112 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
+The 115 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
 services, repositories, schemas, middleware, and pure policy logic. They are
 the fastest way to identify which decision or transformation changed. The
 [Backend Unit Tests](backend-unit.md) page names each module and explains its
 responsibility.
 
-Run them with the backend unit pytest marker or the unit path configured by
-the repository test commands. They should not require a live application
-server, and their fake collaborators make edge cases such as Valkey failure,
-invalid conditions, and token replay deterministic.
+Run them with `ci/mystic_auth/backend.sh unit` or
+`python -m pytest tests/backend/mystic_auth/unit -q`. They should not require
+a live application server, and their fake collaborators make edge cases such
+as Valkey failure, invalid conditions, and token replay deterministic.
 
 ---
 

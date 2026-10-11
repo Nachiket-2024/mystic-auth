@@ -1,7 +1,7 @@
-# Valkey fail-open regression coverage: bump_account_version /
-# bump_chain_version returning False (Valkey unreachable) must propagate
+# Durable-token-store failure coverage: bump_account_version /
+# bump_chain_version returning False (Postgres unavailable) must propagate
 # as TokenVersionUnavailableError instead of being swallowed into a
-# false "revoked" success. Covers only the Valkey-unavailable fail-closed
+# false "revoked" success. Covers only the Postgres-unavailable fail-closed
 # paths; see test_refresh_token_unit.py for refresh_tokens()'s
 # rotation/reuse-detection coverage.
 from unittest.mock import AsyncMock
@@ -12,6 +12,7 @@ from backend.mystic_auth.auth.refresh_token_logic.refresh_token_service import (
     RefreshTokenService,
     refresh_token_service,
 )
+from backend.mystic_auth.auth.token_logic.jwt_service import RefreshRotationClaim
 from backend.mystic_auth.auth.token_logic.token_version_store import (
     TokenVersionUnavailableError,
 )
@@ -35,7 +36,7 @@ async def test_revoke_all_tokens_for_user_raises_when_account_bump_is_unconfirme
         await RefreshTokenService.revoke_all_tokens_for_user("user@example.com")
 
     # The Postgres mirror must be left untouched: marking it revoked while
-    # the real Valkey-backed version stayed unbumped would make Manage
+    # the durable token version stayed unbumped would make Manage
     # Sessions/audit logs lie about the token actually being dead.
     revoke_sessions_mock.assert_not_awaited()
 
@@ -74,7 +75,7 @@ async def test_revoke_chain_for_user_raises_when_chain_bump_is_unconfirmed(mocke
 
 @pytest.mark.asyncio
 async def test_reuse_detection_stays_fail_closed_and_still_audits_when_bump_is_unconfirmed(mocker):
-    """Even if the chain-version bump can't be confirmed (Valkey down), the
+    """Even if the chain-version bump can't be confirmed (Postgres down), the
     reused token itself must still be rejected (refresh_tokens returns
     None regardless, via the "not claimed" branch), and the audit event
     must still be written, with revocation_confirmed=False so the gap is
@@ -82,9 +83,23 @@ async def test_reuse_detection_stays_fail_closed_and_still_audits_when_bump_is_u
     decode_mock = mocker.patch(
         f"{MODULE}.decode_payload",
         new_callable=AsyncMock,
-        return_value={"email": "victim@example.com", "type": "refresh", "jti": "stale-jti", "chain": "chain-A"},
+        return_value={
+            "email": "victim@example.com",
+            "type": "refresh",
+            "jti": "stale-jti",
+            "chain": "chain-A",
+            "account_ver": 0,
+            "chain_ver": 0,
+            "exp": 1_900_000_000,
+        },
     )
-    mocker.patch(f"{MODULE}.claim_jti_for_rotation", new_callable=AsyncMock, return_value=False)
+    mocker.patch(f"{MODULE}.is_current_version", new_callable=AsyncMock, return_value=True)
+    mocker.patch(
+        f"{MODULE}.claim_jti_for_rotation",
+        new_callable=AsyncMock,
+        return_value=RefreshRotationClaim(False, None, 0, 0, None),
+    )
+    mocker.patch(f"{MODULE}.is_benign_duplicate_rotation", new_callable=AsyncMock, return_value=False)
     mocker.patch(f"{MODULE}.bump_chain_version", new_callable=AsyncMock, return_value=False)
     log_event_mock = mocker.patch(
         "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.log_security_event",

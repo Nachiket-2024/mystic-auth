@@ -532,6 +532,8 @@ echo "main v1" > backend/app/main.py
 echo "sdk v1" > backend/app/sdk.py
 echo "App v1" > frontend/src/app/App.tsx
 echo "sdk v1" > frontend/src/app/sdk.ts
+printf '// template bootstrap comment v1\n// stable context 1\n// stable context 2\n// stable context 3\n// stable context 4\n// stable context 5\nconst appValue = 1;\n' > frontend/src/app/main.tsx
+printf '// template theme comment v1\n// stable context 1\n// stable context 2\n// stable context 3\n// stable context 4\n// stable context 5\nconst themeValue = 1;\n' > frontend/src/app/theme.ts
 echo "downstream test v1" > tests/backend/app/test_downstream.py
 echo "template CI v1" > ci/mystic_auth/backend.sh
 echo "readme v1" > docs/app/README.md
@@ -632,6 +634,44 @@ pass "ownership guard: upstream README change was ignored and downstream copy pr
 grep -q "template reference test update" tests/backend/app/test_downstream.py \
   || fail "ownership guard: inherited reference test update did not land"
 pass "ownership guard: inherited reference test update lands normally"
+
+echo "=== Ownership guard: allow comment-only app-shell maintenance, keep code protected ==="
+cd "$BASE/own-consumer"
+sed -i 's/const appValue = 1;/const downstreamAppValue = 2;/' frontend/src/app/main.tsx
+sed -i 's/const themeValue = 1;/const downstreamThemeValue = 2;/' frontend/src/app/theme.ts
+git add -A && git commit -q -m "consumer: customize app shell"
+cd "$BASE/own-upstream"
+sed -i 's/template bootstrap comment v1/template bootstrap comment v2/' frontend/src/app/main.tsx
+sed -i 's/template theme comment v1/template theme comment v2/' frontend/src/app/theme.ts
+git add -A && git commit -q -m "upstream: refresh app-shell comments"
+cd "$BASE/own-consumer"
+
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-comments.log 2>&1
+OWN_SYNC_COMMENTS_EXIT=${PIPESTATUS[1]}
+set -e
+[ "$OWN_SYNC_COMMENTS_EXIT" -eq 0 ] || fail "comment-only maintenance: sync was blocked"
+grep -q 'template bootstrap comment v2' frontend/src/app/main.tsx || fail "comment-only maintenance: main.tsx comment did not update"
+grep -q 'downstreamAppValue = 2' frontend/src/app/main.tsx || fail "comment-only maintenance: downstream main.tsx code was lost"
+grep -q 'template theme comment v2' frontend/src/app/theme.ts || fail "comment-only maintenance: theme.ts comment did not update"
+grep -q 'downstreamThemeValue = 2' frontend/src/app/theme.ts || fail "comment-only maintenance: downstream theme.ts code was lost"
+pass "comment-only maintenance: comments update and downstream code remains"
+
+cd "$BASE/own-upstream"
+sed -i 's/const appValue = 1;/const upstreamAppValue = 3;/' frontend/src/app/main.tsx
+echo "core v3" > mystic_auth/core.py
+git add -A && git commit -q -m "upstream: attempt app-shell code change"
+cd "$BASE/own-consumer"
+
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-code.log 2>&1
+OWN_SYNC_CODE_EXIT=${PIPESTATUS[1]}
+set -e
+grep -q 'downstream-owned paths' /tmp/own-sync-code.log || fail "app-shell code guard: did not report ownership violation"
+[ "$OWN_SYNC_CODE_EXIT" -ne 0 ] || fail "app-shell code guard: executable-code change was not blocked"
+grep -q 'frontend/src/app/main.tsx' /tmp/own-sync-code.log || fail "app-shell code guard: did not name the path"
+[ "$(cat mystic_auth/core.py)" = "core v2" ] || fail "app-shell code guard: unrelated template change landed despite the violation"
+pass "app-shell code guard: executable-code changes remain blocked"
 
 echo ""
 echo "=== ALL CHECKS PASSED ==="

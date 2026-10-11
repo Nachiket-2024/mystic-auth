@@ -73,13 +73,16 @@ Sync this app with the latest mystic-auth template
    real conflict in backend/app/main.py or frontend/src/app/App.tsx
    (the shared, extend-in-place files) gets both sides merged. Comment-only
    diffs in shared files take upstream's wording.
-   The one content exception is
-   frontend/src/mystic_auth/translations/languages/*/legal.json: those JSON
-   values are downstream-owned legal content even though the files remain in
-   the shared language tree. If one conflicts, preserve the deployment's
-   reviewed wording and manually add any new upstream keys; do not accept
-   legal wording blindly. Never hand-edit the surrounding mystic_auth
-   translation code.
+   Comment-only maintenance in frontend/src/app/main.tsx and
+   frontend/src/app/theme.ts is also allowed; executable-code changes in
+   those app-owned files remain blocked.
+   The three app-content exceptions are
+   frontend/src/mystic_auth/translations/languages/*/{landing,status_pages,legal}.json:
+   those JSON values are downstream-owned deployment content even though the
+   files remain in the shared language tree. If one conflicts, preserve the
+   project's reviewed content and manually add any new upstream keys; review
+   upstream copy before accepting it. Never hand-edit the surrounding
+   mystic_auth translation code.
    Downstream runtime env files such as env/mystic_auth/.env.dev and
    env/mystic_auth/.env.prod are local deployment state, not upstream source;
    preserve their values through the env workflow. Put app-only configuration
@@ -181,12 +184,18 @@ Sync this app with the latest mystic-auth template
    CI action pinning, read-only root filesystems, env tooling, backups, and
    sync-upstream. Include backup round-trip/restore checks when the Docker
    environment is available. Fix anything broken in app-owned code; if a
-   failure traces back to an upstream mystic_auth file/test, don't fix it -
-   tell me exactly what's broken and why. When auditing a broad integration
-   run, inspect background-worker teardown for destructive cleanup of in-flight
-   `todo`/`doing` jobs. Queue cleanup may remove only terminal jobs; otherwise
-   deferred authorization audit entries can disappear intermittently even
-   though isolated tests pass.
+   failure traces to an upstream mystic_auth file/test, don't fix it - tell me
+   exactly what's broken and why. When validating Docker changes, build the
+   backend runtime, frontend production, and backup images and check their
+   notice artifacts as CI does. The notice bundle covers Python and npm
+   application dependencies, rclone's Go modules, and Debian packages in the
+   backup image (see `THIRD_PARTY_NOTICES/README.md`). CI checks the bundles in
+   all three images and publishes exact-image SBOMs. The base images' packages
+   are represented in those SBOMs, not the generated application notice bundle.
+   When auditing a broad integration run, inspect background-worker teardown
+   for destructive cleanup of in-flight `todo`/`doing` jobs. Queue cleanup may
+   remove only terminal jobs; otherwise deferred authorization audit entries
+   can disappear intermittently even though isolated tests pass.
 10. Update any of our own doc/README references to the sync (e.g. a
     "currently synced to" line, if we keep one) and any other stale
     doc/README/CI references. Don't touch .mystic-auth-sync-state -

@@ -6,7 +6,7 @@ import { useNetworkStatusStore } from "../../store/networkStatusStore";
 import { cn } from "../styles/classNames";
 
 // Same status->color mapping FormAlert.tsx uses (shadcn's Alert only ships
-// "default"/"destructive", not Chakra's built-in status palette).
+// "default"/"destructive", with no built-in status palette).
 const STATUS_CLASSES = {
     success: "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200 [&>svg]:text-green-600 dark:[&>svg]:text-green-400",
     warning: "border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-200 [&>svg]:text-orange-600 dark:[&>svg]:text-orange-400",

@@ -17,7 +17,7 @@ for compose_file in \
     in_service && /^  [A-Za-z0-9_-]+:/ && $0 !~ /^  db_backup:/ { exit }
     in_service { print }
   ' "$compose_file")"
-  grep -Fq 'networks: [backend_net, backup_egress_net]' <<<"$service_block"
+  grep -Fq 'networks: [postgres_net, backup_egress_net]' <<<"$service_block"
 
   egress_block="$(awk '
     /^  backup_egress_net:/ { in_network=1 }

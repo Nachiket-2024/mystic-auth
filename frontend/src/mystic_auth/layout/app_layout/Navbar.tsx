@@ -137,10 +137,8 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                         <span className="flex-1 text-left text-sm">
                             {t("commandPalette.trigger")}
                         </span>
-                        {/* Former Chakra Kbd recipe, size="sm" (textStyle xs,
-                            height 4.5=1.125rem) subtle/gray variant (default):
-                            confirmed via theme/recipes/kbd.js rather than
-                            guessed. */}
+                        {/* height 1.125rem, subtle/gray variant: matches the
+                            rest of the app's "sm" kbd sizing. */}
                         <kbd className="inline-flex items-center shrink-0 whitespace-nowrap select-none font-medium text-xs h-[1.125rem] px-1 rounded-md bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200">⌘K</kbd>
                     </button>
                 )}

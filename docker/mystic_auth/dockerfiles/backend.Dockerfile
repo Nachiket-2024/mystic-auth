@@ -1,6 +1,6 @@
 # Compiles native extensions into a venv so build tools never ship in the
 # runtime image.
-FROM python:3.14-alpine@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01 AS builder
+FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS builder
 
 WORKDIR /app
 
@@ -38,7 +38,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 # Alpine over Debian for the CVE count: Trivy found python:3.14-alpine at
 # 0 High/Critical on this app's built image vs. python:3.14-slim at 50+,
 # all unpatched Debian OS packages unrelated to app code.
-FROM python:3.14-alpine@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01 AS runtime
+FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS runtime
 
 WORKDIR /app
 
@@ -63,6 +63,7 @@ RUN /opt/venv/bin/python -m pip uninstall --yes pip setuptools \
               /usr/local/lib/python*/site-packages/setuptools*
 
 COPY backend/ .
+COPY THIRD_PARTY_NOTICES/backend/ /usr/share/licenses/mystic-auth/backend/
 
 # backend, procrastinate_worker, and alembic share this image and don't
 # need root at runtime - the entrypoint below drops to this user after

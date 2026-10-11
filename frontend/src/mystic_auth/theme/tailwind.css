@@ -43,15 +43,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Tailwind v4 CSS-first config: owns the theme tokens previously defined in
- * the JavaScript theme configuration, expressed as CSS custom properties.
- * This is the single source of truth after the migration from Chakra.
+ * Tailwind v4 CSS-first config: every theme token is a CSS custom
+ * property here, the single source of truth for the app's theme.
  *
  * Brand scale defaults below match generateBrandScale(BRAND_COLOR)'s output
  * for the shipped default BRAND_COLOR. A signed-in user's own Appearance
  * pick overrides these same --brand-* variables at runtime (see
- * applyBrandCssVars.ts), the direct CSS-variable equivalent of
- * the former Chakra system rebuild.
+ * applyBrandCssVars.ts).
  */
 
 :root {
@@ -87,12 +85,12 @@
   --brand-800: #742f1f;
   --brand-900: #5c2519;
 
-  /* Former Chakra defaultConfig's gray/red/green/blue/orange values retained
-     for equivalent app states (border.default, fg.error/success/warning/info,
-     Button's secondary/close-trigger/destructive-outline hover states).
-     Not a full re-port of every step in every palette - badge/table
-     "subtle" tokens (the red/orange/green/blue/
-     purple/teal.subtle) get ported when Badge.tsx itself migrates. */
+  /* Stock gray/red/green/blue/orange values, used for equivalent app
+     states (border.default, fg.error/success/warning/info, Button's
+     secondary/close-trigger/destructive-outline hover states). Not a
+     full palette for every step - badge/table "subtle" tokens (the
+     red/orange/green/blue/purple/teal.subtle) are added as Badge.tsx
+     itself needs each one. */
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -159,13 +157,12 @@
   --bg-card-head: #f5f7fa;
   --bg-card-head-hover: #edf1f7;
   --bg-row-hover: color-mix(in srgb, var(--brand-solid) 16%, transparent);
-  /* Former Chakra bg.muted (gray.100) - a plain neutral fill for an
-     inactive control state (e.g. an unselected quick-filter segment's
-     count pill), one step past bg.subtle/bg.canvas. */
+  /* A plain neutral fill (gray.100) for an inactive control state (e.g.
+     an unselected quick-filter segment's count pill), one step past
+     bg-subtle/bg-canvas. */
   --bg-muted: var(--gray-100);
-  /* Former Chakra bg.subtle (gray.50) - one step lighter than bg-muted,
-     for a zebra-striped row's off row (PermissionDetailsDialog's policy
-     list). */
+  /* One step lighter than bg-muted (gray.50), for a zebra-striped row's
+     off row (PermissionDetailsDialog's policy list). */
   --bg-subtle: var(--gray-50);
 
   --border-default: var(--gray-400);
@@ -174,18 +171,18 @@
 
   --fg-default: #101828;
   --fg-muted: #667085;
-  /* Former Chakra fg.subtle (gray.400) - a step lighter than fg-muted,
-     for a value that should fade into the background (a missing table
-     cell's "-", see ActiveSessionsCard's MissingValue) rather than merely
-     read as secondary text. */
+  /* A step lighter than fg-muted (gray.400), for a value that should
+     fade into the background (a missing table cell's "-", see
+     ActiveSessionsCard's MissingValue) rather than merely read as
+     secondary text. */
   --fg-subtle: var(--gray-400);
   --fg-error: var(--red-700);
   --fg-success: var(--green-600);
   --fg-warning: #ae5609;
   --fg-info: var(--blue-700);
-  /* Former Chakra colorPalette red.fg/red.subtle (red.700/red.200 light,
-     red.300/red.900 dark) - for a "danger" quick-filter segment's active
-     state (PermissionsFilterBar), where fg-error alone doesn't give an
+  /* red.fg/red.subtle (red.700/red.200 light, red.300/red.900 dark) -
+     for a "danger" quick-filter segment's active state
+     (PermissionsFilterBar), where fg-error alone doesn't give an
      accompanying subtle fill to pair it with. */
   --red-fg: var(--red-700);
   --red-subtle: var(--red-200);
@@ -230,8 +227,7 @@
   --ring: var(--brand-focus-ring);
 }
 
-/* themeStore.ts toggles this class on <html>; it is the current dark-mode
-   trigger and replaces the former Chakra system's equivalent mechanism. */
+/* themeStore.ts toggles this class on <html>; it is the dark-mode trigger. */
 .dark {
   --brand-fg: var(--brand-300);
   --brand-subtle: color-mix(in srgb, var(--brand-solid) 20%, transparent);
@@ -365,9 +361,8 @@
   --shadow-dialog: var(--shadow-dialog);
 }
 
-/* Ported from the former Chakra globalCss (theme/themeStyles.ts, removed once
-   ChakraProvider was): html/body both need height:100% and clipped
-   overflow-x, or a wide DataTable leaks past its ScrollArea and scrolls the
+/* html/body both need height:100% and clipped overflow-x, or a wide
+   DataTable leaks past its ScrollArea and scrolls the
    whole page sideways. body (not html) owns vertical overflow and its own
    permanently-reserved scrollbar (overflowY:scroll + scrollbar-gutter:
    stable) so a page growing past viewport height never toggles a scrollbar
@@ -513,4 +508,53 @@ input:-webkit-autofill:active {
   100% {
     transform: translateX(300%);
   }
+}
+
+/* RouteProgressBar.tsx's indeterminate top-of-viewport loading bar. Moved
+   here from a runtime-injected React 19 <style href precedence> tag: that
+   pattern renders as an actual inline <style> element at runtime, which a
+   strict hash-only CSP's style-src-elem directive can never allow (it has
+   no fixed content to hash ahead of time the way a build-time stylesheet
+   does) - it was firing a real CSP violation on every page load. All of
+   this is static, so a real stylesheet works identically with none of
+   that tradeoff. */
+@keyframes mystic-route-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  60% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(160%);
+  }
+}
+.mystic-route-progress-bar {
+  /* Left un-tokenized on purpose: a continuous indeterminate-loading loop,
+     not a UI response speed like durations.hover/fast/base - retuning "how
+     snappy the app feels" shouldn't also change this loop's speed. */
+  animation: mystic-route-progress-slide 1.1s ease-in-out infinite;
+  box-shadow: 0 0 8px 1px var(--brand-solid);
+}
+
+/* AppLayout.tsx's two soft radial brand-tint glows over the flat
+   bg-bg-canvas color (see that component for the full rationale on the
+   gradient values themselves). Same CSP rationale as the rule above - this
+   was also a runtime-injected <style href precedence> tag. */
+.mystic-app-layout-bg {
+  background-image:
+    radial-gradient(1100px 480px at 12% -8%, color-mix(in srgb, var(--brand-solid) 8%, transparent), transparent 60%),
+    radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--accent-solid) 6%, transparent), transparent 55%);
+}
+.dark .mystic-app-layout-bg {
+  background-image:
+    radial-gradient(1100px 480px at 12% -8%, color-mix(in srgb, var(--brand-solid) 15%, transparent), transparent 60%),
+    radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--accent-solid) 8%, transparent), transparent 55%);
+}
+
+/* Sidebar.tsx's nav-link focus ring. Same CSP rationale as the two rules
+   above - also a runtime-injected <style href precedence> tag. */
+.mystic-sidebar-link:focus-visible {
+  outline: 2px solid var(--brand-solid);
+  outline-offset: 2px;
 }

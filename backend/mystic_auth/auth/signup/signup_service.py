@@ -1,5 +1,7 @@
 import traceback
 
+from sqlalchemy.exc import IntegrityError
+
 from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME
 
 # PBAC: new users get their access via an explicit default policy assignment,
@@ -60,7 +62,18 @@ class SignupService:
                 "is_active": True,
             }
 
-            new_user = await user_crud.create(user_data, db)
+            try:
+                new_user = await user_crud.create(user_data, db)
+            except IntegrityError:
+                # Benign create race: another concurrent signup for the same
+                # email won between our existing_user check above and this
+                # insert. The unique constraint on users.email is what
+                # actually prevents the duplicate, not the check-then-act
+                # above (which is inherently racy). Not an unexpected
+                # failure, so it's logged at info, not error/traceback.
+                await db.rollback()
+                logger.info("Signup lost a create race for %s, treating as already-registered", email)
+                return False
 
             # Assign the baseline self-service policy: the actual source of
             # this account's access, per PBAC.

@@ -65,7 +65,7 @@ const LanguageToggle: React.FC = () => {
                 aria-label={t("language")}
                 className={cn(buttonVariants({ variant: "icon", size: "icon-sm" }))}
             >
-                {/* sr-only, not the old Chakra version's display:none: this
+                {/* sr-only, not display:none: this
                     keeps the current language's name in the accessibility
                     tree (a screen reader announces it alongside the trigger's
                     aria-label) even though the trigger only shows an icon -

@@ -31,7 +31,7 @@ A caching pattern where the application asks the cache first, falls back to the 
 
 ## TTL
 
-Short for Time To Live: how long a cached or stored value is allowed to live before it's treated as expired and either refreshed or discarded. Used throughout this app for the Valkey policy cache, OAuth2 state, and session-chain version keys.
+Short for Time To Live: how long a cached or stored value is allowed to live before it's treated as expired and either refreshed or discarded. Used throughout this app for the Valkey policy cache, OAuth2 state, and cached session-chain versions.
 
 ---
 
@@ -67,13 +67,13 @@ Code that runs on every request/response, wrapped around the actual route handle
 
 ## Procrastinate / background worker
 
-Procrastinate is the Postgres-backed job queue this app uses to run work outside the request/response cycle, such as sending emails or writing audit log rows, so a slow SMTP call or a non-critical write never makes an API response wait on it. A separate `procrastinate_worker` process picks up queued jobs and also runs scheduled (periodic) tasks like the daily account-purge job. See [Background Email Delivery](../background-workers/procrastinate.md).
+Procrastinate is the Postgres-backed job queue this app uses to run work outside the request/response cycle, such as sending emails and account-lifecycle events, so a slow SMTP call or listener never makes an API response wait on it. A separate `procrastinate_worker` process picks up queued jobs and runs scheduled tasks for account purge, audit-log anonymization, expired-session and refresh-claim cleanup, and lifecycle-outbox reconciliation. See [Background Email Delivery](../background-workers/procrastinate.md).
 
 ---
 
 ## periodic task / cron-style job
 
-A task Procrastinate runs automatically on a recurring schedule (e.g. daily), rather than being enqueued by a specific request. The scheduled grace-period account purge is one of these; it runs inside the same `procrastinate_worker` process as the on-demand email jobs, with no separate scheduler process. See [Background Email Delivery](../background-workers/procrastinate.md).
+A task Procrastinate runs automatically on a recurring schedule (for example, daily), rather than being enqueued by a specific request. Account purge, audit-log anonymization, session and refresh-claim cleanup, and lifecycle-outbox reconciliation run inside the same `procrastinate_worker` process as on-demand delivery jobs, with no separate scheduler process. See [Background Email Delivery](../background-workers/procrastinate.md).
 
 ---
 

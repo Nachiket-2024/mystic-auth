@@ -109,7 +109,7 @@ async def test_queue_defers_and_marks_queued_when_the_row_claim_succeeds(mocker)
 
 @pytest.mark.asyncio
 async def test_queue_skips_deferring_when_the_row_claim_fails(mocker):
-    """F-002 regression: SELECT ... FOR UPDATE SKIP LOCKED WHERE queued_at
+    """Regression guard: SELECT ... FOR UPDATE SKIP LOCKED WHERE queued_at
     IS NULL returning no row means either a concurrent caller already holds
     the claim (e.g. the original queue call racing the periodic reconciler
     for the same outbox row) or the row is already queued/gone. Either way

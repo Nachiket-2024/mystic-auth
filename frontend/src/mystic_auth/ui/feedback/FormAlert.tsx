@@ -21,9 +21,9 @@ interface FormAlertProps {
 
 const STATUS_ICON = { error: CircleX, success: CircleCheck, warning: TriangleAlert };
 
-// Chakra's Alert.Root had a built-in status->color mapping this app relied
-// on (red/green/orange); shadcn's Alert only ships "default"/"destructive",
-// so error/warning/success colors are applied here directly instead.
+// shadcn's Alert only ships "default"/"destructive" variants, with no
+// built-in status->color mapping, so error/warning/success colors
+// (red/green/orange) are applied here directly instead.
 const STATUS_CLASSES = {
     error: "border-red-300 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-200 [&>svg]:text-red-600 dark:[&>svg]:text-red-400",
     success: "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-950 dark:text-green-200 [&>svg]:text-green-600 dark:[&>svg]:text-green-400",

@@ -44,8 +44,8 @@ const BulkActionToolbar: React.FC<BulkActionToolbarProps> = ({
 }) => {
     const { t } = useTranslation(["users", "ui_text"]);
     const noSelection = selectedCount === 0;
-    // The former Chakra default disabled treatment (opacity dip) reads as barely
-    // different from enabled at this solid-brand saturation, so these three
+    // A plain opacity dip on a disabled button reads as barely different
+    // from enabled at this solid-brand saturation, so these three
     // consequential actions switch to outline while there's nothing to act
     // on and only fill solid once a selection makes them actionable -
     // a clearer "not ready yet" signal than opacity alone.

@@ -15,9 +15,9 @@ function renderPanel(password: string, label: string, pristine = false) {
   );
 }
 
-// Chakra/Panda gives same-styled segments an identical generated className,
-// so comparing classNames (instead of reading CSS vars, which jsdom won't
-// resolve) tells us how many of the 4 segments are filled.
+// Same-styled segments get an identical generated className, so comparing
+// classNames (instead of reading CSS vars, which jsdom won't resolve)
+// tells us how many of the 4 segments are filled.
 function segmentClasses(container: HTMLElement): string[] {
   // The ShieldCheck icon is also aria-hidden; narrow to the element with 4 children.
   const candidates = Array.from(container.querySelectorAll('[aria-hidden="true"]'));

@@ -13,8 +13,8 @@ describe('LoadingState', () => {
   });
 
   it('renders different styling for fullScreen vs. container-sized (h/bg props differ)', () => {
-    // Chakra v3 resolves style props to atomic CSS classes, not inline
-    // styles, so className is the only observable signal fullScreen changed anything.
+    // Tailwind resolves to atomic CSS classes, not inline styles, so
+    // className is the only observable signal fullScreen changed anything.
     const { container: fullScreenContainer } = render(
         <LoadingState message="Loading..." fullScreen />
     );

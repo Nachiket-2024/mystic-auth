@@ -34,9 +34,9 @@ flowchart TD
     Own -- "yes" --> Current{"Is this the caller's\n own current session?"}
     Current -- "yes" --> R400["400 - use Logout instead"]
     Current -- "no" --> Bump["bump_chain_version()"]
-    Bump -- "confirmed" --> Mark["mark row revoked_at\n log security audit event"]
+    Bump -- "confirmed" --> Mark["delete mirror row\n log security audit event"]
     Mark --> R200["200"]
-    Bump -- "Valkey unreachable" --> R503["503\n SESSION_REVOCATION_UNAVAILABLE\n (row left untouched)"]
+    Bump -- "Postgres unavailable" --> R503["503\n SESSION_REVOCATION_UNAVAILABLE\n (row left untouched)"]
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
@@ -48,9 +48,9 @@ flowchart TD
 2. **The caller's own current session is rejected with `400`**, not silently allowed: the UI
    should use the normal Logout action for the current device, keeping "end this device" and "end
    another device" as two distinct, unambiguous actions.
-3. **A successful revoke bumps `chain_ver` first** (`jwt_service.bump_chain_version`), then marks
-   the row `revoked_at` and records a security audit event, in that order - deliberately, so a bump
-   that can't be confirmed (Valkey unreachable) leaves the row untouched instead of marking a session
+3. **A successful revoke bumps `chain_ver` first** (`jwt_service.bump_chain_version`), then deletes
+   the mirror row and records a security audit event, in that order - deliberately, so a bump
+   that can't be confirmed (Postgres unavailable) leaves the row untouched instead of marking a session
    "revoked" that's still actually valid. That case returns `503 SESSION_REVOCATION_UNAVAILABLE`
    rather than a false `200`. See [Bump failure handling](token-lifecycle.md#bump-failure-handling).
 

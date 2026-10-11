@@ -13,11 +13,11 @@ from .session_model import UserSession
 class SessionRepository:
     """
     Persistence layer for UserSession. Pure CRUD/query concerns only - JWT
-    decoding, Valkey blocklist calls, and "never let this break the real auth
+    decoding, token-version and replay-registry calls, and "never let this break the real auth
     flow" try/except live one layer up, in session_service.py.
 
     Every "revoke" here deletes the row instead of setting revoked_at:
-    session_model.py's own docstring establishes Valkey's version counters
+    session_model.py's own docstring establishes Postgres token-version counters
     (not this table) as the source of truth for actual token validity, this
     table being only "a best-effort mirror for display". Nothing else in the
     app (audit_log included) reads a revoked or expired row afterward, so
@@ -73,7 +73,7 @@ class SessionRepository:
         untouched (it never changes across a rotation). Returns None (a
         no-op, never raises) if no row matched the old jti - covers
         sessions minted before this feature shipped, or any other drift
-        between this table and the real Valkey-backed version counters."""
+        between this table and the real Postgres-backed version counters."""
         session = await SessionRepository.get_by_jti(db, old_jti)
         if session is None:
             return None

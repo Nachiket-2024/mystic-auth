@@ -26,7 +26,7 @@ interface SearchInputProps
     loadingLabel: string;
     /** "sm" shortens the box for a tighter filter row (audit log sections). Defaults to "md". */
     size?: "sm" | "md";
-    /** Sizes/positions the whole search box - a Tailwind width/margin class string, e.g. "w-40" or "mb-4". Defaults to max-w-sm (the former Chakra default). */
+    /** Sizes/positions the whole search box - a Tailwind width/margin class string, e.g. "w-40" or "mb-4". Defaults to max-w-sm. */
     className?: string;
 }
 

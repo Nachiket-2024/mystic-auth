@@ -9,8 +9,6 @@ Frontend libraries and UI patterns. See [Glossary](README.md) for the full index
 
 The frontend's component patterns and generated UI primitives, built on Tailwind CSS and Radix UI. Theme tokens live in CSS custom properties and generate a full brand color scale from a single chosen color, both as an app-wide default and a per-user override. See [Appearance: Brand Color and Logo](../appearance/overview.md).
 
-Chakra UI was used by an earlier version of the frontend and is retained only in migration history and compatibility notes.
-
 ---
 
 ## Zustand

@@ -1,4 +1,7 @@
 # tests/backend/mystic_auth/unit/auth/token_logic/test_jwt_service_jti_revocation_unit.py
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -29,60 +32,67 @@ async def test_is_token_revoked_by_jti_missing_jti_is_not_revoked():
     assert await jwt_service.is_token_revoked_by_jti(None) is False
 
 
-# ---------------------------- claim_jti_for_rotation (atomic check-and-claim) ----------------------------
-#
-# Regression guard for the refresh-token concurrent double-spend race:
-# two requests presenting the same still-valid refresh token must not
-# both be able to rotate it. claim_jti_for_rotation uses a single atomic
-# Valkey SET...NX so only one caller can ever win the claim for a given
-# jti. This is a narrower problem than "is this session still
-# authorized" (the account_ver/chain_ver checks in verify_token) and not
-# solved by it.
+# ---------------------------- claim_jti_for_rotation (durable unique claim) ----------------------------
 
-@pytest.mark.asyncio
-async def test_claim_jti_for_rotation_succeeds_for_an_unclaimed_jti(mocker):
-    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, return_value=True)
-
-    claimed = await jwt_service.claim_jti_for_rotation("jti-1", 9999999999, "user@example.com")
-
-    assert claimed is True
-    set_mock.assert_awaited_once()
-    args, kwargs = set_mock.call_args
-    assert args[0] == "revoked:jti-1"
-    assert kwargs.get("nx") is True
+@asynccontextmanager
+async def _fake_db_session(mocker, rows):
+    pending = list(rows)
+    result = SimpleNamespace(first=lambda: pending.pop(0))
+    session = SimpleNamespace(execute=AsyncMock(return_value=result), commit=AsyncMock())
+    @asynccontextmanager
+    async def context():
+        yield session
+    mocker.patch(f"{MODULE}.database.async_session", side_effect=context)
+    yield session
 
 
 @pytest.mark.asyncio
-async def test_claim_jti_for_rotation_fails_for_an_already_claimed_jti(mocker):
-    # Valkey SET...NX returns None/False when the key already exists: this
-    # is what happens when two concurrent requests race on the same jti,
-    # only the first SET succeeds and the second observes it already set.
-    mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, return_value=None)
+async def test_claim_jti_for_rotation_uses_durable_database_claim(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.exists", new_callable=AsyncMock, return_value=0)
+    consumed_at = datetime.now(UTC)
+    async with _fake_db_session(mocker, [(consumed_at, "10.0.0.1", 2, 3)]) as session:
+        claim = await jwt_service.claim_jti_for_rotation(
+            "jti-1", 9999999999, "user@example.com", "10.0.0.1", 2, 3
+        )
 
-    claimed = await jwt_service.claim_jti_for_rotation("jti-1", 9999999999, "user@example.com")
-
-    assert claimed is False
-
-
-@pytest.mark.asyncio
-async def test_claim_jti_for_rotation_uses_minimum_ttl_of_one_for_already_expired_tokens(mocker):
-    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, return_value=True)
-
-    # exp far in the past would otherwise compute a negative TTL, which Valkey rejects
-    await jwt_service.claim_jti_for_rotation("jti-1", exp=0, email="user@example.com")
-
-    _, kwargs = set_mock.call_args
-    assert kwargs["ex"] == 1
+    assert claim.claimed is True
+    assert claim.consumed_at == consumed_at
+    assert (claim.account_ver, claim.chain_ver) == (2, 3)
+    sql = str(session.execute.call_args.args[0])
+    assert "INSERT INTO consumed_refresh_tokens" in sql
+    assert "ON CONFLICT (jti) DO NOTHING" in sql
+    session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_claim_jti_for_rotation_works_without_an_email(mocker):
-    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, return_value=True)
+async def test_claim_jti_for_rotation_returns_original_claim_when_already_claimed(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.exists", new_callable=AsyncMock, return_value=0)
+    consumed_at = datetime.now(UTC)
+    async with _fake_db_session(mocker, [None, (consumed_at, "10.0.0.1", 2, 3)]):
+        claim = await jwt_service.claim_jti_for_rotation(
+            "jti-1", 9999999999, "user@example.com", "10.0.0.1", 9, 9
+        )
+    assert claim.claimed is False
+    assert claim.consumed_at == consumed_at
+    assert (claim.account_ver, claim.chain_ver) == (2, 3)
 
-    claimed = await jwt_service.claim_jti_for_rotation("jti-1", 9999999999, None)
 
-    assert claimed is True
-    set_mock.assert_awaited_once()
+@pytest.mark.asyncio
+async def test_claim_jti_for_rotation_honors_legacy_valkey_marker(mocker):
+    legacy = mocker.patch(f"{MODULE}.valkey_client.exists", new_callable=AsyncMock, return_value=1)
+    db = mocker.patch(f"{MODULE}.database.async_session")
+    claim = await jwt_service.claim_jti_for_rotation("jti-1", 9999999999)
+    assert claim.claimed is False
+    assert claim.legacy_valkey_marker is True
+    legacy.assert_awaited_once_with("revoked:jti-1")
+    db.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_claim_jti_for_rotation_requires_expiry(mocker):
+    mocker.patch(f"{MODULE}.valkey_client.exists", new_callable=AsyncMock, return_value=0)
+    with pytest.raises(Exception, match="durable refresh rotation store unavailable"):
+        await jwt_service.claim_jti_for_rotation("jti-1", exp=None)
 
 
 # ---------------------------- End-to-end: verify_token honors the single-use claim ----------------------------
@@ -203,77 +213,33 @@ async def test_revoke_chain_for_user_bumps_only_that_chain(mocker):
     publish_mock.assert_awaited_once_with("session_events:user@example.com", mocker.ANY)
 
 
-# ---------------------------- is_benign_duplicate_rotation (grace window) ----------------------------
-
-def _marker(age_seconds: float, ip: str = "10.0.0.1") -> str:
-    from datetime import UTC, datetime
-    return f"{datetime.now(UTC).timestamp() - age_seconds}|{ip}"
-
+# ---------------------------- is_benign_duplicate_rotation (database window) ----------------------------
 
 @pytest.mark.asyncio
-async def test_claim_stores_timestamp_and_client_ip_marker(mocker):
-    set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, return_value=True)
-
-    await jwt_service.claim_jti_for_rotation("jti-1", 9999999999, "u@example.com", client_ip="10.0.0.1")
-
-    marker = set_mock.call_args.args[1]
-    assert marker.endswith("|10.0.0.1")
-    assert float(marker.split("|")[0]) > 0
-
-
-@pytest.mark.asyncio
-async def test_benign_duplicate_true_within_window_from_same_ip(mocker):
+@pytest.mark.parametrize(
+    ("age", "stored_ip", "request_ip", "expected"),
+    [
+        (2, "10.0.0.1", "10.0.0.1", True),
+        (11, "10.0.0.1", "10.0.0.1", False),
+        (1, "10.0.0.1", "198.51.100.7", False),
+    ],
+)
+async def test_benign_duplicate_uses_database_consumption_record(mocker, age, stored_ip, request_ip, expected):
     mocker.patch(f"{MODULE}.settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS", 10)
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=_marker(2))
+    consumed_at = datetime.now(UTC) - timedelta(seconds=age)
+    result = SimpleNamespace(first=lambda: (consumed_at, stored_ip))
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+    @asynccontextmanager
+    async def context():
+        yield session
+    mocker.patch(f"{MODULE}.database.async_session", side_effect=context)
 
-    assert await jwt_service.is_benign_duplicate_rotation("jti-1", "10.0.0.1") is True
-
-
-@pytest.mark.asyncio
-async def test_benign_duplicate_accepts_bytes_from_valkey(mocker):
-    mocker.patch(f"{MODULE}.settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS", 10)
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=_marker(1).encode())
-
-    assert await jwt_service.is_benign_duplicate_rotation("jti-1", "10.0.0.1") is True
-
-
-@pytest.mark.asyncio
-async def test_benign_duplicate_false_after_window(mocker):
-    mocker.patch(f"{MODULE}.settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS", 10)
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=_marker(11))
-
-    assert await jwt_service.is_benign_duplicate_rotation("jti-1", "10.0.0.1") is False
-
-
-@pytest.mark.asyncio
-async def test_benign_duplicate_false_from_a_different_ip(mocker):
-    mocker.patch(f"{MODULE}.settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS", 10)
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=_marker(1, "10.0.0.1"))
-
-    assert await jwt_service.is_benign_duplicate_rotation("jti-1", "198.51.100.7") is False
+    assert await jwt_service.is_benign_duplicate_rotation("jti-1", request_ip) is expected
 
 
 @pytest.mark.asyncio
 async def test_benign_duplicate_false_when_grace_disabled(mocker):
     mocker.patch(f"{MODULE}.settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS", 0)
-    get_mock = mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=_marker(0))
-
+    db = mocker.patch(f"{MODULE}.database.async_session")
     assert await jwt_service.is_benign_duplicate_rotation("jti-1", "10.0.0.1") is False
-    get_mock.assert_not_called()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("stored", [None, "true", "garbage|x", "notanumber|10.0.0.1"])
-async def test_benign_duplicate_false_for_missing_legacy_or_malformed_marker(mocker, stored):
-    mocker.patch(f"{MODULE}.settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS", 10)
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=stored)
-
-    assert await jwt_service.is_benign_duplicate_rotation("jti-1", "10.0.0.1") is False
-
-
-@pytest.mark.asyncio
-async def test_benign_duplicate_false_when_valkey_errors(mocker):
-    mocker.patch(f"{MODULE}.settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS", 10)
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, side_effect=RuntimeError("down"))
-
-    assert await jwt_service.is_benign_duplicate_rotation("jti-1", "10.0.0.1") is False
+    db.assert_not_called()

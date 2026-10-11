@@ -2,7 +2,7 @@
 // pages, both pre-auth and authenticated. Runs against the same stubbed API
 // routes the rest of the browser suite uses, not a live backend - this
 // checks markup/ARIA/contrast, not data correctness (that's every other
-// spec in this suite). See docs/mystic_auth/testing/browser-e2e.md.
+// spec in this suite). See docs/mystic_auth/testing/frontend-e2e.md.
 import { expect, test } from "../../../../../frontend/e2e/playwright";
 import { expectNoAccessibilityViolations } from "../support/axeCheck";
 import { installAuthenticatedMysticAuthApiRoutes } from "../support/authenticatedMysticAuthApiRoutes";

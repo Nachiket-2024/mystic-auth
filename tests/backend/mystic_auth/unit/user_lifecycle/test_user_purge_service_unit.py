@@ -35,15 +35,15 @@ def _mock_collaborators(mocker):
     mocker.patch(f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user", new_callable=AsyncMock, return_value=2)
     mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.user_crud.delete", new_callable=AsyncMock)
-    # F-002 fix: purge now also anonymizes the purged account's own audit-log
-    # rows (see audit_log_repository.anonymize_for_user's docstring).
+    # Purge also anonymizes the purged account's own audit-log rows (see
+    # audit_log_repository.anonymize_for_user's docstring).
     # Mocked here by default like every other collaborator; dedicated
     # coverage for the call itself is below.
     mocker.patch(f"{MODULE}.audit_log_repository.anonymize_for_user", new_callable=AsyncMock, return_value=0)
     mocker.patch(f"{MODULE}.authorization_audit_log_repository.anonymize_for_user", new_callable=AsyncMock, return_value=0)
     # Default: the row lock re-read finds the account still soft-deleted,
     # i.e. the common case where nothing raced the purge. Individual tests
-    # override this to exercise the race-guard path (F-001).
+    # override this to exercise the race-guard path.
     mocker.patch(
         f"{MODULE}.user_crud.lock_by_id",
         new_callable=AsyncMock,
@@ -97,7 +97,7 @@ async def test_purge_invalidates_the_cache_after_the_row_is_actually_deleted(moc
 
 @pytest.mark.asyncio
 async def test_purge_raises_when_a_soft_deleted_account_was_reactivated_before_the_lock(mocker):
-    """F-001 regression: a batch job (account_purge_tasks.py) can hold a
+    """Regression guard: a batch job (account_purge_tasks.py) can hold a
     stale `user` snapshot (deleted_at set) read well before this call. If
     the row-lock re-read shows deleted_at is now None, a reactivation raced
     the purge and it must be refused, not silently proceed on the stale
@@ -137,7 +137,7 @@ async def test_purge_proceeds_for_a_still_active_account_an_admin_purges_directl
     """An admin purging a never-soft-deleted account (DELETE /users/{email}/purge
     with no prior soft delete) is a legitimate, separate call shape with no
     deleted_at precondition to regress on -- must not be rejected by the
-    F-001 guard."""
+    reactivation-race guard above."""
     mocker.patch(
         f"{MODULE}.user_crud.lock_by_id",
         new_callable=AsyncMock,
@@ -182,7 +182,7 @@ async def test_purge_returns_the_revoked_session_count_unchanged(mocker):
 
 @pytest.mark.asyncio
 async def test_purge_anonymizes_the_purged_users_own_audit_log_rows(mocker):
-    """F-002: without this, a hard-purged account's email/IP/user-agent
+    """Without this, a hard-purged account's email/IP/user-agent
     stayed readable forever in security_audit_log/authorization_audit_log
     (no FK, append-only, no retention job) - "deleted" meant only the
     `users` row. Both audit tables must be anonymized for this exact

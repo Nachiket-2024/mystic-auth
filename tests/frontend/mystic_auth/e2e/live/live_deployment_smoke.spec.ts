@@ -2,7 +2,7 @@
 // local-prod-* mode or prod) - not the stubbed-API suite the rest of
 // tests/frontend/mystic_auth/e2e/ uses. Every request here is real: real
 // signup, real login, real navigation, no page.route() interception. See
-// docs/mystic_auth/testing/browser-e2e.md#live-deployment-smoke-test.
+// docs/mystic_auth/testing/frontend-e2e.md#performance-and-live-deployment.
 //
 // Skipped entirely unless both LIVE_BASE_URL and LIVE_POSTGRES_CONTAINER
 // are set, so it never runs as part of `npm run test:browser` or CI.

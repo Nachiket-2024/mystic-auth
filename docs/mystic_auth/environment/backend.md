@@ -34,7 +34,7 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `GOOGLE_CLIENT_ID` | string | yes, can be placeholder until OAuth is used | Google OAuth2 client id used by the login redirect and token exchange. |
 | `GOOGLE_CLIENT_SECRET` | string secret | yes, can be placeholder until OAuth is used | Google OAuth2 token exchange secret. |
 | `GOOGLE_REDIRECT_URI` | string URL | yes | Must exactly match the callback URL registered in Google Cloud. |
-| `VALKEY_URL` | Valkey URL | yes | Valkey client connection for rate limits, lockout, token versions, single-use refresh claims, OAuth state, policy cache, and Pub/Sub. |
+| `VALKEY_URL` | Valkey URL | yes | Valkey client connection for rate limits, lockout, cached token versions, OAuth state, policy cache, and Pub/Sub. Durable token versions and refresh-token single-use claims are stored in Postgres. |
 | `CACHE_DEFAULT_TTL` | integer seconds | yes | Default Valkey cache TTL used by the authorization cache. |
 | `FROM_EMAIL` | email string | yes | SMTP username and email `From` address. |
 | `GMAIL_APP_PASSWORD` | string secret | yes, can be placeholder if email disabled | SMTP password for the Gmail sender account. |
@@ -48,7 +48,7 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `LOGIN_LOCKOUT_TIME_PER_IP` | integer seconds | yes | IP lockout duration after too many failed login attempts across accounts. |
 | `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` | integer | yes | Failed login threshold per IP. |
 | `ACTION_RESERVATION_TIME` | integer seconds | no, defaults to `60` | Valkey reservation lifetime used to serialize concurrent password-reset, verification, and account-deletion confirmations. Keep it longer than the slowest expected mutation, but shorter than the user-facing lockout window. |
-| `REFRESH_TOKEN_REUSE_GRACE_SECONDS` | integer seconds | no, defaults to `10` | Same-client duplicate refresh grace window. A reused token outside the window revokes its chain. |
+| `REFRESH_TOKEN_REUSE_GRACE_SECONDS` | integer seconds | no, defaults to `10` | Same-IP duplicate refresh grace window. A retry inside the window is rejected without revoking the first request; an older or cross-IP replay revokes its chain. |
 | `SESSION_ROW_RETENTION_HOURS` | integer hours | no, defaults to `1` | Retention buffer for naturally expired session rows before the daily cleanup job removes them. |
 | `SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT` | integer | no, defaults to `5` | Global maximum concurrent authenticated SSE session-event streams for one account. |
 | `SESSION_EVENT_MAX_CONNECTIONS_PER_IP` | integer | no, defaults to `20` | Global maximum concurrent authenticated SSE session-event streams for one client IP. |
@@ -65,6 +65,7 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `SECURITY_ALERT_WEBHOOK_TOKEN` | secret, optional | no, defaults empty | Bearer credential issued by that receiver; sent only in the `Authorization` header and never logged. |
 | `SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS` | number, optional | no, defaults `2` | Maximum wait for the receiver. Delivery is best effort and never blocks authentication. |
 | `ACCOUNT_PURGE_GRACE_DAYS` | integer days | yes | Grace period before the scheduled purge job hard-deletes soft-deleted accounts. |
+| `AUDIT_LOG_RETENTION_DAYS` | integer days | no, defaults to `400` | Daily job removes email, IP, and user-agent identifiers from older security and authorization audit entries; entries are retained in anonymized form. Purged accounts' existing entries are anonymized immediately. |
 | `PROCRASTINATE_TASK_IMPORT_PATHS` | comma-separated module paths | no, defaults empty | Downstream task modules imported by the worker and API process. Use app-owned modules only, for example `app.background_tasks`. A module may define `@procrastinate_app.task` tasks or register lifecycle listeners. |
 | `PROCRASTINATE_WORKER_MIDDLEWARE_PATHS` | comma-separated callable paths | no, defaults empty | Optional worker-wide Procrastinate middleware, loaded from app-owned modules. Paths may use `module:function` or `module.function` syntax. Middleware must not log task arguments. |
 | `USER_EXPORT_MAX_ROWS` | integer | yes | Maximum rows returned by `GET /users/export`; larger filtered exports return `400 EXPORT_TOO_LARGE`. |

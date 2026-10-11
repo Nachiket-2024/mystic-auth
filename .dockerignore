@@ -8,6 +8,10 @@
 *.sqlite3
 *.db
 *.log
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
 # backend/logs/: rotated access-log files (real request data: paths,
 # timestamps, correlation IDs). `*.log` above only matches exactly ".log",
 # not rotated siblings like access.log.2026-07-19, which were previously
@@ -50,6 +54,8 @@ env/app/.env.*
 !env/app/.env.*.example
 frontend/.env
 frontend/.env.bak
+frontend/.env.*
+!frontend/.env.*.example
 # Real credentials for local-scripts/mystic_auth/{dev,local-prod-*,prod}/create-system-user.*;
 # these never need to be inside a build context, only run against a running
 # container from the host.

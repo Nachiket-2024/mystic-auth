@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BarChart3, Table2 } from "lucide-react";
 
@@ -21,12 +21,15 @@ interface LoginTrendChartProps {
     errorMessage?: string;
 }
 
+// CHART_HEIGHT is kept as a plain constant (not a CSS var) so the SVG's own
+// height={} prop stays in sync automatically; Tailwind can't read a JS
+// constant into an arbitrary-value class, so `h-[130px]`/`h-[200px]` and the
+// Y-axis column's `w-[44px]` literals below must be changed by hand with it
+// (a strict hash-only CSP forbids a dynamic/computed inline style here).
+// 44px fits a 5-digit, thousands-separated tick ("12,500") without wrapping
+// across every language's own separator (see numerals.ts).
 const CHART_HEIGHT = 130;
 const BAR_WIDTH_RATIO = 0.55;
-// Wide enough for a 5-digit, thousands-separated tick ("12,500") without
-// wrapping; formatNumber's thousands separator varies by language (see
-// numerals.ts), so this can't be sized off the raw digit count alone.
-const Y_AXIS_WIDTH = 44;
 
 
 /**
@@ -59,7 +62,23 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isFe
     const [chartMode, setChartMode] = useState<"all" | "failed">("all");
     const [chartView, setChartView] = useState<"chart" | "table">("chart");
 
-    if (isLoading) return <Skeleton style={{ height: `${CHART_HEIGHT + 70}px` }} />;
+    // The hovered-day tooltip's horizontal position is genuinely dynamic
+    // (depends on which bar is hovered and how many days are plotted), so
+    // it can't be a static Tailwind class the way the chart's other inline
+    // styles were converted to (see the comment above CHART_HEIGHT).
+    // Setting it via the CSSOM (element.style.setProperty)
+    // rather than React's `style` prop keeps it out of the `style=""` HTML
+    // attribute entirely, so a strict hash-only CSP's style-src never sees
+    // it and never flags it - CSP only governs markup/attribute-driven
+    // styles and <style> elements, not direct DOM property assignment.
+    const tooltipRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        if (!tooltipRef.current || hovered === null || !data || data.length === 0) return;
+        const dw = 100 / data.length;
+        tooltipRef.current.style.setProperty("--tooltip-left", `${hovered * dw + dw / 2}%`);
+    }, [hovered, data]);
+
+    if (isLoading) return <Skeleton className="h-[200px]" />;
     if (isError) return <FormAlert status="error">{errorMessage ?? t("security.failedToLoadTrend")}</FormAlert>;
     if (!data || data.length === 0) return <p className="text-sm text-fg-muted">{t("security.emptyTrend")}</p>;
 
@@ -181,8 +200,7 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isFe
                 {/* Y-axis: 0 / half / max, evenly spaced against the same
                     plotHeight the bars themselves scale against. */}
                 <div
-                    className="flex flex-col justify-between shrink-0 pb-3"
-                    style={{ height: `${CHART_HEIGHT}px`, width: `${Y_AXIS_WIDTH}px` }}
+                    className="flex flex-col justify-between shrink-0 pb-3 h-[130px] w-[44px]"
                     data-testid="chart-y-axis"
                 >
                     <p className="text-xs text-fg-muted text-right">{formatNumber(scaleMax, language)}</p>
@@ -193,8 +211,8 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isFe
                 <div className="flex-1 min-w-0 relative">
                     {hoveredPoint && (
                         <div
-                            className="absolute top-0 -translate-x-1/2 -translate-y-full bg-bg-surface border border-border-default rounded-md shadow-md px-3 py-2 z-10 pointer-events-none whitespace-nowrap"
-                            style={{ left: `${hovered! * dayWidth + dayWidth / 2}%` }}
+                            ref={tooltipRef}
+                            className="absolute top-0 left-(--tooltip-left) -translate-x-1/2 -translate-y-full bg-bg-surface border border-border-default rounded-md shadow-md px-3 py-2 z-10 pointer-events-none whitespace-nowrap"
                         >
                             <p className="text-sm font-semibold mb-1">
                                 {formatDayLabel(hoveredPoint.date, language)}
@@ -268,7 +286,7 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isFe
                                 <g
                                     key={point.date}
                                     tabIndex={0}
-                                    style={{ outline: "none", cursor: "pointer" }}
+                                    className="outline-none cursor-pointer"
                                     onMouseEnter={() => setHovered(i)}
                                     onMouseLeave={() => setHovered(null)}
                                     onFocus={() => setHovered(i)}
@@ -305,7 +323,10 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isFe
 
                     <div className="flex items-center mt-1">
                         {data.map((point, i) => (
-                            <div key={point.date} style={{ width: `${dayWidth}%` }} className="text-center">
+                            // Every column is dayWidth=100/data.length wide - all equal - so
+                            // flex-1 gets the identical even split without a computed inline
+                            // style (a strict hash-only CSP can't allow one).
+                            <div key={point.date} className="flex-1 text-center">
                                 <p
                                     className={cn(
                                         "text-xs whitespace-nowrap",

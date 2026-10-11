@@ -370,11 +370,35 @@ jobs:
 
       # The backup container has its own dependency surface (rclone, curl,
       # the postgres:15 base) that drifts independently of backend/frontend -
-      # confirmed by audit finding F-001 (2026-10-05): it carried Critical/
-      # High CVEs while backend/frontend scanned clean, entirely unnoticed
-      # because nothing built or scanned it in CI. Build and scan it too.
+      # it has carried Critical/High CVEs while backend/frontend scanned
+      # clean, entirely unnoticed because nothing built or scanned it in CI.
+      # Build and scan it too.
       - name: Build db_backup image
         run: docker build -f docker/mystic_auth/dockerfiles/db-backup.Dockerfile -t db-backup:ci .
+
+      - name: Verify shipped dependency notices
+        run: |
+          docker run --rm --entrypoint sh backend:ci -c 'test -s /usr/share/licenses/mystic-auth/backend/PyYAML-6.0.3.txt'
+          docker run --rm --entrypoint sh db-backup:ci -ec '
+            notices=/usr/share/licenses/mystic-auth/db-backup/debian
+            rclone_notices=/usr/share/licenses/mystic-auth/db-backup/rclone
+            test -s "$rclone_notices/github.com/rclone/rclone/COPYING"
+            test "$(find "$rclone_notices" -type f | wc -l)" -gt 100
+            test -s "$notices/packages.tsv"
+            test -s "$notices/common-licenses/GPL-3"
+            test "$(wc -l < "$notices/packages.tsv")" -gt 20
+            while read -r package version; do
+              package_dir=${package%%:*}
+              test -s "$notices/$package_dir/copyright"
+            done < "$notices/packages.tsv"
+            rclone version | grep -F "go/version: go1.27.2"
+            ! rclone help | grep -q selfupdate
+          '
+          docker run --rm --add-host backend:127.0.0.1 --entrypoint sh frontend:ci -c 'test -s /usr/share/nginx/html/third-party-notices/react_19.3.0.txt && nginx -t'
+          docker run -d --name frontend-notices-smoke --add-host backend:127.0.0.1 -p 127.0.0.1:18080:80 frontend:ci
+          trap 'docker rm -f frontend-notices-smoke >/dev/null 2>&1 || true' EXIT
+          timeout 30 sh -c 'until curl -fsS http://127.0.0.1:18080/third-party-notices/ >/dev/null; do sleep 1; done'
+          curl -fsS http://127.0.0.1:18080/third-party-notices/ | grep -q 'react_19.3.0.txt'
 
       - name: Scan built images for known-critical/high vulnerabilities (Trivy)
         run: |

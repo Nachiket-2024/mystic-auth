@@ -1,16 +1,29 @@
 import asyncio
 import traceback
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import jwt
+from sqlalchemy import text
 
 from ...core.settings import settings
+from ...database.connection import database
 from ...logging.logging_config import get_logger
 from ...valkey.client import valkey_client
-from .token_version_store import token_version_store
+from .token_version_store import TokenVersionUnavailableError, token_version_store
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class RefreshRotationClaim:
+    claimed: bool
+    consumed_at: datetime | None
+    account_ver: int | None
+    chain_ver: int | None
+    client_ip: str | None
+    legacy_valkey_marker: bool = False
 
 
 class JWTService:
@@ -27,12 +40,21 @@ class JWTService:
     tell "already used once" from "still current."
     """
 
-    async def create_access_token(self, email: str, chain_id: str) -> str:
-        now = datetime.now(UTC)
+    async def create_access_token(
+        self,
+        email: str,
+        chain_id: str,
+        *,
+        issued_at: datetime | None = None,
+        account_ver: int | None = None,
+        chain_ver: int | None = None,
+    ) -> str:
+        now = issued_at or datetime.now(UTC)
         expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         jti = uuid.uuid4().hex
 
-        account_ver, chain_ver = await self.get_token_versions(email, chain_id)
+        if account_ver is None or chain_ver is None:
+            account_ver, chain_ver = await self.get_token_versions(email, chain_id)
 
         # "iat" is a float (now.timestamp()), not the datetime object
         # itself: PyJWT truncates a datetime-valued exp/iat/nbf claim to
@@ -56,7 +78,15 @@ class JWTService:
 
         return await asyncio.to_thread(jwt.encode, payload, settings.SECRET_KEY, settings.JWT_ALGORITHM)
 
-    async def create_refresh_token(self, email: str, chain_id: str) -> str:
+    async def create_refresh_token(
+        self,
+        email: str,
+        chain_id: str,
+        *,
+        issued_at: datetime | None = None,
+        account_ver: int | None = None,
+        chain_ver: int | None = None,
+    ) -> str:
         """
         chain_id identifies one continuous login, unchanged across every
         rotation of it: a fresh login mints a new random one (see
@@ -68,11 +98,12 @@ class JWTService:
         any other session on the account - see
         docs/mystic_auth/authentication/session-management/README.md.
         """
-        now = datetime.now(UTC)
+        now = issued_at or datetime.now(UTC)
         expire = now + timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
         jti = uuid.uuid4().hex
 
-        account_ver, chain_ver = await self.get_token_versions(email, chain_id)
+        if account_ver is None or chain_ver is None:
+            account_ver, chain_ver = await self.get_token_versions(email, chain_id)
 
         payload = {
             "email": email,
@@ -204,34 +235,52 @@ class JWTService:
             return None
 
     async def is_benign_duplicate_rotation(self, jti: str, client_ip: str | None) -> bool:
-        """True when jti was claimed moments ago by the same client IP.
+        """Recognize a same-IP retry during the short rotation grace window.
 
-        The claim marker stores "<unix time>|<ip>". A second use inside
-        REFRESH_TOKEN_REUSE_GRACE_SECONDS from that same IP is an honest
-        duplicate (two tabs racing, or the first response lost to a reload),
-        not theft. Anything else (older, different IP, unreadable or legacy
-        marker, Valkey error) is False, so the caller falls back to strict
-        reuse detection.
+        The retry is rejected without minting another token pair or revoking
+        the chain created by the successful first request.
         """
         grace = settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS
         if grace <= 0:
             return False
         try:
-            value = await valkey_client.get(f"revoked:{jti}")
-            if isinstance(value, bytes):
-                value = value.decode()
-            if not isinstance(value, str) or "|" not in value:
-                return False
-            claimed_at, claimed_ip = value.split("|", 1)
-            age = datetime.now(UTC).timestamp() - float(claimed_at)
-            return 0 <= age <= grace and claimed_ip == (client_ip or "")
-        except Exception:
-            logger.warning("Failed to read rotation marker for jti %s:\n%s", jti, traceback.format_exc())
-            return False
+            async with database.async_session() as session:
+                result = await session.execute(
+                    text(
+                        "SELECT consumed_at, client_ip FROM consumed_refresh_tokens "
+                        "WHERE jti = :jti"
+                    ),
+                    {"jti": jti},
+                )
+                row = result.first()
+            if row is None:
+                # A short compatibility window for claim markers created by
+                # the previous release during a rolling deployment. Those
+                # legacy markers cannot reproduce their random child pair.
+                marker = await valkey_client.get(f"revoked:{jti}")
+                if isinstance(marker, bytes):
+                    marker = marker.decode()
+                if not isinstance(marker, str) or "|" not in marker:
+                    return False
+                claimed_at, claimed_ip = marker.split("|", 1)
+                age = datetime.now(UTC).timestamp() - float(claimed_at)
+                return 0 <= age <= grace and claimed_ip == (client_ip or "")
+            consumed_at, claimed_ip = row
+            age = (datetime.now(UTC) - consumed_at).total_seconds()
+            return 0 <= age <= grace and claimed_ip == client_ip
+        except Exception as error:
+            logger.error("Failed to read durable refresh rotation for jti %s:\n%s", jti, traceback.format_exc())
+            raise TokenVersionUnavailableError("durable refresh rotation store unavailable") from error
 
     async def claim_jti_for_rotation(
-        self, jti: str, exp: int | float | None, email: str | None = None, client_ip: str | None = None
-    ) -> bool:
+        self,
+        jti: str,
+        exp: int | float | None,
+        email: str | None = None,
+        client_ip: str | None = None,
+        account_ver: int = 0,
+        chain_ver: int = 0,
+    ) -> RefreshRotationClaim:
         """
         Atomically marks jti as redeemed, only if it wasn't already -
         refresh tokens are single-use, so this is what actually stops the
@@ -241,30 +290,70 @@ class JWTService:
         it: a stolen-but-still-current-version token could otherwise be
         used to mint an unbounded number of new token pairs. Returns True
         only for the call that actually claimed it (safe to proceed with
-        rotation), False if it was already claimed.
+        rotation). A retry receives the existing claim and is rejected by
+        the refresh service; it cannot mint a second child pair.
 
-        SET...NX makes the check-and-claim one atomic Valkey operation:
-        a separate is_token_revoked_by_jti-then-mark pair would leave a
-        real gap where two concurrent requests presenting the identical
-        refresh token could both observe "not yet claimed" and both
-        proceed to mint a fresh token pair from one token. `email` is
-        currently unused here (retained for interface symmetry with
-        callers that pass it) - the jti-registry cleanup this used to
-        also perform no longer exists now that revocation is version-based.
+        A Postgres unique key makes the check-and-claim atomic and survives
+        Valkey flushes/restarts. Rows are retained only until the token's
+        expiry and removed by the scheduled session cleanup task. `email` is
+        retained for interface compatibility; it is not persisted here.
         """
         try:
-            ttl = 1
-            if exp is not None:
-                ttl = max(1, int(exp - datetime.now(UTC).timestamp()))
+            if exp is None:
+                raise ValueError("refresh token is missing expiry")
+            # Honor markers written by the previous Valkey-only implementation
+            # during rolling upgrades. New claims are written to Postgres.
+            try:
+                if await valkey_client.exists(f"revoked:{jti}") == 1:
+                    return RefreshRotationClaim(False, None, None, None, client_ip, True)
+            except Exception:
+                # The durable PostgreSQL claim below is authoritative. A
+                # missing cache during a deployment must not block refresh.
+                logger.warning("Could not read legacy Valkey refresh marker for jti %s", jti)
+            expiry = datetime.fromtimestamp(float(exp), tz=UTC)
+            async with database.async_session() as session:
+                result = await session.execute(
+                    text(
+                        "INSERT INTO consumed_refresh_tokens "
+                        "(jti, consumed_at, expires_at, client_ip, account_ver, chain_ver) "
+                        "VALUES (:jti, now(), :expires_at, :client_ip, :account_ver, :chain_ver) "
+                        "ON CONFLICT (jti) DO NOTHING "
+                        "RETURNING consumed_at, client_ip, account_ver, chain_ver"
+                    ),
+                    {
+                        "jti": jti,
+                        "expires_at": expiry,
+                        "client_ip": client_ip,
+                        "account_ver": account_ver,
+                        "chain_ver": chain_ver,
+                    },
+                )
+                row = result.first()
+                claimed = row is not None
+                if row is None:
+                    result = await session.execute(
+                        text(
+                            "SELECT consumed_at, client_ip, account_ver, chain_ver "
+                            "FROM consumed_refresh_tokens WHERE jti = :jti"
+                        ),
+                        {"jti": jti},
+                    )
+                    row = result.first()
+                if row is None:
+                    raise RuntimeError("refresh token claim disappeared during transaction")
+                await session.commit()
+                consumed_at, stored_ip, stored_account_ver, stored_chain_ver = row
+                return RefreshRotationClaim(
+                    claimed=claimed,
+                    consumed_at=consumed_at,
+                    account_ver=int(stored_account_ver),
+                    chain_ver=int(stored_chain_ver),
+                    client_ip=stored_ip,
+                )
 
-            marker = f"{datetime.now(UTC).timestamp()}|{client_ip or ''}"
-            claimed = await valkey_client.set(f"revoked:{jti}", marker, nx=True, ex=ttl)
-
-            return bool(claimed)
-
-        except Exception:
-            logger.warning("Failed to claim jti %s for rotation:\n%s", jti, traceback.format_exc())
-            return False
+        except Exception as error:
+            logger.error("Failed to claim durable refresh jti %s:\n%s", jti, traceback.format_exc())
+            raise TokenVersionUnavailableError("durable refresh rotation store unavailable") from error
 
     async def is_token_revoked_by_jti(self, jti: str | None) -> bool:
         """Returns False (not just when unrevoked) when no jti was given:

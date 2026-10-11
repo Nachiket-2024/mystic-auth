@@ -4,7 +4,7 @@
 
 *Part of [Using This Repository as a Template](overview.md). This is the file-ownership convention that makes [staying in sync with upstream](syncing-upstream/README.md) low-conflict: which files you can edit freely, which you should never touch, and which are shared and expect the occasional merge conflict.*
 
-Both backend and frontend are split into two trees, and every file in the repo falls into exactly one of three ownership tiers. This is purely a **file-path convention**: there's no tooling enforcing it (no `CODEOWNERS`, no merge driver), just a rule both this template and your own code agree to follow. Knowing which tier a file is in tells you whether you can edit it freely, should never edit it, or should expect the occasional merge conflict there.
+Both backend and frontend are split into two trees, and every file in the repo falls into exactly one of three ownership tiers. This is primarily a **file-path convention**: there is no `CODEOWNERS` or custom merge driver, though the upstream sync script blocks changes to downstream-owned paths and permits a few documented exceptions. Knowing which tier a file is in tells you whether you can edit it freely, should never edit it, or should expect the occasional merge conflict there.
 
 ---
 
@@ -15,6 +15,13 @@ Both backend and frontend are split into two trees, and every file in the repo f
 | **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `backend/alembic.ini`, `backend/pyproject.toml`, `.github/workflows/ci.yml`, `.vscode/settings.json`, `pytest.ini`, `CLAUDE.md`, `.gitignore`, `.dockerignore`, `docker/tailscale-serve-config.json` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a CI pipeline, ignore rules, a JSON config a tool expects at one specific path with no include mechanism of its own), so they can't start empty the way `app_sdk.*` does, and each has to stay a single file per its own tool's convention rather than splitting into `app/`/`mystic_auth/` folders. You're expected to extend them (register your own router, add your own `<Route>`, add your own CI job, ignore your own generated paths, add your own Tailscale serve handler), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
 
 ---
+
+The upstream sync permits comment-only maintenance in
+`frontend/src/app/main.tsx` and `frontend/src/app/theme.ts` so template
+comments can stay accurate without taking ownership of downstream behavior.
+Any executable-code change in either file remains blocked as an ownership
+violation; a downstream edit to the same comment can still produce a normal
+three-way conflict.
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
@@ -77,7 +84,7 @@ Use this decision path before creating or editing a file:
 
 There is one deliberate bridge: the reusable default-policy hook reads `app.core.settings.app_settings` so a downstream project can configure `DEFAULT_APP_POLICIES` without editing MysticAuth auth flows. Treat that as an extension point, not as permission to add product fields to `backend/mystic_auth/core/settings.py`.
 
-### One intentional content exception
+### One intentional content exception (three namespaces)
 
 The app-content translation files are the only tracked files below an
 upstream-owned path that a downstream operator is expected to rewrite:

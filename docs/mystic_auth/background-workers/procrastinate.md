@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. Also runs the daily scheduled hard-purge of soft-deleted accounts past their grace period (see [Account Deletion](../authentication/account-deletion/README.md)).
+Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. It also runs scheduled account purge, audit-log anonymization, expired-session cleanup, refresh-claim cleanup, and lifecycle-outbox reconciliation jobs.
 
 Replaced [Taskiq](https://taskiq-python.github.io/) (Valkey Streams) with [Procrastinate](https://procrastinate.readthedocs.io/) (Postgres-native) in full: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why.
 
@@ -30,6 +30,8 @@ app = App(
         "mystic_auth.procrastinate_tasks.email_tasks",
         "mystic_auth.procrastinate_tasks.account_purge_tasks",
         "mystic_auth.procrastinate_tasks.account_lifecycle_tasks",
+        "mystic_auth.procrastinate_tasks.audit_log_tasks",
+        "mystic_auth.procrastinate_tasks.session_cleanup_tasks",
     ],
 )
 ```
@@ -150,6 +152,9 @@ credentials or one-time tokens.
 |---|---|---|
 | `send_email_task(to_email, subject, body, is_html=True)` | `auth/verify_account/account_verification_service.py`, `auth/password_logic/password_reset_service.py`, `user_lifecycle/account_deletion_service.py` | Sends email from the Procrastinate worker via the configured SMTP sender (`aiosmtplib`) |
 | `purge_expired_soft_deleted_accounts(timestamp)` | `@app.periodic(cron="0 3 * * *")`, deferred automatically by the worker's internal `PeriodicDeferrer` | Daily hard-purge of accounts past their soft-delete grace period; see [Account Deletion](../authentication/account-deletion/README.md) |
+| `anonymize_expired_audit_log_entries(timestamp)` | `@app.periodic(cron="30 3 * * *")` | Removes identifying email, IP, and user-agent data from audit rows older than `AUDIT_LOG_RETENTION_DAYS` (default 400 days); preserves the events themselves |
+| `purge_expired_sessions(timestamp)` | `@app.periodic(cron="30 3 * * *")` | Removes session-mirror rows that expired without an explicit revoke |
+| `purge_consumed_refresh_tokens(timestamp)` | `@app.periodic(cron="35 3 * * *")` | Removes expired durable refresh-token replay claims in bounded batches |
 | `deliver_account_lifecycle_event_task(event, outbox_id)` | Account soft-delete, reactivation, purge, or the outbox reconciler | Delivers generic downstream lifecycle notifications with retry and marks the durable outbox row delivered |
 | `dispatch_pending_account_lifecycle_events(timestamp)` | `@app.periodic(cron="*/5 * * * *")` | Re-enqueues lifecycle outbox rows that have not reached the worker queue |
 

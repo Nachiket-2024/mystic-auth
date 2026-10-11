@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -28,7 +30,8 @@ class UserEmailCRUD:
         """
         normalized = [normalize_email(email) for email in emails]
         result = await db.execute(select(self.model).where(self.model.email.in_(normalized)))
-        return {user.email: user for user in result.scalars().all()}
+        users: Sequence[User] = result.scalars().all()
+        return {user.email: user for user in users}
 
     async def update_by_email(self, email: str, update_data: dict, db: AsyncSession):
         db_obj = await self.get_by_email(email, db)

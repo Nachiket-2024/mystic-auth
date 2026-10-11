@@ -23,7 +23,8 @@ Detail](frontend-pages-test-detail.md).
 1. Config lives in `pytest.ini` at the repo root. It sets `testpaths = tests/backend` and collects coverage for `backend/app` and `backend/mystic_auth`.
 2. An HTML report is generated in `htmlcov/` on every run.
 3. `--cov-fail-under` is not set in `pytest.ini` because it would also apply to partial local runs.
-4. CI enforces the 90% cumulative coverage gate after unit, integration, and security tests append to the same coverage data.
+4. CI enforces the 90% cumulative coverage gate after the app wrapper, unit,
+   integration, and security suites append to the same coverage data.
 
 ### 8 October, 2026 verification
 
@@ -46,6 +47,19 @@ Detail](frontend-pages-test-detail.md).
   a 10-second ceiling for 25 real Argon2 verifications: the previous 5-second
   ceiling produced false alarms on WSL2 and shared GitHub runners even after
   the login path's database connection amplification was fixed.
+
+### 10 October, 2026 verification
+
+- Added backend unit cases for both authorization-maintenance CLIs and `/auth/me`
+  error handling, including duplicate-email counts, report filtering, invalid
+  tokens, inactive accounts, and safe database/unexpected-error responses. The
+  cumulative backend suite passed at 95.07% coverage across 1,044 app-wrapper
+  and unit tests, 309 integration tests, and 37 security tests. The CI gate
+  remains 90%.
+- Added four frontend regressions for app-supplied navbar actions, command-
+  palette wiring, chart keyboard tooltips, 90-day label thinning, and
+  background-refetch feedback. Vitest passed 882 tests in 138 files with
+  97.28% statements, 91.59% branches, 95.53% functions, and 97.96% lines.
 
 The backend 90% gate is deliberately below 100%: defensive exception
 branches, framework wiring, and deployment-only paths are valuable to review
@@ -84,7 +98,7 @@ settings and SDK boundaries, and application lifecycle signal handling.
 
 ### Unit tests
 
-`tests/backend/mystic_auth/unit/` contains 112 modules. Its subdirectories
+`tests/backend/mystic_auth/unit/` contains 115 modules. Its subdirectories
 mirror the backend implementation and cover authentication, authorization and
 PBAC, condition validation, rate limits, middleware, logging, email tasks,
 users, sessions, deletion/purge, database and Valkey helpers, and settings.
@@ -201,7 +215,7 @@ pages. These protect the host application boundary.
 
 ### Unit tests
 
-`tests/frontend/mystic_auth/unit/` contains 101 modules for API clients,
+`tests/frontend/mystic_auth/unit/` contains 102 modules for API clients,
 refresh and session lifecycle, authorization helpers, audit presentation,
 password rules, stores, theme, shared UI, error reporting, translation parity,
 and mobile overflow. See [Frontend Unit Tests](frontend-unit.md).

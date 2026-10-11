@@ -2,12 +2,16 @@
 # root (unlike `production` below): it npm installs into a bind-mounted
 # frontend/, and a non-root UID would fight host/container UID mismatches
 # on that mount.
-FROM node:22.23.2-bookworm@sha256:dd5847a04b0deee391fa145f1f4c6d214196668b6bcc7988ebed67249f226844 AS dev
+FROM node:22.23.3-bookworm@sha256:0e5f906573693feaa1e21057ebdcfdb5bd5021f050b2dc7c9deceb629c7da2a8 AS dev
+
+RUN npm install --global npm@12.2.0
 
 WORKDIR /app
 
 # Required to compile native optional dependencies for Rollup / esbuild
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
     g++ \
@@ -23,11 +27,16 @@ CMD ["npm", "run", "dev", "--", "--host"]
 
 # Produces the static production bundle (frontend/dist). Only reached with
 # --target production; dev never builds this far.
-FROM node:22.23.2-bookworm@sha256:dd5847a04b0deee391fa145f1f4c6d214196668b6bcc7988ebed67249f226844 AS builder
+FROM node:22.23.3-bookworm@sha256:0e5f906573693feaa1e21057ebdcfdb5bd5021f050b2dc7c9deceb629c7da2a8 AS builder
+
+RUN npm install --global npm@12.2.0
 
 WORKDIR /app
 
 COPY frontend/package*.json ./
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 RUN npm ci --legacy-peer-deps
 COPY frontend/ .
 
@@ -63,6 +72,8 @@ COPY docker/mystic_auth/nginx.frontend.conf /etc/nginx/conf.d/default.conf
 # Copying an empty directory is a no-op, not an error.
 COPY docker/app/nginx/ /etc/nginx/conf.d/app/
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY THIRD_PARTY_NOTICES/frontend/ /usr/share/nginx/html/third-party-notices/
+COPY THIRD_PARTY_NOTICES/README.md /usr/share/nginx/html/third-party-notices/README.txt
 
 # `apk upgrade` pulls in any Alpine security patches released since this base
 # image tag was built, rather than waiting for the next `nginx:stable-alpine`

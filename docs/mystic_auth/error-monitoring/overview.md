@@ -146,7 +146,7 @@ The application sends one alert when it detects one of these high-signal
 events:
 
 - `refresh_token_reuse_detected`: a refresh token was presented again outside
-  the normal duplicate-request grace period. The token chain is revoked when
+  the normal duplicate-request grace period or from a different client IP. The token chain is revoked when
   possible, and the event records whether revocation was confirmed.
 - `session_event_connection_limit_exceeded`: an account or client IP reached
   the maximum number of live session-event (SSE) connections.

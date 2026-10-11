@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { generateBrandScale, contrastRatio } from '@/theme/generateBrandScale';
 
 describe('generateBrandScale', () => {
-  it('generates all ten Chakra scale steps as hex colors', () => {
+  it('generates all ten brand scale steps as hex colors', () => {
     const scale = generateBrandScale('#2563eb');
 
     expect(Object.keys(scale).sort()).toEqual(

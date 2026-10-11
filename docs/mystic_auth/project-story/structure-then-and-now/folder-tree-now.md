@@ -2,7 +2,7 @@
 
 ---
 
-This is the current repository tree as of 9 October, 2026. It reflects the established
+This is the current repository tree as of 11 October, 2026. It reflects the established
 `app/` and `mystic_auth/` ownership split, the PBAC implementation, the shadcn/Radix frontend,
 the separated test suites, the five Docker deployment modes, and the exact template extension
 points. Generated files, local secrets, build output, and test caches are omitted.
@@ -15,6 +15,8 @@ mystic-auth/
         a7b8c9d0e1f2_add_durable_token_revocation_versions.py
         f1a2b3c4d5e6_add_account_lifecycle_outbox.py
         f4a1c2e8b7d6_normalize_user_lifecycle_permission.py
+        f5b6c7d8e9a0_add_consumed_refresh_token_registry.py
+        f6c7d8e9a0b1_add_refresh_claim_version_snapshot.py
     app/                        # thin, project-owned shell
       main.py
       sdk.py
@@ -45,6 +47,7 @@ mystic-auth/
         security/
         signup/
         token_logic/
+          consumed_refresh_token_model.py
         verify_account/
       authorization/             # PBAC engine
         caching/
@@ -69,6 +72,8 @@ mystic-auth/
       scripts/
         create_system_user.py
         create_unconditioned_policies.py
+        invalidate_authorization_cache.py
+        report_conditioned_grant_conflicts.py
       user/
       user_lifecycle/
         account_lifecycle_events.py
@@ -114,6 +119,9 @@ mystic-auth/
         translations/
         ui/
         users/
+  THIRD_PARTY_NOTICES/           # Python/npm app notices; base images and db_backup need separate inventory
+    backend/
+    frontend/
   docs/
     app/                          # project-owned docs
     mystic_auth/                  # upstream docs: api, appearance, architecture,
@@ -137,6 +145,8 @@ mystic-auth/
         unit/
           auth/security/
             test_rate_limiter_dashboard_edge_cases_unit.py
+          scripts/
+            test_authorization_maintenance_scripts_unit.py
           core/
             test_secret_provider_unit.py
           procrastinate_tasks/
@@ -163,6 +173,8 @@ mystic-auth/
             shared_components.test.tsx
         integration/
         e2e/
+          security/
+            browser_security_headers.spec.ts
           performance/
             management_responsiveness_browser.spec.ts
     scripts/                     # script/tooling tests, including host-run port derivation

@@ -160,6 +160,26 @@ while IFS= read -r changed_path; do
     backend/app/main.py|backend/app/sdk.py|frontend/src/app/App.tsx|frontend/src/app/sdk.ts)
       continue
       ;;
+    frontend/src/app/main.tsx|frontend/src/app/theme.ts)
+      # These app-owned shell files may receive comment-only template cleanup.
+      # Keep behavior and product changes under the normal app-ownership guard.
+      ownership_base="${LAST_SYNCED_SHA:-HEAD}"
+      if git cat-file -e "${ownership_base}:${changed_path}" 2>/dev/null \
+        && git cat-file -e "upstream/${UPSTREAM_BRANCH}:${changed_path}" 2>/dev/null \
+        && git diff --unified=0 "$ownership_base" "upstream/${UPSTREAM_BRANCH}" -- "$changed_path" \
+          | awk '
+            /^\+\+\+|^---/ { next }
+            /^[+-]/ {
+              line = substr($0, 2)
+              if (line ~ /^[[:space:]]*$/) next
+              if (line !~ /^[[:space:]]*(\/\/|\/\*|\*\/|\*)/) invalid = 1
+            }
+            END { exit invalid ? 1 : 0 }
+          '; then
+        continue
+      fi
+      APP_OWNED_PATH_CHANGES+="${changed_path}"$'\n'
+      ;;
     ci/app/*)
       is_ci_app_bootstrap_path "$changed_path" || APP_OWNED_PATH_CHANGES+="${changed_path}"$'\n'
       ;;

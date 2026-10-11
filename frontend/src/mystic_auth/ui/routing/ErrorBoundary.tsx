@@ -46,9 +46,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         return (
             <div className="flex items-center justify-center h-screen bg-bg-canvas px-4 text-center">
                 <div className="flex flex-col items-center gap-4">
-                    {/* size="2xl" resolves to Chakra's own "2xl" textStyle
-                        (fontSize 2xl / lineHeight 2rem), confirmed via
-                        text-styles.js. */}
+                    {/* fontSize 2xl / lineHeight 2rem, matching the app's "2xl" text style. */}
                     <h1 className="text-fg-error text-2xl leading-8 font-semibold">{translations.t("ui_text:errorBoundary.title")}</h1>
 
                     <p className="text-xl font-medium">

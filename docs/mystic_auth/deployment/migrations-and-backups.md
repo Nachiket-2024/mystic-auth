@@ -21,6 +21,21 @@ Before applying a migration in production:
 
 Migrations run with `DATABASE_URL`, normally the Postgres superuser. Runtime app traffic and Procrastinate task bodies prefer `APP_DATABASE_URL`, the least-privilege role created by migration. See [Security Decisions: Least-privilege app DB role](../security/decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser).
 
+### Invalidating the authorization cache after an out-of-band write
+
+A migration backfill, or a one-off `psql`/support script, that changes who holds which policy or permission bypasses the normal API-driven cache invalidation: affected users can see a stale authorization decision for up to 60 seconds (`_USER_POLICIES_TTL_SECONDS` in `authorization_cache_service.py`). Run this right after any such write:
+
+```bash
+# After an out-of-band UserPermission/UserPolicy change for specific users
+python -m mystic_auth.scripts.invalidate_authorization_cache --email a@example.com --email b@example.com
+
+# After editing a Policy's own definition (actions/resource_type/conditions),
+# which can affect every holder, not just one
+python -m mystic_auth.scripts.invalidate_authorization_cache --all-policies
+```
+
+An API-driven grant/revoke never needs this - it invalidates the cache itself already.
+
 ---
 
 ## 2. Backup scripts
@@ -221,9 +236,9 @@ behavior. See the fixed line's own comment in either script for the detail.
 
 This is a periodic `pg_dump` loop with encryption, structural verification, and a fail-fast off-host upload requirement in production-shaped modes. `scripts/mystic_auth/db/database-backup/database-backup.sh` (manual/on-demand backups) honors the same encryption and upload settings for parity.
 
-The backup sidecar remains attached to the private `backend_net` for Postgres
+The backup sidecar remains attached to the private `postgres_net` for Postgres
 access and also uses a separate non-internal `backup_egress_net` solely for
-off-host upload. Application services remain on the internal network.
+off-host upload. It has no connection to Valkey's separate internal network.
 
 The scheduled backup image includes `rclone` and uses the B2 environment
 variables above. A host running the manual script needs `rclone` installed

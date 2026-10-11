@@ -9,6 +9,16 @@ from .rate_limiter_service import RateLimiterService
 
 logger = get_logger(__name__)
 _NON_STRING_KEY_PREFIXES = frozenset({"session_event_leases"})
+_GLOB_METACHARACTERS = ("\\", "*", "?", "[", "]")
+
+
+def _escape_glob(value: str) -> str:
+    """Backslash-escapes Valkey/Redis `SCAN MATCH` glob metacharacters so a
+    caller-supplied filter (identifier, endpoint) can never widen or
+    narrow the scan pattern beyond a literal substring match."""
+    for char in _GLOB_METACHARACTERS:
+        value = value.replace(char, f"\\{char}")
+    return value
 
 
 class RateLimitDashboardService:
@@ -121,8 +131,9 @@ class RateLimitDashboardService:
         floor, not exact; the caller should prompt narrowing the filters.
         """
         scope_segment = scope if scope in ("ip", "account", "email") else "*"
-        identifier_segment = f"*{identifier}*" if identifier else "*"
-        pattern = f"{endpoint or '*'}:{scope_segment}:{identifier_segment}"
+        identifier_segment = f"*{_escape_glob(identifier)}*" if identifier else "*"
+        endpoint_segment = _escape_glob(endpoint) if endpoint else "*"
+        pattern = f"{endpoint_segment}:{scope_segment}:{identifier_segment}"
         cache_key = f"{pattern}|{kind or 'all'}"
 
         now = time.monotonic()

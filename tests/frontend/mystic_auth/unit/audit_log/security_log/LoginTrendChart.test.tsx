@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import LoginTrendChart from '@/audit_log/security_log/LoginTrendChart';
@@ -82,6 +82,42 @@ describe('LoginTrendChart', () => {
   it('shows an error message when the trend fails to load', () => {
     renderChart(undefined, { isError: true });
     expect(screen.getByText('Failed to load login trend')).toBeInTheDocument();
+  });
+
+  it('announces background refetches while keeping the current chart visible', () => {
+    const { container } = render(
+      <LoginTrendChart data={SPARSE_DATA} isLoading={false} isFetching isError={false} />
+    );
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /sign-in attempts/i })).toBeInTheDocument();
+    expect(container.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('shows the exact day counts and positions the tooltip when a bar receives keyboard focus', () => {
+    const { container } = renderChart(SPARSE_DATA);
+    const bars = screen.getByRole('img').querySelectorAll('g');
+    const secondBar = bars[1];
+    expect(secondBar).toBeTruthy();
+
+    fireEvent.focus(secondBar!);
+
+    expect(screen.getByText('Success:', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('Failed:', { exact: true })).toBeInTheDocument();
+    expect(container.querySelector('[style*="--tooltip-left"]')).toHaveStyle('--tooltip-left: 75%');
+  });
+
+  it('thins x-axis labels to weekly ticks for a 90-day range', () => {
+    const start = new Date('2026-01-01T00:00:00Z');
+    const data = Array.from({ length: 90 }, (_, index) => {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + index);
+      return { date: date.toISOString().slice(0, 10), success: index, failure: 0 };
+    });
+    const { container } = renderChart(data);
+    const axis = container.querySelector('div.flex.items-center.mt-1');
+
+    expect(Array.from(axis?.querySelectorAll('p') ?? []).filter((label) => label.textContent)).toHaveLength(13);
   });
 
   it('switches to a plain date/success/failed/rate table on the Table view toggle', async () => {

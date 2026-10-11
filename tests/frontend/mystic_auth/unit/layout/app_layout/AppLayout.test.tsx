@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,12 +10,12 @@ import AppLayout from '@/layout/app_layout/AppLayout';
 
 const initialAuthState = useAuthStore.getState();
 
-function renderLayout(extraNavItems?: ComponentProps<typeof AppLayout>['extraNavItems']) {
+function renderLayout(props: Pick<ComponentProps<typeof AppLayout>, 'extraNavItems' | 'extraNavbarContent' | 'onOpenCommandPalette'> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
-          <AppLayout extraNavItems={extraNavItems}>
+          <AppLayout {...props}>
             <div>page content</div>
           </AppLayout>
         </MemoryRouter>
@@ -78,9 +78,22 @@ describe('AppLayout', () => {
   });
 
   it('renders app-supplied extraNavItems in the sidebar alongside the built-in links', () => {
-    renderLayout([{ label: 'Extra A', to: '/extra-a' }]);
+    renderLayout({ extraNavItems: [{ label: 'Extra A', to: '/extra-a' }] });
 
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Extra A' })).toBeInTheDocument();
+  });
+
+  it('keeps app navbar actions and the command-palette trigger in the shared shell', async () => {
+    const user = userEvent.setup();
+    const openPalette = vi.fn();
+    renderLayout({
+      extraNavbarContent: <button type="button">App notifications</button>,
+      onOpenCommandPalette: openPalette,
+    });
+
+    expect(screen.getByRole('button', { name: 'App notifications' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Open search/ }));
+    expect(openPalette).toHaveBeenCalledOnce();
   });
 });

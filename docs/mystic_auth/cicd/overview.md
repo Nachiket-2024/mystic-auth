@@ -133,6 +133,10 @@ flowchart TD
   backup image is a separate dependency surface built from
   `docker/mystic_auth/dockerfiles/db-backup.Dockerfile`; it is not covered by
   the backend image build even though it runs database tooling.
+- Checks that a backend notice file is present in the backend image and that
+  the production frontend image serves its dependency notice directory. The
+  standalone nginx smoke supplies a loopback `backend` host alias so its
+  production proxy configuration can be parsed without joining the app network.
 - Scans all three built images with Trivy for unfixed critical/high
   vulnerabilities, then generates SPDX JSON SBOMs from those exact images.
   The artifacts include the image runtime contents and are uploaded for 90
@@ -163,7 +167,14 @@ flowchart TD
   accessibility scan. The workflow runs the MysticAuth-owned tests through
   `ci/mystic_auth/frontend-e2e.sh` and app-owned tests through
   `ci/app/frontend-e2e.sh`, so a template auth, permission, audit-log, or
-  accessibility regression is a clearly blocking MysticAuth failure. Mocked
+  accessibility regression is attributable to the correct side, upstream or
+  downstream, instead of both suites failing together with no clear owner.
+  One deliberate exception: the MysticAuth accessibility spec also WCAG-scans
+  the app-owned landing page at `/`, asserting only a stable, app-neutral
+  heading landmark rather than any app-specific copy - accessibility
+  compliance of the public entry point is a shared concern regardless of
+  which side owns its content. No other MysticAuth-classified spec asserts
+  against app-owned page content. Mocked
   UI and authorization suites run in all four browser projects. The exhaustive
   live permission matrix runs in Chromium desktop, and responsiveness timing
   runs in Chromium desktop and mobile, so real backend traffic is not
@@ -236,10 +247,14 @@ This is deliberately left as a documented gap rather than added: extending `ci.y
 
 ## Local equivalents
 
-Everything CI runs can be run locally:
+These commands cover the CI checks that can be run from a local shell. GitHub
+Actions artifact uploads, hosted-runner behavior, and the Windows runner still
+require their matching GitHub environment. Run the Docker sequence in one Bash
+shell from the repository root; it refuses to overwrite either dev env file.
 
 ```bash
 # Backend static analysis (from repo root; dev tools installed via requirements-dev.txt)
+ci/mystic_auth/backend.sh audit-dependencies
 ci/mystic_auth/backend.sh lint
 ci/app/backend.sh lint
 ci/mystic_auth/backend.sh typecheck
@@ -260,6 +275,7 @@ ci/app/frontend.sh typecheck
 ci/app/frontend.sh lint
 ci/app/frontend.sh test-coverage
 ci/app/frontend.sh build
+ci/app/frontend.sh audit
 
 # Secrets scan (from repo root; requires gitleaks installed, or run via Docker)
 gitleaks detect --source . -v
@@ -271,10 +287,17 @@ ci/mystic_auth/tooling.sh image-digests
 ci/mystic_auth/tooling.sh env-tools
 ci/mystic_auth/tooling.sh upstream-sync
 ci/mystic_auth/tooling.sh backup-freshness
+ci/mystic_auth/tooling.sh backup-network
+ci/mystic_auth/tooling.sh host-backend
+ci/mystic_auth/tooling.sh platform-wrappers
+ci/mystic_auth/tooling.sh log-rotation
+ci/mystic_auth/tooling.sh action-pinning
+ci/mystic_auth/tooling.sh readonly-rootfs
 
 # Docker image builds (from repo root)
 docker build --target runtime -f docker/mystic_auth/dockerfiles/backend.Dockerfile -t backend:local .
 docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dockerfile -t frontend:local .
+docker build -f docker/mystic_auth/dockerfiles/db-backup.Dockerfile -t db-backup:local .
 
 # Note on the commands below: every `docker compose` invocation needs both
 # -f files (docker/mystic_auth/compose/... + docker/app/compose/...) and
@@ -282,27 +305,52 @@ docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dock
 # ci.yml itself does - abbreviated to the mystic_auth ones alone here would
 # silently skip any app/ overrides a fork has added.
 
+# Run this entire block in one Bash shell from the repository root. It uses a
+# unique Compose project and creates env files only when neither already exists.
+set -euo pipefail
+for env_file in env/mystic_auth/.env.dev env/app/.env.dev; do
+  if [ -e "$env_file" ]; then
+    printf 'Refusing to overwrite existing %s\n' "$env_file" >&2
+    exit 1
+  fi
+done
+export COMPOSE_PROJECT_NAME="mystic-auth-local-ci-$(date +%s)-$$"
+env_files_created=1
+cleanup_local_ci() {
+  docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v >/dev/null 2>&1 || true
+  if [ "$env_files_created" = 1 ]; then
+    rm -f env/mystic_auth/.env.dev env/app/.env.dev
+  fi
+}
+trap cleanup_local_ci EXIT
+
 # Boot + smoke-test the dev stack, the same thing docker-build does on every PR
 cp env/mystic_auth/.env.dev.example env/mystic_auth/.env.dev
 cp env/app/.env.dev.example env/app/.env.dev
 sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.dev   # skip the wasted Bugsink-DSN wait: bugsink isn't started below
 sed -i 's/^MAX_REQUESTS_PER_WINDOW=.*/MAX_REQUESTS_PER_WINDOW=1000/' env/mystic_auth/.env.dev   # disposable CI headroom; production remains at 100
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build postgres valkey alembic backend frontend procrastinate_worker
-curl -sf http://localhost:8000/health/ready   # wait/retry until it returns {"status":"ok"}
-curl -sf http://localhost:5173                # wait/retry until it responds
+for attempt in $(seq 1 60); do
+  curl -sf http://localhost:8000/health/ready && break || sleep 2
+done
+curl -sf http://localhost:8000/health/ready
+for attempt in $(seq 1 60); do
+  curl -sf http://localhost:5173 >/dev/null && break || sleep 2
+done
+curl -sf http://localhost:5173 >/dev/null
 
 # Seed the real-account permission matrix used by the browser E2E suite.
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T -w /repo backend python local-scripts/mystic_auth/seed-user-permission-matrix.py
 
-# Restore drill, the same thing docker-build runs against that booted stack
+# Encrypted dump round-trip and restore drill, the same checks docker-build
+# runs against that booted stack
+ci/mystic_auth/tooling.sh backup-roundtrip
 ci/mystic_auth/tooling.sh restore-drill
 
 # Full Playwright browser E2E suites (including the accessibility scan),
 # the same thing docker-build runs against that booted stack
 CI=true PLAYWRIGHT_WORKERS=2 EMAIL_ENABLED=false ci/mystic_auth/frontend-e2e.sh
 CI=true PLAYWRIGHT_WORKERS=2 EMAIL_ENABLED=false ci/app/frontend-e2e.sh
-
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v && rm env/mystic_auth/.env.dev env/app/.env.dev
 
 # Full suite through the actual containers, the same thing docker-full-suite
 # does on every push to main
@@ -325,7 +373,6 @@ docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/ap
 "
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build frontend
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev exec -T frontend sh -c "npm run test -- --run"
-docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v && rm env/mystic_auth/.env.dev env/app/.env.dev
 ```
 
 ---

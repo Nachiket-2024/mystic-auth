@@ -99,12 +99,12 @@ test.describe("users page browser behavior", () => {
     expect(purgeCalled).toBe(false);
 
     // Role change: cancel must leave the trigger showing the original role.
-    // Asserted against the visible trigger (Select.ValueText), not the
-    // accessibility-only Select.HiddenSelect node: Playwright's
-    // selectOption() sets that hidden native <select>'s DOM value directly,
-    // which Chakra's Select doesn't re-sync from since its own `value` prop
-    // (still "user", untouched by cancel) never changes across the
-    // cancel - what a real user actually sees is the trigger text below.
+    // Asserted against the visible trigger text, not the accessibility-only
+    // hidden native <select> node: Playwright's selectOption() sets that
+    // hidden element's DOM value directly, which the real Select component
+    // doesn't re-sync from since its own `value` prop (still "user",
+    // untouched by cancel) never changes across the cancel - what a real
+    // user actually sees is the trigger text below.
     const roleTrigger = page.getByRole("combobox", { name: "Change role for attacker+<script>@example.com" });
     await expect(roleTrigger).toHaveText("User");
     await page.locator('select[aria-label="Change role for attacker+<script>@example.com"]').selectOption("admin");

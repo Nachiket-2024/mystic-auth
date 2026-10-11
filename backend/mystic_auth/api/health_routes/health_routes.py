@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 
+import geoip2.database
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -18,7 +19,16 @@ router = APIRouter(tags=["Health"])
 
 def _geoip_database_available(path: str) -> bool:
     geoip_path = Path(path)
-    return geoip_path.is_file() and geoip_path.stat().st_size > 0
+    if not geoip_path.is_file() or geoip_path.stat().st_size == 0:
+        return False
+    reader = geoip2.database.Reader(str(geoip_path))
+    try:
+        # Opening the file alone isn't enough: a truncated or corrupt mmdb
+        # can exist and be non-empty while every real lookup fails.
+        reader.metadata()
+        return True
+    finally:
+        reader.close()
 
 
 @router.get("/health")

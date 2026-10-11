@@ -19,11 +19,9 @@ const stylesheet = document.querySelector<HTMLLinkElement>('link[rel="stylesheet
 stylesheet?.removeAttribute("media");
 
 // Tailwind v4 entry point + design tokens (see theme/tailwind.css).
-// applyBrandCssVars.ts is the plain-CSS-variable equivalent of the old
-// CSS-variable theme setup (the former AppearanceThemeProvider.tsx Chakra
-// rebuild was retired once every component moved to Tailwind): eager,
-// side-effect-only import, same
-// "before first paint" pattern as themeStore.ts below.
+// applyBrandCssVars.ts applies the signed-in user's brand-color pick as
+// CSS variables: eager, side-effect-only import, same "before first
+// paint" pattern as themeStore.ts below.
 import '../mystic_auth/theme/tailwind.css';
 import '../mystic_auth/theme/applyBrandCssVars.ts';
 

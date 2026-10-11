@@ -68,6 +68,10 @@ it stores a durable event snapshot rather than a foreign key. Its `user_id` is
 nullable by design: purge removes the user row, but the queued event must remain
 deliverable. See [Account lifecycle](#account-lifecycle).
 
+`token_revocation_versions` and `consumed_refresh_tokens` are omitted because
+their keys are token identifiers/scopes, not user foreign keys. They are
+documented below with their cleanup and retention behavior.
+
 ---
 
 ## Tables
@@ -126,11 +130,53 @@ One row per `authorize()`/`authorize_with_decision()`/`authorize_batch()` call: 
 
 Separate audit vocabulary from the table above: login/logout/signup/OAuth2/password-reset/lockout/refresh-token-reuse events, plus the account lifecycle events (`account_deleted`/`account_purged`/`account_reactivated`, see below). Also `user_email` as a nullable **snapshot string**, not a foreign key, for the identical reason: this table must survive a purge. See `backend/mystic_auth/audit_log/audit_log_model.py`.
 
+Purge anonymizes historical security and authorization rows for that account
+before writing the `account_purged` event. Independently, the daily
+`anonymize_expired_audit_log_entries` task removes identifying email, IP, and
+user-agent data from both audit tables after `AUDIT_LOG_RETENTION_DAYS` (400
+days by default); it retains the event record for review. See
+[Background Workers](../background-workers/procrastinate.md#tasks).
+
 ---
 
 ### `user_sessions`
 
-One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Valkey (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Valkey-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management/README.md).
+One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Postgres (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Postgres-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management/README.md).
+
+---
+
+### `token_revocation_versions`
+
+Durable account- and session-scoped counters used to invalidate JWTs without
+enumerating active tokens. Keys use `account_ver:{email}` or
+`chain_ver:{email}:{chain_id}`; each successful revoke atomically increments
+the matching row. There is no user foreign key, so account and chain version
+rows currently survive hard purge. Valkey may cache a value, but token checks
+read PostgreSQL as the authority. See `backend/mystic_auth/auth/token_logic/`
+and [Session Management](../authentication/session-management/README.md).
+
+| Column | Type | Notes |
+|---|---|---|
+| `key` | string(512), PK | Account or session-chain scope, currently containing the account email. |
+| `version` | bigint | Monotonically incremented version; defaults to `0`. |
+| `updated_at` | timestamp with time zone | Updated with each successful increment. |
+
+### `consumed_refresh_tokens`
+
+One durable claim per refresh-token `jti`. The primary key makes the consume
+operation atomic across concurrent refresh requests and survives Valkey flushes
+or restarts. The periodic `purge_consumed_refresh_tokens` worker removes rows
+after `expires_at`, so claims remain available for the lifetime of the token
+without accumulating forever. The table has no account foreign key; it stores
+no email address.
+
+| Column | Type | Notes |
+|---|---|---|
+| `jti` | string(64), PK | Unique refresh-token identifier. |
+| `consumed_at` | timestamp with time zone | Claim time. |
+| `expires_at` | timestamp with time zone, indexed | Token expiry and cleanup boundary. |
+| `client_ip` | string(64), nullable | Used to distinguish same-IP retry from cross-IP reuse. |
+| `account_ver` / `chain_ver` | bigint | Version snapshot captured with the claim. |
 
 ---
 
@@ -153,7 +199,9 @@ reconciler retries rows whose `queued_at` and `delivered_at` are both `NULL`.
 | `occurred_at` | timestamp | When the state transition was built. |
 | `queued_at` / `delivered_at` | timestamp, nullable | Queue submission and successful listener-delivery markers. |
 
-Delivery is at-least-once. A worker crash after listeners succeed but before
+Outbox rows, including their email snapshot, currently have no cleanup or
+anonymization job after delivery; they remain in Postgres for operational
+history. Delivery is at-least-once. A worker crash after listeners succeed but before
 `delivered_at` is committed can repeat an event, so downstream listeners must
 be idempotent. The table is template-owned infrastructure; product delivery
 behavior and deduplication storage belong under `backend/app/`.

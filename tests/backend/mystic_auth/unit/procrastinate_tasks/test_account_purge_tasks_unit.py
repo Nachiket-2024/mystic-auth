@@ -111,7 +111,7 @@ async def test_purge_task_skips_an_account_whose_revocation_cant_be_confirmed_bu
 
 @pytest.mark.asyncio
 async def test_purge_task_skips_an_account_reactivated_after_the_batch_was_read_but_continues(mocker):
-    """F-001 regression: purge_user_account's own row-lock re-check raises
+    """Regression guard: purge_user_account's own row-lock re-check raises
     AccountNoLongerEligibleForPurgeError for a user reactivated between this
     batch's get_deleted_before read and its turn in the loop. That must be
     treated as a skip (same shape as the Valkey-outage skip above), not an

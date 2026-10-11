@@ -8,7 +8,12 @@
 #      still equals the shipped placeholder from its .example. Shipping
 #      that live means anyone who has ever seen the public template's
 #      source can sign your JWTs or read your database.
-#   2. WARNING (exit 0, printed): a <your_...>/<your-domain> placeholder is
+#   2. ERROR (exit 1): a real env file is readable by group/other users. Env
+#      files contain signing keys and database credentials and must be mode 600.
+#   3. ERROR (exit 1): a Tailscale env file declares TS_CERT_DOMAIN but its
+#      public origin/issuer/redirect host does not match that exact provider
+#      DNS name. This prevents a stale tunnel hostname from reaching users.
+#   4. WARNING (exit 0, printed): a <your_...>/<your-domain> placeholder is
 #      still present (OAuth, SMTP, or a tunnel/domain field), or a host
 #      port this file declares is already bound by something else on this
 #      machine.
@@ -65,6 +70,42 @@ for f in "${FILES[@]}"; do
   echo "=== $f ==="
   is_prod=0
   grep -qE '^ENVIRONMENT=production$' "$f" && is_prod=1
+
+  # Do not print permissions or file contents beyond the safe path. A mode
+  # such as 644 is a production credential disclosure even when the values
+  # themselves are otherwise strong. Exact 600 keeps the policy portable and
+  # makes accidental group/other access impossible.
+  file_mode="$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || true)"
+  if [ "$file_mode" != "600" ]; then
+    echo "  ERROR: env file permissions must be exactly 600 (owner read/write only); current mode is not acceptable."
+    HAS_ERROR=1
+  fi
+
+  # A Tailscale Funnel hostname is assigned by the tailnet, not derived from
+  # TS_HOSTNAME. Requiring the operator to record the actual DNSName makes the
+  # origin configuration self-checking and catches the class of stale-host
+  # failure that otherwise only appears as invalid-host responses in public.
+  ts_cert_domain="$(grep -m1 '^TS_CERT_DOMAIN=' "$f" | cut -d= -f2- || true)"
+  if [ -n "$ts_cert_domain" ]; then
+    public_origin="$(grep -m1 '^FRONTEND_BASE_URL=' "$f" | cut -d= -f2- || true)"
+    public_host="${public_origin#*://}"
+    public_host="${public_host%%/*}"
+    public_host="${public_host%%:*}"
+    if [ "$public_host" != "$ts_cert_domain" ]; then
+      echo "  ERROR: FRONTEND_BASE_URL host does not match TS_CERT_DOMAIN. Use the exact DNSName reported by 'tailscale status --json'."
+      HAS_ERROR=1
+    fi
+    for origin_var in JWT_ISSUER JWT_AUDIENCE GOOGLE_REDIRECT_URI; do
+      origin_value="$(grep -m1 "^${origin_var}=" "$f" | cut -d= -f2- || true)"
+      origin_host="${origin_value#*://}"
+      origin_host="${origin_host%%/*}"
+      origin_host="${origin_host%%:*}"
+      if [ "$origin_host" != "$ts_cert_domain" ]; then
+        echo "  ERROR: $origin_var host does not match TS_CERT_DOMAIN. Keep all public auth origins on the exact Funnel DNSName."
+        HAS_ERROR=1
+      fi
+    done
+  fi
 
   if [ "$is_prod" -eq 1 ]; then
     for entry in "${PLACEHOLDER_SECRETS[@]}"; do

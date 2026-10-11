@@ -11,7 +11,7 @@ interface AppTooltipProps {
     /** Radix's Tooltip has no per-instance close delay (only Provider-level
      * skipDelayDuration, a shared "rapid re-hover" window) - this prop is
      * kept for API compatibility with every existing call site but has no
-     * effect. The old Chakra 100ms fade is now the close animation's own
+     * effect. The close fade is handled by the close animation's own
      * duration instead (see ui/shadcn/tooltip.tsx's data-[state=closed]
      * classes). */
     closeDelay?: number;
@@ -24,9 +24,8 @@ interface AppTooltipProps {
  *
  * Overrides shadcn's default bg-foreground/text-background tooltip (an
  * inverted-contrast chip: solid black in light mode, solid white in dark
- * mode) with the same surface/border/text tokens as Card: a flash of the
- * opposite theme every time a tooltip opens was the exact problem this
- * component existed to avoid under Chakra too.
+ * mode) with the same surface/border/text tokens as Card, so a tooltip
+ * never flashes the opposite theme for an instant every time it opens.
  */
 const AppTooltip: React.FC<AppTooltipProps> = ({ content, children, openDelay = 300 }) => {
     if (!content) return children;
@@ -35,10 +34,9 @@ const AppTooltip: React.FC<AppTooltipProps> = ({ content, children, openDelay = 
         // Its own Provider, not a single one shared app-wide from main.tsx:
         // every existing call site (including in isolated component tests
         // that render just one component with no app-level provider tree)
-        // expects AppTooltip to be self-contained, same as the old Chakra
-        // Tooltip.Root which needed no ancestor provider either. The
-        // tradeoff is losing Radix's cross-tooltip "rapid re-hover" delay
-        // skip, not a correctness issue.
+        // expects AppTooltip to be self-contained. The tradeoff is losing
+        // Radix's cross-tooltip "rapid re-hover" delay skip, not a
+        // correctness issue.
         <TooltipProvider delayDuration={openDelay}>
             <Tooltip>
                 {/* asChild clones the trigger's own data-state (open/closed)

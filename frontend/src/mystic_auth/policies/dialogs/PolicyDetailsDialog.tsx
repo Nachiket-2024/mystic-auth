@@ -138,7 +138,6 @@ const PolicyDetailsDialog: React.FC<PolicyDetailsDialogProps> = ({ isOpen, polic
                 returnFocusElement={triggerElement}
                 returnFocusFallback={() => Array.from(document.querySelectorAll<HTMLElement>('button[aria-label="View"][data-policy-name]'))
                     .find((element) => element.dataset.policyName === policy.name) ?? null}
-                // sm:max-w-4xl: Chakra's old size="xl" mapped to maxW "4xl".
                 className={`w-[calc(100vw-1.5rem)] sm:max-w-3xl lg:max-w-[55rem] h-[min(44rem,calc(100svh-1.5rem))] flex flex-col overflow-hidden ${DIALOG_PANEL_CLASSNAME}`}
                 // Let the shared primitive complete its normal focus cycle.
                 // It captures the triggering icon before Radix moves focus

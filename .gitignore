@@ -22,6 +22,11 @@ venv/
 .envrc
 .Python
 *.sqlite3
+# Private keys and exported key containers must stay local.
+*.pem
+*.key
+*.p12
+*.pfx
 
 # ---------------------------- IDEs / Editors ----------------------------
 .vscode/
@@ -54,6 +59,8 @@ frontend/dist/
 frontend/build/
 frontend/.env
 frontend/.env.bak
+frontend/.env.*
+!frontend/.env.*.example
 frontend/.DS_Store
 frontend/.cache/
 frontend/.cache/playwright/

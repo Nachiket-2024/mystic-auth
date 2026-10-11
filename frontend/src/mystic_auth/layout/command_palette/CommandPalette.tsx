@@ -116,9 +116,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraN
                     inputRef.current?.focus();
                 }}
             >
-                {/* The former Chakra Dialog never required an explicit
-                    Title/Description (Ark UI didn't warn), but Radix's does for an accessible
-                    name/description - sr-only, since the visible search input
+                {/* Radix's Dialog requires an explicit Title/Description for
+                    an accessible name/description - sr-only, since the visible search input
                     already carries its own aria-label and this dialog has no
                     visible heading in the design. */}
                 <DialogTitle className="sr-only">{t("commandPalette.placeholder")}</DialogTitle>
@@ -143,8 +142,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraN
                         autoComplete="off"
                         aria-label={t("commandPalette.placeholder")}
                     />
-                    {/* Former Chakra Kbd recipe default size (md: textStyle sm,
-                        height 5=1.25rem), subtle/gray variant - see
+                    {/* height 1.25rem, subtle/gray variant - see
                         Navbar.tsx's matching comment. */}
                     <kbd className="hidden sm:inline-flex items-center shrink-0 whitespace-nowrap select-none font-medium text-sm h-5 px-1 rounded-md bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200">Esc</kbd>
                 </div>

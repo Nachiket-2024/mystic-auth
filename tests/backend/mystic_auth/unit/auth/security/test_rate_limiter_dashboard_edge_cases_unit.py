@@ -109,3 +109,21 @@ async def test_summarize_active_limits_reports_empty_snapshot(mocker):
 
     assert summary["total"] == 0
     assert summary["by_endpoint"] == {}
+
+
+@pytest.mark.asyncio
+async def test_list_active_limits_escapes_valkey_glob_metacharacters_in_filters(mocker):
+    scan_mock = _patch_scan(mocker, 0, [])
+    mocker.patch(f"{MODULE}.valkey_client.pipeline", return_value=_FakePipeline([]))
+
+    await rate_limit_dashboard_service.list_active_limits(
+        scope="ip",
+        endpoint=r"login[*]?" + "\\",
+        identifier=r"a[*]?" + "\\" + "b",
+    )
+
+    scan_mock.assert_awaited_once_with(
+        cursor=0,
+        match=r"login\[\*\]\?\\:ip:*a\[\*\]\?\\b*",
+        count=rate_limit_dashboard_service._SCAN_BATCH,
+    )

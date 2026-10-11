@@ -83,14 +83,13 @@ const DANGER_TAB_CLASSNAME =
  * signed in), and DeleteAccountCard (self-service deletion, DELETE
  * /users/me), kept last since it's destructive. This page only owns what has to live
  * above all of them: a combined unsaved-changes warning, since switching
- * tabs shouldn't discard an in-progress edit on another tab. Unlike Chakra's
- * Tabs.Content, Radix's TabsContent always unmounts an inactive panel unless
- * `forceMount` is set, and `forceMount` alone would render every tab's
- * content up front (defeating the point). So `visitedTabs` tracks which tabs
- * have been opened at least once; a visited tab renders with `forceMount`
- * and is hidden via a `hidden` class instead of being unmounted, which
- * reproduces Chakra's old `lazyMount`-without-`unmountOnExit` behavior:
- * mount on first visit, then keep mounted-but-hidden. DeleteAccountCard is
+ * tabs shouldn't discard an in-progress edit on another tab. Radix's
+ * TabsContent always unmounts an inactive panel unless `forceMount` is
+ * set, and `forceMount` alone would render every tab's content up front
+ * (defeating the point). So `visitedTabs` tracks which tabs have been
+ * opened at least once; a visited tab renders with `forceMount` and is
+ * hidden via a `hidden` class instead of being unmounted - mount on
+ * first visit, then keep mounted-but-hidden. DeleteAccountCard is
  * excluded from the dirty tracking: its password field isn't an edit worth
  * warning about losing, and its own ConfirmDialog is warning enough already.
  */

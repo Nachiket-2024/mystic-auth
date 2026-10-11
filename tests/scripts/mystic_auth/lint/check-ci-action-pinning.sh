@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# Regression guard for the 2026-10-05 infra security audit (claude_code_infra,
-# area G, F-003): several third-party GitHub Actions in ci.yml were pinned by
-# a mutable tag (e.g. `actions/checkout@v4`) instead of a commit SHA, while
-# others (anchore/sbom-action, actions/upload-artifact) already were -
-# inconsistent, and a moved tag changes what code runs without the pin
-# changing.
+# Regression guard for mutable GitHub Action references. A moved tag changes
+# what code runs without changing the workflow's reference.
 #
 # Asserts every `uses: owner/repo@ref` in .github/workflows/*.yml is pinned
 # by a 40-character commit SHA.

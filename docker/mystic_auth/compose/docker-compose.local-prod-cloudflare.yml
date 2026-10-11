@@ -48,12 +48,12 @@ x-container-hardening: &container_hardening
   # running Docker Bench for Security (CIS Docker Benchmark) against the
   # live stack rather than a manual `docker inspect` sweep (which also
   # confirmed `.HostConfig.SecurityOpt` was empty on every container
-  # before this was added) - audit finding F-003, 2026-10-06.
+  # before this was added).
   security_opt: [no-new-privileges:true]
   # Bounds each container's own json-file log driver so a noisy or
   # attacked service can't fill the host disk - confirmed live via
   # `docker inspect .HostConfig.LogConfig` returning no limit before
-  # this was added (audit finding F-006, 2026-10-05).
+  # this was added.
   logging:
     driver: json-file
     options:
@@ -68,7 +68,7 @@ services:
     restart: unless-stopped
     # Not read_only this pass: unlike ngrok/postgres/valkey/backend/frontend/
     # etc. above (verified live against docker-compose.local-prod-ngrok.yml,
-    # see docs/mystic_auth/deployment/local-prod/ + audit finding F-011), this
+    # see docs/mystic_auth/deployment/local-prod/), this
     # mode wasn't live-tested with real Cloudflare credentials this session.
     # cloudflared is a third-party vendor binary whose own writable-path
     # needs aren't documented here; verify live (cap_drop: [ALL] + read_only:
@@ -91,7 +91,7 @@ services:
           cpus: "1"
           memory: 256M
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 32
 
@@ -104,7 +104,7 @@ services:
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     # Keep database traffic on the isolated backend network while giving the
     # uploader a separate egress-capable network for B2/rclone.
-    networks: [backend_net]
+    networks: [postgres_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -128,7 +128,7 @@ services:
           cpus: "2"
           memory: 2G
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 256
 
@@ -139,7 +139,7 @@ services:
     image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: unless-stopped
     cap_add: [CHOWN, SETUID, SETGID]
-    networks: [backend_net]
+    networks: [valkey_net]
     # VALKEY_PASSWORD should always be set in production.
     command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"]
     healthcheck:
@@ -153,7 +153,7 @@ services:
           cpus: "1"
           memory: 512M
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 32
 
@@ -168,12 +168,12 @@ services:
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     # app_egress_net: Google OAuth token/userinfo endpoints and outbound
-    # SMTP both need a real route to the internet; backend_net/frontend_proxy
+    # SMTP both need a real route to the internet; postgres_net/valkey_net/frontend_proxy
     # are both internal:true (DB/cache/proxy isolation), so without this,
     # OAuth login and email sending silently fail outbound (confirmed live,
-    # audit finding F-001, 2026-10-06). Mirrors db_backup's existing
+    # confirmed live). Mirrors db_backup's existing
     # backup_egress_net pattern below rather than dropping internal:true.
-    networks: [frontend_proxy, backend_net, app_egress_net]
+    networks: [frontend_proxy, postgres_net, valkey_net, app_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -233,7 +233,7 @@ services:
           cpus: "2"
           memory: 1G
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 128
 
@@ -277,7 +277,7 @@ services:
       # the `default` network, so FRONTEND_STATIC_IP is not an address
       # backend can ever see as a TCP peer - TRUSTED_PROXY_IPS needs
       # frontend's address on the network backend actually shares with
-      # it instead (confirmed live, audit finding F-002, 2026-10-06:
+      # it instead (confirmed live:
       # without this, get_client_ip() never trusts anything, so every
       # real caller's IP collapses onto one constant value for
       # rate-limiting/audit/PBAC purposes).
@@ -303,7 +303,7 @@ services:
           cpus: "1"
           memory: 512M
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 32
 
@@ -320,7 +320,7 @@ services:
       target: runtime
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
-    networks: [backend_net]
+    networks: [postgres_net, valkey_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -355,7 +355,7 @@ services:
           cpus: "2"
           memory: 1G
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 64
 
@@ -372,7 +372,7 @@ services:
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
-    networks: [backend_net]
+    networks: [postgres_net]
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     command: alembic upgrade head
     depends_on:
@@ -390,10 +390,12 @@ services:
     image: ghcr.io/maxmind/geoipupdate@sha256:51e70dd6f16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
     restart: unless-stopped
     # app_egress_net: see backend's own networks: comment above - the
-    # updater needs a real route to updates.maxmind.com, which backend_net
-    # alone (internal:true) cannot provide (confirmed live, audit finding
-    # F-xxx, 2026-10-06).
-    networks: [backend_net, app_egress_net]
+    # updater needs a real route to updates.maxmind.com. It also no longer
+    # joins postgres_net/valkey_net at all: it never needed Postgres/Valkey,
+    # only this egress network plus the shared geoip_data volume mount
+    # (confirmed live it could otherwise
+    # reach both databases it has no reason to touch).
+    networks: [app_egress_net]
     profiles: ["geoip"]
     dns: [1.1.1.1, 8.8.8.8]
     environment:
@@ -416,7 +418,7 @@ services:
           cpus: "0.25"
           memory: 128M
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 16
 
@@ -442,9 +444,10 @@ services:
     # backed - a large database dump landing there could OOM-kill the
     # backup job against this container's memory limit below. A real
     # dump on disk has no such ceiling (see the volumes: list below).
-    # Keep database traffic on the isolated backend network while giving the
-    # uploader a separate egress-capable network for B2/rclone.
-    networks: [backend_net, backup_egress_net]
+    # postgres_net only (never valkey_net - this backs up Postgres, not
+    # Valkey) while giving the uploader a separate
+    # egress-capable network for B2/rclone.
+    networks: [postgres_net, backup_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -505,7 +508,7 @@ services:
           cpus: "0.5"
           memory: 256M
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 64
 
@@ -516,7 +519,7 @@ services:
     tmpfs: [/tmp, /app/run]
     image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
     restart: unless-stopped
-    networks: [backend_net]
+    networks: [postgres_net, app_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -590,7 +593,7 @@ services:
           cpus: "2"
           memory: 1G
           # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (F-003, 2026-10-06; can't live in
+          # cpus/memory above don't bound (can't live in
           # the shared x-container-hardening anchor - see its own comment).
           pids: 128
 
@@ -603,7 +606,7 @@ services:
     # Root, since Docker creates a fresh named volume root-owned and the
     # non-root "bugsink" user can't write the DSN file into it otherwise.
     user: root
-    networks: [backend_net]
+    networks: [postgres_net]
     env_file:
       - ../../../env/mystic_auth/.env.local-prod-cloudflare
       - ../../../env/app/.env.local-prod-cloudflare
@@ -621,7 +624,7 @@ services:
       import os
       from django.contrib.auth import get_user_model
       from teams.models import Team, TeamMembership, TeamRole
-      from projects.models import Project
+      from projects.models import Project, ProjectMembership, ProjectRole
 
       User = get_user_model()
       user = User.objects.get(username=os.environ['BUGSINK_SUPERUSER_EMAIL'])
@@ -629,6 +632,7 @@ services:
       team, _ = Team.objects.get_or_create(name=os.environ['APP_NAME'])
       TeamMembership.objects.get_or_create(team=team, user=user, defaults={'role': TeamRole.ADMIN, 'accepted': True})
       project, _ = Project.objects.get_or_create(team=team, name=os.environ['APP_NAME'])
+      ProjectMembership.objects.get_or_create(project=project, user=user, defaults={'role': ProjectRole.ADMIN, 'accepted': True})
 
       key = project.sentry_key.hex
       os.makedirs('/shared/bugsink-dsn', exist_ok=True)
@@ -658,7 +662,9 @@ networks:
     ipam:
       config:
         - subnet: ${DOCKER_SUBNET}
-  backend_net:
+  postgres_net:
+    internal: true
+  valkey_net:
     internal: true
   frontend_proxy:
     internal: true
@@ -668,7 +674,7 @@ networks:
   backup_egress_net: {}
   # Non-internal on purpose: backend needs this for Google OAuth token/
   # userinfo calls and outbound SMTP, geoipupdate needs it for MaxMind -
-  # none of that is reachable from backend_net/frontend_proxy alone
+  # none of that is reachable from postgres_net/valkey_net/frontend_proxy alone
   # (both internal:true). Scope stays as narrow as Docker Compose's own
   # networking model allows (a dedicated network only the services that
   # need egress join); an egress allowlist/proxy restricting it to

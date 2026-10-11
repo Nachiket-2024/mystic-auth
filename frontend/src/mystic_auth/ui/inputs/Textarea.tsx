@@ -1,9 +1,8 @@
 import * as React from "react"
 import { cn } from "../styles/classNames"
 
-// Tailwind/shadcn replacement for Chakra's raw <Textarea>. Same border/
-// hover/focus treatment as ui/inputs/Input.tsx so a form mixing both reads as one
-// consistent field style.
+// Same border/hover/focus treatment as ui/inputs/Input.tsx so a form mixing
+// both reads as one consistent field style.
 const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"textarea">>(
   ({ className, ...props }, ref) => {
     return (

@@ -64,6 +64,21 @@ class RefreshTokenService:
             if not await jwt_service.is_current_version(payload):
                 return None
 
+            email = payload.get("email")
+            chain_id = payload.get("chain")
+            if not email or not chain_id:
+                return None
+
+            # New tokens carry both snapshots. For a still-valid legacy token
+            # that predates version claims, capture current values once so
+            # the token's first successful rotation retains a version snapshot.
+            account_ver = payload.get("account_ver")
+            chain_ver = payload.get("chain_ver")
+            if account_ver is None or chain_ver is None:
+                current_account_ver, current_chain_ver = await jwt_service.get_token_versions(email, chain_id)
+                account_ver = current_account_ver if account_ver is None else int(account_ver)
+                chain_ver = current_chain_ver if chain_ver is None else int(chain_ver)
+
             # Refresh tokens are single-use: claim_jti_for_rotation atomically
             # marks this jti redeemed only if it wasn't already. A jti found
             # already claimed being presented again means it was replayed:
@@ -72,54 +87,66 @@ class RefreshTokenService:
             # being used by an attacker in parallel with its rightful owner.
             # Either way, that is reuse, not a routine invalid-token case.
             client_ip = get_client_ip(request) if request is not None else None
-            claimed = await jwt_service.claim_jti_for_rotation(
-                jti, payload.get("exp"), payload.get("email"), client_ip=client_ip
+            claim = await jwt_service.claim_jti_for_rotation(
+                jti,
+                payload.get("exp"),
+                email,
+                client_ip=client_ip,
+                account_ver=int(account_ver),
+                chain_ver=int(chain_ver),
             )
 
-            # A duplicate seconds after the first use, from the same IP, is
-            # two tabs racing or a first response lost to a reload, not theft.
-            # It gets its own fresh pair on the same chain (the browser keeps
-            # whichever cookie lands last) instead of a chain revoke. Older or
-            # cross-IP reuse still takes the strict path below.
-            benign_duplicate = False
-            if not claimed:
+            # A same-IP duplicate inside the grace window is likely a browser
+            # race. Reject it without triggering reuse revocation, but never
+            # issue descendant credentials from a token that already rotated.
+            if not claim.claimed:
                 if await jwt_service.is_benign_duplicate_rotation(jti, client_ip):
-                    logger.info("Duplicate refresh within grace window for jti %s, issuing fresh pair", jti)
-                    benign_duplicate = True
+                    logger.info("Duplicate refresh within grace window for jti %s; rejecting retry", jti)
+                    return None
                 else:
                     await RefreshTokenService._handle_reuse_detected(payload, db, request)
                     return None
-
-            email = payload.get("email")
-            chain_id = payload.get("chain")
-
-            if not email or not chain_id:
-                return None
 
             # chain_id carried forward unchanged: this is a continuation of
             # the same login, not a new one, so its version-based identity
             # (and therefore what a future targeted revoke would end) stays
             # intact across the rotation.
-            new_access_token = await jwt_service.create_access_token(email, chain_id)
-            new_refresh_token = await jwt_service.create_refresh_token(email, chain_id)
+            issued_at = claim.consumed_at
+            new_access_token = await jwt_service.create_access_token(
+                email,
+                chain_id,
+                issued_at=issued_at,
+                account_ver=claim.account_ver,
+                chain_ver=claim.chain_ver,
+            )
+            new_refresh_token = await jwt_service.create_refresh_token(
+                email,
+                chain_id,
+                issued_at=issued_at,
+                account_ver=claim.account_ver,
+                chain_ver=claim.chain_ver,
+            )
 
             # Best-effort: moves the Manage Sessions row from the old jti
             # (just rotated away above) to the new one, rather than changing
             # create_refresh_token's return shape (see login_service.py's
             # identical comment for why).
             new_payload = await jwt_service.decode_payload(new_refresh_token)
-            if new_payload and new_payload.get("jti") and new_payload.get("exp"):
-                if benign_duplicate:
-                    # The session row already moved off the old jti on the
-                    # first rotation, so move it by chain instead of
-                    # backfilling a duplicate Manage Sessions row.
-                    await session_service.rotate_session_by_chain(
-                        db, chain_id, new_payload["jti"], new_payload["exp"], email=email, request=request
-                    )
-                else:
-                    await session_service.rotate_session(
-                        db, jti, new_payload["jti"], chain_id, new_payload["exp"], email=email, request=request
-                    )
+            if not new_payload or not new_payload.get("jti") or not new_payload.get("exp"):
+                return None
+            # Do not let a refresh racing with logout/reuse detection adopt a
+            # newer version written after its parent was validated. Comparing
+            # to the parent is essential: checking only that the child is
+            # current could mint a valid post-revocation descendant.
+            if (
+                new_payload.get("account_ver", 0) != claim.account_ver
+                or new_payload.get("chain_ver", 0) != claim.chain_ver
+                or not await jwt_service.is_current_version(new_payload)
+            ):
+                return None
+            await session_service.rotate_session(
+                db, jti, new_payload["jti"], chain_id, new_payload["exp"], email=email, request=request
+            )
 
             return {"access_token": new_access_token, "refresh_token": new_refresh_token}
 
@@ -136,9 +163,9 @@ class RefreshTokenService:
         the best-effort Postgres mirror.
 
         Raises TokenVersionUnavailableError if the account-version bump
-        itself could not be confirmed (Valkey unreachable): the Postgres
+        itself could not be confirmed (Postgres unavailable): the Postgres
         mirror is deliberately left untouched in that case, since marking
-        sessions revoked there while the real Valkey-backed version stayed
+        sessions revoked there while the durable Postgres version stayed
         unbumped would make Manage Sessions/audit logs lie about whether
         those tokens are actually dead. Callers must not report success
         when this is raised.
@@ -247,7 +274,7 @@ class RefreshTokenService:
         changes is only whether *other* tokens on the account/chain actually
         got invalidated too - caught here (rather than left to propagate)
         so the critical log and audit event, the evidence that theft was
-        detected at all, still get written even when Valkey is down.
+        detected at all, still get written even when Postgres is down.
         """
         email = payload.get("email")
 
@@ -280,7 +307,7 @@ class RefreshTokenService:
         else:
             logger.critical(
                 "Refresh token reuse detected for %s, but revocation of %s could not be confirmed "
-                "(Valkey unavailable) - those tokens may remain valid until Valkey recovers",
+                "(Postgres unavailable) - those tokens may remain valid until Postgres recovers",
                 email, revoked_description,
             )
 

@@ -95,7 +95,7 @@ test.describe("permission matrix - real seeded accounts, real backend", () => {
         loginResponse.status(),
         `login for ${bucket.email} failed unexpectedly (429 here usually means the per-IP ` +
           "rate limiter tripped from running this whole matrix repeatedly in a short window - see MAX_REQUESTS_PER_WINDOW " +
-          "in docs/mystic_auth/testing/browser-e2e.md, not a real permission bug)",
+          "in docs/mystic_auth/testing/frontend-e2e.md#authorization-matrix, not a real permission bug)",
       ).toBe(200);
 
       // page.request and the browser page share a context, but WebKit and

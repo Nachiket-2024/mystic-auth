@@ -132,7 +132,11 @@ async def test_begin_protected_action_denies_when_reservation_is_taken(mocker):
 
 @pytest.mark.asyncio
 async def test_begin_protected_action_denies_when_key_is_already_locked(mocker):
-    mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value="5")
+    mocker.patch(
+        f"{MODULE}.valkey_client.get",
+        new_callable=AsyncMock,
+        return_value=str(login_protection_service.MAX_FAILED_LOGIN_ATTEMPTS),
+    )
     set_mock = mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock)
 
     assert await login_protection_service.begin_protected_action("key") is False

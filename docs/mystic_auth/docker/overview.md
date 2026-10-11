@@ -13,10 +13,10 @@ day-to-day workflow.
 | Service | Image / build | Purpose |
 |---|---|---|
 | `postgres` | `postgres:15` | Primary database, plus the Procrastinate job queue (`procrastinate_jobs`) |
-| `valkey` | `valkey/valkey:9.1.2-alpine` | Cache, rate limits, lockout counters, account/chain version counters, single-use refresh-token claims |
+| `valkey` | `valkey/valkey:9.1.2-alpine` | Cache, rate limits, lockout counters, cached account/chain version counters |
 | `backend` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` | FastAPI app (uvicorn) |
 | `frontend` | `docker/mystic_auth/dockerfiles/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
-| `procrastinate_worker` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes the email-sending task queue and runs the daily scheduled account-purge job (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
+| `procrastinate_worker` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes email and audit-log jobs and runs the scheduled account-purge, audit-retention, session-cleanup, refresh-claim-cleanup, and lifecycle-reconciliation jobs (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
 | `alembic` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend` and `procrastinate_worker` wait on its success |
 | `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring that starts by default with the stack. See [Error Monitoring](../error-monitoring/overview.md) |
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy. It creates the "MysticAuth" team/project idempotently and writes seeded DSNs into the `bugsink_dsn` volume. Locally, both backend and frontend DSN forms are written and read at startup. In prod, only the backend form is written because `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time |
@@ -35,11 +35,15 @@ The `postgres` service mounts `docker/mystic_auth/postgres-init/` to
 `/docker-entrypoint-initdb.d/`. On a fresh volume, it creates the separate
 `bugsink` database, so Bugsink does not need a second Postgres container.
 
-Production-style Compose modes put `postgres`, Valkey, workers, migrations,
-monitoring, and the backup sidecar on an internal `backend_net`. The public
-frontend or tunnel remains on the default network, while `backend` is the only
-application service attached to both networks. This prevents the public-facing
-frontend from reaching the database or cache directly.
+Production-style Compose modes isolate Postgres and Valkey on separate
+internal networks. `backend` and `procrastinate_worker` join both data
+networks; `alembic`, Bugsink, and its seed service join only `postgres_net`.
+The backup sidecar joins `postgres_net` and its dedicated upload egress
+network, but never joins Valkey's network. `geoipupdate` uses only its egress
+network and the shared GeoIP volume. The public frontend and tunnel stay on
+`frontend_proxy`; only `backend` joins that network, so the frontend cannot
+reach either data service directly. Backend outbound OAuth and SMTP traffic
+uses a separate egress network.
 
 ---
 

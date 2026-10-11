@@ -24,7 +24,7 @@ def _to_datetime(exp: int | float | str) -> datetime:
 class SessionService:
     """
     Best-effort session-tracking layer sitting alongside the actual
-    Valkey-backed version counters (jwt_service.py: account_ver, chain_ver)
+    Postgres-backed version counters (jwt_service.py: account_ver, chain_ver)
     that govern real token validity: every method here catches and logs
     rather than raising, the same reasoning as audit_log_service.
     log_security_event, so a tracking failure (or `db=None`, the same
@@ -98,16 +98,16 @@ class SessionService:
     @staticmethod
     async def revoke_session_on_logout(db: AsyncSession | None, jti: str | None, email: str | None) -> bool:
         """Ends exactly the one session this refresh token belongs to:
-        bumps its chain's Valkey version (so it, and any access token
-        sharing it, stop working immediately) and marks the matching
-        Manage Sessions row revoked. This is what a plain, single-device
+        bumps its chain's durable Postgres version (so it, and any access token
+        sharing it, stop working immediately) and deletes the matching
+        Manage Sessions mirror row. This is what a plain, single-device
         Logout actually does. Without the chain bump, a refresh token
         that leaked before logout would remain valid (by version) until it
         naturally expired, since clearing the browser's cookie only stops
         this one client from presenting it again.
 
         Returns False only when the chain-version bump could not be
-        confirmed (Valkey unreachable) - logout_handler.py still clears
+        confirmed (Postgres unavailable) - logout_handler.py still clears
         cookies and reports success either way (the caller's own browser
         session is gone regardless), but surfaces this in the response so
         a leaked token surviving the "logout" isn't silently invisible.
@@ -190,7 +190,7 @@ class SessionService:
         """Mark one chain revoked in Postgres.
 
         Used by reuse detection when chain_id is the only session identity.
-        refresh_token_service.revoke_chain_for_user also bumps the Valkey chain
+        refresh_token_service.revoke_chain_for_user also bumps the durable Postgres chain
         version.
         """
         if db is None:
@@ -219,7 +219,7 @@ class SessionService:
     @staticmethod
     async def revoke_one_session(db: AsyncSession, email: str, session_id: int) -> UserSession | None:
         """Ownership-checked revoke of exactly one session: bumps its
-        chain's Valkey version FIRST, then revokes the row, so the two never
+        chain's Postgres version FIRST, then revokes the row, so the two never
         disagree about whether that device is actually still logged in.
         Returns a detached snapshot of the now-deleted row, or None if it
         didn't exist or belonged to a different user - an already-revoked
@@ -228,7 +228,7 @@ class SessionService:
         handler turns either "didn't exist" case into a 404).
 
         Raises TokenVersionUnavailableError if the chain-version bump could
-        not be confirmed (Valkey unreachable): the Postgres row is
+        not be confirmed (Postgres unavailable): the Postgres row is
         deliberately left untouched in that case (see session_revoke_handler.py,
         which turns this into a 503 rather than a false "Session revoked").
         Ending a session is this endpoint's entire purpose, so unlike

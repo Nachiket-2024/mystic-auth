@@ -48,7 +48,7 @@ async def _access_token_account_key(kwargs: dict) -> str | None:
 
     Uses jwt_service.decode_payload, not verify_token: verifies signature
     and expiry (never trusts a tampered token as an account key) but skips
-    verify_token's revocation/version Valkey lookups, since those decide
+    verify_token's durable revocation/version checks, since those decide
     whether to let the *request* through, not which rate-limit bucket to
     use. Missing/invalid/expired token returns None, same as any other
     account_key_func miss: the caller falls back to IP-only rate limiting

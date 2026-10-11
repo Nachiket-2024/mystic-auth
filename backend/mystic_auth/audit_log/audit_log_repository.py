@@ -1,11 +1,11 @@
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import Column, Select, asc, case, desc, func, update
+from sqlalchemy import Select, asc, case, desc, func, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.sql.elements import UnaryExpression
+from sqlalchemy.sql.elements import ColumnElement, OrderByList, UnaryExpression
 
 from ..core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
 from .audit_log_model import AuditLog
@@ -33,7 +33,7 @@ _ACCESS_CHANGE_EVENT_TYPES = (
 
 # Allowlisted sort keys (frontend column -> real column). Never let a
 # caller-supplied column name reach the query directly.
-_SORTABLE_COLUMNS: dict[str, Column] = {
+_SORTABLE_COLUMNS: dict[str, ColumnElement] = {
     "created_at": AuditLog.created_at,
     "user_email": AuditLog.user_email,
     "event_type": AuditLog.event_type,
@@ -42,10 +42,10 @@ _SORTABLE_COLUMNS: dict[str, Column] = {
 }
 
 
-def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression]:
+def _order_by(sort_by: str | None, sort_dir: str) -> list[UnaryExpression | OrderByList]:
     """`id` rides along as a secondary key for stable ordering (e.g. many
     rows sharing the same event_type). Not itself a sortable column."""
-    column = _SORTABLE_COLUMNS.get(sort_by or "", AuditLog.created_at)
+    column = _SORTABLE_COLUMNS.get(sort_by or "") or AuditLog.created_at
     direction = asc if sort_dir == "asc" else desc
     return [direction(column), direction(AuditLog.id)]
 
@@ -81,9 +81,9 @@ def _apply_filters(
     if success is not None:
         stmt = stmt.where(AuditLog.success == success)
     if from_:
-        stmt = stmt.where(AuditLog.created_at >= from_)
+        stmt = stmt.where(cast(ColumnElement[bool], AuditLog.created_at >= from_))
     if to:
-        stmt = stmt.where(AuditLog.created_at <= to)
+        stmt = stmt.where(cast(ColumnElement[bool], AuditLog.created_at <= to))
     return stmt
 
 
@@ -224,7 +224,7 @@ class AuditLogRepository:
         re-"anonymizing" already-null rows forever."""
         stmt = (
             update(AuditLog)
-            .where(AuditLog.created_at < cutoff)
+            .where(cast(ColumnElement[bool], AuditLog.created_at < cutoff))
             .where(AuditLog.user_email.is_not(None))
             .values(user_email=None, ip_address=None, user_agent=None)
         )

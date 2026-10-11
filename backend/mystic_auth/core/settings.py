@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     PROCRASTINATE_TASK_IMPORT_PATHS: str = ""
     PROCRASTINATE_WORKER_MIDDLEWARE_PATHS: str = ""
 
-    REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = 10     # A refresh token presented again within this many seconds of its first use, from the same client IP, is treated as a benign duplicate (two tabs, or a response lost to a reload) and gets a fresh pair instead of a chain revoke. 0 disables. Defaulted, not in .env*
+    REFRESH_TOKEN_REUSE_GRACE_SECONDS: int = 10     # A same-IP retry within this many seconds is rejected without revoking the first request's chain. 0 disables. Defaulted, not in .env*
     SESSION_ROW_RETENTION_HOURS: int = 1           # Hours past expires_at a user_sessions row is kept before the daily sweep (session_cleanup_tasks.py) hard-deletes it. Buffer, not a deployment knob (defaulted, not in .env*): revoked sessions delete immediately on revoke, this only covers ones that lapsed without an explicit revoke
     SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT: int = 5  # Maximum concurrent authenticated SSE streams for one account, enforced globally through Valkey
     SESSION_EVENT_MAX_CONNECTIONS_PER_IP: int = 20      # Maximum concurrent authenticated SSE streams for one client IP, enforced globally through Valkey

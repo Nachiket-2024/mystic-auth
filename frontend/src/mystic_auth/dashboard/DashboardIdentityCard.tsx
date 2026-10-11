@@ -91,10 +91,9 @@ const DashboardIdentityCard: React.FC<DashboardIdentityCardProps> = ({
     if (isLoading) return <DashboardIdentityCardSkeleton loadingLabel={t("loadingDetails")} />;
     if (isError) return <div><FormAlert status="error">{t("unableToFetch")}</FormAlert></div>;
     if (!user) {
-        // Plain divs, not Chakra's EmptyState.Root/Content/Indicator/Title
-        // compound component: this is just an icon-badge + title layout, not
-        // an interactive primitive needing its own Radix migration (unlike
-        // Tabs/Select/Dialog).
+        // Plain divs, not a compound EmptyState component: this is just an
+        // icon-badge + title layout, not an interactive primitive needing
+        // its own Radix wrapper (unlike Tabs/Select/Dialog).
         return (
             <div className="flex flex-col items-center text-center gap-4 py-8">
                 <div className="w-16 h-16 flex items-center justify-center rounded-full bg-accent-subtle text-accent-fg border border-accent-border">

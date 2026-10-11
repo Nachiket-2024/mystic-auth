@@ -9,11 +9,11 @@ the change is visible at a glance instead of only described in prose, followed b
 the differences.
 
 The "then" tree lists only files and folders that were actually committed. The "now" tree lists
-tracked files plus the current additions present in the repository on 9 October;
+tracked files plus the current additions present in the repository on 11 October;
 it still omits `__pycache__`, `node_modules`, build output, coverage reports, and anything else
 covered by `.gitignore`. The "then" tree is the real commit tree at
 [`946e384`](../../../..), the last commit of the manual, ChatGPT-assisted era, on 14 April, 2026. The
-"now" tree reflects the repository as verified on 9 October, 2026.
+"now" tree reflects the repository as verified on 11 October, 2026.
 
 ---
 
@@ -60,6 +60,9 @@ covered by `.gitignore`. The "then" tree is the real commit tree at
   `scripts/` and `local-scripts/` (startup, backup/restore,
   system-user bootstrap, upstream sync) are also new; none of this existed when everything ran
   from a single `docker-compose.yml` with two Dockerfiles.
+- **Application dependency notices now ship with the runtime artifacts.** Python notices are
+  included in the backend image, and frontend notices are served by the production static image.
+  Base-image and `db_backup` dependencies remain a separate inventory.
 - **`demo_assets/` became `screenshots/`.**
 - **Env tooling and load testing grew into their own scripts.** `scripts/mystic_auth/env-tools/` (quickstart,
   setup-env, check-env, set-env-field, copy-env-values, rotate-secrets, plus its own test suite)

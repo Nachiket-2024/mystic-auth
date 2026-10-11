@@ -13,6 +13,7 @@ from alembic import context
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from mystic_auth.audit_log.audit_log_model import AuditLog  # noqa: F401
+from mystic_auth.auth.token_logic.consumed_refresh_token_model import ConsumedRefreshToken  # noqa: F401
 from mystic_auth.auth.token_logic.token_revocation_version_model import TokenRevocationVersion  # noqa: F401
 from mystic_auth.authorization.models.authorization_audit_log_model import AuthorizationAuditLog  # noqa: F401
 from mystic_auth.authorization.models.policy_history_model import PolicyHistory  # noqa: F401

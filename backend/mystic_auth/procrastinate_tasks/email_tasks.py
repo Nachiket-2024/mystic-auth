@@ -38,8 +38,7 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
     # whether a real SMTP connection just opened or nothing happened at all,
     # which is exactly backwards for anyone watching `docker compose logs`
     # to confirm a dry run (local dev, CI, or an audit) really didn't send
-    # real mail. Found live during the 2026-10-05 security audit's
-    # email-off verification (F-003).
+    # real mail.
     mode = "dry-run (EMAIL_ENABLED=false)" if not settings.EMAIL_ENABLED else "real SMTP"
     logger.info("Sending email to %s [%s]", to_email, mode)
     try:

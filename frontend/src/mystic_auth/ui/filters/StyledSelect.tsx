@@ -91,10 +91,10 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                 disabled={disabled || isLoading}
             >
                 {/* Real native <select>, kept in sync and aria-hidden - not
-                    for styling, purely so this control still has the
-                    standard hidden-select fallback the former Chakra/Ark Select
-                    provided (form autofill, and what this app's test suite
-                    drives via userEvent.selectOptions instead of simulating
+                    for styling, purely so this control still has a
+                    standard hidden-select fallback (form autofill, and
+                    what this app's test suite drives via
+                    userEvent.selectOptions instead of simulating
                     Radix's pointer-based listbox, which jsdom doesn't
                     support well). */}
                 <select

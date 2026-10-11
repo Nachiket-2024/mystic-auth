@@ -17,8 +17,8 @@ flowchart TD
     Browser -- HTTPS --> Backend
     Nginx["nginx\n (static frontend build)"]
     Backend["FastAPI backend\n (uvicorn)"]
-    Backend --> Postgres[("PostgreSQL\n users, policies,\n audit logs")]
-    Backend --> Valkey[("Valkey\n rate limits, account/chain\n version counters, reset/verify\n tokens")]
+    Backend --> Postgres[("PostgreSQL\n users, policies, audit logs,\n token versions and refresh claims") ]
+    Backend --> Valkey[("Valkey\n rate limits, account/chain\n version cache, reset/verify\n tokens")]
     Backend --> Bugsink["Bugsink\n self-hosted error monitoring\n own DB on same Postgres server"]
     Browser -. "unhandled errors" .-> Bugsink
     Backend --> Procrastinate["Procrastinate worker\n (async email sending,\n same Postgres as job queue)"]
@@ -29,9 +29,9 @@ flowchart TD
 
 - **Frontend**: React + TypeScript + Tailwind v4 + shadcn/ui (Radix primitives) + Zustand (client state) + TanStack Query (server state). Built as a static SPA, served by nginx in production-style Compose files or Vite's dev server locally (`docker-compose.dev.yml`).
 - **Backend**: FastAPI, async throughout (SQLAlchemy async engine, async Valkey client). One process type (`backend/app/main.py`), shared by the `backend`, `procrastinate_worker`, and `alembic` containers via the same Docker image (`docker/mystic_auth/dockerfiles/backend.Dockerfile`) with different `command:` overrides.
-- **PostgreSQL**: system of record: users, policies, policy history, both audit log tables (authorization decisions and security events), and the Procrastinate job queue (`procrastinate_jobs`).
-- **Valkey**: ephemeral/derived state only, never the source of truth for anything that must survive a flush: rate-limit/lockout counters, the account/chain token-version counters (logout-all and single-session revocation), single-use refresh-token rotation claims, single-use password-reset/email-verification/OAuth2-state tokens (all with TTLs matching their expiry).
-- **Email queue**: uses Procrastinate, backed by the same Postgres instance as everything else (no Valkey broker). Auth flows enqueue email jobs with `send_email_task.defer_async(...)`, and the `procrastinate_worker` sends them through the configured SMTP sender. Failed sends are retried with exponential backoff, tracked directly on the job's own row; the worker's internal periodic-task deferrer also drives the daily scheduled account-purge job, so no separate scheduler process exists.
+- **PostgreSQL**: system of record: users, policies, policy history, both audit log tables (authorization decisions and security events), the Procrastinate job queue (`procrastinate_jobs`), durable token-version counters, and consumed refresh-token claims.
+- **Valkey**: ephemeral/derived state only, never the source of truth for anything that must survive a flush: rate-limit/lockout counters and cached account/chain token-version counters (logout-all and single-session revocation), single-use password-reset/email-verification/OAuth2-state tokens (all with TTLs matching their expiry). Durable token versions and refresh-token replay claims live in PostgreSQL.
+- **Background jobs**: Procrastinate uses the same Postgres instance as everything else (no Valkey broker). Auth flows enqueue email jobs with `send_email_task.defer_async(...)`, and account lifecycle transitions enqueue downstream listener events. The `procrastinate_worker` handles delivery with retries and runs scheduled account purge, audit-log anonymization, expired-session and refresh-claim cleanup, and lifecycle-outbox reconciliation through its internal periodic-task deferrer; no separate scheduler process exists.
 - **Bugsink**: self-hosted error monitoring, enabled by default: starts with the stack alongside everything else. Backend and frontend both report unhandled exceptions to it over the Sentry SDK wire protocol. Runs as its own container, using a second database on the same Postgres server (not a second Postgres instance). See [Error Monitoring](../error-monitoring/overview.md).
 
 ---

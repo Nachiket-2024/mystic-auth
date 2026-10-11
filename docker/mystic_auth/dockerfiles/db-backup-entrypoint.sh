@@ -10,4 +10,4 @@ fi
 
 mkdir -p /backups
 chown 10001:10001 /backups
-exec su-exec 10001:10001 "$@"
+exec setpriv --reuid=10001 --regid=10001 --clear-groups "$@"

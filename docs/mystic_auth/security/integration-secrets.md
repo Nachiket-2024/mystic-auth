@@ -1,50 +1,57 @@
 # Downstream Integration Secrets
+
 ---
 
-Mystic Auth does not own product integrations or persist their credentials.
-Downstream applications keep integration code under `backend/app/` and use the
-public secret-provider boundary from `app.sdk`.
+Product-specific credentials belong to the downstream application. MysticAuth
+provides a small secret-provider contract; it does not store integration
+credentials in its database or configuration model.
 
-## Storage boundary
+## Extension point
 
-Use the deployment's secret manager whenever one exists: Docker/Swarm secrets,
-Kubernetes Secrets backed by an external KMS, a cloud secret manager, or a
-host-level secret injector. Inject only the named value the integration needs.
-Do not put integration credentials in JSON settings, database rows, migrations,
-audit metadata, task arguments, or logs.
-
-For a simple deployment, the generic `EnvironmentSecretProvider` reads one
-injected environment variable at a time:
+Implement `SecretProvider` in `backend/app/` and register your provider from
+the downstream startup hook in `backend/app/app_sdk.py`. Import the public
+contract from `app.sdk`:
 
 ```python
-from app.sdk import EnvironmentSecretProvider, require_secret
+from app.sdk import SecretProvider, require_secret
 
-provider = EnvironmentSecretProvider()
-webhook_secret = require_secret(provider, "APP_WEBHOOK_SECRET")
+
+class BillingSecrets:
+    def __init__(self, provider: SecretProvider) -> None:
+        self._provider = provider
+
+    def api_key(self) -> str:
+        return require_secret(self._provider, "BILLING_API_KEY")
 ```
 
-For a managed secret system, implement the small `SecretProvider` protocol in
-an app-owned module such as `backend/app/integrations/secret_provider.py`, with tests
-under `tests/backend/app/integrations/`. Import the protocol from `app.sdk`;
-do not edit `backend/mystic_auth/core/secret_provider.py`. The provider should fetch
-one named value, never expose a mapping of all secrets, and never log the
-returned value.
+`SecretProvider.get_secret(name)` reads one named value and returns `None`
+when the value is absent. `require_secret(provider, name)` raises a clear
+configuration error if the value is missing or empty. The built-in
+`EnvironmentSecretProvider` reads only the requested variable from the
+process environment and rejects names that are not valid environment
+identifiers.
 
-## Rotation
+## Supplying values
 
-Rotate the value in the external secret manager, restart or reload the service
-that consumes it, verify a signed request against the new value, then revoke
-the old value at the provider. If overlapping rotation is required, the
-app-owned provider may support a short-lived current/previous lookup, but the
-application must define when the previous value is removed. Mystic Auth does
-not retain old integration secrets.
+For local development, provide values through the ignored app runtime env file
+(`env/app/.env.dev`) or your local secret manager. For deployment, inject them
+through the host's secret manager or the app-specific Compose configuration.
+Keep secret values out of tracked `.example` files; examples should document
+variable names and safe placeholders only. Keep product settings in
+`backend/app/core/settings.py` and app-specific env templates under
+`env/app/`.
 
-The `SECURITY_ALERT_WEBHOOK_TOKEN` setting is an infrastructure-level bearer
-token for Mystic Auth's own security-alert channel. Product webhook secrets
-must use the app-owned provider boundary instead.
+Read a secret at the point the integration needs it. Do not dump the full
+environment or secret mapping into logs, API responses, task arguments,
+migrations, audit metadata, or JSON settings. Tests should inject a small fake
+provider rather than relying on a developer's real credentials.
 
-## Background jobs
+## Ownership
 
-Do not pass a secret as a Procrastinate task argument. Resolve it inside the
-task from the provider, and ensure lifecycle observers and retry logs contain
-only identifiers, status, duration, and non-sensitive error types.
+Provider implementations, integration clients, their settings, and tests
+belong under `backend/app/` and `tests/backend/app/`. Do not add product
+credentials or product-specific providers under `backend/mystic_auth/`; that
+tree is upstream-owned. See [The `app/` + `mystic_auth/` Split](../template-usage/ownership-split.md)
+and [Building On This Template](../template-usage/customization.md#backend-customization).
+
+---

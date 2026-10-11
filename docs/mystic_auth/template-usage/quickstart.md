@@ -67,7 +67,7 @@ Once it's up:
 - **Backend docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Frontend**: [http://localhost:5173](http://localhost:5173)
 - **Bugsink** (error monitoring): [http://localhost:8010](http://localhost:8010)
-- **Procrastinate** (email worker, retries, and scheduled account-purge, all in one process): no UI or port, it just runs. The dev helper includes `procrastinate_worker` in the live log tail. Use `docker compose logs -f procrastinate_worker` when you want only its logs. See [Background Email Delivery](../background-workers/procrastinate.md).
+- **Procrastinate** (email and account-lifecycle delivery, retries, and scheduled account purge, audit-log anonymization, session and refresh-claim cleanup, and lifecycle-outbox reconciliation, all in one process): no UI or port, it just runs. The dev helper includes `procrastinate_worker` in the live log tail. Use `docker compose logs -f procrastinate_worker` when you want only its logs. See [Background Email Delivery](../background-workers/procrastinate.md).
 - Postgres/Valkey default to `localhost:5433`/`localhost:6380` (non-default host ports, to avoid clashing with anything else you have running locally). If either port is already in use, change `POSTGRES_HOST_PORT` or `VALKEY_HOST_PORT` in `env/mystic_auth/.env.dev`; the paired Compose files and host-run backend tests use that multi-project port configuration.
 
 ---
