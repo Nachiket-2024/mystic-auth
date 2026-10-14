@@ -8,11 +8,13 @@ This stack runs as several Docker Compose services. This page lists them
 and links to the detail pages for images, compose modes, healthchecks, and
 day-to-day workflow.
 
+---
+
 ## Services
 
 | Service | Image / build | Purpose |
 |---|---|---|
-| `postgres` | `postgres:15` | Primary database, plus the Procrastinate job queue (`procrastinate_jobs`) |
+| `postgres` | `chainguard/postgres` (PostgreSQL 18) | Primary database, plus the Procrastinate job queue (`procrastinate_jobs`) |
 | `valkey` | `valkey/valkey:9.1.2-alpine` | Cache, rate limits, lockout counters, cached account/chain version counters |
 | `backend` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` | FastAPI app (uvicorn) |
 | `frontend` | `docker/mystic_auth/dockerfiles/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
@@ -20,7 +22,8 @@ day-to-day workflow.
 | `alembic` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend` and `procrastinate_worker` wait on its success |
 | `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring that starts by default with the stack. See [Error Monitoring](../error-monitoring/overview.md) |
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy. It creates the "MysticAuth" team/project idempotently and writes seeded DSNs into the `bugsink_dsn` volume. Locally, both backend and frontend DSN forms are written and read at startup. In prod, only the backend form is written because `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time |
-| `cloudflared` / `ngrok` / `tailscale` | Pulled, not built | The public tunnel, one per `docker-compose.local-prod-*.yml` variant. Proxies `frontend:80` to a public URL and terminates TLS at the provider's edge. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want) |
+| `cloudflared` / `tailscale` | Pulled, not built | The public tunnel, one per `docker-compose.local-prod-*.yml` variant. Proxies `frontend:80` to a public URL and terminates TLS at the provider's edge. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want) |
+| `ngrok` | `docker/mystic_auth/dockerfiles/ngrok.Dockerfile` (the official `ngrok/ngrok` image's statically-linked binary, copied onto bare `scratch` - no OS, no shell) | The `local-prod-ngrok` tunnel. Same proxy role as `cloudflared`/`tailscale` above, built instead of pulled directly because the vendor's own debian/alpine images carry a large, mostly-unused OS package set the agent binary never touches |
 | `geoipupdate` | Pinned `ghcr.io/maxmind/geoipupdate` image (pulled, not built) | Optional, off by default (`geoip` Compose profile): keeps `backend`'s GeoLite2-City `.mmdb` file current when valid MaxMind credentials are configured. See [Session Geolocation](../geolocation/overview.md) |
 | `db_backup` | `docker/mystic_auth/dockerfiles/db-backup.Dockerfile` | On by default in every production-style Compose file: dumps both databases to `./backups` on a loop. Its dump/upload loop runs as UID/GID 10001 after a short root-owned bind-mount normalization step. See [Deployment Guide: Backups](../deployment/migrations-and-backups.md) |
 
@@ -32,8 +35,13 @@ overrides. This keeps dependency versions and application code identical
 across all three roles.
 
 The `postgres` service mounts `docker/mystic_auth/postgres-init/` to
-`/docker-entrypoint-initdb.d/`. On a fresh volume, it creates the separate
-`bugsink` database, so Bugsink does not need a second Postgres container.
+`/var/lib/postgres/initdb/` - Chainguard's postgres image uses this path
+for first-boot init scripts, not the official image's
+`/docker-entrypoint-initdb.d/` (confirmed by reading its own
+`/usr/bin/docker-entrypoint.sh`; mounting at the official path silently
+runs nothing, which showed up as Bugsink failing to find its database on
+first boot). On a fresh volume, the script creates the separate `bugsink`
+database, so Bugsink does not need a second Postgres container.
 
 Production-style Compose modes isolate Postgres and Valkey on separate
 internal networks. `backend` and `procrastinate_worker` join both data

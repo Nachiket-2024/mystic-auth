@@ -261,6 +261,8 @@ eligibility because it checks both shared dependencies. Preserve the trusted
 proxy configuration described in [Routing: Trusted proxy IPs](routing.md#2-trusted-proxy-ips)
 when the load balancer adds `X-Forwarded-For`.
 
+---
+
 ## 9. Related docs
 ---
 

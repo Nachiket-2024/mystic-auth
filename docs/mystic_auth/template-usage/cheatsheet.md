@@ -4,6 +4,8 @@
 
 *Part of [Using This Repository as a Template](overview.md). One-line "when to run this" for every script in the template, so you don't have to re-read each one's own doc page to remember what it's for. Each command shown is the `.sh` (Git Bash/WSL/Linux/macOS) form; swap `.sh` for `.ps1` (PowerShell) or `.cmd` (Command Prompt) - same arguments, same behavior. A `make` (or, on native Windows, `make.ps1`) target exists for the most common ones too - see [Makefile shortcuts](#makefile-shortcuts) below.*
 
+---
+
 ## Day one
 
 | Command | When to run it |
@@ -12,6 +14,8 @@
 | `./scripts/mystic_auth/env-tools/setup-env/setup-env.sh` | Just the env-file bootstrap step, without bringing the stack up. Prompts for app name, brand color, and optionally Google OAuth/Gmail credentials. Safe to re-run, skips files that already exist. |
 | `./scripts/mystic_auth/docker/dev/dev-up.sh` | Bring the dev stack up (or back up after a reboot). Waits for every service to become healthy, then tails `backend`/`frontend`/`procrastinate_worker` logs. |
 | `./scripts/mystic_auth/docker/dev/backend-host-run.sh` | Optional backend debugging path: keep Postgres/Valkey in Docker, derive their host URLs from the configured multi-project port mappings, run migrations, and run FastAPI on the host with reload. |
+
+---
 
 ## Day two and after
 
@@ -27,6 +31,8 @@
 | `./scripts/mystic_auth/db/backup-verification/backup-freshness-check.sh [backup-dir] [max-age-hours]` | Fail if the required database backups are missing, empty, or older than the configured age. |
 | `./scripts/mystic_auth/db/database-restore/database-restore.sh <backup-file> [compose-file]` | Restore a `.dump`/`.sql` backup. Destructive: asks for confirmation unless you pass `-y`. |
 
+---
+
 ## Deploying
 
 | Command | When to run it |
@@ -36,12 +42,16 @@
 | `./scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh` | Same, behind an ngrok tunnel. |
 | `./scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh` | Same, behind Tailscale Funnel. See [Local-Prod: which tunnel do I want?](../deployment/local-prod/README.md#which-tunnel-do-i-want) to pick one. |
 
+---
+
 ## Staying in sync with upstream
 
 | Command | When to run it |
 |---|---|
 | `./scripts/mystic_auth/upstream-sync/sync-upstream.sh` | Pull in fixes/features from the original template. See [Staying in Sync with Upstream](syncing-upstream/README.md) for the full walkthrough. |
 | `./scripts/mystic_auth/upstream-sync/check-alembic-heads.sh` | After a sync, check whether it and your own project each added a migration on the same fork point (two heads). Run automatically as part of `sync-upstream.sh`; standalone here for re-checking without a full sync. |
+
+---
 
 ## Verifying your own changes to this template's tooling
 
@@ -54,6 +64,8 @@
 | `tests/scripts/mystic_auth/lint/check-script-paths.sh` | After any rename/restructure. Checks every CI, script, and doc path reference actually resolves. Runs through `ci/mystic_auth/tooling.sh` in CI too. |
 | `tests/scripts/mystic_auth/lint/check-split-paths.sh` | After any rename/restructure. Checks for a stale pre-split `docker/`/`env/`/`scripts/` path reference (one that's missing its `mystic_auth/`/`app/` segment) anywhere in source, scripts, or docs. Runs in CI too. |
 | `tests/scripts/mystic_auth/lint/check-image-digests.sh` | After pinning or updating any `@sha256:...` image digest in a compose file. Checks every pinned digest is a syntactically valid 64-character sha256. Runs in CI too. |
+
+---
 
 ## Makefile shortcuts
 

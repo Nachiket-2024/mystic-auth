@@ -4,6 +4,8 @@
 
 *Part of [Using This Repository as a Template](overview.md). This page covers extending the frontend and backend, protecting a route with PBAC, and replacing the frontend entirely.*
 
+---
+
 ## Frontend customization
 
 Theme, pages, routing, state, and your own code under `frontend/src/app/`, plus the shared-chrome
@@ -23,6 +25,8 @@ mystic_auth/-owned UI without editing it directly. See
 - **Background-task extensions**: keep task modules under `backend/app/`, list them in the app-owned `PROCRASTINATE_TASK_IMPORT_PATHS` setting, and import the queue app and lifecycle APIs from `app.sdk`. See [Background Email Delivery: Downstream task and worker extensions](../background-workers/procrastinate.md#downstream-task-and-worker-extensions).
 - **Bootstrap scripts**: app-owned one-time setup scripts may use `policy_repository`, `user_crud`, `database`, and `get_logger` from `app.sdk`; do not import those Mystic Auth implementation modules directly. Keep product-specific policy names and workflow in `backend/app/`.
 - **Integration secrets**: keep product-specific providers under `backend/app/` (for example `backend/app/integrations/`), test them under `tests/backend/app/`, and use only `SecretProvider`/`EnvironmentSecretProvider` from `app.sdk`; never edit `backend/mystic_auth/core/secret_provider.py` or put product credentials in JSON settings, migrations, task arguments, or logs. See [Downstream Integration Secrets](../security/integration-secrets.md).
+
+---
 
 ## First-feature tutorial
 

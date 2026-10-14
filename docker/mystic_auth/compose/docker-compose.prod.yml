@@ -51,7 +51,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /var/run/postgresql]
-    image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
+    image: chainguard/postgres@sha256:4c8ef6bcf82ab05f4cca769d44847809fc069b5113893f3dc68b95983189a874
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     # Keep database traffic on the isolated backend network while giving the
@@ -66,7 +66,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../postgres-init:/docker-entrypoint-initdb.d:ro
+      - ../postgres-init:/var/lib/postgres/initdb:ro  # Chainguard postgres uses this path, not /docker-entrypoint-initdb.d - see local-prod-ngrok's identical comment
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s

@@ -6,6 +6,13 @@
 
 Even a sync that applied with zero conflicts can quietly change how the app behaves, so don't skip this:
 
+Before starting the stack, review database image major-version changes in
+the synced Compose files. The sync script only applies files; it does not
+upgrade a data volume. If the database major version changed, follow its
+documented migration procedure first. For PostgreSQL 15 to 18, use the
+[encrypted dump-and-restore upgrade](../../deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade)
+and keep the old project and volume available until acceptance is complete.
+
 ```bash
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build
 scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security

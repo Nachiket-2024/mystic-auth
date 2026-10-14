@@ -4,6 +4,8 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
+---
+
 ## Day-to-day: dev-up helpers
 
 First time in this repo, on a fresh clone with no `env/mystic_auth/.env.dev` yet?
@@ -47,7 +49,7 @@ scripts\mystic_auth\docker\dev\dev-up.cmd
 ### First-run startup time
 
 On a fresh clone or Docker installation, the first run can take several
-minutes. Compose must pull `postgres:15`, `valkey/valkey:9.1.2-alpine`, and `bugsink/bugsink:2`,
+minutes. Compose must pull `chainguard/postgres`, `valkey/valkey:9.1.2-alpine`, and `bugsink/bugsink:2`,
 build the local backend/worker/frontend images, create the named volumes, and
 wait for Postgres, Bugsink, migrations, and the worker/backend healthchecks.
 The exact duration depends mostly on Docker Hub connectivity, Docker Desktop's

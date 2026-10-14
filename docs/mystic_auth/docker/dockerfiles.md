@@ -4,6 +4,8 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
+---
+
 ## Backend and frontend images
 
 - **`docker/mystic_auth/dockerfiles/backend.Dockerfile`**: three named stages, both `builder` and `runtime` on `python:3.14-alpine` (not Debian: Trivy found `python:3.14-alpine` at 0 High/Critical on this app's built image vs. `python:3.14-slim` at 50+, all unpatched Debian OS packages unrelated to app code).
@@ -21,14 +23,33 @@
   - Copies `THIRD_PARTY_NOTICES/frontend/` into the static root. The production image serves the notices and a directory listing at `/third-party-notices/`.
 
 - **`docker/mystic_auth/dockerfiles/db-backup.Dockerfile`**: a separate
-  production-only image based on the pinned Postgres 15 Alpine image. It
-  compiles a checksum-pinned rclone release with a current Go toolchain, adds
-  only `curl`, OpenSSL, CA certificates, `su-exec`, and the backup helper
-  scripts, then runs the backup loop as UID/GID 10001. The Compose entrypoint
-  briefly starts as root only when it needs to normalize a bind-mounted backup
-  directory, then drops privileges. CI builds, scans, and generates an SBOM
-  for this image separately because its Postgres/rclone dependency surface is
+  production-only image based on the pinned PostgreSQL 18 Debian (trixie)
+  client image. Its `pg_dump`/`pg_restore` major version matches the
+  PostgreSQL 18 server image used by the `postgres` service. It compiles a
+  checksum-pinned rclone release with a current Go toolchain, adds only
+  `curl`, OpenSSL, CA certificates, `util-linux` (for `setpriv`, replacing
+  the base image's older `gosu`), and the backup helper scripts, then runs
+  the backup loop as UID/GID 10001. The Compose entrypoint briefly starts
+  as root only when it needs to normalize a bind-mounted backup directory,
+  then drops privileges. CI builds, scans, and generates an SBOM for this
+  image separately because its Postgres/rclone dependency surface is
   independent of the backend and frontend images.
+- **`docker/mystic_auth/dockerfiles/ngrok.Dockerfile`** (`local-prod-ngrok`
+  only): copies the statically-linked `ngrok` binary and a CA bundle out of
+  the official `ngrok/ngrok` image onto bare `scratch` - no OS, no shell,
+  nothing else. Confirmed via `trivy image`: the vendor's own debian-based
+  image carried 340 vulnerabilities (228 with no fix published by Debian at
+  all), this cuts that to the vulnerabilities in ngrok's compiled Go
+  dependencies, with no unrelated OS-package findings, at roughly a tenth
+  the image size (~44MB vs 418MB). The pinned upstream binary currently
+  reports High findings in its Go modules; CI tracks those in an image-scoped
+  exception expiring 2026-11-14 while waiting for a rebuilt vendor release.
+  `--authtoken` is passed as a CLI flag on the
+  compose service's `command:` instead of the vendor image's env-var-to-
+  config-file entrypoint rewrite, since there's no entrypoint script here to
+  do that rewrite; this also means the service can run `read_only: true`,
+  which the vendor image could not (its entrypoint needs to write a config
+  file at startup).
 
 Both `runtime` and `production` re-run their package-manager upgrade on every build rather than pinning to a snapshot, so a rebuild always picks up whatever Alpine security patches have been published since the base image tag was last republished, rather than waiting on the next `python`/`nginx` tag release.
 - **`docker/mystic_auth/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, and `Strict-Transport-Security`). Sends HSTS itself, unlike the backend's own copy of this header set which gates it on `ENVIRONMENT == "production"`: this stage only ever ships in a production-shaped deployment, so it can send it unconditionally, and needs to since the local-prod-ngrok/cloudflare/tailscale tunnel modes have no other layer in front of it that would (see [Security Hardening: HTTP Layer](../security/hardening-http.md#security-response-headers)).

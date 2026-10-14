@@ -3,6 +3,8 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md) or [Frontend Glossary](../glossary/frontend.md).*
 
+---
+
 ## Purpose
 
 React 19 + TypeScript SPA (`frontend/src/mystic_auth/`, with the entry point and extension surface, namely `main.tsx`, `App.tsx`, `sdk.ts`, `app_sdk.ts`, in the sibling `frontend/src/app/`; see [Using This Repository as a Template](../template-usage/ownership-split.md)), built with Vite, styled with Tailwind v4 + shadcn/ui (Radix primitives). Feature-organized to mirror the backend's domain split, with a PBAC-aware UI layer that mirrors the backend's permission vocabulary.

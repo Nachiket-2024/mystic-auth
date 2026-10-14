@@ -97,3 +97,5 @@ control; integration and browser tests prove the user-visible flow.
 - [Frontend Integration Tests](frontend-integration.md)
 - [Frontend Browser E2E Tests](frontend-e2e.md)
 - [Backend Authentication Test Detail](backend-authentication.md)
+
+---

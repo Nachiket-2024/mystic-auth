@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # /audit-log/me so a user can inspect their own decisions regardless of
 # whether they hold policies:read.
 from ...auth.current_user.current_user_dependency import get_current_user
+from ...auth.security.rate_limiting.rate_limiter_service import rate_limiter_service
 from ...authorization.dependencies.policy_route_dependencies import READ_DEPENDENCY
 from ...authorization.repositories.authorization_audit_log_repository import authorization_audit_log_repository
 from ...authorization.schemas.authorization_audit_log_schema import AuthorizationAuditLogEntryRead
@@ -30,6 +31,15 @@ _TO_DESCRIPTION = "Only entries at or before this timestamp (created_at, inclusi
 
 
 @router.get("/audit-log", response_model=list[AuthorizationAuditLogEntryRead])
+# Same resource-level rate-limiting gap as /users/export and /audit/security-log
+# (see F-006): a table-wide query with no prior throttling beyond the
+# policies:read permission check.
+@rate_limiter_service.rate_limited(
+    "authorization_audit_log_list",
+    account_key_func=lambda kwargs: kwargs["current_user"]["email"],
+    max_requests=20,
+    window_seconds=60,
+)
 async def list_audit_log(
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),

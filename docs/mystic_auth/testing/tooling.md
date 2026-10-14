@@ -38,6 +38,9 @@ define which boundary is authoritative and which checks are informational.
   upstream synchronization checks and safe handling of changed files.
 - `tests/scripts/mystic_auth/db/test-backup-freshness.sh` verifies the
   backup-freshness check script correctly flags a stale or missing backup.
+- `tests/scripts/mystic_auth/db/test-backup-encryption-check.sh` verifies the
+  artifact check rejects plaintext dumps, missing or malformed HMAC sidecars,
+  and mismatched HMACs when the key is supplied.
 - `tests/scripts/mystic_auth/docker/test-backend-host-run.sh` verifies the
   host-run helper derives localhost service URLs from configured host ports
   without rewriting the configured application database name; its fixture uses
@@ -45,8 +48,11 @@ define which boundary is authoritative and which checks are informational.
 
 The workflow-facing wrappers are split by ownership: `ci/mystic_auth/` owns
 template backend, browser, tooling, and backup checks; `ci/app/` owns app
-backend and frontend checks. `.github/workflows/ci.yml` remains the shared
-orchestrator for services and combined Docker/Compose checks.
+backend and frontend checks. `ci/mystic_auth/frontend-e2e-stack.sh` prepares,
+boots, seeds, smoke-checks, logs, and tears down the isolated Compose stack
+used by each browser E2E job. `.github/workflows/ci.yml` remains the shared
+orchestrator for the browser project matrix, services, and combined
+Docker/Compose checks.
 
 ---
 
@@ -61,8 +67,8 @@ separately from MysticAuth feature tests.
 The real-account permission matrix is an environment-dependent browser test:
 it needs the dev stack and the seeded accounts. After migrations, seed those
 accounts with the upstream-owned
-`local-scripts/mystic_auth/seed-user-permission-matrix.py` helper. The complete
-Docker command sequence is in [CI/CD Overview](../cicd/overview.md#local-equivalents).
+`local-scripts/mystic_auth/seed-user-permission-matrix.py` helper. The local
+Docker command sequence is in [CI Local Validation](../cicd/local-validation.md).
 Keep downstream project helpers under `local-scripts/app/`; the shared fixture
 must not be moved back into that downstream-owned directory. The live
 deployment smoke is opt-in. A normal mocked browser run must not be interpreted
@@ -98,3 +104,5 @@ the boundary page as part of the PR.
 - [Test Catalogue](README.md)
 - [Testing Overview](overview.md)
 - [Frontend Browser E2E Tests](frontend-e2e.md)
+
+---

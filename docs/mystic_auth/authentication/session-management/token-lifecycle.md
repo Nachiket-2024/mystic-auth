@@ -4,6 +4,8 @@
 
 *New to a term here? See the [Authentication & Sessions Glossary](../../glossary/authentication.md).*
 
+---
+
 ## Rotation chains and reuse detection
 
 ```mermaid

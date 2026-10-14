@@ -16,6 +16,8 @@ Read [Using This Repository as a Template](overview.md) first if you have not
 chosen an ownership split yet. Work through the sections that apply to the
 features and deployment mode you will actually use.
 
+---
+
 ## 1. Create and customize the project
 
 - Run the [Quickstart](quickstart.md) and confirm the dev stack, migrations,
@@ -31,6 +33,8 @@ features and deployment mode you will actually use.
   not enable a sign-in option in the UI until its real provider settings have
   been configured and tested.
 
+---
+
 ## 2. Complete the product and legal review
 
 - Replace the Terms and Privacy page operator placeholders with the real legal
@@ -43,6 +47,8 @@ features and deployment mode you will actually use.
   the service operates.
 - After branding and copy settle, add screenshot-based visual regression for
   the customized legal pages, signup flow, and other high-value public pages.
+
+---
 
 ## 3. Configure real integrations
 
@@ -109,6 +115,8 @@ internet-facing mail server on the same VPS unless mail operations are a
 deliberate part of the project. See [Backend Settings](../environment/backend.md)
 for the exact settings the template currently supports.
 
+---
+
 ## 4. Prepare a VPS deployment
 
 - Use the production environment file and run `check-env` before startup.
@@ -124,6 +132,8 @@ for the exact settings the template currently supports.
 - Create the first system user through the documented bootstrap command.
 - Test migrations against a production-like database copy before applying
   them to the live database.
+
+---
 
 ## 5. Make recovery and operations real
 
@@ -148,6 +158,8 @@ for the exact settings the template currently supports.
   instead.
 - Document who handles incidents, credential rotation, restores, provider
   outages, and account-abuse reports.
+
+---
 
 ## 6. Perform the final acceptance pass
 

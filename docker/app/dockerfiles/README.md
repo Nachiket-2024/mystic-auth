@@ -29,3 +29,5 @@ See [Docker: Compose Modes](../../../docs/mystic_auth/docker/compose-modes.md#tw
 for the two-file-per-mode pattern this extends.
 
 Ships empty; upstream never edits this file again.
+
+---

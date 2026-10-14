@@ -36,6 +36,69 @@ python -m mystic_auth.scripts.invalidate_authorization_cache --all-policies
 
 An API-driven grant/revoke never needs this - it invalidates the cache itself already.
 
+### PostgreSQL 15 to 18 data-volume upgrade
+
+The Compose files now use PostgreSQL 18. PostgreSQL data directories are not
+portable across major versions: do not start the PostgreSQL 18 image against a
+volume initialized by PostgreSQL 15, and do not remove the old volume as part
+of the upgrade. This is a dump-and-restore migration, separate from Alembic.
+
+Before changing a deployment:
+
+1. Keep the existing PostgreSQL 15 stack running and take encrypted dumps of
+   both `POSTGRES_DB` and `bugsink` with the existing release's backup script.
+2. Run the restore drill against that source stack and verify both dumps have
+   matching HMAC sidecars. Copy the encrypted dumps and sidecars to storage
+   that will remain available if the host fails.
+3. Choose a new, unique Compose project name for the PostgreSQL 18 stack. A
+   different project name gives it a new `postgres_data` volume while leaving
+   the PostgreSQL 15 volume untouched.
+4. Start only the new `postgres` service, restore the app and Bugsink dumps
+   into it, and run the restore drill against the new project. Then start the
+   complete new stack so its Alembic service applies any schema migrations.
+5. Verify backend readiness, frontend behavior, worker health, and the
+   deployment-specific smoke checks before directing traffic to the new
+   stack. Keep the old Compose project, release configuration, and data
+   volume until the new stack has passed acceptance.
+
+For a production-mode candidate, substitute the selected mode's Compose file
+and env-file suffix in these commands. The project-name override is inherited
+by the helper scripts, so their `docker compose exec` calls target the new
+PostgreSQL 18 service:
+
+```bash
+export COMPOSE_PROJECT_NAME=mystic-auth-pg18-candidate
+
+docker compose \
+  -f docker/mystic_auth/compose/docker-compose.prod.yml \
+  -f docker/app/compose/docker-compose.prod.yml \
+  --env-file env/mystic_auth/.env.prod \
+  --env-file env/app/.env.prod \
+  up -d postgres
+
+scripts/mystic_auth/db/database-restore/database-restore.sh \
+  backups/<app-database-dump>.dump.enc docker-compose.prod.yml --yes
+scripts/mystic_auth/db/database-restore/database-restore.sh \
+  backups/bugsink-<timestamp>.dump.enc docker-compose.prod.yml --yes
+scripts/mystic_auth/db/database-restore/database-restore-drill.sh \
+  docker-compose.prod.yml
+
+docker compose \
+  -f docker/mystic_auth/compose/docker-compose.prod.yml \
+  -f docker/app/compose/docker-compose.prod.yml \
+  --env-file env/mystic_auth/.env.prod \
+  --env-file env/app/.env.prod \
+  up -d
+```
+
+The examples use placeholders for the dump names. Keep the same
+`BACKUP_ENCRYPTION_KEY` available to the restore helper that encrypted the
+source dumps. Schedule a maintenance window: both stacks cannot serve the
+same public ports at once, and the old application must stop writing before
+the final source backup. Do not run `docker compose down -v` on the old
+project. A rollback after the new database accepts writes needs a deliberate
+data-reconciliation plan; simply switching back would discard those writes.
+
 ---
 
 ## 2. Backup scripts
@@ -66,6 +129,24 @@ BACKUP_MAX_AGE_HOURS=30 scripts/mystic_auth/db/backup-verification/backup-freshn
 The check does not claim that an off-host object exists or that a dump can be
 restored. Use the restore drill for restoreability and monitor the B2 bucket
 itself for off-host freshness.
+
+Run `scripts/mystic_auth/db/backup-verification/check-backup-encryption.sh`
+periodically (or from the same external scheduler as the freshness check) to
+find plaintext `.dump`/`.sql` files and encrypted dumps with missing, empty, or
+malformed HMAC sidecars. This catches backup artifacts left behind during a
+format change even though restore itself tolerates a missing HMAC tag on an
+older dump (see above). The check defaults to `./backups`; pass a directory
+explicitly to check another location. Set `BACKUP_ENCRYPTION_KEY` in the
+scheduler's secret environment to also verify each HMAC against the ciphertext.
+Without the key, the script checks that each sidecar is well formed but cannot
+authenticate it.
+
+```bash
+scripts/mystic_auth/db/backup-verification/check-backup-encryption.sh /backups
+```
+
+When `BACKUP_ENCRYPTION_KEY` is present in the scheduler's environment, the
+same command also verifies each tag against its ciphertext.
 
 ```bash
 # Dump the dev database and Bugsink database, if enabled
@@ -209,7 +290,7 @@ scripts/mystic_auth/db/database-restore/database-restore-drill.sh docker-compose
 Exits non-zero on any failure (dump, restore, or a missing/empty schema in
 the result), so a broken backup path fails loudly here instead of only
 being discovered mid-incident. `tests/scripts/mystic_auth/db/test-restore-drill.sh`
-runs this as a regression test in CI's `docker-build` job, against the dev
+runs this as a regression test in CI's `browser-e2e` Chromium desktop job, against the dev
 stack's own database, on every push.
 
 This is how a real bug was found and fixed while building this drill:

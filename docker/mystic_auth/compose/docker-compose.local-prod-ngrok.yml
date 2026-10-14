@@ -59,24 +59,29 @@ services:
 
   ngrok:
     <<: *container_hardening
-    image: ngrok/ngrok@sha256:14d80d083e5b53145f416bbbd36238336c9de4016c43fd950eb2eb845670583b
+    # Built from docker/mystic_auth/dockerfiles/ngrok.Dockerfile instead of
+    # the vendor's own debian/alpine images: the ngrok agent binary is
+    # statically linked and needs nothing from an OS at all beyond a CA
+    # bundle, so it's copied onto bare `scratch`. Confirmed via `trivy
+    # image`: the vendor's debian-based image carried 340 vulnerabilities
+    # (228 with no fix published anywhere yet), scratch cuts that to just
+    # what's baked into ngrok's own compiled Go dependencies - no unrelated
+    # OS-package noise - at a fraction of the image size (~44MB vs 418MB).
+    # This also removes the read_only limitation the vendor image had: with
+    # no entrypoint script writing a config file, there's nothing left that
+    # needs a writable filesystem, so read_only: true is enabled below
+    # (previously impossible - see git history for why).
+    build:
+      context: ../../..
+      dockerfile: docker/mystic_auth/dockerfiles/ngrok.Dockerfile
+    read_only: true
     restart: unless-stopped
-    # Not read_only: the vendor entrypoint (not ours to edit) both ships a
-    # default config baked into the image at /var/lib/ngrok/ngrok.yml and
-    # rewrites /var/lib/ngrok/auth-config.yml from NGROK_AUTHTOKEN on every
-    # start. tmpfs-mounting that directory to make it writable erases the
-    # baked file (tmpfs always starts empty), and there's no supported way
-    # to pre-seed a tmpfs mount from the image layer underneath it. Verified
-    # live: with read_only: true + tmpfs on /var/lib/ngrok, the container
-    # restart-loops on "Error reading configuration file ... ngrok.yml: no
-    # such file or directory". Everything else about this container is
-    # still hardened (cap_drop: [ALL], resource limits, no inbound host
-    # port, loopback-only siblings).
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    # NGROK_DOMAIN is your account's free static domain (see
+    # --authtoken is passed directly on the command line (a first-class
+    # ngrok CLI flag) instead of the vendor entrypoint's env-var-to-
+    # config-file rewrite, since there's no entrypoint script here to do
+    # that rewrite. NGROK_DOMAIN is your account's free static domain (see
     # docs/mystic_auth/deployment/local-prod/ngrok-tunnel.md).
-    command: ["http", "frontend:80", "--url=https://${NGROK_DOMAIN}"]
+    command: ["http", "frontend:80", "--authtoken=${NGROK_AUTHTOKEN}", "--url=https://${NGROK_DOMAIN}"]
     # Pinned address for TRUSTED_PROXY_IPS, same reasoning as cloudflared's
     # in the other local-prod variants.
     networks:
@@ -97,7 +102,20 @@ services:
 
   postgres:
     <<: *container_hardening
-    image: postgres:15.19-trixie@sha256:c961aa287d8698297cb26cdfadfbe9fd2cbaf77e53cfffe9636e8d8a1e4d842c
+    # Chainguard's postgres image instead of the official Debian-based one:
+    # confirmed via `trivy image` it's 0 known CVEs (vs. 377 on the pinned
+    # Debian trixie build, 313 of which have no fix published anywhere),
+    # rebuilt daily. Only ships a floating `latest` tag tracking current
+    # PostgreSQL major (18 as of this change, up from the prior pin's 15) -
+    # no version-pinned tag is available, so this deliberately floats and
+    # needs a deliberate re-pull to pick up newer majors later. Same
+    # docker-entrypoint.sh conventions as the official image (POSTGRES_USER/
+    # PASSWORD/DB env vars, PGDATA path, /docker-entrypoint-initdb.d) -
+    # confirmed via `docker inspect`, no compose changes needed beyond the
+    # image reference itself. db-backup.Dockerfile's base was bumped to
+    # postgres:18-trixie to keep pg_dump/pg_restore version-matched with
+    # this server, per its own comment on why that matters.
+    image: chainguard/postgres@sha256:4c8ef6bcf82ab05f4cca769d44847809fc069b5113893f3dc68b95983189a874
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     read_only: true
@@ -115,8 +133,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Creates the separate "bugsink" database Bugsink uses, once on a
-      # fresh volume.
-      - ../postgres-init:/docker-entrypoint-initdb.d:ro
+      # fresh volume. Chainguard's postgres image (see the image comment
+      # above) uses a different init-script directory than the official
+      # image: /var/lib/postgres/initdb, not /docker-entrypoint-initdb.d -
+      # confirmed by reading its /usr/bin/docker-entrypoint.sh directly,
+      # and by this script silently not running at all (no "bugsink"
+      # database created) against the old mount path.
+      - ../postgres-init:/var/lib/postgres/initdb:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s

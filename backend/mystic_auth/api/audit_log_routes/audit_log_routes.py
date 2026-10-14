@@ -10,6 +10,7 @@ from ...audit_log.audit_log_schema import AuditLogEntryRead, LoginTrendPoint
 # /security-log/me, where a user inspects their own security events regardless
 # of whether they hold security_audit:read.
 from ...auth.current_user.current_user_dependency import get_current_user
+from ...auth.security.rate_limiting.rate_limiter_service import rate_limiter_service
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
 from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
@@ -34,6 +35,13 @@ _TO_DESCRIPTION = "Only entries at or before this timestamp (created_at, inclusi
 
 
 @router.get("/security-log", response_model=list[AuditLogEntryRead])
+# A table-wide query/scan on every call, with no prior throttling beyond the
+# security_audit:read permission check - same class of gap as /users/export
+# (confirmed live there; applied here as the same pattern, not separately
+# hammered). Keyed per-account since the caller is already authenticated.
+@rate_limiter_service.rate_limited(
+    "security_log_list", account_key_func=lambda kwargs: kwargs["current_user"]["email"], max_requests=20, window_seconds=60
+)
 async def list_security_audit_log(
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),

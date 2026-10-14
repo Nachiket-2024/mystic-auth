@@ -13,6 +13,9 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 
+from backend.mystic_auth.auth.security.rate_limiting.rate_limiter_service import (
+    rate_limiter_service,
+)
 from backend.mystic_auth.auth.verify_account.account_verification_service import (
     account_verification_service,
 )
@@ -345,3 +348,25 @@ async def test_login_trend_search_filters_by_user_email(client, created_emails):
     non_matching_points = non_matching.json()
     assert non_matching_points
     assert sum(p["success"] + p["failure"] for p in non_matching_points) == 0
+
+
+@pytest.mark.asyncio
+async def test_security_log_list_is_rate_limited_per_account(client, created_emails):
+    """F-006 regression: a table-wide query with no prior throttling beyond
+    the security_audit:read permission check - confirmed live in the
+    2026-10-14 audit. list_security_audit_log now carries the same
+    @rate_limiter_service.rate_limited decorator every other sensitive
+    endpoint in this codebase already has."""
+    system_email = _unique_email("system")
+    await _create_system_user(client, created_emails, system_email)
+    await client.post("/auth/login", json={"email": system_email, "password": PASSWORD})
+
+    max_requests, _window_seconds = rate_limiter_service.ENDPOINT_OVERRIDES["security_log_list"]
+
+    statuses = []
+    for _ in range(max_requests + 2):
+        resp = await client.get("/audit/security-log")
+        statuses.append(resp.status_code)
+
+    assert statuses[:max_requests] == [200] * max_requests
+    assert 429 in statuses[max_requests:]

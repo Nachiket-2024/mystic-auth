@@ -3,22 +3,24 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 27 Playwright specs exercise the application in a real browser. “Mocked”
+These 28 Playwright specs exercise the application in a real browser. “Mocked”
 means the browser receives deterministic route fixtures. “Real disposable
 account” means the test creates or uses a short-lived account against the local
 stack. “Real seeded accounts” means the test depends on the PBAC matrix seeded
 by `local-scripts/mystic_auth/seed-user-permission-matrix.py`. “Live” is opt-in.
 
-The CI browser run uses two workers and two retries. Mocked UI and authorization
-checks run in all four browser projects. The real-account matrix runs
-exhaustively in Chromium desktop, where it checks live database grants without
+CI runs MysticAuth E2E as four parallel jobs, one per Playwright project, each
+with an isolated Compose stack, seeded permission-matrix accounts, and two
+retries. Chromium desktop, Chromium mobile, and Firefox use two workers;
+WebKit uses one to keep UI actions reliable on standard runners. The real-account matrix runs
+only in Chromium desktop, where it checks live database grants without
 multiplying login and route traffic across four engines. The responsiveness
 timing suite runs in Chromium desktop and mobile; Firefox and WebKit still run
-the broader layout, accessibility, and interaction suites. This split keeps
-the shared disposable backend deterministic without relaxing the 30-second
-test timeout or performance assertions. Set `PLAYWRIGHT_WORKERS` when
-deliberately validating on a larger runner; the browser fixture also accepts
-`PLAYWRIGHT_COMPOSE_PROJECT_NAME` for an isolated Compose stack.
+the broader layout, accessibility, and interaction suites. Backup/restore
+drills and the app browser suite run once in the Chromium desktop job. Set
+`PLAYWRIGHT_WORKERS` when deliberately validating on a larger runner; the
+browser fixture also accepts `PLAYWRIGHT_COMPOSE_PROJECT_NAME` for an isolated
+Compose stack.
 For a native run without an already booted frontend container, set
 `PLAYWRIGHT_USE_PREVIEW=1` to build once and serve the production bundle via
 Vite preview, avoiding dev-server HMR noise during the browser matrix.
@@ -28,6 +30,8 @@ If the browser frontend is served from a non-default host/port, set matching
 Compose. The backend must allow the actual browser origin; otherwise a valid
 login is followed by an apparent `/login` redirect and the later audit-log
 layout failure is only a downstream symptom.
+
+---
 
 ## Persistent local accessibility operator
 
@@ -94,6 +98,8 @@ remove it from the local database when it is no longer needed.
   against landing/legal/status-page content, since that's app-owned and
   already covered by the three specs listed above it.
 
+---
+
 ## Authentication and account settings
 
 - `auth/auth_pages_responsive_browser.spec.ts` checks auth layouts at narrow
@@ -118,6 +124,8 @@ remove it from the local database when it is no longer needed.
   deletion-confirmation token page for valid, missing, and invalid tokens.
   Backend mode: mocked endpoint.
 
+---
+
 ## Authenticated pages
 
 - `dashboard/dashboard_page_browser.spec.ts` verifies dashboard controls,
@@ -139,6 +147,12 @@ remove it from the local database when it is no longer needed.
   theme/language/font controls, responsive menu, shortcuts, and Escape.
 - `accessibility/accessibility_browser.spec.ts` runs axe WCAG 2.1 AA checks
   over public and authenticated major pages. Backend mode: mocked API.
+- `security/browser_security_headers.spec.ts` checks the browser security
+  headers, rejects framing, and opens the language and font-size Radix
+  comboboxes while observing actual `SecurityPolicyViolationEvent` events.
+  This catches CSP style regressions that console messages can misreport.
+
+---
 
 ## Authorization matrix
 
@@ -159,6 +173,8 @@ remove it from the local database when it is no longer needed.
   the authenticated contract is visible, and waits on rendered route state
   rather than fixed sleeps. That is a browser fixture timing race, not a
   permission failure; failures after the bounded poll are actionable.
+
+---
 
 ## Performance and live deployment
 
@@ -196,3 +212,5 @@ remove it from the local database when it is no longer needed.
 - [Frontend Test Map](frontend.md)
 - [Frontend Integration Tests](frontend-integration.md)
 - [Testing Overview](overview.md)
+
+---

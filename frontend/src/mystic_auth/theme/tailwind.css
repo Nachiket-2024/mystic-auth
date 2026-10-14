@@ -478,9 +478,10 @@ input:-webkit-autofill:active {
 .dropdown-scroll-area {
   scrollbar-color: var(--border-default) var(--bg-surface);
   scrollbar-width: auto;
-  /* Do not reserve a scrollbar column for short menus. The browser still
-     provides the scrollbar when the list actually overflows. */
-  scrollbar-gutter: auto;
+  /* Reserve the scrollbar column up front. With `auto`, Chromium only lays
+     out the custom-styled scrollbar track once hovered, so content width
+     visibly shifted by the scrollbar's width on hover/unhover. */
+  scrollbar-gutter: stable;
 }
 .dropdown-scroll-area::-webkit-scrollbar {
   width: 10px;

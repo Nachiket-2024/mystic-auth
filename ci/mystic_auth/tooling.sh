@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 usage() {
-  echo "Usage: $0 {script-paths|split-paths|platform-wrappers|image-digests|log-rotation|action-pinning|readonly-rootfs|env-tools|upstream-sync|backup-freshness|backup-network|host-backend|backup-roundtrip|restore-drill}" >&2
+  echo "Usage: $0 {script-paths|split-paths|platform-wrappers|image-digests|log-rotation|action-pinning|readonly-rootfs|env-tools|upstream-sync|backup-freshness|backup-encryption|backup-network|host-backend|backup-roundtrip|restore-drill}" >&2
   exit 2
 }
 
@@ -39,6 +39,9 @@ case "${1:-}" in
     ;;
   backup-freshness)
     tests/scripts/mystic_auth/db/test-backup-freshness.sh
+    ;;
+  backup-encryption)
+    tests/scripts/mystic_auth/db/test-backup-encryption-check.sh
     ;;
   backup-network)
     tests/scripts/mystic_auth/db/test-backup-compose-network.sh

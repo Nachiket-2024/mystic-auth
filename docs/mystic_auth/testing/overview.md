@@ -18,6 +18,8 @@ Sessions Test Detail](backend-users-sessions.md), [Frontend Authentication
 Test Detail](frontend-authentication.md), and [Frontend Page Test
 Detail](frontend-pages-test-detail.md).
 
+---
+
 ## Backend: pytest
 
 1. Config lives in `pytest.ini` at the repo root. It sets `testpaths = tests/backend` and collects coverage for `backend/app` and `backend/mystic_auth`.
@@ -178,7 +180,7 @@ python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:80
 ```
 
 CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and
-security suites against GitHub Actions service containers (Postgres 15, Valkey 9.1.2-alpine)
+security suites against GitHub Actions service containers (Postgres 18, Valkey 9.1.2-alpine)
 on pushes to `develop` or `main`, and on pull requests targeting `main`. The
 workflow calls `ci/app/` and `ci/mystic_auth/` entrypoints so the failing
 ownership boundary is visible in Actions. App-wrapper and unit tests create the
@@ -305,6 +307,8 @@ Leave a one-line pointer at the top of a file that got split (see any of the
 files named above) explaining what moved where and why, so a reader who
 opens the smaller file isn't left wondering where the rest of the coverage
 went.
+
+---
 
 ## Adding a feature or test: documentation update path
 

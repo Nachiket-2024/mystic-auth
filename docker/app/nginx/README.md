@@ -22,3 +22,5 @@ order, so where your block lands among upstream's doesn't matter the
 way it would in Caddy.
 
 Ships empty; upstream never edits this file again.
+
+---

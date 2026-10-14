@@ -81,6 +81,8 @@ as `BUGSINK_*`, tunnel credentials, and backup settings. See
 
 See [Environment Configuration](README.md) for the full index.
 
+---
+
 ## App-owned extension setting
 
 `DEFAULT_APP_POLICIES` is deliberately not part of the upstream `Settings`

@@ -4,6 +4,8 @@
 
 The steps in [README](README.md)/[Rebuild, Push, and Reference](rebuild-and-push.md)/[Troubleshooting](troubleshooting.md) are written for a person to follow by hand. If you'd rather hand the whole thing to an agentic coding tool (Claude Code, Codex, or similar) and review the result, use [`agent-prompts/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) at the repo root: a copy-paste starting prompt for exactly that. This page is the reasoning behind it.
 
+---
+
 ## What to give the agent
 
 Paste the prompt from [`agent-prompts/mystic_auth/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) while the agent is working in the downstream repository. Before it runs anything, tell it which branch to update if that is not obvious. The agent should:
@@ -18,6 +20,11 @@ The sync completes the upstream-owned MysticAuth update. It preserves
 downstream app code and does not redesign or update app-owned product files as
 part of the sync. Handle app-side follow-up separately only when the
 repository owner requests it.
+
+Inspect database image changes before starting Compose. The sync script
+applies files but does not migrate database volumes. Follow the relevant data
+upgrade procedure when a database major version changes; PostgreSQL 15 to 18
+uses the [documented encrypted dump-and-restore path](../../deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade).
 
 Before stashing preparatory work, confirm that
 `scripts/mystic_auth/upstream-sync/sync-upstream.sh` exists in the working
@@ -134,3 +141,5 @@ show the resulting commit and validation summary, but leave pushing to the
 repository owner. If the script reports that saved downstream work could not
 be restored cleanly, keep the sync commit, resolve the worktree conflict, and
 retain the stash until the restored files have been verified.
+
+---

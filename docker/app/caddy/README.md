@@ -23,3 +23,5 @@ can't reach inside an existing block. See
 [Using This Repository as a Template: the app/ + mystic_auth/ split](../../../docs/mystic_auth/template-usage/ownership-split.md).
 
 Ships empty; upstream never edits this file again.
+
+---

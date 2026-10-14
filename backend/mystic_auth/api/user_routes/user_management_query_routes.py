@@ -8,6 +8,7 @@ from fastapi import status as status_module
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...auth.security.rate_limiting.rate_limiter_service import rate_limiter_service
 from ...authorization.dependencies.authorization_dependency import require_authorization
 
 # PBAC action vocabulary and policy-based authorization. Replaces the removed
@@ -150,6 +151,15 @@ def _csv_safe(value: str) -> str:
 
 
 @router.get("/export")
+# A full CSV export runs an unbounded (up to USER_EXPORT_MAX_ROWS) query and
+# serialization on every call. The row cap bounds a single call's cost, but
+# nothing previously bounded how often a permitted caller could repeat it -
+# confirmed live: 40 back-to-back calls all succeeded with zero throttling.
+# Keyed per-account like every other sensitive endpoint here, not per-IP
+# only, since the caller is already authenticated.
+@rate_limiter_service.rate_limited(
+    "users_export", account_key_func=lambda kwargs: kwargs["current_user"]["email"], max_requests=5, window_seconds=60
+)
 async def export_users(
     search: str | None = Query(
         default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description="Case-insensitive substring match on name or email"

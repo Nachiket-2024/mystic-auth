@@ -32,6 +32,8 @@ produce a misleading `403` in an otherwise valid integration test.
 - `audit_log/test_security_audit_log_queries.py` verifies category, actor,
   event, date, and text query behavior for security events.
 
+---
+
 ## Authentication
 
 - `auth/test_login_integration.py` verifies the complete login request,
@@ -52,6 +54,8 @@ produce a misleading `403` in an otherwise valid integration test.
   replay-chain revocation, cookies, and persistence across requests.
 - `auth/test_signup_verify_concurrency_integration.py` verifies concurrent
   signup and verification requests do not create inconsistent accounts.
+
+---
 
 ## Authorization and PBAC
 
@@ -88,6 +92,8 @@ produce a misleading `403` in an otherwise valid integration test.
 - `authorization/test_purge_cache_invalidation_integration.py` verifies user
   purge removes authorization cache state and stale grants.
 
+---
+
 ## Core and rate limits
 
 - `core/test_health_integration.py` verifies health endpoints against actual
@@ -98,6 +104,8 @@ produce a misleading `403` in an otherwise valid integration test.
   malformed keys, scan limits, empty data, and safe dashboard aggregation.
 - `rate_limits/test_rate_limit_routes_integration.py` verifies listing,
   filtering, reset idempotency, concurrency, and rate-limit permissions.
+
+---
 
 ## Users and lifecycle
 
@@ -122,6 +130,8 @@ produce a misleading `403` in an otherwise valid integration test.
 - `user/test_user_self_service_routes_integration.py` verifies profile,
   password, and self-service routes with persisted user state.
 
+---
+
 ## Sessions
 
 - `user_session/test_manage_sessions_concurrency_integration.py` verifies
@@ -142,3 +152,5 @@ produce a misleading `403` in an otherwise valid integration test.
 - [Backend Security and Performance](backend-security-performance.md)
 - [Backend Test Map](backend.md)
 - [Testing Overview](overview.md)
+
+---

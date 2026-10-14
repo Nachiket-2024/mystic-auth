@@ -19,9 +19,9 @@ The preceding entry is then completed with the real hash and exact `git show --s
 Each completed entry below follows the same convention:
 
 - Its own `### Commit N: <date>` heading, numbered sequentially across the whole history in commit
-  order regardless of which of the five pages it lands on. No grouping by date range, and no
+  order regardless of which of the six pages it lands on. No grouping by date range, and no
   relying on the date alone as a heading, since several days carry more than one commit. The
-  numbering is split across five pages (see [Pages](#pages) below) purely to keep each file a
+  numbering is split across six pages (see [Pages](#pages) below) purely to keep each file a
   readable size; it isn't a second, competing grouping.
 - Opens with that commit's actual message in quotes.
 - Then a bulleted list of what it actually did, checked against the real diff (`git show --stat`
@@ -79,6 +79,7 @@ timeline
                   : Durable token revocation, lifecycle event queue, backup HMAC verification
                   : Split CI ownership, downstream validation fixes
                   : Runtime hardening, dependency notices, production validation, and documentation corrections
+                  : Extended API rate limits, CSP and backup checks, PostgreSQL 18
 ```
 
 ---
@@ -90,7 +91,7 @@ timeline
 - [February-July 2026](2026-feb-jul.md): commits 37-53, 21 February, 2026 to 29 July, 2026.
 - [August 2026](2026-aug.md): commits 54-69, 2 August, 2026 to 29 August, 2026.
 - [September 2026](2026-sep.md): commits 70-77, 4 September, 2026 to 29 September, 2026.
-- [October 2026](2026-oct.md): commits 78-81, 1 October, 2026 to 11 October, 2026.
+- [October 2026](2026-oct.md): commits 78-82, 1 October, 2026 to 15 October, 2026 (82 is prospective).
 
 ---
 

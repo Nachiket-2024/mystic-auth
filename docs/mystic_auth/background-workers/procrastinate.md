@@ -3,6 +3,8 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
+---
+
 ## Purpose
 
 Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. It also runs scheduled account purge, audit-log anonymization, expired-session cleanup, refresh-claim cleanup, and lifecycle-outbox reconciliation jobs.
@@ -70,6 +72,8 @@ flowchart TD
 ---
 
 Unlike taskiq's `ValkeyStreamBroker` + separate `TaskiqScheduler` process, there's a single container role here: `procrastinate_worker` runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker`, which both executes jobs *and* runs the periodic-task deferrer (`@app.periodic`-registered tasks) as an internal asyncio task of the same worker process. No second scheduler container exists, and none is needed: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why that used to be a single point of failure and structurally can't be one now.
+
+---
 
 ## Downstream task and worker extensions
 

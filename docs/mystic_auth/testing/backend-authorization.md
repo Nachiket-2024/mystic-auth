@@ -277,3 +277,5 @@ and `local-scripts/mystic_auth/seed-user-permission-matrix.py`.
 - [Backend Integration Tests](backend-integration.md)
 - [Frontend Authorization Test Detail](frontend-authorization.md)
 - [Testing Overview](overview.md)
+
+---

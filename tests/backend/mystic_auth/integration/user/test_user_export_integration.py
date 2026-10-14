@@ -9,6 +9,9 @@ import uuid
 
 import pytest
 
+from backend.mystic_auth.auth.security.rate_limiting.rate_limiter_service import (
+    rate_limiter_service,
+)
 from backend.mystic_auth.auth.verify_account.account_verification_service import (
     account_verification_service,
 )
@@ -179,3 +182,25 @@ async def test_export_rejects_a_filtered_set_larger_than_the_configured_max(clie
 
     assert resp.status_code == 400
     assert resp.json()["code"] == "EXPORT_TOO_LARGE"
+
+
+@pytest.mark.asyncio
+async def test_export_is_rate_limited_per_account(client, created_emails):
+    """F-006 regression: a permitted caller used to be able to hammer this
+    expensive (up to USER_EXPORT_MAX_ROWS-row) endpoint with zero cooldown -
+    confirmed live in the 2026-10-14 audit (40/40 requests succeeded).
+    export_users now carries the same @rate_limiter_service.rate_limited
+    decorator every other sensitive endpoint in this codebase already has."""
+    admin_email = unique_email("admin")
+    await create_admin(client, created_emails, admin_email)
+    await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})
+
+    max_requests, _window_seconds = rate_limiter_service.ENDPOINT_OVERRIDES["users_export"]
+
+    statuses = []
+    for _ in range(max_requests + 2):
+        resp = await client.get("/users/export")
+        statuses.append(resp.status_code)
+
+    assert statuses[:max_requests] == [200] * max_requests
+    assert 429 in statuses[max_requests:]

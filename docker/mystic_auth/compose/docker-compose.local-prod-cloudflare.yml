@@ -64,7 +64,7 @@ services:
 
   cloudflared:
     <<: *container_hardening
-    image: cloudflare/cloudflared@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+    image: cloudflare/cloudflared@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
     restart: unless-stopped
     # Not read_only this pass: unlike ngrok/postgres/valkey/backend/frontend/
     # etc. above (verified live against docker-compose.local-prod-ngrok.yml,
@@ -99,7 +99,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /var/run/postgresql]
-    image: postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
+    image: chainguard/postgres@sha256:4c8ef6bcf82ab05f4cca769d44847809fc069b5113893f3dc68b95983189a874
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     # Keep database traffic on the isolated backend network while giving the
@@ -116,7 +116,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       # Creates the separate "bugsink" database Bugsink uses, once on a
       # fresh volume.
-      - ../postgres-init:/docker-entrypoint-initdb.d:ro
+      - ../postgres-init:/var/lib/postgres/initdb:ro  # Chainguard postgres uses this path, not /docker-entrypoint-initdb.d - see local-prod-ngrok's identical comment
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s

@@ -2,7 +2,7 @@
 
 ---
 
-This is the current repository tree as of 11 October, 2026. It reflects the established
+This is the current repository tree as of 15 October, 2026. It reflects the established
 `app/` and `mystic_auth/` ownership split, the PBAC implementation, the shadcn/Radix frontend,
 the separated test suites, the five Docker deployment modes, and the exact template extension
 points. Generated files, local secrets, build output, and test caches are omitted.
@@ -130,6 +130,8 @@ mystic-auth/
                                   # environment, error-monitoring, geolocation, glossary,
                                   # legal, project-story, security, template-usage,
                                   # testing, translations
+      cicd/
+        local-validation.md
       project-story/
         timeline/
           2026-oct.md
@@ -180,6 +182,7 @@ mystic-auth/
     scripts/                     # script/tooling tests, including host-run port derivation
       mystic_auth/
         db/
+          test-backup-encryption-check.sh
           test-backup-compose-network.sh
           test-backup-freshness.sh
           test-backup-roundtrip.sh
@@ -217,6 +220,7 @@ mystic-auth/
           database-restore-drill.sh / .ps1 / .cmd
         backup-verification/
           backup-hmac.sh / .ps1 / .cmd
+          check-backup-encryption.sh / .ps1 / .cmd
           backup-freshness-check.sh / .ps1 / .cmd
         backup-upload/
           backup-upload.sh / .ps1 / .cmd
@@ -266,6 +270,7 @@ mystic-auth/
         frontend.Dockerfile
         db-backup.Dockerfile
         db-backup-entrypoint.sh
+        ngrok.Dockerfile
       postgres-init/
         init-bugsink-db.sh
   screenshots/
@@ -277,7 +282,9 @@ mystic-auth/
     app/                          # project-owned CI entry points and checks
       backend.sh / frontend.sh / frontend-e2e.sh
     mystic_auth/                  # upstream CI entry points and tooling guards
-      backend.sh / frontend.sh / frontend-e2e.sh / tooling.sh / tooling.ps1
+      backend.sh / frontend.sh / frontend-e2e.sh / frontend-e2e-stack.sh
+      tooling.sh / tooling.ps1
+      trivy-ngrok.ignore.yaml
     PULL_REQUEST_TEMPLATE.md
   makefiles/
     app/                         # project-owned make/make.ps1 targets, ships empty

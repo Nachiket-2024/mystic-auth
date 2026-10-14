@@ -8,3 +8,5 @@ ever conflicts on a `scripts/mystic_auth/upstream-sync/sync-upstream.sh` run.
 
 Template prompts (new-project setup, upstream sync) live in
 `agent-prompts/mystic_auth/` instead: see [that folder's README](../mystic_auth/README.md).
+
+---

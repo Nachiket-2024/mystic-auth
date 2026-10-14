@@ -22,7 +22,7 @@ services:
 
   postgres:
     <<: *logging_defaults
-    image: postgres:15.19-trixie@sha256:c961aa287d8698297cb26cdfadfbe9fd2cbaf77e53cfffe9636e8d8a1e4d842c
+    image: chainguard/postgres@sha256:4c8ef6bcf82ab05f4cca769d44847809fc069b5113893f3dc68b95983189a874
     restart: always
     env_file:
       - ../../../env/mystic_auth/.env.dev
@@ -36,7 +36,7 @@ services:
       # Runs once on a fresh volume. Creates the separate "bugsink" DB on
       # this same server. See docker/mystic_auth/postgres-init/init-bugsink-db.sh for
       # the already-initialized-volume fallback.
-      - ../postgres-init:/docker-entrypoint-initdb.d:ro
+      - ../postgres-init:/var/lib/postgres/initdb:ro  # Chainguard postgres uses this path, not /docker-entrypoint-initdb.d - see local-prod-ngrok's identical comment
     ports:
       # Non-default port to avoid colliding with other local Postgres.
       # Set POSTGRES_HOST_PORT in env/mystic_auth/.env.dev; change it if another mystic-auth

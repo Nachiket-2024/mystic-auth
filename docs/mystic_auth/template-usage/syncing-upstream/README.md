@@ -141,6 +141,13 @@ This step is fully automatic: you don't type or decide anything here. For almost
 
 Most syncs hit none of 1-3 and go straight to Step 5. The two "rare" cases are safety nets, not expected steps, they exist so a bad sync fails loudly instead of quietly.
 
+The script applies tracked file changes; it does not migrate database data or
+convert Docker volumes. Before starting a synced Compose stack, review any
+database major-version change in the incoming diff and follow the matching
+upgrade procedure. For the PostgreSQL 15 to 18 change, use the
+[dump-and-restore data-volume upgrade](../../deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade)
+before starting PostgreSQL 18 against existing deployment data.
+
 ---
 
 ### Step 5: Clean sync: you're basically done

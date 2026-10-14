@@ -72,6 +72,8 @@ focused page for the test type.
 3. Run the narrow file first, then the complete suite for that boundary. The
    commands and database isolation rules live in [Testing Overview](overview.md).
 
+---
+
 ## Reverse lookup: behavior or source to enforcing tests
 
 The focused pages are the forward map (test file → behavior). Use this index
@@ -105,3 +107,5 @@ tests for the same boundary.
 - [Backend Test Map](backend.md)
 - [Frontend Test Map](frontend.md)
 - [Tooling and CI](tooling.md)
+
+---

@@ -12,6 +12,10 @@
 **/*.key
 **/*.p12
 **/*.pfx
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
 # backend/logs/: rotated access-log files (real request data: paths,
 # timestamps, correlation IDs). `*.log` above only matches exactly ".log",
 # not rotated siblings like access.log.2026-07-19, which were previously
@@ -55,6 +59,7 @@ env/app/.env.*
 frontend/.env
 frontend/.env.bak
 frontend/.env.*
+!frontend/.env.example
 !frontend/.env.*.example
 # Real credentials for local-scripts/mystic_auth/{dev,local-prod-*,prod}/create-system-user.*;
 # these never need to be inside a build context, only run against a running

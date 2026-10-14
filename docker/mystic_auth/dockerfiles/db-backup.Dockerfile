@@ -22,7 +22,7 @@ RUN go mod edit -require="google.golang.org/grpc@${GRPC_VERSION}" \
     && GOFLAGS="-tags=noselfupdate" /go/bin/go-licenses save . --save_path=/out/rclone-licenses \
     && CGO_ENABLED=0 go build -tags=noselfupdate -trimpath -ldflags="-s -w" -o /out/rclone .
 
-FROM postgres:15-trixie@sha256:a5f9ead8ed7cb25abc36bea51fb9bb2be8d5579ed4ef3d28876027e438391ff0
+FROM postgres:18-trixie@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
 
 # The scheduled backup service needs both the B2 client and
 # curl for the Sentry-compatible Bugsink failure notification. Keep the

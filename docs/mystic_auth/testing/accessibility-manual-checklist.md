@@ -6,6 +6,8 @@ announcement quality, reading order, or every keyboard interaction. Run this
 checklist before a public release and after substantial changes to shared UI.
 Record the browser, assistive technology, date, and defects found.
 
+---
+
 ## Keyboard-only pass
 
 - [ ] Reach signup, login, password reset, and OAuth controls with `Tab` and `Shift+Tab`.
@@ -16,6 +18,8 @@ Record the browser, assistive technology, date, and defects found.
 - [ ] Tables, tabs, pagination, filters, and sort controls have an understandable keyboard order.
 - [ ] Error messages and validation results are reachable without restarting the flow.
 - [ ] At 200% zoom and narrow width, no content or controls disappear.
+
+---
 
 ## Screen-reader pass
 
@@ -32,3 +36,5 @@ Linux, Orca is the documented option; VoiceOver and NVDA are also valid.
 - [ ] The page has one useful main heading and landmarks are not duplicated or misleading.
 
 Do not mark this checklist complete based only on the Playwright axe suite.
+
+---

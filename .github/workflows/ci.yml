@@ -22,7 +22,7 @@ jobs:
       postgres:
         # GitHub-hosted runners are exempt from Docker Hub's anonymous-pull
         # rate limit; Public ECR's shared anonymous data quota can be exhausted.
-        image: docker.io/library/postgres:15@sha256:724292da1f2e50bdccfc3302ce75bbba7f4a6076701b588cc795fcac65683550
+        image: docker.io/library/postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -196,8 +196,8 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          # React Router 8 requires Node 22.22.0 or newer.
-          node-version: "22.22.0"
+          # The locked frontend tooling requires Node 22.22.2 or newer.
+          node-version: "22.22.2"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -287,6 +287,9 @@ jobs:
       - name: Run backup-freshness regression suite
         run: ci/mystic_auth/tooling.sh backup-freshness
 
+      - name: Run backup-encryption regression suite
+        run: ci/mystic_auth/tooling.sh backup-encryption
+
       - name: Check production backup network isolation
         run: ci/mystic_auth/tooling.sh backup-network
 
@@ -308,26 +311,12 @@ jobs:
     name: Docker image build verification
     runs-on: ubuntu-latest
 
-    # Builds all runtime images, then boots and smoke-tests the real dev Compose stack.
-    # The full test suite inside containers is handled by docker-full-suite.
+    # Builds, scans, and documents every shipped runtime image. Browser tests
+    # run in isolated project jobs below; the full test suite inside containers
+    # is handled by docker-full-suite.
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          # React Router 8 requires Node 22.22.0 or newer.
-          node-version: "22.22.0"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies for browser tests
-        working-directory: frontend
-        run: npm ci --legacy-peer-deps
-
-      - name: Install Playwright browsers
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium firefox webkit
 
       # Uses the *.example files only to satisfy each compose file's own
       # env_file reference (env/mystic_auth/.env.dev + env/app/.env.dev, and the
@@ -369,12 +358,15 @@ jobs:
         run: docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dockerfile -t frontend:ci .
 
       # The backup container has its own dependency surface (rclone, curl,
-      # the postgres:15 base) that drifts independently of backend/frontend -
+      # the postgres:18 base) that drifts independently of backend/frontend -
       # it has carried Critical/High CVEs while backend/frontend scanned
       # clean, entirely unnoticed because nothing built or scanned it in CI.
       # Build and scan it too.
       - name: Build db_backup image
         run: docker build -f docker/mystic_auth/dockerfiles/db-backup.Dockerfile -t db-backup:ci .
+
+      - name: Build ngrok tunnel image
+        run: docker build -f docker/mystic_auth/dockerfiles/ngrok.Dockerfile -t ngrok:ci .
 
       - name: Verify shipped dependency notices
         run: |
@@ -395,6 +387,7 @@ jobs:
             ! rclone help | grep -q selfupdate
           '
           docker run --rm --add-host backend:127.0.0.1 --entrypoint sh frontend:ci -c 'test -s /usr/share/nginx/html/third-party-notices/react_19.3.0.txt && nginx -t'
+          docker run --rm --entrypoint /ngrok ngrok:ci version
           docker run -d --name frontend-notices-smoke --add-host backend:127.0.0.1 -p 127.0.0.1:18080:80 frontend:ci
           trap 'docker rm -f frontend-notices-smoke >/dev/null 2>&1 || true' EXIT
           timeout 30 sh -c 'until curl -fsS http://127.0.0.1:18080/third-party-notices/ >/dev/null; do sleep 1; done'
@@ -402,11 +395,20 @@ jobs:
 
       - name: Scan built images for known-critical/high vulnerabilities (Trivy)
         run: |
-          for image in backend:ci frontend:ci db-backup:ci; do
+          for image in backend:ci frontend:ci db-backup:ci ngrok:ci; do
             echo "::group::Trivy - $image"
+            ignore_args=()
+            if [ "$image" = ngrok:ci ]; then
+              # The upstream binary embeds vulnerable Go dependencies that
+              # cannot be patched until ngrok publishes a rebuilt release.
+              # These image-scoped, expiring exceptions are tracked separately;
+              # all other shipped images retain the full High/Critical gate.
+              ignore_args+=(--ignorefile ci/mystic_auth/trivy-ngrok.ignore.yaml)
+            fi
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD:/workspace" -w /workspace \
               aquasec/trivy:0.68.1@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b \
-              image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed "$image"
+              image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed "${ignore_args[@]}" "$image"
             echo "::endgroup::"
           done
 
@@ -452,12 +454,23 @@ jobs:
           upload-release-assets: false
           syft-version: v1.52.0
 
+      - name: Generate ngrok runtime SBOM (SPDX JSON)
+        uses: anchore/sbom-action@8e94d75ddd33f69f691467e42275782e4bfefe84
+        with:
+          image: ngrok:ci
+          format: spdx-json
+          output-file: sbom/ngrok-runtime.spdx.json
+          artifact-name: sbom-ngrok-runtime
+          upload-artifact: false
+          upload-release-assets: false
+          syft-version: v1.52.0
+
       - name: Validate and package image SBOMs
         env:
           GIT_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json sbom/db-backup-runtime.spdx.json; do
+          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json sbom/db-backup-runtime.spdx.json sbom/ngrok-runtime.spdx.json; do
             test -s "$sbom"
             jq -e '(.spdxVersion | type == "string") and (.packages | type == "array" and length > 0)' "$sbom" >/dev/null
           done
@@ -465,15 +478,18 @@ jobs:
           backend_image_id="$(docker image inspect backend:ci --format '{{.Id}}')"
           frontend_image_id="$(docker image inspect frontend:ci --format '{{.Id}}')"
           db_backup_image_id="$(docker image inspect db-backup:ci --format '{{.Id}}')"
+          ngrok_image_id="$(docker image inspect ngrok:ci --format '{{.Id}}')"
           jq -n \
             --arg commit "$GIT_COMMIT" \
             --arg backend_id "$backend_image_id" \
             --arg frontend_id "$frontend_image_id" \
             --arg db_backup_id "$db_backup_image_id" \
+            --arg ngrok_id "$ngrok_image_id" \
             '{schemaVersion: 1, generatedForCommit: $commit, images: {
               backend: {tag: "backend:ci", localImageId: $backend_id, sbom: "backend-runtime.spdx.json"},
               frontend: {tag: "frontend:ci", localImageId: $frontend_id, sbom: "frontend-runtime.spdx.json"},
-              db_backup: {tag: "db-backup:ci", localImageId: $db_backup_id, sbom: "db-backup-runtime.spdx.json"}
+              db_backup: {tag: "db-backup:ci", localImageId: $db_backup_id, sbom: "db-backup-runtime.spdx.json"},
+              ngrok: {tag: "ngrok:ci", localImageId: $ngrok_id, sbom: "ngrok-runtime.spdx.json"}
             }}' > sbom/manifest.json
 
       - name: Upload image SBOMs
@@ -492,93 +508,117 @@ jobs:
             && echo "OK: /app/logs exists but is empty in the built image" \
             || (echo "FAIL: /app/logs contains files copied into the built image - check .dockerignore" && exit 1)
 
-      # Boots the real dev Compose stack and confirms it serves traffic.
-      # Bugsink is not started here, so blank its superuser email to skip the
-      # bounded DSN wait in the backend startup command.
+  # Run each Playwright project on an independent runner and Compose stack so
+  # browser failures surface as soon as that engine finishes.
+  browser-e2e:
+    name: Browser E2E (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: chromium-desktop
+            browser: chromium
+            workers: 2
+            run_app_e2e: true
+          - project: chromium-mobile
+            browser: chromium
+            workers: 2
+            run_app_e2e: false
+          - project: firefox-desktop
+            browser: firefox
+            workers: 2
+            run_app_e2e: false
+          - project: webkit-desktop
+            browser: webkit
+            workers: 1
+            run_app_e2e: false
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies for browser tests
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Set up frontend .env for browser tests
+        working-directory: frontend
+        run: cp .env.example .env
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps "${{ matrix.browser }}"
+
+      # The app suite runs all configured projects in its designated job.
+      - name: Install remaining browsers for app E2E coverage
+        if: matrix.run_app_e2e
+        working-directory: frontend
+        run: npx playwright install --with-deps firefox webkit
+
       - name: Boot the dev stack
-        run: |
-          if [ -e env/mystic_auth/.env.dev ] || [ -e env/app/.env.dev ]; then
-            echo "::error::Refusing to overwrite existing env/mystic_auth/.env.dev or env/app/.env.dev"
-            exit 1
-          fi
-          cp env/mystic_auth/.env.dev.example env/mystic_auth/.env.dev
-          cp env/app/.env.dev.example env/app/.env.dev
-          touch env/mystic_auth/.env.dev.ci-created
-          sed -i 's/^BUGSINK_SUPERUSER_EMAIL=.*/BUGSINK_SUPERUSER_EMAIL=/' env/mystic_auth/.env.dev
-          sed -i 's/^EMAIL_ENABLED=.*/EMAIL_ENABLED=false/' env/mystic_auth/.env.dev
-          # Keep template-owned browser tests independent of a fork's app
-          # default policies. The disposable CI copy is the only file changed.
-          if grep -q '^DEFAULT_APP_POLICIES=' env/app/.env.dev; then
-            sed -i 's/^DEFAULT_APP_POLICIES=.*/DEFAULT_APP_POLICIES=/' env/app/.env.dev
-          else
-            printf '\nDEFAULT_APP_POLICIES=\n' >> env/app/.env.dev
-          fi
-          # The browser matrix intentionally makes more than 100 authenticated
-          # requests from one runner IP. Keep production's default limit intact
-          # while giving this disposable CI stack enough headroom to test the
-          # application instead of its own test traffic budget.
-          sed -i 's/^MAX_REQUESTS_PER_WINDOW=.*/MAX_REQUESTS_PER_WINDOW=1000/' env/mystic_auth/.env.dev
-          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build postgres valkey alembic backend frontend procrastinate_worker
+        run: ci/mystic_auth/frontend-e2e-stack.sh prepare && ci/mystic_auth/frontend-e2e-stack.sh up
 
       - name: Wait for backend to report healthy
-        run: timeout 150 sh -c 'until curl -sf http://localhost:8000/health/ready >/dev/null 2>&1; do sleep 3; done'
+        run: ci/mystic_auth/frontend-e2e-stack.sh wait-backend
 
-      # The real-account permission-matrix browser test requires these
-      # disposable verified/active PBAC accounts. The script is available
-      # through the backend container's /repo bind mount and only replaces
-      # users whose email starts with matrix-.
       - name: Seed browser permission matrix accounts
-        run: >-
-          docker compose
-          -f docker/mystic_auth/compose/docker-compose.dev.yml
-          -f docker/app/compose/docker-compose.dev.yml
-          --env-file env/mystic_auth/.env.dev
-          --env-file env/app/.env.dev
-          exec -T -w /repo backend
-          python local-scripts/mystic_auth/seed-user-permission-matrix.py
+        run: ci/mystic_auth/frontend-e2e-stack.sh seed-matrix
 
       - name: Wait for frontend dev server to respond
-        run: timeout 60 sh -c 'until curl -sf http://localhost:5173 >/dev/null 2>&1; do sleep 3; done'
+        run: ci/mystic_auth/frontend-e2e-stack.sh wait-frontend
 
       - name: Smoke-test the booted stack
-        run: |
-          curl -sf http://localhost:8000/health/ready | grep -q '"status":"ok"' \
-            && echo "OK: backend /health/ready reports ok through the actual image"
-          curl -sf http://localhost:5173 | grep -qi '<div id="root">' \
-            && echo "OK: frontend dev server serves the app shell through the actual image"
+        run: ci/mystic_auth/frontend-e2e-stack.sh smoke
+
+      - name: Stop the dev frontend so Playwright starts its production preview
+        run: ci/mystic_auth/frontend-e2e-stack.sh stop-frontend
 
       - name: "Backup: create encrypted dumps and verify freshness"
+        if: matrix.run_app_e2e
         run: ci/mystic_auth/tooling.sh backup-roundtrip
 
       - name: "Restore-drill: prove the backup path actually restores"
+        if: matrix.run_app_e2e
         run: ci/mystic_auth/tooling.sh restore-drill
 
       - name: Run MysticAuth browser E2E tests
         env:
           EMAIL_ENABLED: "false"
-          # Exercise the built frontend artifact; Vite's dev-server HMR can
-          # invalidate lazy route modules during the full cross-browser matrix.
+          PLAYWRIGHT_BASE_URL: http://localhost:5173
           PLAYWRIGHT_USE_PREVIEW: "1"
-        run: ci/mystic_auth/frontend-e2e.sh
+          PLAYWRIGHT_WORKERS: "${{ matrix.workers }}"
+        run: ci/mystic_auth/frontend-e2e.sh --project="${{ matrix.project }}"
 
       - name: Run app browser E2E tests
+        if: matrix.run_app_e2e
         env:
           EMAIL_ENABLED: "false"
+          PLAYWRIGHT_BASE_URL: http://localhost:5173
           PLAYWRIGHT_USE_PREVIEW: "1"
         run: ci/app/frontend-e2e.sh
 
-      # Prints container logs only when a previous step failed.
+      - name: Upload browser test traces on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: browser-test-results-${{ github.run_id }}-${{ matrix.project }}
+          path: frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Show container logs (only runs on failure)
         if: failure()
-        run: docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev logs --no-color
+        run: ci/mystic_auth/frontend-e2e-stack.sh logs
 
       - name: Tear down the dev stack
         if: always()
-        run: |
-          docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev down -v
-          if [ -f env/mystic_auth/.env.dev.ci-created ]; then
-            rm -f env/mystic_auth/.env.dev env/app/.env.dev env/mystic_auth/.env.dev.ci-created
-          fi
+        run: ci/mystic_auth/frontend-e2e-stack.sh down
 
   # Re-runs the full suites through the actual Compose stack. This catches
   # container-specific drift and is gated to pushes to main to avoid doubling
@@ -591,7 +631,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      # Same CI-only Bugsink DSN wait shortcut as docker-build.
+      # Same CI-only Bugsink DSN shortcut as the browser-e2e stack helper.
       # BACKEND_BUILD_TARGET=test builds the backend from the Dockerfile's
       # `test` stage so pytest is available inside the container below,
       # without the runtime image everyone else deploys ever shipping test

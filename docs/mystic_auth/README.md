@@ -137,6 +137,7 @@ Read the docs in this order if you are new to the repository:
 ## CI/CD
 
 - [CI/CD Overview](cicd/overview.md): GitHub Actions workflow, jobs, gaps
+- [CI Local Validation](cicd/local-validation.md): local commands mapped to the CI jobs, disposable browser stack, Windows PowerShell invocation, and checks that need hosted services or credentials
 
 ---
 
@@ -145,7 +146,7 @@ Read the docs in this order if you are new to the repository:
 - [Deployment Guide](deployment/guide.md): mode chooser and links to focused deployment references
 - [Environment and Runtime Configuration](deployment/environment.md): env file selection, build-time vs runtime settings, production review checklist
 - [Frontend and Backend Routing](deployment/routing.md): same-origin nginx proxying, trusted proxy IPs, and SPA/API route collisions
-- [Migrations and Backups](deployment/migrations-and-backups.md): Alembic service behavior, backup scripts, scheduled backup sidecar, restore discipline
+- [Migrations and Backups](deployment/migrations-and-backups.md): Alembic service behavior, PostgreSQL 15-to-18 volume migration, backup scripts, scheduled backup sidecar, restore discipline
 - [Production Host Requirements](deployment/production-host.md): shutdown behavior, service responsibilities, host requirements, deployment limitations
 - [Dev Deployment](deployment/dev.md): local development, hot reload, no TLS
 - [Local-Prod Deployment](deployment/local-prod/README.md): self-hosted production image shape exposed via a free tunnel, no public server needed, with [Cloudflare Quick Tunnel](deployment/local-prod/cloudflare-quick-tunnel.md), [Cloudflare Named Tunnel](deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](deployment/local-prod/ngrok-tunnel.md), and [Tailscale Funnel](deployment/local-prod/tailscale-funnel.md) walkthroughs

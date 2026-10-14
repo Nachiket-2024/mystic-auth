@@ -6,6 +6,8 @@ Product-specific credentials belong to the downstream application. MysticAuth
 provides a small secret-provider contract; it does not store integration
 credentials in its database or configuration model.
 
+---
+
 ## Extension point
 
 Implement `SecretProvider` in `backend/app/` and register your provider from
@@ -31,6 +33,8 @@ configuration error if the value is missing or empty. The built-in
 process environment and rejects names that are not valid environment
 identifiers.
 
+---
+
 ## Supplying values
 
 For local development, provide values through the ignored app runtime env file
@@ -45,6 +49,8 @@ Read a secret at the point the integration needs it. Do not dump the full
 environment or secret mapping into logs, API responses, task arguments,
 migrations, audit metadata, or JSON settings. Tests should inject a small fake
 provider rather than relying on a developer's real credentials.
+
+---
 
 ## Ownership
 
