@@ -76,7 +76,7 @@ const StatusSection: React.FC<StatusSectionProps> = ({ heading, isLoading, isErr
  * page width (see AccountSettingsPage.tsx).
  */
 const AccountStatusCard: React.FC = () => {
-    const { t } = useTranslation("account_settings");
+    const { t } = useTranslation(["account_settings", "policies"]);
     const { data: myPolicies, isLoading: policiesLoading, isError: policiesError } = useMyPoliciesQuery();
     const { data: myPermissions, isLoading: permissionsLoading, isError: permissionsError } = useMyPermissionsQuery();
 
@@ -128,7 +128,7 @@ const AccountStatusCard: React.FC = () => {
                                 {groupPoliciesByResourceType(policies).map(([resourceType, groupedPolicies]) => (
                                     <div key={resourceType} className="flex flex-col gap-1.5">
                                         <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-                                            {formatResourceTypeLabel(resourceType)}
+                                            {formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes"))}
                                         </span>
                                         {groupedPolicies.map((p) => (
                                             <p key={p.name} className="text-sm font-medium text-fg-default">

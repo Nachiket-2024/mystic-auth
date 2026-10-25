@@ -18,12 +18,29 @@ LOGOUT = "logout"
 LOGOUT_ALL = "logout_all"
 SIGNUP = "signup"
 OAUTH2_LOGIN_SUCCESS = "oauth2_login_success"
+# A callback whose state param didn't match the oauth_state cookie, or
+# whose state had already expired/been consumed - rejected before any
+# account identity is known, so user_email is always None for this one.
+# Distinct from OAUTH2_LOGIN_SUCCESS/success=False (which always has a real
+# target email): this is the earlier, pre-identity rejection point, and a
+# burst of these from one IP is itself a signal worth being able to query
+# for (state-replay/CSRF probing), which a generic WARNING log line buried
+# in application logs is not.
+OAUTH2_STATE_MISMATCH = "oauth2_state_mismatch"
 PASSWORD_RESET_REQUESTED = "password_reset_requested"
 PASSWORD_RESET_CONFIRMED = "password_reset_confirmed"
 ACCOUNT_VERIFICATION_REQUESTED = "account_verification_requested"
 ACCOUNT_VERIFIED = "account_verified"
 ACCOUNT_LOCKED = "account_locked"
+LOGIN_IP_LOCKED = "login_ip_locked"
 REFRESH_TOKEN_REUSE_DETECTED = "refresh_token_reuse_detected"
+# A single, clean (non-reuse) refresh redemption whose IP and/or User-Agent
+# differs from the ones recorded when this session chain was first created.
+# Not proof of theft on its own (a legitimate user switching networks/devices
+# triggers this too), but it is the one concrete signal a stolen-and-used-
+# once token leaves that reuse-detection alone never catches - see
+# RefreshTokenService's refresh_tokens()/session_service.rotate_session.
+REFRESH_TOKEN_CONTEXT_CHANGED = "refresh_token_context_changed"
 SESSION_EVENT_CONNECTION_LIMIT_EXCEEDED = "session_event_connection_limit_exceeded"
 SESSION_REVOKED = "session_revoked"           # One specific session ended via the Manage Sessions card
 ACCOUNT_DELETED = "account_deleted"           # Soft delete (reversible), admin-initiated

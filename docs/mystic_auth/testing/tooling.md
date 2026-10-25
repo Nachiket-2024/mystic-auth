@@ -15,8 +15,9 @@ define which boundary is authoritative and which checks are informational.
 - `tests/scripts/mystic_auth/env-tools/test-env-tooling.sh` verifies
   environment-tool behavior and safe handling of configured values.
 - `tests/scripts/mystic_auth/db/test-restore-drill.sh` verifies disposable
-  database restore-drill behavior and cleanup, including a configured
-  project-specific `POSTGRES_USER` rather than a hardcoded `postgres` role.
+  restores of the configured app and Bugsink databases, HMAC checks, populated
+  database row-count parity, the empty dev Bugsink case, scratch cleanup, and
+  a configured `POSTGRES_USER` rather than a hardcoded `postgres` role.
 - `tests/scripts/mystic_auth/lint/check-script-paths.sh` verifies repository
   path references in CI, scripts, docs, and tests remain resolvable. The CI
   entrypoint is `ci/mystic_auth/tooling.sh script-paths`.
@@ -35,7 +36,11 @@ define which boundary is authoritative and which checks are informational.
   production-shaped services declare `read_only: true`; services that need a
   writable location use an explicit volume or tmpfs instead.
 - `tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh` verifies
-  upstream synchronization checks and safe handling of changed files.
+  upstream synchronization: history handling, the safety nets (silent partial
+  apply, executable-bit self-heal, a missing stage file), and the ownership
+  guard. It sources the `test-sync-upstream-history.sh`,
+  `test-sync-upstream-safety.sh`, and `test-sync-upstream-ownership.sh` phases
+  beside it, so run it through the entry point.
 - `tests/scripts/mystic_auth/db/test-backup-freshness.sh` verifies the
   backup-freshness check script correctly flags a stale or missing backup.
 - `tests/scripts/mystic_auth/db/test-backup-encryption-check.sh` verifies the

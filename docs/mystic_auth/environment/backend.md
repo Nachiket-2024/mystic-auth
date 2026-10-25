@@ -43,10 +43,10 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `SMTP_PORT` | integer | yes | SMTP server port. Gmail STARTTLS uses `587`. |
 | `EMAIL_ENABLED` | boolean | no, defaults true | `false` uses `NullEmailSender`, logging email instead of opening SMTP. Tests force this false. |
 | `APP_NAME` | string | yes | Product name in API root response, email templates, and frontend build arg alias. |
-| `LOGIN_LOCKOUT_TIME` | integer seconds | yes | Account lockout duration after too many failed logins for one email. |
-| `MAX_FAILED_LOGIN_ATTEMPTS` | integer | yes | Failed login threshold per account. |
-| `LOGIN_LOCKOUT_TIME_PER_IP` | integer seconds | yes | IP lockout duration after too many failed login attempts across accounts. |
-| `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` | integer | yes | Failed login threshold per IP. |
+| `LOGIN_LOCKOUT_TIME` | integer seconds | yes | Default lockout duration for email-scoped one-time protected actions such as password reset, verification, and account deletion confirmation. |
+| `MAX_FAILED_LOGIN_ATTEMPTS` | integer | yes | Default failed-attempt threshold for those email-scoped protected actions. Login itself uses the account/source-IP pair settings below. |
+| `LOGIN_LOCKOUT_TIME_PER_IP` | integer seconds | yes | Lockout duration for one normalized account/source-IP pair after repeated failed logins. The legacy variable name is retained for existing env files. |
+| `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` | integer | yes | Failed-login threshold for one normalized account/source-IP pair. The legacy variable name is retained for existing env files. |
 | `ACTION_RESERVATION_TIME` | integer seconds | no, defaults to `60` | Valkey reservation lifetime used to serialize concurrent password-reset, verification, and account-deletion confirmations. Keep it longer than the slowest expected mutation, but shorter than the user-facing lockout window. |
 | `REFRESH_TOKEN_REUSE_GRACE_SECONDS` | integer seconds | no, defaults to `10` | Same-IP duplicate refresh grace window. A retry inside the window is rejected without revoking the first request; an older or cross-IP replay revokes its chain. |
 | `SESSION_ROW_RETENTION_HOURS` | integer hours | no, defaults to `1` | Retention buffer for naturally expired session rows before the daily cleanup job removes them. |
@@ -61,7 +61,7 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `GEOIP_DB_PATH` | filesystem path | yes, can be empty | MaxMind GeoLite2-City `.mmdb` path. Empty disables session geolocation and shows "Unknown". |
 | `SENTRY_DSN` | DSN string | yes, can be empty | Backend Sentry-protocol DSN. Empty disables backend error monitoring. |
 | `SENTRY_ENVIRONMENT` | string | yes, can be empty | Backend error-monitoring environment tag. Empty falls back to `ENVIRONMENT`. |
-| `SECURITY_ALERT_WEBHOOK_URL` | URL, optional | no, defaults empty | HTTPS `POST` endpoint supplied by an incident gateway or generic webhook receiver. It receives refresh-token reuse, SSE-cap, and account-lockout alerts. Empty disables direct delivery. See [Direct security-alert webhook](../error-monitoring/overview.md#direct-security-alert-webhook). |
+| `SECURITY_ALERT_WEBHOOK_URL` | HTTPS URL, optional outside production | no, defaults empty | HTTPS `POST` endpoint supplied by an incident gateway or generic webhook receiver. It receives refresh-token reuse, SSE-cap, and account-lockout alerts. Production startup fails if this is empty, so security alerts cannot be silently disabled. See [Direct security-alert webhook](../error-monitoring/overview.md#direct-security-alert-webhook). |
 | `SECURITY_ALERT_WEBHOOK_TOKEN` | secret, optional | no, defaults empty | Bearer credential issued by that receiver; sent only in the `Authorization` header and never logged. |
 | `SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS` | number, optional | no, defaults `2` | Maximum wait for the receiver. Delivery is best effort and never blocks authentication. |
 | `ACCOUNT_PURGE_GRACE_DAYS` | integer days | yes | Grace period before the scheduled purge job hard-deletes soft-deleted accounts. |

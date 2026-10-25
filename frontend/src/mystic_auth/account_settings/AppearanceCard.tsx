@@ -42,7 +42,7 @@ const SUGGESTED_BRAND_COLORS = [
     "#2f7448",
 ];
 
-// fg.default's fixed values in tailwind.css: text color doesn't move
+// fg.default's fixed values in tailwind-tokens.css: text color doesn't move
 // with the derived background, so preview boxes check against these.
 const FG_LIGHT = "#3f3f46";
 const FG_DARK = "#f4f4f5";

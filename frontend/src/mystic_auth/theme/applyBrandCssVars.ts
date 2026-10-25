@@ -12,7 +12,7 @@ import appThemeOverrides from "../../app/theme";
  * --bg-sidebar - see appearanceThemeOverrides.ts's deriveCanvasFrom/
  * deriveSidebar) onto <html>, from the signed-in user's own Appearance pick
  * (falling back to BRAND_COLOR, then app/theme.ts's own override for a
- * fork-level default). Every other brand-derived token in tailwind.css
+ * fork-level default). Every other brand-derived token in tailwind-tokens.css
  * (brand-fg, brand-subtle, brand-selected, etc.) already references
  * var(--brand-*) itself, so overriding just the raw steps is enough for
  * them to follow along in both light and dark.
@@ -41,7 +41,7 @@ function currentBrandColor(): string {
     return useAppearanceStore.getState().brandColor ?? appThemeOverrides.brandColor ?? BRAND_COLOR;
 }
 
-// Fork-level static overrides (any tailwind.css var beyond the brand scale -
+// Fork-level static overrides (any tailwind-tokens.css var beyond the brand scale -
 // fonts, radii, etc.), applied once at startup. Lower priority than
 // everything above: a signed-in user's own brand pick still wins on
 // whichever --brand-* steps it touches, since applyBrandCssVars below runs

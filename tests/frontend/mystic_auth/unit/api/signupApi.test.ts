@@ -17,9 +17,9 @@ describe('signupApi', () => {
       password: 'Test123!',
     };
     const mockResponse = { message: 'Signup successful', user_id: '123' };
-    
+
     mock.onPost('/auth/signup', payload).reply(201, mockResponse);
-    
+
     const response = await signupApi(payload);
     expect(response.status).toBe(201);
     expect(response.data).toEqual(mockResponse);
@@ -31,9 +31,9 @@ describe('signupApi', () => {
       email: 'existing@example.com',
       password: 'Test123!',
     };
-    
+
     mock.onPost('/auth/signup').reply(400, { error: 'Email already exists' });
-    
+
     await expect(signupApi(payload)).rejects.toThrow();
   });
 });

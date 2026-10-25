@@ -6,11 +6,13 @@ import asyncio
 
 import pytest
 
+from backend.mystic_auth.auth.password_logic.password_reset_service import (
+    password_reset_service,
+)
 from backend.mystic_auth.auth.password_logic.password_service import (
     password_service,
 )
 from backend.mystic_auth.core.settings import settings
-from backend.mystic_auth.valkey.client import valkey_client
 
 from .auth_test_accounts import (
     PASSWORD,
@@ -29,8 +31,35 @@ async def _request_password_reset(client, email: str) -> str:
     assert resp.status_code == 200
 
     token = await password_service.create_reset_token(email)
-    await valkey_client.set(f"password_reset:{token}", "1", ex=settings.RESET_TOKEN_EXPIRE_MINUTES * 60)
+    assert await password_reset_service.store_reset_token(
+        email, token, settings.RESET_TOKEN_EXPIRE_MINUTES * 60
+    )
     return token
+
+
+@pytest.mark.asyncio
+async def test_only_the_most_recent_password_reset_link_can_be_used(client, created_emails):
+    email = unique_email()
+    await signup_verify_login(client, created_emails, email)
+    client.cookies.clear()
+
+    older_token = await password_service.create_reset_token(email)
+    newer_token = await password_service.create_reset_token(email)
+    ttl = settings.RESET_TOKEN_EXPIRE_MINUTES * 60
+    assert await password_reset_service.store_reset_token(email, older_token, ttl)
+    assert await password_reset_service.store_reset_token(email, newer_token, ttl)
+
+    older_response = await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": older_token, "new_password": "OlderResetPass123!"},
+    )
+    assert older_response.status_code == 400
+
+    newer_response = await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": newer_token, "new_password": "NewestResetPass456!"},
+    )
+    assert newer_response.status_code == 200
 
 
 @pytest.mark.asyncio

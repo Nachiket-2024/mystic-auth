@@ -63,7 +63,7 @@ async def list_all_users(
     # Keep the historical "all users" default for API callers. The frontend
     # passes its own explicit limit and offset.
     limit: int = Query(default=1000, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=10_000_000),
     search: str | None = Query(
         default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description="Case-insensitive substring match on name or email"
     ),

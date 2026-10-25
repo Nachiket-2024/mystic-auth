@@ -127,7 +127,7 @@ test.describe("dashboard page browser behavior", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/dashboard");
 
-    await page.getByRole("button", { name: /go to the sessions list/i }).click();
+    await page.getByRole("button", { name: /^active sessions?/i }).click();
 
     await expect(page.locator("#active-sessions")).toBeFocused();
     await expect(page.getByRole("heading", { name: "Active Sessions", exact: true })).toBeInViewport({ ratio: 1 });

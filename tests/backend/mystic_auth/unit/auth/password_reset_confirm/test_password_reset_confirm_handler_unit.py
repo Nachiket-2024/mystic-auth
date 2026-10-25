@@ -1,5 +1,5 @@
 # Pins down password_reset_confirm_handler.py's lockout key namespace: it
-# must be distinct from login's "login_lock:email:" key, or failures
+# must be distinct from login's "login_lock:account_ip:" key, or failures
 # unrelated to a real login attempt (weak new password, reused old
 # password, stale token) could trip the unrelated login lockout for the
 # same email.

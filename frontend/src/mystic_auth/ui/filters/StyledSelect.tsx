@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import AppTooltip from "../feedback/AppTooltip";
 import { cn } from "../styles/classNames";
 
+import { cspNonce } from "../../core/cspNonce.ts";
 export interface StyledSelectOption {
     label: string;
     value: string;
@@ -161,7 +162,7 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                         // enough on its own.
                         className="z-[1500] w-max min-w-[var(--radix-select-trigger-width)] max-w-[min(28rem,calc(100vw-2rem))] overflow-hidden rounded-md border border-brand-border bg-popover p-0 text-popover-foreground shadow-md data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
                     >
-                        <SelectPrimitive.Viewport className="dropdown-scroll-area max-h-[min(20rem,var(--radix-select-content-available-height))] overflow-y-auto p-1 min-w-[var(--radix-select-trigger-width)]">
+                        <SelectPrimitive.Viewport nonce={cspNonce} className="dropdown-scroll-area max-h-[min(20rem,var(--radix-select-content-available-height))] overflow-y-auto p-1 min-w-[var(--radix-select-trigger-width)]">
                             {options.map((option) => (
                                 <SelectPrimitive.Item
                                     key={option.value}

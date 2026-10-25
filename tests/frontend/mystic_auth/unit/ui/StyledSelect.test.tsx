@@ -28,13 +28,13 @@ describe('StyledSelect', () => {
   it('shows the label of the option matching the current value', () => {
     renderSelect({ value: 'admin' });
 
-    expect(screen.getByRole('combobox', { name: 'Filter by role' })).toHaveTextContent('Admin');
+    expect(screen.getByRole('combobox', { name: /^Filter by role/ })).toHaveTextContent('Admin');
   });
 
   it('calls onChange with the picked option value when a new option is chosen', async () => {
     const { onChange } = renderSelect();
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Filter by role' }));
+    await userEvent.click(screen.getByRole('combobox', { name: /^Filter by role/ }));
     await userEvent.click(screen.getByRole('option', { name: 'Admin' }));
 
     expect(onChange).toHaveBeenCalledWith('admin');
@@ -45,7 +45,7 @@ describe('StyledSelect', () => {
     // placeholder slot instead of an option's own label.
     renderSelect({ value: '__unset__', isLoading: true, placeholder: 'Pick one' });
 
-    const trigger = screen.getByRole('combobox', { name: 'Filter by role' });
+    const trigger = screen.getByRole('combobox', { name: /^Filter by role/ });
     expect(trigger).toHaveAttribute('data-disabled');
     expect(trigger).toHaveTextContent('Loading...');
   });
@@ -53,12 +53,12 @@ describe('StyledSelect', () => {
   it('disables the trigger when disabled is passed', () => {
     renderSelect({ disabled: true });
 
-    expect(screen.getByRole('combobox', { name: 'Filter by role' })).toHaveAttribute('data-disabled');
+    expect(screen.getByRole('combobox', { name: /^Filter by role/ })).toHaveAttribute('data-disabled');
   });
 
   it('gives the trigger a different class (brand-tint styling) once isActive is true', () => {
     const { rerender } = renderSelect({ value: 'admin', isActive: false });
-    const trigger = () => screen.getByRole('combobox', { name: 'Filter by role' });
+    const trigger = () => screen.getByRole('combobox', { name: /^Filter by role/ });
     const inactiveClassName = trigger().className;
 
     rerender(
@@ -77,7 +77,7 @@ describe('StyledSelect', () => {
   it('renders every option label in the open menu', async () => {
     renderSelect();
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Filter by role' }));
+    await userEvent.click(screen.getByRole('combobox', { name: /^Filter by role/ }));
 
     for (const option of OPTIONS) {
       expect(screen.getByRole('option', { name: option.label })).toBeInTheDocument();

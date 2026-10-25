@@ -57,7 +57,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
             const retryAfter = Number(retryAfterHeader);
             if (Number.isFinite(retryAfter) && retryAfter > 0) {
                 startLockedCooldown(Math.ceil(retryAfter));
-            } else if (cause.response.data?.code === "ACCOUNT_LOCKED") {
+            } else if (
+                cause.response.data?.code === "ACCOUNT_LOCKED" ||
+                cause.response.data?.code === "LOGIN_THROTTLED"
+            ) {
                 const minutes = Number(cause.response.data?.params?.minutes) || 1;
                 startLockedCooldown(minutes * 60);
             }
@@ -131,9 +134,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
 
             {/* Server errors (wrong password, locked, rate limited) sit directly above
                 the main button, so they're in view when the user clicks again.
-                errors.json's own ACCOUNT_LOCKED translation already renders the
-                minutes-granularity lockout copy, so it's used as-is; only the
-                button below adds its own live mm:ss countdown. */}
+                the API error already renders the translated lockout message;
+                only the button below adds its own live mm:ss countdown. */}
             {loginMutation.isError && (
                 <div ref={errorPanelRef} tabIndex={-1} className="rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
                     <FormAlert status="error" id="login-error">

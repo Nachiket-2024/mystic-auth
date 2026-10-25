@@ -36,12 +36,23 @@ class AccountDeletionService:
     ) -> str:
         expire = datetime.now(UTC) + timedelta(minutes=expires_minutes)
 
+        # account_ver is baked in and re-checked at redemption (see
+        # confirm_deletion), the same security-stamp pattern access/refresh
+        # tokens already use. This OAuth-only flow has no password to rotate
+        # as a way to invalidate a previously captured link, so without this
+        # a confirmation link captured during a session compromise would
+        # outlive that compromise: logout-all (or any other account_ver
+        # bump) now invalidates it for free, the same way it already
+        # invalidates every other outstanding token on the account.
+        account_ver = await jwt_service.get_account_version(email)
+
         # The "account_delete" type claim rejects any other validly-signed
         # JWT (access, refresh, reset) carrying an "email" claim, so tokens
         # can't be swapped between these otherwise-similar flows.
-        payload: dict[str, str | float] = {
+        payload: dict[str, str | float | int] = {
             "email": email,
             "type": "account_delete",
+            "account_ver": account_ver,
             "exp": expire.timestamp(),
             "iss": settings.JWT_ISSUER,
             "aud": settings.JWT_AUDIENCE,
@@ -160,6 +171,19 @@ class AccountDeletionService:
             email = payload.get("email")
             if not email:
                 logger.warning("Email missing from account deletion token payload")
+                return False
+
+            # Reject a stale link from before the account's last account_ver
+            # bump (logout-all, a targeted session revoke, etc.): see the
+            # security-stamp comment on create_account_deletion_token. The
+            # token was already consumed above regardless, so there is
+            # nothing to restore here - a still-current confirmation attempt
+            # simply requests a fresh link.
+            token_account_ver = payload.get("account_ver")
+            if token_account_ver is None or int(token_account_ver) != await jwt_service.get_account_version(email):
+                logger.warning(
+                    "Account deletion token rejected: account_ver changed since issuance for %s", email
+                )
                 return False
 
             user = await user_crud.get_by_email(email, db)

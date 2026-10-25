@@ -18,6 +18,9 @@ for compose_file in \
     in_service { print }
   ' "$compose_file")"
   grep -Fq 'networks: [postgres_net, backup_egress_net]' <<<"$service_block"
+  grep -Fq 'RCLONE_CONFIG: /dev/null' <<<"$service_block"
+  grep -Fq 'RCLONE_CONFIG_B2_ACCOUNT:' <<<"$service_block"
+  grep -Fq 'RCLONE_CONFIG_B2_KEY:' <<<"$service_block"
 
   egress_block="$(awk '
     /^  backup_egress_net:/ { in_network=1 }

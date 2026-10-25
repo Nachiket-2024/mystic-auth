@@ -11,6 +11,9 @@
     <!-- Static placeholder, kept in sync by hand with settings.ts's
          BRAND_COLOR fallback; applyFaviconAndMetaColor.ts corrects it once
          the app boots. -->
+    <!-- nginx replaces __CSP_NONCE__ with a per-response nonce; see
+         mystic_auth/core/cspNonce.ts. -->
+    <meta name="csp-nonce" content="__CSP_NONCE__" />
     <meta name="theme-color" content="#b5533c" />
     <meta name="description" content="%VITE_APP_NAME% - authentication and policy-based access control." />
     <title>%VITE_APP_NAME%</title>

@@ -148,16 +148,26 @@ One row per login session, backing the "Manage Sessions" dashboard card. `curren
 ### `token_revocation_versions`
 
 Durable account- and session-scoped counters used to invalidate JWTs without
-enumerating active tokens. Keys use `account_ver:{email}` or
-`chain_ver:{email}:{chain_id}`; each successful revoke atomically increments
-the matching row. There is no user foreign key, so account and chain version
-rows currently survive hard purge. Valkey may cache a value, but token checks
-read PostgreSQL as the authority. See `backend/mystic_auth/auth/token_logic/`
-and [Session Management](../authentication/session-management/README.md).
+enumerating active tokens. New keys use versioned HMAC identifiers
+(`account_ver:v2:<email-hmac>` or `chain_ver:v2:<email-hmac>:<chain-id>`),
+so a database disclosure does not expose account email addresses from these
+rows. Each successful revoke atomically increments the matching row. There is
+no user foreign key because revocation must outlive a hard purge; otherwise a
+still-valid token could become valid again after the address is registered
+again. During migration, readers check both HMAC and legacy raw-email keys.
+Run `python -m mystic_auth.scripts.migrate_token_revocation_identifiers
+--dry-run` and then `--apply` after all old application instances have been
+replaced. The migration preserves the highest version, processes locked
+batches, and emits no identifiers. Do not roll back to a release that only
+understands raw-email keys after applying it. It also removes legacy raw-key
+Valkey entries; current cache entries use the same HMAC identifiers. Valkey
+may cache a value, but token checks read PostgreSQL as the authority. See
+`backend/mystic_auth/auth/token_logic/` and
+[Session Management](../authentication/session-management/README.md).
 
 | Column | Type | Notes |
 |---|---|---|
-| `key` | string(512), PK | Account or session-chain scope, currently containing the account email. |
+| `key` | string(512), PK | Versioned account or session-chain scope; v2 account identity is a keyed HMAC. Legacy raw-email keys are removed by the migration command. |
 | `version` | bigint | Monotonically incremented version; defaults to `0`. |
 | `updated_at` | timestamp with time zone | Updated with each successful increment. |
 

@@ -109,6 +109,23 @@ async def test_reset_token_round_trips_through_create_and_verify():
     assert payload is not None
     assert payload["email"] == "user@example.com"
     assert payload["type"] == "reset"
+    assert payload["jti"]
+
+
+@pytest.mark.asyncio
+async def test_verify_reset_token_rejects_older_validly_signed_token_without_current_issuer_audience():
+    older_token = pyjwt.encode(
+        {
+            "email": "user@example.com",
+            "type": "reset",
+            "jti": "old-reset-link",
+            "exp": time.time() + 600,
+        },
+        settings.SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
+
+    assert await password_service.verify_reset_token(older_token) is None
 
 
 @pytest.mark.asyncio

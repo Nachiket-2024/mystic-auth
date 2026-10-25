@@ -209,18 +209,30 @@ async def test_list_active_limits_filters_by_scope_and_endpoint_via_match_patter
 
 @pytest.mark.asyncio
 async def test_list_active_limits_filters_by_email_scope_via_match_pattern(mocker):
-    # login_protection_service's login_lock:email:* counters are a real
-    # scope value (see RateLimitEntry.scope on the frontend). The service
-    # layer has always accepted it; it was only the route's Query pattern
-    # that used to reject it (see
-    # test_rate_limit_routes_integration.py's
-    # test_scope_filter_accepts_email_scope).
+    # The `email` scope remains accepted for other email-keyed protection
+    # counters and existing TTL-bound keys; login now uses account_ip.
     scan_mock = _patch_scan(mocker, 0, [])
     _patch_pipeline(mocker, [])
 
     await rate_limit_dashboard_service.list_active_limits(scope="email", endpoint="login_lock")
 
     scan_mock.assert_awaited_once_with(cursor=0, match="login_lock:email:*", count=rate_limit_dashboard_service._SCAN_BATCH)
+
+
+@pytest.mark.asyncio
+async def test_account_ip_lockout_scope_is_listed_with_its_own_threshold(mocker):
+    key = "login_lock:account_ip:opaque-pair-digest"
+    _patch_scan(mocker, 0, [key])
+    _patch_pipeline(mocker, [str(settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP), 300])
+
+    entries, total, _ = await rate_limit_dashboard_service.list_active_limits(
+        scope="account_ip", endpoint="login_lock"
+    )
+
+    assert total == 1
+    assert entries[0]["scope"] == "account_ip"
+    assert entries[0]["identifier"] == "opaque-pair-digest"
+    assert entries[0]["limit"] == settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
 
 
 @pytest.mark.asyncio

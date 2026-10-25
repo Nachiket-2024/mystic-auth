@@ -117,9 +117,11 @@ if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.pro
 fi
 grep -q "BACKUP_ENCRYPTION_KEY is blank" /tmp/check-env-backup.$$ || fail "check-env: did not identify blank BACKUP_ENCRYPTION_KEY"
 grep -q "BACKUP_UPLOAD_COMMAND is blank" /tmp/check-env-backup.$$ || fail "check-env: did not identify blank BACKUP_UPLOAD_COMMAND"
+grep -q "SECURITY_ALERT_WEBHOOK_URL is blank" /tmp/check-env-backup.$$ || fail "check-env: did not identify blank SECURITY_ALERT_WEBHOOK_URL"
 pass "check-env: fails early with actionable production backup errors"
 sed -i.tmp 's/^BACKUP_ENCRYPTION_KEY=.*/BACKUP_ENCRYPTION_KEY=generated-test-key/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
 sed -i.tmp 's/^BACKUP_UPLOAD_COMMAND=.*/BACKUP_UPLOAD_COMMAND=rclone copy "$${DUMP_FILE}" b2:example\/backups/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
+sed -i.tmp 's|^SECURITY_ALERT_WEBHOOK_URL=.*|SECURITY_ALERT_WEBHOOK_URL=https://alerts.example.test/security|' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
 if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.prod.backup-test > /tmp/check-env-backup-valid.$$ 2>&1; then
   pass "check-env: accepts a production backup command that references DUMP_FILE"
 else

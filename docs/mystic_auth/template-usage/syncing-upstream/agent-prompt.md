@@ -27,12 +27,14 @@ upgrade procedure when a database major version changes; PostgreSQL 15 to 18
 uses the [documented encrypted dump-and-restore path](../../deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade).
 
 Before stashing preparatory work, confirm that
-`scripts/mystic_auth/upstream-sync/sync-upstream.sh` exists in the working
-tree. If it is not in `HEAD` but exists locally, preserve that current script
-and exclude it from any stash of downstream work. If it is staged, unstage only
-that script without discarding it. Never restore an older stashed script over
-the current one. If the script exists only in a preserved stash, restore only
-that path from the current stash, or restore it from the fetched upstream
+`scripts/mystic_auth/upstream-sync/sync-upstream.sh` and its sibling
+`sync-upstream-review.sh`, `sync-upstream-apply.sh`, and
+`sync-upstream-finalize.sh` stages exist in the working tree. If they are not
+in `HEAD` but exist locally, preserve those current scripts and exclude them
+from any stash of downstream work. If they are staged, unstage only those
+scripts without discarding them. Never restore an older stashed script over
+the current one. If the scripts exist only in a preserved stash, restore only
+those paths from the current stash, or restore them from the fetched upstream
 branch. Do not restore the whole split stash before the first sync, and do not
 treat app files absent from `HEAD` as a blocker for the unrelated-history
 first-sync path.
@@ -58,8 +60,9 @@ default such as `MysticAuth` or `mystic_auth` is an upstream compatibility
 defect; fix/report the test upstream instead of changing intentional downstream
 branding or database configuration. If an older guard blocks an inherited
 baseline test, stop, verify the path existed at the last sync, update only
-`scripts/mystic_auth/upstream-sync/sync-upstream.sh` from the fetched upstream
-tree, and rerun. Never bypass the guard or weaken it for new downstream tests.
+the `scripts/mystic_auth/upstream-sync/sync-upstream*.sh` files (entry point
+plus review, apply, and finalize stages) from the fetched upstream tree, and
+rerun. Never bypass the guard or weaken it for new downstream tests.
 
 Branding has the same boundary: check that user-visible product names, browser
 titles, status-page labels, accessible brand labels, and generated descriptions
@@ -98,9 +101,10 @@ A real sync can hit several things that don't show up in a first-time read of th
 
 Regenerating env files is part of a full sync (fresh secrets, upstream's latest fields), but an agent reading your real `GOOGLE_CLIENT_SECRET`, `GMAIL_APP_PASSWORD`, or `DATABASE_URL` to "carry them forward" puts those values into its context and transcript for no real reason. The prompt routes around this with two scripts, neither of which ever prints a secret value to its own output, only field *names*:
 
-1. The agent **renames** each real env file in both `env/mystic_auth/` and
-   `env/app/` aside (`.env` to `.env.bak`, and so on), plus `frontend/.env` if
-   present - never deletes - so nothing is lost.
+1. Only when the sync adds env fields and the owner has approved it, the agent
+   **renames** each real env file in both `env/mystic_auth/` and `env/app/`
+   aside (`.env` to `.env.bak`, and so on), plus `frontend/.env` if present -
+   never deletes - so nothing is lost.
 2. The agent runs `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Since the real files no longer exist under their normal names, it generates fresh files from the current `.example` files, with newly generated secrets and this sync's latest fields.
 3. The agent runs `scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW` (`.ps1`/`.cmd`) for each old/new pair. It copies every field from the old file into the new one, except the handful setup-env just generated fresh (secrets, and the DB URLs that embed them). If an older file has a blank `BACKUP_UPLOAD_COMMAND` but the new example supplies a non-blank default, it preserves the new value and reports that field for review. The tool reports only which field *names* it moved, never their values, and flags any field that existed in the old file but not the new one (upstream may have dropped or renamed it) for you to decide on by hand.
 4. Once you've confirmed the new files are correct, the agent tells you to delete the `.bak` files yourself.

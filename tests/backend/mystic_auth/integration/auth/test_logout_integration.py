@@ -2,8 +2,12 @@
 #
 # End-to-end logout/logout-all coverage against the real ASGI app, real
 # PostgreSQL, and real Valkey (see conftest.py).
+from datetime import UTC, datetime, timedelta
+
+import jwt
 import pytest
 
+from backend.mystic_auth.core.settings import settings
 from backend.mystic_auth.valkey.client import valkey_client
 
 from .auth_test_accounts import (
@@ -111,3 +115,42 @@ async def test_logout_all_survives_valkey_flush(client, created_emails):
     await valkey_client.flushall()
 
     assert (await get_me_with_access_token(client, old_access)).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_logout_all_rejects_legacy_versionless_access_and_refresh_tokens(client, created_emails):
+    """Tokens from the pre-version format require a fresh login after upgrade."""
+    email = unique_email()
+    await signup_verify_login(client, created_emails, email)
+    expires = datetime.now(UTC) + timedelta(minutes=10)
+
+    def legacy_token(token_type: str, jti: str) -> str:
+        return jwt.encode(
+            {
+                "email": email,
+                "type": token_type,
+                "jti": jti,
+                "chain": "pre-version-chain",
+                "exp": expires,
+            },
+            settings.SECRET_KEY,
+            algorithm=settings.JWT_ALGORITHM,
+        )
+
+    legacy_access = legacy_token("access", "pre-version-access")
+    legacy_refresh = legacy_token("refresh", "pre-version-refresh")
+
+    # The old compatibility format is rejected even before an explicit
+    # revocation. Logout-all then proves it cannot acquire current snapshots.
+    assert (await get_me_with_access_token(client, legacy_access)).status_code == 401
+    assert (await client.post("/auth/logout/all")).status_code == 200
+
+    assert (await get_me_with_access_token(client, legacy_access)).status_code == 401
+    client.cookies.set("refresh_token", legacy_refresh)
+    try:
+        refresh_response = await client.post("/auth/refresh")
+    finally:
+        client.cookies.delete("refresh_token")
+    assert refresh_response.status_code == 401
+    assert "access_token" not in refresh_response.cookies
+    assert "refresh_token" not in refresh_response.cookies

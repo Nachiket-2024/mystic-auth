@@ -26,7 +26,7 @@ sunk time into an implementation that might go a different direction.
 ## Local setup
 
 Same as any other contributor: `./scripts/mystic_auth/env-tools/quickstart/quickstart.sh`
-from a fresh clone. See the root [README's Quickstart](README.md#quickstart-docker)
+from a fresh clone. See the root [README's Quickstart](README.md#getting-started)
 or [Template Usage: Quickstart](docs/mystic_auth/template-usage/quickstart.md) for
 the full walkthrough.
 

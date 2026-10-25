@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router';
 
@@ -102,8 +102,12 @@ describe('legal pages in every supported language', () => {
   // "{{...}}" placeholder in the rendered page instead of throwing.
   const languages = ['en', 'hi', 'mr', 'gu'] as const;
 
-  afterEach(() => {
-    i18next.changeLanguage('en');
+  afterEach(async () => {
+    // Unmount every language-sensitive page before notifying i18next. The
+    // automatic cleanup hook runs later, which otherwise updates mounted
+    // React trees outside act() while resetting the language.
+    cleanup();
+    await i18next.changeLanguage('en');
   });
 
   // Uses a positive "matches nothing" check instead of `.not.toMatch()`;

@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import i18next from 'i18next';
 
@@ -67,8 +67,9 @@ describe('NotAuthorizedPage', () => {
 describe('status pages in every supported language', () => {
   const languages = ['en', 'hi', 'mr', 'gu'] as const;
 
-  afterEach(() => {
-    i18next.changeLanguage('en');
+  afterEach(async () => {
+    cleanup();
+    await i18next.changeLanguage('en');
   });
 
   it.each(languages)('renders %s with no unresolved interpolation placeholders', async (lang) => {

@@ -71,9 +71,9 @@ describe('shared UI components', () => {
     expect(screen.getByText('Loading data')).toBeInTheDocument();
     expect(screen.getByText('1234')).toBeInTheDocument();
     expect(screen.getByText('–')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Clickable stat' }));
+    await userEvent.click(screen.getByRole('button', { name: /Clickable/ }));
     expect(onClick).toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Filter: Users' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '12 Users' })).toBeInTheDocument();
   });
 
   it('supports collapsible sections, static sections, breadcrumbs, and page slots', async () => {

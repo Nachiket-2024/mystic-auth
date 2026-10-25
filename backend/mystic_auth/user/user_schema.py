@@ -47,7 +47,20 @@ class UserUpdate(BaseModel):
     same max_length caps as signup_schema.SignupSchema must apply here too:
     an unbounded password submitted through either route would otherwise
     feed straight into Argon2 hashing uncapped.
+
+    extra="forbid": role/is_active/is_verified/id/email mass-assignment
+    attempts were already harmless (Pydantic's default "ignore" behavior
+    silently dropped them, confirmed live during the 2026-10-21 audit), but
+    silently succeeding with a 200 meant the attempt itself left zero
+    trace anywhere - indistinguishable from an ordinary profile update in
+    every log. "forbid" turns the same attempt into an immediate 422,
+    which is both a stronger guarantee (impossible to even partially
+    succeed, not just policy-enforced-away downstream) and gives any
+    future log-everything-422 middleware a real signal to work with,
+    instead of this being an invisible no-op today.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, max_length=100)
     password: str | None = Field(default=None, max_length=128)

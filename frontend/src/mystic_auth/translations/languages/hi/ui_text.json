@@ -36,7 +36,9 @@
     "bulkOperation": "सामूहिक कार्रवाई",
     "clearSelection": "चयन साफ़ करें",
     "selectAllRows": "सभी पंक्तियां चुनें",
+    "openRow": "पंक्ति का विवरण खोलें",
     "selectRow": "पंक्ति चुनें",
+    "brandHomeLink": "{{appName}} होम",
     "pagination": {
         "previousPage": "पिछला पृष्ठ",
         "prev": "पिछला",

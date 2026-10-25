@@ -13,6 +13,7 @@ import Card from "../../ui/cards/Card";
 // Shared brand header + footer shell for every unauthenticated page.
 import AuthLayout from "../../layout/auth_layout/AuthLayout";
 import Logo from "../../layout/app_layout/Logo";
+import { APP_NAME } from "../../core/settings";
 
 // Unauthenticated by design (same trust model as PasswordResetConfirmPage/
 // VerifyAccountPage): reached via the link in the OAuth-only account deletion
@@ -47,7 +48,7 @@ const ConfirmDeleteAccountPage: React.FC = () => {
                 card (login/signup/reset), not the old md-but-no-accent card. */}
             <Card className="mx-auto w-full max-w-md border-t-[3px] border-t-brand-solid bg-bg-surface/95 p-5 shadow-dialog backdrop-blur md:p-7">
                 <div className="flex flex-col items-center gap-4 text-center">
-                    <Link to="/" aria-label="Return to home">
+                    <Link to="/" aria-label={t("ui_text:brandHomeLink", { appName: APP_NAME })}>
                         <Logo />
                     </Link>
                     <Separator className="w-full bg-brand-solid" />

@@ -36,10 +36,12 @@
     "selectedCount": "{{count}} selected",
     "clearSelection": "Clear selection",
     "selectAllRows": "Select all rows",
+    "openRow": "Open row details",
     "selectRow": "Select row",
+    "brandHomeLink": "{{appName}} home",
     "pagination": {
         "previousPage": "Previous page",
-        "prev": "Prev",
+        "prev": "Previous",
         "nextPage": "Next page",
         "next": "Next",
         "page": "Page {{page}}"

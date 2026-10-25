@@ -74,6 +74,12 @@ async def mark_account_lifecycle_event_delivered(outbox_id: int) -> None:
         outbox = await session.get(AccountLifecycleOutbox, outbox_id)
         if outbox is not None and outbox.delivered_at is None:
             outbox.delivered_at = datetime.now(UTC)
+            # The outbox is a retry mechanism, not the account audit log.
+            # Retain transition metadata after delivery, but remove fields
+            # that identify the deleted account or the actor who initiated it.
+            outbox.user_id = None
+            outbox.user_email = ""
+            outbox.actor = "redacted"
             await session.commit()
 
 

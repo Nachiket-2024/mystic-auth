@@ -59,6 +59,7 @@ services:
 
   ngrok:
     <<: *container_hardening
+    user: "65532:65532"
     # Built from docker/mystic_auth/dockerfiles/ngrok.Dockerfile instead of
     # the vendor's own debian/alpine images: the ngrok agent binary is
     # statically linked and needs nothing from an OS at all beyond a CA
@@ -76,12 +77,16 @@ services:
       dockerfile: docker/mystic_auth/dockerfiles/ngrok.Dockerfile
     read_only: true
     restart: unless-stopped
+    entrypoint: ["/supervisor"]
     # --authtoken is passed directly on the command line (a first-class
     # ngrok CLI flag) instead of the vendor entrypoint's env-var-to-
     # config-file rewrite, since there's no entrypoint script here to do
-    # that rewrite. NGROK_DOMAIN is your account's free static domain (see
+    # that rewrite. NGROK_DOMAIN is your account's assigned free static dev
+    # domain (see
     # docs/mystic_auth/deployment/local-prod/ngrok-tunnel.md).
     command: ["http", "frontend:80", "--authtoken=${NGROK_AUTHTOKEN}", "--url=https://${NGROK_DOMAIN}"]
+    environment:
+      NGROK_PUBLIC_URL: "https://${NGROK_DOMAIN}"
     # Pinned address for TRUSTED_PROXY_IPS, same reasoning as cloudflared's
     # in the other local-prod variants.
     networks:
@@ -90,6 +95,12 @@ services:
     depends_on:
       frontend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/healthcheck"]
+      interval: 15s
+      timeout: 12s
+      start_period: 20s
+      retries: 3
     deploy:
       resources:
         limits:
@@ -163,10 +174,23 @@ services:
     read_only: true
     tmpfs: [/tmp, /data]
     networks: [valkey_net]
-    # VALKEY_PASSWORD should always be set in production.
-    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"]
+    environment:
+      # Passed as a container env var, not a CLI arg: `--requirepass <value>`
+      # directly on the command line puts the password in this container's
+      # argv for its entire lifetime, readable by anyone who can `ps aux`
+      # the host or `docker inspect`/`exec ps` this container (confirmed
+      # live during the 2026-10-21 audit - that's exactly how the auditor
+      # accidentally exposed a real password this way). The command below
+      # writes a config file from this env var using `echo`, a shell
+      # builtin (not a forked/exec'd process), so the value never appears
+      # in any process's argv at any point, not even transiently.
+      VALKEY_PASSWORD: "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"
+    command: ["sh", "-c", "echo \"requirepass $$VALKEY_PASSWORD\" > /tmp/valkey.conf && chmod 600 /tmp/valkey.conf && exec valkey-server /tmp/valkey.conf"]
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}\" --no-auth-warning ping"]
+      # REDISCLI_AUTH (the CLI's own documented mechanism for exactly this)
+      # instead of `-a <password>`, for the same reason as above - the
+      # healthcheck's own process listing would otherwise leak it too.
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$VALKEY_PASSWORD valkey-cli --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -486,6 +510,8 @@ services:
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set}
       BACKUP_SENTRY_DSN: ${BACKUP_SENTRY_DSN:-}
       B2_BUCKET: ${B2_BUCKET:-}
+      # Auth is provided through environment variables; avoid the default root-owned config file.
+      RCLONE_CONFIG: /dev/null
       RCLONE_CONFIG_B2_TYPE: b2
       RCLONE_CONFIG_B2_ACCOUNT: ${RCLONE_CONFIG_B2_ACCOUNT:-}
       RCLONE_CONFIG_B2_KEY: ${RCLONE_CONFIG_B2_KEY:-}

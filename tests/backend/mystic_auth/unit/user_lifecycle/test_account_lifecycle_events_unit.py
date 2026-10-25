@@ -171,7 +171,12 @@ async def test_queue_without_outbox_id_returns_none_when_queue_is_unavailable(mo
 @pytest.mark.asyncio
 @pytest.mark.parametrize("existing_delivered_at", [None, datetime.now(UTC)])
 async def test_mark_delivered_updates_only_an_undelivered_row(mocker, existing_delivered_at):
-    row = SimpleNamespace(delivered_at=existing_delivered_at)
+    row = SimpleNamespace(
+        delivered_at=existing_delivered_at,
+        user_id=42,
+        user_email="purged@example.test",
+        actor="admin@example.test",
+    )
     session = MagicMock()
     session.get = AsyncMock(return_value=row)
     session.commit = AsyncMock()
@@ -186,6 +191,9 @@ async def test_mark_delivered_updates_only_an_undelivered_row(mocker, existing_d
     session.get.assert_awaited_once()
     if existing_delivered_at is None:
         assert row.delivered_at is not None
+        assert row.user_id is None
+        assert row.user_email == ""
+        assert row.actor == "redacted"
         session.commit.assert_awaited_once()
     else:
         session.commit.assert_not_awaited()

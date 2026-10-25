@@ -214,7 +214,7 @@ describe('PoliciesPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('ordinary_policy_1');
-    await user.click(screen.getByRole('button', { name: 'Grant destructive actions' }));
+    await user.click(screen.getByRole('button', { name: /Grant destructive actions$/ }));
 
     expect(await screen.findByText('later_destructive_policy')).toBeInTheDocument();
     expect(mock.history.get.at(-1)?.params).toMatchObject({ destructive_only: true });
@@ -268,7 +268,7 @@ describe('PoliciesPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('self_service');
-    await user.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await user.click(screen.getByRole('button', { name: /^Filter by action/ }));
     await user.click(screen.getByText('Read policies'));
 
     await waitFor(() => expect(screen.queryByText('self_service')).toBeNull());
@@ -291,7 +291,7 @@ describe('PoliciesPage list controls', () => {
     const user = userEvent.setup();
 
     await screen.findByText('self_service');
-    await user.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await user.click(screen.getByRole('button', { name: /^Filter by action/ }));
     await user.click(screen.getByText('Read policies'));
 
     const clearButton = await screen.findByRole('button', { name: /^Clear filters \(/ });

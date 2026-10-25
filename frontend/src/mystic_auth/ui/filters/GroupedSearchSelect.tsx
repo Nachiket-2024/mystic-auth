@@ -141,7 +141,9 @@ const GroupedSearchSelect: React.FC<GroupedSearchSelectProps> = ({
             <PopoverTrigger asChild>
                 <button
                     type="button"
-                    aria-label={ariaLabel}
+                    // Purpose plus the visible value: an accessible name has
+                    // to contain the visible text (WCAG 2.5.3 Label in Name).
+                    aria-label={`${ariaLabel}: ${triggerLabel}`}
                     className={cn(
                         "flex items-center justify-between gap-2 rounded-[var(--radius-control)] border h-9 px-3 text-sm overflow-hidden transition-colors outline-none focus-visible:border-brand-solid focus-visible:ring-[1px] focus-visible:ring-brand-solid cursor-pointer",
                         isActive

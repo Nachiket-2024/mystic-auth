@@ -47,6 +47,6 @@ Two days before this stretch started, I bought a Claude Code Pro plan to try it 
 
 Everything after that kept using the same agentic loop, in smaller passes rather than one big sprint; each one is described in the [Project Story](README.md#how-it-evolved). The foundation and architecture already existed by this point, so the main advantage was cutting implementation friction, not changing the overall direction. The decisions and trade-offs still came from the understanding built over the earlier phase.
 
-Codex was used for the first time on 28 July, 2026, mainly because I hit my weekly limit on Claude Code 😅. Its role had been similar to the Claude Code loop above: read the existing codebase, compare docs against the current implementation, apply focused cleanup, and report what changed without rewriting the architecture. Currently I only use Claude Code since I have already exhausted the free Codex credits I had.
+Codex was used for the first time on 28 July, 2026, mainly because I hit my weekly limit on Claude Code 😅. Its role had been similar to the Claude Code loop above: read the existing codebase, compare docs against the current implementation, apply focused cleanup, and report what changed without rewriting the architecture. I now use both Claude Code and Codex.
 
 ---

@@ -38,7 +38,7 @@ export function buildRateLimitsColumns({
             key: "scope",
             header: t("page.scopeColumn"),
             width: "10rem",
-            render: (e) => <span className="text-sm">{e.scope === "ip" ? t("page.scopeIp") : e.scope === "account" ? t("page.scopeAccount") : t("page.scopeEmail")}</span>,
+            render: (e) => <span className="text-sm">{e.scope === "ip" ? t("page.scopeIp") : e.scope === "account" ? t("page.scopeAccount") : e.scope === "account_ip" ? t("page.scopeAccountIp") : t("page.scopeEmail")}</span>,
             sortable: true,
         },
         {

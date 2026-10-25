@@ -1,7 +1,7 @@
 # tests/backend/mystic_auth/unit/user_lifecycle/test_account_deletion_confirm_handler_unit.py
 #
 # account_deletion_confirm_handler.py's lockout key namespace must be
-# distinct from both login's "login_lock:email:" key and
+# distinct from both login's "login_lock:account_ip:" key and
 # "password_reset_confirm_lock:email:", same reasoning as
 # test_password_reset_confirm_handler_unit.py: failures unrelated to a real
 # login attempt (a stale/reused deletion link) must never count towards, or

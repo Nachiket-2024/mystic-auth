@@ -5,7 +5,7 @@
 **📖 Documentation Site: [https://nachiket-2024.github.io/mystic-auth-docs/](https://nachiket-2024.github.io/mystic-auth-docs/)**
 
 ![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.143+-green?logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.162+-green?logo=fastapi)
 ![React](https://img.shields.io/badge/React-19+-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
@@ -142,7 +142,7 @@ What a signed-in user without the required permission sees when opening a protec
 - **Authentication and authorization:** Argon2, JWT cookies, OAuth2 with PKCE, and database-backed PBAC. See [Authentication](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/overview) and [PBAC Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/architecture).
 - **Data and jobs:** PostgreSQL 18, Valkey, and Procrastinate.
 - **Error monitoring:** Self-hosted Bugsink with the Sentry SDK protocol.
-- **Deployment:** Docker Compose for development, local-prod tunnels, and production behind Caddy-managed TLS.
+- **Deployment:** Docker Compose for development, local-prod through Cloudflare Quick or Named Tunnel, ngrok, or Tailscale Funnel, and production behind Caddy-managed TLS. See the [local-prod tunnel guide](docs/mystic_auth/deployment/local-prod/README.md) to compare setup steps and hostname behavior. Cloudflare Quick Tunnel is free and useful for temporary demos; its generated hostname can change between runs, which may require updating OAuth callback URLs. ngrok's assigned free domain can keep those URLs stable.
 - **Backups:** Encrypted PostgreSQL dumps can be uploaded to Backblaze B2 with rclone; freshness and restore checks are documented in [Migrations and Backups](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/migrations-and-backups).
 - **Localization:** English, Hindi, Marathi, and Gujarati. See [Translations](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/translations/overview).
 
@@ -173,7 +173,7 @@ The API uses PostgreSQL for durable data, Valkey for temporary state, and Procra
 
 ## Verification
 
-CI runs backend and frontend tests, browser checks, Windows tooling, and the full Docker suite on `main`. The cumulative backend coverage gate is 90%, with a target above 95%. For local commands and platform-specific checks, see the [CI local validation guide](docs/mystic_auth/cicd/local-validation.md).
+CI runs backend and frontend tests, browser checks, Windows tooling, and the full Docker suite on `main`. The cumulative backend coverage gate is 90%. For local commands and platform-specific checks, see the [CI local validation guide](docs/mystic_auth/cicd/local-validation.md).
 
 ```bash
 pytest --no-cov -q tests/backend/mystic_auth/security

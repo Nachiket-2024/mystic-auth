@@ -45,17 +45,17 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 ---
 
-### Dependency updates are manual by design
+### Dependency updates rely on grouped scheduled pull requests
 
-**Description**: No automated dependency-update bot is used. `pip-audit`/`npm audit` in CI catch known CVEs in whatever versions are currently pinned, while version updates are reviewed and batched manually.
+**Description**: Dependabot checks Docker images, Python packages, npm packages, and GitHub Actions weekly. Docker, Python, and npm updates are grouped by ecosystem so related packages are reviewed together; each pull request still has to pass the normal CI gates.
 
-**Why it exists**: This repo ran Dependabot earlier and turned it off. Its PRs updated packages independently of each other (for example bumping TypeScript without ESLint's TypeScript-parsing plugins in the same PR), which produced breakage from version skew between packages that need to move together, not from the updates themselves. Manual, batched updates (bumping a related group together, then running the full test suite once) avoid that failure mode, at the cost of updates happening less often.
+**Why it exists**: Related packages can break when updated independently (for example, TypeScript without its ESLint parser plugins). Ecosystem groups reduce that version-skew risk and preserve review before dependency changes merge.
 
-**Impact**: A non-CVE release will wait for the next deliberate maintenance pass. Known-CVE coverage remains available through `pip-audit`/`npm audit`.
+**Impact**: Dependabot only proposes versions it can resolve and does not guarantee every upstream release is compatible with this repository. The blocking `pip-audit` and `npm audit` checks remain the direct known-CVE gates for the versions used by CI.
 
-**Operating choice**: Keep dependency updates manual and batched. Automated update PRs are intentionally out of scope because related packages need to move together and this repository does not want a bot opening independent version-skew changes.
+**Operating choice**: Keep weekly grouped pull requests enabled and review them as ordinary code changes. Update `.github/dependabot.yml` if the supported ecosystems or grouping strategy changes.
 
-**Priority**: Low. Known-CVE coverage already exists via `pip-audit`/`npm audit`; this gap is specifically about staying current on non-CVE releases.
+**Priority**: Low. The remaining gap is compatibility and review latency, not the absence of automated update proposals.
 
 ---
 

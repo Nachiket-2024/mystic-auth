@@ -83,10 +83,10 @@ describe('UsersPage stats card', () => {
     // visible label text - "Verified"/"Deactivated" also appear as status
     // badges in the table below, so a plain screen.getByText('Verified')
     // would be ambiguous once real rows are on screen.
-    expect(screen.getByRole('button', { name: 'Filter users: Total users' })).toHaveTextContent('42');
-    expect(screen.getByRole('button', { name: 'Filter users: Verified' })).toHaveTextContent('40');
-    expect(screen.getByRole('button', { name: 'Filter users: Unverified' })).toHaveTextContent('2');
-    expect(screen.getByRole('button', { name: 'Filter users: Deactivated' })).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: /Total users$/ })).toHaveTextContent('42');
+    expect(screen.getByRole('button', { name: /Verified$/ })).toHaveTextContent('40');
+    expect(screen.getByRole('button', { name: /Unverified$/ })).toHaveTextContent('2');
+    expect(screen.getByRole('button', { name: /Deactivated$/ })).toHaveTextContent('1');
   });
 
   it('shows a dash on each tile and no crash when GET /users/stats fails', async () => {
@@ -100,7 +100,7 @@ describe('UsersPage stats card', () => {
     await screen.findByText('Admin User');
     // UserStatsCard renders nothing at all on error (see its own isError
     // guard), rather than a broken/half-loaded row of tiles.
-    expect(screen.queryByRole('button', { name: 'Filter users: Total users' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Total users$/ })).toBeNull();
   });
 
   it('the Verified tile filters the table and shows as pressed', async () => {
@@ -118,7 +118,7 @@ describe('UsersPage stats card', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    const verifiedTile = screen.getByRole('button', { name: 'Filter users: Verified' });
+    const verifiedTile = screen.getByRole('button', { name: /Verified$/ });
     expect(verifiedTile).toHaveAttribute('aria-pressed', 'false');
 
     await user.click(verifiedTile);
@@ -152,7 +152,7 @@ describe('UsersPage stats card', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    await user.click(screen.getByRole('button', { name: 'Filter users: Deactivated' }));
+    await user.click(screen.getByRole('button', { name: /Deactivated$/ }));
 
     await user.click(screen.getByRole('button', { name: /^Filters/ }));
     await waitFor(() =>
@@ -172,8 +172,8 @@ describe('UsersPage stats card', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Regular User');
-    const totalTile = screen.getByRole('button', { name: 'Filter users: Total users' });
-    const verifiedTile = screen.getByRole('button', { name: 'Filter users: Verified' });
+    const totalTile = screen.getByRole('button', { name: /Total users$/ });
+    const verifiedTile = screen.getByRole('button', { name: /Verified$/ });
 
     // Starts pressed: no filters are active on first load.
     expect(totalTile).toHaveAttribute('aria-pressed', 'true');

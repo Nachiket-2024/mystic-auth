@@ -22,13 +22,25 @@ walkthrough, start to finish.
 
 ## Platform setup
 
-A free ngrok account, its authtoken, and a free static domain are required
-before the tunnel comes up at all. ngrok's free tier issues one static
-domain per account, and the `ngrok` service in
+A free ngrok account and its authtoken are required before the tunnel comes
+up. The free plan provides one assigned static development domain. Copy that
+domain from your ngrok dashboard into `NGROK_DOMAIN`; custom domains and
+additional named ngrok domains have different plan requirements. The `ngrok`
+service in
 `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml` is pinned to it with
 `--url=https://${NGROK_DOMAIN}` in its `command:`, so the URL is stable
 from the first boot and Steps 1-6 below are one-time setup, not something
 to repeat on every restart.
+
+This mode is for personal deployments and evaluation, not a production
+availability guarantee. The container checks both the local agent and its
+configured public HTTPS route. A supervisor restarts the agent after four
+consecutive failed route checks, using exponential backoff capped at five
+minutes. This recovers some wedged-agent and disconnected-tunnel states; it
+cannot remove a free-tier edge limit or guarantee availability. If this URL
+matters to users, run an independent external check against `/health/ready`
+and alert on failures, or review the other tunnel options in the
+[local-prod comparison](README.md#which-tunnel-do-i-want).
 
 ---
 
@@ -36,14 +48,14 @@ to repeat on every restart.
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
     S1["1. Create a free ngrok\naccount, grab authtoken"]
-    S2["2. Claim a free\nstatic domain"]
+    S2["2. Copy your assigned free\nstatic development domain"]
     S3["3. Copy env.local-prod-ngrok.example"]
     S4["4. Fill in\nNGROK_AUTHTOKEN, NGROK_DOMAIN"]
     S5["5. Point the app at that domain\nFRONTEND_BASE_URL, JWT_ISSUER/AUDIENCE,\nGOOGLE_REDIRECT_URI"]
     S6["6. Register the domain\nwith Google OAuth"]
     S7["7. Start the stack"]
     S7b["7b (optional): enable\nsession geolocation"]
-    Live["Public https://<app>.ngrok-free.app"]
+    Live["Public HTTPS URL on your assigned ngrok domain"]
 
     S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S7b --> Live
 
@@ -62,11 +74,12 @@ Then, in the [ngrok dashboard](https://dashboard.ngrok.com/), go to
 
 ---
 
-**Step 2: Claim a free static domain.**
+**Step 2: Copy your assigned free static domain.**
 
-In the dashboard, go to **Domains** and create a free static domain, e.g.
-`my-app.ngrok-free.app`. Unlike ngrok's older random-URL tunnels, this
-domain does not change between restarts.
+In the dashboard, find the free static development domain assigned to your
+account and copy it. The free plan includes one assigned domain; it stays the
+same across agent restarts. Paid plans offer additional ngrok-branded and
+custom domain choices.
 
 ---
 
@@ -96,7 +109,7 @@ In the copied `env/mystic_auth/.env.local-prod-ngrok`, set:
 
 ```
 NGROK_AUTHTOKEN=<the authtoken from Step 1>
-NGROK_DOMAIN=<your-app>.ngrok-free.app
+NGROK_DOMAIN=<your-assigned-ngrok-domain>
 ```
 
 Both are required.
@@ -108,10 +121,10 @@ Both are required.
 Still in `env/mystic_auth/.env.local-prod-ngrok`, set:
 
 ```
-GOOGLE_REDIRECT_URI=https://<your-app>.ngrok-free.app/auth/oauth2/callback/google
-FRONTEND_BASE_URL=https://<your-app>.ngrok-free.app
-JWT_ISSUER=https://<your-app>.ngrok-free.app
-JWT_AUDIENCE=https://<your-app>.ngrok-free.app
+GOOGLE_REDIRECT_URI=https://<your-ngrok-domain>/auth/oauth2/callback/google
+FRONTEND_BASE_URL=https://<your-ngrok-domain>
+JWT_ISSUER=https://<your-ngrok-domain>
+JWT_AUDIENCE=https://<your-ngrok-domain>
 ```
 
 - `FRONTEND_BASE_URL` is baked into verification/password-reset email links and the CORS allow-list too, so it matters even if you never enable Google login.
@@ -124,8 +137,8 @@ JWT_AUDIENCE=https://<your-app>.ngrok-free.app
 
 In the [Google Cloud Console](https://console.cloud.google.com/), under
 **APIs & Services**, **Credentials**, your OAuth 2.0 Client ID, add
-`https://<your-app>.ngrok-free.app/auth/oauth2/callback/google` under
-**Authorized redirect URIs** and `https://<your-app>.ngrok-free.app` under
+`https://<your-ngrok-domain>/auth/oauth2/callback/google` under
+**Authorized redirect URIs** and `https://<your-ngrok-domain>` under
 **Authorized JavaScript origins**. It must match `GOOGLE_REDIRECT_URI`
 byte-for-byte, or login fails with `redirect_uri_mismatch`.
 
@@ -138,7 +151,7 @@ docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml
 # or: ./scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh
 ```
 
-Open `https://<your-app>.ngrok-free.app` in a browser: that's your app,
+Open `https://<your-ngrok-domain>` in a browser: that's your app,
 live on the internet, at a URL that stays the same across restarts. See
 [OAuth2 / PKCE](../../authentication/oauth2-pkce.md#troubleshooting) if login
 still fails after this.
@@ -183,8 +196,9 @@ this is a remote host.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `ngrok` container exits | `NGROK_AUTHTOKEN` or `NGROK_DOMAIN` is missing or invalid. | Check `env/mystic_auth/.env.local-prod-ngrok`, then run `docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok logs ngrok`. |
+| The container is healthy but the public URL times out or closes TLS | The container check covers the local agent process and tunnel API, not ngrok's public edge. The free tier can also limit bursts of traffic. | Probe the public `/health/ready` URL from outside the host. Restart the ngrok service to recover a wedged agent; move to a paid tier or another ingress mode if the issue recurs. |
 | Public URL returns an ngrok error page | The static domain is not assigned to your ngrok account or the tunnel is not running. | Confirm the domain in the ngrok dashboard and restart the stack. |
-| Google login returns `redirect_uri_mismatch` | Google Cloud Console callback does not match `GOOGLE_REDIRECT_URI`. | Register `https://<your-app>.ngrok-free.app/auth/oauth2/callback/google`. |
+| Google login returns `redirect_uri_mismatch` | Google Cloud Console callback does not match `GOOGLE_REDIRECT_URI`. | Register `https://<your-ngrok-domain>/auth/oauth2/callback/google`. |
 | API calls fail but the landing page loads | nginx or backend is unhealthy inside Docker. | Check `docker compose ... ps`, `docker compose ... logs frontend backend`, and the backend ready check on `http://localhost:8101/health/ready`. |
 | Bugsink is not reachable through ngrok | This is expected. The tunnel only exposes `frontend:80`. | Use `http://localhost:8111` on the host or an SSH port-forward. |
 

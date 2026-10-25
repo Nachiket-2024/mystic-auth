@@ -20,17 +20,17 @@ async def test_concurrent_failed_logins_lock_out_at_exactly_the_configured_thres
     await signup_verify_login(client, created_emails, email)
     client.cookies.clear()
 
-    attempts = settings.MAX_FAILED_LOGIN_ATTEMPTS + 10
+    attempts = settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP + 10
     responses = await asyncio.gather(
         *(client.post("/auth/login", json={"email": email, "password": "wrong-password"}) for _ in range(attempts))
     )
 
     counts = Counter(resp.status_code for resp in responses)
 
-    # Exactly MAX_FAILED_LOGIN_ATTEMPTS may be evaluated as real credential
+    # Exactly MAX_FAILED_LOGIN_ATTEMPTS_PER_IP may be evaluated as real credential
     # checks (401 invalid credentials); every other concurrent request must
     # see the lockout (429), not slip through as a 401 the atomic counter
     # should have already closed off.
-    assert counts[401] == settings.MAX_FAILED_LOGIN_ATTEMPTS
-    assert counts[429] == attempts - settings.MAX_FAILED_LOGIN_ATTEMPTS
+    assert counts[401] == settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
+    assert counts[429] == attempts - settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
     assert counts[401] + counts[429] == attempts

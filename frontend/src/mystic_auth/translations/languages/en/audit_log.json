@@ -108,6 +108,7 @@
                 "account_verification_requested": "Verification email requested",
                 "account_verified": "Account verified",
                 "account_locked": "Account locked",
+                "login_ip_locked": "Login throttled for this account from this source IP",
                 "account_deleted": "Account deleted",
                 "account_purged": "Account purged",
                 "account_reactivated": "Account reactivated",

@@ -161,7 +161,7 @@ const PolicyDetailsDialog: React.FC<PolicyDetailsDialogProps> = ({ isOpen, polic
                             <div className="mt-1.5 flex flex-wrap items-center gap-2">
                                 <Badge colorPalette="gray" variant="outline" size="sm">
                                     <Settings2 size={12} aria-hidden="true" />
-                                    {formatResourceTypeLabel(policy.resource_type)}
+                                    {formatResourceTypeLabel(policy.resource_type, t("policies:columns.allResourceTypesTag"))}
                                 </Badge>
                                 <Badge colorPalette={policy.is_active ? "green" : "gray"} variant="subtle" size="sm">
                                     {policy.is_active ? t("policies:detailsDialog.active") : t("ui_text:inactive")}
@@ -214,7 +214,7 @@ const PolicyDetailsDialog: React.FC<PolicyDetailsDialogProps> = ({ isOpen, polic
                                 </div>
                                 <div className="rounded-xl border border-border-card bg-bg-surface p-3">
                                     <DetailRow label={t("policies:detailsDialog.resourceType")}>
-                                        <span className="font-medium">{formatResourceTypeLabel(policy.resource_type)}</span>
+                                        <span className="font-medium">{formatResourceTypeLabel(policy.resource_type, t("policies:columns.allResourceTypesTag"))}</span>
                                     </DetailRow>
                                 </div>
                                 <div className="sm:col-span-2">

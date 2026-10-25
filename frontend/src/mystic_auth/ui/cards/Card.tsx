@@ -11,7 +11,7 @@ type CardProps = React.ComponentPropsWithoutRef<"div"> & {
 /**
  * The app's standard surface styling (theme tokens, rounded corners,
  * shadow) as a plain element: bg-bg-surface/border-border-card/
- * rounded-card/shadow-card/p-[20px_22px] map 1:1 to theme/tailwind.css's
+ * rounded-card/shadow-card/p-[20px_22px] map 1:1 to theme/tailwind-tokens.css's
  * --bg-surface/--border-card/--radius-card/--shadow-card/
  * --spacing-card-padding. Callers override via className (twMerge in
  * cn() lets a later class like "p-0" win over the default p).

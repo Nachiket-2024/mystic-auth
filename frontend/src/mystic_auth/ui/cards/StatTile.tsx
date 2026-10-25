@@ -69,7 +69,7 @@ const StatTile: React.FC<StatTileProps> = ({
     if (!onClick) return <div aria-label={ariaLabel} className={className}>{content}</div>;
 
     return (
-        <button type="button" onClick={onClick} aria-pressed={pressed} aria-label={ariaLabel} className={className}>
+        <button type="button" onClick={onClick} aria-pressed={pressed} aria-description={ariaLabel} className={className}>
             {content}
         </button>
     );

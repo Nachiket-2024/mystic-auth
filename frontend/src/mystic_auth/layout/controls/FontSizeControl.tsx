@@ -7,6 +7,7 @@ import translations from "../../translations/translations";
 import { useLanguageStore } from "../../store/languageStore";
 import { buttonVariants } from "../../ui/buttons/button-variants";
 import { cn } from "../../ui/styles/classNames";
+import { cspNonce } from "../../core/cspNonce.ts";
 
 /**
  * Global text-size control, backed by store/fontSizeStore.ts. A Select
@@ -79,7 +80,7 @@ const FontSizeControl: React.FC = () => {
                 >
                     {/* See LanguageToggle.tsx: the icon-only trigger has no
                         width of its own for the popover to size from. */}
-                    <SelectPrimitive.Viewport className="dropdown-scroll-area max-h-80 overflow-y-auto p-1 min-w-max">
+                    <SelectPrimitive.Viewport nonce={cspNonce} className="dropdown-scroll-area max-h-80 overflow-y-auto p-1 min-w-max">
                         {options.map((option) => (
                             <SelectPrimitive.Item
                                 key={option.value}

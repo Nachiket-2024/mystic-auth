@@ -7,6 +7,8 @@ env/mystic_auth/.env.dev
 env/mystic_auth/.env.*
 !env/mystic_auth/.env.dev.example
 !env/mystic_auth/.env.local-prod-cloudflare.example
+env/mystic_auth/.cloudflare-tunnel-token
+!env/mystic_auth/.cloudflare-tunnel-token.example
 !env/mystic_auth/.env.local-prod-ngrok.example
 !env/mystic_auth/.env.local-prod-tailscale.example
 !env/mystic_auth/.env.prod.example

@@ -76,7 +76,7 @@ It's gated behind the `geoip` Compose profile, so it never starts (and never res
 
    If the updater remains `unhealthy`, check `docker compose logs geoipupdate` and confirm the account ID/license key are valid for the `geoipupdate` edition. Do not mark the deployment ready while the profile is enabled but this service is unhealthy.
 
-See [Docker Overview: services](../docker/overview.md#services) for where `geoipupdate` fits among the rest of the stack, and the deployment walkthroughs ([Prod](../deployment/prod.md), and local-prod's [Quick Tunnel](../deployment/local-prod/cloudflare-quick-tunnel.md), [Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](../deployment/local-prod/ngrok-tunnel.md), [Tailscale Funnel](../deployment/local-prod/tailscale-funnel.md)) for this as a step in context.
+See [Docker Overview: services](../docker/overview.md#services) for where `geoipupdate` fits among the rest of the stack, and the deployment walkthroughs ([Prod](../deployment/prod.md), and local-prod's [Cloudflare Quick Tunnel](../deployment/local-prod/cloudflare-quick-tunnel.md), [Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](../deployment/local-prod/ngrok-tunnel.md), and [Tailscale Funnel](../deployment/local-prod/tailscale-funnel.md)) for this as a step in context.
 
 ---
 

@@ -71,7 +71,7 @@ function readableValue(value: unknown, language: SupportedLanguage): string {
 const AuthorizationDetailsDrawer: React.FC<AuthorizationDetailsDrawerProps> = ({
     entry, onClose, index, total, onPrevious, onNext, canGoPrevious, canGoNext, language, onFilterUser, onFilterAction,
 }) => {
-    const { t } = useTranslation("audit_log");
+    const { t } = useTranslation(["audit_log", "policies"]);
     const [copiedField, setCopiedField] = useState<"user" | "event" | null>(null);
 
     if (!entry) return null;
@@ -129,7 +129,7 @@ const AuthorizationDetailsDrawer: React.FC<AuthorizationDetailsDrawerProps> = ({
                     <dd className="min-w-0 break-words">{formatPolicyActionLabel(entry.action)}</dd>
                     <dt className="text-fg-muted">{t("authorization.columns.resource")}</dt>
                     <dd className="min-w-0 break-words">
-                        <span>{formatResourceTypeLabel(entry.resource_type)}</span>
+                        <span>{formatResourceTypeLabel(entry.resource_type, t("policies:page.allResourceTypes"))}</span>
                         {entry.resource_identifier && <span className="text-fg-muted"> · {entry.resource_identifier}</span>}
                     </dd>
                     <dt className="text-fg-muted whitespace-nowrap">{t("authorization.columns.user")}</dt>

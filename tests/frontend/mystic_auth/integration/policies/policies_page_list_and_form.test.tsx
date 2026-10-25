@@ -86,14 +86,14 @@ describe('PoliciesPage: list and form', () => {
 
     renderPage();
     const user = userEvent.setup();
-    const expandButton = await screen.findByRole('button', { name: 'Expand policy report_viewer' });
+    const expandButton = await screen.findByRole('button', { name: /report_viewer/ });
 
     expect(expandButton).toHaveAttribute('aria-expanded', 'false');
     await user.click(expandButton);
 
     expect(expandButton).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Read own users')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Collapse policy report_viewer' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /report_viewer/ })).toHaveFocus();
   });
 
   it('expands and collapses when the policy header row is clicked', async () => {
@@ -103,7 +103,7 @@ describe('PoliciesPage: list and form', () => {
     renderPage();
     const user = userEvent.setup();
     const policyName = await screen.findByText('report_viewer');
-    const expandButton = screen.getByRole('button', { name: 'Expand policy report_viewer' });
+    const expandButton = screen.getByRole('button', { name: /report_viewer/ });
 
     await user.click(policyName);
     expect(expandButton).toHaveAttribute('aria-expanded', 'true');

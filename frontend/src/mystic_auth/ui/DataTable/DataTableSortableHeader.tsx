@@ -17,6 +17,7 @@ interface DataTableHeaderRowProps<T> {
     isSomeSelected: boolean;
     onToggleAll: () => void;
     selectAllLabel: string;
+    rowActionLabel: string;
     /** See DataTable's onRowClick doc - adds an empty trailing header cell matching the
      * chevron-hint column DataTableRow renders on each body row. */
     hasRowClick?: boolean;
@@ -38,6 +39,7 @@ export function DataTableHeaderRow<T>({
     isSomeSelected,
     onToggleAll,
     selectAllLabel,
+    rowActionLabel,
     hasRowClick,
 }: DataTableHeaderRowProps<T>) {
     return (
@@ -91,7 +93,11 @@ export function DataTableHeaderRow<T>({
                     )}
                 </TableHead>
             ))}
-            {hasRowClick && <TableHead className={cn("w-8", STICKY_HEADER_CELL_CLASS)} />}
+            {hasRowClick && (
+                <TableHead className={cn("w-8", STICKY_HEADER_CELL_CLASS)}>
+                    <span className="sr-only">{rowActionLabel}</span>
+                </TableHead>
+            )}
         </TableRow>
     );
 }

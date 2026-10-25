@@ -158,7 +158,7 @@ describe('RateLimitsPage', () => {
 
     // A real dropdown, not a text box: no free-text input to type into.
     expect(screen.queryByPlaceholderText(/filter by endpoint/i)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Filter by endpoint' }));
+    await user.click(screen.getByRole('button', { name: /^Filter by endpoint/ }));
     await user.click(await screen.findByRole('button', { name: 'signup' }));
 
     await waitFor(() => {
@@ -178,10 +178,10 @@ describe('RateLimitsPage', () => {
     const user = userEvent.setup();
 
     await screen.findByText('203.0.113.5');
-    await user.click(screen.getByRole('button', { name: 'Filter by endpoint' }));
+    await user.click(screen.getByRole('button', { name: /^Filter by endpoint/ }));
     await user.click(await screen.findByRole('button', { name: 'login_lock' }));
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Login lockouts' })).toHaveAttribute('aria-pressed', 'true'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Login lockouts$/ })).toHaveAttribute('aria-pressed', 'true'));
     expect(await screen.findByText('Endpoint: login_lock')).toBeInTheDocument();
   });
 
@@ -195,7 +195,7 @@ describe('RateLimitsPage', () => {
     renderPage();
 
     await screen.findByText('203.0.113.5');
-    expect(within(screen.getByRole('radiogroup', { name: 'Filter by scope' })).queryByRole('radio', { name: /Login lockout/ })).toBeNull();
+    expect(within(screen.getByRole('radiogroup', { name: /^Filter by scope/ })).queryByRole('radio', { name: /Login lockout/ })).toBeNull();
   });
 
   it('uses the dedicated login-lockout view without applying a scope filter', async () => {
@@ -209,7 +209,7 @@ describe('RateLimitsPage', () => {
     const user = userEvent.setup();
 
     await screen.findByText('203.0.113.5');
-    await user.click(screen.getByRole('button', { name: 'Login lockouts' }));
+    await user.click(screen.getByRole('button', { name: /Login lockouts$/ }));
 
     await waitFor(() => {
       const lastRequest = mock.history.get[mock.history.get.length - 1];
@@ -219,7 +219,7 @@ describe('RateLimitsPage', () => {
     });
     expect(screen.queryByText(/Scope: Login lockout/)).toBeNull();
     expect(await screen.findByText('Endpoint: login_lock')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Login lockouts' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Login lockouts$/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('shows the error message when the list request fails', async () => {

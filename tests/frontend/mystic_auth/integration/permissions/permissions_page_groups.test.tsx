@@ -44,7 +44,7 @@ describe('PermissionsPage: groups', () => {
     renderPage();
 
     expect(await screen.findByText('Users')).toBeInTheDocument();
-    expect(within(screen.getByRole('button', { name: 'Actions' })).getByText('3')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /Actions$/ })).getByText('3')).toBeInTheDocument();
     expect(within(screen.getByLabelText('Resource types')).getByText('2')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Unused/ })).toBeDisabled();
   });

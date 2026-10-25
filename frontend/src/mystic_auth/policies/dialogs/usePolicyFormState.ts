@@ -87,7 +87,7 @@ export function usePolicyFormState({
     );
     const options = Array.from(types).map((type) => ({
       value: type,
-      label: formatResourceTypeLabel(type),
+      label: formatResourceTypeLabel(type, t("policies:page.allResourceTypes")),
     }));
     // Only offered once it's actually in play (editing system_superuser,
     // or any other policy the backend already seeded with "*"), so a

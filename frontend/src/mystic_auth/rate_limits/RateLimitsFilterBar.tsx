@@ -24,6 +24,7 @@ interface RateLimitsFilterBarProps {
     totalCount: number;
     ipCount: number;
     accountCount: number;
+    accountIpCount: number;
 }
 
 /** Same shape as UsersFilterBar/audit_log's *FilterBar components: this owns
@@ -35,7 +36,7 @@ interface RateLimitsFilterBarProps {
  * e.g. "login" not "Login"). Nothing to debounce there: it refetches once an
  * option is picked. */
 const RateLimitsFilterBar: React.FC<RateLimitsFilterBarProps> = ({
-    endpoint, setEndpoint, identifier, setIdentifier, scope, setScope, isFetching, totalResults, totalCount, ipCount, accountCount,
+    endpoint, setEndpoint, identifier, setIdentifier, scope, setScope, isFetching, totalResults, totalCount, ipCount, accountCount, accountIpCount,
 }) => {
     const { t } = useTranslation(["rate_limits", "ui_text"]);
 
@@ -51,12 +52,13 @@ const RateLimitsFilterBar: React.FC<RateLimitsFilterBarProps> = ({
         { value: ALL_VALUE, label: t("page.allScopes"), count: totalCount },
         { value: "ip", label: t("page.scopeIp"), count: ipCount },
         { value: "account", label: t("page.scopeAccount"), count: accountCount },
+        { value: "account_ip", label: t("page.scopeAccountIp"), count: accountIpCount },
     ];
 
     const chips: FilterChip[] = [
         ...(endpoint ? [{ key: "endpoint", label: `${t("page.endpointColumn")}: ${endpoint}`, onClear: () => setEndpoint(ALL_VALUE) }] : []),
         ...(identifier ? [{ key: "identifier", label: `${t("page.identifierColumn")}: ${identifier}`, onClear: () => setIdentifier("") }] : []),
-        ...(scope ? [{ key: "scope", label: `${t("page.scopeColumn")}: ${scope === "ip" ? t("page.scopeIp") : scope === "account" ? t("page.scopeAccount") : t("page.scopeEmail")}`, onClear: () => setScope(ALL_VALUE) }] : []),
+        ...(scope ? [{ key: "scope", label: `${t("page.scopeColumn")}: ${scope === "ip" ? t("page.scopeIp") : scope === "account" ? t("page.scopeAccount") : scope === "account_ip" ? t("page.scopeAccountIp") : t("page.scopeEmail")}`, onClear: () => setScope(ALL_VALUE) }] : []),
     ];
 
     return (

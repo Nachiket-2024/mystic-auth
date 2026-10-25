@@ -69,7 +69,7 @@ Nothing above grants anyone access by itself. `require_authorization` only check
 
 ```tsx
 // frontend/src/app/projects/ProjectsPage.tsx
-import { PageContainer, DataTable, type DataTableColumn } from "../app_sdk"; // your own re-exports, see app_sdk.ts
+import { PageContainer, DataTable, type DataTableColumn } from "../sdk"; // stable template exports
 import { IfCan } from "../sdk";
 import { APP_PERMISSIONS } from "../access/permissions"; // your own action vocabulary, see frontend-customization.md#shared-chrome-extension-points
 
@@ -107,7 +107,7 @@ That's the whole loop: a gated backend route, a migration for its table, a polic
 
 ## 6. A pre-auth landing page
 
-`/projects` above lives *inside* the authenticated app shell (`AppLayout`, `ProtectedRoute`). Not every page does - a marketing/landing page at `/` needs to render before login, with no sidebar, no nav item, and no permission check. `frontend/src/app/landing_page/LandingPage.tsx` is the reference example for this second shape: a plain page, route-mounted directly, that only reads from `../sdk` (here, `useAuthStore` to bounce an already-signed-in visitor straight to `/dashboard`, and `APP_NAME` for the header - the same values `LoginPage`/`SignupPage` use).
+`/projects` above lives *inside* the authenticated app shell (`AppLayout`, `ProtectedRoute`). Not every page does - a marketing/landing page at `/` needs to render before login, with no sidebar, no nav item, and no permission check. `frontend/src/app/landing_page/LandingPage.tsx` is the reference example for this second shape: a plain page, route-mounted directly, that imports template pieces only through `../sdk` (here, `useAuthStore` to bounce an already-signed-in visitor straight to `/dashboard`, and `APP_NAME` for the header - the same values `LoginPage`/`SignupPage` use).
 
 ```tsx
 // frontend/src/app/landing_page/LandingPage.tsx

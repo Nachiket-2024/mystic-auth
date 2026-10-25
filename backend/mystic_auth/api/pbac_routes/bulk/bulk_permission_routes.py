@@ -69,7 +69,7 @@ async def bulk_assign_permissions(
     users_by_email = await user_crud.get_by_emails([item.user_email for item in body.items], db)
 
     context = build_authorization_context(request)
-    grant_cache: dict[tuple[str, str], bool] = {}
+    grant_cache: dict[tuple[str, str], tuple[bool, dict[str, dict | None]]] = {}
     valid_items = []
     error_results: list[BulkItemResult] = []
     for item in body.items:
@@ -109,7 +109,7 @@ async def bulk_remove_permissions(
     users_by_email = await user_crud.get_by_emails([item.user_email for item in body.items], db)
 
     context = build_authorization_context(request)
-    grant_cache: dict[tuple[str, str], bool] = {}
+    grant_cache: dict[tuple[str, str], tuple[bool, dict[str, dict | None]]] = {}
     valid_items = []
     error_results: list[BulkItemResult] = []
     for item in body.items:

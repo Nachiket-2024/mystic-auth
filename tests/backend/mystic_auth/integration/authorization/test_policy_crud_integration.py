@@ -6,6 +6,8 @@
 # create/read/update/delete itself. List search/filter/sort/pagination
 # coverage lives in test_policy_list_integration.py, split out once this
 # file passed the repo's file-length guideline.
+import asyncio
+
 import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (
@@ -126,6 +128,31 @@ async def test_creating_a_duplicate_named_policy_is_rejected(client, created_ema
 
     second = await client.post("/authorization/policies", json=payload)
     assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_concurrent_duplicate_name_creates_get_a_clean_409_not_an_unhandled_500(client, created_emails):
+    """Regression: create_policy's upfront get_by_name check is a
+    check-then-act race, not atomic with the insert - under genuinely
+    concurrent requests for the same name, more than one could pass the
+    check before either commits, and the database's own unique constraint
+    on policies.name then raised an unhandled IntegrityError -> 500 instead
+    of the intended clean 409 POLICY_NAME_EXISTS. Confirmed live against the
+    real dev stack: 2-4 out of 20 concurrent requests got a 500. Fixed by
+    catching IntegrityError around the insert, same pattern as
+    signup_service.py's identical duplicate-email race. Every response here
+    must be either 201 (exactly one) or 409 - never 500."""
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+    policy_name = unique_policy_name()
+    payload = {"name": policy_name, "actions": ["projects:read"], "resource_type": "projects"}
+
+    responses = await asyncio.gather(*(client.post("/authorization/policies", json=payload) for _ in range(10)))
+    statuses = [r.status_code for r in responses]
+
+    assert statuses.count(201) == 1
+    assert statuses.count(409) == len(responses) - 1
+    assert 500 not in statuses
 
 
 @pytest.mark.asyncio

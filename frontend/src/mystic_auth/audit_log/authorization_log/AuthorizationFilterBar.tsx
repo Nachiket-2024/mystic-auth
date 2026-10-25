@@ -58,7 +58,7 @@ const AuthorizationFilterBar: React.FC<AuthorizationFilterBarProps> = ({
     chips, onClearAll, isFetching, totalResults,
     extraResourceTypes, extraActions,
 }) => {
-    const { t } = useTranslation(["audit_log", "ui_text"]);
+    const { t } = useTranslation(["audit_log", "ui_text", "policies"]);
 
     const actionGroups: GroupedSearchOptionGroup[] = useMemo(() => {
         const allActions = [...Object.values(PERMISSIONS), ...(extraActions ?? [])];
@@ -66,17 +66,17 @@ const AuthorizationFilterBar: React.FC<AuthorizationFilterBarProps> = ({
         return resourceTypes
             .map((rt) => ({
                 key: rt,
-                label: formatResourceTypeLabel(rt),
+                label: formatResourceTypeLabel(rt, t("policies:page.allResourceTypes")),
                 options: allActions
                     .filter((a) => a.startsWith(`${rt}:`))
                     .map((a) => ({ value: a, label: formatPolicyActionLabel(a), destructive: isDestructiveAction(a) })),
             }))
             .filter((g) => g.options.length > 0);
-    }, [extraActions, extraResourceTypes]);
+    }, [extraActions, extraResourceTypes, t]);
 
     const allActionsLabel =
         resourceType !== ALL_VALUE
-            ? t("authorization.filterBar.allActionsForResource", { resource: formatResourceTypeLabel(resourceType) })
+            ? t("authorization.filterBar.allActionsForResource", { resource: formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes")) })
             : t("authorization.filterBar.allActions");
 
     const searchBox = (

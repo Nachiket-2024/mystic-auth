@@ -63,7 +63,7 @@ boundaries, even though they live outside the MysticAuth integration tree.
 
 ## Browser E2E tests
 
-The 27 Playwright specs verify user-visible behavior in a real browser. Most
+The 28 Playwright specs verify user-visible behavior in a real browser. Most
 use mocked API responses to make UI behavior repeatable. The login/logout flow
 uses a disposable account. The real permission-matrix spec uses seeded
 accounts and checks `/auth/me`, route gates, authorization-log scope, and the

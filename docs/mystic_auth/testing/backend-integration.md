@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 48 pytest modules exercise MysticAuth through real application
+These 52 pytest modules exercise MysticAuth through real application
 boundaries. Fixtures create database rows, issue requests, and use Valkey when
 the workflow depends on sessions, rate limits, authorization caching, or
 background state. The purpose is to prove that separately correct units still
@@ -27,10 +27,13 @@ produce a misleading `403` in an otherwise valid integration test.
   audit-log querying, pagination, sorting, and scope restrictions.
 - `audit_log/test_audit_log_query_edge_cases_integration.py` verifies empty
   results, malformed filters, boundary dates, and unusual pagination inputs.
+- `audit_log/test_email_job_payload_retention_integration.py` verifies
+  completed email-job payloads are scrubbed after delivery.
+- `audit_log/test_security_audit_log_global_queries.py` covers global security-log
+  filtering, ordering, and rate limits; `test_security_audit_log_user_queries.py`
+  covers per-user scoping and access-change filtering.
 - `audit_log/test_security_audit_log_integration.py` verifies security-event
   creation and access through the security audit API.
-- `audit_log/test_security_audit_log_queries.py` verifies category, actor,
-  event, date, and text query behavior for security events.
 
 ---
 
@@ -52,6 +55,9 @@ produce a misleading `403` in an otherwise valid integration test.
   sensitive actions reserve and consume the expected session/auth state.
 - `auth/test_refresh_token_integration.py` verifies refresh rotation,
   replay-chain revocation, cookies, and persistence across requests.
+- `auth/test_token_revocation_identifier_migration_integration.py` verifies
+  legacy raw-email revocation keys migrate to keyed identifiers without
+  reducing stored versions.
 - `auth/test_signup_verify_concurrency_integration.py` verifies concurrent
   signup and verification requests do not create inconsistent accounts.
 
@@ -111,6 +117,8 @@ produce a misleading `403` in an otherwise valid integration test.
 
 - `user/test_account_purge_task_integration.py` verifies scheduled purge work
   removes expired accounts and dependent data.
+- `user/test_account_lifecycle_outbox_retention_integration.py` verifies
+  completed lifecycle events are pruned while pending events remain retryable.
 - `user/test_user_account_lifecycle_integration.py` verifies deletion,
   reactivation, and lifecycle permissions across persisted state.
 - `user/test_user_admin_lifecycle_valkey_outage_integration.py` verifies safe

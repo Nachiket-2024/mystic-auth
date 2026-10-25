@@ -58,7 +58,7 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
     policy, setPolicy, permission, setPermission, permissionSource, lastLogin, setLastLogin, isFetching, totalResults,
     onClearFilters,
 }) => {
-    const { t } = useTranslation(["users", "ui_text"]);
+    const { t } = useTranslation(["users", "ui_text", "policies"]);
     // Keep the page compact by default. Active filters remain visible as
     // chips, while the full control set is revealed only on demand.
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -74,20 +74,20 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
             const resourceType = action.split(":")[0];
             const group = groups.get(resourceType) ?? {
                 key: resourceType,
-                label: formatResourceTypeLabel(resourceType),
+                label: formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes")),
                 options: [],
             };
             group.options.push({ value: action, label: formatPolicyActionLabel(action), destructive: isDestructiveAction(action) });
             groups.set(resourceType, group);
         }
         return Array.from(groups.values());
-    }, []);
+    }, [t]);
     const policyGroups = useMemo<GroupedSearchOptionGroup[]>(() => {
         const groups = new Map<string, GroupedSearchOptionGroup>();
         for (const currentPolicy of policies ?? []) {
             const group = groups.get(currentPolicy.resource_type) ?? {
                 key: currentPolicy.resource_type,
-                label: formatResourceTypeLabel(currentPolicy.resource_type),
+                label: formatResourceTypeLabel(currentPolicy.resource_type, t("policies:page.allResourceTypes")),
                 options: [],
             };
             group.options.push({ value: currentPolicy.name, label: currentPolicy.name });
@@ -96,7 +96,7 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
         return Array.from(groups.values())
             .sort((left, right) => left.label.localeCompare(right.label))
             .map((group) => ({ ...group, options: group.options.sort((left, right) => left.label.localeCompare(right.label)) }));
-    }, [policies]);
+    }, [policies, t]);
     const chips: FilterChip[] = [
         ...(search ? [{ key: "search", label: `Search: ${search}`, onClear: () => setSearch("") }] : []),
         ...(permission !== ALL_VALUE ? [{ key: "permission", label: `Permission: ${formatPolicyActionLabel(permission)}`, onClear: () => setPermission(ALL_VALUE) }] : []),

@@ -2,6 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 
+// Side-effect import first: exposes the CSP nonce before any primitive can
+// inject a <style> element.
+import '../mystic_auth/core/cspNonce.ts';
 import App from './App.tsx';
 import ErrorBoundary from '../mystic_auth/ui/routing/ErrorBoundary.tsx';
 
@@ -18,7 +21,7 @@ import '@fontsource-variable/inter';
 const stylesheet = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"][media="print"]');
 stylesheet?.removeAttribute("media");
 
-// Tailwind v4 entry point + design tokens (see theme/tailwind.css).
+// Tailwind v4 entry point (imports the theme tokens and app styles).
 // applyBrandCssVars.ts applies the signed-in user's brand-color pick as
 // CSS variables: eager, side-effect-only import, same "before first
 // paint" pattern as themeStore.ts below.

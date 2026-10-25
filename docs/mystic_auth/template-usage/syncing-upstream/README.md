@@ -24,10 +24,11 @@ Run the command from the root of the downstream project created from this templa
 The script requires a clean Git index (`git diff --cached` must be empty). A completely clean working tree is still the recommended starting point. If unstaged or untracked downstream work exists, the script temporarily stashes it, including an app split, applies upstream against a clean tree, and restores the work after the sync commit. Ignored files, such as real env files, are not included. If restoration conflicts, the sync commit remains and the retained stash must be resolved manually.
 
 Before making a preparatory stash, confirm that the current
-`scripts/mystic_auth/upstream-sync/sync-upstream.sh` exists in the working
-tree. On an older downstream checkout it may exist locally without being in
-`HEAD`; preserve that current file and exclude it from any stash of the other
-work. If it is staged, unstage only the script without discarding its contents.
+`scripts/mystic_auth/upstream-sync/sync-upstream.sh` and its sibling
+`sync-upstream-review.sh`, `sync-upstream-apply.sh`, and
+`sync-upstream-finalize.sh` stages exist in the working tree. On an older
+downstream checkout they may exist locally without being in `HEAD`; preserve
+those current files and exclude them from any stash of the other work. If it is staged, unstage only the script without discarding its contents.
 Never replace it with an older copy recovered from a stash. If the script is
 already inside a preserved stash, restore only that exact path, or restore it
 from the fetched upstream branch. Leave the rest of the split stash untouched.
@@ -81,7 +82,8 @@ The ownership guard runs before any patch is applied. It blocks the entire sync 
 
 If a downstream checkout has the pre-grandfathering sync script, preserve the
 pending work, verify the inherited test path existed at the last sync, replace
-only that upstream-owned script with the fetched upstream version, and rerun.
+only the upstream-owned sync files (the entry point and its three stage files)
+with the fetched upstream versions, and rerun.
 Do not force the sync, skip the ownership check, or weaken it for new tests.
 
 Root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` are downstream-owned starting points too. If upstream changed them, the script reports and excludes those changes so the local copies are preserved while unrelated upstream fixes continue. Most syncs go straight down the right-hand “Clean” path.
@@ -108,7 +110,7 @@ Do this from the main folder of your project (the repo you created from **Use th
 # scripts\mystic_auth\upstream-sync\sync-upstream.cmd        # Command Prompt
 ```
 
-The real logic only exists once, as the bash script: it's dense git plumbing with its own regression suite, and a second, independently-written PowerShell copy of that same logic would just be two places for the same subtle bug to hide. The `.ps1`/`.cmd` entry points instead locate the Git Bash that already ships with Git for Windows (the same `git` install this needs either way) and run the real script through it, so PowerShell/Command Prompt users still get one command, no manual "open Git Bash first" step.
+The entry point coordinates three small bash stages stored beside it: review, apply, and finalize. Keep all four files together when copying or updating the sync tool. The `.ps1`/`.cmd` entry points locate the Git Bash that ships with Git for Windows and run the bash entry point, so PowerShell/Command Prompt users still have one command.
 
 The very first time you run this, it also quietly sets up a second connection to the original template repo (git calls this a "remote", and this one's named `upstream`). That's just so the script knows where to download updates from. It does not touch your existing GitHub connection (`origin`) and does not push or upload anything anywhere. It only downloads.
 

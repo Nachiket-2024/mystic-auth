@@ -11,9 +11,12 @@ workflow and exceptional paths.
 
 - Review `git status`, the staged diff, and the branch that should receive the
   update. Do not commit or discard the owner's work to make the index clean.
-- Confirm `scripts/mystic_auth/upstream-sync/sync-upstream.sh` exists in the
-  working tree before preserving or stashing anything. Follow the guide if it
-  is missing from `HEAD` or already staged.
+- Confirm `scripts/mystic_auth/upstream-sync/sync-upstream.sh` and the adjacent
+  `sync-upstream-review.sh`, `sync-upstream-apply.sh`, and
+  `sync-upstream-finalize.sh` files exist in the working tree before
+  preserving or stashing anything. The entry point loads the stages and they
+  must stay beside it. Follow the guide if any are missing from `HEAD` or
+  already staged.
 - The sync script requires an empty Git index. Preserve any staged owner work
   using the guide's pre-sync procedure before running it; do not commit or
   discard that work. The script can preserve unstaged and untracked work itself.
@@ -47,9 +50,10 @@ applies files but does not migrate data volumes; follow the relevant upgrade
 guide, including the PostgreSQL 15 to 18 dump-and-restore procedure if that
 version change is incoming.
 
-Use the repository's documented env-copy workflow if runtime files need new
-fields. Do not read, print, overwrite, or delete real env files or `.bak`
-backups without the owner's explicit approval. Keep app-only values in
+Use the repository's documented env-copy workflow (rename the real files
+aside, run `setup-env`, then `copy-env-values`) if runtime files need new
+fields. Do not read, print, rename, overwrite, or delete real env files or
+`.bak` backups without the owner's explicit approval. Keep app-only values in
 `env/app/`; do not move product code or settings into `mystic_auth/` internals.
 
 ---

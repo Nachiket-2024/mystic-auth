@@ -60,7 +60,7 @@ Applied consistently across every enumeration-sensitive endpoint:
 1. Refresh tokens are single-use. An atomic per-`jti` claim (`claim_jti_for_rotation`) marks one redeemed immediately after a successful rotation.
 2. If a token whose `jti` is already claimed is presented again, a same-IP retry inside the brief configured grace period is rejected without revoking the first request's chain or minting another child. Older or cross-IP reuse bumps that token's own `chain_ver` (`revoke_chain_for_user`), killing that chain and logging the event at `critical` severity.
 3. **This is deliberately scoped to the compromised chain, not every session on the account.** An earlier version bumped every session unconditionally, which meant a stale token replayed on any device could also kill an unrelated, never-compromised session created afterward. See [Session Management](../authentication/session-management/token-lifecycle.md#rotation-chains-and-reuse-detection) and [Authentication Overview](../authentication/overview.md#refresh-token-rotation).
-4. A token minted before chain tracking existed carries no `chain` claim, so there's no lineage to scope to; reuse of one of those still falls back to the old, maximally-safe response (bumps `account_ver`, every session on the account).
+4. Access and refresh tokens missing `chain`, `jti`, `account_ver`, or `chain_ver` are rejected. The verifier does not fill missing versions from current server state, because that could let a token minted before revocation survive. Tokens also need matching `iss` and `aud` claims; after deploying this stricter validation, users with older tokens must sign in again.
 5. **Version validity is checked *before* the reuse check, not just after.** A refresh token whose embedded `account_ver`/`chain_ver` has already fallen behind Postgres' durable version record is rejected as stale before `claim_jti_for_rotation` runs. Without that order, a session that was intentionally ended could still rotate into a new valid session on its next refresh, since the single-use claim only catches a token redeemed twice.
 6. **Rotation is atomic, closing a concurrent-request race.** Two requests presenting the identical still-valid refresh token at the same time must not both be able to rotate it. `JWTService.claim_jti_for_rotation` uses a unique Postgres primary key on `consumed_refresh_tokens.jti` and `INSERT ... ON CONFLICT DO NOTHING`, so concurrent requests cannot both claim the same token and Valkey loss cannot erase the replay record. A same-IP duplicate inside the short grace period is rejected without revoking the first request's chain; it never receives another descendant. Other reuse revokes the chain. Expired claim rows are removed by a daily bounded cleanup task. Covered by the JTI unit tests and real PostgreSQL integration tests, including replay after deleting any legacy Valkey marker.
 
@@ -128,10 +128,10 @@ See `backend/mystic_auth/auth/logout/logout_handler.py`, `backend/mystic_auth/au
 
 ## Rate limiting and lockout are layered, not singular
 
-1. Login has **both** a generic sliding-window rate limiter (per-IP and per-account) and a separate, purpose-built brute-force lockout service with its own thresholds (`MAX_FAILED_LOGIN_ATTEMPTS` / `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP`).
+1. Login has a generic sliding-window request limiter per source IP and a separate failed-login lockout keyed by the normalized account/source-IP pair (`MAX_FAILED_LOGIN_ATTEMPTS_PER_IP`). The pair key prevents failures against one account from consuming another account's budget behind a shared VPN/NAT exit, and prevents an attacker on one network from locking the account for users on other networks. The generic per-IP request limiter remains the aggregate cap for one source.
 2. The two serve different purposes:
-   - The rate limiter caps *request volume* generically (applied to all 10 routes in `auth_routes.py`: signup, login, OAuth2 login/callback, `/auth/me`, logout, logout-all, password-reset request/confirm, verify-account).
-   - The lockout service specifically tracks *failed authentication attempts* and can lock an account/IP out even if each individual request was well within the rate limit.
+   - The rate limiter caps *request volume* generically (applied to all 13 decorated routes in `auth_routes.py`: signup, login, OAuth2 login/callback, `/auth/me`, logout, logout-all, session listing/revocation, password-reset request/confirm, and account-verification request/confirm).
+   - The lockout service specifically tracks *failed authentication attempts* for an account/source-IP pair. A user sharing the same account and egress with an attacker can still be throttled for that pair; users attempting other accounts behind the same VPN keep independent failure budgets. See [Brute-force lockout](hardening-abuse-prevention.md#brute-force-lockout) for the tradeoff and tuning settings.
 3. `POST /auth/refresh/` is deliberately **not** rate-limited by this mechanism: the refresh flow already has its own protection via single-use token rotation and reuse detection (see above), which a generic request-volume limiter would only duplicate. See [Login](../authentication/login.md).
 
 ---
@@ -139,7 +139,7 @@ See `backend/mystic_auth/auth/logout/logout_handler.py`, `backend/mystic_auth/au
 ### Rate limiter fails closed on a Valkey outage: reviewed, kept intentionally
 
 1. `RateLimiterService.record_request` (`auth/security/rate_limiting/rate_limiter_service.py`) catches every Valkey exception and returns `False` ("not allowed").
-2. Because all 10 rate-limited routes depend on this, a Valkey outage makes every one of them reject every caller: a full, if temporary, authentication-surface outage, not just degraded rate limiting.
+2. Because all 13 rate-limited routes in `auth_routes.py` depend on this, a Valkey outage makes every one of them reject every caller: a full, if temporary, authentication-surface outage, not just degraded rate limiting.
 3. Most routes surface that as a JSON `429`; the two OAuth2 routes (`oauth2_login`/`oauth2_callback`) redirect to `/login?error=TOO_MANY_ATTEMPTS` instead, via `rate_limited`'s `redirect_url` param, since they're top-level browser navigations with nowhere sensible to render a JSON body.
 
 ---

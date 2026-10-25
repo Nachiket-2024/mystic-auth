@@ -43,7 +43,7 @@ async def list_policy_history(
     policy_name: str,
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=10_000_000),
     current_user: dict = READ_DEPENDENCY,
     db: AsyncSession = Depends(database.get_session),
 ):

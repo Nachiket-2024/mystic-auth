@@ -110,7 +110,7 @@ const PermissionDetailsDialog: React.FC<PermissionDetailsDialogProps> = ({
   onRetryUsage,
   onClose,
 }) => {
-  const { t } = useTranslation(["permissions", "ui_text"]);
+  const { t } = useTranslation(["permissions", "ui_text", "policies"]);
   const canReadPolicies = useCan(PERMISSIONS.POLICIES_READ);
   const canListUsers = useCan(PERMISSIONS.USERS_LIST_ALL);
   if (!entry) return null;
@@ -150,7 +150,7 @@ const PermissionDetailsDialog: React.FC<PermissionDetailsDialogProps> = ({
             )}
             <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2">
               <DetailCard icon={<Layers size={18} aria-hidden="true" />} label={t("permissions:detailsDialog.resourceType")} className="h-full">
-                {formatResourceTypeLabel(entry.resource_type)}
+                {formatResourceTypeLabel(entry.resource_type, t("permissions:page.allResourceTypes"))}
               </DetailCard>
               <DetailCard icon={<FileText size={18} aria-hidden="true" />} label={t("permissions:detailsDialog.description")} className="h-full">
                 <span className="font-normal leading-5" title={entry.description}>{entry.description}</span>

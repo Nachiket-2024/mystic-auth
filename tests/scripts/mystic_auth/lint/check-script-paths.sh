@@ -25,9 +25,9 @@
 #   - docs/mystic_auth/project-story/ and docker/validation-history.md:
 #     historical narrative describing paths as they were at the time, not
 #     the current tree - "fixing" these would misrepresent history.
-#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh:
-#     creates its own fixture paths dynamically inside a temp sandbox
-#     repo, never in this repo's tree.
+#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh:
+#     create fixture paths dynamically inside a temp sandbox repo, never in
+#     this repo's tree.
 #
 # Usage: tests/scripts/mystic_auth/lint/check-script-paths.sh
 # Exit 0: every referenced path resolves. Exit 1: one or more don't, listed.
@@ -44,7 +44,7 @@ while IFS= read -r -d '' f; do
     "$SELF") continue ;;
     docs/mystic_auth/project-story/*) continue ;;
     docs/mystic_auth/docker/validation-history.md) continue ;;
-    tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh) continue ;;
+    tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh) continue ;;
   esac
   FILES+=("$f")
 done < <(

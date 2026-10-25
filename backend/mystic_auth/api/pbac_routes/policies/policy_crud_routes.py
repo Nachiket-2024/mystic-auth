@@ -1,6 +1,7 @@
 import asyncio
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Rejects a malformed `conditions` block before it's ever persisted: unknown
@@ -21,10 +22,12 @@ from ....authorization.services.authorization_service import authorization_servi
 from ....core.errors import AppError
 from ....core.search_query import SEARCH_QUERY_MAX_LENGTH
 from ....database.connection import database
+from ....logging.logging_config import get_logger
 from ....user_session.session_events import publish_permissions_changed
 from ...get_or_404.get_or_404 import get_or_404
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
+logger = get_logger(__name__)
 
 
 @router.post("/policies", response_model=PolicyRead, status_code=status.HTTP_201_CREATED)
@@ -65,14 +68,32 @@ async def create_policy(
 
     data = policy_data.model_dump()
     data["created_by"] = current_user["email"]
-    return await policy_repository.create(data, db, changed_by=current_user["email"])
+    try:
+        return await policy_repository.create(data, db, changed_by=current_user["email"])
+    except IntegrityError as exc:
+        # Benign create race: the upfront get_by_name check above is
+        # inherently racy (check-then-act, not atomic with this insert) -
+        # another concurrent request for the same name can win between the
+        # two. The unique constraint on policies.name is what actually
+        # prevents the duplicate row; this just turns that into the same
+        # clean 409 the upfront check already gives the non-racing caller,
+        # instead of letting an unhandled IntegrityError surface as a 500.
+        # Same pattern as signup_service.py's identical email-uniqueness race.
+        await db.rollback()
+        logger.info("Policy creation lost a create race for '%s', treating as already-existing", policy_data.name)
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="POLICY_NAME_EXISTS",
+            detail=f"A policy named '{policy_data.name}' already exists",
+            params={"policyName": policy_data.name},
+        ) from exc
 
 
 @router.get("/policies", response_model=list[PolicyRead])
 async def list_policies(
     response: Response,
     limit: int = Query(default=1000, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=10_000_000),
     search: str | None = Query(
         default=None,
         max_length=SEARCH_QUERY_MAX_LENGTH,

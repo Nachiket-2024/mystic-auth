@@ -9,7 +9,7 @@ extend([mixPlugin]);
 // rather than a flat brand step.
 const GRAY_900 = "#18181b";
 
-// This app's own dark canvas value from tailwind.css, not GRAY_900 -
+// This app's own dark canvas value from tailwind-tokens.css, not GRAY_900 -
 // deriveSidebar blends toward this instead (see its own comment for why):
 // GRAY_900 (#18181b, L=10) floors every possible blend result at least
 // that light, which can never reach the mockup's actual chrome darkness

@@ -179,7 +179,14 @@ async def test_verify_token_without_expected_type_skips_type_check(mocker):
     # "type" claim at all; verify_token must still accept them when the caller
     # doesn't ask for a specific type.
     untyped_token = pyjwt.encode(
-        {"email": "user@example.com"}, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        {
+            "email": "user@example.com",
+            "iss": settings.JWT_ISSUER,
+            "aud": settings.JWT_AUDIENCE,
+            "exp": time.time() + 60,
+        },
+        settings.SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
     )
 
     payload = await jwt_service.verify_token(untyped_token)

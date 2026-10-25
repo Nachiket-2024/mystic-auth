@@ -4,6 +4,7 @@ import * as React from "react"
 import { cn } from "@/ui/styles/classNames"
 import { CheckIcon, ChevronDownIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
+import { cspNonce } from "@/core/cspNonce"
 
 function Select({
   ...props
@@ -71,6 +72,7 @@ function SelectContent({
         {...props}
       >
         <SelectPrimitive.Viewport
+          nonce={cspNonce}
           className={cn(
             "dropdown-scroll-area max-h-80 overflow-y-auto p-1",
             position === "popper" &&

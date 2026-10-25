@@ -22,9 +22,11 @@ pass() { echo "PASS: $1"; }
 fail() { echo "FAIL: $1"; exit 1; }
 
 echo "=== database-restore-drill.sh succeeds against a real running database ==="
-if bash scripts/mystic_auth/db/database-restore/database-restore-drill.sh docker-compose.dev.yml; then
+if DRILL_OUTPUT="$(bash scripts/mystic_auth/db/database-restore/database-restore-drill.sh docker-compose.dev.yml 2>&1)"; then
+  printf '%s\n' "$DRILL_OUTPUT"
   pass "drill exits 0 and reports a clean restore"
 else
+  printf '%s\n' "$DRILL_OUTPUT" >&2
   fail "drill failed against a database it should be able to dump and restore"
 fi
 
@@ -34,6 +36,8 @@ DC_ARGS=(-f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/comp
   --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev)
 POSTGRES_USER="${POSTGRES_USER:-$(grep -hm1 '^POSTGRES_USER=' env/app/.env.dev env/mystic_auth/.env.dev 2>/dev/null | head -n1 | cut -d= -f2-)}"
 : "${POSTGRES_USER:?POSTGRES_USER must be set in env/app/.env.dev or env/mystic_auth/.env.dev}"
+POSTGRES_DB="${POSTGRES_DB:-$(grep -hm1 '^POSTGRES_DB=' env/app/.env.dev env/mystic_auth/.env.dev 2>/dev/null | head -n1 | cut -d= -f2-)}"
+: "${POSTGRES_DB:?POSTGRES_DB must be set in env/app/.env.dev or env/mystic_auth/.env.dev}"
 # Deliberately truncated input, the same failure shape the real --file=-
 # bug produced (a 0-byte/too-short file), fed straight to pg_restore
 # without going through the drill script (which always dumps a real,
@@ -53,17 +57,27 @@ else
 fi
 
 echo
-echo "=== scratch database is cleaned up after a successful drill ==="
-POSTGRES_DB="${POSTGRES_DB:-$(grep -hm1 '^POSTGRES_DB=' env/app/.env.dev env/mystic_auth/.env.dev 2>/dev/null | head -n1 | cut -d= -f2-)}"
-: "${POSTGRES_DB:?POSTGRES_DB must be set in env/app/.env.dev or env/mystic_auth/.env.dev}"
-SCRATCH_DB="${POSTGRES_DB}_restore_drill"
-SCRATCH_EXISTS="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
-  psql -U "$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${SCRATCH_DB}';")"
-if [ -z "$(echo "$SCRATCH_EXISTS" | tr -d '[:space:]')" ]; then
-  pass "scratch database does not linger after the drill exits"
+echo "=== both databases were restored and their scratch copies were cleaned up ==="
+grep -q "OK: '${POSTGRES_DB}' restored with the same public tables and row counts" <<< "$DRILL_OUTPUT" \
+  || fail "application database restore parity was not reported"
+if grep -q "OK: 'bugsink' restored with the same public tables and row counts" <<< "$DRILL_OUTPUT"; then
+  pass "populated Bugsink database restore parity was reported"
+elif grep -q "OK: 'bugsink' restored as an empty database" <<< "$DRILL_OUTPUT"; then
+  pass "empty dev Bugsink database was restored as empty"
 else
-  fail "scratch database '${SCRATCH_DB}' still exists after the drill - cleanup trap did not run"
+  fail "Bugsink database restore parity was not reported"
 fi
+mapfile -t SCRATCH_DATABASES < <(printf '%s\n' "$DRILL_OUTPUT" | sed -n "s/.*Creating scratch database '\([^']*\)'.*/\1/p")
+[ "${#SCRATCH_DATABASES[@]}" -eq 2 ] || fail "drill did not report both scratch database names"
+for scratch_db in "${SCRATCH_DATABASES[@]}"; do
+  SCRATCH_EXISTS="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+    psql -U "$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '${scratch_db}';")"
+  if [ -z "$(echo "$SCRATCH_EXISTS" | tr -d '[:space:]')" ]; then
+    pass "scratch database ${scratch_db} was cleaned up"
+  else
+    fail "scratch database '${scratch_db}' still exists after the drill - cleanup trap did not run"
+  fi
+done
 
 echo
 echo "All restore-drill checks passed."

@@ -41,7 +41,7 @@ const StatTile: React.FC<StatTileProps> = ({ label, value, isLoading, color, onC
             {...(onClick && {
                 type: "button" as const,
                 onClick,
-                "aria-label": ariaLabel ?? t("filterLabel", { label }),
+                "aria-description": ariaLabel ?? t("filterLabel", { label }),
             })}
         >
             {isLoading ? (

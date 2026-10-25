@@ -53,7 +53,7 @@ const BulkPermissionTab: React.FC<BulkPermissionTabProps> = ({
   onConditionsChange,
   onRun,
 }) => {
-  const { t } = useTranslation(["users", "ui_text"]);
+  const { t } = useTranslation(["users", "ui_text", "policies"]);
   const names = Object.keys(groups);
   const allExpanded =
     names.length > 0 && names.every((name) => expandedGroups.includes(name));
@@ -97,7 +97,7 @@ const BulkPermissionTab: React.FC<BulkPermissionTabProps> = ({
                   type="button"
                   className={`sticky top-0 z-30 isolate flex w-full items-center gap-3 min-h-11 px-3 py-2.5 border border-border-default rounded-t-lg bg-bg-table-header text-fg-muted text-left focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-[-2px] ${expanded ? "rounded-b-none border-b" : "rounded-b-lg border-b"}`}
                   aria-expanded={expanded}
-                  aria-label={`${expanded ? t("ui_text:expandCollapseAll.collapseAll") : t("ui_text:expandCollapseAll.expandAll")}: ${formatResourceTypeLabel(resourceType)}`}
+                  aria-label={`${expanded ? t("ui_text:expandCollapseAll.collapseAll") : t("ui_text:expandCollapseAll.expandAll")}: ${formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes"))}`}
                   onClick={() => toggleGroup(resourceType)}
                 >
                   {(() => {
@@ -124,7 +124,7 @@ const BulkPermissionTab: React.FC<BulkPermissionTabProps> = ({
                           aria-hidden="true"
                         />
                         <span className="truncate text-sm leading-5 font-medium text-fg-default">
-                          {formatResourceTypeLabel(resourceType)}
+                          {formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes"))}
                         </span>
                       </span>
                     );

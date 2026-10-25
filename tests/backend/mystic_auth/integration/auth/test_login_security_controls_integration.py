@@ -11,7 +11,12 @@ import statistics
 import time
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 
+from backend.app.main import app
+from backend.mystic_auth.auth.password_logic.password_reset_service import (
+    password_reset_service,
+)
 from backend.mystic_auth.auth.password_logic.password_service import (
     password_service,
 )
@@ -28,12 +33,14 @@ from .auth_test_accounts import PASSWORD, signup_verify_login, unique_email
 async def _median_login_latency(client, email: str, password: str, samples: int = 9) -> float:
     durations = []
     for _ in range(samples):
-        # Reset the lockout counter before every sample, otherwise repeated
-        # wrong-password attempts against the same email trip
-        # MAX_FAILED_LOGIN_ATTEMPTS partway through, and the locked-out
+        # Reset lockout counters before every sample, otherwise repeated
+        # wrong-password attempts against the same email/source pair trip
+        # the pair threshold partway through, and the locked-out
         # responses (which return instantly, before any hash comparison)
         # would corrupt this timing measurement rather than reflect it.
-        await valkey_client.delete(f"login_lock:email:{email}")
+        lock_keys = [key async for key in valkey_client.scan_iter(match="login_lock:account_ip:*")]
+        if lock_keys:
+            await valkey_client.delete(*lock_keys)
         start = time.perf_counter()
         await client.post("/auth/login", json={"email": email, "password": password})
         durations.append(time.perf_counter() - start)
@@ -85,12 +92,15 @@ async def test_login_timing_does_not_distinguish_unverified_from_wrong_password(
 # ---------------------------- login lockout (real Valkey) ----------------------------
 
 @pytest.mark.asyncio
-async def test_login_locks_out_after_max_failed_attempts(client, created_emails):
+async def test_login_lockout_isolated_to_account_and_source_ip_pair(client, created_emails):
     email = unique_email()
     await signup_verify_login(client, created_emails, email)
     client.cookies.clear()
+    same_network_email = unique_email()
+    await signup_verify_login(client, created_emails, same_network_email)
+    client.cookies.clear()
 
-    for _attempt in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
+    for _attempt in range(settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP):
         resp = await client.post("/auth/login", json={"email": email, "password": "wrong-password"})
         assert resp.status_code == 401
 
@@ -100,6 +110,35 @@ async def test_login_locks_out_after_max_failed_attempts(client, created_emails)
     # Even the correct password is rejected while locked out.
     still_locked_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     assert still_locked_resp.status_code == 429
+
+    # A different person behind the same VPN/NAT exit has a separate pair
+    # counter and can still authenticate.
+    other_user_response = await client.post(
+        "/auth/login", json={"email": same_network_email, "password": PASSWORD}
+    )
+    assert other_user_response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_attacker_ip_cannot_lock_the_account_owner_out(client, created_emails):
+    email = unique_email()
+    await signup_verify_login(client, created_emails, email)
+    client.cookies.clear()
+
+    attacker_transport = ASGITransport(app=app, client=("198.51.100.10", 40000))
+    async with AsyncClient(
+        transport=attacker_transport, base_url="https://testserver", follow_redirects=False
+    ) as attacker:
+        responses = [
+            await attacker.post("/auth/login", json={"email": email, "password": "wrong-password"})
+            for _ in range(settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP + 1)
+        ]
+    assert responses[-1].status_code == 429
+
+    # The owner's request arrives from a different source IP; an anonymous
+    # attacker must not be able to poison a global account lock.
+    owner_response = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
+    assert owner_response.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -140,7 +179,9 @@ async def test_repeated_weak_password_reset_confirm_failures_do_not_lock_out_log
     resp = await client.post("/auth/password-reset/request", json={"email": email})
     assert resp.status_code == 200
     reset_token = await password_service.create_reset_token(email)
-    await valkey_client.set(f"password_reset:{reset_token}", "1", ex=settings.RESET_TOKEN_EXPIRE_MINUTES * 60)
+    assert await password_reset_service.store_reset_token(
+        email, reset_token, settings.RESET_TOKEN_EXPIRE_MINUTES * 60
+    )
 
     for attempt in range(settings.MAX_FAILED_LOGIN_ATTEMPTS):
         # Too-short new password fails validate_password_strength, which

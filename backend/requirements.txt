@@ -6,23 +6,23 @@
 # before committing an update), not incidentally as a side effect of an
 # unrelated change.
 
-fastapi==0.143.0
+fastapi==0.162.0
 uvicorn[standard]==0.54.0
 
 # [asyncio] is required as of 2.1: SQLAlchemy used to pull in greenlet
 # unconditionally on supported platforms, but 2.1 made it extra-gated, and
 # this project's entire DB layer is async (asyncpg/psycopg async engines).
-SQLAlchemy[asyncio]==2.1.4
+SQLAlchemy[asyncio]==2.1.6
 asyncpg==0.32.0
-alembic==1.20.0
+alembic==1.20.1
 # Transitive dep of alembic/procrastinate, pinned explicitly with [binary]:
 # plain psycopg's libpq loader doesn't work on musl/Alpine, [binary] bundles
 # its own libpq so it works on both glibc and musl.
 psycopg[binary]==3.3.6
 
 python-dotenv==1.2.4
-pydantic-settings==2.15.0
-pydantic[email]==2.14.0
+pydantic-settings==2.16.1
+pydantic[email]==2.14.1
 
 pyjwt==2.15.1
 argon2_cffi==25.1.0
@@ -32,9 +32,9 @@ httpx==0.28.1
 # starlette.testclient (used by tests/backend/mystic_auth/unit/test_correlation_id_middleware_unit.py)
 # now prefers httpx2 over httpx and warns on every import if it is absent.
 # not a runtime dependency, only pulled in so that one test file stays quiet.
-httpx2==2.13.1
+httpx2==2.16.0
 
-valkey==6.1.1
+valkey==6.2.0
 
 # Local MaxMind GeoLite2-City .mmdb reader for Manage Sessions' Location
 # column (see user_session/session_geolocation.py). Offline/no-network lookup, so it adds
@@ -51,4 +51,4 @@ python-json-logger==4.2.0
 # Sentry-SDK-compatible server such as Bugsink.
 # The [fastapi] extra pulls in the FastAPI/Starlette integration; a no-op
 # import-time cost when SENTRY_DSN is unset (see error_monitoring/sentry_service.py).
-sentry-sdk[fastapi]==2.71.0
+sentry-sdk[fastapi]==2.73.0

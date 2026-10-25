@@ -123,6 +123,16 @@ foreach ($f in $Files) {
             }
         }
 
+        $alertUrlLine = ($content -split "`n" | Where-Object { $_ -match '^SECURITY_ALERT_WEBHOOK_URL=' } | Select-Object -First 1)
+        $alertUrl = if ($null -ne $alertUrlLine) { $alertUrlLine -replace '^SECURITY_ALERT_WEBHOOK_URL=', '' } else { '' }
+        if ([string]::IsNullOrWhiteSpace($alertUrl)) {
+            Write-Host "  ERROR: SECURITY_ALERT_WEBHOOK_URL is blank, but ENVIRONMENT=production. Configure an HTTPS incident endpoint before starting the app."
+            $HasError = $true
+        } elseif ($alertUrl -notmatch '^https://[^/\s]+') {
+            Write-Host "  ERROR: SECURITY_ALERT_WEBHOOK_URL must be an HTTPS URL."
+            $HasError = $true
+        }
+
         $backupKeyLine = ($content -split "`n" | Where-Object { $_ -match '^BACKUP_ENCRYPTION_KEY=' } | Select-Object -First 1)
         $backupKey = if ($null -ne $backupKeyLine) { $backupKeyLine -replace '^BACKUP_ENCRYPTION_KEY=', '' } else { '' }
         if (-not $backupKeyLine -or -not $backupKey.Trim()) {
@@ -169,7 +179,7 @@ foreach ($f in $Files) {
     if ($content -match '(?m)^NGROK_DOMAIN=(.*)$') {
         $ngrokDomain = $Matches[1].Trim()
         if ($ngrokDomain -match '://') {
-            Write-Host "  ERROR: NGROK_DOMAIN=$ngrokDomain still has a scheme (http:// or https://). It must be the bare domain only, e.g. NGROK_DOMAIN=your-app.ngrok-free.app - ngrok will fail to start with ERR_NGROK_9038 otherwise."
+            Write-Host "  ERROR: NGROK_DOMAIN=$ngrokDomain still has a scheme (http:// or https://). It must be the bare domain only, e.g. NGROK_DOMAIN=your-assigned-domain.ngrok-free.dev - ngrok will fail to start with ERR_NGROK_9038 otherwise."
             $HasError = $true
         }
     }

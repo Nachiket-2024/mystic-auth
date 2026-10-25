@@ -21,7 +21,7 @@
         "policiesGroup": "धोरणे",
         "usersGroup": "वापरकर्ते",
         "trigger": "शोधा...",
-        "triggerLabel": "शोध उघडा (Ctrl+K)"
+        "triggerLabel": "शोधा ⌘K (Ctrl+K)"
     },
     "nav": {
         "dashboard": "डॅशबोर्ड",

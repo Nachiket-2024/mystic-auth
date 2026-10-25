@@ -197,7 +197,7 @@ describe('UsersPage list controls', () => {
 
     await screen.findByText('Regular User');
     await user.click(screen.getByRole('button', { name: /^Filters/ }));
-    await user.click(screen.getByRole('button', { name: 'Filter by policy' }));
+    await user.click(screen.getByRole('button', { name: /^Filter by policy/ }));
     await user.click(screen.getByRole('button', { name: 'user_management' }));
 
     await waitFor(() => expect(screen.queryByText('Regular User')).toBeNull());
@@ -224,7 +224,7 @@ describe('UsersPage list controls', () => {
 
     await screen.findByText('Regular User');
     await user.click(screen.getByRole('button', { name: /^Filters/ }));
-    await user.click(screen.getByRole('button', { name: 'Filter by policy' }));
+    await user.click(screen.getByRole('button', { name: /^Filter by policy/ }));
     await user.click(screen.getByRole('button', { name: 'self_service' }));
     await user.selectOptions(screen.getByLabelText('Filter by verified status', { selector: 'select' }), 'true');
 
@@ -249,7 +249,7 @@ describe('UsersPage list controls', () => {
 
     await screen.findByText('Regular User');
     await user.click(screen.getByRole('button', { name: /^Filters/ }));
-    await user.click(screen.getByRole('button', { name: 'Filter by permission' }));
+    await user.click(screen.getByRole('button', { name: /^Filter by permission/ }));
     await user.click(await screen.findByRole('button', { name: formatPolicyActionLabel('users:list_all') }));
 
     await waitFor(() => expect(screen.queryByText('Regular User')).toBeNull());

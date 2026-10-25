@@ -37,7 +37,7 @@ Expiry is configured via `ACCESS_TOKEN_EXPIRE_MINUTES`/`REFRESH_TOKEN_EXPIRE_MIN
 
 **Claims**: `email`, `type` (`"access"` or `"refresh"`; a refresh token can never be used where an access token is expected, and vice versa), `jti` (unique ID, used for durable refresh-token single-use claims; see below), `chain` (stable per-login-session id, see [Session Management](session-management/README.md#source-of-truth)), `exp`, `iss`/`aud` (`JWT_ISSUER`/`JWT_AUDIENCE`, `.env`, typically both `BACKEND_BASE_URL`; distinguishes this deployment's tokens from any other service/environment that happens to share `SECRET_KEY`). Signed with `HS256` using `SECRET_KEY` (`.env`, required, no default). Deliberately no `role` claim: role is display-only metadata, resolved fresh from the database on every request (alongside PBAC permissions) rather than trusted from a token that could go stale, see [Authorization Model](../authorization/architecture/README.md).
 
-`verify_token` checks `iss`/`aud` itself (`has_valid_issuer_and_audience`), not PyJWT's own `issuer=`/`audience=` kwargs: a token is rejected only if the claim is *present and wrong*, never merely *absent*. That keeps any token minted before `JWT_ISSUER`/`JWT_AUDIENCE` existed valid until it naturally expires, instead of hard-invalidating every session on the deployment that first turns the setting on.
+`verify_token` checks `iss`/`aud` itself (`has_valid_issuer_and_audience`), not PyJWT's own `issuer=`/`audience=` kwargs. Both claims must be present and exactly match the configured `JWT_ISSUER` and `JWT_AUDIENCE`; tokens minted before those claims were added are rejected and the user must sign in again. Access and refresh tokens must also include `email`, `chain`, `jti`, `account_ver`, and `chain_ver`. Missing or malformed version claims are rejected instead of being filled from current server state, because doing so could let a token minted before revocation survive a logout or session revoke.
 
 ---
 
@@ -52,7 +52,7 @@ flowchart TD
     B --> C{"account_ver/chain_ver\n still current?"}
     C -- "no (stale)" --> S["Reject - simply invalid,\n not treated as reuse"]
     C -- "yes" --> D{"jti already\n claimed?"}
-    D -- "yes (reused/stolen)" --> E["Bump that chain's version\n (or account-wide\n if no chain claim)"]
+    D -- "yes (reused/stolen)" --> E["Bump that chain's version"]
     E --> F["Log at critical"]
     D -- "no (clean)" --> G["Claim jti, issue new\n access + refresh pair\n (same chain_id)"]
     linkStyle default stroke:#334155,stroke-width:2px
@@ -61,8 +61,10 @@ flowchart TD
 
 1. Decode the refresh token's claims once (not the two-or-three separate decodes an earlier version did).
 2. **Version check first**: if the token's embedded `account_ver`/`chain_ver` has already fallen behind the durable PostgreSQL version after logout, logout-all, password change, or a targeted Manage Sessions revoke, it is rejected as stale. Valkey only caches these versions. This runs *before* the reuse check below, so an intentionally ended session is not treated as suspected theft.
-3. **Reuse detection**: refresh tokens are still single-use, enforced by an atomic per-`jti` claim (`claim_jti_for_rotation`), independent of the version check above. If a token whose `jti` is *already* claimed is presented again, a same-IP retry within the configured grace window is rejected without minting another pair or revoking the first request's chain. Older or cross-IP reuse bumps that token's own `chain_ver` (`revoke_chain_for_user`), or `account_ver` account-wide for a pre-chain token with no lineage to scope to, and logs the incident at `critical`. See [Session Management](session-management/token-lifecycle.md#rotation-chains-and-reuse-detection) for why this stays scoped to the compromised chain instead of every session on the account.
+3. **Reuse detection**: refresh tokens are still single-use, enforced by an atomic per-`jti` claim (`claim_jti_for_rotation`), independent of the version check above. If a token whose `jti` is *already* claimed is presented again, a same-IP retry within the configured grace window is rejected without minting another pair or revoking the first request's chain. Older or cross-IP reuse bumps that token's own `chain_ver` (`revoke_chain_for_user`) and logs the incident at `critical`. Tokens without the required chain/version claims are rejected before reuse detection. See [Session Management](session-management/token-lifecycle.md#rotation-chains-and-reuse-detection) for why revocation stays scoped to the compromised chain instead of every session on the account.
 4. On a clean (non-reused, current-version) token: claim the old `jti`, issue a new access+refresh pair carrying the same `chain_id` forward.
+
+After a successful rotation, the session mirror compares the request IP address and User-Agent with the values previously recorded for that chain. A difference writes a `refresh_token_context_changed` security audit event and sends a metadata-only security alert. This is a review signal, not proof of theft: users can change networks or browsers. The event metadata records only which fields changed; IP and User-Agent remain in the audit row's standard columns, where the normal retention job anonymizes them.
 
 Token validity is version-based, governed by durable Postgres (`account_ver`/`chain_ver` counters, not a registry of live tokens); Valkey is only a best-effort cache. Refresh-token single-use claims are also durable in Postgres and expire with the token. `refresh_tokens()` does not re-check `is_active`/account existence itself. The `user_sessions` table mirrors the current `jti`/`chain_id` only for display and targeted revoke in the Manage Sessions card. See [Session Management](session-management/README.md) for the full source-of-truth breakdown.
 

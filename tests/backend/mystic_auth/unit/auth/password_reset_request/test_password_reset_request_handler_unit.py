@@ -1,6 +1,7 @@
 """Anti-enumeration and failure-path tests for password reset requests."""
 
-from unittest.mock import AsyncMock
+import time
+from unittest.mock import AsyncMock, call
 
 import pytest
 
@@ -53,3 +54,25 @@ async def test_reset_service_failure_returns_generic_internal_error(mocker):
     assert response.status_code == 500
     assert b"INTERNAL_SERVER_ERROR" in response.body
     audit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_known_and_unknown_accounts_share_a_minimum_response_time(mocker):
+    handler = PasswordResetRequestHandler()
+    service = mocker.patch.object(
+        handler.password_reset_service, "send_reset_email", new_callable=AsyncMock,
+        side_effect=[True, False],
+    )
+    mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
+
+    durations = []
+    responses = []
+    for email in ("known@example.com", "unknown@example.com"):
+        started = time.perf_counter()
+        responses.append(await handler.handle_password_reset_request(email))
+        durations.append(time.perf_counter() - started)
+
+    assert [response.status_code for response in responses] == [200, 200]
+    assert responses[0].body == responses[1].body
+    assert all(duration >= 0.19 for duration in durations)
+    service.assert_has_awaits([call("known@example.com", None), call("unknown@example.com", None)])

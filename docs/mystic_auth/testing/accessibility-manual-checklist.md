@@ -33,6 +33,7 @@ Linux, Orca is the documented option; VoiceOver and NVDA are also valid.
 - [ ] Tabs announce selected state and their associated panel.
 - [ ] Loading, success, and failure updates are announced without stealing focus.
 - [ ] Tables expose meaningful headers and row actions; icon-only controls have names.
+- [ ] A control's spoken name contains its visible text (WCAG 2.5.3). Prefer letting the visible text name the control and put extra detail in `aria-description` instead of an `aria-label` that replaces it.
 - [ ] The page has one useful main heading and landmarks are not duplicated or misleading.
 
 Do not mark this checklist complete based only on the Playwright axe suite.

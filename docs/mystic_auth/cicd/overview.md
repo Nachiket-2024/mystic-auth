@@ -89,15 +89,18 @@ flowchart TD
 
 ---
 
-### `secrets-scan`: Secrets scan (gitleaks)
+### `secrets-scan`: Secrets scan (gitleaks and Trivy)
 
 - Checks out full git history with `fetch-depth: 0` and runs
   [gitleaks](https://github.com/gitleaks/gitleaks). This catches secrets that
   were committed and later removed from the working tree.
+- Runs Trivy's JWT-aware filesystem secret scanner against the checkout. This
+  complements Gitleaks by looking for secret patterns in the current source
+  tree, including JWT-shaped values.
 
 ---
 
-### `tooling-tests`: Tooling regression tests (paths, env, sync, Compose hardening)
+### `tooling-tests`: Tooling regression tests (paths, env, sync, Compose validation)
 
 - Runs `ci/mystic_auth/tooling.sh`, which invokes the template tooling checks,
   including `check-script-paths.sh` and `check-split-paths.sh`: no live stack
@@ -132,10 +135,10 @@ flowchart TD
 
 - Validates all five paired Compose modes using disposable copies of the
   example env files and a harmless backup command for interpolation checks.
-- Builds the backend runtime, frontend production, `db-backup`, and ngrok
-  images. It checks shipped dependency notices and image contents, scans each
-  image for unfixed critical/high vulnerabilities, and generates SPDX JSON
-  SBOMs from those exact images. The pinned ngrok binary currently has
+- Builds the backend runtime, frontend production, `db-backup`, ngrok, and
+  Cloudflare Tunnel images. It checks shipped dependency notices and image
+  contents, scans each image for unfixed critical/high vulnerabilities, and
+  generates SPDX JSON SBOMs from those exact images. The pinned ngrok binary currently has
   time-limited, image-scoped exceptions for vendored Go findings until its
   publisher ships a rebuilt release; see
   [`trivy-ngrok.ignore.yaml`](../../../ci/mystic_auth/trivy-ngrok.ignore.yaml).
@@ -203,13 +206,13 @@ flowchart TD
 - A model/migration drift check (`alembic check`): fails if a SQLAlchemy model's columns or indexes don't match what the checked-in migrations actually produce.
 - Full frontend type-check, lint, test (with coverage thresholds enforced), and production build.
 - Four Playwright browser projects run in isolated dev Compose stacks, including a WCAG 2.1 AA accessibility scan (`@axe-core/playwright`) across every major page.
-- A backup restore drill: dumps the real database, restores it into a disposable scratch database, and checks the schema and a real table came back intact, not just that a dump file exists.
+- A backup restore drill: dumps the configured app database and Bugsink database, authenticates and restores each into a disposable scratch database, and checks the application schema plus populated database table names and row counts. The dev stack's empty Bugsink database is verified to restore empty.
 - Deterministic backup-freshness and encryption checks, covering missing, stale, empty, plaintext, and incomplete backup artifacts.
 - Path-lint scripts (stale `scripts/`/`local-scripts/` path references, stale pre-split `docker`/`env`/`scripts` references) and the env-tools/upstream-sync regression suites, all against throwaway copies, never this repo's own real files.
-- All four shipped runtime images build and pass the CI vulnerability policy; the ngrok binary's vendored Go findings use a dated exception, while every other image has the full High/Critical gate. On every PR, the actual dev Compose stack also boots and serves traffic.
-- Every built runtime image has a validated SPDX JSON SBOM retained as a CI artifact, tied to the commit and local image ID used to generate it.
+- All five shipped runtime images build and pass the CI vulnerability policy; the ngrok binary's vendored Go findings use dated exceptions while every other image has the full High/Critical gate. On every PR, the actual dev Compose stack also boots and serves traffic.
+- Every built runtime image, including Cloudflare Tunnel, has a validated SPDX JSON SBOM retained as a CI artifact, tied to the commit and local image ID used to generate it.
 - On every push to `main`: the entire backend + frontend test suites, re-run a second time inside the real containers rather than a bare runner. Pushes to `develop` run the native validation jobs without this duplicate container pass.
-- Dependency vulnerability scanning on every push/PR: `pip-audit` (backend, blocking) and `npm audit --audit-level=high` (frontend, blocking). There is no scheduled/automated dependency-update bot in this repo; dependency bumps are a manual, deliberate action (see the header comment in `backend/requirements.txt`), not something that opens PRs on its own.
+- Dependency vulnerability scanning on every push/PR: `pip-audit` (backend, blocking) and `npm audit --audit-level=high` (frontend, blocking). `.github/dependabot.yml` also schedules weekly digest and dependency update PRs for Docker images, Python packages, npm packages, and GitHub Actions. Updates remain ordinary reviewable PRs and still pass the same CI gates.
 - Secret scanning across full git history (`gitleaks`), independent of the backend/frontend jobs.
 
 ---

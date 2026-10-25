@@ -70,7 +70,7 @@ async def bulk_assign_policies(
     )
 
     context = build_authorization_context(request)
-    grant_cache: dict[tuple[str, str], bool] = {}
+    grant_cache: dict[tuple[str, str], tuple[bool, dict[str, dict | None]]] = {}
     valid_items = []
     error_results: list[BulkItemResult] = []
     for item in body.items:
@@ -124,7 +124,7 @@ async def bulk_remove_policies(
     superuser_removals_staged = 0
 
     context = build_authorization_context(request)
-    grant_cache: dict[tuple[str, str], bool] = {}
+    grant_cache: dict[tuple[str, str], tuple[bool, dict[str, dict | None]]] = {}
     valid_items = []
     error_results: list[BulkItemResult] = []
     for item in body.items:

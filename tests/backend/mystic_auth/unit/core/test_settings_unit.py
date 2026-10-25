@@ -201,3 +201,31 @@ def test_refresh_token_reuse_grace_seconds_defaults_to_ten_when_missing(monkeypa
 def test_secret_key_validation_rejects_short_values():
     with pytest.raises(ValidationError, match="SECRET_KEY must be at least 32 characters"):
         Settings(_env_file=None, **{**_ALL_FIELDS, "SECRET_KEY": "too-short"})
+
+
+def test_production_without_alert_webhook_is_rejected():
+    with pytest.raises(ValidationError, match="SECURITY_ALERT_WEBHOOK_URL is required in production"):
+        Settings(_env_file=None, **{**_ALL_FIELDS, "ENVIRONMENT": "production"})
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://alerts.example.com/hook", "https:///missing-host", "https://user:password@alerts.example.com/hook"],
+)
+def test_security_alert_webhook_rejects_insecure_or_credential_bearing_urls(url):
+    with pytest.raises(ValidationError, match="must be an HTTPS URL without embedded credentials"):
+        Settings(_env_file=None, **{**_ALL_FIELDS, "SECURITY_ALERT_WEBHOOK_URL": url})
+
+
+def test_production_with_an_alert_webhook_configured_is_accepted():
+    settings = Settings(
+        _env_file=None,
+        **{**_ALL_FIELDS, "ENVIRONMENT": "production", "SECURITY_ALERT_WEBHOOK_URL": "https://alerts.example.com/hook"},
+    )
+    assert settings.SECURITY_ALERT_WEBHOOK_URL == "https://alerts.example.com/hook"
+
+
+def test_development_without_alert_webhook_is_allowed():
+    """The default dev/test env file leaves this unset deliberately."""
+    settings = Settings(_env_file=None, **_ALL_FIELDS)
+    assert settings.SECURITY_ALERT_WEBHOOK_URL == ""

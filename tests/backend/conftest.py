@@ -70,7 +70,12 @@ if "VALKEY_URL" not in os.environ:
         # Use a dedicated logical Valkey DB (15) so test runs never collide
         # with whatever a developer has cached in db 0.
         os.environ["VALKEY_URL"] = re.sub(
-            r"redis://valkey:\d+/\d+", f"redis://localhost:{_LOCAL_VALKEY_PORT}/15", _docker_valkey_url
+            r"(?P<scheme>redis(?:s)?://)(?P<auth>[^/@]+@)?valkey:\d+(?:/\d+)?",
+            lambda match: (
+                f"{match.group('scheme')}{match.group('auth') or ''}"
+                f"localhost:{_LOCAL_VALKEY_PORT}/15"
+            ),
+            _docker_valkey_url,
         )
 
 # ---------------------------- Dedicated test database ----------------------------

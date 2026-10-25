@@ -103,31 +103,31 @@ The web server used in the standard production deployment mode to terminate TLS 
 
 ## tunnel (Cloudflare / ngrok / Tailscale Funnel)
 
-A way to expose a locally-running stack to the public internet without needing a server with a public IP or DNS of your own; the tunnel provider terminates TLS at their edge and proxies traffic back to your machine. This app supports four interchangeable tunnel options for its "local-prod" deployment mode: Cloudflare Quick Tunnel, Cloudflare Named Tunnel, ngrok, and Tailscale Funnel. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want).
+A way to expose a locally-running stack without a server with a public IP or router port forwarding; the provider terminates TLS at its edge and proxies traffic back to your machine. Cloudflare Named Tunnel requires a domain whose DNS zone is in your Cloudflare account; ngrok’s free plan includes one assigned static development domain, and Tailscale Funnel can fit a tailnet-based setup. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want).
 
 ---
 
 ## Cloudflare Quick Tunnel
 
-The zero-setup local-prod tunnel option: no Cloudflare account or domain needed, up in under a minute, but the public URL is random and changes on every restart. Good for a quick test, not for anything where you need to configure a stable callback URL (like Google OAuth2). See [Cloudflare Quick Tunnel](../deployment/local-prod/cloudflare-quick-tunnel.md).
+Cloudflare's free temporary tunnel for exposing one local HTTP service without an account or domain. Its generated URL changes each run, it has no uptime guarantee, and it does not support Server-Sent Events, so it is useful for quick demos and development. Its changing hostname means OAuth origins and callback URLs must be updated for each new URL; consider a stable ngrok domain, Cloudflare Named Tunnel, or Tailscale Funnel when a stable hostname matters. See [Cloudflare Quick Tunnel](../deployment/local-prod/cloudflare-quick-tunnel.md).
 
 ---
 
 ## Cloudflare Named Tunnel
 
-A local-prod tunnel option that gives you a stable public URL under a domain you own, routed through `cloudflared` and a free Cloudflare account. Needs a domain whose DNS zone lives in that same Cloudflare account, since Cloudflare resolves a tunnel by matching the request against that account's own Public Hostname configuration. See [Cloudflare Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md).
+One local-prod tunnel option. It gives you a stable public URL under a domain you own, routed through a source-built `cloudflared` image with a patched dependency. Its token is a file-backed Compose secret, and the launcher drops to an unprivileged UID before starting the tunnel. The DNS zone must live in the same Cloudflare account as the tunnel's Public Hostname configuration. See [Cloudflare Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md).
 
 ---
 
 ## ngrok
 
-A local-prod tunnel option using a free ngrok account and its free static domain, giving a stable public URL from the first boot (no separate "quick" zero-account mode like Cloudflare has). See [ngrok Tunnel](../deployment/local-prod/ngrok-tunnel.md).
+A local-prod tunnel option using an ngrok account and its assigned domain. Its free plan includes one stable development domain, with usage limits and an interstitial page. See [ngrok Tunnel](../deployment/local-prod/ngrok-tunnel.md).
 
 ---
 
 ## Tailscale Funnel
 
-A local-prod tunnel option built on a free Tailscale account and an auth key, giving a stable public URL from the first boot. It doubles as a private network (a "tailnet") to the rest of the stack for your own other devices, tunnel or no tunnel. See [Tailscale Funnel](../deployment/local-prod/tailscale-funnel.md).
+A local-prod tunnel option built on a free Tailscale account and an auth key, giving a stable public URL from the first boot. It is intended for temporary sharing and tailnet testing, not production ingress. It doubles as a private network (a "tailnet") to the rest of the stack for your own other devices, tunnel or no tunnel. See [Tailscale Funnel](../deployment/local-prod/tailscale-funnel.md).
 
 ---
 
@@ -211,7 +211,7 @@ provide PITR.
 
 Short for Software Bill of Materials: a machine-readable inventory of packages
 included in a built artifact. CI generates SPDX JSON SBOMs for the exact
-backend, frontend, and database-backup runtime images it builds, then stores
+backend, frontend, database-backup, ngrok, and Cloudflare Tunnel runtime images it builds, then stores
 them as a 90-day artifact. An SBOM is an inventory for vulnerability
 response; it is not a signature, proof that an image is safe, or a backup.
 

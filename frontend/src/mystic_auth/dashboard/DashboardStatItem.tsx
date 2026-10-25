@@ -46,7 +46,7 @@ const DashboardStatItem: React.FC<DashboardStatItemProps> = ({ icon, label, valu
         <button
             type="button"
             onClick={onClick}
-            aria-label={actionLabel}
+            aria-description={actionLabel}
             className={cn(
                 "text-left cursor-pointer rounded-control",
                 // Negative margin cancels the padding so the stat stays aligned

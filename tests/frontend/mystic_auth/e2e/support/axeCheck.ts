@@ -17,7 +17,7 @@ export async function expectNoAccessibilityViolations(page: Page, options: { exc
 
   if (results.violations.length > 0) {
     const summary = results.violations
-      .map((v) => `${v.id} (${v.impact}): ${v.help} - ${v.nodes.length} element(s)\n  ${v.nodes.map((n) => n.target.join(" ")).join("\n  ")}`)
+      .map((v) => `${v.id} (${v.impact}): ${v.help} - ${v.nodes.length} element(s)\n  ${v.nodes.map((n) => `${n.target.join(" ")}\n    ${n.html.replace(/\s+/g, " ").slice(0, 200)}`).join("\n  ")}`)
       .join("\n\n");
     expect(results.violations, `Accessibility violations found:\n\n${summary}`).toEqual([]);
   }

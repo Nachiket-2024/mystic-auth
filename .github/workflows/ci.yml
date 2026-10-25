@@ -324,7 +324,7 @@ jobs:
       # interpolation.
       - name: Validate docker-compose configs
         run: |
-          created_env_files="env/mystic_auth/.env.dev env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale env/mystic_auth/.env.prod env/app/.env.dev env/app/.env.local-prod-cloudflare env/app/.env.local-prod-ngrok env/app/.env.local-prod-tailscale env/app/.env.prod"
+          created_env_files="env/mystic_auth/.env.dev env/mystic_auth/.env.local-prod-cloudflare env/mystic_auth/.env.local-prod-ngrok env/mystic_auth/.env.local-prod-tailscale env/mystic_auth/.env.prod env/mystic_auth/.cloudflare-tunnel-token env/app/.env.dev env/app/.env.local-prod-cloudflare env/app/.env.local-prod-ngrok env/app/.env.local-prod-tailscale env/app/.env.prod"
           for env_file in $created_env_files; do
             if [ -e "$env_file" ]; then
               echo "::error::Refusing to overwrite existing $env_file"
@@ -334,6 +334,8 @@ jobs:
           trap 'rm -f $created_env_files' EXIT
           cp env/mystic_auth/.env.dev.example env/mystic_auth/.env.dev
           cp env/mystic_auth/.env.local-prod-cloudflare.example env/mystic_auth/.env.local-prod-cloudflare
+          cp env/mystic_auth/.cloudflare-tunnel-token.example env/mystic_auth/.cloudflare-tunnel-token
+          chmod 600 env/mystic_auth/.cloudflare-tunnel-token
           cp env/mystic_auth/.env.local-prod-ngrok.example env/mystic_auth/.env.local-prod-ngrok
           cp env/mystic_auth/.env.local-prod-tailscale.example env/mystic_auth/.env.local-prod-tailscale
           cp env/mystic_auth/.env.prod.example env/mystic_auth/.env.prod
@@ -358,7 +360,7 @@ jobs:
         run: docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dockerfile -t frontend:ci .
 
       # The backup container has its own dependency surface (rclone, curl,
-      # the postgres:18 base) that drifts independently of backend/frontend -
+      # the Wolfi runtime and PostgreSQL 18.6 client) that drifts independently of backend/frontend -
       # it has carried Critical/High CVEs while backend/frontend scanned
       # clean, entirely unnoticed because nothing built or scanned it in CI.
       # Build and scan it too.
@@ -368,34 +370,55 @@ jobs:
       - name: Build ngrok tunnel image
         run: docker build -f docker/mystic_auth/dockerfiles/ngrok.Dockerfile -t ngrok:ci .
 
+      - name: Build Cloudflare Tunnel image
+        run: docker build -f docker/mystic_auth/dockerfiles/cloudflared.Dockerfile -t cloudflared:ci .
+
       - name: Verify shipped dependency notices
         run: |
-          docker run --rm --entrypoint sh backend:ci -c 'test -s /usr/share/licenses/mystic-auth/backend/PyYAML-6.0.3.txt'
+          docker run --rm --entrypoint sh backend:ci -ec '
+            notices=/usr/share/licenses/mystic-auth/backend
+            test -s "$notices/PyYAML-6.0.3.txt"
+            test -s "$notices/README.md"
+            test -s "$notices/GPL-3.0.txt"
+            for package in psycopg-3.3.6 psycopg-binary-3.3.6 psycopg-pool-3.3.3; do
+              test -s "$notices/$package.txt"
+              grep -q "GNU LESSER GENERAL PUBLIC LICENSE" "$notices/$package.txt"
+              grep -q "Version 3, 29 June 2007" "$notices/$package.txt"
+            done
+            python -c "from pathlib import Path; import psycopg, psycopg.pq, psycopg_pool; assert Path(psycopg.__file__).is_file(); assert Path(psycopg_pool.__file__).is_file(); assert psycopg.pq.__impl__ == bytes([98,105,110,97,114,121]).decode()"
+          '
           docker run --rm --entrypoint sh db-backup:ci -ec '
-            notices=/usr/share/licenses/mystic-auth/db-backup/debian
+            notices=/usr/share/licenses/mystic-auth/db-backup/wolfi
             rclone_notices=/usr/share/licenses/mystic-auth/db-backup/rclone
+            command -v bash >/dev/null
             test -s "$rclone_notices/github.com/rclone/rclone/COPYING"
             test "$(find "$rclone_notices" -type f | wc -l)" -gt 100
             test -s "$notices/packages.tsv"
-            test -s "$notices/common-licenses/GPL-3"
             test "$(wc -l < "$notices/packages.tsv")" -gt 20
-            while read -r package version; do
-              package_dir=${package%%:*}
-              test -s "$notices/$package_dir/copyright"
-            done < "$notices/packages.tsv"
-            rclone version | grep -F "go/version: go1.27.2"
+            awk -F "$(printf "\t")" "NF != 3 || \$3 == \"\" { exit 1 }" "$notices/packages.tsv"
+            rclone version | grep -F "go/version: go1.27.3"
             ! rclone help | grep -q selfupdate
           '
-          docker run --rm --add-host backend:127.0.0.1 --entrypoint sh frontend:ci -c 'test -s /usr/share/nginx/html/third-party-notices/react_19.3.0.txt && nginx -t'
+          docker run --rm --add-host backend:127.0.0.1 --entrypoint sh frontend:ci -c 'test -s /usr/share/nginx/html/third-party-notices/react_19.3.1.txt && nginx -t'
           docker run --rm --entrypoint /ngrok ngrok:ci version
+          docker run --rm --entrypoint /cloudflared cloudflared:ci version
+          cloudflared_notices_container="$(docker create cloudflared:ci)"
+          trap 'docker rm "$cloudflared_notices_container" >/dev/null 2>&1 || true' EXIT
+          mkdir -p "$RUNNER_TEMP/cloudflared-notices"
+          docker cp "$cloudflared_notices_container:/usr/share/licenses/cloudflared/." "$RUNNER_TEMP/cloudflared-notices/"
+          test -n "$(find "$RUNNER_TEMP/cloudflared-notices" -type f -print -quit)"
+          docker rm "$cloudflared_notices_container" >/dev/null
+          trap - EXIT
           docker run -d --name frontend-notices-smoke --add-host backend:127.0.0.1 -p 127.0.0.1:18080:80 frontend:ci
           trap 'docker rm -f frontend-notices-smoke >/dev/null 2>&1 || true' EXIT
           timeout 30 sh -c 'until curl -fsS http://127.0.0.1:18080/third-party-notices/ >/dev/null; do sleep 1; done'
-          curl -fsS http://127.0.0.1:18080/third-party-notices/ | grep -q 'react_19.3.0.txt'
+          curl -fsS http://127.0.0.1:18080/third-party-notices/ | grep -q 'react_19.3.1.txt'
+          python3 ci/mystic_auth/frontend-error-headers-smoke.py
+          python3 ci/mystic_auth/frontend-csp-nonce-smoke.py
 
       - name: Scan built images for known-critical/high vulnerabilities (Trivy)
         run: |
-          for image in backend:ci frontend:ci db-backup:ci ngrok:ci; do
+          for image in backend:ci frontend:ci db-backup:ci ngrok:ci cloudflared:ci; do
             echo "::group::Trivy - $image"
             ignore_args=()
             if [ "$image" = ngrok:ci ]; then
@@ -465,12 +488,23 @@ jobs:
           upload-release-assets: false
           syft-version: v1.52.0
 
+      - name: Generate Cloudflare Tunnel runtime SBOM (SPDX JSON)
+        uses: anchore/sbom-action@8e94d75ddd33f69f691467e42275782e4bfefe84
+        with:
+          image: cloudflared:ci
+          format: spdx-json
+          output-file: sbom/cloudflared-runtime.spdx.json
+          artifact-name: sbom-cloudflared-runtime
+          upload-artifact: false
+          upload-release-assets: false
+          syft-version: v1.52.0
+
       - name: Validate and package image SBOMs
         env:
           GIT_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json sbom/db-backup-runtime.spdx.json sbom/ngrok-runtime.spdx.json; do
+          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json sbom/db-backup-runtime.spdx.json sbom/ngrok-runtime.spdx.json sbom/cloudflared-runtime.spdx.json; do
             test -s "$sbom"
             jq -e '(.spdxVersion | type == "string") and (.packages | type == "array" and length > 0)' "$sbom" >/dev/null
           done
@@ -479,17 +513,20 @@ jobs:
           frontend_image_id="$(docker image inspect frontend:ci --format '{{.Id}}')"
           db_backup_image_id="$(docker image inspect db-backup:ci --format '{{.Id}}')"
           ngrok_image_id="$(docker image inspect ngrok:ci --format '{{.Id}}')"
+          cloudflared_image_id="$(docker image inspect cloudflared:ci --format '{{.Id}}')"
           jq -n \
             --arg commit "$GIT_COMMIT" \
             --arg backend_id "$backend_image_id" \
             --arg frontend_id "$frontend_image_id" \
             --arg db_backup_id "$db_backup_image_id" \
             --arg ngrok_id "$ngrok_image_id" \
+            --arg cloudflared_id "$cloudflared_image_id" \
             '{schemaVersion: 1, generatedForCommit: $commit, images: {
               backend: {tag: "backend:ci", localImageId: $backend_id, sbom: "backend-runtime.spdx.json"},
               frontend: {tag: "frontend:ci", localImageId: $frontend_id, sbom: "frontend-runtime.spdx.json"},
               db_backup: {tag: "db-backup:ci", localImageId: $db_backup_id, sbom: "db-backup-runtime.spdx.json"},
-              ngrok: {tag: "ngrok:ci", localImageId: $ngrok_id, sbom: "ngrok-runtime.spdx.json"}
+              ngrok: {tag: "ngrok:ci", localImageId: $ngrok_id, sbom: "ngrok-runtime.spdx.json"},
+              cloudflared: {tag: "cloudflared:ci", localImageId: $cloudflared_id, sbom: "cloudflared-runtime.spdx.json"}
             }}' > sbom/manifest.json
 
       - name: Upload image SBOMs

@@ -71,13 +71,13 @@ const PoliciesFilterBar: React.FC<PoliciesFilterBarProps> = ({
         return [...coreTypes, ...forkTypes]
             .map((rt) => ({
                 key: rt,
-                label: formatResourceTypeLabel(rt),
+                label: formatResourceTypeLabel(rt, t("policies:page.allResourceTypes")),
                 options: Array.from(byResourceType.get(rt) ?? [])
                     .sort()
                     .map((a) => ({ value: a, label: formatPolicyActionLabel(a), destructive: isDestructiveAction(a) })),
             }))
             .filter((g) => g.options.length > 0);
-    }, [allPolicies]);
+    }, [allPolicies, t]);
 
     const resourceTypeOptions = useMemo(() => {
         const counts = new Map<string, number>();
@@ -88,7 +88,8 @@ const PoliciesFilterBar: React.FC<PoliciesFilterBarProps> = ({
         const forkTypes = Array.from(counts.keys()).filter((rt) => !coreTypes.includes(rt as never)).sort();
         const label = (rt: string) => {
             const count = counts.get(rt);
-            return count ? `${formatResourceTypeLabel(rt)} (${t("policies:page.resourceTypePolicyCount", { count })})` : formatResourceTypeLabel(rt);
+            const label = formatResourceTypeLabel(rt, t("policies:page.allResourceTypes"));
+            return count ? `${label} (${t("policies:page.resourceTypePolicyCount", { count })})` : label;
         };
         return [
             { value: ALL_VALUE, label: t("policies:page.allResourceTypes") },
@@ -99,7 +100,7 @@ const PoliciesFilterBar: React.FC<PoliciesFilterBarProps> = ({
 
     const chips: FilterChip[] = [
         ...(search ? [{ key: "search", label: `Search: ${search}`, onClear: () => setSearch("") }] : []),
-        ...(resourceType !== ALL_VALUE ? [{ key: "resource-type", label: `${t("policies:page.filterByResourceType")}: ${formatResourceTypeLabel(resourceType)}`, onClear: () => setResourceType(ALL_VALUE) }] : []),
+        ...(resourceType !== ALL_VALUE ? [{ key: "resource-type", label: `${t("policies:page.filterByResourceType")}: ${formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes"))}`, onClear: () => setResourceType(ALL_VALUE) }] : []),
         ...(status !== ALL_VALUE ? [{
             key: "status",
             label: status === "true" ? t("ui_text:active") : t("ui_text:inactive"),

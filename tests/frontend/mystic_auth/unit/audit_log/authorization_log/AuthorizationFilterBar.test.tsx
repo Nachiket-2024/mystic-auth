@@ -35,7 +35,7 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof AuthorizationF
 describe('AuthorizationFilterBar', () => {
   it('groups the Action picker by resource type, from PERMISSIONS', async () => {
     renderBar();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
 
     expect(screen.getByText('Users')).toBeInTheDocument();
     expect(screen.getByText('Policies')).toBeInTheDocument();
@@ -44,22 +44,22 @@ describe('AuthorizationFilterBar', () => {
 
   it('clicking a group header sets the resource type filter and clears the action filter, with no separate resource dropdown', async () => {
     const { setResourceType, setAction } = renderBar();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Policies' }));
 
     expect(setResourceType).toHaveBeenCalledWith('policies');
     expect(setAction).toHaveBeenCalledWith('');
-    expect(screen.queryByRole('combobox', { name: 'Filter by resource type' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /^Filter by resource type/ })).toBeNull();
   });
 
   it('shows "All <resource> actions" in the trigger once a resource type is set with no single action', async () => {
     renderBar({ resourceType: 'policies' });
-    expect(screen.getByRole('button', { name: 'Filter by action' })).toHaveTextContent('All Policies actions');
+    expect(screen.getByRole('button', { name: /^Filter by action/ })).toHaveTextContent('All Policies actions');
   });
 
   it('extraActions/extraResourceTypes extend the grouped picker with fork-added values', async () => {
     renderBar({ extraResourceTypes: ['widgets'], extraActions: ['widgets:spin'] });
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
 
     expect(screen.getByText('Widgets')).toBeInTheDocument();
     expect(screen.getByText('Spin widgets')).toBeInTheDocument();

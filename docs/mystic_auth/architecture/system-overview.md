@@ -17,7 +17,7 @@ flowchart TD
     Browser -- HTTPS --> Backend
     Nginx["nginx\n (static frontend build)"]
     Backend["FastAPI backend\n (uvicorn)"]
-    Backend --> Postgres[("PostgreSQL\n users, policies, audit logs,\n token versions and refresh claims") ]
+    Backend --> Postgres[("PostgreSQL\n users, policies, audit logs,\n token versions and refresh claims")]
     Backend --> Valkey[("Valkey\n rate limits, account/chain\n version cache, reset/verify\n tokens")]
     Backend --> Bugsink["Bugsink\n self-hosted error monitoring\n own DB on same Postgres server"]
     Browser -. "unhandled errors" .-> Bugsink

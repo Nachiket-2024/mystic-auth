@@ -77,6 +77,28 @@ async def _task_lifecycle_middleware(call_next, context: JobContext, worker):
             duration_seconds=time.perf_counter() - started,
             error_type=error_type,
         )
+        # Completed email and account-lifecycle jobs carry message bodies or
+        # account identifiers. Keep queue metadata for operations, but erase
+        # those payloads as soon as successful delivery makes them unnecessary.
+        if (
+            outcome == "succeeded"
+            and context.job.task_name in {
+                "mystic_auth.procrastinate_tasks.email_tasks.send_email_task",
+                "mystic_auth.procrastinate_tasks.account_lifecycle_tasks.deliver_account_lifecycle_event",
+            }
+        ):
+            try:
+                await app.connector.execute_query_async(
+                    query=(
+                        "UPDATE procrastinate_jobs SET args = '{}'::jsonb "
+                        "WHERE id = %(job_id)s AND status = 'doing'"
+                    ),
+                    job_id=event.job_id,
+                )
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Could not redact completed email job payload for job %s", event.job_id
+                )
         for listener in tuple(_task_lifecycle_listeners):
             try:
                 result = listener(event)
@@ -133,11 +155,17 @@ class ExponentialBackoffWithJitter(BaseRetryStrategy):
 
 
 # Procrastinate needs a bare postgresql:// DSN; DATABASE_URL is SQLAlchemy's
-# postgresql+asyncpg:// dialect. settings.procrastinate_database_url
-# translates it. This connector opens its own psycopg connection pool,
-# entirely separate from the SQLAlchemy engine database.py builds.
+# postgresql+asyncpg:// dialect. settings.procrastinate_worker_database_url
+# translates it, preferring the least-privilege APP_DATABASE_URL role when
+# configured (the worker needs no DDL at runtime, only Alembic's own
+# a4c1e8f2b6d3 migration does - that migration deliberately uses the
+# sibling procrastinate_database_url property instead, which always stays
+# on the DDL-capable DATABASE_URL role; see that property's own docstring
+# for why the two must not be merged back into one). This connector opens
+# its own psycopg connection pool, entirely separate from the SQLAlchemy
+# engine database.py builds.
 connector = PsycopgConnector(
-    conninfo=settings.procrastinate_database_url,
+    conninfo=settings.procrastinate_worker_database_url,
     min_size=1,
     max_size=10,
 )

@@ -16,7 +16,7 @@ const RouteProgressBar: React.FC = () => {
     return (
         // z-[2147483647]: the maximum value a 32-bit z-index can hold, so
         // this still overlays literally everything. The keyframes and
-        // the bar's animation/box-shadow live in theme/tailwind.css as
+        // the bar's animation/box-shadow live in theme/application.css as
         // .mystic-route-progress-bar - see that file for why (a strict
         // hash-only CSP can't allow a runtime-injected <style> tag).
         <div

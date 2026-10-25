@@ -154,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
         : NAV_ITEMS;
     return (
         // NavLink's `style` prop can't express :focus-visible, so
-        // .mystic-sidebar-link:focus-visible in theme/tailwind.css gives
+        // .mystic-sidebar-link:focus-visible in theme/application.css gives
         // this link the same brand-colored focus ring other focusable
         // controls get from their recipe - a real stylesheet rule now,
         // not a runtime-injected <style> tag (a strict hash-only CSP

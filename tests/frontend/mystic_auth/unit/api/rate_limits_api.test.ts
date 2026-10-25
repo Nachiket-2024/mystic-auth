@@ -36,13 +36,13 @@ describe('listRateLimitsApi', () => {
     await expect(listRateLimitsApi()).rejects.toMatchObject({ response: { status: 403 } });
   });
 
-  it('passes scope "email" through unchanged (login_lock:email:* lockout counters)', async () => {
+  it('passes scope "account_ip" through unchanged (login account/source-IP lockout counters)', async () => {
     mock.onGet('/rate-limits/').reply((config) => {
-      expect(config.params).toMatchObject({ scope: 'email' });
+      expect(config.params).toMatchObject({ scope: 'account_ip' });
       return [200, { entries: [], total: 0, truncated: false }];
     });
 
-    await listRateLimitsApi({ scope: 'email' });
+    await listRateLimitsApi({ scope: 'account_ip' });
   });
 });
 

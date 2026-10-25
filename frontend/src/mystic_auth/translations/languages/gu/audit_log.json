@@ -114,6 +114,7 @@
                 "account_verification_requested": "વેરિફિકેશન ઇમેઇલ વિનંતી કરાઈ",
                 "account_verified": "ખાતું ચકાસાયેલું",
                 "account_locked": "ખાતું લોક કરાયું",
+                "login_ip_locked": "આ ખાતા અને સ્ત્રોત IP માટે લોગિન મર્યાદિત થયું",
                 "account_deleted": "ખાતું ડિલીટ કરાયું",
                 "account_purged": "ખાતું કાયમી ડિલીટ કરાયું",
                 "account_reactivated": "ખાતું ફરી સક્રિય કરાયું",

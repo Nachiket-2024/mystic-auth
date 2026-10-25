@@ -17,19 +17,17 @@ async def list_rate_limits(
     page: int = Query(default=1, ge=1),
     scope: str | None = Query(
         default=None,
-        pattern="^(ip|account|email)$",
-        # "email" is login_protection_service's login_lock:email:{email}
-        # scope (see rate_limit_dashboard_service.list_active_limits and
-        # RateLimitEntry.scope on the frontend). The dashboard's dedicated
-        # login-lockout view uses `kind=login_lockouts`; this remains available
-        # for direct/API filtering of individual email-scoped counters.
-        description="Filter to only ip, account, or email limiters.",
+        pattern="^(ip|account|email|account_ip)$",
+        # account_ip is the login_lock scope. The dashboard's dedicated
+        # login-lockout view uses `kind=login_lockouts`; account_ip remains
+        # available for direct/API filtering of those counters.
+        description="Filter by source IP, account, email, or account/source-IP pair.",
     ),
     endpoint: str | None = Query(default=None, description="Exact match on the rate-limited endpoint name."),
     identifier: str | None = Query(
         default=None,
         max_length=SEARCH_QUERY_MAX_LENGTH,
-        description="Substring match on the IP address or account/email identifier.",
+        description="Substring match on the identifier; account/source-IP lockout identifiers are keyed digests.",
     ),
     kind: str | None = Query(default=None, pattern="^(at_limit|login_lockouts)$"),
     sort_by: str = Query(default="endpoint", pattern="^(endpoint|scope|identifier|count|resets_at)$"),

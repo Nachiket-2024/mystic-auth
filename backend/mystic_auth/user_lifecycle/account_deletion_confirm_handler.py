@@ -39,7 +39,7 @@ class AccountDeletionConfirmHandler:
 
             email = payload["email"]
 
-            # Distinct namespace from login's "login_lock:email:" key and
+            # Distinct namespace from login's "login_lock:account_ip:" key and
             # "password_reset_confirm_lock:email:": sharing either would let
             # failures unrelated to a real login attempt (a stale/reused
             # deletion link) trip an unrelated lockout for the same email.

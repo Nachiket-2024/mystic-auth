@@ -96,7 +96,7 @@ After a 3-month gap, the biggest single change in the project's history: 364 fil
 
 - **role-based access control → PBAC.** Authorization decisions moved off a role column onto assigned policies, allowed actions, resources, and optional conditions; roles became descriptive metadata rather than the source of truth for permissions. Not part of the original design: role-based access control was built first, before the frontend existed, then replaced for clearer and more granular permissions. Since the role-based access control UI wasn't done yet and the backend role-based access control work was minimal, switching didn't break much, and it was worth doing early rather than retrofitting later.
 - Audit logging added.
-- Security hardening, headers and middleware, and cookie/security handling strengthened.
+- Added security headers and middleware, and tightened cookie settings.
 - CI/CD pipelines set up.
 - Extensive backend and frontend testing added.
 - Broad documentation written.
@@ -182,7 +182,7 @@ After a 3-month gap, the biggest single change in the project's history: 364 fil
 `d608134`: "Unblocked JWT calls in password reset, added role-based access control doc/seed, restructured tests, updated docs"
 
 - JWT calls unblocked in the password reset flow.
-- An role-based access control quickstart doc/seed added (`scripts/create_unconditioned_policies.py`, 101 lines; `docs/authorization/unconditioned-policy-quickstart.md`, 51 lines).
+- A role-based access control quickstart doc/seed added (`scripts/create_unconditioned_policies.py`, 101 lines; `docs/authorization/unconditioned-policy-quickstart.md`, 51 lines).
 - The entire backend unit test suite restructured: `tests/backend/mystic_auth/unit/` moved from one flat folder into per-feature subfolders (`api/`, `auth/login/`, `auth/logout/`, `auth/oauth2/`, `authorization/`, `core/`, `error_monitoring/`, `logging/`, `scripts/`, `user_crud/`, and more): 85 files touched, nearly all of them pure moves with no content change.
 
 *85 files changed · +291/-31 lines*

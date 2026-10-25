@@ -9,6 +9,7 @@
     "NETWORK_ERROR": "We couldn't connect. Check your connection and try again.",
     "SERVER_ERROR": "Something went wrong on our end. Please try again.",
     "ACCOUNT_LOCKED": "Too many failed login attempts. This account is temporarily locked. Try again in {{minutes}} min.",
+    "LOGIN_THROTTLED": "Too many failed login attempts from this network. Try again in {{minutes}} min.",
     "EMAIL_PASSWORD_REQUIRED": "Email and password are required",
     "INVALID_CREDENTIALS": "Invalid email or password",
     "PASSWORD_TOO_WEAK": "Password does not meet minimum strength requirements",

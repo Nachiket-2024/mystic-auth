@@ -45,7 +45,7 @@ const PermissionsFilterBar: React.FC<PermissionsFilterBarProps> = ({
     search, setSearch, resourceType, setResourceType, quickFilter, setQuickFilter, quickFilterCounts,
     catalog, totalResults, isError, usageLoading, usageError, usageForbidden, onRetryUsage, onClearFilters,
 }) => {
-    const { t } = useTranslation(["permissions", "ui_text"]);
+    const { t } = useTranslation(["permissions", "ui_text", "policies"]);
 
     const resourceTypeCounts = new Map<string, number>();
     for (const entry of catalog ?? []) {
@@ -82,7 +82,7 @@ const PermissionsFilterBar: React.FC<PermissionsFilterBarProps> = ({
     ];
     const chips: FilterChip[] = [
         ...(search ? [{ key: "search", label: t("permissions:page.filterChipSearch", { value: search }), onClear: () => setSearch("") }] : []),
-        ...(resourceType !== ALL_VALUE ? [{ key: "resource-type", label: t("permissions:page.filterChipResourceType", { value: formatResourceTypeLabel(resourceType) }), onClear: () => setResourceType(ALL_VALUE) }] : []),
+        ...(resourceType !== ALL_VALUE ? [{ key: "resource-type", label: t("permissions:page.filterChipResourceType", { value: formatResourceTypeLabel(resourceType, t("permissions:page.allResourceTypes")) }), onClear: () => setResourceType(ALL_VALUE) }] : []),
         ...(quickFilter !== "all" ? [{
             key: "quick-filter",
             label: quickFilters.find((filter) => filter.value === quickFilter)?.label ?? quickFilter,
@@ -126,7 +126,7 @@ const PermissionsFilterBar: React.FC<PermissionsFilterBarProps> = ({
                         { value: ALL_VALUE, label: t("permissions:page.allResourceTypes") },
                         ...resourceTypeOptions.map((value) => ({
                             value,
-                            label: `${formatResourceTypeLabel(value)} (${resourceTypeCounts.get(value)})`,
+                            label: `${formatResourceTypeLabel(value, t("permissions:page.allResourceTypes"))} (${resourceTypeCounts.get(value)})`,
                         })),
                     ]}
                 />

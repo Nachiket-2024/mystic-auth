@@ -35,7 +35,7 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof SecurityFilter
 describe('SecurityFilterBar', () => {
   it('groups the Event picker into Sign-in/Sessions/Account/Password/Access changes', async () => {
     renderBar();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by event' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by event/ }));
 
     expect(screen.getByText('Sign-in')).toBeInTheDocument();
     expect(screen.getByText('Sessions')).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe('SecurityFilterBar', () => {
 
   it('shows a translated label with the raw event code beneath it', async () => {
     renderBar();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by event' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by event/ }));
 
     const option = screen.getByText('Signed in').closest('button')!;
     expect(option).toHaveTextContent('login');
@@ -54,7 +54,7 @@ describe('SecurityFilterBar', () => {
 
   it('picking an event sets the event filter to the raw event_type value', async () => {
     const { setEventType } = renderBar();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by event' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by event/ }));
     await userEvent.click(screen.getByText('Policy assigned'));
 
     expect(setEventType).toHaveBeenCalledWith('policy_assigned');

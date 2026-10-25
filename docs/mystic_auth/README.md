@@ -149,7 +149,7 @@ Read the docs in this order if you are new to the repository:
 - [Migrations and Backups](deployment/migrations-and-backups.md): Alembic service behavior, PostgreSQL 15-to-18 volume migration, backup scripts, scheduled backup sidecar, restore discipline
 - [Production Host Requirements](deployment/production-host.md): shutdown behavior, service responsibilities, host requirements, deployment limitations
 - [Dev Deployment](deployment/dev.md): local development, hot reload, no TLS
-- [Local-Prod Deployment](deployment/local-prod/README.md): self-hosted production image shape exposed via a free tunnel, no public server needed, with [Cloudflare Quick Tunnel](deployment/local-prod/cloudflare-quick-tunnel.md), [Cloudflare Named Tunnel](deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](deployment/local-prod/ngrok-tunnel.md), and [Tailscale Funnel](deployment/local-prod/tailscale-funnel.md) walkthroughs
+- [Local-Prod Deployment](deployment/local-prod/README.md): self-hosted production image shape exposed via a free tunnel, no public server needed, with walkthroughs for [Cloudflare Quick Tunnel](deployment/local-prod/cloudflare-quick-tunnel.md), [Cloudflare Named Tunnel](deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](deployment/local-prod/ngrok-tunnel.md), and [Tailscale Funnel](deployment/local-prod/tailscale-funnel.md)
 - [Prod Deployment](deployment/prod.md): self-hosted deployment on your own server with Caddy-managed TLS
 
 ---

@@ -116,6 +116,16 @@ for f in "${FILES[@]}"; do
       fi
     done
 
+    alert_url_line="$(grep -m1 '^SECURITY_ALERT_WEBHOOK_URL=' "$f" || true)"
+    alert_url="${alert_url_line#SECURITY_ALERT_WEBHOOK_URL=}"
+    if [ -z "$alert_url_line" ] || [ -z "$alert_url" ]; then
+      echo "  ERROR: SECURITY_ALERT_WEBHOOK_URL is blank, but ENVIRONMENT=production. Configure an HTTPS incident endpoint before starting the app."
+      HAS_ERROR=1
+    elif ! printf '%s' "$alert_url" | grep -q '^https://[^/[:space:]]\+'; then
+      echo "  ERROR: SECURITY_ALERT_WEBHOOK_URL must be an HTTPS URL."
+      HAS_ERROR=1
+    fi
+
     backup_key_line="$(grep -m1 '^BACKUP_ENCRYPTION_KEY=' "$f" || true)"
     backup_key="${backup_key_line#BACKUP_ENCRYPTION_KEY=}"
     if [ -z "$backup_key_line" ] || [ -z "$backup_key" ]; then
@@ -163,7 +173,7 @@ for f in "${FILES[@]}"; do
   if [ -n "$ngrok_domain_line" ]; then
     ngrok_domain="${ngrok_domain_line#NGROK_DOMAIN=}"
     if echo "$ngrok_domain" | grep -qE '://'; then
-      echo "  ERROR: NGROK_DOMAIN=$ngrok_domain still has a scheme (http:// or https://). It must be the bare domain only, e.g. NGROK_DOMAIN=your-app.ngrok-free.app - ngrok will fail to start with ERR_NGROK_9038 otherwise."
+      echo "  ERROR: NGROK_DOMAIN=$ngrok_domain still has a scheme (http:// or https://). It must be the bare domain only, e.g. NGROK_DOMAIN=your-assigned-domain.ngrok-free.dev - ngrok will fail to start with ERR_NGROK_9038 otherwise."
       HAS_ERROR=1
     fi
   fi

@@ -3,31 +3,25 @@
 #   docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare up -d --build
 # (or scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh/.ps1/.cmd).
 #
-# One of three local-prod variants, differing only in which tunnel exposes
-# `frontend` to the internet - see docker-compose.local-prod-ngrok.yml and
-# docker-compose.local-prod-tailscale.yml for the ngrok/Tailscale Funnel
-# equivalents of this same stack, and
-# docs/mystic_auth/deployment/local-prod/README.md for the comparison.
+# The local-prod variant for a Cloudflare Named Tunnel. See
+# docs/mystic_auth/deployment/local-prod/README.md for the supported mode and
+# deployment walkthrough.
 #
 # Differs from docker-compose.dev.yml (dev) by: no bind mounts (images are
 # self-contained), no reload process, frontend builds the `production`
 # target (nginx + static build, not the Vite dev server), `restart:
 # unless-stopped` and `deploy.resources.limits` on every service.
 #
-# Public entrypoint is cloudflared: it opens an outbound tunnel to
-# Cloudflare's edge (TLS terminates there) and routes traffic to
-# frontend:80, so no host port forwarding is needed. Default is a Quick
-# Tunnel (random https://<words>.trycloudflare.com URL, changes each
-# restart, no account needed). For a stable URL, switch the command below to
-# `tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}` with a Named Tunnel
-# token; see env/mystic_auth/.env.local-prod-cloudflare.example's Cloudflare Tunnel
-# Config block.
+# Public entrypoint is Cloudflare Named Tunnel: cloudflared opens resilient
+# outbound connections to Cloudflare's edge and routes traffic to frontend:80.
+# The named tunnel token is read from a file-backed Compose secret. See the
+# Cloudflare Named Tunnel guide for account setup and URL configuration.
 #
 # frontend and backend publish localhost-only ports for local debugging only;
 # the tunnel is the only externally reachable entrypoint.
 #
 # Explicit project name so this stack's containers/network/volumes don't
-# collide with the other compose files, including the ngrok/tailscale
+# collide with other compose files, including the ngrok/tailscale
 # local-prod variants. Set in env/mystic_auth/.env.local-prod-cloudflare - see
 # docs/mystic_auth/docker/compose-modes.md.
 name: ${COMPOSE_PROJECT_NAME}
@@ -64,18 +58,28 @@ services:
 
   cloudflared:
     <<: *container_hardening
-    image: cloudflare/cloudflared@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    image: ${COMPOSE_PROJECT_NAME}-cloudflared
+    pull_policy: build
+    build:
+      context: ../../..
+      dockerfile: docker/mystic_auth/dockerfiles/cloudflared.Dockerfile
     restart: unless-stopped
-    # Not read_only this pass: unlike ngrok/postgres/valkey/backend/frontend/
-    # etc. above (verified live against docker-compose.local-prod-ngrok.yml,
-    # see docs/mystic_auth/deployment/local-prod/), this
-    # mode wasn't live-tested with real Cloudflare credentials this session.
-    # cloudflared is a third-party vendor binary whose own writable-path
-    # needs aren't documented here; verify live (cap_drop: [ALL] + read_only:
-    # true + targeted tmpfs, same pattern as the other services) before
-    # relying on this container being hardened the same way.
-    # Quick Tunnel (see file header for the Named Tunnel alternative).
-    command: tunnel --no-autoupdate --url http://frontend:80
+    read_only: true
+    tmpfs: [/tmp:mode=1777]
+    # The tiny entrypoint reads the root-owned secret, copies it into a
+    # private tmpfs file, then drops to UID/GID 65532 before execing
+    # cloudflared. Only the three capabilities needed for that transition
+    # are added (DAC_OVERRIDE lets the launcher read a host-owned 0600 secret
+    # file, then is discarded on the UID transition); the token never enters
+    # argv or the environment.
+    cap_add: [DAC_OVERRIDE, CHOWN, SETUID, SETGID]
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --metrics
+      - 127.0.0.1:20241
+      - run
+    secrets: [cloudflare_tunnel_token]
     # Pinned address for TRUSTED_PROXY_IPS: this is the reverse-proxy hop in
     # front of nginx, and get_client_ip() needs to know it to find the real
     # client IP in X-Forwarded-For.
@@ -90,9 +94,6 @@ services:
         limits:
           cpus: "1"
           memory: 256M
-          # PIDs cgroup limit - caps fork-bomb-style resource exhaustion that
-          # cpus/memory above don't bound (can't live in
-          # the shared x-container-hardening anchor - see its own comment).
           pids: 32
 
   postgres:
@@ -141,9 +142,14 @@ services:
     cap_add: [CHOWN, SETUID, SETGID]
     networks: [valkey_net]
     # VALKEY_PASSWORD should always be set in production.
-    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"]
+    environment:
+      # Passed as a container env var, not a CLI arg - see the
+      # 2026-10-21 audit note on docker-compose.local-prod-ngrok.yml's
+      # valkey service for why.
+      VALKEY_PASSWORD: "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"
+    command: ["sh", "-c", "echo \"requirepass $$VALKEY_PASSWORD\" > /tmp/valkey.conf && chmod 600 /tmp/valkey.conf && exec valkey-server /tmp/valkey.conf"]
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$VALKEY_PASSWORD valkey-cli --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -462,6 +468,8 @@ services:
       BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:?BACKUP_UPLOAD_COMMAND must be set}
       BACKUP_SENTRY_DSN: ${BACKUP_SENTRY_DSN:-}
       B2_BUCKET: ${B2_BUCKET:-}
+      # Auth is provided through environment variables; avoid the default root-owned config file.
+      RCLONE_CONFIG: /dev/null
       RCLONE_CONFIG_B2_TYPE: b2
       RCLONE_CONFIG_B2_ACCOUNT: ${RCLONE_CONFIG_B2_ACCOUNT:-}
       RCLONE_CONFIG_B2_KEY: ${RCLONE_CONFIG_B2_KEY:-}
@@ -640,6 +648,10 @@ services:
           f.write('export SENTRY_DSN=http://' + key + '@bugsink:8000/' + str(project.id) + chr(10))
       print('Seeded Bugsink project ' + str(project.id) + ', key ' + key)
       \""
+
+secrets:
+  cloudflare_tunnel_token:
+    file: ../../../env/mystic_auth/.cloudflare-tunnel-token
 
 volumes:
   postgres_data:
