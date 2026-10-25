@@ -57,7 +57,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, extraNavItems, extraNav
         // live brand-solid token (works for any brand color, not a hardcoded
         // hex) while still getting a real alpha-blended glow, which a solid
         // semantic token pair can't express on its own. Light/dark values
-        // live in theme/tailwind.css as .mystic-app-layout-bg (one rule
+        // live in theme/application.css as .mystic-app-layout-bg (one rule
         // guarded by `.dark`), not an inline `style`/runtime `<style>` tag -
         // see that file for why (a strict hash-only CSP can't allow one).
         <div className="mystic-app-layout-bg flex min-h-screen bg-bg-canvas bg-fixed">

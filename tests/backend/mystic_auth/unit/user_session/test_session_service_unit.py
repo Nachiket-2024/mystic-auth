@@ -145,6 +145,78 @@ async def test_rotate_session_backfills_missing_legacy_row(mocker):
 
 
 @pytest.mark.asyncio
+async def test_rotate_session_logs_and_alerts_when_ip_differs_from_prior_redemption(mocker):
+    """Regression for F-001: a clean (non-reuse) refresh-token theft and
+    first use used to leave zero signal anywhere. rotate() never touches
+    ip_address/user_agent, so the row it returns still carries the chain's
+    *prior* redemption context - comparing that against the current
+    request's real IP/UA is the one concrete artifact a stolen-token's
+    first use leaves behind."""
+    prior_session = SimpleNamespace(
+        chain_id="chain-1", ip_address="203.0.113.5", user_agent="legit-browser/1",
+    )
+    mocker.patch(f"{MODULE}.session_repository.rotate", new_callable=AsyncMock, return_value=prior_session)
+    mocker.patch(f"{MODULE}.get_client_ip", return_value="198.51.100.20")  # different IP
+    log_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
+    alert_mock = mocker.patch(f"{MODULE}.capture_security_alert", new_callable=AsyncMock)
+    request = MagicMock()
+    request.headers.get.return_value = "legit-browser/1"  # same UA, only IP differs
+
+    await SessionService.rotate_session(object(), "old", "new", "chain-1", 1_800_000_000, "user@example.com", request)
+
+    log_mock.assert_awaited_once()
+    assert log_mock.await_args.args[0] == "refresh_token_context_changed"
+    assert log_mock.await_args.kwargs["metadata"] == {"ip_changed": True, "user_agent_changed": False}
+    assert "203.0.113.5" not in str(log_mock.await_args.kwargs["metadata"])
+    assert "198.51.100.20" not in str(log_mock.await_args.kwargs["metadata"])
+    alert_mock.assert_awaited_once()
+    assert alert_mock.await_args.kwargs["metadata"] == {
+        "ip_changed": True,
+        "user_agent_changed": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_rotate_session_does_not_log_when_context_is_unchanged(mocker):
+    """Negative control: the ordinary case (same device, same network,
+    every normal refresh) must stay silent - this is a low-noise signal,
+    not a log line on every single token refresh."""
+    prior_session = SimpleNamespace(
+        chain_id="chain-1", ip_address="203.0.113.5", user_agent="legit-browser/1",
+    )
+    mocker.patch(f"{MODULE}.session_repository.rotate", new_callable=AsyncMock, return_value=prior_session)
+    mocker.patch(f"{MODULE}.get_client_ip", return_value="203.0.113.5")  # same IP
+    log_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
+    alert_mock = mocker.patch(f"{MODULE}.capture_security_alert", new_callable=AsyncMock)
+    request = MagicMock()
+    request.headers.get.return_value = "legit-browser/1"  # same UA
+
+    await SessionService.rotate_session(object(), "old", "new", "chain-1", 1_800_000_000, "user@example.com", request)
+
+    log_mock.assert_not_awaited()
+    alert_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_rotate_session_does_not_log_when_prior_context_was_never_recorded(mocker):
+    """A session with no stored ip_address/user_agent (e.g. created with no
+    real request) has nothing to compare against - must not false-positive
+    by treating "unknown" as "changed"."""
+    prior_session = SimpleNamespace(chain_id="chain-1", ip_address=None, user_agent=None)
+    mocker.patch(f"{MODULE}.session_repository.rotate", new_callable=AsyncMock, return_value=prior_session)
+    mocker.patch(f"{MODULE}.get_client_ip", return_value="198.51.100.20")
+    log_mock = mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
+    alert_mock = mocker.patch(f"{MODULE}.capture_security_alert", new_callable=AsyncMock)
+    request = MagicMock()
+    request.headers.get.return_value = "legit-browser/1"
+
+    await SessionService.rotate_session(object(), "old", "new", "chain-1", 1_800_000_000, "user@example.com", request)
+
+    log_mock.assert_not_awaited()
+    alert_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_revoke_all_sessions_uses_exempt_chain_when_requested(mocker):
     mocker.patch(f"{MODULE}.user_crud.get_by_email", new_callable=AsyncMock, return_value=SimpleNamespace(id=7))
     except_mock = mocker.patch(

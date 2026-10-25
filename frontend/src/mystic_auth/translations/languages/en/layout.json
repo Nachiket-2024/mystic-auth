@@ -21,7 +21,7 @@
         "policiesGroup": "Policies",
         "usersGroup": "Users",
         "trigger": "Search...",
-        "triggerLabel": "Open search (Ctrl+K)"
+        "triggerLabel": "Search ⌘K (Ctrl+K)"
     },
     "nav": {
         "dashboard": "Dashboard",

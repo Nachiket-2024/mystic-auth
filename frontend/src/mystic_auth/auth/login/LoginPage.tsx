@@ -15,6 +15,7 @@ import Card from "../../ui/cards/Card";
 // Shared brand header + footer shell for every unauthenticated page.
 import AuthLayout from "../../layout/auth_layout/AuthLayout";
 import Logo from "../../layout/app_layout/Logo";
+import { APP_NAME } from "../../core/settings";
 
 
 // Reads isAuthenticated from the Zustand auth store (source of truth regardless of
@@ -52,7 +53,7 @@ const LoginPage: React.FC = () => {
                 even before sign-in. */}
             <Card className="mx-auto w-full max-w-md border-t-[3px] border-t-brand-solid bg-bg-surface/95 p-5 shadow-dialog backdrop-blur md:p-7">
                 <div className="flex flex-col items-center text-center gap-4">
-                    <Link to="/" aria-label="Mystic Auth home">
+                    <Link to="/" aria-label={t("ui_text:brandHomeLink", { appName: APP_NAME })}>
                         <Logo />
                     </Link>
                     <Separator className="w-full bg-brand-solid" />

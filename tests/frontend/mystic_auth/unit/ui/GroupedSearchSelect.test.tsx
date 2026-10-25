@@ -43,12 +43,12 @@ function renderPicker(props: Partial<React.ComponentProps<typeof GroupedSearchSe
 describe('GroupedSearchSelect', () => {
   it('shows the trigger with the All label until a real option is picked', () => {
     renderPicker();
-    expect(screen.getByRole('button', { name: 'Filter by action' })).toHaveTextContent('All actions');
+    expect(screen.getByRole('button', { name: /^Filter by action/ })).toHaveTextContent('All actions');
   });
 
   it('lists every option grouped under its own group header', async () => {
     renderPicker();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
 
     expect(screen.getByText('users')).toBeInTheDocument();
     expect(screen.getByText('policies')).toBeInTheDocument();
@@ -58,7 +58,7 @@ describe('GroupedSearchSelect', () => {
 
   it('narrows visible options across every group when searching', async () => {
     renderPicker();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
     await userEvent.type(screen.getByPlaceholderText('Search actions...'), 'read');
 
     expect(screen.getByText('users:read_own')).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('GroupedSearchSelect', () => {
 
   it('shows a no-matches message when the query matches nothing', async () => {
     renderPicker();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
     await userEvent.type(screen.getByPlaceholderText('Search actions...'), 'nonexistent-query');
 
     expect(screen.getByText('No matches')).toBeInTheDocument();
@@ -76,7 +76,7 @@ describe('GroupedSearchSelect', () => {
 
   it('calls onChange and closes the popover when an option is clicked', async () => {
     const { onChange } = renderPicker();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
     await userEvent.click(screen.getByText('policies:read'));
 
     expect(onChange).toHaveBeenCalledWith('policies:read');
@@ -85,7 +85,7 @@ describe('GroupedSearchSelect', () => {
 
   it('calls onSelectGroup (and not onChange) when a group header is clicked', async () => {
     const { onChange, onSelectGroup } = renderPicker();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
     await userEvent.click(screen.getByRole('button', { name: 'users' }));
 
     expect(onSelectGroup).toHaveBeenCalledWith('users');
@@ -94,7 +94,7 @@ describe('GroupedSearchSelect', () => {
 
   it('selects the highlighted option on Enter after arrowing down', async () => {
     const { onChange } = renderPicker();
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
 
     const input = screen.getByPlaceholderText('Search actions...');
     // Flattened order is users:read_own, users:list_all, policies:read -
@@ -110,7 +110,7 @@ describe('GroupedSearchSelect', () => {
         { key: 'signIn', label: 'Sign-in', options: [{ value: 'login', label: 'Signed in', sublabel: 'login' }] },
       ],
     });
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by action' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by action/ }));
 
     const option = screen.getByText('Signed in').closest('button')!;
     expect(within(option).getByText('login')).toBeInTheDocument();

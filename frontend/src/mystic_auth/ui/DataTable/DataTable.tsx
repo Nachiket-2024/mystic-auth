@@ -223,7 +223,7 @@ function DataTable<T>({
         // stick to something. A table with fewer rows than fit in 70dvh
         // never hits this cap.
         // scrollbar-gutter left at the browser default (auto), same reasoning
-        // as .dropdown-scroll-area in tailwind.css: reserving a stable gutter
+        // as .dropdown-scroll-area in application.css: reserving a stable gutter
         // unconditionally leaves visible dead space in the rounded corner
         // whenever a table has too few rows to actually need a scrollbar
         // (the common case). The browser still reserves it the moment a
@@ -266,6 +266,7 @@ function DataTable<T>({
                         isSomeSelected={isSomeSelected}
                         onToggleAll={toggleAll}
                         selectAllLabel={t("selectAllRows")}
+                        rowActionLabel={t("openRow")}
                         hasRowClick={!!onRowClick}
                     />
                 </TableHeader>

@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -62,6 +63,7 @@ class PasswordService:
         # validly-signed JWT carrying an "email" claim.
         payload: dict[str, str | float] = {
             "email": email,
+            "jti": uuid.uuid4().hex,
             "type": "reset",
             "exp": expire.timestamp(),
             "iss": settings.JWT_ISSUER,
@@ -76,10 +78,9 @@ class PasswordService:
     @staticmethod
     async def verify_reset_token(token: str) -> dict | None:
         try:
-            # verify_aud disabled: PyJWT auto-rejects any "aud" claim
-            # present at all, which would break tokens minted before that
-            # claim existed. has_valid_issuer_and_audience below does the
-            # real check with "absent is fine, present-and-wrong is not."
+            # Decode audience separately so the shared issuer/audience guard
+            # can enforce the current token contract and reject older signed
+            # tokens that predate those claims.
             payload = await asyncio.to_thread(
                 jwt.decode,
                 token,

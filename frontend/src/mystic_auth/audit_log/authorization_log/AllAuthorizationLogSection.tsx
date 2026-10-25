@@ -35,7 +35,7 @@ interface AllAuthorizationLogSectionProps {
 const AllAuthorizationLogSection: React.FC<AllAuthorizationLogSectionProps> = ({
     extraResourceTypes, extraActions,
 }) => {
-    const { t } = useTranslation(["audit_log", "ui_text"]);
+    const { t } = useTranslation(["audit_log", "ui_text", "policies"]);
     // chromeLanguage, not pageLanguage: the "when" column's dates should read like navbar/sidebar
     // chrome, not the mixed page-content language used for "en+hi"/"en+mr".
     // See languageStore.ts's LanguageMode docstring.
@@ -94,7 +94,7 @@ const AllAuthorizationLogSection: React.FC<AllAuthorizationLogSectionProps> = ({
         ...(action !== ALL_VALUE
                 ? [{ key: "action", label: formatPolicyActionLabel(action), onClear: () => setAction(ALL_VALUE) }]
             : resourceType !== ALL_VALUE
-                ? [{ key: "resourceType", label: formatResourceTypeLabel(resourceType), onClear: () => setResourceType(ALL_VALUE) }]
+                ? [{ key: "resourceType", label: formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes")), onClear: () => setResourceType(ALL_VALUE) }]
                 : []),
         ...(allowed !== ALL_VALUE
             ? [{ key: "allowed", label: t(`authorization.results.${allowed === "true" ? "allowed" : "denied"}`), onClear: () => setAllowed(ALL_VALUE) }]

@@ -5,7 +5,7 @@ export interface AppThemeOverrides {
      * user's own Appearance pick uses, so it's still just one hex, not a
      * hand-authored scale. */
     brandColor?: string;
-    /** Any other theme/tailwind.css custom property to override outright
+    /** Any other theme/tailwind-tokens.css custom property to override outright
      * (fonts, radii, a hand-authored token that doesn't fit
      * generateBrandScale's lightness ladder), applied once at startup.
      * Doesn't take a light/dark pair: for a token that differs by mode
@@ -24,7 +24,7 @@ export interface AppThemeOverrides {
  * docs/mystic_auth/template-usage/overview.md#environment-configuration.
  *
  * This file is for anything beyond that single color. Counterpart to
- * app_sdk.ts: theme/applyBrandCssVars.ts and theme/tailwind.css are
+ * app_sdk.ts: theme/applyBrandCssVars.ts and theme/tailwind-tokens.css are
  * upstream-owned, so hand-editing them directly would conflict on every
  * `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync. This file's
  * `cssVars` gets applied on top of them instead - the same "yours, upstream

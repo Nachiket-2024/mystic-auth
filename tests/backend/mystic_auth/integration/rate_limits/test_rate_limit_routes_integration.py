@@ -17,6 +17,7 @@ from backend.mystic_auth.authorization.policies.default_policies import (
 from backend.mystic_auth.authorization.repositories.policy_repository import (
     policy_repository,
 )
+from backend.mystic_auth.core.settings import settings
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.valkey.client import valkey_client
 
@@ -147,6 +148,25 @@ async def test_scope_filter_excludes_the_other_scope(client, created_emails):
     finally:
         await valkey_client.delete(ip_key)
         await valkey_client.delete(account_key)
+
+
+@pytest.mark.asyncio
+async def test_scope_filter_accepts_account_ip_scope(client, created_emails):
+    await _create_user_with_rate_limits_read(client, created_emails)
+
+    key = f"login_lock:account_ip:{uuid.uuid4().hex}"
+    try:
+        await valkey_client.set(key, "2", ex=300)
+        response = await client.get(
+            "/rate-limits/", params={"endpoint": "login_lock", "scope": "account_ip"}
+        )
+        assert response.status_code == 200
+        entry = next(entry for entry in response.json()["entries"] if entry["key"] == key)
+        assert entry["scope"] == "account_ip"
+        assert entry["identifier"] == key.rsplit(":", 1)[-1]
+        assert entry["limit"] == settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
+    finally:
+        await valkey_client.delete(key)
 
 
 @pytest.mark.asyncio

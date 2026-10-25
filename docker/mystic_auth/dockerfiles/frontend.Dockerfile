@@ -65,9 +65,10 @@ RUN npm run build
 
 # Serves the static build via nginx: no Node.js, dev dependencies, or
 # source maps, just the compiled assets. Used via `build.target: production`.
-FROM nginx:stable-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS production
+FROM nginx:stable-alpine@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951 AS production
 
 COPY docker/mystic_auth/nginx.frontend.conf /etc/nginx/conf.d/default.conf
+COPY docker/mystic_auth/nginx.error-headers.conf /etc/nginx/snippets/security-error-headers.conf
 # Your own nginx location blocks, if any - see docker/app/nginx/README.md.
 # Copying an empty directory is a no-op, not an error.
 COPY docker/app/nginx/ /etc/nginx/conf.d/app/

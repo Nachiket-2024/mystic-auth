@@ -36,12 +36,14 @@
     "bulkOperation": "સામૂહિક ક્રિયા",
     "clearSelection": "પસંદગી સાફ કરો",
     "selectAllRows": "બધી પંક્તિઓ પસંદ કરો",
+    "openRow": "પંક્તિની વિગતો ખોલો",
     "selectRow": "પંક્તિ પસંદ કરો",
+    "brandHomeLink": "{{appName}} હોમ",
     "pagination": {
         "previousPage": "પાછલું પૃષ્ઠ",
-        "prev": "પાછળ",
+        "prev": "પાછલું",
         "nextPage": "આગલું પૃષ્ઠ",
-        "next": "આગળ",
+        "next": "આગલું",
         "page": "પૃષ્ઠ {{page}}"
     },
     "offlineBanner": {

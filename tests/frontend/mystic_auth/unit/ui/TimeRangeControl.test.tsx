@@ -8,14 +8,14 @@ import { DEFAULT_TIME_RANGE_STATE } from '@/audit_log/auditLogListConfig';
 describe('TimeRangeControl', () => {
   it('shows the default 14-day preset label and no reset button when nothing is picked', () => {
     render(<TimeRangeControl value={DEFAULT_TIME_RANGE_STATE} onChange={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Time range' })).toHaveTextContent('Last 14 days');
+    expect(screen.getByRole('button', { name: /^Time range/ })).toHaveTextContent('Last 14 days');
     expect(screen.queryByRole('button', { name: 'Reset time range' })).toBeNull();
   });
 
   it('picking a preset calls onChange with that preset and clears any custom dates', async () => {
     const onChange = vi.fn();
     render(<TimeRangeControl value={DEFAULT_TIME_RANGE_STATE} onChange={onChange} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Time range' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Time range/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Last 30 days' }));
     expect(onChange).toHaveBeenCalledWith({ range: '30', customFrom: '', customTo: '' });
   });
@@ -32,7 +32,7 @@ describe('TimeRangeControl', () => {
   it('applying a custom range calls onChange with range "custom" and the picked dates', async () => {
     const onChange = vi.fn();
     render(<TimeRangeControl value={DEFAULT_TIME_RANGE_STATE} onChange={onChange} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Time range' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Time range/ }));
 
     const fromInput = screen.getByLabelText('From');
     const toInput = screen.getByLabelText('To');

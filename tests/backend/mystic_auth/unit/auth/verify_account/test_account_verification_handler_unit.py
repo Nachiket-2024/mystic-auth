@@ -1,5 +1,5 @@
 # Pins down account_verification_handler.py's lockout key namespace: it
-# must be distinct from login's "login_lock:email:" key, or a burst of
+# must be distinct from login's "login_lock:account_ip:" key, or a burst of
 # failed verification attempts (e.g. a double-submitted, already-consumed
 # link racing the single-use check) could trip the unrelated login
 # lockout for the same email.

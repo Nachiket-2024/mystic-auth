@@ -39,7 +39,7 @@ a failure here can hide or distort every route-level failure.
 
 ## Unit tests
 
-The 115 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
+The 120 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
 services, repositories, schemas, middleware, and pure policy logic. They are
 the fastest way to identify which decision or transformation changed. The
 [Backend Unit Tests](backend-unit.md) page names each module and explains its
@@ -54,7 +54,7 @@ as Valkey failure, invalid conditions, and token replay deterministic.
 
 ## Integration tests
 
-The 48 modules under `tests/backend/mystic_auth/integration/` exercise real
+The 52 modules under `tests/backend/mystic_auth/integration/` exercise real
 application boundaries with the test database and Valkey fixtures. They cover
 HTTP-shaped workflows, transaction behavior, cache invalidation, concurrency,
 and the interaction between authorization and user/session state.

@@ -198,10 +198,10 @@ const rateLimits = [
     resets_in_seconds: 120,
   },
   {
-    key: "login_lock:email:attacker@example.com",
+    key: "login_lock:account_ip:7e0e8f2c6bb24f365a40244fd5c47ab67a3c67bf1f898f0e88f3f50b4b4a0d10",
     endpoint: "login_lock",
-    scope: "email",
-    identifier: "attacker@example.com",
+    scope: "account_ip",
+    identifier: "7e0e8f2c6bb24f365a40244fd5c47ab67a3c67bf1f898f0e88f3f50b4b4a0d10",
     count: 5,
     limit: 5,
     resets_in_seconds: 600,

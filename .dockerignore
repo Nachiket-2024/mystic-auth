@@ -51,6 +51,7 @@ frontend/dist/
 env/mystic_auth/.env
 env/mystic_auth/.env.*
 !env/mystic_auth/.env.*.example
+env/mystic_auth/.cloudflare-tunnel-token
 .codex/
 .local/
 env/app/.env

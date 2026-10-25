@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# Proves a backup is actually restorable, not just present: dumps the
-# running app database, restores that dump into a disposable scratch
-# database on the same Postgres server (never overwriting the real one),
-# runs a smoke query against it plus a full per-table row-count parity
-# check, then drops the scratch database. Exits non-zero on any failure, so
+# Proves the app and Bugsink databases are actually restorable, not just
+# present: encrypts and authenticates each dump, restores each into a
+# disposable scratch database on the same Postgres server, checks schema and
+# row-count parity, then drops the scratch databases. Exits non-zero on any failure, so
 # a broken backup or restore path fails loudly instead of only being
 # discovered during a real incident.
 #
-# database-backup.sh already verifies a dump's *structure* with `pg_restore
-# --list`; this goes one step further and proves the dump's *contents* come
-# back as a real, queryable database.
+# database-backup.sh verifies dump structure with `pg_restore --list`; this
+# also proves both dumps' contents come back as queryable databases.
 #
 # Usage: scripts/mystic_auth/db/database-restore/database-restore-drill.sh [compose-file]
 #   compose-file defaults to docker-compose.dev.yml, and can be given as
@@ -59,86 +57,108 @@ DC_ARGS=()
 for f in "${COMPOSE_FILES[@]}"; do DC_ARGS+=(-f "$f"); done
 for f in "${ENV_FILES[@]}"; do DC_ARGS+=(--env-file "$f"); done
 
-# Fixed name, not timestamped: a drill run cleans up after itself
-# (including on failure, via the trap below), so there's never a reason for
-# more than one to exist at a time, and a fixed name makes a leftover from
-# a killed run obvious and easy to drop by hand.
-SCRATCH_DB="${POSTGRES_DB}_restore_drill"
-DRILL_DUMP="$(mktemp --suffix=.dump.enc)"
+# Both databases are included in database-backup.sh. A disposable restore of
+# each proves the data can be decrypted, authenticated, and loaded, not only
+# that the custom-format dump header can be listed.
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set for encrypted restore drills}"
+DRILL_DATABASES=("$POSTGRES_DB")
+if [ "$POSTGRES_DB" != bugsink ]; then
+  DRILL_DATABASES+=(bugsink)
+fi
+SCRATCH_DATABASES=()
+DRILL_DUMPS=()
 
 cleanup() {
-  rm -f "$DRILL_DUMP"
-  docker compose "${DC_ARGS[@]}" exec -T postgres \
-    psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};" >/dev/null 2>&1 || true
+  local dump scratch
+  for dump in "${DRILL_DUMPS[@]}"; do
+    rm -f "$dump" "$dump.hmac"
+  done
+  for scratch in "${SCRATCH_DATABASES[@]}"; do
+    docker compose "${DC_ARGS[@]}" exec -T postgres \
+      psql -U "$POSTGRES_USER" -d postgres \
+      -c "DROP DATABASE \"${scratch}\";" >/dev/null 2>&1 || true
+  done
 }
 trap cleanup EXIT
 
-echo "1/5  Dumping '${POSTGRES_DB}'..."
-# No --file=-: see database-backup.sh's own comment on this same line - it
-# produces a 0-byte dump on this image's pg_dump build instead of writing
-# to stdout. Omitting --file defaults to stdout, which this redirect
-# captures.
-docker compose "${DC_ARGS[@]}" exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" --format=custom "$POSTGRES_DB" | \
-  openssl enc -aes-256-cbc -pbkdf2 -salt -out "$DRILL_DUMP" \
-    -pass env:BACKUP_ENCRYPTION_KEY
+for SOURCE_DB in "${DRILL_DATABASES[@]}"; do
+  # Generated names permit concurrent drills and ensure cleanup never drops a
+  # database that existed before this process created its own scratch copy.
+  SCRATCH_DB="restore_drill_${$}_${RANDOM}"
+  DRILL_DUMP="$(mktemp --suffix=.dump.enc)"
+  DRILL_DUMPS+=("$DRILL_DUMP")
 
-echo "2/5  Creating scratch database '${SCRATCH_DB}'..."
-docker compose "${DC_ARGS[@]}" exec -T postgres \
-  psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};" >/dev/null
-docker compose "${DC_ARGS[@]}" exec -T postgres \
-  psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE ${SCRATCH_DB};" >/dev/null
+  echo "1/5  Dumping '${SOURCE_DB}'..."
+  # Omit --file=-: on this pg_dump build, that writes a 0-byte file instead
+  # of stdout. With no --file argument, stdout is captured by this pipeline.
+  docker compose "${DC_ARGS[@]}" exec -T postgres \
+    pg_dump -U "$POSTGRES_USER" --format=custom "$SOURCE_DB" | \
+    openssl enc -aes-256-cbc -pbkdf2 -salt -out "$DRILL_DUMP" \
+      -pass env:BACKUP_ENCRYPTION_KEY
 
-echo "3/5  Restoring the dump into '${SCRATCH_DB}'..."
-docker compose "${DC_ARGS[@]}" exec -T postgres \
-  pg_restore -U "$POSTGRES_USER" --dbname "$SCRATCH_DB" < <(openssl enc -d \
-    -aes-256-cbc -pbkdf2 -in "$DRILL_DUMP" -pass env:BACKUP_ENCRYPTION_KEY)
+  "$REPO_ROOT/scripts/mystic_auth/db/backup-verification/backup-hmac.sh" \
+    tag "$DRILL_DUMP" "$BACKUP_ENCRYPTION_KEY"
+  "$REPO_ROOT/scripts/mystic_auth/db/backup-verification/backup-hmac.sh" \
+    verify "$DRILL_DUMP" "$BACKUP_ENCRYPTION_KEY"
 
-echo "4/5  Smoke-checking the restored database..."
-# alembic_version existing and non-empty proves the schema, not just raw
-# bytes, came back: a dump that restored an empty/corrupt database would
-# fail this even if pg_restore itself printed no error.
-ALEMBIC_ROWS="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
-  psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM alembic_version;")"
-if [ "$(echo "$ALEMBIC_ROWS" | tr -d '[:space:]')" -lt 1 ]; then
-  echo "FAIL: alembic_version has no rows in the restored database - schema did not come back intact." >&2
-  exit 1
-fi
+  echo "2/5  Creating scratch database '${SCRATCH_DB}'..."
+  docker compose "${DC_ARGS[@]}" exec -T postgres \
+    psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE ${SCRATCH_DB};" >/dev/null
+  SCRATCH_DATABASES+=("$SCRATCH_DB")
 
-USERS_TABLE_EXISTS="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
-  psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc "SELECT to_regclass('public.users') IS NOT NULL;")"
-if [ "$(echo "$USERS_TABLE_EXISTS" | tr -d '[:space:]')" != "t" ]; then
-  echo "FAIL: users table missing in the restored database." >&2
-  exit 1
-fi
+  echo "3/5  Restoring the verified dump into '${SCRATCH_DB}'..."
+  docker compose "${DC_ARGS[@]}" exec -T postgres \
+    pg_restore -U "$POSTGRES_USER" --dbname "$SCRATCH_DB" < <(openssl enc -d \
+      -aes-256-cbc -pbkdf2 -in "$DRILL_DUMP" -pass env:BACKUP_ENCRYPTION_KEY)
 
-echo "5/5  Comparing per-table row counts against the source database..."
-# Schema-only checks (alembic_version, users existing) can pass on a
-# silent partial restore - e.g. pg_restore skipping a table after a
-# mid-stream error but still exiting 0 for the rest. Counting every public
-# table in both databases and diffing them catches that class of bug that
-# the two checks above would miss.
-TABLES="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
-  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
-  "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;" | tr -d '\r')"
-
-MISMATCH=0
-while IFS= read -r TABLE; do
-  [ -z "$TABLE" ] && continue
-  SOURCE_COUNT="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
-    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT count(*) FROM \"${TABLE}\";" | tr -d '[:space:]')"
-  RESTORED_COUNT="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
-    psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM \"${TABLE}\";" | tr -d '[:space:]')"
-  if [ "$SOURCE_COUNT" != "$RESTORED_COUNT" ]; then
-    echo "FAIL: table '${TABLE}' has ${SOURCE_COUNT} rows in '${POSTGRES_DB}' but ${RESTORED_COUNT} in the restored database." >&2
-    MISMATCH=1
+  echo "4/5  Smoke-checking the restored '${SOURCE_DB}' database..."
+  if [ "$SOURCE_DB" = "$POSTGRES_DB" ]; then
+    # These application-specific objects prove the migrated schema came back.
+    ALEMBIC_ROWS="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+      psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM alembic_version;")"
+    if [ "$(echo "$ALEMBIC_ROWS" | tr -d '[:space:]')" -lt 1 ]; then
+      echo "FAIL: alembic_version has no rows in the restored '${SOURCE_DB}' database." >&2
+      exit 1
+    fi
+    USERS_TABLE_EXISTS="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+      psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc "SELECT to_regclass('public.users') IS NOT NULL;")"
+    if [ "$(echo "$USERS_TABLE_EXISTS" | tr -d '[:space:]')" != "t" ]; then
+      echo "FAIL: users table missing in the restored '${SOURCE_DB}' database." >&2
+      exit 1
+    fi
   fi
-done <<< "$TABLES"
 
-if [ "$MISMATCH" -ne 0 ]; then
-  echo "FAIL: restored database has row-count mismatches against the source - see above." >&2
-  exit 1
-fi
+  echo "5/5  Comparing public table names and row counts for '${SOURCE_DB}'..."
+  SOURCE_TABLES="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+    psql -U "$POSTGRES_USER" -d "$SOURCE_DB" -tAc \
+    "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;" | tr -d '\r')"
+  RESTORED_TABLES="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+    psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc \
+    "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;" | tr -d '\r')"
+  if [ "$SOURCE_DB" = bugsink ] && [ -z "$SOURCE_TABLES" ] && [ -z "$RESTORED_TABLES" ]; then
+    # The disposable dev stack intentionally does not start Bugsink, so its
+    # separately-created database can be empty. A matching empty dump is
+    # still a valid restore; populated deployment databases take the normal
+    # table-name and row-count path below.
+    echo "OK: 'bugsink' restored as an empty database."
+    continue
+  fi
+  if [ -z "$SOURCE_TABLES" ] || [ "$SOURCE_TABLES" != "$RESTORED_TABLES" ]; then
+    echo "FAIL: public table names differ between '${SOURCE_DB}' and its restored copy." >&2
+    exit 1
+  fi
 
-echo "OK: dump of '${POSTGRES_DB}' restores cleanly with its schema and full row-count parity intact."
+  while IFS= read -r TABLE; do
+    [ -z "$TABLE" ] && continue
+    SOURCE_COUNT="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+      psql -U "$POSTGRES_USER" -d "$SOURCE_DB" -tAc "SELECT count(*) FROM ${TABLE};" | tr -d '[:space:]')"
+    RESTORED_COUNT="$(docker compose "${DC_ARGS[@]}" exec -T postgres \
+      psql -U "$POSTGRES_USER" -d "$SCRATCH_DB" -tAc "SELECT count(*) FROM ${TABLE};" | tr -d '[:space:]')"
+    if [ "$SOURCE_COUNT" != "$RESTORED_COUNT" ]; then
+      echo "FAIL: table '${TABLE}' has ${SOURCE_COUNT} rows in '${SOURCE_DB}' but ${RESTORED_COUNT} in the restored copy." >&2
+      exit 1
+    fi
+  done <<< "$SOURCE_TABLES"
+
+  echo "OK: '${SOURCE_DB}' restored with the same public tables and row counts."
+done

@@ -35,7 +35,7 @@ interface MyAuthorizationLogSectionProps {
 const MyAuthorizationLogSection: React.FC<MyAuthorizationLogSectionProps> = ({
     extraResourceTypes, extraActions,
 }) => {
-    const { t } = useTranslation("audit_log");
+    const { t } = useTranslation(["audit_log", "policies"]);
     // See AllAuthorizationLogSection.tsx's matching comment: dates/month
     // names use chromeLanguage, not pageLanguage.
     const language = useLanguageStore((s) => s.chromeLanguage);
@@ -88,7 +88,7 @@ const MyAuthorizationLogSection: React.FC<MyAuthorizationLogSectionProps> = ({
         ...(action !== ALL_VALUE
                 ? [{ key: "action", label: formatPolicyActionLabel(action), onClear: () => setAction(ALL_VALUE) }]
             : resourceType !== ALL_VALUE
-                ? [{ key: "resourceType", label: formatResourceTypeLabel(resourceType), onClear: () => setResourceType(ALL_VALUE) }]
+                ? [{ key: "resourceType", label: formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes")), onClear: () => setResourceType(ALL_VALUE) }]
                 : []),
         ...(allowed !== ALL_VALUE
             ? [{ key: "allowed", label: t(`authorization.results.${allowed === "true" ? "allowed" : "denied"}`), onClear: () => setAllowed(ALL_VALUE) }]

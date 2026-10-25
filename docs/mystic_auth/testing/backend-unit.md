@@ -33,6 +33,8 @@ so a failure can be understood without opening the source module.
   verifies the shared lookup helper's not-found conversion.
 - `tests/backend/mystic_auth/unit/api/health_routes/test_health_routes_unit.py`
   verifies health response shape and dependency status mapping.
+- `tests/backend/mystic_auth/unit/api/test_pagination_offset_bounds_unit.py`
+  verifies pagination offsets are bounded before database queries.
 - `tests/backend/mystic_auth/unit/api/user_routes/test_user_policies_me_route_unit.py`
   verifies the current user's effective-policy endpoint.
 
@@ -68,8 +70,10 @@ The PBAC route files above live in
 
 ### Current user, login, and logout
 
-- `auth/current_user/test_current_user_handler_unit.py` verifies current-user
-  identity loading and inactive-user handling.
+- `auth/current_user/test_current_user_handler_core.py` covers identity loading
+  and error handling; `test_current_user_handler_roleless.py` and
+  `test_current_user_handler_direct_grants.py` cover policy-derived permission
+  results for those account shapes.
 - `auth/current_user/test_current_user_handler_active_sessions.py` verifies
   active-session data added to the current-user response.
 - `auth/login/test_auth_schemas_unit.py` verifies login input normalization
@@ -120,6 +124,8 @@ The PBAC route files above live in
   verifies fail-closed behavior when token-version/revocation state is unavailable.
 - `auth/token_logic/test_jwt_service_jti_revocation_unit.py` verifies JTI
   revocation checks and durable claims handling.
+- `auth/token_logic/test_consumed_refresh_token_model_unit.py` verifies the
+  durable consumed-refresh-token table's model and schema contract.
 - `auth/token_logic/test_jwt_service_revocation_unit.py` verifies token
   revocation and version invalidation.
 - `auth/token_logic/test_jwt_service_unit.py` verifies JWT creation,
@@ -130,14 +136,20 @@ The PBAC route files above live in
   reads and writes used to invalidate sessions.
 - `auth/token_logic/test_token_revocation_version_model_unit.py` verifies the
   token-revocation-version model metadata and column contract.
+- `auth/token_logic/test_token_revocation_keys_unit.py` verifies keyed,
+  case-normalized identifiers and safe migration parsing for legacy keys.
 - `auth/security/test_client_ip_unit.py` verifies trusted proxy and client-IP
   extraction rules.
 - `auth/security/test_login_protection_unit.py` verifies account/IP lockout
   thresholds and recovery behavior.
 - `auth/security/test_rate_limiter_service_dashboard_unit.py` verifies
   dashboard aggregation of rate-limit state.
+- `auth/security/test_rate_limiter_dashboard_edge_cases_unit.py` verifies
+  dashboard aggregation for missing, expired, and malformed rate-limit state.
 - `auth/security/test_rate_limiter_unit.py` verifies fixed-window decisions,
   retry metadata, and fail-safe behavior.
+- `security/test_container_security_config_unit.py` verifies required
+  container hardening settings in the shipped configuration.
 
 ---
 
@@ -207,7 +219,9 @@ tests remain valid when another local project uses the defaults.
   recording and query preparation.
 - `core/test_env_examples_parity_unit.py` verifies environment examples stay
   aligned with settings.
-- `core/test_settings_unit.py` verifies settings validation and derived values.
+- `core/test_settings_unit.py` verifies settings validation.
+- `core/test_settings_derived_properties_unit.py` verifies normalized origins,
+  trusted-host derivation, secure-cookie policy, and worker DSN rewriting.
 - `database/test_base_unit.py` verifies ORM base configuration.
 - `database/test_connection_unit.py` verifies database engine and session
   configuration.

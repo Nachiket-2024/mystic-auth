@@ -72,6 +72,15 @@ async def test_negative_offset_is_rejected(client, created_emails):
 
 
 @pytest.mark.asyncio
+async def test_offset_above_the_documented_maximum_is_rejected(client, created_emails):
+    system_email = unique_email("audit-offset-max")
+    await create_system_user(client, created_emails, system_email)
+
+    resp = await client.get("/authorization/audit-log", params={"offset": 10_000_001})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_my_audit_log_offset_past_the_end_returns_an_empty_list(client, created_emails):
     email = unique_email("audit-myoffset")
     await create_verified_user(client, created_emails, email, [SELF_SERVICE_POLICY_NAME])

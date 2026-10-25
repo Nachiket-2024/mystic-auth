@@ -50,8 +50,8 @@ class RefreshTokenHandler:
             rate_key = f"refresh:ratelimit:ip:{client_ip}"
             lock_key = f"refresh:lockout:ip:{client_ip}"
 
-            # Account-level lockout dimension, mirroring login_lock:email:* on
-            # the login flow (see login_protection_service's other caller).
+            # Account-level lockout dimension for token replay, independent
+            # from login_lock:account_ip:* on the login flow.
             # Without this, the IP-keyed lock_key above is the only backstop:
             # a leaked/stolen refresh token replayed from many different IPs
             # (a botnet, rotating proxies, a mobile connection that changes

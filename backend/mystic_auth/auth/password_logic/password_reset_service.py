@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import traceback
 from datetime import UTC, datetime
 
@@ -13,9 +15,49 @@ from .password_service import password_service
 
 logger = get_logger(__name__)
 
+_STORE_RESET_TOKEN_SCRIPT = """
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+redis.call('SET', KEYS[2], '1', 'EX', ARGV[2])
+return 1
+"""
+_CONSUME_RESET_TOKEN_SCRIPT = """
+if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+if redis.call('GET', KEYS[2]) ~= '1' then return 0 end
+redis.call('DEL', KEYS[1], KEYS[2])
+return 1
+"""
+_RESTORE_RESET_TOKEN_SCRIPT = """
+local active = redis.call('GET', KEYS[1])
+if active and active ~= ARGV[1] then return 0 end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+redis.call('SET', KEYS[2], '1', 'EX', ARGV[2])
+return 1
+"""
+
 
 class PasswordResetService:
     """Handles password reset requests (email dispatch) and reset confirmation."""
+
+    @staticmethod
+    def _active_token_key(email: str) -> str:
+        normalized = email.strip().casefold().encode("utf-8")
+        digest = hmac.new(settings.SECRET_KEY.encode("utf-8"), normalized, hashlib.sha256).hexdigest()
+        return f"password_reset_active:{digest}"
+
+    @staticmethod
+    async def store_reset_token(email: str, token: str, expires_seconds: int) -> bool:
+        payload = await password_service.verify_reset_token(token)
+        if not payload or not isinstance(payload.get("jti"), str) or not payload["jti"]:
+            return False
+        await valkey_client.eval(
+            _STORE_RESET_TOKEN_SCRIPT,
+            2,
+            PasswordResetService._active_token_key(email),
+            f"password_reset:{payload['jti']}",
+            payload["jti"],
+            expires_seconds,
+        )
+        return True
 
     @staticmethod
     async def send_reset_email(email: str, db) -> bool:
@@ -30,10 +72,13 @@ class PasswordResetService:
 
             expires_minutes = settings.RESET_TOKEN_EXPIRE_MINUTES
 
-            # Persisted in Valkey so reset_password() can enforce single-use:
-            # without this, a JWT's signature alone stays valid (and replayable)
-            # for the whole expiry window even after being redeemed once.
-            await valkey_client.set(f"password_reset:{reset_token}", "1", ex=expires_minutes * 60)
+            # Keep only the newest outstanding reset id for an account.
+            # Lua makes replacement of the active id and insertion of its
+            # single-use marker one atomic operation.
+            if not await PasswordResetService.store_reset_token(
+                email, reset_token, expires_minutes * 60
+            ):
+                raise ValueError("New password-reset token is missing its unique identifier")
 
             # Fragment values are never sent in HTTP requests or Referer
             # headers. The frontend consumes and scrubs the fragment in memory.
@@ -80,14 +125,14 @@ class PasswordResetService:
         two concurrent requests carrying the same valid token could both pass
         the GET before either deleted the key. If they submitted different new
         passwords, both DB writes would execute and the later one would
-        silently win, defeating the token's single-use guarantee. GETDEL makes
-        "check unused" and "mark used" one atomic operation: only one
-        concurrent request can ever win it, so at most one password update can
-        happen per token. A request that wins the GETDEL but then fails a
-        recoverable validation step (weak password, same-as-old password, a
-        transient DB failure) restores the entry, with a TTL capped by the
-        token's own remaining JWT lifetime, so a legitimate retry with the
-        same link still works, without reopening the concurrency window this fixes.
+        silently win, defeating the token's single-use guarantee. One Lua
+        operation verifies that the token is still the account's newest
+        outstanding reset and consumes it atomically: only one concurrent
+        request can win, and an older link fails even when its JWT has not
+        expired. A request that wins but then fails a recoverable validation
+        step (weak password, same-as-old password, transient DB failure)
+        restores the entry only if no newer link has since been issued, with a
+        TTL capped by the JWT's remaining lifetime.
 
         Returns (success, sessions_revoked). success is False only for an
         actual reset failure (bad/expired/reused token, weak password, no
@@ -102,7 +147,8 @@ class PasswordResetService:
         (user_self_service_routes.py), so a Postgres outage never turns a real
         password reset into a reported "invalid token" failure.
         """
-        valkey_key = f"password_reset:{token}"
+        valkey_key: str | None = None
+        active_key: str | None = None
 
         async def _restore_token(payload: dict) -> None:
             # Cap the restored TTL at the token's own remaining JWT lifetime so
@@ -112,8 +158,15 @@ class PasswordResetService:
             if not exp:
                 return
             remaining = int(exp - datetime.now(UTC).timestamp())
-            if remaining > 0:
-                await valkey_client.set(valkey_key, "1", ex=remaining)
+            if remaining > 0 and valkey_key and active_key:
+                await valkey_client.eval(
+                    _RESTORE_RESET_TOKEN_SCRIPT,
+                    2,
+                    active_key,
+                    valkey_key,
+                    payload["jti"],
+                    remaining,
+                )
 
         try:
             payload = await password_service.verify_reset_token(token)
@@ -121,18 +174,24 @@ class PasswordResetService:
                 logger.warning("Invalid or expired password reset token")
                 return False, None
 
-            # Atomically fetch-and-delete so reuse/replay is impossible.
-            if not await valkey_client.getdel(valkey_key):
+            jti = payload.get("jti")
+            email = payload.get("email")
+            # Older reset JWTs without a unique id cannot participate in the
+            # one-active-link contract and are rejected.
+            if not isinstance(jti, str) or not jti or not isinstance(email, str) or not email:
+                return False, None
+            valkey_key = f"password_reset:{jti}"
+            active_key = PasswordResetService._active_token_key(email)
+
+            # Atomically verify that this is still the newest link and consume
+            # it. This closes the check/rotate race as well as replay.
+            if not await valkey_client.eval(
+                _CONSUME_RESET_TOKEN_SCRIPT, 2, active_key, valkey_key, jti
+            ):
                 logger.warning("Password reset token not found or already used")
                 return False, None
 
             # Role is no longer stored in reset tokens: single table makes it unnecessary.
-            email = payload.get("email")
-            if not email:
-                logger.warning("Email missing from reset token payload")
-                await _restore_token(payload)
-                return False, None
-
             if not await password_service.validate_password_strength(new_password):
                 logger.warning("Weak password provided during reset for email: %s", email)
                 await _restore_token(payload)

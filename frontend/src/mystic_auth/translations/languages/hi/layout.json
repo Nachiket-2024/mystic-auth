@@ -21,7 +21,7 @@
         "policiesGroup": "नीतियां",
         "usersGroup": "उपयोगकर्ता",
         "trigger": "खोजें...",
-        "triggerLabel": "खोज खोलें (Ctrl+K)"
+        "triggerLabel": "खोजें ⌘K (Ctrl+K)"
     },
     "nav": {
         "dashboard": "डैशबोर्ड",

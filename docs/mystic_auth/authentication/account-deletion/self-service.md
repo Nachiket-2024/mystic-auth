@@ -103,7 +103,7 @@ sequenceDiagram
    `finalize_self_deletion()` routine as the password-account path (Path A above).
 5. **Rate limiting.** The confirm endpoint is separately rate-limited via
    `login_protection_service` under its own `account_delete_confirm_lock:email:` namespace, kept
-   distinct from `login_lock:email:` and `password_reset_confirm_lock:email:` so a stale or reused
+   distinct from `login_lock:account_ip:` and `password_reset_confirm_lock:email:` so a stale or reused
    deletion link can never trip, or count towards, an unrelated lockout for that address.
 
 ---

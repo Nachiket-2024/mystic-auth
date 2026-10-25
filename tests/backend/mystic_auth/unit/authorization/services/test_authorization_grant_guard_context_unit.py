@@ -136,7 +136,7 @@ async def test_grant_guard_reuses_the_cache_instead_of_re_evaluating_a_repeated_
         return_value=[],
     )
 
-    cache: dict[tuple[str, str], bool] = {}
+    cache: dict[tuple[str, str], tuple[bool, dict]] = {}
     for _ in range(3):
         with pytest.raises(AppError):
             await authorization_service.assert_authorized_to_grant(
@@ -144,7 +144,7 @@ async def test_grant_guard_reuses_the_cache_instead_of_re_evaluating_a_repeated_
             )
 
     get_policies_mock.assert_called_once()
-    assert cache == {("policies:create", "policies"): False}
+    assert cache == {("policies:create", "policies"): (False, {})}
 
 
 @pytest.mark.asyncio
@@ -158,7 +158,7 @@ async def test_grant_guard_cache_is_scoped_per_action_and_resource_type(mocker):
     )
     matching_context = {"ip_address": "10.1.2.3", "current_time": "2026-01-01T12:00:00+00:00", "security_context": {}}
 
-    cache: dict[tuple[str, str], bool] = {}
+    cache: dict[tuple[str, str], tuple[bool, dict]] = {}
     # Allowed: held via the office-gated policy.
     await authorization_service.assert_authorized_to_grant(
         "admin@example.com", ["policies:create"], "policies", db=None, context=matching_context,
@@ -172,6 +172,42 @@ async def test_grant_guard_cache_is_scoped_per_action_and_resource_type(mocker):
         )
 
     assert cache == {
-        ("policies:create", "policies"): True,
-        ("policies:delete", "policies"): False,
+        ("policies:create", "policies"): (True, {"unconditional_policy_admin": None}),
+        ("policies:delete", "policies"): (False, {}),
     }
+
+
+@pytest.mark.asyncio
+async def test_grant_guard_rejects_widening_on_a_cache_hit_not_just_the_first_call(mocker):
+    """Regression: a cache hit used to set `decision = None`, and the
+    widening check was gated on `decision is not None` - so it was silently
+    skipped for every call after the first one for a given
+    (action, resource_type), regardless of what `conditions` that later
+    call proposed. A caller holding `policies:create` only within the office
+    network could get an unconditional grant through on the 2nd+ bulk item
+    for the same action. The fix caches (allowed, matched_policy_conditions)
+    together and always re-runs the widening check per call."""
+    mocker.patch(
+        f"{MODULE}.policy_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[_office_gated_policy()],
+    )
+    matching_context = {"ip_address": "10.1.2.3", "current_time": "2026-01-01T12:00:00+00:00", "security_context": {}}
+    cache: dict[tuple[str, str], tuple[bool, dict]] = {}
+
+    # First call: narrow (within the office condition) - allowed, and this
+    # is what populates the cache.
+    await authorization_service.assert_authorized_to_grant(
+        "admin@example.com", ["policies:create"], "policies", db=None, context=matching_context,
+        conditions=_office_gated_policy().conditions, cache=cache,
+    )
+
+    # Second call, same (action, resource_type) - a cache hit - but
+    # proposing an UNCONDITIONAL grant: must still be rejected, not silently
+    # allowed because the first call already populated the cache.
+    with pytest.raises(AppError) as exc_info:
+        await authorization_service.assert_authorized_to_grant(
+            "admin@example.com", ["policies:create"], "policies", db=None, context=matching_context,
+            conditions=None, cache=cache,
+        )
+    assert exc_info.value.code == "CANNOT_GRANT_BROADER_CONDITIONS"

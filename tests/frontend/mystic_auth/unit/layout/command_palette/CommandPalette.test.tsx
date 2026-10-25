@@ -47,6 +47,26 @@ function renderPalette(onClose = vi.fn()) {
   return { ...utils, onClose };
 }
 
+function renderTogglablePalette(onClose = vi.fn()) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const utils = render(
+    <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CommandPalette isOpen={false} onClose={onClose} />
+        </MemoryRouter>
+    </QueryClientProvider>
+  );
+  const rerenderWithOpen = (isOpen: boolean) =>
+    utils.rerender(
+      <QueryClientProvider client={queryClient}>
+          <MemoryRouter>
+            <CommandPalette isOpen={isOpen} onClose={onClose} />
+          </MemoryRouter>
+      </QueryClientProvider>
+    );
+  return { ...utils, onClose, rerenderWithOpen };
+}
+
 describe('CommandPalette', () => {
   beforeEach(() => {
     navigateMock.mockClear();
@@ -212,5 +232,20 @@ describe('CommandPalette', () => {
 
     expect(navigateMock).toHaveBeenCalledWith(expect.stringContaining('/dashboard'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('clears a leftover query and resets the highlight each time it reopens', async () => {
+    const { rerenderWithOpen } = renderTogglablePalette();
+
+    rerenderWithOpen(true);
+    await userEvent.type(screen.getByRole('textbox'), 'dash{ArrowDown}');
+    expect(screen.getByRole('textbox')).toHaveValue('dash');
+
+    rerenderWithOpen(false);
+    rerenderWithOpen(true);
+
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Audit Log')).toBeInTheDocument();
   });
 });

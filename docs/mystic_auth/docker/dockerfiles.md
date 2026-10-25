@@ -23,16 +23,19 @@
   - Copies `THIRD_PARTY_NOTICES/frontend/` into the static root. The production image serves the notices and a directory listing at `/third-party-notices/`.
 
 - **`docker/mystic_auth/dockerfiles/db-backup.Dockerfile`**: a separate
-  production-only image based on the pinned PostgreSQL 18 Debian (trixie)
-  client image. Its `pg_dump`/`pg_restore` major version matches the
-  PostgreSQL 18 server image used by the `postgres` service. It compiles a
-  checksum-pinned rclone release with a current Go toolchain, adds only
-  `curl`, OpenSSL, CA certificates, `util-linux` (for `setpriv`, replacing
-  the base image's older `gosu`), and the backup helper scripts, then runs
-  the backup loop as UID/GID 10001. The Compose entrypoint briefly starts
-  as root only when it needs to normalize a bind-mounted backup directory,
-  then drops privileges. CI builds, scans, and generates an SBOM for this
-  image separately because its Postgres/rclone dependency surface is
+  production-only image based on a digest-pinned Wolfi base. It installs the
+  exact PostgreSQL 18.6 client package used by the pinned `postgres` service,
+  so `pg_dump`/`pg_restore` match the server version. Installed OS packages
+  are upgraded during each build. It compiles a checksum-pinned rclone
+  release with a current Go toolchain, then adds only the PostgreSQL client,
+  Bash (used by the backup scripts), CA certificates, `curl`, OpenSSL, `shadow` (for the service account),
+  `util-linux` (for `setpriv`), and the backup helper scripts. The backup
+  loop runs as UID/GID 10001. Package names, exact versions, and SPDX license
+  identifiers, plus rclone's full notices, are retained under
+  `/usr/share/licenses/mystic-auth/db-backup/`. The Compose entrypoint
+  briefly starts as root only when it needs to normalize a bind-mounted
+  backup directory, then drops privileges. CI builds, scans, and generates
+  an SBOM for this image separately because its dependency surface is
   independent of the backend and frontend images.
 - **`docker/mystic_auth/dockerfiles/ngrok.Dockerfile`** (`local-prod-ngrok`
   only): copies the statically-linked `ngrok` binary and a CA bundle out of
@@ -50,6 +53,11 @@
   do that rewrite; this also means the service can run `read_only: true`,
   which the vendor image could not (its entrypoint needs to write a config
   file at startup).
+- **`docker/mystic_auth/dockerfiles/cloudflared.Dockerfile`** (`local-prod-cloudflare`): builds a digest-verified Cloudflare Tunnel source release on a pinned Go toolchain, upgrades the vulnerable `klauspost/compress` dependency to a fixed release, runs the tunnel and credential-launcher tests during the build, and copies only the static binaries, CA bundle, and dependency notices into `scratch`. A PID 1 launcher reads the Compose secret, copies it into a private tmpfs file, then drops supplementary groups, GID, and UID before starting `cloudflared`. Only the launcher has `DAC_OVERRIDE`, which lets it read the host-owned 0600 secret mount; the capability is discarded on the UID transition. The account token stays out of argv and environment while the tunnel runs as UID/GID 65532.
+
+CI builds and scans the Cloudflare Tunnel image alongside the other runtime
+images, verifies its shipped notices, and generates a validated SPDX JSON
+SBOM tied to the built image ID.
 
 Both `runtime` and `production` re-run their package-manager upgrade on every build rather than pinning to a snapshot, so a rebuild always picks up whatever Alpine security patches have been published since the base image tag was last republished, rather than waiting on the next `python`/`nginx` tag release.
 - **`docker/mystic_auth/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, and `Strict-Transport-Security`). Sends HSTS itself, unlike the backend's own copy of this header set which gates it on `ENVIRONMENT == "production"`: this stage only ever ships in a production-shaped deployment, so it can send it unconditionally, and needs to since the local-prod-ngrok/cloudflare/tailscale tunnel modes have no other layer in front of it that would (see [Security Hardening: HTTP Layer](../security/hardening-http.md#security-response-headers)).

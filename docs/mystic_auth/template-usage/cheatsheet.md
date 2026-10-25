@@ -38,7 +38,7 @@
 | Command | When to run it |
 |---|---|
 | `./scripts/mystic_auth/docker/prod/prod-up.sh` | Bring up `docker-compose.prod.yml` (self-hosted, Caddy-managed TLS). Forwards all arguments, so `prod-up.sh logs -f frontend` etc. also works. |
-| `./scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Production-shaped stack behind a free Cloudflare Quick/Named Tunnel, for testing prod locally without your own public IP. |
+| `./scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Production-shaped stack behind a Cloudflare Named Tunnel, for testing prod locally without your own public IP. For a temporary development URL to a local HTTP service, Quick Tunnel remains available via `cloudflared tunnel --url http://localhost:<port>`; see [Cloudflare tunnel choices](../deployment/local-prod/README.md#which-tunnel-do-i-want). |
 | `./scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh` | Same, behind an ngrok tunnel. |
 | `./scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh` | Same, behind Tailscale Funnel. See [Local-Prod: which tunnel do I want?](../deployment/local-prod/README.md#which-tunnel-do-i-want) to pick one. |
 
@@ -60,7 +60,7 @@
 | Command | When to run it |
 |---|---|
 | `tests/scripts/mystic_auth/env-tools/test-env-tooling.sh` | After touching any `env-tools/` script. Regression suite against a throwaway copy of `env/`, never touches your real files. Runs in CI too. |
-| `tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh` | After touching `sync-upstream.sh`. Regression suite against throwaway fake repos. Runs in CI too. |
+| `tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh` | After touching `sync-upstream.sh` or any of its review, apply, or finalize stages. Regression suite against throwaway fake repos. Runs in CI too. |
 | `tests/scripts/mystic_auth/lint/check-script-paths.sh` | After any rename/restructure. Checks every CI, script, and doc path reference actually resolves. Runs through `ci/mystic_auth/tooling.sh` in CI too. |
 | `tests/scripts/mystic_auth/lint/check-split-paths.sh` | After any rename/restructure. Checks for a stale pre-split `docker/`/`env/`/`scripts/` path reference (one that's missing its `mystic_auth/`/`app/` segment) anywhere in source, scripts, or docs. Runs in CI too. |
 | `tests/scripts/mystic_auth/lint/check-image-digests.sh` | After pinning or updating any `@sha256:...` image digest in a compose file. Checks every pinned digest is a syntactically valid 64-character sha256. Runs in CI too. |

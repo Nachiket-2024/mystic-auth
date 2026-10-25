@@ -29,17 +29,16 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, variant = "form" }) =
             {/* Normal document flow (not position="absolute"), so it reserves
                 its own row height and never collides with a tall card's top
                 edge on short viewports. */}
-            <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
-                <div className="flex justify-end">
-                    <ControlCluster />
-                </div>
-            </div>
-
             <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-1 flex-col">
                 <main className={cn(
                     "flex min-h-screen w-full min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-4 sm:px-6 lg:px-10 lg:py-4 [&>div>div]:p-4 lg:[&>div>div]:p-5 [&_form]:gap-2.5 [&_label]:text-sm [&_input]:h-10 [&_>div>div>div]:gap-2.5",
                     variant === "status" ? "lg:justify-start lg:pt-12" : ""
                 )}>
+                    <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
+                        <div className="flex justify-end">
+                            <ControlCluster />
+                        </div>
+                    </div>
                     <div className="flex w-full justify-center">{children}</div>
                 </main>
             </div>

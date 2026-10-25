@@ -36,12 +36,14 @@
     "bulkOperation": "सामूहिक कृती",
     "clearSelection": "निवड साफ करा",
     "selectAllRows": "सर्व पंक्ती निवडा",
+    "openRow": "ओळीचे तपशील उघडा",
     "selectRow": "पंक्ती निवडा",
+    "brandHomeLink": "{{appName}} मुख्यपृष्ठ",
     "pagination": {
         "previousPage": "मागील पृष्ठ",
-        "prev": "मागे",
+        "prev": "मागील",
         "nextPage": "पुढील पृष्ठ",
-        "next": "पुढे",
+        "next": "पुढील",
         "page": "पृष्ठ {{page}}"
     },
     "offlineBanner": {

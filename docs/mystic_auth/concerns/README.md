@@ -49,7 +49,7 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 **Description**: No automated dependency-update bot is used. `pip-audit`/`npm audit` in CI catch known CVEs in whatever versions are currently pinned, while version updates are reviewed and batched manually.
 
-**Why it exists**: This repo ran Dependabot earlier and turned it off. Its PRs updated packages independently of each other (for example bumping TypeScript without ESLint's TypeScript-parsing plugins in the same PR), which produced breakage from version skew between packages that need to move together, not from the updates themselves. Manual, batched updates (bumping a related group together, then running the full test suite once) avoid that failure mode, at the cost of updates happening less often.
+**Why it exists**: Updating packages independently of each other (for example bumping TypeScript without ESLint's TypeScript-parsing plugins in the same PR) causes breakage from version skew between packages that need to move together, not from the updates themselves. Manual, batched updates (bumping a related group together, then running the full test suite once) avoid that failure mode, at the cost of updates happening less often.
 
 **Impact**: A non-CVE release will wait for the next deliberate maintenance pass. Known-CVE coverage remains available through `pip-audit`/`npm audit`.
 

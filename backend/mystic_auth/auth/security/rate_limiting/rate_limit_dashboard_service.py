@@ -36,13 +36,13 @@ class RateLimitDashboardService:
         ENDPOINT_OVERRIDES and reported here instead - otherwise the
         dashboard would show every such endpoint's counter against a
         threshold it doesn't actually enforce. list_active_limits also
-        surfaces login_protection_service's login_lock:{email|ip}:*
-        counters (see its own docstring), which enforce two further,
+        surfaces login_protection_service's login_lock:{account_ip}:*
+        counters (see its own docstring), which enforce their own,
         unrelated thresholds."""
         if endpoint_name == "login_lock":
             return (
                 settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
-                if key_scope == "ip"
+                if key_scope in ("ip", "account_ip")
                 else settings.MAX_FAILED_LOGIN_ATTEMPTS
             )
         override = RateLimiterService.ENDPOINT_OVERRIDES.get(endpoint_name)
@@ -55,7 +55,7 @@ class RateLimitDashboardService:
         # Without this shape check, DELETE /rate-limits/{key} could delete
         # any key, e.g. un-revoking a token, just by passing it as the path
         # param. Only delete keys matching list_active_limits' own
-        # <endpoint>:<ip|account|email>:<identifier> shape.
+        # <endpoint>:<ip|account|email|account_ip>:<identifier> shape.
         parts = key.rsplit(":", 2)
         if not RateLimitDashboardService._is_rate_limit_key(key):
             return
@@ -101,7 +101,7 @@ class RateLimitDashboardService:
         parts = key.rsplit(":", 2)
         return (
             len(parts) == 3
-            and parts[1] in ("ip", "account", "email")
+            and parts[1] in ("ip", "account", "email", "account_ip")
             and parts[0] not in _NON_STRING_KEY_PREFIXES
         )
 
@@ -130,7 +130,7 @@ class RateLimitDashboardService:
         MAX_SCANNED_KEYS before exhausting the keyspace, so `total` is a
         floor, not exact; the caller should prompt narrowing the filters.
         """
-        scope_segment = scope if scope in ("ip", "account", "email") else "*"
+        scope_segment = scope if scope in ("ip", "account", "email", "account_ip") else "*"
         identifier_segment = f"*{_escape_glob(identifier)}*" if identifier else "*"
         endpoint_segment = _escape_glob(endpoint) if endpoint else "*"
         pattern = f"{endpoint_segment}:{scope_segment}:{identifier_segment}"
@@ -163,7 +163,7 @@ class RateLimitDashboardService:
                 return [], 0, False
 
             # When `scope` isn't given, the pattern's scope segment stays
-            # "*" (Valkey globs can't express "one of ip|account|email"), so
+            # "*" (Valkey globs can't express the allowed scope set), so
             # the walk also matches unrelated two-colon keys elsewhere in
             # Valkey (e.g. the authz cache). Filter those out before
             # computing total/slicing, or a page could render empty on
@@ -221,7 +221,7 @@ class RateLimitDashboardService:
                 "scope": key_scope,
                 "identifier": identifier,
                 "count": int(count_raw) if count_raw is not None else 0,
-                # login_protection_service.py's login_lock:{email|ip}:*
+                # login_protection_service.py's login_lock:{account_ip}:*
                 # counters aren't rate_limiter_service's own - they're a
                 # failed-attempt lockout with their own, different
                 # thresholds, not RateLimiterService.MAX_REQUESTS_PER_WINDOW.

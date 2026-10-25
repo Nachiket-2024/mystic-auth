@@ -52,13 +52,20 @@ services:
     <<: *logging_defaults
     image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: always
-    # Empty VALKEY_PASSWORD (local-dev default) makes --requirepass a no-op.
-    # Set it in .env to require auth. VALKEY_URL must include it too.
-    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:-}"]
+    # Empty VALKEY_PASSWORD (local-dev default) makes the generated
+    # requirepass line a no-op (Valkey treats an empty value as no
+    # password required). Set it in .env to require auth. VALKEY_URL
+    # must include it too.
+    environment:
+      # Passed as a container env var, not a CLI arg - see the 2026-10-21
+      # audit note on docker-compose.local-prod-ngrok.yml's valkey service
+      # for why.
+      VALKEY_PASSWORD: "${VALKEY_PASSWORD:-}"
+    command: ["sh", "-c", "echo \"requirepass $$VALKEY_PASSWORD\" > /tmp/valkey.conf && chmod 600 /tmp/valkey.conf && exec valkey-server /tmp/valkey.conf"]
     ports:
       - "127.0.0.1:${VALKEY_HOST_PORT}:6379"
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:-}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$VALKEY_PASSWORD valkey-cli --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5

@@ -2,21 +2,16 @@
 
 ---
 
-This is the current repository tree as of 15 October, 2026. It reflects the established
-`app/` and `mystic_auth/` ownership split, the PBAC implementation, the shadcn/Radix frontend,
-the separated test suites, the five Docker deployment modes, and the exact template extension
-points. Generated files, local secrets, build output, and test caches are omitted.
+This selected repository tree reflects the structure as of 25 October, 2026. It highlights the
+`app/` and `mystic_auth/` ownership split, recent extension points, deployment modes, and notable
+files; it is not an exhaustive listing of every tracked file. Generated files, local secrets,
+build output, and caches are omitted too.
 
 ```text
 mystic-auth/
   backend/
     alembic/
-      versions/
-        a7b8c9d0e1f2_add_durable_token_revocation_versions.py
-        f1a2b3c4d5e6_add_account_lifecycle_outbox.py
-        f4a1c2e8b7d6_normalize_user_lifecycle_permission.py
-        f5b6c7d8e9a0_add_consumed_refresh_token_registry.py
-        f6c7d8e9a0b1_add_refresh_claim_version_snapshot.py
+      versions/                  # token revocation, refresh, lifecycle, and PBAC migrations
     app/                        # thin, project-owned shell
       main.py
       sdk.py
@@ -48,6 +43,9 @@ mystic-auth/
         signup/
         token_logic/
           consumed_refresh_token_model.py
+          refresh_rotation_claim.py
+          refresh_rotation_store.py
+          token_revocation_keys.py
         verify_account/
       authorization/             # PBAC engine
         caching/
@@ -74,6 +72,7 @@ mystic-auth/
         create_unconditioned_policies.py
         invalidate_authorization_cache.py
         report_conditioned_grant_conflicts.py
+        migrate_token_revocation_identifiers.py
       user/
       user_lifecycle/
         account_lifecycle_events.py
@@ -85,9 +84,7 @@ mystic-auth/
     pyproject.toml
     alembic.ini
   frontend/
-    e2e/                          # thin re-export wrappers (@playwright/test, @axe-core/playwright):
-                                   # tests/frontend/ specs live outside frontend/'s own module
-                                   # resolution scope, so a direct import fails there
+    e2e/                          # thin Playwright re-exports for specs under tests/frontend/
     src/
       app/                       # thin, project-owned shell
         landing_page/
@@ -100,15 +97,13 @@ mystic-auth/
         app_sdk.ts
       mystic_auth/                # upstream-owned package
         account_settings/
-        active_sessions/          # renamed from dashboard/manage_sessions/, its own
-                                   # top-level folder since Dashboard is no longer
-                                   # its only consumer (Account Settings, Audit Log,
-                                   # Rate Limits all render it too)
+        active_sessions/          # shared session UI used by several features
         api/
         audit_log/
         auth/
         authorization/
         core/
+          cspNonce.ts
         dashboard/
         layout/
         permissions/
@@ -116,22 +111,31 @@ mystic-auth/
         rate_limits/
         store/
         theme/
+          tailwind.css
+          tailwind-tokens.css
+          application.css
         translations/
         ui/
         users/
   THIRD_PARTY_NOTICES/           # Python/npm app notices; base images and db_backup need separate inventory
     backend/
+      README.md
+      GPL-3.0.txt
     frontend/
   docs/
     app/                          # project-owned docs
-    mystic_auth/                  # upstream docs: api, appearance, architecture,
-                                  # authentication, authorization, background-workers,
-                                  # cicd, concerns, database, deployment, docker,
-                                  # environment, error-monitoring, geolocation, glossary,
-                                  # legal, project-story, security, template-usage,
-                                  # testing, translations
+    mystic_auth/                  # upstream docs: API, auth, PBAC, operations, security, testing
       cicd/
         local-validation.md
+      deployment/
+        database-backups.md
+        database-migrations.md
+        database-restore-and-recovery.md
+        local-prod/
+          cloudflare-named-tunnel.md
+          cloudflare-quick-tunnel.md
+          ngrok-tunnel.md
+          tailscale-funnel.md
       project-story/
         timeline/
           2026-oct.md
@@ -145,8 +149,12 @@ mystic-auth/
         test_core_settings.py
       mystic_auth/
         unit/
+          auth/current_user/
+            current_user_test_support.py
           auth/security/
             test_rate_limiter_dashboard_edge_cases_unit.py
+          auth/token_logic/
+            test_token_revocation_keys_unit.py
           scripts/
             test_authorization_maintenance_scripts_unit.py
           core/
@@ -156,6 +164,15 @@ mystic-auth/
           user_lifecycle/
             test_account_lifecycle_events_unit.py
         integration/
+          audit_log/
+            audit_log_query_test_support.py
+            test_email_job_payload_retention_integration.py
+            test_security_audit_log_global_queries.py
+            test_security_audit_log_user_queries.py
+          auth/
+            test_token_revocation_identifier_migration_integration.py
+          user/
+            test_account_lifecycle_outbox_retention_integration.py
         security/
         performance/
     frontend/
@@ -179,7 +196,7 @@ mystic-auth/
             browser_security_headers.spec.ts
           performance/
             management_responsiveness_browser.spec.ts
-    scripts/                     # script/tooling tests, including host-run port derivation
+    scripts/                     # script/tooling regressions
       mystic_auth/
         db/
           test-backup-encryption-check.sh
@@ -233,6 +250,10 @@ mystic-auth/
       load-test/
       testing/                   # disposable test-account seeding (e.g. accessibility scans)
       upstream-sync/
+        sync-upstream.sh                 # orchestration entry point
+        sync-upstream-review.sh
+        sync-upstream-apply.sh
+        sync-upstream-finalize.sh
   local-scripts/
     app/                         # project-owned local scripts
     mystic_auth/                 # upstream local scripts
@@ -258,6 +279,7 @@ mystic-auth/
     mystic_auth/                 # upstream Compose files, Dockerfiles, Caddyfile, nginx config, postgres-init
       Caddyfile
       nginx.frontend.conf
+      nginx.error-headers.conf
       compose/
         docker-compose.dev.yml
         docker-compose.local-prod-cloudflare.yml
@@ -271,6 +293,9 @@ mystic-auth/
         db-backup.Dockerfile
         db-backup-entrypoint.sh
         ngrok.Dockerfile
+        cloudflared.Dockerfile
+      cloudflared-entrypoint.go / cloudflared-healthcheck.go
+      ngrok-supervisor.go / ngrok-healthcheck.go
       postgres-init/
         init-bugsink-db.sh
   screenshots/
@@ -301,6 +326,7 @@ mystic-auth/
       .env.local-prod-tailscale.example
       .env.prod.example
     mystic_auth/                 # upstream env fields
+      .cloudflare-tunnel-token.example
       .env.dev.example
       .env.local-prod-cloudflare.example
       .env.local-prod-ngrok.example

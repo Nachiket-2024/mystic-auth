@@ -49,17 +49,17 @@ flowchart TD
   3. Practical implication: a Valkey outage makes the API fully unusable for any rate-limited auth route, not just slower. See [Security Decisions](decisions-auth.md#rate-limiter-fails-closed-on-a-valkey-outage-reviewed-kept-intentionally) for why this was kept rather than changed.
 - **`reset_counter` only ever deletes an actual rate-limit key**:
   1. `DELETE /rate-limits/{key}` (see [API Reference](../api/reference.md)) takes the key straight from the URL, but this same Valkey instance also holds unrelated security-critical keys (legacy `revoked:{jti}` markers, password-reset/verify/account-delete tokens, the PBAC policy cache, and more; current replay claims are in Postgres).
-  2. `reset_counter` rejects any key that doesn't match the `<endpoint>:<ip|account>:<identifier>` shape `list_active_limits` itself produces, so this endpoint can never be used to delete something outside the rate-limiter's own keyspace.
+  2. `reset_counter` rejects any key that doesn't match the `<endpoint>:<ip|account|email|account_ip>:<identifier>` shape `list_active_limits` itself produces, so this endpoint can never be used to delete something outside the rate-limiter's own keyspace.
 
 ---
 
 ### Rate Limit Dashboard (`GET /rate-limits/`)
 
-`RateLimitDashboardService.list_active_limits` powers the permission-protected dashboard, and it doesn't only read `RateLimiterService.record_request`'s keys: it `SCAN`s the whole `<endpoint>:<ip|account|email>:<identifier>` keyspace, which also picks up [Brute-force lockout](#brute-force-lockout)'s `login_lock:*` keys below (`endpoint` shows as `login_lock` for those rows, and `_effective_limit` reports their own `MAX_FAILED_LOGIN_ATTEMPTS(_PER_IP)` threshold instead of `MAX_REQUESTS_PER_WINDOW`; an endpoint with its own `rate_limited(..., max_requests=...)` override gets its row's `limit` reported from `RateLimiterService.ENDPOINT_OVERRIDES` the same way). So one dashboard, filterable by `scope` (`ip`/`account`/`email`), covers both mechanisms:
+`RateLimitDashboardService.list_active_limits` powers the permission-protected dashboard, and it doesn't only read `RateLimiterService.record_request`'s keys: it `SCAN`s the whole `<endpoint>:<ip|account|email|account_ip>:<identifier>` keyspace, which also picks up [Brute-force lockout](#brute-force-lockout)'s `login_lock:*` keys below (`endpoint` shows as `login_lock` for those rows, and `_effective_limit` reports their `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` threshold instead of `MAX_REQUESTS_PER_WINDOW`; an endpoint with its own `rate_limited(..., max_requests=...)` override gets its row's `limit` reported from `RateLimiterService.ENDPOINT_OVERRIDES` the same way). So one dashboard, filterable by `scope` (`ip`/`account`/`email`/`account_ip`), covers both mechanisms:
 
-1. An `ip`-scoped row's identifier is always an IP address. This includes both a generic per-endpoint rate limit (e.g. `signup:ip:1.2.3.4`) and a `login_lock:ip:1.2.3.4` lockout row.
-2. An `account`- or `email`-scoped row's identifier is always an account/email, **never an IP**, by design: both `account_key_func`-based limits and `login_lock:email:*` lockouts are deliberately keyed only by account, specifically so an attacker spreading requests across many source IPs at one account still gets caught (see the per-account bullet above and [Security Decisions](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular)). There is no IP to show on those rows even in principle: the counter itself never recorded one.
-3. To find which IP(s) were behind a given account's activity (e.g. investigating an `account`/`email`-scoped lockout), cross-reference the [Audit Log](#audit-log-cross-reference) instead, which does record `ip_address` per event; the rate limiter's own keys intentionally don't carry that.
+1. An `ip`-scoped row's identifier is always an IP address. This includes generic per-endpoint request limits such as `signup:ip:1.2.3.4`.
+2. An `account`- or `email`-scoped row is keyed by an account identifier. The `account_ip` scope is the login failure counter: its identifier is an HMAC digest over the normalized email and source IP, so neither value is exposed in Valkey keys or dashboard rows. It remains resettable from the dashboard.
+3. To identify which account and IP were behind a lockout, cross-reference its `login_ip_locked` audit event. The durable [Audit Log](#audit-log-cross-reference) records the attempted email and source IP; the rate-limit key stores neither in clear text.
 4. **The matched-key listing is snapshotted for `_SCAN_SNAPSHOT_TTL_SECONDS` (5s)** per filter pattern (`RateLimitDashboardService._scan_snapshot_cache`, an in-process dict, not Valkey), so that paging through one filtered view walks a consistent set of keys instead of two consecutive `SCAN`s disagreeing as counters expire/get created between page requests. `reset_counter` clears this entire snapshot cache on every successful delete, so a caller resetting a counter and immediately re-filtering the dashboard sees the key gone right away, rather than it lingering in the listing (with a correct, live-read count/TTL) for up to 5s until the snapshot naturally expires.
 
 ---
@@ -68,11 +68,10 @@ flowchart TD
 
 `backend/mystic_auth/auth/security/login_protection_service.py`: separate from and layered on top of the generic rate limiter (see [Security Decisions: rate limiting and lockout are layered](decisions-auth.md#rate-limiting-and-lockout-are-layered-not-singular)):
 
-- Per-account: `MAX_FAILED_LOGIN_ATTEMPTS` failures within `LOGIN_LOCKOUT_TIME` seconds locks that email out (`login_lock:email:{email}`).
-- Per-IP: `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` failures within `LOGIN_LOCKOUT_TIME_PER_IP` seconds locks that IP out across *any* account it targets (`login_lock:ip:{client_ip}`).
-- `check_and_record_action`'s failure path is a single atomic Valkey `INCR`, not a separate `is_locked`-then-record pair: `login_handler.py`'s own `is_locked` check beforehand is just an optimization to skip password hashing for an already-locked account, not the source of truth. An earlier check-then-increment version let concurrent failures against the same key both read "not yet locked" before either incremented, letting more than `max_attempts` through as `401` under a real burst; the atomic `INCR` closes that race (`test_login_lockout_race_integration.py`).
-- Both counters use `INCR`/`EXPIRE`-on-first-failure (not sliding), so the lockout window is fixed from the *first* failure, not extended by each subsequent one.
-- Both keys are visible and resettable from the [Rate Limit Dashboard](#rate-limit-dashboard-get-rate-limits) above, under endpoint `login_lock` - there's no separate lockout-specific view.
+- Failed-login lockout is keyed by the normalized account/source-IP pair. `MAX_FAILED_LOGIN_ATTEMPTS_PER_IP` failures within `LOGIN_LOCKOUT_TIME_PER_IP` seconds lock only that pair (`login_lock:account_ip:{HMAC(email, client_ip)}`). There is no account-wide failed-attempt counter, so an attacker cannot lock the account for users coming from other IPs. People behind the same VPN/NAT egress have separate failure budgets for different accounts; an attacker using that same egress can still temporarily throttle the same account/IP pair. The generic per-IP request limiter is the aggregate cap across accounts.
+- `check_and_record_action`'s failure path is a single atomic Valkey `INCR`, not a separate `is_locked`-then-record pair. An earlier check-then-increment version let concurrent failures against the same key both read "not yet locked" before either incremented, letting more than `max_attempts` through as `401` under a real burst; the atomic `INCR` closes that race (`test_login_lockout_race_integration.py`).
+- The pair counter uses `INCR`/`EXPIRE`-on-first-failure (not sliding), so the lockout window is fixed from the *first* failure, not extended by each subsequent one. The env setting names retain `_PER_IP` for compatibility, but their threshold and expiry apply to the account/IP pair.
+- The active key is visible and resettable from the [Rate Limit Dashboard](#rate-limit-dashboard-get-rate-limits) above, under endpoint `login_lock` - there's no separate lockout-specific view.
 - The `429` a lockout returns tells the caller how long to actually wait, read straight from the tripped key's remaining Valkey TTL (`get_remaining_seconds`): a standard `Retry-After` header (RFC 9110) plus `params.minutes` (rounded up) in the JSON body for the login form's own translated message. See [Login](../authentication/login.md) for the full response shape.
 
 ---
@@ -80,13 +79,13 @@ flowchart TD
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TD
-    Start(["POST /auth/login"]) --> Pre{"Account or IP\n already locked?\n (login_lock:email:*, login_lock:ip:*)"}
+    Start(["POST /auth/login"]) --> Pre{"Account/source-IP pair\n already locked?\n (login_lock:account_ip:*)"}
     Pre -- "locked" --> L429["429\n Retry-After header (seconds)\n body.params.minutes"]
     Pre -- "not locked" --> Hash["Argon2 password compare"]
     Hash --> Post{"Locked now?\n (re-check closes race with\n a concurrent request's failure)"}
     Post -- "locked" --> L429
     Post -- "not locked" --> Result{"Password correct?"}
-    Result -- "no" --> Record["Record failed attempt\n (INCR/EXPIRE-on-first-failure,\n per-email and per-IP)"]
+    Result -- "no" --> Record["Record failed attempt\n (INCR/EXPIRE-on-first-failure,\n account/source-IP pair)"]
     Record --> Fail["401"]
     Result -- "yes" --> Reset["Reset failed-attempt counters"]
     Reset --> Success["Login succeeds"]
@@ -103,7 +102,7 @@ flowchart TD
 
 ### Audit Log cross-reference
 
-1. The rate limiter and lockout counters are ephemeral (Valkey `TTL`-expired) and, for `account`/`email`-scoped keys, never store an IP at all.
+1. The rate limiter and lockout counters are ephemeral (Valkey `TTL`-expired). The login `account_ip` key stores only an HMAC digest, not raw email or IP.
 2. For a durable, per-event history that does include `ip_address` (e.g. "which IPs hit this account's failed logins"), use the Audit Log instead: `backend/mystic_auth/audit_log/`, `GET /audit/security-log`, filterable by `ip_address` (see [API Reference](../api/reference.md)).
 3. It's a separate Postgres-backed record of individual events, not a live counter.
 

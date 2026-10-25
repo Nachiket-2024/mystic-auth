@@ -22,9 +22,9 @@
 #     contains the literal strings being searched for.
 #   - docs/mystic_auth/project-story/ and docker/validation-history.md:
 #     historical narrative describing paths as they were at the time.
-#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh:
-#     builds its own fixture repo with pre-split paths on purpose, to
-#     simulate a consumer syncing from an old template version.
+#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh:
+#     build fixture repos with pre-split paths on purpose, to simulate a
+#     consumer syncing from an old template version.
 #   - tests/scripts/mystic_auth/lint/check-script-paths.sh: its own
 #     docstring names the real pre-split paths from the bug it was built
 #     to catch, as history, not a live reference.
@@ -65,7 +65,7 @@ while IFS= read -r f; do
     "$SELF") continue ;;
     docs/mystic_auth/project-story/*) continue ;;
     docs/mystic_auth/docker/validation-history.md) continue ;;
-    tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh) continue ;;
+    tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh) continue ;;
     tests/scripts/mystic_auth/lint/check-script-paths.sh) continue ;;
     *.py|*.ts|*.tsx|*.sh|*.ps1|*.cmd|*.bat|*.md|*.yml|*.yaml) FILES+=("$f") ;;
     */Makefile|Makefile) FILES+=("$f") ;;

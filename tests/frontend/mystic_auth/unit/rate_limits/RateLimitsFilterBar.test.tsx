@@ -21,6 +21,7 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof RateLimitsFilt
             totalCount={2}
             ipCount={0}
             accountCount={0}
+            accountIpCount={0}
             {...overrides}
         />
     );
@@ -32,12 +33,21 @@ describe("RateLimitsFilterBar", () => {
         const user = userEvent.setup();
         const { setEndpoint, setScope } = renderBar();
 
-        await user.click(screen.getByRole("button", { name: "Filter by endpoint" }));
+        await user.click(screen.getByRole("button", { name: /^Filter by endpoint/ }));
         await user.click(screen.getByRole("button", { name: "login" }));
-        await user.click(within(screen.getByRole("radiogroup", { name: "Filter by scope" })).getByRole("radio", { name: "IP0" }));
+        await user.click(within(screen.getByRole("radiogroup", { name: /^Filter by scope/ })).getByRole("radio", { name: "IP0" }));
 
         expect(setEndpoint).toHaveBeenCalledWith("login");
         expect(setScope).toHaveBeenCalledWith("ip");
+    });
+
+    it("filters account/source-IP lockout counters", async () => {
+        const user = userEvent.setup();
+        const { setScope } = renderBar();
+
+        await user.click(within(screen.getByRole("radiogroup", { name: /^Filter by scope/ })).getByRole("radio", { name: "Account + source IP0" }));
+
+        expect(setScope).toHaveBeenCalledWith("account_ip");
     });
 
     it("renders active chips and clears each filter or all filters", async () => {

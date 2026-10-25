@@ -45,7 +45,7 @@ _TO_DESCRIPTION = "Only entries at or before this timestamp (created_at, inclusi
 async def list_security_audit_log(
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=10_000_000),
     search: str | None = Query(
         default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description="Case-insensitive substring match on user_email"
     ),
@@ -89,7 +89,7 @@ async def list_user_security_audit_log(
     user_email: str,
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=10_000_000),
     event_type: str | None = Query(default=None, description=_EVENT_TYPE_DESCRIPTION),
     ip_address: str | None = Query(default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description=_IP_ADDRESS_DESCRIPTION),
     success: bool | None = Query(default=None, description=_SUCCESS_DESCRIPTION),
@@ -161,7 +161,7 @@ async def get_my_login_trend(
 async def list_my_security_audit_log(
     response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=10_000_000),
     event_type: str | None = Query(default=None, description=_EVENT_TYPE_DESCRIPTION),
     ip_address: str | None = Query(default=None, max_length=SEARCH_QUERY_MAX_LENGTH, description=_IP_ADDRESS_DESCRIPTION),
     success: bool | None = Query(default=None, description=_SUCCESS_DESCRIPTION),

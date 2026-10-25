@@ -4,6 +4,8 @@
 # plus the email_verified gate once a valid callback proceeds. See
 # test_oauth2_login_handler_unit.py for state/PKCE generation and the
 # cancellation/provider-error paths.
+from unittest.mock import AsyncMock
+
 import pytest
 
 from backend.mystic_auth.auth.oauth2.oauth2_login_handler import oauth2_login_handler
@@ -181,3 +183,94 @@ async def test_callback_rejects_missing_email_verified_field(mocker):
 
     assert response.headers["location"] == f"{FRONTEND_LOGIN_URL}?error=OAUTH_EMAIL_NOT_VERIFIED"
     login_or_create_mock.assert_not_called()
+
+
+# ---------------------------- audit trail on state/cookie rejections ----------------------------
+# Regression guard for audit finding claude_code-2026-10-21-F-007: a state
+# rejection used to be a WARNING-level application log line only, invisible
+# in both the audit-log UI and Bugsink. Both rejection branches must now
+# write a durable audit row (user_email=None, since no identity is known
+# yet) and fire the same real-time alert path refresh-token reuse uses.
+
+@pytest.mark.asyncio
+async def test_callback_logs_and_alerts_on_cookie_mismatch(mocker):
+    log_mock = mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.log_security_event",
+        new_callable=AsyncMock,
+    )
+    alert_mock = mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.capture_security_alert",
+        new_callable=AsyncMock,
+    )
+
+    await oauth2_login_handler.handle_oauth2_callback(
+        code="auth-code", state="state-a", oauth_state_cookie="state-b", error=None, db="fake-db-session",
+    )
+
+    log_mock.assert_awaited_once()
+    assert log_mock.await_args.args[0] == "oauth2_state_mismatch"
+    assert log_mock.await_args.kwargs["user_email"] is None
+    assert log_mock.await_args.kwargs["success"] is False
+    alert_mock.assert_awaited_once_with("oauth2_state_mismatch", metadata={"reason": "state/cookie mismatch"})
+
+
+@pytest.mark.asyncio
+async def test_callback_logs_and_alerts_on_expired_or_replayed_state(mocker):
+    mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
+        new_callable=AsyncMock,
+        return_value=None,
+    )
+    log_mock = mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.log_security_event",
+        new_callable=AsyncMock,
+    )
+    alert_mock = mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.capture_security_alert",
+        new_callable=AsyncMock,
+    )
+
+    await oauth2_login_handler.handle_oauth2_callback(
+        code="auth-code", state="some-state", oauth_state_cookie="some-state", error=None, db="fake-db-session",
+    )
+
+    log_mock.assert_awaited_once()
+    assert log_mock.await_args.args[0] == "oauth2_state_mismatch"
+    assert log_mock.await_args.kwargs["user_email"] is None
+    alert_mock.assert_awaited_once_with("oauth2_state_mismatch", metadata={"reason": "invalid or expired state"})
+
+
+@pytest.mark.asyncio
+async def test_callback_does_not_log_state_rejection_for_a_successful_callback(mocker):
+    """A clean, matching callback must never fire the rejection audit path."""
+    mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.consume_state",
+        new_callable=AsyncMock,
+        return_value="stored-code-verifier",
+    )
+    mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.exchange_code_for_tokens",
+        new_callable=AsyncMock,
+        return_value={"access_token": "google-access-token"},
+    )
+    mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.get_user_info",
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "name": "Test User", "email_verified": True},
+    )
+    mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.oauth2_service.login_or_create_user",
+        new_callable=AsyncMock,
+        return_value=None,  # falls through to OAUTH_LOGIN_FAILED, but that's not this test's concern
+    )
+    log_mock = mocker.patch(
+        "backend.mystic_auth.auth.oauth2.oauth2_login_handler.log_security_event",
+        new_callable=AsyncMock,
+    )
+
+    await oauth2_login_handler.handle_oauth2_callback(
+        code="auth-code", state="matching-state", oauth_state_cookie="matching-state", db="fake-db-session",
+    )
+
+    for call in log_mock.await_args_list:
+        assert call.args[0] != "oauth2_state_mismatch"

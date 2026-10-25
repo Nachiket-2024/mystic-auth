@@ -14,7 +14,7 @@ async def assert_authorized_to_grant(
     db: AsyncSession,
     context: dict | None = None,
     conditions: dict | None = None,
-    cache: dict[tuple[str, str], bool] | None = None,
+    cache: dict[tuple[str, str], tuple[bool, dict[str, dict | None]]] | None = None,
 ) -> None:
     """
     Guards against privilege escalation. `caller_email` is the user
@@ -49,11 +49,22 @@ async def assert_authorized_to_grant(
     (authorization_service.py delegates its own assert_authorized_to_grant
     here).
 
-    `cache`, when given, is an (action, resource_type) -> allowed dict the
-    caller reuses across repeated calls in the same request (e.g. a
-    bulk-assign loop). Safe to memoize without a TTL since caller_email
-    and context are fixed for the request's duration; avoids re-running
-    evaluation for the same action across many bulk items.
+    `cache`, when given, is an (action, resource_type) -> (allowed,
+    matched_policy_conditions) dict the caller reuses across repeated calls
+    in the same request (e.g. a bulk-assign loop). Safe to memoize without a
+    TTL since caller_email and context are fixed for the request's duration;
+    avoids re-running evaluation for the same action across many bulk items.
+    Caching the matched conditions alongside `allowed` (not just the bare
+    boolean) is required, not an optimization detail: a bulk request may
+    propose different `conditions` for the same action across its items, so
+    every item - cache hit or not - must still have its OWN proposed
+    conditions checked against the caller's actual grant via
+    `_has_scope_for_grant` below. An earlier version of this function cached
+    only `allowed` and skipped that check entirely on a cache hit, which let
+    a caller holding an action under a restrictive condition widen it to
+    unconditional for a later item in the same batch - fixed here by always
+    re-checking scope, whether this action's decision came from cache or was
+    just computed.
     """
     from .authorization_service import AuthorizationService
 
@@ -68,25 +79,20 @@ async def assert_authorized_to_grant(
 
     for action in actions:
         cache_key = (action, resource_type)
-        # A cached boolean is safe only for an unconditional proposal. A
-        # bulk request may reuse an action with different condition blocks,
-        # so conditioned proposals always get a fresh decision containing
-        # the granting policies' conditions.
-        use_cache = not conditions
-        if use_cache and cache is not None and cache_key in cache:
-            allowed = cache[cache_key]
-            decision = None
+        if cache is not None and cache_key in cache:
+            allowed, matched_policy_conditions = cache[cache_key]
+        elif is_system_superuser:
+            allowed, matched_policy_conditions = True, {}
+            if cache is not None:
+                cache[cache_key] = (allowed, matched_policy_conditions)
         else:
-            if is_system_superuser:
-                decision = None
-                allowed = True
-            else:
-                decision = await AuthorizationService.authorize_with_decision(
-                    caller_email, action, resource_type, db, context=context
-                )
-                allowed = decision.allowed
-            if use_cache and cache is not None:
-                cache[cache_key] = allowed
+            decision = await AuthorizationService.authorize_with_decision(
+                caller_email, action, resource_type, db, context=context
+            )
+            allowed, matched_policy_conditions = decision.allowed, decision.matched_policy_conditions
+            if cache is not None:
+                cache[cache_key] = (allowed, matched_policy_conditions)
+
         if not allowed:
             raise AppError(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -95,9 +101,10 @@ async def assert_authorized_to_grant(
                 params={"action": action},
             )
 
-        if not is_system_superuser and decision is not None and not _has_scope_for_grant(
-            decision.matched_policy_conditions, conditions
-        ):
+        # Re-checked for every item regardless of cache state: this item's
+        # proposed `conditions` can differ from another item's in the same
+        # batch even when the (action, resource_type) pair is identical.
+        if not is_system_superuser and not _has_scope_for_grant(matched_policy_conditions, conditions):
             raise AppError(
                 status_code=status.HTTP_403_FORBIDDEN,
                 code="CANNOT_GRANT_BROADER_CONDITIONS",

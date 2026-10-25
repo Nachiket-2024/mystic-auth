@@ -13,9 +13,9 @@ class LoginProtectionService:
     MAX_FAILED_LOGIN_ATTEMPTS: int = settings.MAX_FAILED_LOGIN_ATTEMPTS
     LOGIN_LOCKOUT_TIME: int = settings.LOGIN_LOCKOUT_TIME
 
-    # A separate, more lenient threshold than the per-email one above (see
-    # settings.py for why): max failed attempts from a single IP across any
-    # accounts before that IP is locked out.
+    # A separate threshold for the account/source-IP lockout used by login.
+    # The existing setting names are retained so deployed env files remain
+    # compatible while the scope avoids cross-account shared-IP lockouts.
     MAX_FAILED_LOGIN_ATTEMPTS_PER_IP: int = settings.MAX_FAILED_LOGIN_ATTEMPTS_PER_IP
     LOGIN_LOCKOUT_TIME_PER_IP: int = settings.LOGIN_LOCKOUT_TIME_PER_IP
     ACTION_RESERVATION_TIME: int = settings.ACTION_RESERVATION_TIME
@@ -72,9 +72,9 @@ class LoginProtectionService:
     @staticmethod
     async def record_failed_attempt(key: str, lockout_time: int = LOGIN_LOCKOUT_TIME) -> None:
         """
-        lockout_time defaults to the per-email LOGIN_LOCKOUT_TIME, but callers
-        tracking a different dimension (e.g. per-IP) pass their own window so
-        the two counters can expire independently.
+        lockout_time defaults to LOGIN_LOCKOUT_TIME, but callers tracking a
+        different dimension (such as login's account/source-IP pair) pass a
+        separate window so independent counters expire independently.
         """
         try:
             # INCR creates the key at 0 before incrementing if it doesn't already

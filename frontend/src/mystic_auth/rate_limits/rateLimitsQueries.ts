@@ -5,7 +5,7 @@ import { listRateLimitsApi } from "../api/rate_limits_api";
 export const RATE_LIMITS_QUERY_KEY = ["rate-limits"] as const;
 
 export interface RateLimitsFilters {
-    scope?: "ip" | "account" | "email";
+    scope?: "ip" | "account" | "email" | "account_ip";
     endpoint?: string;
     identifier?: string;
     kind?: "at_limit" | "login_lockouts";

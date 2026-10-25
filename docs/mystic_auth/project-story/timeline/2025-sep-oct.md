@@ -227,6 +227,7 @@
 
 *13 files changed · +490/-384 lines*
 
+---
 
 See [August 2025](2025-aug.md) for the start of the year, [2026](2026-feb-jul.md) for what comes
 next, or [How It Evolved](README.md) for the milestones overview.

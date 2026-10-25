@@ -9,7 +9,7 @@ flowchart TD
     Start["New capability needed"]
     Owner{"MysticAuth-owned\n(user/policy management)\nor your own app domain?"}
     Enum["Add to Permission enum\n(permissions.py)\nsubject to the\nprivilege-escalation guard"]
-    Opaque["Your own opaque action string\n(e.g. \"projects:create\")\nsame guard applies, no enum entry needed"]
+    Opaque["Your own opaque action string\n(e.g. projects:create)\nsame guard applies, no enum entry needed"]
     Who{"Who needs it?"}
     Existing["Add to an existing policy\n(baseline: new migration;\ncustom: PUT the policy)"]
     New["Create a new policy\nPOST /authorization/policies"]

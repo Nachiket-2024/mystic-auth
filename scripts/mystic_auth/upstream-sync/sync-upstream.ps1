@@ -6,8 +6,9 @@ $ErrorActionPreference = "Stop"
 # This does NOT reimplement sync-upstream.sh's logic natively. That script is
 # dense git plumbing (incremental 3-way apply, a silent-partial-apply guard,
 # an executable-bit self-heal, static alembic-head parsing) with its own
-# 346-line regression suite (test-sync-upstream.sh) built specifically
-# because this class of script is easy to get subtly wrong. A second,
+# regression suite (test-sync-upstream.sh) that exercises the entry point and
+# its sibling stages without touching repo history. This class of script is easy
+# to get subtly wrong. A second,
 # independently-written implementation would mean two copies of that logic to
 # keep in sync forever, with no shared test coverage between them - the
 # wrong tradeoff for a script whose entire job is safety nets.

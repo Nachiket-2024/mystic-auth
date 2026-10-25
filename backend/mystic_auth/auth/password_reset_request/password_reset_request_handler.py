@@ -1,3 +1,5 @@
+import asyncio
+import time
 import traceback
 
 from fastapi import Request
@@ -9,6 +11,7 @@ from ...logging.logging_config import get_logger
 from ..password_logic.password_reset_service import password_reset_service
 
 logger = get_logger(__name__)
+_MIN_RESPONSE_SECONDS = 0.2
 
 
 class PasswordResetRequestHandler:
@@ -20,6 +23,7 @@ class PasswordResetRequestHandler:
     async def handle_password_reset_request(
         self, email: str, db: AsyncSession | None = None, request: Request | None = None
     ) -> JSONResponse:
+        started = time.perf_counter()
         try:
             # Service internally checks if user exists; returns False if not found.
             email_sent = await self.password_reset_service.send_reset_email(email, db)
@@ -54,6 +58,14 @@ class PasswordResetRequestHandler:
             return JSONResponse(
                 content={"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
             )
+        finally:
+            # Unknown addresses take the short database-lookup path, while
+            # known users also enqueue a mail job. Hold both response paths
+            # to a small floor so that normal local/healthy-service timing
+            # differences do not directly expose account existence.
+            remaining = _MIN_RESPONSE_SECONDS - (time.perf_counter() - started)
+            if remaining > 0:
+                await asyncio.sleep(remaining)
 
 
 password_reset_request_handler = PasswordResetRequestHandler()

@@ -33,13 +33,14 @@ test.describe("rate limits page browser behavior", () => {
         await page.setViewportSize({ width: 1280, height: 800 });
         await page.goto("/rate-limits");
 
-        const endpointFilter = page.getByRole("button", { name: "Filter by endpoint" });
+        const endpointFilter = page.getByRole("button", { name: /^Filter by endpoint/ });
         await expect(endpointFilter).toBeVisible();
         await endpointFilter.click();
         await expect(page.getByRole("textbox", { name: "Search endpoints..." })).toBeVisible();
         await page.keyboard.press("Escape");
-        await page.getByRole("radio", { name: /IP/ }).click();
-        await expect(page.getByRole("radio", { name: /IP/ })).toHaveAttribute("aria-checked", "true");
+        const ipScope = page.getByRole("radio", { name: /^IP(?:\s|$)/ });
+        await ipScope.click();
+        await expect(ipScope).toHaveAttribute("aria-checked", "true");
         await expect(page.getByRole("radio", { name: /Login lockout/i })).toHaveCount(0);
         await expectNoAccessibilityViolations(page);
     });

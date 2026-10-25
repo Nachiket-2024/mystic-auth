@@ -213,7 +213,7 @@ describe('AuditLogPage', () => {
 
     const expandedIpInput = screen.getByRole('textbox', { name: 'Filter by IP address' });
     await userEvent.type(expandedIpInput, '203.0.113.99');
-    await userEvent.click(screen.getByRole('button', { name: 'Filter by event' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Filter by event/ }));
     await userEvent.click(screen.getByText('Signed in'));
 
     const clearButtons = screen.getAllByRole('button', { name: 'Clear filters' });

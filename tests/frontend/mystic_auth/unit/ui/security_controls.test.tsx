@@ -47,7 +47,8 @@ describe("StatTile", () => {
         const onClick = vi.fn();
         render(<StatTile label="Active users" value={7} isLoading={false} onClick={onClick} />);
 
-        const tile = screen.getByRole("button", { name: "Filter: Active users" });
+        const tile = screen.getByRole("button", { name: "7 Active users" });
+        expect(tile).toHaveAccessibleDescription("Filter: Active users");
         await userEvent.click(tile);
         expect(onClick).toHaveBeenCalledOnce();
     });
@@ -63,6 +64,7 @@ describe("StatTile", () => {
             />,
         );
 
-        expect(screen.getByRole("button", { name: "Show deactivated users" })).toBeInTheDocument();
+        const tile = screen.getByRole("button", { name: "2 Deactivated" });
+        expect(tile).toHaveAccessibleDescription("Show deactivated users");
     });
 });

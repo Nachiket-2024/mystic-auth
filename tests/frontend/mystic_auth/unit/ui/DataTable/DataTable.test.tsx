@@ -107,6 +107,7 @@ describe('DataTable', () => {
 
     expect(screen.getByRole('checkbox', { name: /select all rows/i })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: '#' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Open row details' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: /A long name/ })).toHaveClass('text-right');
   });
 

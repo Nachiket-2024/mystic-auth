@@ -15,43 +15,47 @@ Deployment Guide.
 
 ## Which tunnel do I want?
 
-There are four ways to expose your local-prod stack to the internet. Each
-option has its own tutorial page. Each tutorial starts from the repository
-files, then covers the provider dashboard work, environment values, Compose
-command, public URL, Google OAuth2 callback, optional GeoIP profile, and
-troubleshooting.
+This base repository offers Quick Tunnels, Named Tunnels, ngrok, and Tailscale
+as alternatives for exposing the same local-prod app. Each has a walkthrough
+below; choose based on whether you need a temporary URL, a stable OAuth origin,
+a particular account/domain setup, or tailnet integration.
 
 The helper scripts already pass both the upstream and app Compose/env files.
 If you run a manual `docker compose` command copied from a walkthrough, add
 the matching `docker/app/compose/docker-compose.<mode>.yml` file after the
-`docker/mystic_auth/` file and the matching `env/app/.env.dev<mode-suffix>` after
-the `env/mystic_auth/` file.
+`docker/mystic_auth/` file and the matching `env/app/.env.<mode>` file after
+the `env/mystic_auth/` file (`.env.dev` is the development exception).
 
 | | Cloudflare Quick Tunnel | Cloudflare Named Tunnel | ngrok | Tailscale Funnel |
 |---|---|---|---|---|
-| Account needed | No | Free, + your own domain | Free, + static domain | Free |
-| Setup time | Under a minute | 5-15 minutes, plus domain DNS if new | 5-10 minutes | 5-15 minutes, plus certificate/DNS registration |
-| URL stability | Random, changes every restart | Stable | Stable | Stable |
-| Compose file | `docker-compose.local-prod-cloudflare.yml` | Same, command swapped | `docker-compose.local-prod-ngrok.yml` | `docker-compose.local-prod-tailscale.yml` |
-| Env file | `env/mystic_auth/.env.local-prod-cloudflare` | `env/mystic_auth/.env.local-prod-cloudflare` | `env/mystic_auth/.env.local-prod-ngrok` | `env/mystic_auth/.env.local-prod-tailscale` |
-| Helper script | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | Same | `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh` | `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh` |
+| Account needed | None | Free, + your own domain | Free; one assigned static domain | Free |
+| URL stability | Random; changes each run | Stable | Stable | Stable |
+| Compose file | None; points `cloudflared` at a local HTTP service | `docker-compose.local-prod-cloudflare.yml` | `docker-compose.local-prod-ngrok.yml` | `docker-compose.local-prod-tailscale.yml` |
+| Env and token files | None | `.env.local-prod-cloudflare` and `.cloudflare-tunnel-token` | `.env.local-prod-ngrok` | `.env.local-prod-tailscale` |
+| Helper script | `cloudflared tunnel --url http://localhost:<port>` | `scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh` | `scripts/mystic_auth/docker/local-prod-ngrok/local-prod-ngrok-up.sh` | `scripts/mystic_auth/docker/local-prod-tailscale/local-prod-tailscale-up.sh` |
 | Walkthrough | [Quick Tunnel](cloudflare-quick-tunnel.md) | [Named Tunnel](cloudflare-named-tunnel.md) | [ngrok Tunnel](ngrok-tunnel.md) | [Tailscale Funnel](tailscale-funnel.md) |
 
-- **Cloudflare Quick Tunnel**: zero account, zero domain, up in under a
-  minute. The public URL is random and changes every time you restart the
-  stack. Good for a quick test.
-- **Cloudflare Named Tunnel**: needs a domain on a free Cloudflare account.
-  A bit more setup, but the URL is stable, so you configure Google login
-  once and never touch it again.
-- **ngrok**: needs a free ngrok account and its free static domain. No
-  zero-setup mode like Cloudflare's Quick Tunnel, but the URL is stable
-  from the first boot.
-- **Tailscale Funnel**: needs a free Tailscale account and an auth key.
-  Also stable from the first boot, and doubles as a private network to the
-  rest of the stack (Bugsink, direct container ports) for devices on your
-  tailnet, tunnel or no tunnel.
+Quick Tunnels are a fast, free option for a temporary demo and do not require
+a Cloudflare account or domain. Their random hostname changes on restart, so
+OAuth origins and callback URLs must be updated each time. They expose one
+local HTTP service, have no uptime guarantee, support at most 200 in-flight
+requests, and do not support Server-Sent Events. Anyone with the generated
+URL can reach the service. The [Quick Tunnel walkthrough](cloudflare-quick-tunnel.md)
+shows both a simple service demo and this app’s local-prod stack.
 
-All four produce the same app behind the same image/runtime shape: only the
+- **Cloudflare Named Tunnel**: uses a stable hostname under a domain whose DNS
+  zone is in your Cloudflare account. It fits repeated demos and OAuth callback
+  URLs that should not change.
+- **ngrok**: the free plan includes one assigned static development domain,
+  which can keep the demo origin and OAuth callback stable across restarts.
+  The free tier has usage limits and an interstitial page. See its current
+  [plan details](https://ngrok.com/pricing).
+- **Tailscale Funnel**: publishes a service through Tailscale and can fit a
+  setup that already uses a tailnet. Review Tailscale’s account and usage
+  limits for your case.
+
+The three local-prod Compose tunnel variants produce the same app behind the
+same image/runtime shape: only the
 tunnel service, its Compose file, and its env template differ. Nothing
 about `backend`, `frontend`, `postgres`, `valkey`, `procrastinate_worker`,
 `alembic`, or `bugsink` changes between them.
@@ -61,18 +65,15 @@ about `backend`, `frontend`, `postgres`, `valkey`, `procrastinate_worker`,
 flowchart LR
     internet(("Internet"))
     subgraph Tunnel["Pick one tunnel"]
-        cfq["cloudflared\n (Quick Tunnel)"]
         cfn["cloudflared\n (Named Tunnel)"]
         ngrok["ngrok"]
         ts["tailscale\n (Funnel)"]
     end
     frontend["frontend\n (nginx + static build)"]
     backend["backend"]
-    internet --> cfq
     internet --> cfn
     internet --> ngrok
     internet --> ts
-    cfq --> frontend
     cfn --> frontend
     ngrok --> frontend
     ts --> frontend
@@ -90,7 +91,7 @@ Deployment Guide.
 
 | File | Purpose |
 |---|---|
-| `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` | Production-shaped stack exposed by Cloudflare Quick Tunnel by default. The same file can run Cloudflare Named Tunnel after changing the `cloudflared` command. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` | Production-shaped stack with an optional Cloudflare Named Tunnel service. The credential is a file-backed Compose secret. |
 | `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml` | Production-shaped stack exposed by the `ngrok` service and `NGROK_DOMAIN`. |
 | `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` | Production-shaped stack exposed by the `tailscale` service and `docker/tailscale-serve-config.json`. |
 | `env/mystic_auth/.env.local-prod-cloudflare.example` | Cloudflare local-prod environment template. |
@@ -112,6 +113,7 @@ in at once without one overwriting another:
 | Tunnel | Copy this file | To this file |
 |---|---|---|
 | Cloudflare | `env/mystic_auth/.env.local-prod-cloudflare.example` | `env/mystic_auth/.env.local-prod-cloudflare` |
+| Cloudflare tunnel credential | `env/mystic_auth/.cloudflare-tunnel-token.example` | `env/mystic_auth/.cloudflare-tunnel-token` |
 | ngrok | `env/mystic_auth/.env.local-prod-ngrok.example` | `env/mystic_auth/.env.local-prod-ngrok` |
 | Tailscale | `env/mystic_auth/.env.local-prod-tailscale.example` | `env/mystic_auth/.env.local-prod-tailscale` |
 
@@ -130,8 +132,9 @@ a leftover placeholder secret or an already-bound host port. Review
 `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`, SMTP,
 rate-limit, Valkey, and error-monitoring values before sharing the service.
 
-Production-shaped local-prod modes also fail closed until both backup values
-are set: `BACKUP_ENCRYPTION_KEY` and `BACKUP_UPLOAD_COMMAND`. The upstream
+Production-shaped local-prod modes also fail closed until a direct security
+alert endpoint and both backup values are set: `SECURITY_ALERT_WEBHOOK_URL`,
+`BACKUP_ENCRYPTION_KEY`, and `BACKUP_UPLOAD_COMMAND`. The upstream
 examples include a generic B2/rclone upload command; fill in `B2_BUCKET`, the
 B2 credentials, and the encryption key in the gitignored runtime env file.
 The upload command must reference `$DUMP_FILE` and ship the verified encrypted

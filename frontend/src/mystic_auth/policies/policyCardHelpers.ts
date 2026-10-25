@@ -71,9 +71,23 @@ export function formatPolicyActionLabel(action: string): string {
 }
 
 /** Turns an internal resource type into the plain-language label shown to
- * authorized operators. The raw value remains the filter/API value. */
-export function formatResourceTypeLabel(resourceType: string): string {
-    if (resourceType === "*") return "All resource types";
+ * authorized operators. The raw value remains the filter/API value.
+ *
+ * `allResourceTypesLabel`, when given, is the already-translated string
+ * for the wildcard ("*") resource type - every call site is a component
+ * with hook access to `useTranslation`, and each one uses a different key
+ * for its own context (e.g. policies:columns.allResourceTypesTag for a
+ * card's badge vs policies:page.allResourceTypes for a filter dropdown vs
+ * permissions:page.allResourceTypes for the Permissions page), so this
+ * plain, non-component helper can't pick one key itself. Defaults to the
+ * English literal only so callers that genuinely don't care about i18n
+ * (tests, non-component code with no locale context) still get a sensible
+ * value - every real UI call site should pass the translated string.
+ * Regression guard for audit finding claude_code-2026-10-21-F-015: this
+ * used to hardcode the English literal unconditionally, bypassing i18n
+ * even though translations existed in every shipped locale. */
+export function formatResourceTypeLabel(resourceType: string, allResourceTypesLabel = "All resource types"): string {
+    if (resourceType === "*") return allResourceTypesLabel;
     const words = resourceType.replace(/[_-]+/g, " ").trim();
     return words
         .split(/\s+/)

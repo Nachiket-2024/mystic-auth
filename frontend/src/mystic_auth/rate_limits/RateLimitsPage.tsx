@@ -68,7 +68,7 @@ const RateLimitsPage: React.FC = () => {
     const filters = {
         endpoint: endpoint || undefined,
         identifier: debouncedIdentifier || undefined,
-        scope: (scope || undefined) as "ip" | "account" | "email" | undefined,
+        scope: (scope || undefined) as "ip" | "account" | "email" | "account_ip" | undefined,
         kind: kind === "all" ? undefined : kind,
         sortBy: (sort.key === "requests" ? "count" : sort.key) as "endpoint" | "scope" | "identifier" | "count" | "resets_at",
         sortDir: sort.direction,
@@ -132,9 +132,8 @@ const RateLimitsPage: React.FC = () => {
                     onFilterLoginLockouts={() => {
                         const active = kind === "login_lockouts";
                         // `kind` is the dedicated login-lockout view. Do not
-                        // encode it as a scope: email is a backend/API scope
-                        // for individual lockout records, not a quick-filter
-                        // choice on this dashboard.
+                        // encode it as a scope: the dashboard filters lockout
+                        // records by their separate account/IP scope.
                         update({
                             kind: active ? "all" : "login_lockouts",
                             endpoint: active ? "" : "login_lock",
@@ -152,6 +151,7 @@ const RateLimitsPage: React.FC = () => {
                     totalCount={summaryQuery.data?.total ?? 0}
                     ipCount={summaryQuery.data?.by_scope?.ip ?? 0}
                     accountCount={summaryQuery.data?.by_scope?.account ?? 0}
+                    accountIpCount={summaryQuery.data?.by_scope?.account_ip ?? 0}
                 />
                 </div>
             }

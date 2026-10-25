@@ -21,6 +21,60 @@ MODULE = "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.jwt
 
 
 @pytest.mark.asyncio
+async def test_revoke_all_still_invalidates_tokens_when_session_count_fails(mocker):
+    count_mock = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.session_service.count_active_sessions",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("session mirror unavailable"),
+    )
+    bump_mock = mocker.patch(f"{MODULE}.bump_account_version", new_callable=AsyncMock, return_value=True)
+    revoke_mock = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.session_service.revoke_all_sessions",
+        new_callable=AsyncMock,
+    )
+    publish_mock = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_revocation.publish_session_revoked",
+        new_callable=AsyncMock,
+    )
+
+    result = await RefreshTokenService.revoke_all_tokens_for_user("user@example.com")
+
+    assert result == 0
+    bump_mock.assert_awaited_once_with("user@example.com")
+    count_mock.assert_awaited_once()
+    revoke_mock.assert_awaited_once()
+    publish_mock.assert_awaited_once_with("user@example.com")
+
+
+@pytest.mark.asyncio
+async def test_revoke_except_chain_still_invalidates_tokens_when_session_count_fails(mocker):
+    count_mock = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.session_service.count_active_sessions",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("session mirror unavailable"),
+    )
+    bump_mock = mocker.patch(f"{MODULE}.bump_account_version", new_callable=AsyncMock, return_value=True)
+    revoke_mock = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.session_service.revoke_all_sessions",
+        new_callable=AsyncMock,
+    )
+    publish_mock = mocker.patch(
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_revocation.publish_session_revoked",
+        new_callable=AsyncMock,
+    )
+
+    result = await RefreshTokenService.revoke_all_tokens_for_user_except_chain(
+        "user@example.com", "current-chain"
+    )
+
+    assert result == 0
+    bump_mock.assert_awaited_once_with("user@example.com")
+    count_mock.assert_awaited_once()
+    revoke_mock.assert_awaited_once_with(None, "user@example.com", exempt_chain_id="current-chain")
+    publish_mock.assert_awaited_once_with("user@example.com")
+
+
+@pytest.mark.asyncio
 async def test_revoke_all_tokens_for_user_raises_when_account_bump_is_unconfirmed(mocker):
     mocker.patch(
         "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.session_service.count_active_sessions",
@@ -93,6 +147,7 @@ async def test_reuse_detection_stays_fail_closed_and_still_audits_when_bump_is_u
             "exp": 1_900_000_000,
         },
     )
+    mocker.patch(f"{MODULE}.has_valid_issuer_and_audience", return_value=True)
     mocker.patch(f"{MODULE}.is_current_version", new_callable=AsyncMock, return_value=True)
     mocker.patch(
         f"{MODULE}.claim_jti_for_rotation",
@@ -102,7 +157,7 @@ async def test_reuse_detection_stays_fail_closed_and_still_audits_when_bump_is_u
     mocker.patch(f"{MODULE}.is_benign_duplicate_rotation", new_callable=AsyncMock, return_value=False)
     mocker.patch(f"{MODULE}.bump_chain_version", new_callable=AsyncMock, return_value=False)
     log_event_mock = mocker.patch(
-        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_service.log_security_event",
+        "backend.mystic_auth.auth.refresh_token_logic.refresh_token_revocation.log_security_event",
         new_callable=AsyncMock,
     )
     create_access_mock = mocker.patch(f"{MODULE}.create_access_token", new_callable=AsyncMock)

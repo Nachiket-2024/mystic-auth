@@ -63,7 +63,7 @@ import GlossaryHelp from "../ui/display/GlossaryHelp";
  * here with the matched action so the page opens with it already shown.
  */
 const PermissionsPage: React.FC = () => {
-    const { t } = useTranslation(["permissions", "ui_text"]);
+    const { t } = useTranslation(["permissions", "ui_text", "policies"]);
 
     const [searchParams] = useSearchParams();
     const uiStore = usePermissionsUiStore();

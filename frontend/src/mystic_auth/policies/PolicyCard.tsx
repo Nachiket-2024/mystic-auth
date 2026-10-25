@@ -35,7 +35,7 @@ import type { PolicyRead } from "../api/policies_api";
 // colors stay separate from brand), not a brand accent. shadcn's Switch
 // defaults data-[state=checked] to bg-primary (the brand color), so this
 // overrides it to the app's green-500/green-600 steps already ported to
-// tailwind.css (see audit_log's LoginTrendChart green.500 addition).
+// tailwind-tokens.css (see audit_log's LoginTrendChart green.500 addition).
 const GREEN_SWITCH_CLASSNAME =
   "data-[state=checked]:bg-[var(--green-500)] dark:data-[state=checked]:bg-[var(--green-600)]";
 
@@ -104,7 +104,7 @@ const PolicyCard: React.FC<PolicyCardProps> = ({
           }}
           aria-expanded={isOpen}
           aria-controls={`policy-actions-${policy.id}`}
-          aria-label={t(isOpen ? "policies:columns.collapsePolicy" : "policies:columns.expandPolicy", { name: policy.name })}
+          aria-description={t(isOpen ? "policies:columns.collapsePolicy" : "policies:columns.expandPolicy", { name: policy.name })}
         >
           <span className="shrink-0">
             <ChevronRight
@@ -140,7 +140,7 @@ const PolicyCard: React.FC<PolicyCardProps> = ({
                             this row that should actually carry the brand
                             tint. */}
               <Badge colorPalette="gray" variant="outline" size="sm">
-                {formatResourceTypeLabel(policy.resource_type)}
+                {formatResourceTypeLabel(policy.resource_type, t("policies:columns.allResourceTypesTag"))}
               </Badge>
               {!policy.is_active && (
                 <Badge colorPalette="gray" size="sm">

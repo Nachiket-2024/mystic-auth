@@ -78,7 +78,7 @@ const PermissionGroupList: React.FC<PermissionGroupListProps> = ({
                 aria-hidden="true"
               />
               <span title={type}>
-                {formatResourceTypeLabel(type)}
+                {formatResourceTypeLabel(type, t("policies:page.allResourceTypes"))}
               </span>
               {destructiveCount > 0 && (
                 <span className="text-fg-error font-semibold">
@@ -102,7 +102,7 @@ const PermissionGroupList: React.FC<PermissionGroupListProps> = ({
           <div
             id={panelId}
             role="region"
-            aria-label={formatResourceTypeLabel(type)}
+            aria-label={formatResourceTypeLabel(type, t("policies:page.allResourceTypes"))}
             hidden={!isExpanded}
           >
             {isExpanded && (

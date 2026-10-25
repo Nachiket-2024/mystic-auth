@@ -8,12 +8,13 @@ like right before the Claude Code era started, next to what it looks like today,
 the change is visible at a glance instead of only described in prose, followed by a summary of
 the differences.
 
-The "then" tree lists only files and folders that were actually committed. The "now" tree lists
-tracked files plus the current additions present in the repository on 11 October;
-it still omits `__pycache__`, `node_modules`, build output, coverage reports, and anything else
-covered by `.gitignore`. The "then" tree is the real commit tree at
+The "then" tree lists files and folders that were actually committed. The "now" tree selects
+tracked files and current additions that illustrate the repository structure on 25 October;
+neither tree is an exhaustive file inventory. The "now" tree also omits `__pycache__`,
+`node_modules`, build output, coverage reports, and anything else covered by `.gitignore`. The
+"then" tree is the real commit tree at
 [`946e384`](../../../..), the last commit of the manual, ChatGPT-assisted era, on 14 April, 2026. The
-"now" tree reflects the repository as verified on 11 October, 2026.
+"now" tree reflects the repository as verified on 25 October, 2026.
 
 ---
 

@@ -114,6 +114,7 @@
                 "account_verification_requested": "पडताळणी ईमेल विनंती केली",
                 "account_verified": "खाते सत्यापित",
                 "account_locked": "खाते लॉक केले",
+                "login_ip_locked": "या खाते आणि स्रोत IP साठी लॉगिन मर्यादित केले",
                 "account_deleted": "खाते हटवले",
                 "account_purged": "खाते कायमचे हटवले",
                 "account_reactivated": "खाते पुन्हा सक्रिय केले",

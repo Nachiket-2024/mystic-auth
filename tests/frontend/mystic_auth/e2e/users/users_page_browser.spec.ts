@@ -58,14 +58,14 @@ test.describe("users page browser behavior", () => {
 
     // Each stat tile is a filter shortcut (UserStatsCard.tsx): clicking one
     // applies its filter and clears every other one.
-    await page.getByRole("button", { name: "Filter users: Verified" }).click();
+    await page.getByRole("button", { name: /Verified$/ }).click();
     await expect(verifiedFilter).toHaveValue("true");
 
-    await page.getByRole("button", { name: "Filter users: Unverified" }).click();
+    await page.getByRole("button", { name: /Unverified$/ }).click();
     await expect(verifiedFilter).toHaveValue("false");
 
     await roleFilter.selectOption("user");
-    await page.getByRole("button", { name: "Filter users: Total users" }).click();
+    await page.getByRole("button", { name: /Total users$/ }).click();
     await expect(roleFilter).toHaveValue("");
     await expect(verifiedFilter).toHaveValue("");
 

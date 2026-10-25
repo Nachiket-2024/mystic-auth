@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import { useAuthStore } from "../../store/authStore";
 
-// theme/tailwind.css's --duration-fast/--easing-hover (same tier
+// theme/tailwind-tokens.css's --duration-fast/--easing-hover (same tier
 // StatTile/PasswordStrengthPanel use), so "how snappy the app feels" stays
 // retunable from one place.
 const ROUTE_FADE_TRANSITION = "opacity var(--duration-fast) var(--easing-hover)";

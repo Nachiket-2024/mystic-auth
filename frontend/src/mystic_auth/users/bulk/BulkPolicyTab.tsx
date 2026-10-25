@@ -36,7 +36,7 @@ const BulkPolicyTab: React.FC<BulkPolicyTabProps> = ({
   onToggle,
   onRun,
 }) => {
-  const { t } = useTranslation(["users", "ui_text"]);
+  const { t } = useTranslation(["users", "ui_text", "policies"]);
   const query = policySearch.trim().toLowerCase();
   const shownPolicies = policies.filter(
     (policy) =>
@@ -63,7 +63,7 @@ const BulkPolicyTab: React.FC<BulkPolicyTabProps> = ({
         {policyGroups.map(([resourceType, groupedPolicies]) => (
           <React.Fragment key={resourceType}>
             <h3 className="col-span-full sticky top-0 z-10 border-b border-border-default bg-bg-canvas/95 px-1 py-1 text-xs font-semibold uppercase tracking-wide text-fg-muted backdrop-blur-sm">
-              {formatResourceTypeLabel(resourceType)} ({groupedPolicies.length})
+              {formatResourceTypeLabel(resourceType, t("policies:page.allResourceTypes"))} ({groupedPolicies.length})
             </h3>
             {groupedPolicies.map((policy) => (
           <label

@@ -6,6 +6,7 @@
 # integration.py for GET/PUT /users/me coverage.
 import pytest
 
+from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.user.user_crud_collector import user_crud
 from backend.mystic_auth.user_lifecycle.account_deletion_service import (
@@ -248,6 +249,29 @@ async def test_confirm_delete_rejects_token_never_persisted_in_valkey(client, cr
     await _make_oauth_only_user(client, created_emails, email)
 
     token = await account_deletion_service.create_account_deletion_token(email)
+
+    resp = await client.post("/users/me/confirm-delete", json={"token": token})
+    assert resp.status_code == 400
+
+    async with database.async_session() as session:
+        user = await user_crud.get_by_email(email, session)
+        assert user.is_active is True
+
+
+@pytest.mark.asyncio
+async def test_confirm_delete_rejects_a_token_minted_before_a_later_account_ver_bump(client, created_emails):
+    # Closes the captured-link threat model: a confirmation link minted
+    # while the account's security state was one thing must not still work
+    # after something (here, a direct account_ver bump, same effect as
+    # logout-all) changes that state, even though the link itself is
+    # otherwise unexpired and was never redeemed.
+    email = unique_email()
+    await _make_oauth_only_user(client, created_emails, email)
+
+    token = await account_deletion_service.create_account_deletion_token(email)
+    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
+
+    assert await jwt_service.bump_account_version(email) is True
 
     resp = await client.post("/users/me/confirm-delete", json={"token": token})
     assert resp.status_code == 400

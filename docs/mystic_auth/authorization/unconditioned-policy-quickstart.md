@@ -17,7 +17,7 @@ flowchart TD
     S1["1. One policy per role\nconditions omitted/null\n= always granted to any holder"]
     S2["2. Assign it to whichever\nusers should hold that role\n(a user can hold several)"]
     S3["3. Routes stay identical\nrequire_authorization() doesn't\ncare whether the granting\npolicy has conditions"]
-    Grow{"Later need\n\"editors, but only...\"?"}
+    Grow{"Later need a limited editor role?"}
     Add["Add a conditions block\nto the same/a more specific\npolicy - no migration away"]
 
     S1 --> S2 --> S3 --> Grow
@@ -68,7 +68,7 @@ This pattern doesn't change the one rule the rest of this template's authorizati
 `backend/mystic_auth/scripts/create_unconditioned_policies.py`, same shape as [`create_system_user.py`](../authentication/system-superuser/README.md), interactive and CLI-only:
 
 ```bash
-python -m mystic_auth.scripts.create_role-based access control_policies
+python -m mystic_auth.scripts.create_unconditioned_policies
 ```
 
 Prompts for a role name, resource type, and a comma-separated action list, then creates one unconditioned policy named `role_<role>`. Idempotent by name: running it again for a role that already has a policy prints the existing action list and makes no changes, rather than silently overwriting it (edit via `PUT /authorization/policies/{id}` or the UI instead). Entirely optional: everything it does is also just one `POST /authorization/policies` call, so skip it if you'd rather create role-policies through the API/UI directly.

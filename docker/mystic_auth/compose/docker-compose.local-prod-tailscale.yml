@@ -145,9 +145,14 @@ services:
     cap_add: [CHOWN, SETUID, SETGID]
     networks: [valkey_net]
     # VALKEY_PASSWORD should always be set in production.
-    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"]
+    environment:
+      # Passed as a container env var, not a CLI arg - see the
+      # 2026-10-21 audit note on docker-compose.local-prod-ngrok.yml's
+      # valkey service for why.
+      VALKEY_PASSWORD: "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}"
+    command: ["sh", "-c", "echo \"requirepass $$VALKEY_PASSWORD\" > /tmp/valkey.conf && chmod 600 /tmp/valkey.conf && exec valkey-server /tmp/valkey.conf"]
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a \"${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for local production}\" --no-auth-warning ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$VALKEY_PASSWORD valkey-cli --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -464,6 +469,8 @@ services:
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set}
       BACKUP_SENTRY_DSN: ${BACKUP_SENTRY_DSN:-}
       B2_BUCKET: ${B2_BUCKET:-}
+      # Auth is provided through environment variables; avoid the default root-owned config file.
+      RCLONE_CONFIG: /dev/null
       RCLONE_CONFIG_B2_TYPE: b2
       RCLONE_CONFIG_B2_ACCOUNT: ${RCLONE_CONFIG_B2_ACCOUNT:-}
       RCLONE_CONFIG_B2_KEY: ${RCLONE_CONFIG_B2_KEY:-}

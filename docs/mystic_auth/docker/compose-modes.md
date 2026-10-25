@@ -19,8 +19,8 @@
 | `backend` startup gate | Postgres and Valkey healthy | Postgres and Valkey healthy, plus `alembic: service_completed_successfully` | Postgres and Valkey healthy, plus `alembic: service_completed_successfully` |
 | `procrastinate_worker` startup gate | Postgres healthy | Postgres healthy, plus `alembic: service_completed_successfully` | Postgres healthy, plus `alembic: service_completed_successfully` |
 
-Each mode's file lives at `docker/mystic_auth/compose/docker-compose.<mode>.yml`,
-with an empty `docker/app/compose/docker-compose.<mode>.yml` override next to
+Each mode's file lives at `docker/mystic_auth/compose/docker-compose.{mode}.yml`,
+with an empty `docker/app/compose/docker-compose.{mode}.yml` override next to
 it for your own additions - see [Two files per mode](#two-files-per-mode-mystic_auth--app)
 below.
 
@@ -37,10 +37,10 @@ Every mode has two Compose files, following the same `mystic_auth`/`app`
 split used everywhere else in this template (see
 [the tiering table](../template-usage/ownership-split.md)):
 
-- `docker/mystic_auth/compose/docker-compose.<mode>.yml` - upstream-owned,
+- `docker/mystic_auth/compose/docker-compose.{mode}.yml` - upstream-owned,
   the template's own service definitions. A sync merge always applies
   cleanly here.
-- `docker/app/compose/docker-compose.<mode>.yml` - yours, ships as an empty
+- `docker/app/compose/docker-compose.{mode}.yml` - yours, ships as an empty
   override (`services: {}`). Add your own service, an extra volume mount,
   or an extra `env_file` entry here; upstream never edits this file again.
 
@@ -66,8 +66,8 @@ this spelled out by hand - it matters when you're scripting your own
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart LR
-    MA["docker/mystic_auth/compose/\ndocker-compose.<mode>.yml\nupstream-owned"]
-    APP["docker/app/compose/\ndocker-compose.<mode>.yml\nyours, ships empty"]
+    MA["docker/mystic_auth/compose/\ndocker-compose.{mode}.yml\nupstream-owned"]
+    APP["docker/app/compose/\ndocker-compose.{mode}.yml\nyours, ships empty"]
     MERGE{{"docker compose\n-f MA -f APP"}}
     RUN["Running stack\n(app entries override\nmatching mystic_auth ones)"]
     MA --> MERGE
@@ -77,7 +77,7 @@ flowchart LR
 ```
 
 The same split applies to env files: `env/mystic_auth/.env.dev` for dev and
-`env/mystic_auth/.env.<mode>` for the other modes (upstream-owned), with the
+`env/mystic_auth/.env.{mode}` for the other modes (upstream-owned), with the
 matching files under `env/app/` for yours. See
 [Environment Configuration](../environment/README.md#the-mystic_auth--app-split)
 for the env-file side of this.

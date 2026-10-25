@@ -1,7 +1,7 @@
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Absolute, not relative to whatever the process's CWD happens to be (a
@@ -54,10 +54,10 @@ class Settings(BaseSettings):
 
     APP_NAME: str                                    # Product name shown in email branding and API responses
 
-    LOGIN_LOCKOUT_TIME: int                         # Lockout duration after failed login attempts, in seconds
-    MAX_FAILED_LOGIN_ATTEMPTS: int
-    LOGIN_LOCKOUT_TIME_PER_IP: int                  # Lockout duration for an IP after too many failed logins across accounts
-    MAX_FAILED_LOGIN_ATTEMPTS_PER_IP: int           # Failed attempts from one IP, across any accounts, before that IP is locked out
+    LOGIN_LOCKOUT_TIME: int                         # Default lockout duration for email-scoped protected actions, in seconds
+    MAX_FAILED_LOGIN_ATTEMPTS: int                  # Default failed-attempt threshold for email-scoped protected actions
+    LOGIN_LOCKOUT_TIME_PER_IP: int                  # Lockout duration for one account/source-IP pair after repeated failed logins
+    MAX_FAILED_LOGIN_ATTEMPTS_PER_IP: int           # Failed-attempt threshold for one account/source-IP pair
     ACTION_RESERVATION_TIME: int = 60               # Valkey reservation lifetime for concurrent one-time auth actions, in seconds
     MAX_REQUESTS_PER_WINDOW: int                    # Rate limit: max requests per window
     REQUEST_WINDOW_SECONDS: int                     # Rate limit window size, in seconds
@@ -72,7 +72,7 @@ class Settings(BaseSettings):
 
     SENTRY_DSN: str                                 # Optional Sentry-protocol DSN (Sentry itself, or a compatible self-hosted server like Bugsink). Empty = error monitoring disabled, no SDK call is made
     SENTRY_ENVIRONMENT: str                         # Optional tag reported with every event (e.g. "production", "staging"). Empty falls back to ENVIRONMENT
-    SECURITY_ALERT_WEBHOOK_URL: str = ""            # Optional incident/webhook endpoint for high-signal security alerts
+    SECURITY_ALERT_WEBHOOK_URL: str = ""            # Incident endpoint for high-signal security alerts; required in production
     SECURITY_ALERT_WEBHOOK_TOKEN: str = ""          # Optional bearer token for SECURITY_ALERT_WEBHOOK_URL; never logged
     SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS: float = 2.0  # Short fail-open timeout so monitoring cannot block authentication
 
@@ -116,6 +116,24 @@ class Settings(BaseSettings):
         if len(value) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters long")
         return value
+
+    @field_validator("SECURITY_ALERT_WEBHOOK_URL")
+    @classmethod
+    def _security_webhook_must_use_https(cls, value: str) -> str:
+        if value:
+            parsed = urlsplit(value)
+            if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError("SECURITY_ALERT_WEBHOOK_URL must be an HTTPS URL without embedded credentials")
+        return value
+
+    @model_validator(mode="after")
+    def _require_production_alert_webhook(self) -> Settings:
+        if self.ENVIRONMENT.lower() == "production" and not self.SECURITY_ALERT_WEBHOOK_URL:
+            raise ValueError(
+                "SECURITY_ALERT_WEBHOOK_URL is required in production so critical security "
+                "events have an outbound alert channel"
+            )
+        return self
 
     @property
     def cors_allowed_origins(self) -> list[str]:
@@ -177,8 +195,34 @@ class Settings(BaseSettings):
     def procrastinate_database_url(self) -> str:
         """DATABASE_URL rewritten from SQLAlchemy's `postgresql+asyncpg://`
         prefix to the plain `postgresql://` DSN Procrastinate's
-        PsycopgConnector expects. Procrastinate opens its own psycopg
-        connection pool, separate from the SQLAlchemy engine."""
+        PsycopgConnector expects. Always the DDL-capable DATABASE_URL role,
+        never APP_DATABASE_URL: this property is also reused by
+        alembic/versions/a4c1e8f2b6d3_add_procrastinate_schema.py to create
+        Procrastinate's own tables/functions/triggers, which genuinely needs
+        schema rights. For the long-lived worker's own connector (which
+        needs no DDL at runtime), use procrastinate_worker_database_url
+        instead - see that property for why the two must stay distinct."""
         return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
+
+    @property
+    def procrastinate_worker_database_url(self) -> str:
+        """APP_DATABASE_URL (falling back to DATABASE_URL, same preference
+        order as database/connection.py's own engine) rewritten the same way
+        procrastinate_database_url is. Used only by the long-lived worker
+        connector in procrastinate_tasks/procrastinate_app.py, never by the
+        schema-creating migration (which needs procrastinate_database_url's
+        DDL-capable DATABASE_URL instead - the two must not be merged back
+        into one property, or a deployment with APP_DATABASE_URL configured
+        would have that migration fail for lacking DDL rights).
+
+        Prefers the least-privilege role deliberately: the worker only ever
+        needs CRUD on its own queue tables and whatever task bodies touch,
+        both already covered by mystic_auth_app's blanket GRANT (see
+        alembic/versions/b1e6a9f3c7d2_add_least_privilege_app_role.py) - it
+        never runs DDL at runtime, only Alembic does. A worker compromise
+        (a malicious/buggy job payload, a dependency RCE, a task
+        deserialization bug) is contained to the app's own schema instead of
+        inheriting the superuser DATABASE_URL role."""
+        return (self.APP_DATABASE_URL or self.DATABASE_URL).replace("postgresql+asyncpg://", "postgresql://", 1)
 
 settings = Settings()

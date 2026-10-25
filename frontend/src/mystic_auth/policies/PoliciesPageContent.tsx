@@ -246,7 +246,7 @@ const PoliciesPageContent: React.FC<PoliciesPageContentProps> = ({
                         <div className="flex flex-col gap-5">
                             {groupedByResourceType.map(([resourceTypeName, policies]) => (
                                 <div key={resourceTypeName}>
-                                <h3 className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-2">{formatResourceTypeLabel(resourceTypeName)} ({policies.length})</h3>
+                                <h3 className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-2">{formatResourceTypeLabel(resourceTypeName, t("policies:page.allResourceTypes"))} ({policies.length})</h3>
                                     <div className="flex flex-col gap-2">{policies.map(renderCard)}</div>
                                 </div>
                             ))}

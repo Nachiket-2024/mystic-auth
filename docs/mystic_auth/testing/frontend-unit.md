@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 102 MysticAuth Vitest modules, plus three app-wrapper modules, isolate one frontend rule, API client, hook, store,
+These 109 MysticAuth Vitest modules, plus three app-wrapper modules, isolate one frontend rule, API client, hook, store,
 component, or helper. They are intentionally narrower than page integration
 tests. A passing unit test means the named client-side contract works with
 controlled inputs; it does not mean that the backend accepted a request.
@@ -26,8 +26,16 @@ controlled inputs; it does not mean that the backend accepted a request.
 - `ui/shared_components.test.tsx` verifies the public behavior of shared
   badges, buttons, cards, inputs, links, loading states, stat tiles,
   collapsible sections, breadcrumbs, and page slots.
+- `ui/hooks/useNow.test.ts` verifies the clock hook's initial value and
+  interval-driven updates.
+- `ui/navigation/Pagination.test.tsx` verifies page controls, disabled states,
+  and accessible navigation labels.
 - `ui/shadcn/` covers the shared shadcn/Radix primitives used by the feature
   pages.
+- `ui/toaster/toasterInstance.test.ts` verifies the shared toast instance and
+  its exported helpers.
+- `ui/routing/RouteSkeleton.test.tsx` verifies the route-loading skeleton's
+  structure and accessible status.
 - `audit_log/security_log/securityAccessChangeDetails.test.ts` verifies
   access-change detail rendering for complete, partial, blank, and unknown
   event metadata.
@@ -145,6 +153,8 @@ controlled inputs; it does not mean that the backend accepted a request.
 
 ## Application shell, stores, theme, and translations
 
+- `core/cspNonce.test.ts` verifies CSP nonce extraction and safe handling of
+  missing or malformed values.
 - `core/errorMonitoring.test.ts` verifies frontend error-monitoring setup and
   safe reporting behavior.
 - `layout/app_layout/AppLayout.test.tsx` verifies shell composition, mobile
@@ -161,6 +171,8 @@ controlled inputs; it does not mean that the backend accepted a request.
   navigation, command execution, and dismissal.
 - `layout/controls/LanguageToggle.test.tsx` verifies language selection and
   accessible control state.
+- `layout/controls/ThemeToggle.test.tsx` verifies light/dark theme switching
+  and the toggle's accessible state.
 - `store/createSessionUiStore.test.ts` verifies session UI state transitions.
 - `store/languageStore.test.ts` verifies language persistence and updates.
 - `store/networkStatusStore.test.ts` verifies online/offline transitions.
@@ -173,6 +185,10 @@ controlled inputs; it does not mean that the backend accepted a request.
 - `theme/brandIcon.test.ts` verifies brand icon variants and accessibility.
 - `theme/fgTokens.test.ts` verifies foreground token generation.
 - `theme/generateBrandScale.test.ts` verifies generated brand color scales.
+- `translations/numerals.test.ts` verifies locale-specific numeral formatting.
+- `translations/searchText.test.ts` verifies translated search text and
+  normalization behavior.
+- `translations/timeOfDay.test.ts` verifies locale-aware time-of-day labels.
 - `translations/translation_key_parity.test.ts` verifies every locale has the
   same translation-key set as the source locale.
 

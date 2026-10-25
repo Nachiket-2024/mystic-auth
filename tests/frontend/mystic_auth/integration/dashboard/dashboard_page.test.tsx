@@ -213,7 +213,8 @@ describe('DashboardPage', () => {
 
       renderDashboard();
 
-      const statButton = await screen.findByRole('button', { name: '2 active sessions, go to the sessions list' });
+      const statButton = await screen.findByRole('button', { name: /active sessions/i });
+      expect(statButton).toHaveAccessibleDescription('2 active sessions, go to the sessions list');
       await screen.findByText('Active Sessions');
       await userEvent.click(statButton);
 

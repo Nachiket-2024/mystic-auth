@@ -183,6 +183,75 @@ async def test_bulk_permissions_assign_forwards_the_items_own_conditions_to_the_
 
 
 @pytest.mark.asyncio
+async def test_bulk_permissions_assign_cannot_widen_conditions_on_a_later_item_in_the_same_batch(
+    client, created_emails
+):
+    """Regression for a real escalation found live: assert_authorized_to_grant's
+    `cache` parameter used to store only a bare `allowed` boolean per
+    (action, resource_type), and skipped the CANNOT_GRANT_BROADER_CONDITIONS
+    re-check entirely on a cache hit (see its old code: `decision = None` on
+    a hit, and the widening check was gated on `decision is not None`). A
+    caller holding an action only under a restrictive condition could send
+    2+ items proposing an unconditional version of that same action to
+    different target users in one bulk request: the first item was
+    correctly rejected (and poisoned the cache in the process), but every
+    later item with the same (action, resource_type) silently succeeded
+    regardless of its own proposed conditions. Fixed by caching
+    (allowed, matched_policy_conditions) together and always re-running the
+    widening check per item. This test must see BOTH items rejected."""
+    grant_policy_name = unique_policy_name()
+    narrow_list_all_policy_name = unique_policy_name()
+    narrow_conditions = {"network": {"allowed_ips": ["127.0.0.1"]}}
+    async with database.async_session() as session:
+        await policy_repository.create(
+            {"name": grant_policy_name, "actions": ["permissions:grant"], "resource_type": "permissions", "conditions": None},
+            session,
+        )
+        await policy_repository.create(
+            {
+                "name": narrow_list_all_policy_name,
+                "actions": ["users:list_all"],
+                "resource_type": "users",
+                "conditions": narrow_conditions,
+            },
+            session,
+        )
+    email = unique_email("bulk-widen-attacker")
+    await create_verified_user(
+        client, created_emails, email, [SELF_SERVICE_POLICY_NAME, grant_policy_name, narrow_list_all_policy_name]
+    )
+
+    target_a = unique_email("bulk-widen-victim-a")
+    target_b = unique_email("bulk-widen-victim-b")
+    await create_verified_user(client, created_emails, target_a, [SELF_SERVICE_POLICY_NAME])
+    await create_verified_user(client, created_emails, target_b, [SELF_SERVICE_POLICY_NAME])
+    await client.post("/auth/login", json={"email": email, "password": PASSWORD})
+
+    resp = await client.post(
+        "/authorization/bulk/permissions/assign",
+        json={"items": [
+            # No `conditions` on either item: both propose the unconditional
+            # (broader-than-held) version of an action this caller only
+            # holds within 127.0.0.1.
+            {"user_email": target_a, "action": "users:list_all", "resource_type": "users"},
+            {"user_email": target_b, "action": "users:list_all", "resource_type": "users"},
+        ]},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success_count"] == 0
+    assert body["error_count"] == 2
+    for result in body["results"]:
+        assert result["status"] == "error"
+
+    async with database.async_session() as session:
+        target_a_grants = await user_permission_repository.get_permissions_for_user(target_a, session)
+        target_b_grants = await user_permission_repository.get_permissions_for_user(target_b, session)
+    assert [g for g in target_a_grants if g.action == "users:list_all"] == []
+    assert [g for g in target_b_grants if g.action == "users:list_all"] == []
+
+
+@pytest.mark.asyncio
 async def test_system_superuser_can_still_grant_permissions(client, created_emails):
     """Negative control, same as the policies:assign equivalent: a genuine
     system_superuser holder is not blocked by the same guard."""

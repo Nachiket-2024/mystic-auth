@@ -22,7 +22,7 @@ mystic_auth/-owned UI without editing it directly. See
 - **Database changes**: an Alembic migration under `backend/alembic/versions/`: no `create_all()`. See [Database Design](../database/design.md#migrations).
 - **Configuration**: template settings live in the upstream-owned `backend/mystic_auth/core/settings.py` and are re-exported from `sdk.py` as `settings`; do not add downstream fields there. Put your app's variables in the matching `env/app/.env.dev` or `env/app/.env.<mode>` file and read them from the app-owned `backend/app/core/settings.py` (extend that `BaseSettings` class) or another app-owned settings module under `backend/app/core/`. Compose loads both env-file halves, and `extra="ignore"` on the template settings lets app-only variables coexist without editing MysticAuth. See [Environment Configuration](../environment/README.md#the-mystic_auth--app-split).
 - **Authorization condition extensions**: keep a custom handler and validator under `backend/app/` and register them from `backend/app/app_sdk.py` with `register_condition_type()`; do not edit the registry or validator under `backend/mystic_auth/`. See [Adding Condition Handlers](../authorization/adding-condition-handlers.md).
-- **Background-task extensions**: keep task modules under `backend/app/`, list them in the app-owned `PROCRASTINATE_TASK_IMPORT_PATHS` setting, and import the queue app and lifecycle APIs from `app.sdk`. See [Background Email Delivery: Downstream task and worker extensions](../background-workers/procrastinate.md#downstream-task-and-worker-extensions).
+- **Background-task extensions**: keep task modules under `backend/app/`, set `PROCRASTINATE_TASK_IMPORT_PATHS` (a template setting whose value you supply) in the matching `env/app/.env.<mode>` files, and import the queue app and lifecycle APIs from `app.sdk`. See [Background Email Delivery: Downstream task and worker extensions](../background-workers/procrastinate.md#downstream-task-and-worker-extensions).
 - **Bootstrap scripts**: app-owned one-time setup scripts may use `policy_repository`, `user_crud`, `database`, and `get_logger` from `app.sdk`; do not import those Mystic Auth implementation modules directly. Keep product-specific policy names and workflow in `backend/app/`.
 - **Integration secrets**: keep product-specific providers under `backend/app/` (for example `backend/app/integrations/`), test them under `tests/backend/app/`, and use only `SecretProvider`/`EnvironmentSecretProvider` from `app.sdk`; never edit `backend/mystic_auth/core/secret_provider.py` or put product credentials in JSON settings, migrations, task arguments, or logs. See [Downstream Integration Secrets](../security/integration-secrets.md).
 
@@ -105,7 +105,9 @@ but the backend authorization dependency remains authoritative.
 ### 5. Test the complete boundary
 
 Add route tests under `tests/backend/app/` and UI tests under
-`tests/frontend/app/`. Cover an allowed request, a denied request, an
+`tests/frontend/app/`. In native backend tests import your app modules as
+`backend.app...` and keep that prefix consistent across the suite; mixing in
+`app...` imports loads `main.py` twice and re-runs `register_extensions()`. Cover an allowed request, a denied request, an
 unassigned user, and the app setting's default/override behavior. Before
 opening a PR, run the backend unit suite, frontend tests, `ruff`, `mypy`, and
 the split/path checks listed in the [command cheat sheet](cheatsheet.md).

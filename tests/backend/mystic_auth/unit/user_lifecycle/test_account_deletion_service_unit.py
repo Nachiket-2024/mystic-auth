@@ -27,13 +27,16 @@ class _FakeUser:
 # ---------------------------- token create/verify ----------------------------
 
 @pytest.mark.asyncio
-async def test_deletion_token_round_trips_through_create_and_verify():
+async def test_deletion_token_round_trips_through_create_and_verify(mocker):
+    mocker.patch(f"{MODULE}.jwt_service.get_account_version", new_callable=AsyncMock, return_value=3)
+
     token = await account_deletion_service.create_account_deletion_token("user@example.com")
     payload = await account_deletion_service.verify_account_deletion_token(token)
 
     assert payload is not None
     assert payload["email"] == "user@example.com"
     assert payload["type"] == "account_delete"
+    assert payload["account_ver"] == 3
 
 
 @pytest.mark.asyncio
@@ -98,8 +101,9 @@ async def test_send_deletion_email_persists_single_use_token_in_valkey(mocker):
 async def test_confirm_deletion_succeeds_and_consumes_token(mocker):
     mocker.patch(
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
-        return_value={"email": "user@example.com"},
+        return_value={"email": "user@example.com", "account_ver": 0},
     )
+    mocker.patch(f"{MODULE}.jwt_service.get_account_version", new_callable=AsyncMock, return_value=0)
     getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
@@ -115,7 +119,7 @@ async def test_confirm_deletion_succeeds_and_consumes_token(mocker):
 async def test_confirm_deletion_rejects_replayed_or_unknown_token(mocker):
     mocker.patch(
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
-        return_value={"email": "user@example.com"},
+        return_value={"email": "user@example.com", "account_ver": 0},
     )
     mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value=None)
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
@@ -130,8 +134,9 @@ async def test_confirm_deletion_rejects_replayed_or_unknown_token(mocker):
 async def test_confirm_deletion_concurrent_replay_only_lets_one_request_through(mocker):
     mocker.patch(
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
-        return_value={"email": "user@example.com"},
+        return_value={"email": "user@example.com", "account_ver": 0},
     )
+    mocker.patch(f"{MODULE}.jwt_service.get_account_version", new_callable=AsyncMock, return_value=0)
     mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, side_effect=["1", None])
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser())
     mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
@@ -141,6 +146,48 @@ async def test_confirm_deletion_concurrent_replay_only_lets_one_request_through(
 
     assert first_result is True
     assert second_result is False
+
+
+@pytest.mark.asyncio
+async def test_confirm_deletion_rejects_a_token_minted_before_the_latest_account_ver_bump(mocker):
+    # The captured-link threat model this closes: an attacker who briefly had
+    # both a live session and mailbox access captures a confirmation link,
+    # then the victim regains control and calls logout-all (or anything else
+    # that bumps account_ver). The old link must not still work afterward,
+    # even though it is otherwise unexpired and was never itself redeemed.
+    mocker.patch(
+        f"{MODULE}.account_deletion_service.verify_account_deletion_token",
+        return_value={"email": "victim@example.com", "account_ver": 0},
+    )
+    mocker.patch(f"{MODULE}.jwt_service.get_account_version", new_callable=AsyncMock, return_value=1)
+    getdel_mock = mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
+
+    result = await account_deletion_service.confirm_deletion("stale-token", db=None)
+
+    assert result is False
+    # Still consumed as single-use even though rejected, same as any other
+    # redeemed-but-invalid attempt: nothing is left behind to retry.
+    getdel_mock.assert_awaited_once()
+    finalize_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_confirm_deletion_rejects_a_token_minted_before_this_check_existed(mocker):
+    # A token signed before this fix shipped carries no account_ver claim at
+    # all; treated the same as a version mismatch rather than trusted by default.
+    mocker.patch(
+        f"{MODULE}.account_deletion_service.verify_account_deletion_token",
+        return_value={"email": "user@example.com"},
+    )
+    mocker.patch(f"{MODULE}.jwt_service.get_account_version", new_callable=AsyncMock, return_value=0)
+    mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
+    finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
+
+    result = await account_deletion_service.confirm_deletion("pre-fix-token", db=None)
+
+    assert result is False
+    finalize_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -158,8 +205,9 @@ async def test_confirm_deletion_rejects_invalid_jwt_before_touching_valkey(mocke
 async def test_confirm_deletion_rejects_unknown_user(mocker):
     mocker.patch(
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
-        return_value={"email": "nobody@example.com"},
+        return_value={"email": "nobody@example.com", "account_ver": 0},
     )
+    mocker.patch(f"{MODULE}.jwt_service.get_account_version", new_callable=AsyncMock, return_value=0)
     mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
     mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=None)
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)
@@ -178,8 +226,9 @@ async def test_confirm_deletion_only_ever_finalizes_the_token_owning_account(moc
     # account's token to end up deleting a different account.
     mocker.patch(
         f"{MODULE}.account_deletion_service.verify_account_deletion_token",
-        return_value={"email": "victim@example.com"},
+        return_value={"email": "victim@example.com", "account_ver": 0},
     )
+    mocker.patch(f"{MODULE}.jwt_service.get_account_version", new_callable=AsyncMock, return_value=0)
     mocker.patch(f"{MODULE}.valkey_client.getdel", new_callable=AsyncMock, return_value="1")
     get_by_email_mock = mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser("victim@example.com"))
     finalize_mock = mocker.patch(f"{MODULE}.finalize_self_deletion", new_callable=AsyncMock)

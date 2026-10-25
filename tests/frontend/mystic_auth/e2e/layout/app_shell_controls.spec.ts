@@ -12,7 +12,7 @@ test.describe("app shell browser controls", () => {
     await page.goto("/dashboard");
 
     await expect(page.getByRole("navigation", { name: /main navigation/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /open search/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^search/i })).toBeVisible();
     await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
     const palette = page.getByRole("dialog");
     await expect(palette).toBeVisible();

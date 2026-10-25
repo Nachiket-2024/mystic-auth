@@ -12,7 +12,7 @@ Consolidates the concrete hardening mechanisms in the codebase: rate limiting, l
 See [Security Hardening: Abuse Prevention](hardening-abuse-prevention.md) for the full entries.
 
 - [Rate limiting](hardening-abuse-prevention.md#rate-limiting): generic per-IP/per-account limiter, fails closed on Valkey error, the Rate Limit Dashboard.
-- [Brute-force lockout](hardening-abuse-prevention.md#brute-force-lockout): per-account and per-IP failed-login lockout, layered on top of rate limiting.
+- [Brute-force lockout](hardening-abuse-prevention.md#brute-force-lockout): source-IP failed-login lockout, layered on top of rate limiting.
 - [Timing-attack resistance](hardening-abuse-prevention.md#timing-attack-resistance): dummy-hash comparison, unconditional hashing, identical generic responses.
 
 ---

@@ -228,6 +228,21 @@ async def request_validation_error_handler(request: Request, exc: RequestValidat
         {key: value for key, value in error.items() if key != "input"}
         for error in exc.errors()
     ]
+    extra_fields = sorted({
+        str(error.get("loc", ())[-1])[:100]
+        for error in exc.errors()
+        if error.get("type") == "extra_forbidden" and error.get("loc")
+    })
+    if extra_fields:
+        # Over-posting attempts are rejected by strict request schemas. Log
+        # only bounded field names and the correlation ID, never submitted
+        # values that may contain credentials or attacker-controlled data.
+        logger.warning(
+            "Rejected mass-assignment input: path=%s fields=%s request_id=%s",
+            request.url.path[:200],
+            extra_fields[:20],
+            getattr(request.state, "request_id", None),
+        )
     return JSONResponse(
         status_code=422,
         content={"detail": jsonable_encoder(sanitized_errors)},

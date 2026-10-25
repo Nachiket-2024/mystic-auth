@@ -1,62 +1,25 @@
-# ngrok 3.39.11 is the newest official agent image available for the pinned
-# digest. It embeds Go 1.26.5 and these vendored Go dependencies; they cannot
-# be patched independently of ngrok's binary. Recheck this exception by
-# 2026-11-14 and remove it as soon as ngrok publishes a refreshed agent.
+# ngrok 3.39.12 is the newest official agent image available on 2026-10-23.
+# Its statically linked binary still embeds these six HIGH Go-module CVEs.
+# The project cannot patch vendor-built modules independently. These narrowly
+# scoped exceptions let the local-prod tunnel image pass CI while keeping the
+# residual exposure visible and time-bounded; remove them as soon as ngrok
+# publishes a rebuilt agent. Recheck by 2026-11-14.
 vulnerabilities:
   - id: CVE-2026-50274
     expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected Datadog module; waiting for a vendor rebuild.
-  - id: CVE-2026-56854
+    statement: ngrok 3.39.12 embeds the affected Datadog module; waiting for a vendor rebuild.
+  - id: CVE-2026-63209
     expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected Go dependency; waiting for a vendor rebuild.
-  - id: CVE-2026-56864
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected Go dependency; waiting for a vendor rebuild.
-  - id: CVE-2026-56865
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected Go dependency; waiting for a vendor rebuild.
+    statement: ngrok 3.39.12 embeds the affected compression module; waiting for a vendor rebuild.
   - id: CVE-2026-78669
     expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected Go dependency; waiting for a vendor rebuild.
-  - id: CVE-2026-56852
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected Go dependency; waiting for a vendor rebuild.
+    statement: ngrok 3.39.12 embeds the affected golang.org/x/net module; waiting for a vendor rebuild.
   - id: CVE-2026-84304
     expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected gRPC module; waiting for a vendor rebuild.
+    statement: ngrok 3.39.12 embeds the affected gRPC module; waiting for a vendor rebuild.
   - id: CVE-2026-84445
     expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected gRPC module; waiting for a vendor rebuild.
+    statement: ngrok 3.39.12 embeds the affected gRPC module; waiting for a vendor rebuild.
   - id: GHSA-hrxh-6v49-42gf
     expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds the affected gRPC module; waiting for a vendor rebuild.
-  - id: CVE-2026-33818
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-39821
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-46600
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-56853
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-56858
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-56859
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-56860
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-56862
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-78667
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
-  - id: CVE-2026-97031
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.11 embeds Go 1.26.5; waiting for a vendor rebuild.
+    statement: ngrok 3.39.12 embeds the affected gRPC module; waiting for a vendor rebuild.

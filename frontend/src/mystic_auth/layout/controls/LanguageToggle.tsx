@@ -11,6 +11,7 @@ import {
 import translations from "../../translations/translations";
 import { buttonVariants } from "../../ui/buttons/button-variants";
 import { cn } from "../../ui/styles/classNames";
+import { cspNonce } from "../../core/cspNonce.ts";
 
 /**
  * Language switch, backed by store/languageStore.ts. A plain click-to-open
@@ -96,7 +97,7 @@ const LanguageToggle: React.FC = () => {
                         from, so it needs to size from its longest option
                         instead or every label wraps one character per
                         line. */}
-                    <SelectPrimitive.Viewport className="dropdown-scroll-area max-h-80 overflow-y-auto p-1 min-w-max">
+                    <SelectPrimitive.Viewport nonce={cspNonce} className="dropdown-scroll-area max-h-80 overflow-y-auto p-1 min-w-max">
                         {options.map((option) => (
                             <SelectPrimitive.Item
                                 key={option.value}

@@ -117,7 +117,7 @@ This wasn't chosen because it's the only "correct" architecture. It was chosen b
 
 ## The tools that built it
 
-Two very different workflows built this project: a manual ChatGPT + VSCode loop for most of it, then an agentic coding loop with Claude Code from July 2026 on and Codex joining from the commit of 28 July, 2026 (Yeah, I hit my Claude Code weekly limit) for a few days until I exhausted my free Codex credits. The workflow details and diagram live in [The Tools That Built It](tools.md).
+Two very different workflows built this project: a manual ChatGPT + VSCode loop for most of it, then an agentic coding loop with Claude Code from July 2026 on and Codex joining from the commit of 28 July, 2026 (Yeah, I hit my Claude Code weekly limit), and I now use both. The workflow details and diagram live in [The Tools That Built It](tools.md).
 
 ---
 

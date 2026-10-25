@@ -60,6 +60,11 @@ def register_extensions() -> None:
 
 `backend/app/main.py` calls `register_extensions()` during startup. The
 registration updates both write-time validation and runtime evaluation.
+Registration is additive and a key can only be registered once per process, so
+import your app modules under one prefix throughout your tests (`backend.app...`
+for native runs, `app...` inside the container). Importing `app.main` and
+`backend.app.main` in the same process loads the module twice and fails with
+`condition key is already registered`.
 The handler must be synchronous, cheap, and fail closed. The app's route and
 policy UI can use the new key without any MysticAuth file changes.
 

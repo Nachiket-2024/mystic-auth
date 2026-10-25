@@ -270,7 +270,7 @@ export function PermissionGroup({
   locked: boolean;
   lockText?: string;
 }) {
-  const { t } = useTranslation("users");
+  const { t } = useTranslation(["users", "policies"]);
   const open = !state.permClosedGroups.has(group) || !!state.permQuery;
   const granted = items.filter((entry) =>
     state.isAlreadyEffectivelyGranted(
@@ -286,7 +286,7 @@ export function PermissionGroup({
         type="button"
         className="sticky top-0 z-30 flex w-full items-center gap-3 min-h-11 px-3 py-2.5 border border-border-default rounded-t-lg bg-bg-table-header text-left focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-2"
         aria-expanded={open}
-        aria-label={`${open ? t("accessDialog.collapseGroup") : t("accessDialog.expandGroup")}: ${formatResourceTypeLabel(group)}`}
+        aria-label={`${open ? t("accessDialog.collapseGroup") : t("accessDialog.expandGroup")}: ${formatResourceTypeLabel(group, t("policies:page.allResourceTypes"))}`}
         onClick={() => state.togglePermGroup(group)}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -301,7 +301,7 @@ export function PermissionGroup({
             aria-hidden="true"
           />
           <span className="text-sm leading-5 font-medium">
-            {formatResourceTypeLabel(group)}
+            {formatResourceTypeLabel(group, t("policies:page.allResourceTypes"))}
           </span>
         </span>
         <span className="text-sm leading-5 text-fg-muted">

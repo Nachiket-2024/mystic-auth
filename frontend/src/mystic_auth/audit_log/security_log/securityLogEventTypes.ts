@@ -19,6 +19,7 @@ export const SECURITY_EVENT_TYPES = [
     "account_verification_requested",
     "account_verified",
     "account_locked",
+    "login_ip_locked",
     "refresh_token_reuse_detected",
     "account_deleted",
     "account_purged",
@@ -42,7 +43,7 @@ export function humanizeSecurityEventType(value: string): string {
  * .project/audit-log-design-review.md called for. Order here is the order groups render in.
  */
 export const SECURITY_EVENT_TYPE_GROUPS: Record<string, readonly (typeof SECURITY_EVENT_TYPES)[number][]> = {
-    signIn: ["login", "oauth2_login_success", "refresh_token_reuse_detected"],
+    signIn: ["login", "oauth2_login_success", "login_ip_locked", "refresh_token_reuse_detected"],
     sessions: ["logout", "logout_all", "session_revoked"],
     account: ["signup", "account_verification_requested", "account_verified", "account_locked", "account_deleted", "account_purged", "account_reactivated"],
     password: ["password_reset_requested", "password_reset_confirmed"],

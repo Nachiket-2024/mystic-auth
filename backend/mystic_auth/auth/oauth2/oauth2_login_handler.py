@@ -4,8 +4,9 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...audit_log.audit_log_service import OAUTH2_LOGIN_SUCCESS, log_security_event
+from ...audit_log.audit_log_service import OAUTH2_LOGIN_SUCCESS, OAUTH2_STATE_MISMATCH, log_security_event
 from ...core.settings import settings
+from ...error_monitoring.sentry_service import capture_security_alert
 from ...logging.logging_config import get_logger
 from ..token_logic.token_cookie_handler import token_cookie_handler
 from ..token_logic.token_schema import TokenPairResponseSchema
@@ -19,6 +20,25 @@ class OAuth2LoginHandler:
 
     def __init__(self):
         self.oauth2_service = oauth2_service
+
+    @staticmethod
+    async def _log_state_rejection(db: AsyncSession | None, request: Request | None, reason: str) -> None:
+        """Audit-logs and alerts on an OAuth2 callback rejected before any
+        account identity is known (state/cookie mismatch or an
+        invalid/expired state). user_email is always None here - unlike
+        OAUTH2_LOGIN_SUCCESS/success=False, which fires only once a real
+        target email exists. Previously this was only a WARNING-level
+        application log line (see the 2026-10-21 audit's F-007):
+        invisible in both the audit-log UI and Bugsink, so a burst of these
+        from one IP (state-replay/CSRF probing) had no queryable record."""
+        try:
+            await log_security_event(
+                OAUTH2_STATE_MISMATCH, db, user_email=None, success=False, request=request,
+                metadata={"reason": reason},
+            )
+            await capture_security_alert(OAUTH2_STATE_MISMATCH, metadata={"reason": reason})
+        except Exception:
+            logger.warning("Failed to log OAuth2 state rejection:\n%s", traceback.format_exc())
 
     @staticmethod
     def _redirect_to_login_clearing_state(error_code: str | None = None) -> RedirectResponse:
@@ -103,11 +123,13 @@ class OAuth2LoginHandler:
 
             if not state or not oauth_state_cookie or state != oauth_state_cookie:
                 logger.warning("OAuth2 callback rejected: state/cookie mismatch")
+                await self._log_state_rejection(db, request, "state/cookie mismatch")
                 return self._redirect_to_login_clearing_state("OAUTH_STATE_INVALID")
 
             code_verifier = await self.oauth2_service.consume_state(state)
             if not code_verifier:
                 logger.warning("OAuth2 callback rejected: invalid or expired state")
+                await self._log_state_rejection(db, request, "invalid or expired state")
                 return self._redirect_to_login_clearing_state("OAUTH_STATE_INVALID")
 
             redirect_uri = settings.GOOGLE_REDIRECT_URI

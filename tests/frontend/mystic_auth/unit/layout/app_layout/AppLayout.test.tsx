@@ -93,7 +93,7 @@ describe('AppLayout', () => {
     });
 
     expect(screen.getByRole('button', { name: 'App notifications' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Open search/ }));
+    await user.click(screen.getByRole('button', { name: /Search/ }));
     expect(openPalette).toHaveBeenCalledOnce();
   });
 });

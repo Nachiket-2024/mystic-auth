@@ -94,13 +94,12 @@ glue. A 70% gate would allow too much untested product behavior to regress.
 
 ### App wrapper
 
-`tests/backend/app/` contains one unit module,
-the five modules under `tests/backend/app/`. They verify safe 500 responses,
+`tests/backend/app/` contains five unit modules. They verify safe 500 responses,
 settings and SDK boundaries, and application lifecycle signal handling.
 
 ### Unit tests
 
-`tests/backend/mystic_auth/unit/` contains 115 modules. Its subdirectories
+`tests/backend/mystic_auth/unit/` contains 120 modules. Its subdirectories
 mirror the backend implementation and cover authentication, authorization and
 PBAC, condition validation, rate limits, middleware, logging, email tasks,
 users, sessions, deletion/purge, database and Valkey helpers, and settings.
@@ -109,7 +108,7 @@ file.
 
 ### Integration tests
 
-`tests/backend/mystic_auth/integration/` contains 48 modules. They exercise
+`tests/backend/mystic_auth/integration/` contains 52 modules. They exercise
 audit logs, policy CRUD and assignment, authorization checks, auth flows,
 health, OAuth, sessions, rate limits, user export and lifecycle, and cache
 behavior against real test infrastructure. See [Backend Integration
@@ -217,7 +216,7 @@ pages. These protect the host application boundary.
 
 ### Unit tests
 
-`tests/frontend/mystic_auth/unit/` contains 102 modules for API clients,
+`tests/frontend/mystic_auth/unit/` contains 109 modules for API clients,
 refresh and session lifecycle, authorization helpers, audit presentation,
 password rules, stores, theme, shared UI, error reporting, translation parity,
 and mobile overflow. See [Frontend Unit Tests](frontend-unit.md).
@@ -232,7 +231,7 @@ authorization. See [Frontend Integration Tests](frontend-integration.md).
 
 ### Browser E2E tests
 
-The 27 Playwright specs under `tests/frontend/**/e2e/` add real browser
+The 28 Playwright specs under `tests/frontend/**/e2e/` add real browser
 navigation, focus, keyboard, responsive, accessibility, disposable-account,
 real seeded-account, and opt-in live-deployment checks. See [Frontend Browser
 E2E Tests](frontend-e2e.md).

@@ -3,11 +3,9 @@ import api from "./axiosInstance";
 export interface RateLimitEntry {
     key: string;
     endpoint: string;
-    // "email" is login_protection_service's login_lock:email:{email}
-    // counter - the actual per-account login brute-force lockout, distinct
-    // from rate_limiter_service's own "account" scope (see
-    // rate_limiter_service.list_active_limits).
-    scope: "ip" | "account" | "email";
+    // account_ip is login_protection_service's hashed account/source-IP
+    // failure counter, distinct from the generic "account" request limit.
+    scope: "ip" | "account" | "email" | "account_ip";
     identifier: string;
     count: number;
     limit: number;
@@ -34,7 +32,7 @@ export interface RateLimitSummary {
 
 export interface ListRateLimitsParams {
     page?: number;
-    scope?: "ip" | "account" | "email";
+    scope?: "ip" | "account" | "email" | "account_ip";
     endpoint?: string;
     identifier?: string;
     pageSize?: number;

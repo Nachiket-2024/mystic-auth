@@ -148,18 +148,25 @@ events:
 - `refresh_token_reuse_detected`: a refresh token was presented again outside
   the normal duplicate-request grace period or from a different client IP. The token chain is revoked when
   possible, and the event records whether revocation was confirmed.
+- `refresh_token_context_changed`: a successful refresh used a different IP
+  address or User-Agent from the session's previously recorded context. This
+  can be a normal network or browser change, so treat it as a review signal,
+  not proof of theft. Event metadata contains only `ip_changed` and
+  `user_agent_changed`; the audit row's standard IP/User-Agent columns are
+  removed by the normal retention job.
 - `session_event_connection_limit_exceeded`: an account or client IP reached
   the maximum number of live session-event (SSE) connections.
-- `account_locked`: a login failure crossed either the per-account or
-  per-source-IP lockout threshold. The application emits one alert when the
-  threshold is crossed; repeated requests while the account/IP is already
-  locked are recorded in the durable audit log but do not generate an alert
-  storm. Metadata identifies the lock scope, target email, source IP, and
+- `login_ip_locked`: failed logins for one normalized account/source-IP pair
+  crossed its lockout threshold. The application emits one alert when the
+  threshold is crossed; repeated requests while that pair is locked are
+  recorded in the durable audit log but do not generate an alert storm.
+  Metadata identifies the `account_ip` scope, attempted email, source IP, and
   correlation request ID, never a password or token.
 
 These are not ordinary individual login failures or routine `403`/`404`
-responses. They can indicate token theft, credential spraying, deliberate
-account lockout, abuse, or a broken client opening streams repeatedly.
+responses. They can indicate token theft, an unusual session-context change,
+credential spraying, deliberate login throttling, abuse, or a broken client
+opening streams repeatedly.
 
 ### What to put in the environment file
 
@@ -286,7 +293,7 @@ The backend attaches the caller's email (read from their `access_token` cookie, 
 - **Traces are 0% sampled** (`traces_sample_rate: 0` / `tracesSampleRate: 0`): this integration is error capture only, not performance monitoring/tracing. No request-body/timing data is sent beyond what an actual captured exception includes.
 - **`SECRET_KEY` vs. `BUGSINK_SECRET_KEY`**: these are two unrelated secrets for two unrelated purposes (this app's JWT signing key vs. Bugsink's own Django secret key): never reuse one for the other.
 - **A typo'd `SENTRY_DSN` can't take the app down.** `init_sentry()` runs at import time, before the app itself really exists: it deliberately catches any failure from `sentry_sdk.init()` (verified directly: a malformed DSN string does raise from the SDK) and logs a warning instead of letting it propagate, so a mistake in this one *optional* setting degrades to "monitoring is off" rather than "nothing works." See [Security Decisions](../security/decisions-infra.md#a-malformed-sentry_dsn-must-never-crash-the-app).
-- **Configure a notification rule for `security_event`, or use the direct webhook.** Refresh-token replay and SSE-cap violations are written to the database audit log and emitted as tagged error events to the configured Bugsink/Sentry endpoint. `SECURITY_ALERT_WEBHOOK_URL` can additionally deliver a metadata-only JSON event directly to an internal incident gateway; `SECURITY_ALERT_WEBHOOK_TOKEN` supplies bearer authentication. Production operators must configure and test at least one notification integration. The application deliberately does not send security data by email or include tokens in the event.
+- **Configure a notification rule for `security_event`, or use the direct webhook.** Refresh-token replay, refresh-context changes, login lockouts, and SSE-cap violations are written to the database audit log and emitted as tagged error events to the configured Bugsink/Sentry endpoint. `SECURITY_ALERT_WEBHOOK_URL` can additionally deliver a metadata-only JSON event directly to an internal incident gateway; `SECURITY_ALERT_WEBHOOK_TOKEN` supplies bearer authentication. Production startup requires `SECURITY_ALERT_WEBHOOK_URL`; configure and test the incident gateway before deployment. The application deliberately does not send security data by email or include tokens in the event.
 
 ---
 

@@ -51,8 +51,8 @@ for the Compose side of this.
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart LR
-    MA["env/mystic_auth/.env.dev or .env.<mode>\nupstream-owned"]
-    APP["env/app/.env.dev or .env.<mode>\nyours, app-owned settings"]
+    MA["env/mystic_auth/.env.dev or .env.{mode}\nupstream-owned"]
+    APP["env/app/.env.dev or .env.{mode}\nyours, app-owned settings"]
     SVC["Compose service\nenv_file: [MA, APP]"]
     MA --> SVC
     APP --> SVC

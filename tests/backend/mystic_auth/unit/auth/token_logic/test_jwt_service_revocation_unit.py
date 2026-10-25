@@ -12,6 +12,12 @@ import jwt as pyjwt
 import pytest
 
 from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
+from backend.mystic_auth.auth.token_logic.token_revocation_keys import (
+    account_version_key,
+    chain_version_key,
+    legacy_account_version_key,
+    legacy_chain_version_key,
+)
 from backend.mystic_auth.auth.token_logic.token_version_store import token_version_store
 from backend.mystic_auth.core.settings import settings
 
@@ -55,7 +61,7 @@ async def test_bump_account_version_increments_the_key(mocker):
 
     await jwt_service.bump_account_version("user@example.com")
 
-    bump_mock.assert_awaited_once_with("account_ver:user@example.com")
+    bump_mock.assert_awaited_once_with(account_version_key("user@example.com"), legacy_account_version_key("user@example.com"))
 
 
 @pytest.mark.asyncio
@@ -64,7 +70,7 @@ async def test_bump_chain_version_increments_and_sets_a_ttl(mocker):
 
     await jwt_service.bump_chain_version("user@example.com", "chain-1")
 
-    bump_mock.assert_awaited_once_with("chain_ver:user@example.com:chain-1")
+    bump_mock.assert_awaited_once_with(chain_version_key("user@example.com", "chain-1"), legacy_chain_version_key("user@example.com", "chain-1"))
     # TTL'd to the refresh-token lifetime: nothing could still be validly
     # using this chain_id after that elapses anyway, so the key can
     # safely expire instead of accumulating one per revoked session
@@ -118,20 +124,22 @@ async def test_verify_token_rejects_a_token_whose_chain_version_is_stale(mocker)
 
 
 @pytest.mark.asyncio
-async def test_verify_token_accepts_a_token_with_no_account_or_chain_claims(mocker):
-    """A token minted before this feature shipped (or any token type that
-    never carried these claims, e.g. password reset tokens) must not be
-    rejected just because there's nothing to compare: same reasoning as
-    the jti-less early return in is_token_revoked_by_jti."""
+async def test_verify_token_rejects_versionless_access_token(mocker):
+    """Access tokens without revocation snapshots cannot survive logout-all."""
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
 
     untyped_token = pyjwt.encode(
-        {"email": "user@example.com", "type": "access"}, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        {
+            "email": "user@example.com", "type": "access", "jti": "legacy-jti", "chain": "legacy-chain",
+            "iss": settings.JWT_ISSUER, "aud": settings.JWT_AUDIENCE, "exp": 4_000_000_000,
+        },
+        settings.SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
     )
 
     payload = await jwt_service.verify_token(untyped_token, expected_type="access")
 
-    assert payload is not None
+    assert payload is None
 
 
 @pytest.mark.asyncio
@@ -146,19 +154,20 @@ async def test_create_access_token_embeds_issuer_and_audience(mocker):
 
 
 @pytest.mark.asyncio
-async def test_verify_token_accepts_a_token_with_no_issuer_or_audience_claims(mocker):
-    """A token minted before JWT_ISSUER/JWT_AUDIENCE existed (or any token
-    type that never carried these claims, e.g. password reset tokens)
-    must not be rejected just because there's nothing to compare: same
-    reasoning as the account_ver/chain_ver-less token accepted above."""
-    _mock_no_versions(mocker)
+async def test_verify_token_rejects_a_token_with_no_issuer_or_audience_claims(mocker):
+    """App credentials must identify the issuing deployment and consumer."""
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
 
     token = pyjwt.encode(
-        {"email": "user@example.com", "type": "access"}, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+        {
+            "email": "user@example.com", "type": "access", "jti": "legacy-jti", "chain": "legacy-chain",
+            "account_ver": 0, "chain_ver": 0, "exp": 4_000_000_000,
+        },
+        settings.SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
     )
 
-    assert await jwt_service.verify_token(token, expected_type="access") is not None
+    assert await jwt_service.verify_token(token, expected_type="access") is None
 
 
 @pytest.mark.asyncio
@@ -167,7 +176,11 @@ async def test_verify_token_rejects_a_token_with_the_wrong_issuer(mocker):
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
 
     token = pyjwt.encode(
-        {"email": "user@example.com", "type": "access", "iss": "https://some-other-deployment.example"},
+        {
+            "email": "user@example.com", "type": "access", "jti": "jti-1", "chain": "chain-1",
+            "account_ver": 0, "chain_ver": 0, "aud": settings.JWT_AUDIENCE,
+            "iss": "https://some-other-deployment.example", "exp": 4_000_000_000,
+        },
         settings.SECRET_KEY,
         algorithm=settings.JWT_ALGORITHM,
     )
@@ -181,7 +194,11 @@ async def test_verify_token_rejects_a_token_with_the_wrong_audience(mocker):
     mocker.patch(f"{MODULE}.JWTService.is_token_revoked_by_jti", new_callable=AsyncMock, return_value=False)
 
     token = pyjwt.encode(
-        {"email": "user@example.com", "type": "access", "aud": "https://some-other-consumer.example"},
+        {
+            "email": "user@example.com", "type": "access", "jti": "jti-1", "chain": "chain-1",
+            "account_ver": 0, "chain_ver": 0, "iss": settings.JWT_ISSUER,
+            "aud": "https://some-other-consumer.example", "exp": 4_000_000_000,
+        },
         settings.SECRET_KEY,
         algorithm=settings.JWT_ALGORITHM,
     )

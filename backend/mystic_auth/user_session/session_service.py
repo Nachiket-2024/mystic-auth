@@ -4,9 +4,11 @@ from datetime import UTC, datetime
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..audit_log.audit_log_service import REFRESH_TOKEN_CONTEXT_CHANGED, log_security_event
 from ..auth.security.client_ip import get_client_ip
 from ..auth.token_logic.jwt_service import jwt_service
 from ..auth.token_logic.token_version_store import TokenVersionUnavailableError
+from ..error_monitoring.sentry_service import capture_security_alert
 from ..logging.logging_config import get_logger
 from ..user.user_crud_collector import user_crud
 from .session_events import publish_session_created, publish_session_revoked
@@ -92,8 +94,52 @@ class SessionService:
                     await session_repository.create(
                         db, user.id, new_jti, chain_id, _to_datetime(new_exp), user_agent, ip_address, city, country
                     )
+            elif rotated is not None:
+                # rotate() never touches ip_address/user_agent, so `rotated`
+                # still carries whatever this session chain's *previous*
+                # redemption (or original login) recorded - exactly the
+                # "prior" state to compare this redemption's real context
+                # against. A clean (non-reuse) token theft and first use
+                # otherwise leaves zero signal anywhere: the rotation itself
+                # looks like an ordinary, successful refresh. This is the one
+                # concrete artifact that redemption leaves - not proof of
+                # theft by itself (a legitimate user switching networks or
+                # devices triggers it too), but worth a durable, queryable
+                # record and a low-urgency alert rather than silence.
+                await SessionService._log_if_context_changed(db, rotated, email, request)
         except Exception:
             logger.warning("Failed to rotate session jti:\n%s", traceback.format_exc())
+
+    @staticmethod
+    async def _log_if_context_changed(
+        db: AsyncSession, prior_session: UserSession, email: str | None, request: Request | None
+    ) -> None:
+        if not email:
+            return
+        try:
+            current_ip = get_client_ip(request) if request is not None else None
+            current_user_agent = request.headers.get("user-agent") if request is not None else None
+
+            ip_changed = bool(prior_session.ip_address) and bool(current_ip) and prior_session.ip_address != current_ip
+            ua_changed = (
+                bool(prior_session.user_agent)
+                and bool(current_user_agent)
+                and prior_session.user_agent != current_user_agent
+            )
+            if not (ip_changed or ua_changed):
+                return
+
+            metadata = {
+                "ip_changed": ip_changed,
+                "user_agent_changed": ua_changed,
+            }
+            await log_security_event(
+                REFRESH_TOKEN_CONTEXT_CHANGED, db, user_email=email, success=True, request=request,
+                metadata=metadata,
+            )
+            await capture_security_alert(REFRESH_TOKEN_CONTEXT_CHANGED, metadata=metadata)
+        except Exception:
+            logger.warning("Failed to check refresh redemption context change:\n%s", traceback.format_exc())
 
     @staticmethod
     async def revoke_session_on_logout(db: AsyncSession | None, jti: str | None, email: str | None) -> bool:

@@ -12,7 +12,7 @@ import { formatPolicyActionLabel, formatResourceTypeLabel } from "../../policies
 // matches an allowlisted sortable column (see
 // authorization/repositories/authorization_audit_log_repository.py's _SORTABLE_COLUMNS).
 // A function, not a plain constant, so headers/badge text can use the caller's own `t`.
-export function getAuthorizationColumns(t: TFunction<"audit_log">, language: SupportedLanguage): DataTableColumn<AuthorizationAuditLogEntryRead>[] {
+export function getAuthorizationColumns(t: TFunction<["audit_log", "policies"]>, language: SupportedLanguage): DataTableColumn<AuthorizationAuditLogEntryRead>[] {
     return [
         // See ActiveSessionsCard's matching date column for why this is wider than a plain
         // ellipsis-truncated text column - fits the longest formatTimestamp output (mr's
@@ -37,7 +37,7 @@ export function getAuthorizationColumns(t: TFunction<"audit_log">, language: Sup
             // only ever meaningful alongside resource_type, never sorted/filtered on its own.
             render: (e) => (
                 <div className="flex flex-col leading-tight">
-                    <span>{formatResourceTypeLabel(e.resource_type)}</span>
+                    <span>{formatResourceTypeLabel(e.resource_type, t("policies:page.allResourceTypes"))}</span>
                     {e.resource_identifier && (
                         <span className="text-xs text-fg-muted truncate">{e.resource_identifier}</span>
                     )}

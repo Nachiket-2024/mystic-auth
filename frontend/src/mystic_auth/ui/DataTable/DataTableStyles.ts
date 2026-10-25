@@ -9,7 +9,7 @@ export function plainTextOf(node: React.ReactNode): string | undefined {
 }
 
 // The scroll-shadow gradients and custom scrollbar colors live in
-// theme/tailwind.css's .data-table-scroll-area class: ::-webkit-scrollbar
+// theme/application.css's .data-table-scroll-area class: ::-webkit-scrollbar
 // and stacked multi-attachment backgrounds have no Tailwind utility
 // equivalent, so this needs a real CSS class rather than inline classes.
 export const SCROLL_AREA_CLASS = "data-table-scroll-area";

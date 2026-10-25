@@ -68,7 +68,8 @@ const TimeRangeControl: React.FC<TimeRangeControlProps> = ({ value, onChange, cl
                 <PopoverTrigger asChild>
                     <button
                         type="button"
-                        aria-label={t("shared.timeRange.ariaLabel")}
+                        // Purpose plus the visible range (WCAG 2.5.3 Label in Name).
+                        aria-label={`${t("shared.timeRange.ariaLabel")}: ${rangeLabel}`}
                         className={cn(
                             "flex min-w-0 items-center gap-2 rounded-[var(--radius-control)] border h-9 px-3 text-sm overflow-hidden transition-colors outline-none focus-visible:border-brand-solid focus-visible:ring-[1px] focus-visible:ring-brand-solid cursor-pointer",
                             isActive

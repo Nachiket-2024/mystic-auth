@@ -43,7 +43,7 @@ interface AccessResourceCardsProps {
  * their Effective/Direct permissions sections.
  */
 const AccessResourceCards: React.FC<AccessResourceCardsProps> = ({ items, emptyText }) => {
-    const { t } = useTranslation("permissions");
+    const { t } = useTranslation(["permissions", "policies"]);
     // Tracks manually-collapsed groups rather than expanded ones, so the
     // default (nothing in the set) is "everything expanded" without needing
     // to know the resource types up front.
@@ -124,7 +124,7 @@ const AccessResourceCards: React.FC<AccessResourceCardsProps> = ({ items, emptyT
                                     aria-hidden="true"
                                     style={{ transform: isExpanded ? "rotate(90deg)" : undefined, transition: "transform var(--duration-hover)" }}
                                 />
-                                <p title={resourceType}>{formatResourceTypeLabel(resourceType)}</p>
+                                <p title={resourceType}>{formatResourceTypeLabel(resourceType, t("permissions:page.allResourceTypes"))}</p>
                             </div>
                             <p className="text-fg-muted">
                                 {t("permissions:page.actionCount", { count: grants.length })}
