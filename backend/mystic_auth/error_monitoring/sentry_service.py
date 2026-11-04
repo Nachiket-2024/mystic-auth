@@ -5,13 +5,13 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
-import httpx
 import sentry_sdk
 from fastapi import Request
 
 from ..auth.token_logic.jwt_service import jwt_service
 from ..core.settings import settings
 from ..logging.logging_config import get_startup_logger
+from .security_alert_delivery import send_alert, should_send, warn_if_alert_destination_unusable
 
 # Whether error monitoring is enabled is boot-relevant, so it goes to
 # docker compose logs directly, unlike get_logger()'s routine file-only
@@ -41,6 +41,8 @@ def init_sentry() -> None:
     known BadDsn case, since any init-time failure here should degrade the
     same way: monitoring off, app starts regardless.
     """
+    warn_if_alert_destination_unusable()
+
     if not settings.SENTRY_DSN:
         startup_logger.info("SENTRY_DSN not set : error monitoring disabled.")
         return
@@ -151,6 +153,27 @@ async def capture_exception(exc: Exception, request: Request | None = None) -> N
     sentry_sdk.capture_exception(exc)
 
 
+async def _deliver_webhook(event_type: str, payload: dict) -> None:
+    """Queue the alert for the background worker, which retries with backoff.
+    If it cannot even be queued (database down), try once inline with the
+    short timeout so the alert is not silently lost."""
+    try:
+        from ..procrastinate_tasks.alert_tasks import deliver_security_alert_task
+
+        await deliver_security_alert_task.defer_async(event_type=event_type, payload=payload)
+        return
+    except Exception:
+        startup_logger.warning("Could not queue security alert %s; sending inline", event_type, exc_info=True)
+    try:
+        await send_alert(event_type, payload)
+    except Exception:
+        startup_logger.critical(
+            "Security alert webhook failed for %s; inspect the durable audit event and webhook health",
+            event_type,
+            exc_info=True,
+        )
+
+
 async def capture_security_alert(
     event_type: str, metadata: Mapping[str, str | bool | int] | None = None
 ) -> None:
@@ -171,20 +194,8 @@ async def capture_security_alert(
         "metadata": metadata or {},
     }
 
-    if settings.SECURITY_ALERT_WEBHOOK_URL:
-        headers = {"content-type": "application/json"}
-        if settings.SECURITY_ALERT_WEBHOOK_TOKEN:
-            headers["authorization"] = f"Bearer {settings.SECURITY_ALERT_WEBHOOK_TOKEN}"
-        try:
-            async with httpx.AsyncClient(timeout=settings.SECURITY_ALERT_WEBHOOK_TIMEOUT_SECONDS) as client:
-                response = await client.post(settings.SECURITY_ALERT_WEBHOOK_URL, json=payload, headers=headers)
-                response.raise_for_status()
-        except Exception:
-            startup_logger.critical(
-                "Security alert webhook failed for %s; inspect the durable audit event and webhook health",
-                event_type,
-                exc_info=True,
-            )
+    if settings.SECURITY_ALERT_WEBHOOK_URL and await should_send(event_type, metadata):
+        await _deliver_webhook(event_type, payload)
 
     try:
         with sentry_sdk.new_scope() as scope:

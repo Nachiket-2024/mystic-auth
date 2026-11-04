@@ -29,7 +29,7 @@ class PolicyHistoryCompareResponse(BaseModel):
     to_history_id: int
     # Full definition snapshot at each entry : a "deleted" entry has no
     # new_definition, so it still needs to resolve to a comparable snapshot
-    # (see policy_history_routes.py's _definition_for_entry).
+    # (see policy_history_service.py's definition_for_entry).
     from_definition: dict | None
     to_definition: dict | None
     changed_fields: list[str]

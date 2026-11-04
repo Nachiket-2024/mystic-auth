@@ -3,22 +3,18 @@ $ErrorActionPreference = "Stop"
 
 # PowerShell/cmd entry point for sync-upstream.sh.
 #
-# This does NOT reimplement sync-upstream.sh's logic natively. That script is
-# dense git plumbing (incremental 3-way apply, a silent-partial-apply guard,
-# an executable-bit self-heal, static alembic-head parsing) with its own
-# regression suite (test-sync-upstream.sh) that exercises the entry point and
-# its sibling stages without touching repo history. This class of script is easy
-# to get subtly wrong. A second,
-# independently-written implementation would mean two copies of that logic to
-# keep in sync forever, with no shared test coverage between them - the
-# wrong tradeoff for a script whose entire job is safety nets.
+# This does not reimplement sync-upstream.sh. That script is dense git plumbing
+# (incremental 3-way apply, a partial-apply guard, an executable-bit self-heal,
+# static alembic-head parsing) with its own regression suite
+# (test-sync-upstream.sh). A second implementation would mean two copies of that
+# logic with no shared test coverage.
 #
 # Instead, this locates the Git Bash that already ships with Git for Windows
 # (the same `git` install this script needs regardless of shell) and runs
 # the real, already-tested sync-upstream.sh through it. One command, no
 # manual "open Git Bash first" step, and zero duplicated logic.
 #
-# Usage: .\scripts\mystic_auth\upstream-sync\sync-upstream.ps1 [upstream-url]
+# Usage: .\scripts\mystic_auth\upstream-sync\sync-upstream.ps1 [--commit | --abort] [upstream-url]
 
 $RepoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 Set-Location $RepoRoot

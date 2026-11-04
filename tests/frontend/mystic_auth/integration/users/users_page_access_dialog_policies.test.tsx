@@ -10,9 +10,7 @@ import { mock, seed, renderPage, SAMPLE_USERS } from "./userAccessDialogTestSupp
 // of a whole policy, with Undo. Per-action revoke and the
 // already-covered-so-disabled case live in
 // users_page_access_dialog_policy_actions.test.tsx; Details/keyboard-nav and
-// Permissions-tab coverage live in their own sibling files too - split out
-// of one 715-line file to keep each under the repo's ~350-line target, see
-// AGENTS.md.
+// Permissions-tab coverage live in their own sibling files too.
 
 describe("UsersPage access dialog: policies tab", () => {
   beforeEach(() => {

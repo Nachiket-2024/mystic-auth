@@ -20,7 +20,7 @@ interface GlossaryHelpProps {
  * lookup for jargon used in that page's table (Role, Policy, Permission,
  * Verified, ...) - one click away and otherwise out of the way, not a
  * legend someone has to read before the page makes sense
- * (design/users.html's help-wrap/help-pop).
+ *.
  */
 export default function GlossaryHelp({ items, ariaLabel }: GlossaryHelpProps) {
     return (

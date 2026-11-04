@@ -16,6 +16,20 @@ Read [Using This Repository as a Template](overview.md) first if you have not
 chosen an ownership split yet. Work through the sections that apply to the
 features and deployment mode you will actually use.
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    S1["1. Create and customize"] --> S2["2. Product and legal review"]
+    S2 --> S3["3. Real integrations\n(SMTP, OAuth, Bugsink)"]
+    S3 --> S4["4. Prepare the VPS"]
+    S4 --> S5["5. Recovery and operations\n(B2, restore drill, monitoring)"]
+    S5 --> S6["6. Final acceptance pass"]
+
+    class S6 terminal
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ---
 
 ## 1. Create and customize the project
@@ -139,7 +153,7 @@ for the exact settings the template currently supports.
 
 - Create a Backblaze B2 bucket and a bucket-scoped application key, then set
   `B2_BUCKET`, `RCLONE_CONFIG_B2_ACCOUNT`, `RCLONE_CONFIG_B2_KEY`, and
-  `BACKUP_UPLOAD_COMMAND` as documented in [Migrations and Backups](../deployment/migrations-and-backups.md#backblaze-b2-off-host-copies).
+  `BACKUP_UPLOAD_COMMAND` as documented in [Database Backups](../deployment/database-backups.md#backblaze-b2-off-host-copies).
   Local `./backups` files alone do not protect against host or disk loss.
 - Run `make restore-drill`, confirm a dump appears in B2, download that exact
   object, and restore it into a disposable database. Confirm dump, verification,

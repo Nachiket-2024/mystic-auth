@@ -5,7 +5,7 @@ import { Separator } from "../ui/shadcn/separator";
 import { cn } from "../ui/styles/classNames";
 
 // shadcn Skeleton's default fill is the same as Card's own background in
-// dark mode (see theme/system.ts), so it's invisible even mid-pulse.
+// dark mode (see theme/tailwind-tokens.css), so it's invisible even mid-pulse.
 // "bg-bg-muted" reads as a visibly distinct block in both modes.
 const SKELETON_CLASSNAME = "bg-bg-muted";
 

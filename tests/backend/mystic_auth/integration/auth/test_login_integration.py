@@ -13,6 +13,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
     account_verification_service,
 )
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 from .auth_test_accounts import PASSWORD, signup_verify_login, unique_email
 
@@ -71,7 +72,7 @@ async def test_verification_token_is_single_use(client, created_emails):
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
 
     first = await client.post("/auth/verify-account", json={"token": token})
     second = await client.post("/auth/verify-account", json={"token": token})
@@ -90,7 +91,7 @@ async def test_verify_account_no_longer_accepts_get_with_token_in_query_string(c
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
 
     get_resp = await client.get("/auth/verify-account", params={"token": token})
     assert get_resp.status_code == 405
@@ -128,7 +129,7 @@ async def test_signup_duplicate_email_does_not_create_second_user(client, create
     # made (the original account's password is still the only valid one).
     assert dup_resp.status_code == 200
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     await client.post("/auth/verify-account", json={"token": token})
     login_resp = await client.post("/auth/login", json={"email": email, "password": PASSWORD})
     assert login_resp.status_code == 200
@@ -153,7 +154,7 @@ async def test_signup_duplicate_email_rejected_with_different_casing(client, cre
     # the original account's password.
     assert dup_resp.status_code == 200
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     await client.post("/auth/verify-account", json={"token": token})
 
     login_resp = await client.post(

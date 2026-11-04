@@ -23,3 +23,13 @@ class AppError(HTTPException):
         super().__init__(status_code=status_code, detail=detail)
         self.code = code
         self.params = params or {}
+
+
+def service_unavailable_error(detail: str = "Service temporarily unavailable") -> AppError:
+    """503 with Retry-After for a failed dependency (Valkey, Postgres).
+
+    Used instead of 401/429 so clients do not drop a valid session or tell
+    the user they are rate limited when the real cause is an outage."""
+    error = AppError(status_code=503, code="SERVICE_UNAVAILABLE", detail=detail)
+    error.headers = {"Retry-After": "5"}
+    return error

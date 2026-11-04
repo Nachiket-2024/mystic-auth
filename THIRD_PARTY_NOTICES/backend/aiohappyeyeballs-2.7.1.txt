@@ -1,7 +1,7 @@
 aiohappyeyeballs 2.7.1
-License: Python Software Foundation License
-URL: https://github.com/aio-libs/aiohappyeyeballs
-Copyright: provided, however, that PSF's License Agreement and PSF's notice of copyright,
+License: PSF-2.0
+URL:
+Copyright: Copyright (c) 1991 - 1995, Stichting Mathematisch Centrum Amsterdam,
 
 A. HISTORY OF THE SOFTWARE
 ==========================

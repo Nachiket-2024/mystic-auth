@@ -19,7 +19,7 @@ async def test_delivered_lifecycle_outbox_retains_transition_but_redacts_identit
             user_id=987654321,
             user_email="purged-retention@example.test",
             actor="operator-retention@example.test",
-            source="admin_purge",
+            source="management_purge",
             occurred_at=datetime.now(UTC),
         )
         session.add(outbox)
@@ -34,7 +34,7 @@ async def test_delivered_lifecycle_outbox_retains_transition_but_redacts_identit
             assert row is not None
             assert row.delivered_at is not None
             assert row.event_type == "purged"
-            assert row.source == "admin_purge"
+            assert row.source == "management_purge"
             assert row.user_id is None
             assert row.user_email == ""
             assert row.actor == "redacted"

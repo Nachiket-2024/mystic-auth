@@ -5,6 +5,8 @@ import aiosmtplib
 
 from ..core.settings import settings
 from ..logging.logging_config import get_logger
+from .brand_logo import LOGO_CONTENT_ID
+from .email_logo import load_email_logo
 
 logger = get_logger(__name__)
 
@@ -34,6 +36,11 @@ class SMTPEmailSender:
 
         if is_html:
             message.set_content(body, subtype="html")
+            # The template points at cid:brand-logo; ship the logo inside the
+            # message so it shows in every client with nothing to host or fetch.
+            if f"cid:{LOGO_CONTENT_ID}" in body:
+                logo_bytes, logo_subtype = load_email_logo()
+                message.add_related(logo_bytes, maintype="image", subtype=logo_subtype, cid=f"<{LOGO_CONTENT_ID}>")
         else:
             message.set_content(body)
 

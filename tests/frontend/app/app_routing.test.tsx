@@ -103,13 +103,13 @@ describe('App routing', () => {
     });
     renderAppAt('/users');
 
-    expect(await screen.findByText("You don't have permission to view this page")).toBeInTheDocument();
+    expect(await screen.findByText("You don't have access to this page")).toBeInTheDocument();
   });
 
   it('renders a 404 page for an unknown route', async () => {
     mock.onGet('/auth/me').reply(401);
     renderAppAt('/this-route-does-not-exist');
 
-    expect(await screen.findByText('Oops! Page Not Found')).toBeInTheDocument();
+    expect(await screen.findByText('Page not found')).toBeInTheDocument();
   });
 });

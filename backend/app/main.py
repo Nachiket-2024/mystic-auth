@@ -11,6 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DBAPIError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -26,11 +27,11 @@ for _key, _value in {
     if _value is not None:
         os.environ.setdefault(_key, _value)
 
-from .app_sdk import register_extensions  # noqa: E402
 from .sdk import (  # noqa: E402, must follow the env fallback above, since sdk.py reads env-dependent settings at import time
     AppError,
     CorrelationIdMiddleware,
     LoggingMiddleware,
+    OriginCheckMiddleware,
     SecurityHeadersMiddleware,
     auth_router,
     authorization_check_router,
@@ -58,10 +59,18 @@ from .sdk import (  # noqa: E402, must follow the env fallback above, since sdk.
     user_lifecycle_router,
     user_management_query_router,
     user_management_update_router,
+    user_passkey_management_router,
     user_self_service_router,
     valkey_client,
     watch_for_late_dsn,
 )
+
+# After .sdk on purpose: app code imported by app_sdk may use `from app.sdk import ...`,
+# and that alias exists only once backend/app/sdk.py has been imported (native runs
+# and tests load this package as backend.app). The split keeps the import sorter from
+# putting it back in alphabetical order.
+# isort: split
+from .app_sdk import register_extensions  # noqa: E402
 
 logger = get_logger("main")
 
@@ -196,6 +205,10 @@ app.add_middleware(LoggingMiddleware)
 # missing layer, not a replacement for either.
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
+# Defence in depth on top of SameSite=Strict: refuse unsafe-method requests a
+# browser sent from a same-site sibling or any other foreign origin.
+app.add_middleware(OriginCheckMiddleware)
+
 # Security headers must wrap TrustedHostMiddleware: rejected Host responses
 # otherwise return before this middleware gets a chance to add the browser
 # hardening headers. See security_headers_middleware.py for per-header
@@ -249,6 +262,20 @@ async def request_validation_error_handler(request: Request, exc: RequestValidat
     )
 
 
+@app.exception_handler(DBAPIError)
+async def database_error_handler(request: Request, exc: DBAPIError):
+    # PostgreSQL text columns cannot hold a NUL byte, so any user-supplied
+    # string containing one makes the query itself fail. That is bad input,
+    # not a server fault: answer 400 instead of a 500 that also pages the
+    # error monitor. Every other database error keeps the generic 500 path.
+    if "0x00" in str(getattr(exc, "orig", "")) or "0x00" in str(exc):
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Input contains an unsupported character.", "code": "INVALID_CHARACTER", "params": {}},
+        )
+    return await global_exception_handler(request, exc)
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception(f"Unhandled Exception at {request.url.path}: {str(exc)}")
@@ -269,6 +296,7 @@ app.include_router(user_self_service_router)
 app.include_router(user_management_query_router)
 app.include_router(user_management_update_router)
 app.include_router(user_lifecycle_router)
+app.include_router(user_passkey_management_router)
 # Split by sub-domain across backend/mystic_auth/api/pbac_routes/.
 # policy_assignment_router defines /authorization/users/me/policies before
 # its own /{user_email}/policies, so it must be included whole; no other

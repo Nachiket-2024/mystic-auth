@@ -8,9 +8,9 @@ maps source files to an execution boundary and explains what each test proves,
 why the boundary exists, and what it does not prove. A reader should be able
 to understand the test suite without opening a test file.
 
-The counts below are source-file counts, not test-case counts. `pytest` and
-Vitest can collect several cases from one file, while Playwright multiplies
-each browser test by its configured projects.
+One file can hold many cases, and Playwright multiplies each browser test by
+its configured projects, so file counts are not given here. Run the collection
+commands on the Backend and Frontend test maps for current numbers.
 
 ---
 
@@ -24,9 +24,9 @@ focused page for the test type.
 
 - [Backend test map](backend.md): explains the backend layers and collection
   commands.
-- [Backend unit tests](backend-unit.md): 120 isolated modules, grouped by
+- [Backend unit tests](backend-unit.md): isolated modules, grouped by
   authentication, PBAC, users, infrastructure, and workers.
-- [Backend integration tests](backend-integration.md): 52 database- and
+- [Backend integration tests](backend-integration.md): database- and
   Valkey-backed endpoint and workflow modules.
 - [Backend security and performance tests](backend-security-performance.md):
   abuse regressions, least-privilege checks, and informational timing tests.
@@ -41,12 +41,15 @@ focused page for the test type.
 
 - [Frontend test map](frontend.md): explains the frontend layers and how the
   runners differ.
-- [Frontend unit tests](frontend-unit.md): 109 MysticAuth modules plus three
+- [Frontend unit tests](frontend-unit.md): MysticAuth modules plus a few
   app-wrapper modules covering hooks, API clients,
   stores, components, and pure helpers.
-- [Frontend integration tests](frontend-integration.md): 33 rendered page
+- [Frontend integration tests](frontend-integration.md): rendered page
   modules using controlled API responses, plus the app-owned Vitest tests.
-- [Frontend browser E2E tests](frontend-e2e.md): all 28 Playwright specs,
+- [Frontend performance measurements](frontend-performance-measurements.md):
+  LCP and INP lab numbers, the scripts that produce them, and what was
+  optimised.
+- [Frontend browser E2E tests](frontend-e2e.md): all 29 Playwright specs,
   including their mocked, disposable-account, real-matrix, and live modes.
 - [Frontend authorization test detail](frontend-authorization.md): exact
   client-side permission, route, mocked-matrix, and real-matrix behavior.
@@ -85,6 +88,7 @@ neighbors.
 | --- | --- |
 | Login account-enumeration timing must not distinguish nonexistent, unverified, or wrong-password accounts | [`unit/auth/login/test_login_service_unit.py`](backend-authentication.md#login-and-credential-safety) and [`integration/auth/test_login_security_controls_integration.py`](backend-authentication.md#login-and-credential-safety) |
 | Login lockout and rate limiting must not be bypassed by concurrency or by another auth flow's failure counter | [`integration/auth/test_login_lockout_race_integration.py`](backend-authentication.md#login-and-credential-safety), [`integration/auth/test_login_security_controls_integration.py`](backend-authentication.md#login-and-credential-safety) |
+| Adding or removing a passkey must need a recent identity check, and a passkey must never be usable by another account or origin | [`unit/auth/passkeys/test_passkey_step_up_handler_unit.py`](backend-authentication.md#passkeys), [`unit/auth/passkeys/test_passkey_origin_unit.py`](backend-authentication.md#passkeys), [`integration/auth/test_passkey_integration.py`](backend-authentication.md#passkeys), [`e2e/passkeys/passkeys_browser.spec.ts`](frontend-e2e.md#authentication-and-account-settings) |
 | Refresh-token replay must not revive a session or revoke an unrelated chain | [`unit/auth/refresh_token_logic/test_refresh_token_unit.py`](backend-authentication.md#jwt-refresh-and-cookies), [`integration/auth/test_refresh_token_integration.py`](backend-authentication.md#jwt-refresh-and-cookies) |
 | Untrusted request context must not grant authorization | [`security/test_context_spoofing_security.py`](backend-security-performance.md#security-tests), [`unit/authorization/context/test_request_context_builder_unit.py`](backend-authorization.md#authorization-evaluation-internals) |
 | A caller must not mint or assign an action/policy it cannot grant | [`security/test_permission_grant_escalation_security.py`](backend-security-performance.md#security-tests), [`security/test_privilege_escalation_security.py`](backend-security-performance.md#security-tests), [`unit/api/pbac_routes/test_policy_crud_authorization_security_unit.py`](backend-authorization.md#grant-authority-and-protected-principals) |

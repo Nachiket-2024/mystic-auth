@@ -26,21 +26,12 @@ interface AccessResourceCardsProps {
  * AccessResourceCards
  * ----------------------------
  * Groups a flat list of (action, resource_type[, source]) grants into one
- * collapsible card per resource type, each rendered as a DataTable
- * (Action/Source columns) - the exact same collapsed-header-plus-table
- * layout PermissionsPage uses for its own resource-type groups (same
- * chevron, same plain (non-mono) header/badge font), so a permission holder sees the
- * same shape and starts from the same collapsed state whether they're
- * browsing the permission catalog or a user's effective/direct grants.
- * Groups start expanded, unlike PermissionsPage's own resource-type groups:
- * that page can be listing the entire permission catalog (many resource
- * types, worth collapsing so they don't turn into one long scroll), while
- * this renders one user's or one policy's grants - usually a handful of
- * resource types the caller opened this dialog specifically to read, so
- * starting collapsed would hide the very thing they came to see behind an
- * extra click per group.
- * Used by UserDetailsDialog, PolicyDetailsDialog, and AccountStatusCard for
- * their Effective/Direct permissions sections.
+ * collapsible card per resource type, each a DataTable (Action/Source
+ * columns), with the same header layout as PermissionsPage's groups.
+ * Groups start expanded, unlike PermissionsPage: that page lists the whole
+ * catalog (worth collapsing), while this shows one user's or policy's grants,
+ * which the viewer opened the dialog to read.
+ * Used by UserDetailsDialog, PolicyDetailsDialog and AccountStatusCard.
  */
 const AccessResourceCards: React.FC<AccessResourceCardsProps> = ({ items, emptyText }) => {
     const { t } = useTranslation(["permissions", "policies"]);
@@ -132,6 +123,7 @@ const AccessResourceCards: React.FC<AccessResourceCardsProps> = ({ items, emptyT
                         </div>
                         {isExpanded && (
                             <DataTable
+                                ariaLabel={formatResourceTypeLabel(resourceType, t("permissions:page.allResourceTypes"))}
                                 columns={columns}
                                 rows={grants}
                                 rowKey={(g) => `${g.action}:${g.resource_type}`}

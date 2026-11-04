@@ -37,10 +37,12 @@ define which boundary is authoritative and which checks are informational.
   writable location use an explicit volume or tmpfs instead.
 - `tests/scripts/mystic_auth/upstream-sync/test-sync-upstream.sh` verifies
   upstream synchronization: history handling, the safety nets (silent partial
-  apply, executable-bit self-heal, a missing stage file), and the ownership
-  guard. It sources the `test-sync-upstream-history.sh`,
-  `test-sync-upstream-safety.sh`, and `test-sync-upstream-ownership.sh` phases
-  beside it, so run it through the entry point.
+  apply, executable-bit self-heal, a missing stage file), the ownership
+  guard, and the workflow (stage-only with no auto-commit, out-of-date sync
+  tools, a blocked second sync, and `--abort`). It sources the
+  `test-sync-upstream-history.sh`, `test-sync-upstream-safety.sh`,
+  `test-sync-upstream-ownership.sh`, and `test-sync-upstream-workflow.sh`
+  phases beside it, so run it through the entry point.
 - `tests/scripts/mystic_auth/db/test-backup-freshness.sh` verifies the
   backup-freshness check script correctly flags a stale or missing backup.
 - `tests/scripts/mystic_auth/db/test-backup-encryption-check.sh` verifies the
@@ -78,6 +80,12 @@ Keep downstream project helpers under `local-scripts/app/`; the shared fixture
 must not be moved back into that downstream-owned directory. The live
 deployment smoke is opt-in. A normal mocked browser run must not be interpreted
 as proof of backend authorization.
+
+---
+
+## Dependency updates
+
+Dependency updates are manual and batched on purpose. No update bot is used: one was tried and removed because bumping related packages independently (for example TypeScript without the ESLint parser plugins) caused version-skew breakage. Related groups are bumped together and the full suite runs once. `pip-audit` and `npm audit` in CI catch known CVEs in the pinned versions, but a non-CVE release waits for the next maintenance pass.
 
 ---
 

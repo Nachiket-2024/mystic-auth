@@ -2,14 +2,12 @@
 #
 # UserBaseCRUD's column-level filter/sort builders (_search_filter,
 # _status_filter, _last_login_filter, _order_by) plus get_all/count's basic
-# no-relationship-filter path. Its policy/permission join-based filters and
-# CRUD (update/delete) live in test_user_base_crud_joins_and_crud_unit.py -
-# split out of one 354-line file, see AGENTS.md's ~350-line target.
+# path. Policy/permission join filters and CRUD live in
+# test_user_base_crud_joins_and_crud_unit.py.
 #
-# Its filter/sort-column allowlisting is the one thing standing between a
-# caller-supplied query param and an arbitrary SQL column reference, so it's
-# exercised directly here rather than only indirectly through the
-# route-level integration tests.
+# The filter/sort-column allowlist is all that stands between a caller-supplied
+# query param and an arbitrary SQL column reference, so it is exercised directly
+# here, not only through route-level integration tests.
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 

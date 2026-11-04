@@ -78,8 +78,7 @@ function endOfDayIso(date: Date): string {
 export interface TimeRangeApiParams {
     from: string | undefined;
     to: string | undefined;
-    /** Day-count equivalent, for the two login-trend endpoints (`days` only, no from/to - see
-     * .project/audit-log-design-review.md's backend section). For a custom range this is the
+    /** Day-count equivalent, for the two login-trend endpoints (`days` only, no from/to). For a custom range this is the
      * inclusive day span, clamped to the endpoint's [1, 90] bound. */
     days: number;
 }

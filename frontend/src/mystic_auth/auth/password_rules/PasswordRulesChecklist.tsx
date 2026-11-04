@@ -16,7 +16,7 @@ interface PasswordRulesChecklistProps {
     pristine?: boolean;
     /** Tailwind grid-cols classes, e.g. "grid-cols-1 sm:grid-cols-2" so
      * PasswordStrengthPanel's checklist drops to one column below ~400px
-     * (design.md's narrow-width rule for the auth pages opened from email
+     * (the narrow-width rule for the auth pages opened from email
      * links). "grid-cols-2" (default) for a standalone, full-width
      * checklist (e.g. ChangePasswordCard). */
     columnsClassName?: string;

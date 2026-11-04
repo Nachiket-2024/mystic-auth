@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
-# Preflight check for a real env/mystic_auth/.env* or env/app/.env* file:
-# catches the two mistakes that
-# otherwise only surface as a cryptic runtime error, a silently insecure
-# deployment, or Docker's raw "port is already allocated" failure.
+# Preflight check for a real env/mystic_auth/.env* or env/app/.env* file. It
+# catches mistakes that otherwise surface as a cryptic runtime error, a silently
+# insecure deployment, or Docker's "port is already allocated".
 #
-#   1. ERROR (exit 1): ENVIRONMENT=production in this file, but a secret
-#      still equals the shipped placeholder from its .example. Shipping
-#      that live means anyone who has ever seen the public template's
-#      source can sign your JWTs or read your database.
-#   2. ERROR (exit 1): a real env file is readable by group/other users. Env
-#      files contain signing keys and database credentials and must be mode 600.
+#   1. ERROR (exit 1): ENVIRONMENT=production but a secret still equals the
+#      shipped placeholder from its .example (anyone who has seen the public
+#      template could sign your JWTs or read your database).
+#   2. ERROR (exit 1): the env file is readable by group/other (must be 600).
 #   3. ERROR (exit 1): a Tailscale env file declares TS_CERT_DOMAIN but its
-#      public origin/issuer/redirect host does not match that exact provider
-#      DNS name. This prevents a stale tunnel hostname from reaching users.
-#   4. WARNING (exit 0, printed): a <your_...>/<your-domain> placeholder is
-#      still present (OAuth, SMTP, or a tunnel/domain field), or a host
-#      port this file declares is already bound by something else on this
-#      machine.
+#      public origin/issuer/redirect host does not match that DNS name.
+#   4. WARNING (exit 0): a <your_...>/<your-domain> placeholder is still
+#      present, or a declared host port is already bound on this machine.
 #
 # Usage: scripts/mystic_auth/env-tools/check-env/check-env.sh [env/mystic_auth/.env.dev ...]
 # With no arguments, checks every env/mystic_auth/.env* and env/app/.env*
@@ -121,8 +115,8 @@ for f in "${FILES[@]}"; do
     if [ -z "$alert_url_line" ] || [ -z "$alert_url" ]; then
       echo "  ERROR: SECURITY_ALERT_WEBHOOK_URL is blank, but ENVIRONMENT=production. Configure an HTTPS incident endpoint before starting the app."
       HAS_ERROR=1
-    elif ! printf '%s' "$alert_url" | grep -q '^https://[^/[:space:]]\+'; then
-      echo "  ERROR: SECURITY_ALERT_WEBHOOK_URL must be an HTTPS URL."
+    elif ! printf '%s' "$alert_url" | grep -Eq '^(https://[^/[:space:]]+|http://[A-Za-z0-9_-]+(:[0-9]+)?/)'; then
+      echo "  ERROR: SECURITY_ALERT_WEBHOOK_URL must be an HTTPS URL (or http://<compose-service>:port/ on the private network)."
       HAS_ERROR=1
     fi
 

@@ -11,6 +11,7 @@ from backend.mystic_auth.user_session.session_events import (
     session_event_stream,
     signal_shutdown,
 )
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 MODULE = "backend.mystic_auth.user_session.session_events"
 
@@ -63,7 +64,7 @@ async def test_publish_session_revoked_publishes_to_the_users_own_channel(mocker
 
     publish_mock.assert_awaited_once()
     args, _ = publish_mock.call_args
-    assert args[0] == "session_events:user@example.com"
+    assert args[0] == f"session_events:{email_key_id('user@example.com')}"
     assert json.loads(args[1]) == {"type": "revoked"}
 
 
@@ -74,7 +75,7 @@ async def test_publish_session_revoked_scopes_the_channel_per_email(mocker):
     await publish_session_revoked("someone-else@example.com")
 
     args, _ = publish_mock.call_args
-    assert args[0] == "session_events:someone-else@example.com"
+    assert args[0] == f"session_events:{email_key_id('someone-else@example.com')}"
 
 
 @pytest.mark.asyncio

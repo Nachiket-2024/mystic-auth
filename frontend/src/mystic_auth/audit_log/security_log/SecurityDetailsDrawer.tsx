@@ -30,7 +30,7 @@ interface SecurityDetailsDrawerProps {
 }
 
 /**
- * Security event detail sections (design/audit-log.html): Event, Client (IP + user_agent),
+ * Security event detail sections: Event, Client (IP + user_agent),
  * Request (request id, event id), Metadata (readable labels, or a note when there is none). Every
  * field already comes back from GET /audit/security-log - this only lays it out.
  */

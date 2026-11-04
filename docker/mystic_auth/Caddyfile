@@ -17,6 +17,16 @@
 	reverse_proxy frontend:80
 }
 
+# Self-hosted ntfy (security alerts to your phone). Needs its own DNS name
+# pointing at this host. ntfy has no web UI here and denies everything but
+# authenticated users, so publishing it is safe. If NTFY_PUBLIC_DOMAIN is
+# unset this falls back to ntfy.localhost, which Caddy serves with an internal
+# certificate and never requests from Let's Encrypt.
+{$NTFY_PUBLIC_DOMAIN:ntfy.localhost} {
+	tls {$ACME_EMAIL}
+	reverse_proxy ntfy:8080
+}
+
 # Optional: uncomment and set BUGSINK_PUBLIC_DOMAIN in .env to expose the
 # Bugsink UI and give the frontend's VITE_SENTRY_DSN a real public route for
 # browser-side error reports. Leave commented if Bugsink stays internal-only

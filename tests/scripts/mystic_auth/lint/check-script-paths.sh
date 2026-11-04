@@ -1,36 +1,24 @@
 #!/usr/bin/env bash
-# Regression guard for exactly the class of bug found live in this repo:
-# quickstart.sh/quickstart.ps1 called `./scripts/env-tools/...` and
-# `./scripts/docker/...` (missing the `mystic_auth/` segment) after an
-# earlier restructuring commit, so the #1 command in README.md failed on
-# line 1 for every new user. Nothing caught that until someone actually ran
-# it by hand.
+# Regression guard: quickstart.sh/.ps1 once called `./scripts/env-tools/...`
+# (missing the `mystic_auth/` segment) after a restructure, so the first README
+# command failed for every new user and nothing caught it.
 #
-# Scans every CI, script (.sh/.ps1/.cmd/.bat), Makefile (root and
-# makefiles/*/), and doc (.md) for a path token containing `ci/`,
-# `scripts/`, or `local-scripts/` and ending in
-# .sh/.py/.ps1/.cmd/.bat (forward-slash or backslash), and asserts the
-# target file actually exists. Matches the whole contiguous path token
-# (e.g. `backend/mystic_auth/scripts/create_system_user.py`), not just the
-# `scripts/...` suffix, so a real path with more segments before `scripts/`
-# isn't misreported as missing.
-#
-# Also scans every Dockerfile's `COPY <src> ...` lines (skipping
-# `--from=` multi-stage copies) and asserts each source exists relative
-# to the repo root - `docker compose config` never checks these.
+# Scans every CI file, script (.sh/.ps1/.cmd/.bat), Makefile and doc (.md) for a
+# path token containing `ci/`, `scripts/` or `local-scripts/` that ends in
+# .sh/.py/.ps1/.cmd/.bat (either slash), and asserts the target exists. It
+# matches the whole contiguous token, so `backend/mystic_auth/scripts/x.py` is
+# not misreported. It also checks each Dockerfile `COPY <src>` line (skipping
+# `--from=`), which `docker compose config` never does.
 #
 # Excluded on purpose:
-#   - This script's own file: its usage comment uses placeholder example
-#     paths that don't exist by design.
-#   - docs/mystic_auth/project-story/ and docker/validation-history.md:
-#     historical narrative describing paths as they were at the time, not
-#     the current tree - "fixing" these would misrepresent history.
-#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh:
-#     create fixture paths dynamically inside a temp sandbox repo, never in
-#     this repo's tree.
+#   - this file (its usage comment uses placeholder paths);
+#   - docs/mystic_auth/project-story/ and docker/validation-history.md
+#     (history, not the current tree);
+#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh (fixture
+#     paths live in a temp sandbox repo).
 #
 # Usage: tests/scripts/mystic_auth/lint/check-script-paths.sh
-# Exit 0: every referenced path resolves. Exit 1: one or more don't, listed.
+# Exit 0: every referenced path resolves. Exit 1: some do not, listed.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"

@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 52 pytest modules exercise MysticAuth through real application
+These pytest modules exercise MysticAuth through real application
 boundaries. Fixtures create database rows, issue requests, and use Valkey when
 the workflow depends on sessions, rate limits, authorization caching, or
 background state. The purpose is to prove that separately correct units still
@@ -49,6 +49,14 @@ produce a misleading `403` in an otherwise valid integration test.
   clearing for logout and logout-all paths.
 - `auth/test_oauth_integration.py` verifies provider callback handling,
   account linking, PKCE/state validation, and duplicate identity behavior.
+- `auth/test_passkey_integration.py` verifies registration and authentication
+  ceremonies, origin checks, recent-login step-up, and credential management
+  against real database and Valkey state.
+- `auth/test_passkey_bulk_remove_integration.py` verifies bounded and
+  all-credential removal, ownership checks, and session effects.
+- `auth/test_passkey_google_step_up_integration.py` verifies Google
+  re-authentication for passkey changes, with only outbound Google calls
+  mocked.
 - `auth/test_password_reset_integration.py` verifies reset email initiation,
   token confirmation, expiry, replay prevention, and password change effects.
 - `auth/test_protected_action_reservation_integration.py` verifies that
@@ -110,6 +118,10 @@ produce a misleading `403` in an otherwise valid integration test.
   malformed keys, scan limits, empty data, and safe dashboard aggregation.
 - `rate_limits/test_rate_limit_routes_integration.py` verifies listing,
   filtering, reset idempotency, concurrency, and rate-limit permissions.
+- `rate_limits/test_rate_limit_identifier_labels_integration.py` verifies that
+  digest-keyed account, email, and lockout-pair counters are labelled with the
+  account's email, including step-up counters and users beyond the first lookup
+  batch, and that unmatched digests stay unlabelled.
 
 ---
 
@@ -118,15 +130,20 @@ produce a misleading `403` in an otherwise valid integration test.
 - `user/test_account_purge_task_integration.py` verifies scheduled purge work
   removes expired accounts and dependent data.
 - `user/test_account_lifecycle_outbox_retention_integration.py` verifies
-  completed lifecycle events are pruned while pending events remain retryable.
+  delivered events retain transition metadata but redact account and actor
+  identifiers, while pending events remain retryable.
 - `user/test_user_account_lifecycle_integration.py` verifies deletion,
   reactivation, and lifecycle permissions across persisted state.
-- `user/test_user_admin_lifecycle_valkey_outage_integration.py` verifies safe
+- `user/test_user_management_lifecycle_valkey_outage_integration.py` verifies safe
   permission-protected lifecycle behavior when Valkey is unavailable.
-- `user/test_user_admin_listing_integration.py` verifies permission-protected listing,
+- `user/test_user_management_listing_integration.py` verifies permission-protected listing,
   filtering, pagination, and effective access data.
-- `user/test_user_admin_management_integration.py` verifies permission-protected profile,
+- `user/test_user_management_crud_integration.py` verifies permission-protected profile,
   role, status, and permission-management operations.
+- `user/test_user_privilege_hierarchy_security_integration.py` verifies that
+  managing an account with admin role requires the separate
+  `users:manage_privileged` action across update, role, deactivate, purge, and
+  reactivate routes.
 - `user/test_user_export_integration.py` verifies authorized export contents,
   filtering, and data handling.
 - `user/test_user_list_and_update_integration.py` verifies user listing and
@@ -150,6 +167,13 @@ produce a misleading `403` in an otherwise valid integration test.
   geolocation lookup and privacy-safe fallback behavior.
 - `user_session/test_session_row_cleanup_integration.py` verifies stale session
   rows are removed without deleting active sessions.
+
+---
+
+## Additional integration modules
+
+- `tests/backend/mystic_auth/integration/core/test_migration_round_trip_integration.py` verifies upgrade, full downgrade and upgrade again on a database of its own.
+- `tests/backend/mystic_auth/integration/test_finished_job_cleanup_integration.py` verifies the worker deletes succeeded jobs, the sweep keeps recent failures and removes old ones, and a job left `doing` by a dead worker is requeued while a live worker's job is not.
 
 ---
 

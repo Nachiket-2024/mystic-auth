@@ -65,25 +65,19 @@ export function policyAddsNothingNew(
     return candidate.actions.every((action) => hasEffectiveGrant(effectiveGrantKeys, action, candidate.resource_type));
 }
 
-/** Drops any (action, resource_type) pair in `grants` whose action already
- * has a wildcard ("*") entry in `wildcardSource` (defaults to `grants`
- * itself). A specific "policies:read" badge next to a "policies:read" on
- * "*" badge is pure duplication, since the wildcard already covers it (same
- * subsumption rule as hasEffectiveGrant, applied to display). The wildcard
- * entry itself is always kept.
+/** Drops any (action, resource_type) pair in `grants` whose action already has
+ * a wildcard ("*") entry in `wildcardSource` (defaults to `grants`), since a
+ * specific badge next to the same action on "*" is duplication (same
+ * subsumption rule as hasEffectiveGrant). The wildcard entry is always kept.
  *
- * `wildcardSource` matters because the wildcard covering a direct grant
- * often comes from an assigned POLICY, not another direct grant, e.g. a
- * "system_superuser" policy with resource_type "*" covers a direct
- * "permissions:grant" on "permissions" even though neither directly grants
- * the other. Callers filtering a raw direct-grant list should pass the full
- * effective list (buildEffectiveGrantsWithSource) as `wildcardSource` so a
- * policy-sourced wildcard is honored too.
+ * Pass the full effective list (buildEffectiveGrantsWithSource) as
+ * `wildcardSource` when filtering a raw direct-grant list: the covering
+ * wildcard often comes from an assigned POLICY (for example system_superuser
+ * on "*"), not another direct grant.
  *
- * Used by the "Direct permissions"/"Effective permissions" badge lists
- * (AccountStatusCard, UserDetailsDialog). UserPermissionsDialog's revoke
- * list intentionally skips this, since each row there is individually
- * revocable. */
+ * Used by the Direct/Effective permissions badge lists (AccountStatusCard,
+ * UserDetailsDialog). UserPermissionsDialog's revoke list skips it because
+ * each row there is individually revocable. */
 export function dedupeAgainstWildcards<T extends { action: string; resource_type: string }>(
     grants: T[],
     wildcardSource: { action: string; resource_type: string }[] = grants

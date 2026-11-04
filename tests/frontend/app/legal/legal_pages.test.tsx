@@ -34,6 +34,14 @@ describe('PrivacyPolicyPage', () => {
     expect(screen.getByText(/IP address and user agent/i)).toBeInTheDocument();
     expect(screen.getByText(/prior audit entries|prior audit entries.*not deleted/i)).toBeInTheDocument();
   });
+
+  it('covers passkey data, encrypted backups, tunnel providers and the access/erasure rights', () => {
+    renderPage(<PrivacyPolicyPage />);
+    expect(screen.getByText(/register a passkey/i)).toBeInTheDocument();
+    expect(screen.getByText(/encrypted database backups/i)).toBeInTheDocument();
+    expect(screen.getByText(/Cloudflare, ngrok or Tailscale/i)).toBeInTheDocument();
+    expect(screen.getByText(/GDPR.*CCPA/i)).toBeInTheDocument();
+  });
 });
 
 describe('TermsOfServicePage', () => {

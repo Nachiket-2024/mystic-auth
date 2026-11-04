@@ -1,4 +1,5 @@
 import traceback
+from urllib.parse import urlencode
 
 from ...auth.token_logic.jwt_service import jwt_service
 from ...core.settings import settings
@@ -7,6 +8,7 @@ from ...logging.logging_config import get_logger
 from ...procrastinate_tasks.email_tasks import send_email_task
 from ...user.user_crud_collector import user_crud
 from ...valkey.client import valkey_client
+from ...valkey.key_names import one_time_token_key
 
 logger = get_logger(__name__)
 
@@ -26,25 +28,25 @@ class AccountVerificationService:
 
             # Stored in Valkey to enforce single-use.
             await valkey_client.set(
-                f"verify:{verification_token}",
+                one_time_token_key("verify", verification_token),
                 "1",
                 ex=expires_minutes * 60
             )
 
             # Keep the one-time token client-side: URL fragments are not sent
             # to the server or included in Referer headers.
-            verify_url = f"{settings.FRONTEND_BASE_URL}/verify-account#token={verification_token}"
+            # The address rides along only so the page can prefill its resend
+            # field; verification itself is decided by the signed token.
+            fragment = urlencode({"token": verification_token, "email": email})
+            verify_url = f"{settings.FRONTEND_BASE_URL}/verify-account#{fragment}"
 
             email_subject = "Verify Your Email Address"
             email_body = render_transactional_email(
                 preheader="Verify your email address to activate your account.",
                 heading="Verify Your Email Address",
-                # brand.600 - the exact teal every solid colorPalette="brand"
-                # button in the app itself renders as (frontend/src/mystic_auth/
-                # theme/system.ts), not an unrelated generic blue: this is the
-                # first branded touchpoint a lot of users see before ever
-                # reaching the app, so it should already look like it.
-                accent_color="#2c7a7b",
+                # The configured BRAND_COLOR, so the first branded touchpoint a user
+                # sees (before they reach the app) already matches it.
+                accent_color=settings.BRAND_COLOR,
                 intro="Thanks for signing up. Please confirm this is your email address by clicking the button below.",
                 cta_label="Verify Email Address",
                 cta_url=verify_url,
@@ -126,7 +128,7 @@ class AccountVerificationService:
     async def consume_token(token: str) -> bool:
         """Atomically redeem a previously inspected verification token."""
         try:
-            exists = await valkey_client.getdel(f"verify:{token}")
+            exists = await valkey_client.getdel(one_time_token_key("verify", token))
             if not exists:
                 logger.warning("Verification token not found or already used")
                 return False

@@ -8,7 +8,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pythonjsonlogger import json as jsonlogger
 
 from ..core.settings import settings
-from .correlation_id_middleware import request_id_ctx_var
+from .request_context import request_id_ctx_var
 
 
 class RequestIdFilter(logging.Filter):
@@ -17,13 +17,6 @@ class RequestIdFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = request_id_ctx_var.get()
         return True
-
-
-class HealthCheckFilter(logging.Filter):
-    """Hide Docker healthcheck requests from terminal access logs."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        return "/health/ready" not in record.getMessage()
 
 
 class PiiRedactionFilter(logging.Filter):

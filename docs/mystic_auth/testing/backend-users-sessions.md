@@ -59,10 +59,10 @@ prove that route permissions and transaction effects use it correctly.
   unauthenticated denial, ordinary-user denial, same-role/different-policy
   behavior, policy-derived management capability, roleless policy capability, and
   list limits.
-- `integration/user/test_user_admin_listing_integration.py` verifies listing,
+- `integration/user/test_user_management_listing_integration.py` verifies listing,
   total-count headers, name/email search, role/verification/status filters,
   policy and permission filters, direct-grant holders, and email sorting.
-- `integration/user/test_user_admin_management_integration.py` verifies normal
+- `integration/user/test_user_management_crud_integration.py` verifies normal
   updates and blocks system-user mutation, deletion, role changes, assigning
   the system role, and self-role changes; it also verifies `admin`-to-`user`
   and `user`-to-`admin` role metadata changes through the role endpoint.
@@ -71,7 +71,7 @@ prove that route permissions and transaction effects use it correctly.
   login denial, active-session revocation, password-change session effects,
   purge permissions and self/system guards, system-user purge, reactivation,
   and reactivation error cases.
-- `integration/user/test_user_admin_lifecycle_valkey_outage_integration.py`
+- `integration/user/test_user_management_lifecycle_valkey_outage_integration.py`
   verifies permission-protected password changes report whether session revocation was
   confirmed when Valkey is healthy versus unavailable.
 

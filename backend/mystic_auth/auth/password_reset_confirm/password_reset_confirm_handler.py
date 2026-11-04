@@ -5,7 +5,9 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...audit_log.audit_log_service import PASSWORD_RESET_CONFIRMED, log_security_event
+from ...core.errors import AppError
 from ...logging.logging_config import get_logger
+from ...valkey.key_names import email_key_id
 from ..password_logic.password_reset_service import password_reset_service
 from ..password_logic.password_service import password_service
 from ..security.login_protection_service import login_protection_service
@@ -32,7 +34,7 @@ class PasswordResetConfirmHandler:
             payload = await self.password_service.verify_reset_token(token)
 
             if not payload or "email" not in payload:
-                return JSONResponse({"error": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_RESET_TOKEN"}, status_code=400)
+                return JSONResponse({"detail": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_RESET_TOKEN"}, status_code=400)
 
             email = payload["email"]
 
@@ -41,14 +43,14 @@ class PasswordResetConfirmHandler:
             # password, reusing the old password, a stale token) count towards,
             # and can trip, the unrelated login lockout for the same email. Same
             # reasoning as refresh_token_handler's separate "refresh:lockout:ip:" key.
-            email_lock_key = f"password_reset_confirm_lock:email:{email}"
+            email_lock_key = f"password_reset_confirm_lock:email:{email_key_id(email)}"
 
             # Check the lock before redeeming the single-use token or changing
             # the password. The success path below must never return 429 after
             # the password has already been changed.
             if not await self.login_protection_service.begin_protected_action(email_lock_key):
                 return JSONResponse(
-                    {"error": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
+                    {"detail": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
                     status_code=429,
                 )
 
@@ -64,11 +66,11 @@ class PasswordResetConfirmHandler:
                     await self.login_protection_service.finish_protected_action(email_lock_key, success=True)
                     return JSONResponse(content, status_code=200)
 
-                content = {"error": "Invalid token or password", "code": "INVALID_RESET_TOKEN_OR_PASSWORD"}
+                content = {"detail": "Invalid token or password", "code": "INVALID_RESET_TOKEN_OR_PASSWORD"}
                 await self.login_protection_service.finish_protected_action(email_lock_key, success=False)
                 if await self.login_protection_service.is_locked(email_lock_key):
                     return JSONResponse(
-                        {"error": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
+                        {"detail": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
                         status_code=429,
                     )
                 return JSONResponse(content, status_code=400)
@@ -77,9 +79,13 @@ class PasswordResetConfirmHandler:
                 # without clearing a failure counter that was not completed.
                 await self.login_protection_service.release_protected_action(email_lock_key)
 
+        except AppError:
+            # Overload or a store outage (503 + Retry-After); the reset link was restored.
+            raise
+
         except Exception:
             logger.error("Error during password reset confirm logic:\n%s", traceback.format_exc())
-            return JSONResponse({"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500)
+            return JSONResponse({"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500)
 
 
 password_reset_confirm_handler = PasswordResetConfirmHandler()

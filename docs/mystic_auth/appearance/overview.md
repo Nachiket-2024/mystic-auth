@@ -14,7 +14,7 @@ active runtime env file (normally `env/mystic_auth/.env.dev` for dev, or the
 matching mode file; downstream-only overrides belong in `env/app/`). It is
 aliased to `VITE_BRAND_COLOR` for the frontend build, the same pattern as
 `APP_NAME` uses; see [Environment configuration](../template-usage/quickstart.md#environment-configuration).
-It ships as terracotta (`#b5533c`). `frontend/src/mystic_auth/core/settings.ts`
+It ships as terracotta (`#b5533c`). The backend reads the same `BRAND_COLOR` for the verification and password-reset emails, so one value re-skins the UI and those emails together. See [Where the brand shows up](#where-the-brand-shows-up) for exactly which surface reads which setting. `frontend/src/mystic_auth/core/settings.ts`
 reads it (falling back to that same terracotta if unset), and
 `frontend/src/mystic_auth/theme/applyBrandCssVars.ts` feeds it through
 `generateBrandScale`, the same generator described below, to write the whole
@@ -25,6 +25,26 @@ client-side for that user.
 
 Need more than a single color, for example a hand-authored scale that doesn't fit the generator's lightness ladder? `frontend/src/app/theme.ts` still exists for that; see [Frontend Customization: Theme](../template-usage/frontend-customization.md#frontend-customization).
 
+
+---
+
+## Where the brand shows up
+
+The web app and the emails do not read the same logo or color sources. Only the default color and the app name are shared.
+
+| Surface | Color | Logo | App name |
+| --- | --- | --- | --- |
+| Web app (sidebar, auth pages) | The signed-in user's own pick, else `frontend/src/app/theme.ts` `brandColor`, else `VITE_BRAND_COLOR` (aliased from `BRAND_COLOR`) | `VITE_APP_LOGO_URL` if set, else the generated badge in the current color | `VITE_APP_NAME` (aliased from `APP_NAME`) |
+| Browser tab icon | Same as the web app | `VITE_APP_FAVICON_URL` if set, else the generated badge | n/a |
+| Verification and password-reset emails | Always `BRAND_COLOR` | The image at `EMAIL_LOGO_PATH` if set, else a badge generated on the server from `BRAND_COLOR` (`emails/email_logo.py`, `emails/brand_logo.py`), attached inline as `cid:brand-logo` | `APP_NAME` |
+
+What follows from that:
+
+- **Shared on purpose:** `BRAND_COLOR` and `APP_NAME` are one env value each, aliased to the `VITE_` names for the frontend build. Change them once and the web app default and the emails agree.
+- **A custom web logo does not reach emails by itself.** `VITE_APP_LOGO_URL` and `VITE_APP_FAVICON_URL` are frontend-only, so emails keep the generated badge unless you also set `EMAIL_LOGO_PATH`. The badge has the same shape as `frontend/public/favicon.svg` and `theme/brandIcon.ts`. Mail clients drop inline SVG and `data:` images, and a hosted image needs a public URL the recipient's mail provider can fetch, so the badge is drawn as a PNG and attached to each message. Nothing has to be hosted.
+- **Per-user colors do not reach emails.** A user's pick in Account Settings changes only their own UI. An email is built before anyone is signed in, for an address that may not have an account yet.
+- **A `theme.ts` override does not reach emails.** `frontend/src/app/theme.ts` is frontend code. To change the color emails use, set `BRAND_COLOR`.
+- **Custom email logo:** set `EMAIL_LOGO_PATH` to a PNG, JPEG or GIF under 256 KB inside the backend and worker containers (mount it read-only from a compose file under `docker/app/compose/`, and set the variable in `env/app/`). It is sized to 44 px tall and shown beside the app name. An unreadable, oversized or non-image file logs a warning and falls back to the generated badge, so a bad path never blocks an email. SVG is not supported because mail clients drop it.
 ---
 
 ## Feature map

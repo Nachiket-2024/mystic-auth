@@ -19,23 +19,13 @@ from ....authorization.schemas.policy_history_schema import (
 )
 from ....authorization.schemas.policy_schema import PolicyRead
 from ....authorization.services.authorization_service import authorization_service
+from ....authorization.services.policy_history_service import definition_for_entry
 from ....core.errors import AppError
 from ....database.connection import database
 from ....user_session.session_events import publish_permissions_changed
 from ...get_or_404.get_or_404 import get_or_404
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
-
-
-def _definition_for_entry(entry) -> dict | None:
-    """
-    The full policy definition snapshot "at" a given history entry: its
-    new_definition, or (for a "deleted" entry, which has none) its
-    previous_definition instead, so every entry type resolves to a
-    comparable/rollback-able snapshot without compare/rollback needing
-    special-case handling per change_type.
-    """
-    return entry.new_definition if entry.new_definition is not None else entry.previous_definition
 
 
 @router.get("/policies/{policy_name}/history", response_model=list[PolicyHistoryEntryRead])
@@ -88,8 +78,8 @@ async def compare_policy_history(
                 params={"entryId": entry.id, "entryPolicyName": entry.policy_name, "policyName": policy_name},
             )
 
-    from_definition = _definition_for_entry(from_entry)
-    to_definition = _definition_for_entry(to_entry)
+    from_definition = definition_for_entry(from_entry)
+    to_definition = definition_for_entry(to_entry)
 
     all_fields = set((from_definition or {}).keys()) | set((to_definition or {}).keys())
     diff = {}
@@ -123,7 +113,7 @@ async def rollback_policy(
     Restores a policy to a prior recorded definition. The policy must still
     exist: restoring a deleted policy isn't supported here; recreate it via
     POST /policies instead. Every history entry resolves to a restorable
-    definition, including "deleted" entries (see _definition_for_entry), so
+    definition, including "deleted" entries (see definition_for_entry), so
     rolling back to before the policy was deleted is a valid target.
 
     Applied via PolicyRepository.update, tagged as a "rolled_back" change so
@@ -153,7 +143,7 @@ async def rollback_policy(
             detail="History entry not found for this policy",
         )
 
-    target_definition = _definition_for_entry(history_entry)
+    target_definition = definition_for_entry(history_entry)
 
     try:
         validate_conditions((target_definition or {}).get("conditions"))
@@ -200,7 +190,7 @@ async def rollback_policy(
 
     # Fetched before update() mutates the policy: rollback always restores
     # actions/resource_type/is_active (target_definition is the full
-    # snapshot, see _definition_for_entry), so unlike update_policy's
+    # snapshot, see definition_for_entry), so unlike update_policy's
     # partial PATCH this is never a no-op-for-grants case - every current
     # holder needs the nudge.
     holder_emails = await policy_repository.get_holder_emails(policy.id, db)

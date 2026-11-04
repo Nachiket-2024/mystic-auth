@@ -5,8 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { mock, seed, renderPage, CATALOG, USAGE } from './permissionsPageTestSupport';
 
 // PermissionsPage: the row details dialog and load-failure/access-denied
-// states. Group behavior and filters live in their own sibling files -
-// split out of one 408-line file, see AGENTS.md's ~350-line target.
+// states. Group behavior and filters live in their own sibling files.
 
 describe('PermissionsPage: details dialog and errors', () => {
   beforeEach(() => {

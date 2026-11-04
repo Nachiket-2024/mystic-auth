@@ -3,6 +3,7 @@ import hmac
 import traceback
 from datetime import UTC, datetime
 
+from ...core.errors import AppError
 from ...core.settings import settings
 from ...emails.email_template_service import render_transactional_email
 from ...logging.logging_config import get_logger
@@ -88,14 +89,10 @@ class PasswordResetService:
             email_body = render_transactional_email(
                 preheader="Reset your password to regain access to your account.",
                 heading="Reset Your Password",
-                # brand.600 (see account_verification_service.py's identical
-                # comment), not red: an alarming red CTA on a password-reset
-                # email is a classic phishing-email pattern, the opposite of
-                # what a legitimate one should look like, and every other
-                # transactional email in the app already uses this same
-                # brand color - no reason for this one to look like a
-                # different product.
-                accent_color="#2c7a7b",
+                # BRAND_COLOR, not red: an alarming red button on a password-reset
+                # email is a classic phishing pattern, and every other
+                # transactional email in the app uses the brand color too.
+                accent_color=settings.BRAND_COLOR,
                 intro="A password reset was requested for your account. Click the button below to create a new password.",
                 cta_label="Reset Your Password",
                 cta_url=reset_url,
@@ -149,6 +146,7 @@ class PasswordResetService:
         """
         valkey_key: str | None = None
         active_key: str | None = None
+        payload: dict | None = None
 
         async def _restore_token(payload: dict) -> None:
             # Cap the restored TTL at the token's own remaining JWT lifetime so
@@ -234,6 +232,13 @@ class PasswordResetService:
 
             logger.info("Password reset successful for email: %s", email)
             return True, sessions_revoked
+
+        except AppError:
+            # Overload (503 + Retry-After) after the link was consumed: put it back so
+            # the user can retry the same email instead of losing the reset.
+            if payload:
+                await _restore_token(payload)
+            raise
 
         except Exception:
             logger.error("Error during password reset:\n%s", traceback.format_exc())

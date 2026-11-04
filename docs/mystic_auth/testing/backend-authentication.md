@@ -85,7 +85,7 @@ JWT is not automatically an accepted session token.
   or unavailable email.
 - `unit/auth/logout_all/test_logout_all_handler_unit.py` verifies all-session
   invalidation and response/cookie behavior.
-- `unit/auth/manage_sessions/test_session_revoke_handler_unit.py` verifies a
+- `unit/user_session/test_session_revoke_handler_unit.py` verifies a
   revoke returns 503 when the chain-version bump cannot be confirmed and
   succeeds only after confirmation.
 - `integration/auth/test_logout_integration.py` verifies logout and logout-all
@@ -143,6 +143,42 @@ JWT is not automatically an accepted session token.
   account verification state transitions and notification decisions.
 - `integration/auth/test_signup_verify_concurrency_integration.py` verifies
   concurrent signup/verification cannot create inconsistent accounts.
+
+---
+
+## Passkeys
+
+Passkeys are tested at three levels: pure rules with mocked Valkey and database, the real HTTP
+stack, and a real browser. The feature itself is explained in
+[Passkeys](../authentication/passkeys.md).
+
+- `unit/auth/passkeys/test_passkey_schema_unit.py` verifies request bodies: names are trimmed,
+  blank names and oversized credentials are rejected, browser extension fields are accepted, and
+  malformed wire shapes fail validation.
+- `unit/auth/passkeys/test_passkey_origin_unit.py` verifies the `Origin` header must exactly match
+  `WEBAUTHN_ORIGINS`, including look-alike hosts and the wrong scheme.
+- `unit/auth/passkeys/test_passkey_step_up_handler_unit.py` verifies the 15-minute rule: a fresh
+  login passes, an older session needs the Valkey marker, a missing or revoked session is refused,
+  Valkey being down fails closed, a wrong password sets no marker, repeated wrong passwords lock
+  out with `Retry-After`, accounts with no password cannot use the password route, and a passkey
+  confirmation must belong to the signed-in user.
+- `unit/auth/passkeys/test_passkey_handler_unit.py` verifies passkey sign-in is refused while the
+  source IP is locked, failures are counted and alert on lockout, a failure below the threshold is
+  a plain `401`, browser-reported transports are filtered to known names, and the lock keys keep
+  the `<endpoint>:<scope>:<id>` shape the Rate Limits dashboard can list and reset.
+- `integration/auth/test_passkey_integration.py` runs register, sign in, replayed challenge, rename,
+  and remove against real Postgres and Valkey with a software authenticator, and checks an
+  unlisted origin is rejected.
+- `integration/auth/test_passkey_bulk_remove_integration.py` verifies bulk removal only touches the
+  caller's own credentials, "remove all" leaves none, an old login needs step-up first, and
+  ambiguous or oversized bodies are rejected.
+- `integration/auth/test_passkey_google_step_up_integration.py` verifies the Google confirmation:
+  it unlocks changes without replacing the session, rejects a different or unverified Google
+  account, consumes the state on cancel, and requires a signed-in session.
+- The audit side lives in `unit/audit_log/test_audit_log_repository_unit.py`: the `passkey_login`
+  and `passkey_step_up` filter aliases expand to success and failure rows, and passkey attempts
+  count in the Sign-in activity chart. `unit/procrastinate_tasks/test_maintenance_tasks_unit.py`
+  checks the hourly challenge sweep and `unit/core/test_settings_unit.py` the `WEBAUTHN_*` rules.
 
 ---
 

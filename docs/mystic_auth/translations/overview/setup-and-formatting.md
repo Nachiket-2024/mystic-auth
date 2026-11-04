@@ -16,8 +16,9 @@ labels like Save/Cancel/Delete, loading/saving states, pagination text, error-bo
 
 ```ts
 export const NAMESPACES = [
-    "ui_text", "layout", "auth", "users", "policies", "authorization",
-    "audit_log", "account_settings", "dashboard", "rate_limits", "errors",
+    "ui_text", "layout", "auth", "users", "policies", "permissions",
+    "authorization", "audit_log", "account_settings", "dashboard",
+    "rate_limits", "errors",
 ] as const;
 
 export const SUPPORTED_LANGUAGES = ["en", "hi", "mr", "gu"] as const;
@@ -39,6 +40,29 @@ folder - `landing.json`, `status_pages.json`, and `legal.json` - are deliberatel
 `NAMESPACES` list and are registered by `frontend/src/app/translations/registerLandingTranslations.ts`,
 `registerStatusPagesTranslations.ts`, and `registerLegalTranslations.ts`. They are downstream-owned
 copy; their JSON values may be edited, but the registration and component code should not be.
+
+How a language loads:
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Start["App starts: English namespaces\nare bundled and ready"]
+    Sel{"User selects another language?"}
+    Load["loadLanguage() lazy-loads that\nlanguage's namespace JSON files"]
+    Reg["App registers landing, status_pages\nand legal copy separately"]
+    Render["Components call useTranslation(namespace)"]
+    Start --> Sel
+    Sel -- "no" --> Render
+    Sel -- "yes" --> Load --> Render
+    Start --> Reg --> Render
+
+    class Sel decision
+    class Render terminal
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
 
 Components read strings the normal `react-i18next` way:
 

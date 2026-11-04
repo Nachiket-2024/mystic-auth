@@ -5,7 +5,7 @@ import { queryClient } from "../../core/queryClient";
 import { useAuthStore } from "../../store/authStore";
 import { CURRENT_USER_QUERY_KEY } from "../current_user/useCurrentUserQuery";
 import { SESSIONS_QUERY_KEY } from "../../active_sessions/useSessionsQuery";
-import { PREVIOUS_LOGIN_QUERY_KEY } from "../../dashboard/usePreviousLoginQuery";
+import { PREVIOUS_LOGIN_QUERY_KEY } from "../../active_sessions/usePreviousLoginQuery";
 import { wasSelfPermissionMutationRecent } from "./selfPermissionMutationGuard";
 
 // Opens an SSE (Server-Sent Events: a one-way, auto-reconnecting push channel from

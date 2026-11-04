@@ -13,6 +13,7 @@ export const PERMISSIONS = {
     USERS_ASSIGN_SYSTEM_ROLE: "users:assign_system_role",
     USERS_DELETE_ANY: "users:delete_any",
     USERS_REACTIVATE: "users:reactivate",
+    USERS_MANAGE_PASSKEYS: "users:manage_passkeys",
     POLICIES_READ: "policies:read",
     POLICIES_CREATE: "policies:create",
     POLICIES_UPDATE: "policies:update",

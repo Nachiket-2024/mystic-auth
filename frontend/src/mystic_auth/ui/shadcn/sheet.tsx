@@ -7,8 +7,8 @@ import { Dialog as SheetPrimitive } from "radix-ui"
  * dialog.tsx (a modal with its own focus trap/Escape handling/overlay) but
  * positioned and animated as a fixed-width strip pinned to the viewport's
  * right edge instead of centered - the shape the Audit Log's event-details
- * drawer needs (design/audit-log.html's "Right-side drawer opened by row
- * click"). Kept as its own file rather than a variant prop on Dialog: the
+ * drawer needs (opened by row
+ * click). Kept as its own file rather than a variant prop on Dialog: the
  * two share no className, and forcing one component to branch between
  * "centered card" and "edge panel" layouts would make Dialog.tsx harder to
  * read for its far more common callers. */

@@ -8,20 +8,14 @@ import { useAuthStore } from "../../store/authStore";
 const ROUTE_FADE_TRANSITION = "opacity var(--duration-fast) var(--easing-hover)";
 
 /**
- * Fades each route's content in on a client-side navigation instead of the
- * hard cut a bare `<Routes>` produces. Re-triggers on every pathname change
- * after the first: starts at opacity 0, then flips to 1 on the next
- * animation frame so the browser applies the CSS transition instead of
- * skipping to the end state. Plain CSS, no animation library - see App.tsx
- * for where this wraps `<Routes>`.
+ * Fades each route's content in on a client-side navigation instead of a hard
+ * cut. Re-triggers on every pathname change after the first: starts at opacity
+ * 0, then flips to 1 on the next animation frame so the CSS transition runs.
+ * Plain CSS, no animation library; see App.tsx for where it wraps `<Routes>`.
  *
- * Deliberately skipped for the very first render (isInitialRender below):
- * that one is the static boot-shell's own handoff, not a route change, and
- * fading content in on top of it added a second, animated visual state
- * between "boot shell" and "real page" - on top of the boot shell's own
- * removal, some visitors reported seeing this as two distinct loading
- * screens rather than one clean cut. The very first paint after the boot
- * shell now always renders at opacity 1 immediately, with no fade.
+ * Skipped on the very first render (isInitialRender): that is the boot-shell
+ * handoff, not a route change, and fading in on top of it looked like two
+ * loading screens. The first paint renders at opacity 1.
  */
 const RouteFadeIn: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { pathname } = useLocation();

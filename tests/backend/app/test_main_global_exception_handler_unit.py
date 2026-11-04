@@ -49,3 +49,33 @@ async def test_extra_forbidden_validation_is_logged_without_echoing_input(caplog
     assert "role" in caplog.text
     assert "request-123" in caplog.text
     assert "system_superuser" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_nul_byte_database_error_is_a_400_not_a_500(mocker):
+    from sqlalchemy.exc import DBAPIError
+
+    from backend.app.main import database_error_handler
+
+    capture_mock = mocker.patch(f"{MODULE}.capture_exception", new_callable=AsyncMock)
+    exc = DBAPIError("SELECT 1", {}, Exception('invalid byte sequence for encoding "UTF8": 0x00'))
+
+    response = await database_error_handler(MagicMock(), exc)
+
+    assert response.status_code == 400
+    assert b"INVALID_CHARACTER" in response.body
+    capture_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_other_database_errors_still_return_the_generic_500(mocker):
+    from sqlalchemy.exc import DBAPIError
+
+    from backend.app.main import database_error_handler
+
+    mocker.patch(f"{MODULE}.capture_exception", new_callable=AsyncMock)
+    request = MagicMock()
+    request.url.path = "/users/"
+    response = await database_error_handler(request, DBAPIError("SELECT 1", {}, Exception("deadlock detected")))
+
+    assert response.status_code == 500

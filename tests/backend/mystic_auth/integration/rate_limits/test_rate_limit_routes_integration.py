@@ -20,6 +20,7 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
 from backend.mystic_auth.core.settings import settings
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 from ..authorization.authorization_test_accounts import (
     cleanup_test_policies,
@@ -135,7 +136,7 @@ async def test_scope_filter_excludes_the_other_scope(client, created_emails):
 
     endpoint = f"test_dashboard_scope_{uuid.uuid4().hex}"
     ip_key = f"{endpoint}:ip:203.0.113.9"
-    account_key = f"{endpoint}:account:victim@example.com"
+    account_key = f"{endpoint}:account:{email_key_id('victim@example.com')}"
     try:
         await rate_limiter_service.record_request(ip_key)
         await rate_limiter_service.record_request(account_key)

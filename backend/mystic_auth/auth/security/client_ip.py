@@ -1,3 +1,5 @@
+import ipaddress
+
 from fastapi import Request
 
 from ...core.settings import settings
@@ -61,3 +63,26 @@ def get_client_ip(request: Request) -> str | None:
     # Every entry was itself a trusted proxy hop (e.g. proxies talking to
     # each other with no real client attached) - nothing left to trust.
     return peer_ip
+
+
+def ip_bucket(ip: str | None) -> str:
+    """Identifier for per-source counters (rate limits, lockouts).
+
+    IPv4 addresses are used as they are. An IPv6 customer normally controls a
+    whole /64, so counting per single address would let one attacker rotate
+    through billions of addresses and never reach a limit. All addresses in
+    one /64 therefore share a bucket. The text has no ':' because the Rate
+    Limits dashboard splits keys on that character.
+    """
+    if not ip:
+        return "unknown"
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return str(address.ipv4_mapped)
+        groups = address.exploded.split(":")[:4]
+        return "v6-" + "-".join(groups)
+    return str(address)

@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Regression guard for malformed pinned-image digests:
-# docker-compose.local-prod-ngrok.yml once had a geoipupdate digest one hex
-# character short (63 chars instead of 64), copied into all four
-# production-shaped compose files. `docker pull`/`docker compose ...
-# --profile geoip up` fails outright on a clean host with "invalid checksum
-# digest length", and nothing short of actually pulling the image caught it:
-# `docker compose config` happily accepts a malformed digest string.
+# Regression guard for malformed pinned-image digests: a geoipupdate digest once
+# shipped one hex character short (63 instead of 64) in all four production-
+# shaped compose files. `docker compose config` accepts it, but `docker pull`
+# fails with "invalid checksum digest length".
 #
 # Scans every docker/{mystic_auth,app}/compose/docker-compose.*.yml for an
-# `@sha256:<hex>` image pin and asserts the hex portion is exactly 64
-# characters.
+# `@sha256:<hex>` pin and asserts the hex is exactly 64 characters.
 #
 # Usage: tests/scripts/mystic_auth/lint/check-image-digests.sh
 # Exit 0: every pinned digest is 64 hex characters. Exit 1: one or more

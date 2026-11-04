@@ -1,6 +1,7 @@
 from typing import Literal
 
 from sqlalchemy import tuple_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -88,7 +89,27 @@ class UserPermissionRepository:
                 user_id=user_id, action=action, resource_type=resource_type,
                 conditions=conditions, assigned_by=assigned_by,
             )
-            db.add(grant)
+            try:
+                # SAVEPOINT: a lost race must not expire the caller's objects.
+                async with db.begin_nested():
+                    db.add(grant)
+                    await db.flush()
+            except IntegrityError:
+                # A concurrent request created the same grant first
+                # (uq_user_permission). Apply this request's conditions to
+                # that row, exactly as a sequential re-assign would.
+                winner = await db.execute(
+                    select(UserPermission).where(
+                        UserPermission.user_id == user_id,
+                        UserPermission.action == action,
+                        UserPermission.resource_type == resource_type,
+                    )
+                )
+                grant = winner.scalar_one()
+                grant.conditions = conditions
+                grant.is_active = True
+                grant.assigned_by = assigned_by
+                db.add(grant)
             await db.commit()
             await db.refresh(grant)
 

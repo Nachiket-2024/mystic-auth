@@ -11,8 +11,8 @@ import UsersPage from '@/users/UsersPage';
 import { formatPolicyActionLabel } from '@/policies/policyCardHelpers';
 
 // Pagination, server-side search/filter/sort, and CSV export. Row actions
-// live in users_page.test.tsx, and the Policies dialog in
-// users_page_policies.test.tsx.
+// live in users_page.test.tsx, and the access dialog in
+// users_page_access_dialog_policies.test.tsx.
 
 const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();
@@ -111,7 +111,7 @@ describe('UsersPage list controls', () => {
   });
 
   it('hydrates the policy filter from a URL deep link', async () => {
-    seed(['users:list_all']);
+    seed(['users:list_all', 'policies:read']);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'report_viewer', description: null, actions: ['reports:read'], resource_type: 'reports', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
     ]);
@@ -180,7 +180,7 @@ describe('UsersPage list controls', () => {
   });
 
   it('filters by policy via the Policy select and resets to page 1', async () => {
-    seed(['users:list_all']);
+    seed(['users:list_all', 'policies:read']);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'self_service', description: null, actions: ['users:read_own'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
       { id: 2, name: 'user_management', description: null, actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
@@ -208,7 +208,7 @@ describe('UsersPage list controls', () => {
   });
 
   it('keeps policy and verification filters conjunctive', async () => {
-    seed(['users:list_all']);
+    seed(['users:list_all', 'policies:read']);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'self_service', description: null, actions: ['users:read_own'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },
     ]);
@@ -235,7 +235,7 @@ describe('UsersPage list controls', () => {
   });
 
   it('filters by permission via the Permission picker and resets to page 1', async () => {
-    seed(['users:list_all']);
+    seed(['users:list_all', 'policies:read']);
     mock.onGet('/authorization/policies').reply(200, []);
     mock.onGet('/users/').reply((config) => {
       if (config.params?.permission === 'users:list_all') {

@@ -35,17 +35,14 @@ const BAR_WIDTH_RATIO = 0.55;
 /**
  * LoginTrendChart
  * ----------------------------
- * Daily sign-in success/failure counts as a stacked bar chart, so a spike (a brute-force run, a
- * lockout wave) is visible at a glance instead of requiring paging through rows below. Gray for
- * success, red for failure rather than green/red: green and red aren't distinguishable enough
- * for deutan colorblindness, and failures are the thing this chart exists to surface. The chart
- * follows the page's selected time range and has no controls of its own: a trend glance, not a
- * second filterable table.
+ * Daily sign-in success/failure counts as a stacked bar chart, so a spike (a
+ * brute-force run, a lockout wave) is visible at a glance. Gray for success and
+ * red for failure, not green/red, which deutan colorblindness cannot separate.
+ * It follows the page's time range and has no controls of its own.
  *
- * Every bar is labeled with its day-of-month, not just the first/last, so a reader can tell
- * which day a spike happened on. Hovering or keyboard-focusing a bar lifts it slightly and
- * opens a tooltip with the full date and exact counts; all of this is already reachable in
- * the security-log table below, so the chart is a glance-level enhancement, not a data source.
+ * Every bar is labeled with its day of month. Hovering or keyboard-focusing a bar
+ * lifts it and opens a tooltip with the full date and exact counts. The same data
+ * is in the table below, so the chart is a glance, not a data source.
  */
 const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isFetching = false, isError, errorMessage }) => {
     const { t } = useTranslation(["audit_log", "ui_text"]);

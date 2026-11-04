@@ -12,6 +12,7 @@ from backend.mystic_auth.user_session.session_events import (
     session_event_stream,
     signal_shutdown,
 )
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 MODULE = "backend.mystic_auth.user_session.session_events"
 
@@ -37,7 +38,7 @@ async def test_publishers_send_the_expected_event(mocker, publisher, event_type)
 
     publish_mock.assert_awaited_once()
     channel, payload = publish_mock.await_args.args
-    assert channel == "session_events:user@example.com"
+    assert channel == f"session_events:{email_key_id('user@example.com')}"
     assert json.loads(payload) == {"type": event_type}
 
 

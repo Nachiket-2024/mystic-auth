@@ -96,7 +96,7 @@ class UserLifecycleCRUD:
         started with, and the purge proceeds anyway on data that's no longer
         current. The lock also blocks a concurrent reactivate on the same
         row from landing mid-purge rather than only detecting it after the
-        fact. Does not itself require deleted_at to be set: an admin's
+        fact. Does not itself require deleted_at to be set: a management caller's
         ad-hoc purge of a still-active account is a legitimate, separate
         call shape (see purge_user_account's own deleted_at-regression
         check, which is where that distinction belongs).

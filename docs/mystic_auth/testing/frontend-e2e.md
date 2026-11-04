@@ -3,7 +3,7 @@
 
 *New to a term here? See the [Testing Glossary](../glossary/testing.md).*
 
-These 28 Playwright specs exercise the application in a real browser. “Mocked”
+These 29 Playwright specs exercise the application in a real browser. “Mocked”
 means the browser receives deterministic route fixtures. “Real disposable
 account” means the test creates or uses a short-lived account against the local
 stack. “Real seeded accounts” means the test depends on the PBAC matrix seeded
@@ -104,6 +104,13 @@ remove it from the local database when it is no longer needed.
 
 - `auth/auth_pages_responsive_browser.spec.ts` checks auth layouts at narrow
   widths and guards against mobile overflow. Backend mode: mocked.
+- `passkeys/passkeys_browser.spec.ts` drives a real browser with a virtual authenticator
+  (Chromium DevTools protocol): register, sign in, rename, and remove; step-up after the 15-minute
+  window lapses (the session is aged in the database) without logging out; and selected and
+  bulk removal. It does not use a physical authenticator. Support helpers
+  `ageBrowserSessions` and `seedBrowserPasskeyRows` live in `e2e/support/disposableSystemUser.ts`.
+  It runs once, on the `chromium-desktop` project only, because the virtual authenticator needs
+  Chromium's DevTools protocol; other projects skip it.
 - `auth/login_and_logout_browser_flow.spec.ts` creates or uses a disposable
   account to verify login, protected navigation, logout, and logout-all.
 - `auth/signup_and_verification_browser_flow.spec.ts` verifies signup,
@@ -120,7 +127,7 @@ remove it from the local database when it is no longer needed.
 - `account_settings/account_settings_page_browser.spec.ts` verifies settings
   tabs, profile/password/appearance controls, deletion dialog, and overflow.
   Backend mode: mocked API.
-- `account_settings/confirm_delete_account_browser_flow.spec.ts` verifies the
+- `account_deletion/confirm_delete_account_browser_flow.spec.ts` verifies the
   deletion-confirmation token page for valid, missing, and invalid tokens.
   Backend mode: mocked endpoint.
 
@@ -206,6 +213,32 @@ remove it from the local database when it is no longer needed.
   container; never point it at production data.
 
 ---
+
+## Running WebKit on a host WebKit cannot run on
+
+Playwright's WebKit build links against specific system library versions (for example ICU 72). A newer distribution, such as Ubuntu 26.04, ships different versions, and `playwright install-deps` installs the newer ones, so the browser still fails to start with `libicudata.so.72: cannot open shared object file`. Run the WebKit project inside Playwright's own image instead, with the dev stack already up. Use the image tag that matches the installed Playwright version:
+
+```bash
+CT=/mnt/wsl/docker-desktop/cli-tools/usr   # Docker Desktop with WSL2; on plain Linux mount /usr/bin/docker and its compose plugin
+docker run --rm --network host --ipc=host \
+  -v "$PWD":/work -w /work/frontend \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $CT/bin/docker:/usr/local/bin/docker:ro \
+  -v $CT/local/lib/docker/cli-plugins:/usr/local/lib/docker/cli-plugins:ro \
+  mcr.microsoft.com/playwright:v1.64.1-noble \
+  npx playwright test --project=webkit-desktop
+```
+
+The Docker socket and CLI mounts are only needed because some specs seed and delete a disposable user through `docker compose exec`. Without them those specs fail with `spawnSync docker ENOENT`, which is a harness limit and not a product failure.
+
+---
+
+## Gotchas
+
+- **Do not override `PLAYWRIGHT_BASE_URL`.** The mocked-API route helper hardcodes `access-control-allow-origin: http://localhost:5173` (`e2e/support/authenticatedMysticAuthApiRoutes.ts`, `corsHeaders()`). Browsers treat `localhost` and `127.0.0.1` as different origins, so running against `http://127.0.0.1:5173` fails every mocked request with `net::ERR_FAILED` and every authenticated page silently bounces to `/login`, which looks like a broken auth mock but is not. Let the config's default run the dev server.
+- **Flaky under parallel load.** With four browser projects in parallel, the command-palette timing test in `layout/app_shell_controls.spec.ts` and a WebKit focus-restoration test can fail under CPU contention. Re-run the one spec alone before reading a single failure as a regression; both pass in isolation.
+- **Some tests need a real backend.** The "disposable seeded system user" tests in `auth/login_and_logout_browser_flow.spec.ts` run `docker compose exec backend` to seed and delete a throwaway account. Start the dev postgres, valkey, backend and alembic services first, or they fail with "service backend is not running", which is an environment gap and not a test bug.
+- **Stale route strings.** The live smoke test once checked `/settings` (the real route is `/account-settings`) and silently tested the 404 page. If you suspect another, run `grep -rn '"/settings"\|"/setting"' tests/frontend`.
 
 ## See also
 

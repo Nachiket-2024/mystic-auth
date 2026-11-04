@@ -21,7 +21,7 @@ function expectConfiguredBranding() {
 
 // Regression guard for design review bug 7: 403/404 used to render on a bare
 // canvas instead of AuthLayout, losing the font size/language/theme toggles
-// design.md says stay one click on every page, plus the logo.
+// that should stay one click away on every page, plus the logo.
 describe('NotFoundPage', () => {
   it('renders inside the auth shell with its toggles, logo, and both actions', () => {
     renderPage(<NotFoundPage />);

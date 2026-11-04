@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...audit_log.audit_log_service import ACCOUNT_VERIFICATION_REQUESTED, ACCOUNT_VERIFIED, log_security_event
 from ...logging.logging_config import get_logger
+from ...valkey.key_names import email_key_id
 from ..security.login_protection_service import login_protection_service
 from .account_verification_service import account_verification_service
 from .user_verification_service import user_verification_service
@@ -33,7 +34,7 @@ class AccountVerificationHandler:
             if not payload or "email" not in payload:
                 return JSONResponse(
                     content={
-                        "error": "Invalid, expired, or already used verification token",
+                        "detail": "Invalid, expired, or already used verification token",
                         "code": "INVALID_VERIFICATION_TOKEN",
                     },
                     status_code=400
@@ -46,7 +47,7 @@ class AccountVerificationHandler:
             # double-submitted, already-consumed link) counts towards, and can
             # trip, the unrelated login lockout for the same email. Same
             # reasoning as refresh_token_handler's separate "refresh:lockout:ip:" key.
-            email_lock_key = f"verify_account_lock:email:{email}"
+            email_lock_key = f"verify_account_lock:email:{email_key_id(email)}"
 
             # Enforce the lock before changing account state. A successful
             # verification must not be reported as 429 after the account has
@@ -54,7 +55,7 @@ class AccountVerificationHandler:
             if not await self.login_protection_service.begin_protected_action(email_lock_key):
                 return JSONResponse(
                     content={
-                        "error": "Too many failed attempts, account temporarily locked",
+                        "detail": "Too many failed attempts, account temporarily locked",
                         "code": "ACCOUNT_LOCKED",
                     },
                     status_code=429,
@@ -64,7 +65,7 @@ class AccountVerificationHandler:
                 await self.login_protection_service.release_protected_action(email_lock_key)
                 return JSONResponse(
                     content={
-                        "error": "Invalid, expired, or already used verification token",
+                        "detail": "Invalid, expired, or already used verification token",
                         "code": "INVALID_VERIFICATION_TOKEN",
                     },
                     status_code=400,
@@ -82,12 +83,12 @@ class AccountVerificationHandler:
                     await self.login_protection_service.finish_protected_action(email_lock_key, success=True)
                     return JSONResponse(content, status_code=200)
 
-                content = {"error": "User not found or already verified", "code": "USER_NOT_FOUND_OR_ALREADY_VERIFIED"}
+                content = {"detail": "User not found or already verified", "code": "USER_NOT_FOUND_OR_ALREADY_VERIFIED"}
                 await self.login_protection_service.finish_protected_action(email_lock_key, success=False)
                 if await self.login_protection_service.is_locked(email_lock_key):
                     return JSONResponse(
                         content={
-                            "error": "Too many failed attempts, account temporarily locked",
+                            "detail": "Too many failed attempts, account temporarily locked",
                             "code": "ACCOUNT_LOCKED",
                         },
                         status_code=429,
@@ -99,7 +100,7 @@ class AccountVerificationHandler:
         except Exception:
             logger.error("Error during account verification:\n%s", traceback.format_exc())
             return JSONResponse(
-                content={"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
+                content={"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
             )
 
     async def handle_verification_email_request(
@@ -130,7 +131,7 @@ class AccountVerificationHandler:
         except Exception:
             logger.error("Error during verification email request:\n%s", traceback.format_exc())
             return JSONResponse(
-                content={"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
+                content={"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
             )
 
 

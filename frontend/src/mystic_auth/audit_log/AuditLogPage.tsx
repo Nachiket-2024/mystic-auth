@@ -17,25 +17,18 @@ import { useAuditLogUiStore } from "./auditLogUiStore";
 /**
  * AuditLogPage
  * ----------------------------
- * Every authenticated user can see their own authorization-decision and security-event
- * history (backend: GET /authorization/audit-log/me, GET /audit/security-log/me, auth-only).
- * A caller who also holds policies:read / security_audit:read gets an "All users" tab for
- * that log, backed by the matching management endpoint. The route itself needs no permission:
- * each tab decides its own access via IfCan, mirroring how the backend splits self vs.
- * management visibility across these four endpoints.
+ * Every authenticated user sees their own authorization-decision and
+ * security-event history (GET /authorization/audit-log/me, GET
+ * /audit/security-log/me). A caller with policies:read / security_audit:read
+ * also gets an "All users" tab backed by the management endpoint. The route
+ * needs no permission; each tab gates itself with IfCan, mirroring the
+ * backend's self vs. management split.
  *
- * Category (Authorization decisions vs. Security events) and scope (My activity vs. All
- * users) are two independent tab bars rather than both log types stacked on one page: only
- * one table renders at a time. Every table pages via numbered Pagination, sorts server-side
- * by column header, and narrows further via a filter bar; all page/filter state lives
- * client-side while the data stays server-side, so none of this depends on log size.
- *
- * Split by section into two subfolders matching the two tabs: authorization_log/
- * (MyAuthorizationLogSection, AllAuthorizationLogSection, AuthorizationFilterBar, and its own
- * columns/queries/resourceTypes files) and security_log/ (the same set, plus
- * LoginTrendChart.tsx). What's identical across both tabs lives here instead:
- * auditLogListConfig.ts (PAGE_SIZE/formatTimestamp/etc.) and auditLogPageResult.ts
- * (X-Total-Count -> {rows,total} parsing). This file is just the tab shell.
+ * Category (Authorization decisions, Security events) and scope (My activity,
+ * All users) are two independent tab bars, so one table renders at a time.
+ * Tables page, sort and filter server-side. Per-tab code lives in
+ * authorization_log/ and security_log/; shared config is in
+ * auditLogListConfig.ts and auditLogPageResult.ts. This file is the tab shell.
  */
 interface AuditLogPageProps {
     /**

@@ -13,7 +13,7 @@ import { PermissionGroup } from "./UserAccessPermissionsParts";
 // Permissions tab of the User Access dialog: search/filter and the
 // resource-type-grouped permission list. Details and Policies tabs live in
 // their own sibling files, composed together by UserAccessTabs.tsx - split
-// out of one 540-line file, see AGENTS.md's ~350-line target.
+// out of one 540-line file, see the repo's ~350-line target.
 
 interface UserAccessPermissionsTabProps {
   state: UserAccessState;
@@ -45,6 +45,13 @@ const UserAccessPermissionsTab: React.FC<UserAccessPermissionsTabProps> = ({
       state.tab !== "permissions" && "hidden",
     )}
   >
+      {/* Only the active tab renders its list. All three panels stay mounted
+          (forceMount keeps aria-controls valid), but the hidden Policies and
+          Permissions lists used to be built in full every time the dialog
+          opened, which dominated the open latency. Filters, queries and open
+          groups live in the dialog state hook, so nothing is lost on a switch. */}
+      {state.tab === "permissions" && (
+        <>
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2 pt-3">
       <SearchInput
         value={state.permQuery}
@@ -105,6 +112,8 @@ const UserAccessPermissionsTab: React.FC<UserAccessPermissionsTabProps> = ({
         </div>
       )}
     </div>
+        </>
+      )}
   </TabsContent>
 );
 

@@ -83,7 +83,7 @@ describe('PasswordResetRequestForm', () => {
   // time the alert said "Please try again later" - the two contradicted
   // each other. The cooldown must follow the response, not the click.
   it('does not start a cooldown when the request fails', async () => {
-    mock.onPost('/auth/password-reset/request').reply(429, { error: 'Please try again later' });
+    mock.onPost('/auth/password-reset/request').reply(429, { detail: 'Please try again later' });
 
     renderForm();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

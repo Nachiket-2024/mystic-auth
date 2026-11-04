@@ -10,8 +10,7 @@ import UsersPage from "@/users/UsersPage";
 import { Toaster } from "@/ui/toaster/toaster";
 
 // Shared fixtures/helpers for the User Access dialog's three test files
-// (details, policies, permissions - split out of one 715-line file to stay
-// under the repo's ~350-line target, see AGENTS.md). Each test file makes
+// (details, policies, permissions). Each test file makes
 // its own MockAdapter instance (axios-mock-adapter instances are
 // independent, and `mock.reset()` in one file's beforeEach must never touch
 // another file's handlers) but shares this module's fixtures/render helper.

@@ -3,17 +3,13 @@
 # both, skipping a fixed list of fields setup-env.sh generates fresh
 # (secrets, plus the DB URLs that embed them) and the app name/brand color
 # it just prompted for. Also skips any field you listed in
-# scripts/app/env-tools/rotate-secrets/fields.env, since a field safe to
-# rotate by editing the file is exactly a field that shouldn't be copied
-# forward from an old one either - see that file's own header.
+# scripts/app/env-tools/rotate-secrets/fields.env (rotatable fields should not
+# be carried forward).
 #
-# Never prints a value, only key names: every line this script writes to
-# stdout is safe to appear in an AI coding agent's own tool output/context,
-# since the actual secret literals never pass through it. This is the
-# building block scripts/upstream-sync's agent workflow uses to copy a
-# real GOOGLE_CLIENT_SECRET/GMAIL_APP_PASSWORD/etc. from an old env file
-# into a freshly regenerated one without an agent ever reading them - see
-# docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md.
+# Never prints a value, only key names, so its output is safe in an AI coding
+# agent's context. The upstream-sync agent workflow uses it to carry real
+# secrets from an old env file into a regenerated one without reading them (see
+# docs/mystic_auth/template-usage/syncing-upstream/agent-prompt.md).
 #
 # Usage: scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD_FILE NEW_FILE
 set -euo pipefail

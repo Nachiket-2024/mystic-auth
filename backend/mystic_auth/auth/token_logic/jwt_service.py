@@ -4,13 +4,15 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import jwt
+from valkey.exceptions import ValkeyError
 
+from ...core.errors import service_unavailable_error
 from ...core.settings import settings
 from ...database.connection import database
 from ...logging.logging_config import get_logger
 from ...valkey.client import valkey_client
-from .refresh_rotation_claim import RefreshRotationClaim
-from .refresh_rotation_store import claim_jti_for_rotation, is_benign_duplicate_rotation
+from ..refresh_token_logic.refresh_rotation_claim import RefreshRotationClaim
+from ..refresh_token_logic.refresh_rotation_store import claim_jti_for_rotation, is_benign_duplicate_rotation
 from .token_version_store import TokenVersionUnavailableError, token_version_store
 
 logger = get_logger(__name__)
@@ -116,7 +118,7 @@ class JWTService:
         expected_type="access" via verify_token, so a verification token is
         rejected everywhere else in the app even if it leaks (e.g. via an
         email log or forward). Single-use is enforced by its own Valkey key
-        (account_verification_service's "verify:{token}"), not by anything
+        (account_verification_service's "verify:<sha256(token)>" key), not by anything
         in this class - it carries no account_ver/chain_ver/jti of its own.
 
         expires_minutes must match the caller's own single-use Valkey key TTL
@@ -192,6 +194,11 @@ class JWTService:
 
         except jwt.InvalidTokenError:
             return None
+
+        except (TokenVersionUnavailableError, ValkeyError) as error:
+            # Revocation state could not be read: an outage, not a bad token.
+            logger.error("Revocation store unavailable during token verification:\n%s", traceback.format_exc())
+            raise service_unavailable_error() from error
 
         except Exception:
             logger.error("JWT verification error:\n%s", traceback.format_exc())

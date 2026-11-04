@@ -1,3 +1,5 @@
+import hashlib
+
 # tests/backend/mystic_auth/unit/user_lifecycle/test_account_deletion_service_unit.py
 #
 # account_deletion_service.py is the async, email-confirmed self-service
@@ -91,7 +93,7 @@ async def test_send_deletion_email_persists_single_use_token_in_valkey(mocker):
     assert result is True
     set_mock.assert_awaited_once()
     args, kwargs = set_mock.call_args
-    assert args[0] == "account_delete:delete-token-abc"
+    assert args[0] == f"account_delete:{hashlib.sha256(b'delete-token-abc').hexdigest()}"
     assert kwargs["ex"] > 0
 
 
@@ -111,7 +113,7 @@ async def test_confirm_deletion_succeeds_and_consumes_token(mocker):
     result = await account_deletion_service.confirm_deletion("valid-token", db=None)
 
     assert result is True
-    getdel_mock.assert_awaited_once_with("account_delete:valid-token")
+    getdel_mock.assert_awaited_once_with(f"account_delete:{hashlib.sha256(b'valid-token').hexdigest()}")
     finalize_mock.assert_awaited_once()
 
 

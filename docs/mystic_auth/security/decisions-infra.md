@@ -66,44 +66,17 @@ See `tests/backend/mystic_auth/unit/auth/token_logic/test_jwt_service_unit.py` (
 
 ---
 
-## Background task queue: Taskiq vs Celery
+## Background task queue: Procrastinate on Postgres
 
-The app is fully async (FastAPI, SQLAlchemy async, `asyncio` throughout), and [Taskiq](https://taskiq-python.github.io/) was chosen over [Celery](https://docs.celeryq.dev/) for the one background job this template had at the time (sending email). **Superseded**: Taskiq was later replaced with Procrastinate; see [Taskiq replaced with Procrastinate](#taskiq-replaced-with-procrastinate) below and [Background Email Delivery](../background-workers/procrastinate.md). Kept here as historical record of the original Taskiq-vs-Celery reasoning, which is unaffected by that later swap: the argument below is about async-native task execution in general, not specific to which async-native queue eventually won.
+The app is fully async, so the queue needs `async def` workers. [Celery](https://docs.celeryq.dev/) is mature and has richer workflows, but its worker model is synchronous, so async task code would need `asyncio.run(...)` per task, and it needs its own broker. Jobs run on [Procrastinate](https://procrastinate.readthedocs.io/), which is async-native and stores jobs in the Postgres database the app already trusts. (An earlier version used Taskiq on Valkey Streams.)
 
-**Why an async application changes the calculus at all**:
+**Why Postgres instead of a Valkey broker**:
 
-1. Celery's worker model predates `asyncio` and is fundamentally synchronous/thread-or-process-based.
-2. Running truly async task code under Celery means either wrapping every async call in `asyncio.run(...)` per task (defeats the point: you get a new event loop per task, no shared connection pooling across tasks in a worker process) or reaching for `gevent`/`eventlet` monkey-patching to fake concurrency, which has its own long history of subtle incompatibilities with async libraries (`asyncpg`, `valkey.asyncio`, `aiosmtplib`: all already in use here) that patch at the socket/greenlet level instead of participating in the same event loop.
-3. Taskiq's broker/worker are `async def` from the ground up, so `send_email_task` is a plain coroutine that shares the same `asyncio` primitives (and, in principle, the same connection pools) as the rest of the app: no bridging layer.
+1. A permanently failed email job stays in `procrastinate_jobs` as `status='failed'`, so failures are queryable and alertable. With a Valkey stream, an exhausted job was simply dropped.
+2. A retry's due time lives on the job row and the worker's own fetch query picks it up. There is no separate scheduler process whose outage could silently stop retries.
+3. Valkey stays a cache and counter store only (rate limits, lockout, token-version cache), so a flush cannot lose a queued job.
 
-**Celery's real strengths, stated fairly**: this is not a "Celery is bad" argument:
-1. **Maturity and ecosystem**: over a decade of production use, extensive documentation, first-class support in most PaaS/deployment guides, mature monitoring (Flower), broker flexibility (RabbitMQ, SQS, Valkey, and more), and a huge base of Stack Overflow/blog troubleshooting content that a niche library like Taskiq simply doesn't have yet.
-2. **Feature depth**: complex workflows (chains, chords, groups), rate limiting per task, more granular retry/backoff policies out of the box, and a battle-tested scheduler (`celery beat`).
-3. For a team already running a synchronous (WSGI) stack, or with existing Celery operational expertise, Celery remains the safer default: there's no async-compatibility problem to solve if nothing else in the stack is async either.
-
-**Why this project chose Taskiq anyway**:
-
-1. The whole backend is already async end-to-end, and Valkey is already a hard dependency for rate-limiting and login-lockout state, so a Valkey-backed Taskiq broker (`ValkeyStreamBroker`) adds zero new infrastructure.
-2. Celery would either need its own broker (typically RabbitMQ, adding a service) or reuse Valkey in a less idiomatic way (Celery-over-Valkey is supported but is the less-travelled path in Celery's own ecosystem, with known limitations around visibility/ack timeouts).
-3. Given the task volume here is one job (email sending), Taskiq's smaller feature set is not a real cost: the deciding factor was avoiding a sync/async impedance mismatch and avoiding a second piece of broker infrastructure, not a claim that Taskiq is categorically better.
-
----
-
-## Taskiq replaced with Procrastinate
-
-Taskiq (see above) was later replaced in full with [Procrastinate](https://procrastinate.readthedocs.io/) (Postgres-native, no Valkey broker): not a gradual migration, a full swap. See [Background Email Delivery](../background-workers/procrastinate.md) for the resulting architecture.
-
-**Why**: two items that sat in [Concerns](../concerns/README.md) as accepted, unresolved gaps under Taskiq's design turned out to be architectural consequences of the Valkey-broker choice itself, not things that needed a workaround:
-
-- **No dead-letter queue or alerting for permanently-failed emails.** Under Taskiq, a permanently-failed job (all retries exhausted) was simply dropped after its final traceback was logged: nothing stored it anywhere queryable. Procrastinate's jobs are rows in `procrastinate_jobs` from the moment they're deferred; a permanently-failed job's row just sits at `status='failed'`, directly queryable via plain SQL, by construction rather than by adding a table to write failures into.
-- **`taskiq_scheduler` was a single point of failure for retry delivery.** Taskiq's `SmartRetryMiddleware` only computes a retry's due-time; something else has to poll that store and re-enqueue due retries, which is why a separate `taskiq_scheduler` container existed at all: if it was down, a scheduled retry silently never fired. Procrastinate writes a retry's `scheduled_at` directly onto the same job row, and the worker's own fetch query picks it up once due, in the same process that runs everything else, including periodic/cron tasks (`@app.periodic`, via an internal `PeriodicDeferrer`). There's no second process to poll anything, so there's nothing for that process's downtime to silently break.
-
-**Why not just add a dead-letter table and a second scheduler replica to Taskiq instead**:
-
-1. Both of Concerns' listed "possible fixes" would have worked, but each adds bespoke infrastructure (a hand-rolled failure table, a second scheduler instance plus whatever makes its polling safely idempotent) to work around gaps that don't exist in a design where the job queue's system of record is the same durable, already-present Postgres database the rest of the app already trusts, instead of an ephemeral Valkey stream.
-2. Since this template's only other reason for a Taskiq-style async-native broker (see the Taskiq-vs-Celery reasoning above) was avoiding a sync/async impedance mismatch, and Procrastinate is equally `async def`-native, the swap keeps everything the original decision cared about while dropping Valkey as a broker entirely: Valkey remains in the stack for rate-limiting/lockout state and a non-authoritative token-version cache (see [Concerns](../concerns/README.md)), just no longer for background jobs.
-
-**What changed concretely**: `backend/mystic_auth/taskiq_tasks/` (broker, result backend, Valkey-backed schedule source, `ResilientValkeyStreamBroker`'s fresh-Valkey startup-race handling) is gone entirely, replaced by `backend/mystic_auth/procrastinate_tasks/` (`procrastinate_app.py`'s `App`/`PsycopgConnector`, `email_tasks.py`, `account_purge_tasks.py`). One new Alembic migration applies Procrastinate's own packaged schema SQL (read from the installed package, not hand-transcribed) rather than a separate `procrastinate schema --apply` step, keeping this template's Alembic-only schema-change discipline intact. The `taskiq_scheduler` container is gone; `taskiq_worker` became `procrastinate_worker`, running `procrastinate --app=...worker` (which also runs the periodic-task deferrer internally) with `procrastinate --app=... healthchecks` as its healthcheck instead of grepping `/proc` for a process name.
+**What it looks like**: `backend/mystic_auth/procrastinate_tasks/` (`procrastinate_app.py`'s `App`/`PsycopgConnector`, `email_tasks.py`, `account_purge_tasks.py`). One Alembic migration applies Procrastinate's packaged schema SQL, read from the installed package, so schema changes stay Alembic-only. The `procrastinate_worker` container runs `procrastinate --app=...worker` (which also runs the periodic deferrer) and uses `procrastinate ... healthchecks` as its healthcheck.
 
 ---
 
@@ -150,5 +123,35 @@ Taskiq (see above) was later replaced in full with [Procrastinate](https://procr
 3. A dedicated database removes the shared tables entirely, which is the only fix that also protects against variants of this bug nobody has hit yet.
 
 **Skipped in CI**: CI already provisions its own dedicated, single-purpose `mystic_auth_ci` Postgres service per run (see `.github/workflows/ci.yml`), with no dev-stack container ever running alongside it, so there's nothing there for this redirect to protect against - detected via the `CI` env var, set by GitHub Actions and effectively every other CI provider by convention.
+
+---
+
+## Valkey outage fails every login closed, not just rate-limiting/lockout
+
+An outage of the `valkey` container (crash, OOM, a bad deploy of its own image) makes every login attempt fail, not just the rate-limiting/lockout checks that actually live in Valkey. This was flagged in a 2026-11-02 audit as "Valkey is a full-auth single point of failure," and is a deliberate tradeoff, not an oversight left unexamined.
+
+**Why not fail-open instead**: considered and rejected.
+
+1. Rate-limiting and login-lockout state (brute-force counters, source-scoped lockouts; see [Brute-force lockout](hardening-abuse-prevention.md#brute-force-lockout)) is the entire reason Valkey sits in the login path at all. If Valkey being unreachable made the login handler skip those checks and let the request through anyway, an attacker's simplest path to defeating brute-force protection becomes making Valkey unreachable (a far easier target than Postgres: no durable data to protect, trivially resource-exhausted), not guessing passwords.
+2. That failure mode is strictly worse than the current one: a fail-open bug under load trades a temporary, visible, self-healing outage (every real user sees a 503 and retries once Valkey recovers) for a silent, permanent hole (every brute-force attempt succeeds at defeating lockout for as long as the attacker can keep Valkey down, with no outward sign anything is wrong).
+3. The same reasoning was already applied, independently, to the disk-exhaustion case (Postgres PANICs and exits rather than silently accepting unsafe writes) and the SSE concurrency cap (the cap holds under real concurrent load rather than degrading). Fail-closed under an infrastructure fault is this app's consistent posture, not something to special-case away for Valkey alone.
+
+**What this *does* leave open, honestly**: a single Valkey replica is a real availability risk for a production deployment with real uptime requirements, not a theoretical one. The accepted mitigation is operational, not code: run Valkey with persistence/replication (or a managed Valkey/Redis-compatible service) in any deployment where a login outage during a Valkey blip is unacceptable. This template's own Compose files run a single `valkey` container by design (see each `docker-compose.*.yml`'s `valkey` service), matching its stated scope of a reference implementation, not an HA cluster - a fork taking this to production with real availability targets should add replication there, not loosen the fail-closed check in `backend/mystic_auth/valkey/client.py`/the login handler to compensate.
+
+---
+
+## Account deletion never anonymizes the audit trail
+
+`security_audit_log`/`authorization_audit_log` keep an account's email/IP/user-agent on every historical row permanently, even after that account is deleted (self-service or admin purge). An earlier version of this template anonymized a purged account's own rows in place (`audit_log_repository.anonymize_for_user`/`anonymize_older_than`, plus a daily retention job stripping PII from any row past `AUDIT_LOG_RETENTION_DAYS` regardless of account status). Both are gone entirely as of a 2026-11-02 audit finding, not just disabled.
+
+**Why this was reversed**: account deletion is the single most predictable thing a user who just did something malicious does next, and `DELETE /users/{email}/purge` (no grace period, unlike self-service deletion) is the last action a compromised or malicious admin can take. Automatically anonymizing an account's audit trail as a side effect of deleting it means deleting the account *was* the cover-up: no review step, no way to tell an innocent deletion from one specifically timed to erase evidence. Building "and also erase my paper trail" into the most obvious thing a bad actor does next is backwards for a table whose entire purpose is making bad behavior reviewable after the fact.
+
+**Why the original reasoning didn't actually hold up**: the anonymization was justified as GDPR right-to-erasure compliance, but the code change does not establish whether a particular deployment must erase these records. GDPR Article 17(3)(e) limits the right to erasure only where processing is necessary for the establishment, exercise, or defence of legal claims; it is not a blanket security or fraud-prevention exception. Controllers still need a lawful basis and must limit retention to what is necessary for their purposes. This implementation retains audit identifiers indefinitely, so each deployment must assess and document its own obligations, update its privacy notice, and add an appropriate retention process where required. See [Regulation (EU) 2016/679 on EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679), Article 17.
+
+**What enforces this, not just application code**: `mystic_auth_app` (the role the app actually connects as) has no `UPDATE` and no `DELETE` on either table (see `b1e6a9f3c7d2_add_least_privilege_app_role.py`'s base grant and the three migrations that have since narrowed it: `9c3e7f1a4b8d` revokes `DELETE`, `4b8d1f6e9c2a` revokes `UPDATE`). Both tables are `SELECT`+`INSERT` only for the app role - genuinely append-only at the database grant level, not just by convention. A compromised dependency reusing the app's live DB connection, or a bad script run with its credentials, cannot touch a row once written, regardless of what application code does or doesn't call.
+
+**Policy history and the migration marker follow the same rule** (`6d2a8f4c1e7b`): `policy_history` is `SELECT`+`INSERT` only for the app role, so the record of who changed which policy stays even after the policy or the person is deleted. `alembic_version` is `SELECT` only, so the app role cannot make the database claim another schema revision. Both are checked in `tests/backend/mystic_auth/security/test_least_privilege_db_role.py`.
+
+**What this means for a fork with real compliance requirements**: if an actual erasure request requires removing PII from these tables (a regulator decision, not just "an account was deleted"), that is a deliberate, manual, out-of-band operation - a DBA/operator action against the DDL-capable `DATABASE_URL` role, reviewed and logged outside the app itself, never something the app's own runtime role can do automatically as a side effect of a user or admin action.
 
 ---

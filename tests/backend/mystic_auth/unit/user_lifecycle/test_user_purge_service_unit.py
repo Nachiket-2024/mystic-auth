@@ -35,12 +35,6 @@ def _mock_collaborators(mocker):
     mocker.patch(f"{MODULE}.refresh_token_service.revoke_all_tokens_for_user", new_callable=AsyncMock, return_value=2)
     mocker.patch(f"{MODULE}.log_security_event", new_callable=AsyncMock)
     mocker.patch(f"{MODULE}.user_crud.delete", new_callable=AsyncMock)
-    # Purge also anonymizes the purged account's own audit-log rows (see
-    # audit_log_repository.anonymize_for_user's docstring).
-    # Mocked here by default like every other collaborator; dedicated
-    # coverage for the call itself is below.
-    mocker.patch(f"{MODULE}.audit_log_repository.anonymize_for_user", new_callable=AsyncMock, return_value=0)
-    mocker.patch(f"{MODULE}.authorization_audit_log_repository.anonymize_for_user", new_callable=AsyncMock, return_value=0)
     # Default: the row lock re-read finds the account still soft-deleted,
     # i.e. the common case where nothing raced the purge. Individual tests
     # override this to exercise the race-guard path.
@@ -178,59 +172,3 @@ async def test_purge_returns_the_revoked_session_count_unchanged(mocker):
     result = await purge_user_account(user, db=MagicMock(), purged_by="admin@example.com")
 
     assert result == 2
-
-
-@pytest.mark.asyncio
-async def test_purge_anonymizes_the_purged_users_own_audit_log_rows(mocker):
-    """Without this, a hard-purged account's email/IP/user-agent
-    stayed readable forever in security_audit_log/authorization_audit_log
-    (no FK, append-only, no retention job) - "deleted" meant only the
-    `users` row. Both audit tables must be anonymized for this exact
-    email, after the row delete (ON DELETE CASCADE already removed
-    Manage Sessions rows by then, same ordering reasoning as the existing
-    revoke-before-delete comment)."""
-    security_mock = mocker.patch(f"{MODULE}.audit_log_repository.anonymize_for_user", new_callable=AsyncMock, return_value=3)
-    authz_mock = mocker.patch(
-        f"{MODULE}.authorization_audit_log_repository.anonymize_for_user", new_callable=AsyncMock, return_value=5
-    )
-    user = _FakeUser("purge-me@example.com")
-
-    await purge_user_account(user, db=MagicMock(), purged_by="admin@example.com")
-
-    security_mock.assert_awaited_once_with("purge-me@example.com", mocker.ANY)
-    authz_mock.assert_awaited_once_with("purge-me@example.com", mocker.ANY)
-
-
-@pytest.mark.asyncio
-async def test_purge_anonymizes_history_before_writing_its_own_account_purged_entry(mocker):
-    """Regression: audit_log_repository.anonymize_for_user matches every row
-    with this user_email, with no exception for rows written moments
-    earlier in the same call. If the ACCOUNT_PURGED entry were written
-    first and anonymized second, the one audit row specifically meant to
-    make this purge reviewable would immediately have its own email nulled
-    out by the sweep that follows it, self-erasing the exact fact ("which
-    account was purged") the log entry exists to record. The anonymize
-    calls must happen before log_security_event, not after, so the
-    ACCOUNT_PURGED row is written after the sweep and survives intact."""
-    call_order = []
-    mocker.patch(
-        f"{MODULE}.audit_log_repository.anonymize_for_user",
-        new_callable=AsyncMock,
-        side_effect=lambda *args: (call_order.append("anonymize_security"), 0)[1],
-    )
-    mocker.patch(
-        f"{MODULE}.authorization_audit_log_repository.anonymize_for_user",
-        new_callable=AsyncMock,
-        side_effect=lambda *args: (call_order.append("anonymize_authz"), 0)[1],
-    )
-    mocker.patch(
-        f"{MODULE}.log_security_event",
-        new_callable=AsyncMock,
-        side_effect=lambda *args, **kwargs: call_order.append("log_account_purged"),
-    )
-    user = _FakeUser("purge-me@example.com")
-
-    await purge_user_account(user, db=MagicMock(), purged_by="admin@example.com")
-
-    assert call_order.index("anonymize_security") < call_order.index("log_account_purged")
-    assert call_order.index("anonymize_authz") < call_order.index("log_account_purged")

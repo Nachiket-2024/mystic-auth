@@ -20,7 +20,13 @@ interface SignupFieldErrors {
     email?: string;
 }
 
-const SignupForm: React.FC = () => {
+interface SignupFormProps {
+    /** Called once the account request succeeds, so the page around the form
+     * can drop the sign-up-only content (header, Google button, terms). */
+    onSignedUp?: () => void;
+}
+
+const SignupForm: React.FC<SignupFormProps> = ({ onSignedUp }) => {
     const { t } = useTranslation("auth");
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -93,6 +99,7 @@ const SignupForm: React.FC = () => {
                     setPassword("");
                     setConfirmPassword("");
                     setPasswordStrength("");
+                    onSignedUp?.();
                 },
             }
         );
@@ -105,10 +112,11 @@ const SignupForm: React.FC = () => {
             <AuthResultPanel
                 icon={<MailCheck size={26} />}
                 variant="brand"
+                headingLevel={1}
                 title={t("signup.successTitle")}
                 description={t("signup.successDescription", { email })}
             >
-                <VerificationEmailRequestForm initialEmail={email} />
+                <VerificationEmailRequestForm initialEmail={email} emailKnown />
                 <Button asChild variant="outline" size="lg" className="w-full">
                     <a href="/login">{t("signup.backToLogin")}</a>
                 </Button>

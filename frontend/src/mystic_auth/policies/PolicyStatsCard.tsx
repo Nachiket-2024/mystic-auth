@@ -21,10 +21,9 @@ interface PolicyStatsCardProps {
 /**
  * PolicyStatsCard
  * ----------------------------
- * One row of brand-tinted tiles under PoliciesPage's title (design/
- * policies.html), replacing the old 2x2 blue/green/cyan/orange grid, which
- * broke design.md's "tell tiles apart by icon, not by a fixed hue per
- * category" rule. Each tile also acts as a quick filter, mirroring
+ * One row of brand-tinted tiles under PoliciesPage's title replacing the old 2x2 blue/green/cyan/orange grid, which
+ * broke the rule that tiles are told apart by icon, not by a fixed hue per
+ * category. Each tile also acts as a quick filter, mirroring
  * UserStatsCard: clicking Active/Inactive applies that status filter, and
  * "Grant destructive actions" filters to policies holding at least one
  * destructive action (isDestructiveAction) - more useful than the old

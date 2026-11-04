@@ -3,6 +3,37 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
+How a scheduled backup flows from the database to off-host storage:
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Wait["db_backup waits for\nthe alembic job to finish"]
+    Dump["pg_dump of POSTGRES_DB\nand bugsink"]
+    Check{"pg_restore --list:\nany tables?"}
+    Discard["Discard dump,\nalert, retry next cycle"]
+    Enc["Encrypt with AES-256-CBC\n(BACKUP_ENCRYPTION_KEY)"]
+    Hmac["Write .hmac tag\nbeside the .dump.enc"]
+    Upload["BACKUP_UPLOAD_COMMAND\n(rclone to B2) with DUMP_FILE"]
+    Prune["Delete local dumps older than\nBACKUP_RETENTION_DAYS"]
+    Fail["Upload fails:\nalert in Bugsink"]
+    Done["Local ./backups copy\nplus off-host copy"]
+
+    Wait --> Dump --> Check
+    Check -- "no (app database)" --> Discard
+    Check -- "yes" --> Enc --> Hmac --> Upload
+    Upload -- "ok" --> Prune --> Done
+    Upload -- "error" --> Fail
+
+    class Check decision
+    class Discard,Fail caution
+    class Done terminal
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ## Backup scripts
 ---
 
@@ -15,6 +46,8 @@ backup round-trip test and restore-drill regression check follow the same
 setting and check the configured application database plus the separate
 `bugsink` database, so template and downstream runs exercise the same
 database-selection contract.
+
+Before keeping a dump, the backup script lists its contents with `pg_restore --list`. A dump of the application database with no tables is discarded and reported as a backup failure, since it means migrations have not run or the wrong database was dumped. The `bugsink` database stays empty until the Bugsink service has started once (CI and fresh dev stacks never start it), so an empty `bugsink` dump only prints a warning.
 
 CBC has no authenticated-encryption mode of its own (`openssl enc -aes-256-gcm` fails outright - the `enc` subcommand doesn't support AEAD ciphers at all), so `scripts/mystic_auth/db/backup-verification/backup-hmac.sh` adds the missing tamper-evidence separately: every `<dump>.dump.enc` gets a detached HMAC-SHA256 tag written alongside it as `<dump>.dump.enc.hmac`, using a MAC key derived from `BACKUP_ENCRYPTION_KEY` (not the raw passphrase itself). `backup-upload.sh` ships the tag off-host with the dump automatically. `database-restore.sh` verifies the tag before decrypting a `.dump.enc` file - a present-but-mismatched tag aborts the restore; a missing tag (a dump made before this existed) only warns, so older backups stay restorable.
 
@@ -90,6 +123,31 @@ Create an application key with these choices:
 5. Copy the generated **keyID** and **applicationKey**. The key name is not a
    credential.
 
+### Choosing the interval and cleaning up old objects
+
+Dumps are the only recovery method; there is no point-in-time recovery. After a
+total loss you restore the latest dump and lose everything written since it was
+taken, so `BACKUP_INTERVAL_HOURS` is your data-loss window. The production
+example uses `1` (up to about an hour of loss). The freshness check alarms at
+twice the interval by default. Postgres managed services or WAL archiving
+(pgBackRest, WAL-G) are the upgrade path if an hour is too long.
+
+Point-in-time recovery (PITR) archives PostgreSQL's write-ahead log continuously so you can restore to a chosen second, such as just before an accidental delete. It is not enabled: it needs a tool such as pgBackRest or WAL-G (or a managed Postgres provider) plus log storage, key management, monitoring and restore drills, and archiving can fill the disk when its destination is down. Hourly dumps were chosen instead because the data changes slowly and the dump, HMAC, upload and restore-drill path is built and tested. Move to PITR when losing an hour of writes is unacceptable.
+
+The B2 bucket, application key and ownership are per-deployment. The freshness script cannot prove an off-host object exists, so the bucket needs its own monitoring and each deployment should repeat the remote restore check. Production-shaped Compose modes refuse to start without `BACKUP_UPLOAD_COMMAND`. The local-prod-ngrok B2 path has been tested by uploading both databases and fully restoring both from the downloaded objects.
+
+Two clean-up rules are independent of each other:
+
+- **Local files:** `BACKUP_RETENTION_DAYS` (14) deletes older dump files from
+  `./backups`. Hourly runs keep about 336 dumps per database for that window.
+- **B2 objects:** nothing in this repository deletes them. Every dump has a
+  unique name, so "keep only the last version" does nothing, and the bucket
+  grows without limit. Add a bucket lifecycle rule in the Backblaze dashboard:
+  hide files 30 days after upload and delete them 1 day after that. Keep the
+  hide period at or above the Object Lock retention (14 days), or deletes will
+  be refused. At hourly dumps that is about 720 objects per database in the
+  bucket; multiply by your dump size to check it against the free 10 GB.
+
 Keep the application key in the deployment secret store, not in git. In the
 environment file used by the production-shaped Compose file, map **keyID** to
 `RCLONE_CONFIG_B2_ACCOUNT` and **applicationKey** to
@@ -140,7 +198,7 @@ The restore target is inferred from the dump filename. A `bugsink-*.sql` file re
 
 ---
 
-## 4. Scheduled backup sidecar
+## Scheduled backup sidecar
 ---
 
 `docker-compose.prod.yml` and every `docker-compose.local-prod-*.yml` variant run a `db_backup` service by default.
@@ -152,6 +210,8 @@ The restore target is inferred from the dump filename. A `bugsink-*.sql` file re
 | `BACKUP_ENCRYPTION_KEY` | Required secret used to encrypt/decrypt `.dump.enc` files. Store it in a secret manager, not with the backups. |
 | `BACKUP_UPLOAD_COMMAND` | Required in production-shaped modes; runs after each verified encrypted dump, with `DUMP_FILE` exported to it, to ship the dump off-host. |
 | `./backups` | Host directory where dumps are written. |
+
+The sidecar waits for the `alembic` migration job to finish before its first dump. Every dump is also checked for at least one table: a dump with none (migrations not run yet, wrong database) is deleted, an alert is raised, and the next cycle tries again, so an empty file can never pass as a fresh backup. `database-backup.sh` applies the same check and fails the run.
 
 This is a periodic `pg_dump` loop with encryption, structural verification, and a fail-fast off-host upload requirement in production-shaped modes. `scripts/mystic_auth/db/database-backup/database-backup.sh` (manual/on-demand backups) honors the same encryption and upload settings for parity.
 
@@ -167,7 +227,7 @@ root-owned default config path. A host running the manual script needs
 
 ---
 
-## 5. Backup limitations
+## Backup limitations
 ---
 
 Operational boundaries:
@@ -198,7 +258,7 @@ Each dump is already verified with `pg_restore --list` immediately after writing
 
 ---
 
-## 6. Off-host copy without a cloud account
+## Off-host copy without a cloud account
 ---
 
 If there is no cloud account and no second server, use encrypted removable media as the minimum off-host path.

@@ -1,19 +1,14 @@
 /**
- * Public extension surface for feature code built on top of this template
- * (see docs/mystic_auth/template-usage/overview.md).
+ * Public extension surface for feature code built on this template (see
+ * docs/mystic_auth/template-usage/overview.md).
  *
- * Import from HERE, not internal paths like "../authorization/useAuthorization"
- * directly. One file to discover what's available, and one file to reconcile
- * when pulling in upstream template updates.
+ * Import from HERE, not internal paths like "../authorization/useAuthorization".
+ * One file shows what is available and is the one to reconcile on a sync.
+ * Everything below is a straight re-export; see the original module for the "why".
  *
- * Everything below is a straight re-export; see the original module for the
- * "why" behind any given piece.
- *
- * DO NOT hand-edit this file. It's a drop-in from upstream, and this is the
- * one file a `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync is expected to touch, so local
- * edits here turn a clean sync into a manual conflict. For your own
- * re-exports, use app_sdk.ts instead: it's the counterpart file upstream
- * keeps empty for exactly this purpose.
+ * DO NOT hand-edit: this is upstream-owned, so local edits turn a clean sync into
+ * a manual conflict. Put your own re-exports in app_sdk.ts, which upstream keeps
+ * empty for that purpose.
  */
 
 // PBAC: see docs/mystic_auth/authorization/architecture/README.md
@@ -184,6 +179,7 @@ export { default as api } from "../mystic_auth/api/axiosInstance";
 export { extractApiErrorMessage, isForbiddenError, translateErrorCode } from "../mystic_auth/api/apiError";
 export * as authApi from "../mystic_auth/api/auth_api";
 export * as accountSettingsApi from "../mystic_auth/api/account_settings_api";
+export * as passkeysApi from "../mystic_auth/api/passkeys_api";
 export * as auditApi from "../mystic_auth/api/audit_api";
 export * as bulkAssignmentApi from "../mystic_auth/api/bulk_assignment_api";
 export * as permissionsApi from "../mystic_auth/api/permissions_api";
@@ -205,3 +201,57 @@ export { default as settings, APP_NAME, SUPPORT_EMAIL } from "../mystic_auth/cor
 // ui/routing/ErrorBoundary.tsx). Safe no-op when VITE_SENTRY_DSN is unset, see
 // docs/mystic_auth/error-monitoring/overview.md
 export { reportError } from "../mystic_auth/core/errorMonitoring";
+
+// Base UI building blocks (shadcn-style primitives) and the class-name helper, so app
+// pages and forms match the template without importing from mystic_auth/ui directly.
+export { cn } from "../mystic_auth/ui/styles/classNames";
+export { Label } from "../mystic_auth/ui/shadcn/label";
+export { Checkbox } from "../mystic_auth/ui/shadcn/checkbox";
+export { Switch } from "../mystic_auth/ui/shadcn/switch";
+export { Separator } from "../mystic_auth/ui/shadcn/separator";
+export { Skeleton } from "../mystic_auth/ui/shadcn/skeleton";
+export { Alert, AlertTitle, AlertDescription } from "../mystic_auth/ui/shadcn/alert";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "../mystic_auth/ui/shadcn/tabs";
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "../mystic_auth/ui/shadcn/tooltip";
+export {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverAnchor,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverDescription,
+} from "../mystic_auth/ui/shadcn/popover";
+export {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+} from "../mystic_auth/ui/shadcn/dialog";
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "../mystic_auth/ui/shadcn/select";
+
+// Display preferences and date formatting the template itself uses.
+export { useThemeStore, type ColorMode } from "../mystic_auth/store/themeStore";
+export { useLanguageStore } from "../mystic_auth/store/languageStore";
+export {
+  formatDateTime,
+  formatLongDate,
+  formatMemberSince,
+  formatRelativeTime,
+  formatTimeOnly,
+} from "../mystic_auth/ui/dates/dateFormatters";

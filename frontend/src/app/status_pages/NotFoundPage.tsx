@@ -1,17 +1,17 @@
 import React from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft, Home, SearchX } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { AuthLayout, Card, Logo, Button } from "../sdk";
+import { AuthLayout, Card, Logo, Button, Separator } from "../sdk";
 
 // Side-effect import: registers the "status_pages" i18next namespace so
 // useTranslation("status_pages") below has something to resolve.
 import "../translations/registerStatusPagesTranslations";
 
 // Rendered inside AuthLayout/Card (bug: 403/404 used to render on a bare
-// canvas, losing the font size, language and theme toggles design.md says
-// stay one click on every page, plus the logo).
+// canvas, losing the font size, language and theme toggles that
+// should stay one click away on every page, plus the logo).
 const NotFoundPage: React.FC = () => {
     const { t } = useTranslation("status_pages");
     const navigate = useNavigate();
@@ -20,19 +20,23 @@ const NotFoundPage: React.FC = () => {
             <Card className="w-full max-w-md border-t-[3px] border-t-brand-solid p-5 md:p-7 text-center">
                 <div className="flex flex-col items-center gap-3">
                     <Logo />
+                    <Separator className="w-full bg-brand-solid" />
                     {/* text-brand-fg, not fg.error: a 404 isn't an error state for the
                         user, just a missing route. */}
-                    <h1 className="text-brand-fg text-5xl font-extrabold">404</h1>
+                    <div className="flex items-center gap-2">
+                        <SearchX className="text-brand-fg" size={32} aria-hidden="true" />
+                        <h1 className="text-brand-fg text-5xl font-extrabold">404</h1>
+                    </div>
 
                     <div className="flex flex-col gap-1">
                         <h2 className="text-base font-semibold">{t("notFound.title")}</h2>
-                        <p className="text-base text-fg-muted">{t("notFound.message")}</p>
+                        <p className="text-sm text-fg-muted">{t("notFound.hint")}</p>
                     </div>
 
                     <div className="flex flex-row w-full gap-3 mt-2">
                         <Button
-                            className="flex-1"
-                            variant="ghost"
+                            className="flex-1 border-2"
+                            variant="brand-outline"
                             size="lg"
                             onClick={() => navigate(-1)}
                         >

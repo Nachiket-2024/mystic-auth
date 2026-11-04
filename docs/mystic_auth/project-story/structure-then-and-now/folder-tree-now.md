@@ -2,7 +2,7 @@
 
 ---
 
-This selected repository tree reflects the structure as of 25 October, 2026. It highlights the
+This selected repository tree reflects the structure as of 5 November, 2026. It highlights the
 `app/` and `mystic_auth/` ownership split, recent extension points, deployment modes, and notable
 files; it is not an exhaustive listing of every tracked file. Generated files, local secrets,
 build output, and caches are omitted too.
@@ -16,12 +16,13 @@ mystic-auth/
       main.py
       sdk.py
       app_sdk.py
+      models.py                 # app-owned models Alembic autogenerate imports
       core/
         settings.py               # app-owned BaseSettings extension point
     mystic_auth/                # upstream-owned package
       api/
         audit_log_routes/
-        auth_routes/
+        auth_routes/              # route files only: handlers, no helpers
         get_or_404/
         health_routes/
         pbac_routes/
@@ -33,18 +34,15 @@ mystic-auth/
         login/
         logout/
         logout_all/
-        manage_sessions/
         oauth2/
+        passkeys/                 # WebAuthn: service, handlers (sign-in, step-up, Google step-up), origin check
         password_logic/
         password_reset_confirm/
         password_reset_request/
-        refresh_token_logic/
+        refresh_token_logic/        # rotation claim and store, consumed-token model, revocation
         security/
         signup/
         token_logic/
-          consumed_refresh_token_model.py
-          refresh_rotation_claim.py
-          refresh_rotation_store.py
           token_revocation_keys.py
         verify_account/
       authorization/             # PBAC engine
@@ -61,12 +59,14 @@ mystic-auth/
       core/
         secret_provider.py         # downstream secret-provider boundary
       database/
-      emails/
+      emails/                    # templates, sender, brand_logo.py, email_logo.py (EMAIL_LOGO_PATH)
       error_monitoring/
-      logging/
+      logging/                   # logging config, per-request correlation id context
+      middleware/                # origin check, security headers, correlation id, access logging
       procrastinate_tasks/
         account_lifecycle_tasks.py
-      valkey/
+        maintenance_tasks.py      # periodic cleanup and stalled-job recovery
+      valkey/                    # client and key_names.py
       scripts/
         create_system_user.py
         create_unconditioned_policies.py
@@ -78,7 +78,7 @@ mystic-auth/
         account_lifecycle_events.py
         account_lifecycle_outbox_model.py
         account_lifecycle_registry.py
-      user_session/
+      user_session/              # sessions, list/revoke handlers, event leases, geolocation
     requirements.txt
     requirements-dev.txt
     pyproject.toml
@@ -96,7 +96,9 @@ mystic-auth/
         sdk.ts
         app_sdk.ts
       mystic_auth/                # upstream-owned package
-        account_settings/
+        account_settings/         # page that composes the settings cards
+        account_deletion/         # delete-account card and public confirm page
+        passkeys/                 # Passkeys tab
         active_sessions/          # shared session UI used by several features
         api/
         audit_log/
@@ -139,6 +141,7 @@ mystic-auth/
       project-story/
         timeline/
           2026-oct.md
+          2026-nov.md
       security/
         integration-secrets.md
   tests/

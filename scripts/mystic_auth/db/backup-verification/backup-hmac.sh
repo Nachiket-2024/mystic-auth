@@ -1,33 +1,24 @@
 #!/usr/bin/env bash
 # Detached HMAC-SHA256 tamper-evidence for backup ciphertext.
 #
-# Backups are encrypted with AES-256-CBC via `openssl enc` (see
-# database-backup.sh), which has no authenticated-encryption mode of its own:
-# `openssl enc -aes-256-gcm` fails outright with "AEAD ciphers not
-# supported" (this is a limitation of the `enc` subcommand itself, not a
-# missing OpenSSL build flag). CBC alone gives confidentiality but no
-# cryptographic tamper-evidence - this adds the missing half via a classic
-# encrypt-then-MAC construction: a detached HMAC-SHA256 tag written
-# alongside the ciphertext as "<file>.hmac".
+# Backups use AES-256-CBC via `openssl enc` (see database-backup.sh), which has
+# no authenticated mode (`openssl enc -aes-256-gcm` fails: the subcommand does
+# not support AEAD ciphers). This adds encrypt-then-MAC: a detached HMAC-SHA256
+# tag written beside the ciphertext as "<file>.hmac".
 #
-# The MAC key is NOT the AES passphrase itself - it's HMAC-SHA256 of a fixed
-# label keyed by that passphrase, a one-way derivation that keeps the MAC
-# key and the (PBKDF2-stretched) encryption key independent, so a leaked
-# .hmac tag doesn't hand an attacker anything useful against the ciphertext.
+# The MAC key is not the AES passphrase: it is HMAC-SHA256 of a fixed label keyed
+# by the passphrase, so the MAC key and the PBKDF2-stretched encryption key stay
+# independent.
 #
 # Usage:
 #   backup-hmac.sh tag    <file> <passphrase>   writes <file>.hmac
-#   backup-hmac.sh verify <file> <passphrase>   exit 0 if <file>.hmac matches
-#                                                the file's current contents,
-#                                                exit 1 if it exists and
-#                                                doesn't match, exit 2 if no
-#                                                .hmac file exists at all
+#   backup-hmac.sh verify <file> <passphrase>   exit 0 if <file>.hmac matches,
+#                                                1 if it exists and does not,
+#                                                2 if no .hmac file exists
 #
-# Used both on the host (database-backup.sh, database-restore.sh - this script and
-# OpenSSL are the only dependencies, no sourcing needed) and inside the
-# db_backup container's own long-running loop (copied in as
-# /usr/local/bin/backup-hmac by db-backup.Dockerfile), so the exact same
-# logic runs either way rather than two hand-kept copies.
+# Used on the host (database-backup.sh, database-restore.sh) and inside the
+# db_backup container (copied to /usr/local/bin/backup-hmac by
+# db-backup.Dockerfile), so one implementation serves both.
 set -euo pipefail
 
 mac_key() {

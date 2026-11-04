@@ -107,6 +107,7 @@ const PermissionGroupList: React.FC<PermissionGroupListProps> = ({
           >
             {isExpanded && (
               <DataTable
+                  ariaLabel={formatResourceTypeLabel(type, t("policies:page.allResourceTypes"))}
                 columns={columns}
                 rows={entries}
                 rowKey={(entry) => `${entry.action}:${entry.resource_type}`}

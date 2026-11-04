@@ -7,9 +7,9 @@
 
 ## Purpose
 
-Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. It also runs scheduled account purge, audit-log anonymization, expired-session cleanup, refresh-claim cleanup, and lifecycle-outbox reconciliation jobs.
+Offloads slow, failure-prone SMTP work from the request/response cycle, so signup, verification, and password-reset requests return without waiting on a mail server round trip. It also runs scheduled account purge, expired-session cleanup, refresh-claim cleanup, passkey-challenge cleanup, and lifecycle-outbox reconciliation jobs.
 
-Replaced [Taskiq](https://taskiq-python.github.io/) (Valkey Streams) with [Procrastinate](https://procrastinate.readthedocs.io/) (Postgres-native) in full: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why.
+The queue is [Procrastinate](https://procrastinate.readthedocs.io/), which stores jobs in the same Postgres database as everything else. See [Security Decisions: Postgres job queue](../security/decisions-infra.md#background-task-queue-procrastinate-on-postgres) for why it was chosen over a Valkey broker.
 
 ---
 
@@ -33,7 +33,7 @@ app = App(
         "mystic_auth.procrastinate_tasks.account_purge_tasks",
         "mystic_auth.procrastinate_tasks.account_lifecycle_tasks",
         "mystic_auth.procrastinate_tasks.audit_log_tasks",
-        "mystic_auth.procrastinate_tasks.session_cleanup_tasks",
+        "mystic_auth.procrastinate_tasks.maintenance_tasks",
     ],
 )
 ```
@@ -71,7 +71,7 @@ flowchart TD
 ```
 ---
 
-Unlike taskiq's `ValkeyStreamBroker` + separate `TaskiqScheduler` process, there's a single container role here: `procrastinate_worker` runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker`, which both executes jobs *and* runs the periodic-task deferrer (`@app.periodic`-registered tasks) as an internal asyncio task of the same worker process. No second scheduler container exists, and none is needed: see [Security Decisions: Taskiq replaced with Procrastinate](../security/decisions-infra.md#taskiq-replaced-with-procrastinate) for why that used to be a single point of failure and structurally can't be one now.
+There is a single container role: `procrastinate_worker` runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker`, which both executes jobs *and* runs the periodic-task deferrer (`@app.periodic`-registered tasks) as an internal asyncio task of the same worker process. No separate scheduler container exists or is needed, so there is no second process whose failure could stop retries.
 
 ---
 
@@ -128,7 +128,7 @@ telemetry failures.
 Account state transitions have a separate queued lifecycle contract. Register
 `register_account_lifecycle_listener` from `app.sdk` to receive
 `soft_deleted`, `reactivated`, and `purged` events. Manual and scheduled purge
-use the same event shape; `source` distinguishes `admin` from
+use the same event shape; `source` distinguishes `management` from
 `scheduled_grace_period_purge`. Delivery runs in Procrastinate with five
 attempts of exponential backoff and re-raises listener errors so a transient
 downstream outage is retried. Listeners must be idempotent and should record
@@ -138,7 +138,11 @@ The account mutation and its outbox row commit together. If queue insertion
 fails, the row remains unqueued and the five-minute periodic reconciler
 submits it again. Delivery is at-least-once: downstream listeners must be
 idempotent, because a worker crash after delivery but before the outbox update
-can cause a duplicate attempt. Operators can monitor
+can cause a duplicate attempt. After all listeners succeed, the worker marks
+the outbox row delivered and redacts its account ID, email, and actor fields;
+the transition type, source, and timestamp remain for operational history.
+These outbox records are separate from the append-only account audit logs.
+Operators can monitor
 `account_lifecycle_outbox.queued_at` and `delivered_at` for backlog and
 completion.
 
@@ -156,9 +160,11 @@ credentials or one-time tokens.
 |---|---|---|
 | `send_email_task(to_email, subject, body, is_html=True)` | `auth/verify_account/account_verification_service.py`, `auth/password_logic/password_reset_service.py`, `user_lifecycle/account_deletion_service.py` | Sends email from the Procrastinate worker via the configured SMTP sender (`aiosmtplib`) |
 | `purge_expired_soft_deleted_accounts(timestamp)` | `@app.periodic(cron="0 3 * * *")`, deferred automatically by the worker's internal `PeriodicDeferrer` | Daily hard-purge of accounts past their soft-delete grace period; see [Account Deletion](../authentication/account-deletion/README.md) |
-| `anonymize_expired_audit_log_entries(timestamp)` | `@app.periodic(cron="30 3 * * *")` | Removes identifying email, IP, and user-agent data from audit rows older than `AUDIT_LOG_RETENTION_DAYS` (default 400 days); preserves the events themselves |
 | `purge_expired_sessions(timestamp)` | `@app.periodic(cron="30 3 * * *")` | Removes session-mirror rows that expired without an explicit revoke |
 | `purge_consumed_refresh_tokens(timestamp)` | `@app.periodic(cron="35 3 * * *")` | Removes expired durable refresh-token replay claims in bounded batches |
+| `purge_old_finished_jobs(timestamp)` | `@app.periodic(cron="40 3 * * *")` | Deletes failed, aborted and cancelled jobs older than `FAILED_JOB_RETENTION_DAYS` (30), and any succeeded rows left from before the worker started deleting them. See [Job retention](#job-retention). |
+| `recover_stalled_jobs(timestamp)` | `@app.periodic(cron="*/2 * * * *")` | Re-queues jobs left in `doing` by a worker that died, up to `STALLED_JOB_MAX_ATTEMPTS` (3) runs, then marks them failed. See [Stalled jobs](#stalled-jobs). |
+| `purge_expired_passkey_challenges(timestamp)` | `@app.periodic(cron="40 * * * *")` (hourly) | Removes expired one-time WebAuthn registration and sign-in challenges |
 | `deliver_account_lifecycle_event_task(event, outbox_id)` | Account soft-delete, reactivation, purge, or the outbox reconciler | Delivers generic downstream lifecycle notifications with retry and marks the durable outbox row delivered |
 | `dispatch_pending_account_lifecycle_events(timestamp)` | `@app.periodic(cron="*/5 * * * *")` | Re-enqueues lifecycle outbox rows that have not reached the worker queue |
 
@@ -197,11 +203,15 @@ Procrastinate's own job-lifecycle logging (distinct from the app's `send_email_t
 
 ---
 
+## Email providers
+
+Only SMTP is supported. `emails/email_sender.py` isolates the transport behind an `EmailSender` protocol with one implementation, `SMTPEmailSender`. Supporting SES, SendGrid or Postmark means writing one new class, not changing the framework, and I left that for whoever needs a specific provider.
+
 ## Failure handling, retries, and the dead-letter queue
 
 `send_email_task` is configured with `EMAIL_RETRY`, a `procrastinate_tasks/procrastinate_app.py::ExponentialBackoffWithJitter` (`BaseRetryStrategy` subclass): up to 3 attempts total, waiting `min(5 * 2**attempts, 60)` seconds plus a random `[0, 3)` second jitter offset between each. On failure, `send_email_task` logs the full traceback and **raises** (rather than swallowing the exception): this is what lets Procrastinate's retry machinery see the failure and schedule a retry with backoff, up to 3 attempts total. A transient SMTP failure (a momentary Gmail outage, a network blip) now gets retried automatically, with backoff, instead of hammering an already-struggling SMTP server or silently dropping the email. The jitter keeps many simultaneously-failing emails (e.g. a full SMTP outage) from all retrying on the exact same tick.
 
-A permanent failure (e.g. bad SMTP credentials) still exhausts all 3 attempts. Unlike taskiq, this isn't the end of the trail: the failed job's row in `procrastinate_jobs` is updated to `status='failed'` and stays there (Procrastinate never deletes a job unless explicitly told to), so it's directly queryable via SQL:
+A permanent failure (e.g. bad SMTP credentials) exhausts all 3 attempts. The failed job's row in `procrastinate_jobs` is then updated to `status='failed'` and stays there for `FAILED_JOB_RETENTION_DAYS` (30 days, then the daily sweep removes it), so it is directly queryable via SQL:
 
 ```sql
 SELECT id, task_name, args, attempts, scheduled_at
@@ -216,7 +226,7 @@ behind the SDK avoids coupling it to queue-table details.
 
 That's the dead-letter queue this template has: no separate infrastructure or UI, just a queryable table. An operator (or a monitoring query against this same Postgres instance) can watch it directly; nothing pages anyone automatically today, which is left as a deployment-specific follow-up, same as before.
 
-**Why no separate scheduler process is needed anymore**: taskiq's `SmartRetryMiddleware` wrote each retry's due-time to a Valkey-backed `schedule_source`, and only a separate `TaskiqScheduler` process polled that store back out and re-enqueued due retries: if that process was down, the first attempt's failure still logged, but the scheduled retry silently never fired. Procrastinate has no equivalent split: a retry's `scheduled_at` is written directly onto the same `procrastinate_jobs` row, and the worker's own job-fetch query (`WHERE status = 'todo' AND scheduled_at <= now()`) picks it up the moment it's due, in the same process that runs everything else. There's nothing to poll and nothing separate to be down.
+**Why no separate scheduler process is needed**: a retry's `scheduled_at` is written directly onto the same `procrastinate_jobs` row, and the worker's own job-fetch query (`WHERE status = 'todo' AND scheduled_at <= now()`) picks it up the moment it is due, in the same process that runs everything else. There is nothing to poll and nothing separate to be down.
 
 ---
 
@@ -231,9 +241,21 @@ That's the dead-letter queue this template has: no separate infrastructure or UI
 ## Troubleshooting
 
 - **Worker not picking up tasks**: confirm `procrastinate_worker` can reach the same Postgres instance the `backend` container uses (`docker compose logs procrastinate_worker`). `./scripts/mystic_auth/docker/dev/dev-up.sh`, `.\scripts\mystic_auth\docker\dev\dev-up.ps1`, and `scripts\mystic_auth\docker\dev\dev-up.cmd` include `procrastinate_worker` in their live log tail.
-- **A job never retries / seems stuck**: query `procrastinate_jobs` directly for its `status` and `scheduled_at`; unlike taskiq there's no separate scheduler process to check the health of.
+- **A job never retries / seems stuck**: query `procrastinate_jobs` directly for its `status` and `scheduled_at`; there is no separate scheduler process to check.
 - **A permanently-failed email**: query `procrastinate_jobs WHERE status = 'failed'` (see above) rather than searching logs for it.
 - **Emails not arriving**: check `GMAIL_APP_PASSWORD` is a valid App Password (not the account password) and that "Less secure app access" / App Passwords are enabled on the sending Google account; check the dev-up log tail or `docker compose logs procrastinate_worker` for the logged traceback (`send_email_task` logs every failure with `logger.error`).
 - **`procrastinate_worker` unhealthy**: its healthcheck runs `procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app healthchecks`, which confirms the DB connection works and the `procrastinate_jobs` table exists (i.e. the schema migration has been applied); a failure there usually means the `alembic` migration hasn't run yet or `DATABASE_URL` is misconfigured.
 
 ---
+
+## Job retention
+
+A job's arguments hold personal data (an authorization decision carries the email, IP and context; an email job carries the message). So the worker runs with `delete_jobs="successful"` (`procrastinate_app.py`): a job row is deleted the moment it succeeds. Nothing is lost by that, because the real result already lives in its own table, for example `authorization_audit_log`.
+
+Failed, aborted and cancelled jobs are kept, because a failed job can be the only record of work that never completed (an audit row that could not be written). They stay for `FAILED_JOB_RETENTION_DAYS` (default 30) so they can be inspected and re-run, then `purge_old_finished_jobs` deletes them. Every failed attempt also raises a metadata-only `background_job_failed` alert (task name, job id, attempts, error type, never the arguments), so a lost job is noticed within minutes.
+
+## Stalled jobs
+
+If a worker is killed mid-job (a crash, an out-of-memory kill, a host restart), its job would stay in `doing` forever. The worker writes a heartbeat every 10 seconds and other workers prune any worker silent for 30 seconds. `recover_stalled_jobs` runs every two minutes, finds the jobs of such workers (silent for more than 90 seconds) and puts each back in the queue. After `STALLED_JOB_MAX_ATTEMPTS` (3) runs the job is marked failed instead, and the failed-job retention and alert rules above apply. Every recovery raises a metadata-only `background_job_stalled` alert.
+
+Delivery is therefore at least once. If a worker dies after sending an email but before recording it, the retry sends it again, a rare duplicate that is better than a lost message. The authorization-audit task is a plain insert of one decision.

@@ -1,31 +1,24 @@
-# Sets one or more fields across every real env file that already declares
-# each key, leaving every other field untouched. For a value that's the
-# same everywhere on purpose (SUPPORT_EMAIL, GOOGLE_CLIENT_ID,
-# ...), instead of opening and editing five files by
-# hand, one field at a time.
+# Sets one or more fields in every real env file that already declares the key,
+# leaving everything else untouched. For values that are the same everywhere on
+# purpose (SUPPORT_EMAIL, GOOGLE_CLIENT_ID, ...).
 #
-# Two ways to use it:
+# From a file (no arguments, easiest): copy shared-values.env.example (next to
+# this script) to shared-values.env, fill in the fields, run:
 #
-#   From a file (no arguments, easiest): copy shared-values.env.example
-#   (next to this script) to shared-values.env, fill in whichever fields
-#   you want set everywhere with a normal text editor, then run:
+#   .\set-env-field.ps1
 #
-#     .\set-env-field.ps1
+# For a field only env/app/ declares, use the parallel
+# scripts/app/env-tools/set-env-field/shared-values.env.example the same way
+# (ships empty). Both files are read; the app one wins on overlap.
 #
-#   For a field you added yourself (one only env/app/ declares), use the
-#   parallel scripts/app/env-tools/set-env-field/shared-values.env.example
-#   instead - same copy/fill/run steps, ships empty, upstream never edits
-#   it. Both files are read in this mode; the app one wins on overlap.
+# Direct (scriptable, what docs and agent prompts use):
 #
-#   Direct (one-line, scriptable - what docs/agent prompts use):
+#   .\set-env-field.ps1 KEY1=VALUE1 [KEY2=VALUE2 ...] [file ...]
 #
-#     .\set-env-field.ps1 KEY1=VALUE1 [KEY2=VALUE2 ...] [file ...]
-#
-# Any argument containing "=" is a field assignment (only the first "="
-# splits key from value). Any argument without "=" is a target file. With
-# no file arguments, targets every env/mystic_auth/.env* and env/app/.env*
-# file plus frontend/.env that actually exists. A file missing a given key
-# is skipped for that field, not created or appended to.
+# An argument containing "=" is an assignment (only the first "=" splits key
+# from value); any other argument is a target file. With no file arguments it
+# targets every existing env/mystic_auth/.env* and env/app/.env* file plus
+# frontend/.env. A file without a given key is skipped for that field.
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Args = @()

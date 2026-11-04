@@ -32,8 +32,6 @@
     },
     "filterLabel": "फिल्टर: {{label}}",
     "selectedCount": "{{count}} निवडले",
-    "bulkUsersSelected": "{{count}} वापरकर्ते निवडले",
-    "bulkOperation": "सामूहिक कृती",
     "clearSelection": "निवड साफ करा",
     "selectAllRows": "सर्व पंक्ती निवडा",
     "openRow": "ओळीचे तपशील उघडा",

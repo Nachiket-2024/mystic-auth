@@ -264,7 +264,7 @@ events and do not emit misleading success records when a mutation is denied.
 
 These backend scenarios do not prove that a React control is visible or
 hidden. That is covered by [Frontend Authorization Test Detail](frontend-authorization.md)
-and the browser matrix. They also do not prove the 2026-09-25 real-account
+and the browser matrix. They also do not prove the real-account
 seed mapping; that is documented in [Frontend Browser E2E Tests](frontend-e2e.md)
 and `local-scripts/mystic_auth/seed-user-permission-matrix.py`.
 

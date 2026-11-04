@@ -1,7 +1,7 @@
 procrastinate 3.10.0
-License: MIT License
+License: MIT
 URL: https://procrastinate.readthedocs.io/
-Copyright: Copyright (c) 2019-2021, PeopleDoc
+Copyright: Copyright (c) 2019-2021, PeopleDoc; Copyright (c) 2021-2023, Joachim Jablon, Eric Lemoine; Copyright (c) 2024-, Joachim Jablon, Kai Schlamp
 
 MIT License
 

@@ -281,5 +281,23 @@
         "deactivateDialogTitle": "Deactivate user",
         "deactivateDialogDescription": "Deactivate \"{{email}}\"? They will be signed out of all active sessions. You can reactivate this account later.",
         "userDeactivatedToast": "User deactivated. You can reactivate this account later."
+    },
+    "passkeysDialog": {
+        "menu": "Manage passkeys",
+        "title": "Passkeys",
+        "description": "Passkeys registered by {{email}}. Removing one signs nobody out; it only stops that passkey from being used to sign in. The user is emailed.",
+        "empty": "This user has no passkeys.",
+        "name": "Name",
+        "created": "Added",
+        "lastUsed": "Last used",
+        "never": "Never used",
+        "remove": "Remove",
+        "removeAll": "Remove all",
+        "loadError": "Could not load passkeys.",
+        "confirmOneTitle": "Remove passkey",
+        "confirmOneDescription": "Remove the passkey \"{{name}}\" from {{email}}? They can still sign in with their password or Google, and will be emailed about this.",
+        "confirmAllTitle": "Remove all passkeys",
+        "confirmAllDescription": "Remove every passkey from {{email}}? They can still sign in with their password or Google, and will be emailed about this.",
+        "removedToast": "Passkeys removed"
     }
 }

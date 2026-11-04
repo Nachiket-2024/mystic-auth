@@ -20,6 +20,7 @@
     "POLICY_MUST_BE_INACTIVE_TO_DELETE": "Deactivate policy '{{policyName}}' before deleting it",
     "INSUFFICIENT_PERMISSIONS": "You do not have permission to perform this action",
     "CANNOT_GRANT_UNHELD_ACTION": "Cannot grant action '{{action}}': you do not hold it yourself",
+    "SERVICE_UNAVAILABLE": "The service is temporarily unavailable. Please try again in a few seconds",
     "DATABASE_ERROR": "A database error occurred. Please try again",
     "SESSION_NOT_FOUND": "Session not found",
     "CANNOT_REVOKE_CURRENT_SESSION": "Use Logout to end your current session",
@@ -54,5 +55,8 @@
     "OAUTH_LOGIN_FAILED": "We couldn't sign you in with Google. Please try again",
     "OAUTH_STATE_INVALID": "Your sign-in attempt expired or could not be verified. Please try again",
     "OAUTH_EMAIL_NOT_VERIFIED": "Your Google account's email address is not verified. Please verify it with Google and try again",
-    "OAUTH_CANCELLED": "Sign-in with Google was cancelled"
+    "OAUTH_CANCELLED": "Sign-in with Google was cancelled",
+    "PASSKEY_STEP_UP_REQUIRED": "Confirm your identity to change passkeys",
+    "PASSKEY_STEP_UP_FAILED": "Google confirmation did not match this account. Use the Google account you signed up with",
+    "PASSKEY_STEP_UP_PASSWORD_UNAVAILABLE": "This account has no password. Confirm with a passkey instead"
 }

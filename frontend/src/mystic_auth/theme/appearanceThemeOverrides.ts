@@ -12,24 +12,17 @@ const GRAY_900 = "#18181b";
 // This app's own dark canvas value from tailwind-tokens.css, not GRAY_900 -
 // deriveSidebar blends toward this instead (see its own comment for why):
 // GRAY_900 (#18181b, L=10) floors every possible blend result at least
-// that light, which can never reach the mockup's actual chrome darkness
+// that light, which can never reach the intended design's actual chrome darkness
 // (L=6.9) no matter the blend weight.
 const BG_CANVAS_DARK = "#0b0d12";
 
-/** The bg.canvasFrom pair for an arbitrary brand scale - shared with
- * AppearanceCard.tsx's preview boxes so they show exactly what applying
- * the pick will render. Retuned to match the "neutral surfaces plus brand
- * accent" system from design/dashboard.html's approved mockup: that page's
- * body background is a *very* faint radial brand tint (rgba(brand-500,
- * .07) light / .14 dark over an otherwise neutral canvas), not a visibly
- * colored wash. L=95 (up from an earlier L=90/92) is what actually gets
- * there - at very high lightness a color reads as barely-there regardless
- * of its raw saturation number, so this keeps `scale["600"]`'s hue/sat
- * mostly intact (only trimmed to 45%) rather than desaturating it, the
- * mistake an earlier pass made (assuming "muted" meant "less saturated"
- * when it actually meant "much lighter"). Dark value: blends gray.900 with
- * the 900 step at a light 25% weight - enough to keep a hint of brand cast,
- * not enough to read as a colored panel. */
+/** The bg.canvasFrom pair for an arbitrary brand scale, shared with
+ * AppearanceCard.tsx's preview boxes so they show what applying the pick will
+ * render. The page body background is a very faint radial brand tint, not a
+ * colored wash. Light value: L=95 keeps `scale["600"]`'s hue and saturation
+ * (trimmed to 45%) because very high lightness already reads as barely there.
+ * Dark value: gray.900 blended with the 900 step at 25% weight, enough for a
+ * hint of brand cast without a colored panel. */
 export function deriveCanvasFrom(scale: ReturnType<typeof generateBrandScale>): { light: string; dark: string } {
     const { h, s } = colord(scale["600"]).toHsl();
     return {
@@ -38,27 +31,14 @@ export function deriveCanvasFrom(scale: ReturnType<typeof generateBrandScale>): 
     };
 }
 
-/** The bg.sidebar pair (Sidebar.tsx/Navbar.tsx's own surface, distinct from
- * bg.surface/bg.canvas, and from bg.canvasFrom's gradient tint) for an
- * arbitrary brand scale. Retuned to match design/dashboard.html's approved
- * mockup: its sidebar/navbar "chrome" color (--bg-chrome, #fbf4f2 light /
- * #160f0d dark) sits so close to the page's own canvas color that the two
- * are barely distinguishable - a whisper of brand hue, not a visibly
- * tinted panel. Measuring that mockup color directly: L=96.7/S=53% light,
- * L=6.9/S=26% dark - both nearly the *same lightness as bg.canvas itself*
- * (L=97 light, L=6 dark). A lower lightness (L=88) with a 0.45-weight dark
- * blend reads as a distinctly warm/rose panel next to the white cards in
- * front of it, visibly "tinted" rather than barely-there - so this keeps
- * `scale["600"]`'s saturation mostly intact (a trimmed 85%, since high
- * lightness already mutes it) but pushes lightness up to L=96.5 - just one
- * notch below bg.canvas, enough to read as its own surface without
- * becoming a colored block. Dark mixes BG_CANVAS_DARK (this app's own
- * bg.canvas dark value, not GRAY_900, which floors every blend at L=10,
- * too light to ever reach the mockup's L=6.9 no matter the weight) with a
- * deep, near-black step at 60% weight - tuned
- * so the *default* brand color's output lands within a couple RGB values of
- * the mockup's literal #160f0d, while staying a real brand-derived blend
- * for any other brand color a fork picks. */
+/** The bg.sidebar pair (Sidebar/Navbar surface) for an arbitrary brand scale.
+ * The chrome color is meant to sit very close to bg.canvas (about #fbf4f2 light
+ * / #160f0d dark): a whisper of brand hue, not a visibly tinted panel. Light
+ * keeps `scale["600"]`'s hue at 85% saturation and lightness 96.5, one notch
+ * below bg.canvas. Dark blends BG_CANVAS_DARK with a near-black brand step at
+ * 60% weight (GRAY_900 would floor the blend at L=10, too light). Tuned so the
+ * default brand color lands within a couple of RGB values of those targets
+ * while staying brand-derived for any other color. */
 export function deriveSidebar(scale: ReturnType<typeof generateBrandScale>): { light: string; dark: string } {
     const { h, s } = colord(scale["600"]).toHsl();
     const deepStep = colord({ h, s, l: 7 });

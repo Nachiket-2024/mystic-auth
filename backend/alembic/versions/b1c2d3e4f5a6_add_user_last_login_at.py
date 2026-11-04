@@ -7,8 +7,7 @@ Create Date: 2026-09-18 00:00:00.000000
 Adds a nullable last_login_at timestamp to users, set on every successful
 sign-in (password or OAuth2, see login_service.py/oauth2_service.py).
 Nullable: an account that has never signed in (e.g. created by an admin)
-has no value here. Backs the Users page's "Last login" column/filter
-(design/users.html).
+has no value here. Backs the Users page's "Last login" column/filter.
 """
 from collections.abc import Sequence
 

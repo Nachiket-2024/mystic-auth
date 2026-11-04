@@ -1,6 +1,6 @@
 charset-normalizer 3.5.2
 License: MIT
-URL: https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md
+URL:
 Copyright: Copyright (c) 2025 TAHRI Ahmed R.
 
 MIT License

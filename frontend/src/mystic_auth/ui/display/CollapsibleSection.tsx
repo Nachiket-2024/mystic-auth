@@ -18,7 +18,7 @@ interface CollapsibleSectionProps {
 /**
  * One card section within DetailsDrawer (Decision, Policies, Request context, ...): a header
  * button toggling a body, styled as its own bordered card with a gap from its neighbors
- * (design/audit-log.html's "Sections are separate cards with gaps"). Plain div-based expand/
+ *. Plain div-based expand/
  * collapse rather than Radix's Accordion/Collapsible - each section here is independent (any
  * combination can be open at once), which Accordion's single/multi "item" model adds ceremony
  * for without buying anything a plain boolean doesn't already give.

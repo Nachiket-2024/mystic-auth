@@ -33,6 +33,17 @@ configuration error if the value is missing or empty. The built-in
 process environment and rejects names that are not valid environment
 identifiers.
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    Src["env/app/.env.* file,<br/>host secret manager"] --> Env["process environment"]
+    Env --> Prov["SecretProvider<br/>(EnvironmentSecretProvider)"]
+    Prov --> Req["require_secret(provider, name)"]
+    Req --> Client["your integration client<br/>in backend/app/"]
+    Req -.missing or empty.-> Err["clear configuration error"]
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ---
 
 ## Supplying values

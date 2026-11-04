@@ -1,15 +1,12 @@
 # tests/backend/mystic_auth/unit/test_create_system_user_unit.py
 #
-# Covers the promotion path added to create_system_user.py: running the
-# script against an email that already belongs to an existing account (e.g.
-# someone who signed up/logged in via Google before ever bootstrapping the
-# system user) should offer to promote that account instead of hard-refusing.
-# It branches on whether that account has a password at all:
+# Covers the promotion path in create_system_user.py: running it against an
+# email that already belongs to an account offers to promote that account
+# instead of refusing. It branches on whether the account has a password:
 #   - has a password: promote in place (assign baseline policies, set
 #     role=system, require a new password), after confirmation.
-#   - no password (Google-only): can't be promoted as-is (no login method
-#     would remain once Google login is disabled for it), so offer to
-#     delete and recreate fresh instead, after confirmation.
+#   - no password (Google-only): cannot be promoted as-is (no login method would
+#     remain), so offer to delete and recreate it, after confirmation.
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 

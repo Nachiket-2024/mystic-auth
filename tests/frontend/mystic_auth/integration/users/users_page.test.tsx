@@ -141,7 +141,7 @@ describe('UsersPage', () => {
   });
 
   it('hides the Deactivate row action when the caller lacks that permission', async () => {
-    seed(['users:list_all']);
+    seed(['users:list_all', 'users:reactivate']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
 
     renderPage();

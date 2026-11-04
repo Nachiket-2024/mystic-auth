@@ -93,26 +93,67 @@ async def test_capture_security_alert_emits_tagged_error_event(mocker):
     capture_mock.assert_called_once_with("Security alert: refresh_token_reuse_detected", level="error")
 
 
-@pytest.mark.asyncio
-async def test_capture_security_alert_posts_metadata_only_to_configured_webhook(mocker):
+DELIVERY = "backend.mystic_auth.error_monitoring.security_alert_delivery"
+TASK = "backend.mystic_auth.procrastinate_tasks.alert_tasks.deliver_security_alert_task"
+
+
+def _webhook_configured(mocker):
     mocker.patch(f"{MODULE}.settings.SECURITY_ALERT_WEBHOOK_URL", "https://alerts.example.test/security")
-    mocker.patch(f"{MODULE}.settings.SECURITY_ALERT_WEBHOOK_TOKEN", "webhook-secret")
-    client = mocker.AsyncMock()
-    response = mocker.Mock()
-    response.raise_for_status.return_value = None
-    client.post.return_value = response
-    async_client = mocker.patch(f"{MODULE}.httpx.AsyncClient")
-    async_client.return_value.__aenter__.return_value = client
+    mocker.patch(f"{MODULE}.should_send", mocker.AsyncMock(return_value=True))
     mocker.patch(f"{MODULE}.sentry_sdk.new_scope")
-    mocker.patch(f"{MODULE}.sentry_sdk.capture_message")
+    return mocker.patch(f"{MODULE}.sentry_sdk.capture_message")
+
+
+@pytest.mark.asyncio
+async def test_capture_security_alert_queues_a_metadata_only_job_instead_of_posting_inline(mocker):
+    _webhook_configured(mocker)
+    defer = mocker.patch(f"{TASK}.defer_async", mocker.AsyncMock())
+    inline = mocker.patch(f"{MODULE}.send_alert", mocker.AsyncMock())
 
     await sentry_service.capture_security_alert("session_event_connection_limit_exceeded", {"ip_limit": 20})
 
-    client.post.assert_awaited_once()
-    _, kwargs = client.post.call_args
-    assert kwargs["headers"]["authorization"] == "Bearer webhook-secret"
-    assert kwargs["json"]["event_type"] == "session_event_connection_limit_exceeded"
-    assert kwargs["json"]["metadata"] == {"ip_limit": 20}
+    defer.assert_awaited_once()
+    kwargs = defer.await_args.kwargs
+    assert kwargs["event_type"] == "session_event_connection_limit_exceeded"
+    assert kwargs["payload"]["metadata"] == {"ip_limit": 20}
+    inline.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_alert_that_cannot_be_queued_is_sent_inline_once(mocker):
+    _webhook_configured(mocker)
+    mocker.patch(f"{TASK}.defer_async", mocker.AsyncMock(side_effect=OSError("database down")))
+    inline = mocker.patch(f"{MODULE}.send_alert", mocker.AsyncMock())
+
+    await sentry_service.capture_security_alert("login_ip_locked", {"ip": "203.0.113.5"})
+
+    inline.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_inline_fallback_failure_does_not_raise_and_still_reports_to_sentry(mocker):
+    # The webhook is best-effort; the durable audit log is the source of truth.
+    capture_mock = _webhook_configured(mocker)
+    mocker.patch(f"{TASK}.defer_async", mocker.AsyncMock(side_effect=OSError("database down")))
+    mocker.patch(f"{MODULE}.send_alert", mocker.AsyncMock(side_effect=OSError("connection refused")))
+    critical_mock = mocker.patch(f"{MODULE}.startup_logger.critical")
+
+    await sentry_service.capture_security_alert("account_locked", {})  # must not raise
+
+    critical_mock.assert_called_once()
+    capture_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_throttled_alert_is_not_queued_but_still_reported_to_sentry(mocker):
+    capture_mock = _webhook_configured(mocker)
+    mocker.patch(f"{MODULE}.should_send", mocker.AsyncMock(return_value=False))
+    defer = mocker.patch(f"{TASK}.defer_async", mocker.AsyncMock())
+
+    await sentry_service.capture_security_alert("login_ip_locked", {"ip": "203.0.113.5"})
+
+    defer.assert_not_called()
+    capture_mock.assert_called_once()
 
 
 @pytest.mark.asyncio

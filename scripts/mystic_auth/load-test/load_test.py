@@ -1,35 +1,28 @@
 #!/usr/bin/env python3
 # scripts/mystic_auth/load-test/load_test.py
 #
-# Throughput/capacity load test: how many req/s a running stack sustains
-# before latency or the error rate degrades. Not a pytest file - run by
-# hand against a local-prod/staging stack before a release, not on every
-# push. tests/backend/mystic_auth/integration/ covers concurrency
-# *correctness* (does the app stay right, not just fast) as real CI pytest.
+# Throughput/capacity load test: how many req/s a running stack sustains before
+# latency or the error rate degrades. Not a pytest file: run by hand against a
+# local-prod or staging stack before a release. Concurrency correctness is
+# covered by tests/backend/mystic_auth/integration/.
 #
 # Usage:
 #   python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:8101
 #   python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:8101 \
 #       --scenario login --concurrency 50 --requests 1000
 #
-# Needs an account for the "login"/"me" scenarios: pass --email/--password
-# for one that already exists (verified) on the target, or use --scenario
-# health with no account.
+# The "login" and "me" scenarios need an existing verified account
+# (--email/--password); "health" needs none.
 #
-# /auth/* routes have their own per-IP throttle (MAX_REQUESTS_PER_WINDOW /
-# REQUEST_WINDOW_SECONDS, default 100/60s), separate from login lockout. A
-# single test client is one IP, so --requests past that budget on login/me
-# measures the rate limiter, not server capacity - keep it under the
-# window, or raise MAX_REQUESTS_PER_WINDOW on the target for the test.
-# /health/ready is unthrottled, safe to push arbitrarily hard.
+# /auth/* routes have a per-IP throttle (MAX_REQUESTS_PER_WINDOW /
+# REQUEST_WINDOW_SECONDS, default 100/60s). One client is one IP, so --requests
+# past that budget measures the rate limiter, not capacity: stay under it or
+# raise the limit on the target. /health/ready is unthrottled.
 #
-# Splits work across multiple OS processes (--workers, default one per CPU
-# core, capped at 8), each with its own event loop and httpx pool. A single
-# Python process, even async, serializes response parsing on one core:
-# this script once under-reported throughput because *it*, not the server,
-# saturated one core past ~200 concurrent requests (`top` showed the
-# client at 100% CPU while the target sat well below its own limit). See
-# docs/mystic_auth/deployment/environment.md#7-scaling-and-load-capacity.
+# Work is split across OS processes (--workers, default one per CPU core, max
+# 8), each with its own event loop and httpx pool, because a single Python
+# process saturates one core parsing responses and under-reports throughput.
+# See docs/mystic_auth/deployment/scaling.md#1-sizing-workers-on-one-host.
 from __future__ import annotations
 
 import argparse

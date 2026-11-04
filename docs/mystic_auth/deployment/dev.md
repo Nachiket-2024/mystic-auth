@@ -8,8 +8,8 @@ bind-mounted from the host, no TLS. This is the mode you use day to day
 while writing code. Start here if you're new to the repo.
 
 Not sure this is the mode you want? See the
-[dev vs. local-prod vs. prod comparison](guide.md#1-deployment-modes) in the
-Deployment Guide.
+[dev vs. local-prod vs. prod comparison](README.md#1-deployment-modes) in the
+Deployment overview.
 
 ---
 
@@ -158,7 +158,7 @@ Valkey, Google, SMTP, or rate-limit values in `env/mystic_auth/.env.dev`, restar
 containers. If you change `VITE_*` values for the Docker frontend dev server,
 restart `frontend` so Vite reads the new values.
 
-See [Deployment Guide](environment.md#5-required-production-review)
+See [Environment and Runtime Configuration](environment.md#5-required-production-review)
 for what changes once you move to local-prod or prod.
 
 ---

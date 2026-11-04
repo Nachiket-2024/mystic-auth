@@ -10,8 +10,7 @@ interface SectionHeadingProps extends React.ComponentPropsWithoutRef<"h2"> {
      * inside a larger composite card that already has its own outer
      * context (OperationsShortcutsCard within DashboardPage, the login-activity
      * chart within Audit Log's Security Events tab). Matches the two
-     * heading sizes already established across the app - see
-     * .project/design.md's Typography section. */
+     * heading sizes already established across the app. */
     level?: "card" | "subsection";
     /** Renders an <h3> instead of <h2>, for a heading nested under another
      * heading in the same document outline (e.g. inside a tab panel that

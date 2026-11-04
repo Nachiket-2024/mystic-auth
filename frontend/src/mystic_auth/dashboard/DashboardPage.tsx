@@ -6,7 +6,7 @@ import { LayoutDashboard } from "lucide-react";
 // at the app root) already populates, so this page skips a duplicate
 // GET /auth/me call and its own loading/error state.
 import { useCurrentUserQuery } from "../auth/current_user/useCurrentUserQuery";
-import { usePreviousLoginQuery } from "./usePreviousLoginQuery";
+import { usePreviousLoginQuery } from "../active_sessions/usePreviousLoginQuery";
 import { useLanguageStore } from "../store/languageStore";
 import { useNow } from "../ui/hooks/useNow";
 import { formatLongDate } from "../ui/dates/dateFormatters";
@@ -47,23 +47,18 @@ const GREETING_REFRESH_MS = 60_000;
 /**
  * DashboardPage
  * ----------------------------
- * Displays the current user's information. Reads the current user from the
- * shared useCurrentUserQuery cache instead of fetching independently, so it
- * stays in sync with the rest of the app. ActiveSessionsCard (the full
- * sessions table, including "Log out everywhere"/bulk "Log out selected")
- * renders directly here as the sole place to manage sessions.
+ * The current user's information, read from the shared useCurrentUserQuery
+ * cache so it stays in sync with the rest of the app. ActiveSessionsCard is
+ * the sole place to manage sessions.
  *
- * Three full-width cards, stacked: identity, OperationsShortcutsCard (shortcut
- * tiles, each independently gated on one fine-grained PBAC permission -
- * absent entirely for a viewer holding none of them), and
- * ActiveSessionsCard. Kept stacked on wide screens too: side by side, the
- * Management tiles squeeze into a 2x2 grid, which reads worse than one
- * row. No login-trend chart here - that lives on the Security Log page.
+ * Three full-width stacked cards: identity, OperationsShortcutsCard (tiles,
+ * each gated on one PBAC permission, absent when the viewer holds none) and
+ * ActiveSessionsCard. They stay stacked on wide screens because side by side
+ * the tiles squeeze into a 2x2 grid. No login-trend chart; that is on the
+ * Security Log page.
  *
- * Own bare title/description (not PageContainer, which pairs its heading
- * with an `icon`/`actions` row this page has no use for), with the same
- * maxW="page.content" width cap. This is the page's only h1;
- * DashboardIdentityCard's name heading below is an h2.
+ * Uses its own title/description instead of PageContainer (no icon/actions
+ * row needed). This is the page's only h1; the identity card's name is an h2.
  */
 const DashboardPage: React.FC = () => {
     const { t } = useTranslation("dashboard");

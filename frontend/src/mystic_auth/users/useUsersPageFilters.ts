@@ -8,7 +8,7 @@ import { ALL_VALUE } from "./UsersFilterBar";
 
 /** UsersPage's filter/sort state and URL sync (policy/permission deep
  * links), split out of useUsersPageState.ts to keep that file under the
- * repo's ~350-line target, see AGENTS.md. */
+ * repo's ~350-line target. */
 export function useUsersPageFilters() {
     // Read once, not synced back to the URL: only needed for deep links in
     // (CommandPalette navigates to /users?search=<email>).
@@ -61,7 +61,7 @@ export function useUsersPageFilters() {
             setSearchParams(nextParams, { replace: true });
         }
     };
-    // Relative bucket only (today/7d/30d/90d/never) - design/users.html's
+    // Relative bucket only (today/7d/30d/90d/never) - a
     // custom date-range option is left out here, the bucket presets cover
     // the same permission-management pattern (Okta/Auth0/Workspace) at far less UI.
     const setLastLogin = (value: string) => update({ lastLogin: value });

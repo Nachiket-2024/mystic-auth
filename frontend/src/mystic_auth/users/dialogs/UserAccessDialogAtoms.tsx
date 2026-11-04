@@ -17,7 +17,7 @@ import type { useUserAccessDialogState } from "./useUserAccessDialogState";
 // building blocks, and the access-change label formatter. Used by both
 // UserAccessDialogParts.tsx (Policies tab) and UserAccessPermissionsParts.tsx
 // (Permissions tab) - split out on its own so neither of those two has to
-// import from the other, see AGENTS.md's ~350-line file-size target.
+// import from the other, see the repo's ~350-line file-size target.
 
 export type UserAccessState = ReturnType<typeof useUserAccessDialogState>;
 export type Translate = (key: string, options?: Record<string, unknown>) => string;

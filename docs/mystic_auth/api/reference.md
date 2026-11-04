@@ -27,7 +27,7 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 
 ---
 
-## Authentication: `/auth` (`api/auth_routes/auth_routes.py`)
+## Authentication: `/auth` (`api/auth_routes/auth_routes.py`, passkeys in `passkey_routes.py`)
 
 | Method | Path | Auth | Rate limited | Notes |
 |---|---|---|---|---|
@@ -45,6 +45,14 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 | POST | `/auth/password-reset/confirm` | public | yes | The new password always succeeds independent of Valkey; response carries `sessions_revoked: false` if the other-session revoke couldn't be confirmed, see [Session Management: bump failure handling](../authentication/session-management/token-lifecycle.md#bump-failure-handling) |
 | POST | `/auth/verify-account` | public | yes | Single-use Valkey-backed token |
 | POST | `/auth/verify-account/request` | public | per-email | Always returns the same generic response |
+| POST | `/auth/passkeys/authentication/options`, `/auth/passkeys/authentication/verify` | public | per-IP (20/min), lockout on repeated failures | Passkey sign-in. Same cookies and session as password login. See [Passkeys](../authentication/passkeys.md) |
+| GET | `/auth/passkeys` | session | yes | Lists the caller's passkeys |
+| POST | `/auth/passkeys/registration/options`, `/auth/passkeys/registration/verify` | session + step-up | yes | Adds a passkey. `403 PASSKEY_STEP_UP_REQUIRED` if the login is older than 15 minutes and unconfirmed |
+| PATCH | `/auth/passkeys/{credential_id}` | session | yes | Renames one passkey (no step-up needed) |
+| DELETE | `/auth/passkeys/{credential_id}` | session + step-up | yes | Removes one passkey |
+| POST | `/auth/passkeys/bulk-remove` | session + step-up | yes | Body `{"ids": [..]}` (1 to 10) or `{"all": true}`; returns `{"removed": n}` |
+| POST | `/auth/passkeys/step-up/password`, `/auth/passkeys/step-up/passkey` | session | yes, plus lockout | Confirms identity for 15 minutes (password, or a passkey belonging to the caller) |
+| GET | `/auth/passkeys/step-up/google` | session | yes (redirects on limit) | Google re-authentication for accounts with no password; returns to `/account-settings?tab=passkeys&stepup=ok` |
 
 ---
 
@@ -72,6 +80,9 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 | DELETE | `/users/{user_email}` | `users:deactivate_any` | Soft delete, see [Account Lifecycle](../database/design.md#account-lifecycle). The delete always succeeds; an unconfirmed session revoke is recorded in the audit log rather than erroring the request, see [Session Management: bump failure handling](../authentication/session-management/token-lifecycle.md#bump-failure-handling) |
 | DELETE | `/users/{user_email}/purge` | `users:delete_any` | Hard delete, irreversible. Fails closed: returns `503` (`SESSION_REVOCATION_UNAVAILABLE`) and deletes nothing if the pre-delete session revoke can't be confirmed, see [Session Management: bump failure handling](../authentication/session-management/token-lifecycle.md#bump-failure-handling) |
 | PATCH | `/users/{user_email}/reactivate` | `users:reactivate` | Reverses a soft delete |
+| GET | `/users/{user_email}/passkeys` | `users:manage_passkeys` | Lists a user's passkeys (id, name, created, last used). No credential material |
+| DELETE | `/users/{user_email}/passkeys` | `users:manage_passkeys` | Revokes all of a user's passkeys, audits it and emails the user. Not allowed on your own account or the system account |
+| DELETE | `/users/{user_email}/passkeys/{credential_id}` | `users:manage_passkeys` | Revokes one passkey, same rules |
 | PATCH | `/users/{user_email}/role` | `users:assign_role` or `users:assign_system_role` (depends on target role) | The single, bidirectional role-modification endpoint; there is no separate "promote" path. Assigning `system` role requires the more sensitive action |
 
 ---
@@ -98,7 +109,7 @@ Split across `policies/policy_crud_routes.py`, `policies/policy_history_routes.p
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/rate-limits/` | `rate_limits:read` | Lists live Valkey-backed rate-limit counters (Rate Limit Dashboard). Numbered pagination via `page`/`page_size`: the server walks the matching keyspace in bounded `SCAN` batches (never `KEYS`) up to a capped total (`RateLimitDashboardService.MAX_SCANNED_KEYS`) to compute `total` and slice out one page; `truncated: true` means that cap was hit, so `total` is a floor, not exact. `scope` (`ip`/`account`/`email`), `endpoint`, and `identifier` (substring on the IP/account) filter server-side; `kind` narrows to `at_limit` (counters currently at their cap) or `login_lockouts`; `sort_by` (`endpoint`/`scope`/`identifier`/`count`/`resets_at`) and `sort_dir` sort the matched set before paging. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting) |
+| GET | `/rate-limits/` | `rate_limits:read` | Lists live Valkey-backed rate-limit counters (Rate Limit Dashboard). Numbered pagination via `page`/`page_size`: the server walks the matching keyspace in bounded `SCAN` batches (never `KEYS`) up to a capped total (`RateLimitDashboardService.MAX_SCANNED_KEYS`) to compute `total` and slice out one page; `truncated: true` means that cap was hit, so `total` is a floor, not exact. `scope` (`ip`/`account`/`email`/`account_ip`), `endpoint`, and `identifier` (substring on the IP/account; a full email address is matched through its digest) filter server-side; each entry's `identifier_label` is the account's email (or `email from IP` for an `account_ip` counter) when the stored digest can be matched to an account, and `null` otherwise; `kind` narrows to `at_limit` (counters currently at their cap) or `login_lockouts`; `sort_by` (`endpoint`/`scope`/`identifier`/`count`/`resets_at`) and `sort_dir` sort the matched set before paging. See [Security Hardening: Abuse Prevention](../security/hardening-abuse-prevention.md#rate-limiting) |
 | GET | `/rate-limits/summary` | `rate_limits:read` | Bounded summary counts for the dashboard header tiles (`total`, `at_limit`, `login_lockouts`, per-endpoint and per-scope breakdowns), computed from the same capped keyspace scan as the list above |
 | DELETE | `/rate-limits/{key}` | `rate_limits:reset` | Manually clears one counter, e.g. to unblock a legitimate caller who tripped a limit. Idempotent: always returns `204`, even if the key was already absent/expired. Its own action, separate from `rate_limits:read`, so a policy scoped to "can view the dashboard" doesn't also imply "can clear anyone's counters" - the same read/write split every other resource in `Permission` gets |
 

@@ -9,8 +9,7 @@ import PoliciesPage from '@/policies/PoliciesPage';
 import { Toaster } from '@/ui/toaster/toaster';
 
 // Shared fixtures/helpers for PoliciesPage's two main test files (list/
-// create/edit, status toggles/delete/undo) - split out of one 395-line
-// file to stay under the repo's ~350-line target, see AGENTS.md.
+// create/edit, status toggles/delete/undo).
 
 export const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();

@@ -8,7 +8,7 @@
 
 If you've never pulled updates from a "template" repo into your own project before, that's fine. It's not a common everyday git workflow. Nothing below requires git knowledge beyond `git add` and `git commit`. Just follow the steps in order.
 
-Prefer to hand this whole process to an AI coding agent (Claude Code, Codex, or similar) instead? See [`agent-prompts/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) at the repo root for a ready-to-paste prompt.
+Prefer to hand this whole process to an AI coding agent (Claude Code, Codex, or similar) instead? See [`agent-prompts/mystic_auth/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) at the repo root for a ready-to-paste prompt.
 
 ---
 
@@ -21,21 +21,26 @@ Run the command from the root of the downstream project created from this templa
 - You have a recent backup of important local work.
 - Docker is available if you plan to run the post-sync rebuild and tests.
 
-The script requires a clean Git index (`git diff --cached` must be empty). A completely clean working tree is still the recommended starting point. If unstaged or untracked downstream work exists, the script temporarily stashes it, including an app split, applies upstream against a clean tree, and restores the work after the sync commit. Ignored files, such as real env files, are not included. If restoration conflicts, the sync commit remains and the retained stash must be resolved manually.
+The script requires a clean Git index (`git diff --cached` must be empty). A completely clean working tree is still the recommended starting point. If unstaged or untracked downstream work exists, the script temporarily stashes it, including an app split, applies upstream against a clean tree, and puts the work back at the end (a stash is just a temporary shelf for uncommitted work; nothing on it is lost until you drop it). Ignored files, such as real env files, are not included. If putting the work back conflicts, the sync result stays staged and the saved copy stays on the shelf (`git stash list`) until you resolve it.
 
-Before making a preparatory stash, confirm that the current
-`scripts/mystic_auth/upstream-sync/sync-upstream.sh` and its sibling
-`sync-upstream-review.sh`, `sync-upstream-apply.sh`, and
-`sync-upstream-finalize.sh` stages exist in the working tree. On an older
-downstream checkout they may exist locally without being in `HEAD`; preserve
-those current files and exclude them from any stash of the other work. If it is staged, unstage only the script without discarding its contents.
+Before making a preparatory stash, refresh the sync scripts from the latest
+fetched upstream branch. The project's own copy of
+`scripts/mystic_auth/upstream-sync/` can be stale (an older ownership guard, or
+missing `sync-upstream-review.sh`, `sync-upstream-apply.sh`, and
+`sync-upstream-finalize.sh` stages), and a stale guard can block a sync the
+latest one allows. The script checks this itself and stops with the exact
+command if the tools are out of date. Replace the whole folder with
+`git restore --source=upstream/<branch> --worktree -- scripts/mystic_auth/upstream-sync/`.
+This only changes your working tree; do not commit it. The sync keeps these
+files out of its stash and out of its patch (they are already current) and stages
+them together with the rest of the result. If they are staged, unstage only the tools folder without discarding its contents.
 Never replace it with an older copy recovered from a stash. If the script is
 already inside a preserved stash, restore only that exact path, or restore it
 from the fetched upstream branch. Leave the rest of the split stash untouched.
 Files from an app split that are absent from `HEAD` do not block a first sync
 between unrelated histories.
 
-The sync is pull-only. It fetches from the `upstream` remote, applies approved upstream file changes, and creates one local sync commit. It never pushes to `origin`, changes root downstream documentation, or copies secret values into the agent's context.
+The sync is pull-only. It fetches from the `upstream` remote, applies approved upstream file changes, and leaves the result staged. It does not commit unless you pass `--commit`. It never pushes to `origin`, changes root downstream documentation, or copies secret values into the agent's context.
 
 ---
 
@@ -54,7 +59,7 @@ flowchart TD
     Conflict["Merge conflict"]
     Heads["Multiple alembic heads\n(rare)"]
     Clean["Everything applied cleanly"]
-    S5["Step 5: git commit output,\nsync confirmed"]
+    S5["Step 5: result staged,\nsync confirmed"]
     S7["Step 7: rebuild and test"]
 
     S1 --> S2 --> S3
@@ -78,7 +83,7 @@ Silent partial apply, conflict, and multiple alembic heads are safety nets, not 
 
 For an upstream-owned file that still exists in the recorded upstream baseline but is missing from the downstream `HEAD`, the script restores that baseline file to the index before applying the three-way patch. This gives Git the base it needs for a later upstream edit. True upstream deletions and renames skip that step and use the explicit structural operation instead.
 
-The ownership guard runs before any patch is applied. It blocks the entire sync if upstream changes downstream-owned product code, tests, CI, or app folders. It protects `backend/app/`, `frontend/src/app/`, every `tests/**/app/` tree, `ci/app/`, and the `app/` folders under `docs/`, `screenshots/`, `scripts/`, `agent-prompts/`, `local-scripts/`, `docker/`, `env/`, and `makefiles/`, except for the documented shared SDK and entry point files. It also permits comment-only maintenance in `frontend/src/app/main.tsx` and `frontend/src/app/theme.ts`; executable-code changes there remain blocked. Older template reference tests may be grandfathered when the same path exists in the recorded upstream baseline; newly added downstream tests remain blocked. The three initial `ci/app/` entrypoints have a one-time bootstrap allowance for projects created before the CI split; after they exist in the consumer baseline, upstream edits remain blocked. On a first sync between unrelated histories, downstream-only paths, including app files temporarily absent because the app split was stashed, are not treated as incoming changes or ownership violations.
+The ownership guard runs before any patch is applied. It blocks the entire sync if upstream changes downstream-owned product code, tests, CI, or app folders. It protects `backend/app/`, `frontend/src/app/`, every `tests/**/app/` tree, `ci/app/`, and the `app/` folders under `docs/`, `screenshots/`, `scripts/`, `agent-prompts/`, `local-scripts/`, `docker/`, `env/`, and `makefiles/`, except for the documented shared SDK and entry point files. It also lets upstream edits through for the seeded files `app_sdk.*`, `backend/app/models.py`, `frontend/src/app/main.tsx`, `frontend/src/app/theme.ts`, the `README.md` in each `app/` folder, the `env/app/.env*.example` files, the starter `frontend/src/app/legal/` and `status_pages/` components, and `scripts/app/env-tools/*.example` once they exist in the recorded baseline; these merge three-way, so a customized copy conflicts instead of being overwritten. `backend/app/models.py` newly seeded upstream is added if the project has none, or left alone (reported) if the project already has its own. Three named template reference tests (`test_app_extension_points_unit.py`, `app_import_boundary.test.ts`, `legal_policy_parity.test.ts`) can be added once when the project has no file at that path; any other new path under `tests/**/app/` stays blocked. Older template reference tests may be grandfathered when the same path exists in the recorded upstream baseline; newly added downstream tests remain blocked. The three initial `ci/app/` entrypoints have a one-time bootstrap allowance for projects created before the CI split; after they exist in the consumer baseline, upstream edits remain blocked. On a first sync between unrelated histories, downstream-only paths, including app files temporarily absent because the app split was stashed, are not treated as incoming changes or ownership violations.
 
 If a downstream checkout has the pre-grandfathering sync script, preserve the
 pending work, verify the inherited test path existed at the last sync, replace
@@ -147,33 +152,31 @@ The script applies tracked file changes; it does not migrate database data or
 convert Docker volumes. Before starting a synced Compose stack, review any
 database major-version change in the incoming diff and follow the matching
 upgrade procedure. For the PostgreSQL 15 to 18 change, use the
-[dump-and-restore data-volume upgrade](../../deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade)
+[dump-and-restore data-volume upgrade](../../deployment/database-migrations.md#postgresql-15-to-18-data-volume-upgrade)
 before starting PostgreSQL 18 against existing deployment data.
 
 ---
 
 ### Step 5: Clean sync: you're basically done
 
-You'll see normal `git commit` output on screen, ending with a message confirming the sync succeeded. The commit contains the upstream changes and `.mystic-auth-sync-state`; it must not contain unrelated staged downstream work. There's no Step 6 here; that number belongs to the conflict-resolution path in [Troubleshooting](troubleshooting.md#step-6-conflict-resolve-it), which a clean sync skips entirely. Continue to [Step 7: Rebuild and test](rebuild-and-push.md#step-7-rebuild-and-test-before-you-trust-any-of-it).
+You'll see a message saying the sync succeeded and that **nothing was committed**: the upstream changes and `.mystic-auth-sync-state` are staged for you to review. Look at them with `git diff --cached --stat`, run the checks, and commit when you are happy. (Pass `--commit` to the script if you prefer it to create the commit for you.) There's no Step 6 here; that number belongs to the conflict-resolution path in [Troubleshooting](troubleshooting.md#step-6-conflict-resolve-it), which a clean sync skips entirely. Continue to [Step 7: Rebuild and test](rebuild-and-push.md#step-7-rebuild-and-test-before-you-trust-any-of-it).
 
-If you want to review the sync before keeping its commit, run this immediately after a successful sync:
+If you decide you do not want the sync after all, abandon it instead of committing:
 
 ```bash
-git reset --soft HEAD^    # remove only the generated sync commit
-git diff --cached --stat  # review the staged sync changes
+scripts/mystic_auth/upstream-sync/sync-upstream.sh --abort
 ```
 
-Commit the staged result when it is approved. Do not use `git reset --hard`, and do not run another sync while these changes remain staged. This review workflow does not commit or expose downstream secrets.
+`--abort` first explains, in plain words, exactly what it will undo (which files go back to your last commit, which new files get deleted), what it leaves alone (your history, ignored files such as real env files, the sync tools), and what you lose (the sync's partial result and any edits you made on top of it). It then waits for you to type `abandon`; anything else cancels. It also puts back any work the sync had set aside. It never touches stashes it did not create, and it never touches your own staged work when no sync is pending. Do not use `git reset --hard`.
 
 If a sync stops on a conflict or multiple Alembic heads, do not start another
-sync. Resolve the existing staged changes, verify the migration graph, and
-commit that pending sync result first. The state file is already staged by the
+sync. Either resolve the existing staged changes, verify the migration graph, and
+commit that pending sync result first, or abandon it with `--abort` (see above). The state file is already staged by the
 script and must remain aligned with the reviewed sync.
 
-The same rule applies after the optional soft-reset review. If `HEAD` is older
-than the staged sync result and `.mystic-auth-sync-state` is staged but not
-committed, finish that review and commit it before syncing again. Do not stash
-the staged result or let the next run fall back to a fresh first sync.
+The same rule applies to a clean sync you have not committed yet. If
+`.mystic-auth-sync-state` is staged but not committed, commit it (or abandon it with `--abort`) before syncing again. Do not stash
+the staged result or let the next run fall back to a fresh first sync. The script refuses to start another sync on top of an unfinished one and tells you so.
 
 ---
 

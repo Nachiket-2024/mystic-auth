@@ -14,7 +14,7 @@ import { toaster } from "../../ui/toaster/toasterInstance";
 // direct permission, and save a direct grant's conditions. Pure functions
 // taking their mutations and inputs explicitly (no hook state of their own)
 // so useUserAccessDialogState.ts stays the thin state/query layer that
-// calls them - split out of one 455-line file, see AGENTS.md's ~350-line
+// calls them - split out of one 455-line file, see the repo's ~350-line
 // target.
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;

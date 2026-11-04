@@ -42,6 +42,26 @@ class Permission(str, enum.Enum):
     # from USERS_ASSIGN_ROLE; granting one does not imply the other.
     USERS_ASSIGN_SYSTEM_ROLE = "users:assign_system_role"
 
+    # Acting on an account that already holds the admin role: separate from
+    # USERS_UPDATE_ANY / USERS_DEACTIVATE_ANY / USERS_DELETE_ANY /
+    # USERS_REACTIVATE / USERS_ASSIGN_ROLE, the same way USERS_ASSIGN_SYSTEM_ROLE
+    # is separate from USERS_ASSIGN_ROLE. Without this, the narrowest grant
+    # of e.g. USERS_UPDATE_ANY alone (no other policy) is enough to take
+    # over, demote, deactivate, purge, or reactivate any account holding the
+    # admin role. This is still PBAC, not a role check on the caller: it's
+    # one more action string a policy can grant or withhold, same as every
+    # other action here. The role field itself is only ever read here as
+    # resource metadata (whose account is being acted on), never as the
+    # caller's own authorization - see privilege_hierarchy.py.
+    USERS_MANAGE_PRIVILEGED = "users:manage_privileged"
+
+    # Listing and revoking ANOTHER user's passkeys during incident response
+    # (lost device, hijacked account). Its own action, separate from
+    # USERS_UPDATE_ANY, because revoking credentials changes how an account
+    # can be signed into. It can only list metadata and remove passkeys; it
+    # can never add one or read credential material.
+    USERS_MANAGE_PASSKEYS = "users:manage_passkeys"
+
     # Permanently, irreversibly removing an account and its rows: a
     # distinct, more sensitive action than USERS_DEACTIVATE_ANY (which is a
     # soft delete: reversible, preserves audit history). Named to match its

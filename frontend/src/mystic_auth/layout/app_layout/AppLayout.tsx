@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 
+import SkipLink, { MAIN_CONTENT_ID } from "../SkipLink";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import type { NavItem } from "./navItems";
@@ -47,20 +48,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, extraNavItems, extraNav
     }, [mobileNavOpen]);
 
     return (
-        // Two soft radial brand-tint glows over the flat bg-bg-canvas color,
-        // copied from design/dashboard.html's own body background exactly
-        // (same position/size/alpha, doubled alpha in dark mode) rather than
-        // re-derived - a top-of-viewport linear fade (bg-canvas-from/-to,
-        // tried first) read as either a flat colored band or, once muted
-        // enough to stop looking like a wash, nearly invisible - neither is
-        // what the mockup actually does. color-mix keeps this tied to the
-        // live brand-solid token (works for any brand color, not a hardcoded
-        // hex) while still getting a real alpha-blended glow, which a solid
-        // semantic token pair can't express on its own. Light/dark values
-        // live in theme/application.css as .mystic-app-layout-bg (one rule
-        // guarded by `.dark`), not an inline `style`/runtime `<style>` tag -
-        // see that file for why (a strict hash-only CSP can't allow one).
+        // Two soft radial brand-tint glows over the flat bg-bg-canvas color (doubled
+        // alpha in dark mode), tuned by eye. A linear fade read as a flat band or
+        // was invisible. color-mix ties the glow to the live brand-solid token, so it
+        // works for any brand color. Light/dark values live in theme/application.css
+        // as .mystic-app-layout-bg (one rule guarded by `.dark`), not an inline
+        // `style` or runtime `<style>` tag, because a strict hash-only CSP cannot
+        // allow one.
         <div className="mystic-app-layout-bg flex min-h-screen bg-bg-canvas bg-fixed">
+            <SkipLink />
             {/* Backdrop for the off-canvas sidebar on small screens */}
             {mobileNavOpen && (
                 <div
@@ -79,7 +75,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, extraNavItems, extraNav
                     extraContent={extraNavbarContent}
                     onOpenCommandPalette={onOpenCommandPalette}
                 />
-                <main className="flex-1 min-w-0 w-full px-4 py-5 sm:px-6 md:px-8 md:py-7 [scrollbar-gutter:stable]">
+                <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 min-w-0 w-full outline-none px-4 py-5 sm:px-6 md:px-8 md:py-7 [scrollbar-gutter:stable]">
                     {children}
                 </main>
             </div>

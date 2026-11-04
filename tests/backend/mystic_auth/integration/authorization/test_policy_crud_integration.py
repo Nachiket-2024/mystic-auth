@@ -49,7 +49,7 @@ async def test_regular_user_cannot_manage_policies(client, created_emails):
 
 
 @pytest.mark.asyncio
-async def test_admin_without_policies_read_cannot_manage_policies(client, created_emails):
+async def test_management_without_policies_read_cannot_manage_policies(client, created_emails):
     # user_management doesn't include any policies:* action; only
     # system_superuser does, so an ordinary admin must be denied here.
     email = unique_email("admin")

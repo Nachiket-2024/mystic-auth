@@ -15,7 +15,7 @@ This template documents **self-hosted Bugsink** as the default path, for reasons
 
 - **This is an auth + PBAC template.** Error payloads (stack traces, request context) can carry emails and other PII. Self-hosting keeps that data on your own infrastructure instead of a third-party SaaS by default.
 - **Lightweight.** Bugsink is a single Django app: no Valkey, no Celery, no split frontend/backend containers. It reuses the same Postgres server this template already runs (a second database, not a second container: see `docker/mystic_auth/postgres-init/init-bugsink-db.sh`).
-- **License**: Bugsink is [PolyForm Shield](https://polyformproject.org/licenses/shield/1.0.0/): source-available, not OSI-approved open source. In plain terms: free to self-host and modify, with one restriction: you can't use it to build a *competing* error-tracking product. Using it to monitor errors in an unrelated app (this one) isn't a competing use, so this doesn't affect you or this template's own MIT license (Bugsink runs as a fully separate service you only talk to over HTTP: nothing from it is copied into or distributed with this repo).
+- **License**: Bugsink is [PolyForm Shield](https://polyformproject.org/licenses/shield/1.0.0): source-available, not OSI-approved open source. In plain terms: free to self-host and modify, with one restriction: you can't use it to build a *competing* error-tracking product. Using it to monitor errors in an unrelated app (this one) isn't a competing use, so this doesn't affect you or this template's own MIT license (Bugsink runs as a fully separate service you only talk to over HTTP: nothing from it is copied into or distributed with this repo).
 
 ---
 
@@ -40,7 +40,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
    **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `env/mystic_auth/.env.dev.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If you don't want error monitoring at all, either set a real key anyway (cheapest fix, `openssl rand -base64 50`) or run `docker compose stop bugsink bugsink-seed` to stop the restart loop.
 
-   **Email notifications on a new issue reuse this app's own mail settings.** Every Compose file's `bugsink` service maps `SMTP_HOST`/`SMTP_PORT`/`FROM_EMAIL`/`GMAIL_APP_PASSWORD` (already set for this app's own signup/reset emails, see [Authentication Overview](../authentication/overview.md)) onto Bugsink's own env var names (`EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD`/`DEFAULT_FROM_EMAIL`, plus `EMAIL_USE_TLS: "true"`). Bugsink is a separate Django app with its own settings, so it never reads this app's `Settings` class regardless of naming. No extra setup needed: as long as the mail vars above are real, a brand-new issue (not a repeat event on one already seen) emails the project's members automatically. Without a real `SMTP_HOST`, Bugsink silently falls back to writing to its own console log instead of sending anything: check `docker compose logs bugsink` for `QuietConsoleEmailBackend` if notifications seem to be missing.
+   **Email notifications on a new issue reuse this app's own mail settings.** Every Compose file's `bugsink` service maps `SMTP_HOST`/`SMTP_PORT`/`FROM_EMAIL`/`GMAIL_APP_PASSWORD` (already set for this app's own signup/reset emails, see [Authentication Overview](../authentication/overview.md)) onto Bugsink's own env var names (`EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD`/`DEFAULT_FROM_EMAIL`, plus `EMAIL_USE_TLS: "true"`). Bugsink is a separate Django app with its own settings, so it never reads this app's `Settings` class regardless of naming. **Bugsink emails are off by default.** The compose files set `EMAIL_BACKEND` from `BUGSINK_EMAIL_BACKEND`, which defaults to Bugsink's quiet console backend: it logs the subject of each would-be email and sends nothing. To turn emails on, set `BUGSINK_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend` in the env file and restart Bugsink; a brand-new issue (not a repeat event on one already seen) then emails the project's members, using the mail vars above. Remove the line again to silence it. Without a real `SMTP_HOST`, Bugsink silently falls back to writing to its own console log instead of sending anything: check `docker compose logs bugsink` for `QuietConsoleEmailBackend` if notifications seem to be missing.
 
 ---
 
@@ -61,7 +61,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
    VITE_SENTRY_DSN=http://<key>@localhost:8010/<id> # frontend: reaches Bugsink from the browser, via its published host port
    ```
 
-   (This two-host split, `bugsink:8000` internally vs. `localhost:8010` from the browser, used to be a manual, easy-to-miss trap when copy-pasting a single DSN Bugsink's UI showed you. `bugsink-seed` computes both forms directly from the project's id/key, so there's nothing to copy-paste or get wrong.)
+   (The two hosts differ, `bugsink:8000` internally vs. `localhost:8010` from the browser. `bugsink-seed` computes both forms directly from the project's id/key, so there is nothing to copy-paste or get wrong.)
 
    `backend`'s and `frontend`'s own `command:` in `docker-compose.dev.yml` wait briefly (bounded at ~10s) for `bugsink-seed` to finish writing these before starting their real process. That covers a warm restart (Bugsink already healthy) reliably, but not a fresh boot (first clone, or after `docker compose down -v`): Bugsink itself can take 20+ seconds to become healthy on a cold start (its own ~150 first-boot migrations), past that 10s window.
 
@@ -69,7 +69,7 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
    You can still log in at `http://localhost:8010` with the superuser credentials from step 1 to browse the "MysticAuth" project's Issues list directly.
 
-   **In production-style Compose files, this same auto-wiring exists for `backend` only, not `frontend`.** `bugsink-seed` and the shared `bugsink_dsn` volume are present there too, and `backend`'s DSN is auto-wired identically: it's a container-to-container address (`bugsink:8000`) either way, so nothing about it changes between dev and prod. `frontend` is different: `VITE_SENTRY_DSN` is baked into the static bundle as a Docker build arg (see [Deployment Guide](../deployment/guide.md)), not read at container startup, and it needs whatever address *publicly* reaches Bugsink in production: a reverse-proxy route you set up deliberately (see [Security notes](#security-notes) below), which `bugsink-seed` has no way to know in advance. Set `VITE_SENTRY_DSN` manually in that mode's `env/mystic_auth/.env.local-prod-*`/`env/mystic_auth/.env.prod` before building the matching production-style Compose file once you know that address; there's no auto-wiring to wait for on the frontend side in production.
+   **In production-style Compose files, this same auto-wiring exists for `backend` only, not `frontend`.** `bugsink-seed` and the shared `bugsink_dsn` volume are present there too, and `backend`'s DSN is auto-wired identically: it's a container-to-container address (`bugsink:8000`) either way, so nothing about it changes between dev and prod. `frontend` is different: `VITE_SENTRY_DSN` is baked into the static bundle as a Docker build arg (see [Deployment overview](../deployment/README.md)), not read at container startup, and it needs whatever address *publicly* reaches Bugsink in production: a reverse-proxy route you set up deliberately (see [Security notes](#security-notes) below), which `bugsink-seed` has no way to know in advance. Set `VITE_SENTRY_DSN` manually in that mode's `env/mystic_auth/.env.local-prod-*`/`env/mystic_auth/.env.prod` before building the matching production-style Compose file once you know that address; there's no auto-wiring to wait for on the frontend side in production.
 
 ---
 
@@ -162,6 +162,15 @@ events:
   recorded in the durable audit log but do not generate an alert storm.
   Metadata identifies the `account_ip` scope, attempted email, source IP, and
   correlation request ID, never a password or token.
+- `user_role_changed` and `policy_assigned`: someone changed who may do what.
+  At most one alert per actor, event type and minute, so a bulk request is one
+  alert. Metadata holds the actor and target email only.
+
+The audit log (not the alert sinks) also records `rate_limit_exceeded`: one row
+per rate-limit key and window when a request is first rejected with 429, with
+the endpoint and whether the IP or the account bucket tripped. Further
+rejections in the same window add no rows, so a flood of 429s cannot also flood
+`security_audit_log`.
 
 These are not ordinary individual login failures or routine `403`/`404`
 responses. They can indicate token theft, an unusual session-context change,
@@ -194,6 +203,14 @@ If you do not already have an incident gateway, leave all three settings at
 their shipped empty/default values. This repository does not create a webhook
 endpoint or provision an account with PagerDuty, Slack, Opsgenie, or another
 provider.
+
+### Using ntfy for alerts
+
+The compose files ship a self-hosted ntfy service for these alerts, reachable only with a login. The step-by-step setup, including the phone app, is in [Private security alerts with self-hosted ntfy](ntfy-alerts.md).
+
+### How alerts are delivered
+
+Alerts are sent by the background worker, not during the request, so a slow or dead alert service never delays a login or a policy change. A failed delivery is retried up to five times over about a minute and a half. If the alert cannot even be queued (the database is down), the app tries once inline with the short timeout. Identical alerts inside one minute are sent once, and at most 10 alerts per event type leave the app each minute; the audit log still records every event. At startup the app logs one warning if the URL is unset or points at a placeholder host such as `example.com`.
 
 ### Where the URL and token come from
 

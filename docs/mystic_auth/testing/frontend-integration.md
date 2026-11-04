@@ -16,6 +16,9 @@ and the real-account browser matrix.
 
 - `tests/frontend/app/app_routing.test.tsx` verifies the host application's
   route selection and the boundary between app-owned and MysticAuth routes.
+- `tests/frontend/app/app_import_boundary.test.ts` verifies files under
+  `frontend/src/app/` import MysticAuth code only through `sdk.ts`,
+  `app_sdk.ts` and the shared entry points.
 - `tests/frontend/app/legal/legal_pages.test.tsx` verifies legal-page
   rendering and the static/localized content contract.
 - `tests/frontend/app/status_pages/status_pages.test.tsx` verifies status,
@@ -32,9 +35,13 @@ and the real-account browser matrix.
   the selected settings tab survives the supported navigation and reload cases.
 - `account_settings/appearance_card.test.tsx` verifies appearance choices,
   theme updates, and saving/error feedback.
-- `account_settings/confirm_delete_account_page.test.tsx` verifies valid,
+- `passkeys/passkeys_card.test.tsx` verifies the Passkeys tab: count and last-used
+  display, inline rename on blur (Escape reverts), confirm-before-remove, the step-up dialog
+  (password, wrong password, Google for accounts without a password) with the blocked action
+  retried, the return-from-Google toast, and bulk Remove selected and Remove all.
+- `account_deletion/confirm_delete_account_page.test.tsx` verifies valid,
   missing, expired, and invalid deletion-confirmation states.
-- `account_settings/delete_account_card.test.tsx` verifies the destructive
+- `account_deletion/delete_account_card.test.tsx` verifies the destructive
   account-deletion dialog, confirmation requirements, and API failures.
 - `active_sessions/active_sessions_card.test.tsx` verifies session listing,
   current-device labeling, revoke actions, empty state, and errors.
@@ -79,8 +86,8 @@ and the real-account browser matrix.
   filters, sorting, pagination, and empty states.
 - `policies/policies_page_status_and_delete.test.tsx` verifies status changes,
   deletion confirmation, protected-policy guards, and errors.
-- `rate_limits/rate_limits_page.test.tsx` verifies rate-limit data, filters,
-  reset behavior, loading/errors, and permission gates.
+- `rate_limits/rate_limits_page.test.tsx` verifies rate-limit data, account
+  email labels and shortened digests, filters, reset behavior, loading/errors, and permission gates.
 
 ---
 
@@ -123,12 +130,19 @@ boundary and explain how the scenarios are made repeatable:
 
 ---
 
+## Additional integration tests
+
+- `tests/frontend/mystic_auth/integration/users/user_passkeys_dialog.test.tsx` verifies the operator passkey dialog lists names without credential material and removes one or all after confirmation.
+- `tests/frontend/mystic_auth/integration/users/users_page_need_to_know.test.tsx` verifies a caller without `policies:read` sees no policy controls and the page does not request them.
+- `tests/frontend/app/legal/legal_policy_parity.test.ts` verifies every language's policy matches the English structure and technical facts.
+
+---
+
 ## See also
 
 - [Frontend Test Map](frontend.md)
 - [Frontend Unit Tests](frontend-unit.md)
 - [Frontend Browser E2E Tests](frontend-e2e.md)
-- [Frontend Test Map](frontend.md)
 - [Testing Overview](overview.md)
 
 ---

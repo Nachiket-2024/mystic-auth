@@ -1,4 +1,5 @@
 import traceback
+from pathlib import Path
 
 import geoip2.database
 import geoip2.errors
@@ -66,3 +67,17 @@ def resolve_city_country(ip: str | None) -> tuple[str | None, str | None]:
         return None, None
 
     return response.city.name, response.country.name
+
+
+def geoip_database_is_readable(path: str) -> bool:
+    geoip_path = Path(path)
+    if not geoip_path.is_file() or geoip_path.stat().st_size == 0:
+        return False
+    reader = geoip2.database.Reader(str(geoip_path))
+    try:
+        # Opening the file alone isn't enough: a truncated or corrupt mmdb
+        # can exist and be non-empty while every real lookup fails.
+        reader.metadata()
+        return True
+    finally:
+        reader.close()

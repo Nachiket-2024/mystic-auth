@@ -145,7 +145,7 @@ async def delete_my_account(
     mechanics as delete_any_user (user_lifecycle_routes.py), just acting on
     current_user's own row. Deliberately does NOT purge: permanent removal
     only happens via the scheduled grace-period job
-    (procrastinate_tasks/account_purge_tasks.py) or an admin's separate
+    (procrastinate_tasks/account_purge_tasks.py) or a management purge's separate
     users:purge action, never synchronously here.
 
     An account with a password re-authenticates and is deleted immediately

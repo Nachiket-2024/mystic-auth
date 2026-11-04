@@ -50,7 +50,7 @@ const FontSizeControl: React.FC = () => {
                 ))}
             </select>
             {/* Icon-only trigger, matching LanguageToggle's icon-button
-                treatment (see design/dashboard.html's .icon-btn) - shares
+                treatment - shares
                 Button's "icon"/"icon-sm" variant classes with
                 ThemeToggle/LanguageToggle so the styles can't drift apart. */}
             <SelectPrimitive.Trigger

@@ -14,6 +14,7 @@ import pytest
 from sqlalchemy import text
 
 from backend.mystic_auth.database.connection import database
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 HANDLER_MODULE = "backend.mystic_auth.auth.oauth2.oauth2_login_handler"
 PASSWORD = "StrongPass123!"
@@ -38,7 +39,7 @@ def _mock_google(mocker, email: str, email_verified: bool = True):
 
 async def _get_user_row(email: str):
     async with database.async_session() as session:
-        result = await session.execute(text("SELECT is_verified, hashed_password FROM users WHERE email = :e"), {"e": email})
+        result = await session.execute(text("SELECT is_verified, hashed_password, name FROM users WHERE email = :e"), {"e": email})
         return result.first()
 
 
@@ -119,6 +120,7 @@ async def test_oauth2_login_clears_password_on_pre_hijacked_unverified_account(c
     row_before = await _get_user_row(email)
     assert row_before.is_verified is False
     assert row_before.hashed_password is not None
+    assert row_before.name == "Attacker-Controlled Name"
 
     _mock_google(mocker, email, email_verified=True)
     initiate_resp = await client.get("/auth/oauth2/login/google")
@@ -133,6 +135,28 @@ async def test_oauth2_login_clears_password_on_pre_hijacked_unverified_account(c
     row_after = await _get_user_row(email)
     assert row_after.is_verified is True
     assert row_after.hashed_password is None
+    # The attacker-chosen display name is replaced by the one Google gave.
+    assert row_after.name == "Google User"
+
+
+@pytest.mark.asyncio
+async def test_oauth2_takeover_of_unverified_account_never_keeps_the_attacker_name_even_without_a_google_name(
+    client, created_emails, mocker
+):
+    email = _unique_email()
+    signup_resp = await client.post(
+        "/auth/signup", json={"name": "Attacker-Controlled Name", "email": email, "password": PASSWORD}
+    )
+    assert signup_resp.status_code == 200
+    created_emails.append(email)
+
+    mock = _mock_google(mocker, email, email_verified=True)
+    mock.return_value = {"email": email, "email_verified": True}
+    initiate_resp = await client.get("/auth/oauth2/login/google")
+    state = initiate_resp.headers["location"].split("state=")[-1]
+    await client.get("/auth/oauth2/callback/google", params={"code": "fake-code", "state": state})
+
+    assert (await _get_user_row(email)).name == "Unknown"
 
 
 @pytest.mark.asyncio
@@ -151,7 +175,7 @@ async def test_oauth2_login_does_not_touch_password_of_already_verified_account(
     from backend.mystic_auth.valkey.client import valkey_client
 
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 
@@ -168,6 +192,8 @@ async def test_oauth2_login_does_not_touch_password_of_already_verified_account(
 
     row = await _get_user_row(email)
     assert row.hashed_password is not None
+    # A verified owner's own name is never overwritten by Google's.
+    assert row.name == "Test User"
 
 
 @pytest.mark.asyncio

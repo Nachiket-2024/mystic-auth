@@ -163,7 +163,21 @@ class PolicyAssignmentRepository:
             return existing_row
 
         assignment = UserPolicy(user_id=user_id, policy_id=policy_id, assigned_by=assigned_by)
-        db.add(assignment)
+        try:
+            # SAVEPOINT, so a lost race rolls back only this insert and the
+            # caller's already-loaded user and policy objects stay usable.
+            async with db.begin_nested():
+                db.add(assignment)
+                await db.flush()
+        except IntegrityError:
+            # A concurrent request inserted the same pair between our check
+            # and this insert. uq_user_policy is the source of truth: treat
+            # this caller exactly like a sequential duplicate and return the
+            # row that won, instead of surfacing a 500.
+            winner = await db.execute(
+                select(UserPolicy).where(UserPolicy.user_id == user_id, UserPolicy.policy_id == policy_id)
+            )
+            assignment = winner.scalar_one()
         await db.commit()
         await db.refresh(assignment)
 

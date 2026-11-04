@@ -82,10 +82,10 @@ action from a *different* resource type than that policy's own
 entirely, so `IfCan`/`ProtectedRoute` correctly hide the UI for it, and no
 403-after-the-fact confusion happens.
 
-This guard exists precisely because a real incident hit it before the guard was added:
+This guard exists because of a failure mode like this:
 
 - `policies:read`, `rate_limits:read`, `security_audit:read`, `users:delete_any`, `users:reactivate`, etc. were pasted onto the built-in `user_management` policy (`resource_type: "users"`), instead of onto a policy scoped to each action's own resource type.
-- At the time, `/auth/me` flattened every policy's `actions` into one set with no `resource_type` filtering, so those actions showed up as "granted" and lit up the Policies/Rate Limits/Security Audit UI, but every real request still 403'd, because `policy_evaluator.py` correctly enforces `resource_type` matching.
+- Without the guard, `/auth/me` would flatten every policy's `actions` into one set with no `resource_type` filtering, so those actions would show up as "granted" and light up the Policies/Rate Limits/Security Audit UI, but every real request would still 403, because `policy_evaluator.py` correctly enforces `resource_type` matching.
 - If you see this symptom again after further code changes (UI renders a control, but the request behind it 403s), the filtering logic in `current_user_handler.py` is the first place to check. It may have regressed, or a new call site may be constructing its own permission set without going through it.
 
 **The actual fix for the account, not the display bug**: don't add actions

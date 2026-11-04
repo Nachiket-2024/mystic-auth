@@ -14,7 +14,7 @@ you can't.
 - **Built-in pages and features**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/`, `active_sessions/`, `account_settings/`, `users/`, `policies/`, `permissions/`, `audit_log/`, `authorization/`, `rate_limits/`), plus shared `layout/`, `ui/`, `store/`, `theme/`, `translations/`, `api/`, and `core/` folders. The legal, landing, and status pages are app-owned starting points under `frontend/src/app/`. Session management lives in `active_sessions/`; the dashboard displays its active-session summary. See [Frontend Architecture](../architecture/frontend.md#module-layout).
 - **Routing**: declared in `frontend/src/app/App.tsx`: add a `<Route>`, wrapped in `ProtectedRoute`.
 - **State**: Zustand (`frontend/src/mystic_auth/store/`) for client state, TanStack Query for server state: both re-exported from `sdk.ts`.
-- **Your own code** lives under `frontend/src/app/` (e.g. `frontend/src/app/projects/`), importing template pieces via `sdk.ts`/`app_sdk.ts`.
+- **Your own code** lives under `frontend/src/app/` (e.g. `frontend/src/app/projects/`), importing template pieces via `sdk.ts`. If you need something `sdk.ts` does not export, re-export it from your own `app_sdk.ts` (the only app file besides the entry points that imports `mystic_auth` directly) and import it from there.
 
 ---
 

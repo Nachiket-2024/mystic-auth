@@ -25,6 +25,8 @@ so a failure can be understood without opening the source module.
   environment-derived configuration.
 - `tests/backend/app/test_app_sdk_module_identity.py` verifies the app SDK
   module identity boundary.
+- `tests/backend/app/test_app_extension_points_unit.py` verifies the app
+  extension hooks downstream code registers through the SDK.
 - `tests/backend/mystic_auth/unit/api/audit_log_routes/test_audit_log_me_route_unit.py`
   verifies the current-user audit-log route and its self-scope response.
 - `tests/backend/mystic_auth/unit/api/audit_log_routes/test_user_security_audit_log_route_unit.py`
@@ -86,7 +88,7 @@ The PBAC route files above live in
   response and cookie clearing.
 - `auth/logout_all/test_logout_all_handler_unit.py` verifies logout-all
   authorization, session revocation, and response behavior.
-- `auth/manage_sessions/test_session_revoke_handler_unit.py` verifies one
+- `user_session/test_session_revoke_handler_unit.py` verifies one
   session revoke request and its safety checks.
 
 ### OAuth, passwords, and account verification
@@ -124,7 +126,7 @@ The PBAC route files above live in
   verifies fail-closed behavior when token-version/revocation state is unavailable.
 - `auth/token_logic/test_jwt_service_jti_revocation_unit.py` verifies JTI
   revocation checks and durable claims handling.
-- `auth/token_logic/test_consumed_refresh_token_model_unit.py` verifies the
+- `auth/refresh_token_logic/test_consumed_refresh_token_model_unit.py` verifies the
   durable consumed-refresh-token table's model and schema contract.
 - `auth/token_logic/test_jwt_service_revocation_unit.py` verifies token
   revocation and version invalidation.
@@ -146,6 +148,9 @@ The PBAC route files above live in
   dashboard aggregation of rate-limit state.
 - `auth/security/test_rate_limiter_dashboard_edge_cases_unit.py` verifies
   dashboard aggregation for missing, expired, and malformed rate-limit state.
+- `auth/security/test_account_ip_digest_unit.py` verifies the shared account and
+  source-network lockout digest: case and space normalization, IPv6 /64
+  bucketing, separate step-up buckets, and agreement with the login handler's key.
 - `auth/security/test_rate_limiter_unit.py` verifies fixed-window decisions,
   retry metadata, and fail-safe behavior.
 - `security/test_container_security_config_unit.py` verifies required
@@ -214,7 +219,8 @@ also read the configured Postgres and Valkey host-port variables, so native
 tests remain valid when another local project uses the defaults.
 
 - `audit_log/test_audit_log_repository_unit.py` verifies audit persistence
-  queries, filters, pagination, and metadata handling.
+  queries, filters (including the `login`, `passkey_login`, and `passkey_step_up`
+  aliases), pagination, and metadata handling.
 - `audit_log/test_security_audit_service_unit.py` verifies security-event
   recording and query preparation.
 - `core/test_env_examples_parity_unit.py` verifies environment examples stay
@@ -232,11 +238,11 @@ tests remain valid when another local project uses the defaults.
   and required context.
 - `error_monitoring/test_sentry_service_unit.py` verifies optional Sentry
   setup, DSN loading, and exception reporting.
-- `logging/test_correlation_id_middleware_unit.py` verifies correlation IDs
+- `middleware/test_correlation_id_middleware_unit.py` verifies correlation IDs
   across request and response logs.
 - `logging/test_logging_config_unit.py` verifies handler profiles and format
   configuration.
-- `logging/test_logging_middleware_unit.py` verifies access logging and
+- `middleware/test_logging_middleware_unit.py` verifies access logging and
   sensitive-field handling.
 - `core/test_secret_provider_unit.py` verifies the one-secret provider boundary,
   invalid environment-name rejection, and missing-secret failures.
@@ -250,12 +256,12 @@ tests remain valid when another local project uses the defaults.
   log work and retry behavior.
 - `procrastinate_tasks/test_email_tasks_unit.py` verifies queued email task
   payloads and retry handling.
-- `procrastinate_tasks/test_session_cleanup_tasks_unit.py` verifies stale
+- `procrastinate_tasks/test_maintenance_tasks_unit.py` verifies stale
   session cleanup scheduling.
 - `tests/backend/mystic_auth/unit/scripts/test_create_system_user_unit.py`
   verifies protected system-user creation and bootstrap safeguards.
 - `tests/backend/mystic_auth/unit/scripts/test_create_unconditioned_policies_unit.py`
-  verifies default role-based access policy creation and repeatability.
+  verifies unconditioned, role-shaped policy creation and repeatability.
 - `tests/backend/mystic_auth/unit/scripts/test_authorization_maintenance_scripts_unit.py`
   verifies targeted/all-user cache invalidation, duplicate-email reporting,
   conditioned-grant conflict selection, and both CLI output paths.
@@ -295,12 +301,48 @@ tests remain valid when another local project uses the defaults.
 
 ---
 
+## Additional unit modules
+
+Edge and failure paths, several pinned after mutation testing.
+
+**API and middleware**
+- `tests/backend/mystic_auth/unit/api/test_api_folder_structure_unit.py` verifies `api/` holds route modules only, with helpers in the owning domain package.
+- `tests/backend/mystic_auth/unit/api/test_error_envelope_unit.py` verifies every error body uses `{detail, code, params}` and the refresh route is listed once in the API docs.
+- `tests/backend/mystic_auth/unit/middleware/test_origin_check_middleware_unit.py` verifies a sibling-subdomain origin cannot send an unsafe request while the configured frontend and same-host origins can.
+
+**Authentication and sessions**
+- `tests/backend/mystic_auth/unit/auth/test_password_hash_gate_unit.py` and `test_overload_passthrough_unit.py` verify the Argon2 concurrency gate answers `503` with `Retry-After` and that login, signup and reset pass that error through instead of masking it.
+- `tests/backend/mystic_auth/unit/auth/test_password_normalization_unit.py` and `auth/password_logic/test_password_legacy_and_boundary_unit.py` verify Unicode-equivalent passwords match, the legacy-hash fallback, and the exact minimum length.
+- `tests/backend/mystic_auth/unit/auth/password_logic/test_password_reset_failures_unit.py` and `auth/verify_account/test_account_verification_failures_unit.py` verify failure paths refuse safely and never raise to the route.
+- `tests/backend/mystic_auth/unit/auth/security/test_account_cooldown_unit.py` verifies the per-account cooldown, its reset on success, and that concurrent attempts cannot both take the single slot.
+- `tests/backend/mystic_auth/unit/auth/security/test_rate_limit_denial_audit_unit.py` verifies only the first denial per key and window is audited and an audit failure never breaks the `429`.
+- `tests/backend/mystic_auth/unit/auth/security/test_rate_limited_requires_request_unit.py` verifies every rate-limited handler declares a `Request`, so no caller shares an `unknown` IP bucket.
+- `tests/backend/mystic_auth/unit/auth/security/test_refresh_outage_unit.py`, `auth/token_logic/test_verify_token_outage_unit.py` and `auth/token_logic/test_token_version_store_failures_unit.py` verify store outages become `503` or fail closed, never an invalid-token result.
+- `tests/backend/mystic_auth/unit/auth/token_logic/test_is_current_version_unit.py` verifies stale account and chain versions are rejected.
+- `tests/backend/mystic_auth/unit/auth/refresh_token_logic/test_refresh_rotation_store_extra_unit.py` verifies grace-window handling for the legacy Valkey marker and the store-outage path.
+- `tests/backend/mystic_auth/unit/auth/passkeys/test_passkey_notification_service_unit.py` and `test_passkey_service_challenge_type_unit.py` verify add/remove notices never fail the change and a non-string challenge is rejected before any database access.
+- `tests/backend/mystic_auth/unit/user_session/test_session_handlers_failures_unit.py` and `test_session_event_lease_release_unit.py` verify Manage Sessions failure paths and that the SSE connection lease is released on stream end or disconnect.
+- `tests/backend/mystic_auth/unit/valkey/test_token_keys_unit.py` verifies token-derived Valkey keys are hashed and never contain the token.
+
+**Authorization**
+- `tests/backend/mystic_auth/unit/authorization/conditions/test_network_condition_host_bits_unit.py`, `test_self_only_edges_unit.py` and `test_time_condition_edges_unit.py` verify CIDR host bits, missing emails and inclusive or overnight time windows.
+- `tests/backend/mystic_auth/unit/authorization/test_policy_actions_limits_unit.py` and `test_policy_name_pattern_unit.py` verify action de-duplication and caps, and rejection of names that cannot be a URL segment or could impersonate another.
+- `tests/backend/mystic_auth/unit/audit_log/test_privilege_change_alerts_unit.py` verifies privilege changes raise one alert per actor, event and minute and ordinary or failed events raise none.
+
+**Settings, alerts, email and security guards**
+- `tests/backend/mystic_auth/unit/core/test_env_example_layout_unit.py` verifies example env files keep headers directly above their fields.
+- `tests/backend/mystic_auth/unit/core/test_settings_secret_and_alert_validation_unit.py` verifies `SECRET_KEY` strength and the security-alert webhook rules.
+- `tests/backend/mystic_auth/unit/error_monitoring/test_security_alert_delivery_unit.py`, `procrastinate_tasks/test_alert_tasks_unit.py` and `procrastinate_tasks/test_job_failure_alert_unit.py` verify alert formats, retry on failure, and that failure alerts carry metadata only and never raise again.
+- `tests/backend/mystic_auth/unit/emails/test_brand_logo_unit.py`, `test_email_branding_unit.py` and `test_email_logo_unit.py` verify the generated PNG badge, brand-color validation and custom email logo handling.
+- `tests/backend/mystic_auth/unit/security/test_backend_env_secret_isolation_unit.py` and `test_worker_email_egress_unit.py` verify Compose gives backend and worker no secret belonging to another service and the email worker can reach the outbound network but not the proxy.
+
+---
+
 ## See also
 
 - [Backend Test Map](backend.md)
 - [Backend Integration Tests](backend-integration.md)
 - [Backend Security and Performance](backend-security-performance.md)
-- [Backend Test Map](backend.md)
 - [Testing Overview](overview.md)
 
 ---

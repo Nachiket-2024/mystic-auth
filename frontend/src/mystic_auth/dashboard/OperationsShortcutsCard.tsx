@@ -23,9 +23,9 @@ import { listRateLimitsApi } from "../api/rate_limits_api";
 // at 1280-1366px. At 66rem and up, five regular 12.5rem tiles always fit.
 // rem-based, so with a larger font size setting the grid wraps instead of
 // overflowing.
-const WIDE = "@min-[66rem]/admin";
+const WIDE = "@min-[66rem]/ops";
 
-const GRID_CONTAINER_CLASSNAME = "@container/admin";
+const GRID_CONTAINER_CLASSNAME = "@container/ops";
 
 // auto-fit (not auto-fill): with fewer permission-gated tiles, the
 // remaining ones stretch to fill the row instead of leaving empty tracks.
@@ -60,7 +60,7 @@ interface TileProps {
 /** One shortcut tile. Every tile uses the user's brand color (left accent,
  * icon, hover fill) instead of a fixed hue per category: tiles are told apart
  * by icon and label, and the whole row follows the user's Appearance pick
- * like the rest of the app (see .project/design.md's color system). */
+ * like the rest of the app. */
 const OperationShortcutTile: React.FC<TileProps> = ({ icon, label, value, isLoading, isError, secondary, onClick }) => {
     const { t } = useTranslation("dashboard");
     const language = useLanguageStore((s) => s.chromeLanguage);
@@ -77,7 +77,7 @@ const OperationShortcutTile: React.FC<TileProps> = ({ icon, label, value, isLoad
                 // tiles' numbers start, instead of sinking to the bottom.
                 "justify-start",
                 // Neutral at rest with only a 3px brand left border; tints on
-                // hover (design/dashboard.html's `.tile` / `.tile:hover`).
+                // hover.
                 "bg-bg-surface border border-border-strong border-l-[3px]",
                 // brand.500, not brand.solid (600): 600 read too heavy for a
                 // border next to the pale hover fill.
@@ -132,20 +132,16 @@ const OperationShortcutTile: React.FC<TileProps> = ({ icon, label, value, isLoad
 /**
  * OperationsShortcutsCard
  * ----------------------------
- * Shortcut tiles to the permission-protected areas (Users/Policies/Permissions/Rate Limits/
- * Security Events) the current viewer holds permission for - independently,
- * one fine-grained PBAC permission per tile (role metadata has no special
- * dashboard access; it is profile metadata only, see
- * backend/mystic_auth/authorization/permissions.py). A viewer holding none
- * of these five permissions sees no card at all.
+ * Shortcut tiles to the permission-protected areas (Users, Policies,
+ * Permissions, Rate Limits, Security Events). Each tile needs its own PBAC
+ * permission (role is profile metadata only, see backend
+ * authorization/permissions.py); a viewer with none sees no card.
  *
- * Each tile's query is only enabled once its gating permission is held, so
- * a viewer without e.g. rate_limits:read never fires GET /rate-limits/ just
- * because this card mounted. Tiles reuse the same list/catalog queries
- * their own pages use, plus a one-off count-only rate limits query
- * (pageSize 1: only the total is used). Security Events has no count of its
- * own - a raw failed-login number isn't a meaningful alert, and a first
- * wrong password is common - so it's a plain link tile with a caption.
+ * Each tile's query is enabled only once its permission is held, so a viewer
+ * without rate_limits:read never fires GET /rate-limits/. Tiles reuse their
+ * pages' list/catalog queries, plus a count-only rate limits query (pageSize 1).
+ * Security Events is a plain link with a caption, since a raw failed-login
+ * count is not a meaningful alert.
  */
 const OperationsShortcutsCard: React.FC = () => {
     const { t } = useTranslation("dashboard");

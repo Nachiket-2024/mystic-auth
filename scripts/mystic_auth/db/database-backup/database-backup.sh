@@ -90,12 +90,27 @@ for DB in "$POSTGRES_DB" bugsink; do
     alert_backup_failure "pg_dump failed for $DB"
     exit 1
   fi
-  if ! docker compose "${DC_ARGS[@]}" exec -T postgres \
-    pg_restore --list >/dev/null < <(openssl enc -d -aes-256-cbc -pbkdf2 -in "$TEMP_BACKUP_FILE" \
-      -pass env:BACKUP_ENCRYPTION_KEY); then
+  # List the archive once, into a variable: pg_restore stops reading its input
+  # early, which made openssl print a harmless but alarming "error writing
+  # output file" when the two were piped together.
+  if ! TOC="$(openssl enc -d -aes-256-cbc -pbkdf2 -in "$TEMP_BACKUP_FILE" \
+        -pass env:BACKUP_ENCRYPTION_KEY \
+      | docker compose "${DC_ARGS[@]}" exec -T postgres sh -c 'cat > /tmp/verify.dump && pg_restore --list /tmp/verify.dump; rc=$?; rm -f /tmp/verify.dump; exit $rc')"; then
     rm -f -- "$TEMP_BACKUP_FILE"
     alert_backup_failure "pg_restore --list failed for $BACKUP_FILE"
     exit 1
+  fi
+  # A dump of the app database with no tables is not a backup (migrations have
+  # not run, or the wrong database was dumped). The bugsink database stays
+  # empty until the bugsink service has started once (CI and fresh dev stacks
+  # never start it), so an empty one is only a warning.
+  if ! grep " TABLE " <<<"$TOC" >/dev/null; then
+    if [ "$DB" = "$POSTGRES_DB" ]; then
+      rm -f -- "$TEMP_BACKUP_FILE"
+      alert_backup_failure "dump of $DB has no tables, backup discarded"
+      exit 1
+    fi
+    echo "WARNING: dump of $DB has no tables (its service has not created them yet)." >&2
   fi
   # AES-256-CBC has no authenticated-encryption mode of its own (openssl
   # enc's AEAD ciphers aren't supported by the enc subcommand at all - see

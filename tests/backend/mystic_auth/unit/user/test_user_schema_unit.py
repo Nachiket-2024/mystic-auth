@@ -52,10 +52,9 @@ def test_user_update_allows_all_fields_omitted():
 
 
 def test_user_update_rejects_mass_assignment_fields():
-    """The 2026-10-21 audit found these fields were silently dropped by
-    Pydantic's default "ignore" behavior. Reject them with 422 so an
-    attempted mass assignment is no longer indistinguishable from an
-    ordinary update. This does not add a persistent audit record."""
+    """Pydantic's default "ignore" behavior would silently drop these fields.
+    Reject them with 422 so an attempted mass assignment is distinguishable
+    from an ordinary update. This does not add a persistent audit record."""
     for field, value in [("role", "admin"), ("is_active", True), ("is_verified", True), ("id", 999)]:
         with pytest.raises(ValidationError):
             UserUpdate(**{field: value})

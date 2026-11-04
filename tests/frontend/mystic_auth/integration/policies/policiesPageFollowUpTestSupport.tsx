@@ -10,8 +10,7 @@ import PoliciesPage from '@/policies/PoliciesPage';
 import { Toaster } from '@/ui/toaster/toaster';
 
 // Shared fixtures/helpers for PoliciesPage's follow-up flow test files
-// (guards, dialog/rollback) - split out of one 408-line file to stay under
-// the repo's ~350-line target, see AGENTS.md.
+// (guards, dialog/rollback).
 
 export const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();

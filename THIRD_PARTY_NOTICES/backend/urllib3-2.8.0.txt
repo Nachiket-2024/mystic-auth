@@ -1,6 +1,6 @@
 urllib3 2.8.0
 License: MIT
-URL: https://github.com/urllib3/urllib3/blob/main/CHANGES.rst
+URL:
 Copyright: Copyright (c) 2008-2020 Andrey Petrov and contributors.
 
 MIT License

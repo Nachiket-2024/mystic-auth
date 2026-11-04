@@ -1,7 +1,7 @@
 """Procrastinate App + connector setup, split from the task modules so the
 `procrastinate.App` instance exists before any `@app.task`/`@app.periodic`
 decorator runs. `email_tasks.py`, `account_purge_tasks.py`, and
-`session_cleanup_tasks.py` all import `app` from here rather than from each
+`maintenance_tasks.py` all import `app` from here rather than from each
 other, avoiding the circular import a single shared module would otherwise
 create between them.
 """
@@ -99,6 +99,8 @@ async def _task_lifecycle_middleware(call_next, context: JobContext, worker):
                 logging.getLogger(__name__).exception(
                     "Could not redact completed email job payload for job %s", event.job_id
                 )
+        if outcome == "failed":
+            await _alert_job_failure(event)
         for listener in tuple(_task_lifecycle_listeners):
             try:
                 result = listener(event)
@@ -108,6 +110,28 @@ async def _task_lifecycle_middleware(call_next, context: JobContext, worker):
                 logging.getLogger(__name__).exception(
                     "Task lifecycle listener failed for job %s", event.job_id
                 )
+
+
+async def _alert_job_failure(event: TaskLifecycleEvent) -> None:
+    """Metadata-only alert for a failed attempt, so a lost job is noticed
+    within minutes instead of at the next retention sweep. Never raises."""
+    # A failing alert delivery must not raise another alert (infinite loop).
+    if event.task_name.endswith(".deliver_security_alert_task"):
+        return
+    try:
+        from ..error_monitoring.sentry_service import capture_security_alert
+
+        await capture_security_alert(
+            "background_job_failed",
+            metadata={
+                "task": event.task_name.rsplit(".", 1)[-1],
+                "job_id": event.job_id,
+                "attempts": event.attempts,
+                "error_type": event.error_type or "unknown",
+            },
+        )
+    except Exception:
+        logging.getLogger(__name__).exception("Could not alert on failed job %s", event.job_id)
 
 
 def _load_dotted_callable(path: str) -> Callable[..., Any]:
@@ -198,7 +222,21 @@ _worker_middleware: list[WorkerMiddleware] = [
     _task_lifecycle_middleware,
     _configured_worker_middleware_wrapper,
 ]
-_worker_defaults: WorkerOptions = {"worker_middleware": _worker_middleware}
+# "successful": the worker deletes a job row the moment it succeeds. A finished
+# job has nothing left to do, and its arguments hold email addresses, IPs and
+# message bodies. Failed, aborted and cancelled jobs are kept on purpose (the
+# only record of work that did not complete) until
+# maintenance_tasks.purge_old_finished_jobs removes them.
+# The worker writes a heartbeat every 10 s and prunes workers silent for 30 s;
+# the jobs such a worker was running are what recover_stalled_jobs
+# (maintenance_tasks.py) re-queues. Set explicitly so the pair cannot drift
+# if a library default changes.
+_worker_defaults: WorkerOptions = {
+    "worker_middleware": _worker_middleware,
+    "delete_jobs": "successful",
+    "update_heartbeat_interval": 10.0,
+    "stalled_worker_timeout": 30.0,
+}
 
 app = App(
     connector=connector,
@@ -208,7 +246,8 @@ app = App(
         "mystic_auth.procrastinate_tasks.email_tasks",
         "mystic_auth.procrastinate_tasks.account_purge_tasks",
         "mystic_auth.procrastinate_tasks.audit_log_tasks",
-        "mystic_auth.procrastinate_tasks.session_cleanup_tasks",
+        "mystic_auth.procrastinate_tasks.alert_tasks",
+        "mystic_auth.procrastinate_tasks.maintenance_tasks",
         "mystic_auth.procrastinate_tasks.account_lifecycle_tasks",
         *_extension_import_paths,
         ]

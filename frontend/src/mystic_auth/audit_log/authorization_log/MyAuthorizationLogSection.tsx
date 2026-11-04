@@ -131,6 +131,7 @@ const MyAuthorizationLogSection: React.FC<MyAuthorizationLogSectionProps> = ({
                 </div>
             ) : (
                 <DataTable
+                    ariaLabel={t("tabs.authorizationDecisions")}
                     columns={getAuthorizationColumns(t, language)}
                     rows={data?.rows}
                     rowKey={(e) => e.id}

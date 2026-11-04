@@ -2,14 +2,9 @@
 # Check that no plaintext dump remains and every encrypted dump has a valid
 # HMAC sidecar. Set BACKUP_ENCRYPTION_KEY to verify tags cryptographically.
 #
-# database-backup.sh (and its scheduled sidecar) have produced encrypted
-# .dump.enc + .dump.enc.hmac pairs since the backup-encryption and
-# backup-HMAC features landed; nothing enforced that older plaintext
-# .dump files, or .enc files from the window before HMAC support existed,
-# get cleaned up or backfilled. This check closes that gap: it fails if it
-# finds any bare .dump/.sql file, or a .dump.enc with a missing or malformed
-# .dump.enc.hmac sidecar. When BACKUP_ENCRYPTION_KEY is set, it also verifies
-# each tag against the ciphertext.
+# Fails if it finds any bare .dump/.sql file (older plaintext) or a .dump.enc
+# with a missing or malformed .dump.enc.hmac sidecar. With BACKUP_ENCRYPTION_KEY
+# set, it also verifies each tag against the ciphertext.
 #
 # Usage: check-backup-encryption.sh [backup-directory]
 # Default backup directory: ./backups

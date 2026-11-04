@@ -43,37 +43,18 @@ const StatusSection: React.FC<StatusSectionProps> = ({ heading, isLoading, isErr
 /**
  * AccountStatusCard
  * ----------------------------
- * Read-only view of the caller's own full authorization picture: assigned
- * policies, effective permissions (the fanned-out union of every policy's
- * actions and direct grants, via the same buildEffectivePermissionList
- * UserDetailsDialog's permission-management "View" panel uses), and direct grants
- * specifically. Password status/change lives on its own Password tab
- * instead, since it isn't part of authorization. All three sections come
- * from the self-service /me endpoints (auth-only, no extra permission
- * needed), so this works for any authenticated user, not just users with management permissions who
- * can open UserDetailsDialog on the Users page.
+ * Read-only view of the caller's own authorization: assigned policies,
+ * effective permissions (the union of every policy's actions and direct
+ * grants) and direct grants. All three come from the self-service /me
+ * endpoints, so it works for any authenticated user. Password status lives
+ * on the Password tab.
  *
- * Both permission lists run through dedupeAgainstWildcards before
- * rendering: a grant of some action on a specific resource_type is already
- * covered by that same action on "*", so showing both as separate badges
- * would read as duplication.
+ * Both permission lists go through dedupeAgainstWildcards, since an action
+ * on a specific resource type is already covered by the same action on "*".
  *
- * All sections share one card with dividers rather than separate cards, to
- * avoid extra padding/heading overhead for no real separation of concerns.
- *
- * Laid out as a 2-column grid on md+ (My policies and Direct permissions,
- * the things actually assigned to me, on the left; the computed Effective
- * permissions union on the right) rather than one stacked column: badge-heavy
- * permission lists often run a dozen-plus entries, and stacking them
- * vertically pushed this tab past a normal laptop viewport. Single column
- * below `md`, where two columns would each be too narrow for a badge to read
- * comfortably.
- *
- * Columns are split `fit-content(320px) 1fr`, not evenly: My policies/Direct
- * permissions are typically a handful of entries capped at 320px, while
- * Effective permissions on the right is usually the longest list and gets
- * the rest of the width, which matters more now that this tab runs the full
- * page width (see AccountSettingsPage.tsx).
+ * Two columns from `md` up (`fit-content(320px) 1fr`): assigned items on the
+ * left, the usually longer Effective permissions list on the right. One
+ * column below `md`, where two columns would be too narrow for badges.
  */
 const AccountStatusCard: React.FC = () => {
     const { t } = useTranslation(["account_settings", "policies"]);

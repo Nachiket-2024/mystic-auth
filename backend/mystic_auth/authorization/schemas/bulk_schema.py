@@ -1,12 +1,28 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 
 from .policy_schema import POLICY_ACTION_MAX_LENGTH, POLICY_NAME_MAX_LENGTH, POLICY_RESOURCE_TYPE_MAX_LENGTH
 
-PolicyName = Annotated[str, Field(min_length=1, max_length=POLICY_NAME_MAX_LENGTH)]
-PolicyAction = Annotated[str, Field(min_length=1, max_length=POLICY_ACTION_MAX_LENGTH)]
-ResourceType = Annotated[str, Field(min_length=1, max_length=POLICY_RESOURCE_TYPE_MAX_LENGTH)]
+
+def _reject_nul(value: str) -> str:
+    """Postgres text columns can't store a NUL byte (\\x00) - asyncpg raises
+    CharacterNotInRepertoireError if one reaches a query, which previously
+    surfaced as an unhandled 500 on every bulk PBAC endpoint instead of a
+    normal validation error. Rejecting it here, at the same boundary that
+    already enforces length, means every endpoint built on these types gets
+    the fix at once rather than needing a try/except at each call site."""
+    if "\x00" in value:
+        raise ValueError("must not contain a NUL byte")
+    return value
+
+
+_NoNul = AfterValidator(_reject_nul)
+
+PolicyName = Annotated[str, Field(min_length=1, max_length=POLICY_NAME_MAX_LENGTH), _NoNul]
+PolicyAction = Annotated[str, Field(min_length=1, max_length=POLICY_ACTION_MAX_LENGTH), _NoNul]
+ResourceType = Annotated[str, Field(min_length=1, max_length=POLICY_RESOURCE_TYPE_MAX_LENGTH), _NoNul]
+BulkUserEmail = Annotated[str, Field(min_length=1), _NoNul]
 
 # Bulk request items are capped at 200 per request: bulk assignment is an
 # operator action (not a synchronous hot-path check like
@@ -42,7 +58,7 @@ class BulkResponse(BaseModel):
 
 
 class BulkPolicyItem(BaseModel):
-    user_email: str
+    user_email: BulkUserEmail
     policy_name: PolicyName
 
 
@@ -51,7 +67,7 @@ class BulkPolicyRequest(BaseModel):
 
 
 class BulkPermissionItem(BaseModel):
-    user_email: str
+    user_email: BulkUserEmail
     action: PolicyAction
     resource_type: ResourceType
     conditions: dict | None = None
@@ -62,7 +78,7 @@ class BulkPermissionRequest(BaseModel):
 
 
 class BulkPermissionRemoveItem(BaseModel):
-    user_email: str
+    user_email: BulkUserEmail
     action: PolicyAction
     resource_type: ResourceType
 
@@ -72,7 +88,7 @@ class BulkPermissionRemoveRequest(BaseModel):
 
 
 class BulkRoleItem(BaseModel):
-    user_email: str
+    user_email: BulkUserEmail
     role: str
 
 

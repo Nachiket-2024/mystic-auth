@@ -1,7 +1,7 @@
 import traceback
 
 from fastapi import HTTPException, status
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import InterfaceError, OperationalError, SQLAlchemyError
 
 # PBAC: resolves the caller's assigned policies into the actions they grant,
 # so GET /auth/me exposes real, current permissions for frontend UI/behavior
@@ -14,7 +14,7 @@ from ...authorization.repositories.policy_repository import policy_repository
 # action directly would otherwise pass every backend check but see none of
 # the corresponding UI, since the frontend only reads this permissions list.
 from ...authorization.repositories.user_permission_repository import user_permission_repository
-from ...core.errors import AppError
+from ...core.errors import AppError, service_unavailable_error
 from ...logging.logging_config import get_logger
 from ...user.user_crud_collector import user_crud
 from ...user_session.session_service import session_service
@@ -122,6 +122,10 @@ class CurrentUserHandler:
                 # see user_model.py's brand_color column docstring.
                 "brand_color": user.brand_color,
             }
+
+        except (OperationalError, InterfaceError) as exc:
+            logger.error("Database unavailable fetching current user:\n%s", traceback.format_exc())
+            raise service_unavailable_error() from exc
 
         except SQLAlchemyError as exc:
             logger.error("Database error fetching current user:\n%s", traceback.format_exc())

@@ -58,9 +58,16 @@ pass() { echo "PASS: $1"; }
 fail() { echo "FAIL: $1"; exit 1; }
 
 
+# The older scenarios below check the opt-in commit behavior; the workflow
+# scenarios turn it off to check the default (stage only, never commit).
+export MYSTIC_AUTH_SYNC_COMMIT=1
 SCRIPT_DIR="$REPO_ROOT/tests/scripts/mystic_auth/upstream-sync"
 # These phases share the same temporary repositories and helper functions;
 # source them in order so the public test command stays one invocation.
 source "$SCRIPT_DIR/test-sync-upstream-history.sh"
 source "$SCRIPT_DIR/test-sync-upstream-safety.sh"
 source "$SCRIPT_DIR/test-sync-upstream-ownership.sh"
+source "$SCRIPT_DIR/test-sync-upstream-workflow.sh"
+
+echo ""
+echo "=== ALL CHECKS PASSED ==="

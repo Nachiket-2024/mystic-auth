@@ -4,13 +4,10 @@
 # file), app's entries last, so a target of the same name overrides. See
 # docs/mystic_auth/template-usage/ownership-split.md.
 #
-# A few targets (test-tooling, test-sync, lint-paths, lint-split, backup)
-# only have a `.sh` implementation - the regression suites and
-# database-backup.sh are dev tooling that assumes a POSIX shell, unlike every
-# user-facing script, which ships `.sh`/`.ps1`/`.cmd`. Those shell out to
-# `bash` here, which Git for Windows already provides
-# (`C:\Program Files\Git\bin\bash.exe` on PATH as `bash`) if you have Git
-# installed, same requirement as cloning this repo in the first place.
+# A few targets (test-tooling, test-sync, lint-paths, lint-split, backup) only
+# have a `.sh` implementation (dev tooling that assumes a POSIX shell, unlike
+# user-facing scripts, which ship `.sh`/`.ps1`/`.cmd`). They shell out to `bash`,
+# which Git for Windows provides.
 
 function Invoke-Bash {
     param(
@@ -68,6 +65,7 @@ $MysticAuthTargets = @{
     "superuser" = {
         docker compose `
             -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml `
+            --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev `
             exec -it backend python -m mystic_auth.scripts.create_system_user
     }
     "backup" = { Invoke-Bash "scripts/mystic_auth/db/database-backup/database-backup.sh" }

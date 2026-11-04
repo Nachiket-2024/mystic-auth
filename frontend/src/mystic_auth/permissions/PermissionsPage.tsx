@@ -24,43 +24,25 @@ import GlossaryHelp from "../ui/display/GlossaryHelp";
 /**
  * PermissionsPage
  * ----------------------------
- * Read-only, browsable view of MysticAuth's built-in permission catalog
- * (backend: GET /authorization/permissions/catalog, see
- * authorization/permissions_catalog.py), plus who actually holds each
- * action (GET .../catalog/usage). Kept separate from PoliciesPage rather
- * than a tab on it: this is the built-in action reference developers define,
- * Policies are how authorized operators compose it. No create/edit/delete, since a
- * permission only means something once a backend route checks for it.
+ * Read-only catalog of MysticAuth's built-in permissions
+ * (GET /authorization/permissions/catalog) and who holds each action
+ * (GET .../catalog/usage). A separate page from Policies: this is the action
+ * reference developers define, Policies are how operators compose it. No
+ * create/edit/delete, since a permission only means something once a backend
+ * route checks for it.
  *
- * Redesigned per design/permissions.html and
- * .project/permissions-page-review.md: a row of stat tiles (Actions,
- * Resource types, Destructive, Unused) that double as quick filters, a
- * catalog-built resource-type picker (fixes the review's bug #1: the old
- * filter used a hardcoded 5-type list, so a fork's own resource types
- * couldn't be selected), a quick-filter segmented control (Destructive/In a
- * policy/Direct grants/Unused, all backed by the usage query), and a "Held
- * by" column. Expand/Collapse all stay visible and merely disabled rather
- * than vanishing when nothing would change (bug #4), and Collapse all
- * actually works while a search/filter is forcing groups open (bug #3, see
- * isExpanded below).
+ * Stat tiles double as quick filters, a catalog-built resource-type picker
+ * lets a fork's own types be selected, and a segmented control filters by
+ * usage. Expand/Collapse all stay visible but disabled when nothing would
+ * change, and Collapse all works even while a search forces groups open.
  *
- * Grouped by resource_type into one collapsible card per type (a resource
- * can have anywhere from 1 action, security_audit, to 9, users - see the
- * Policy builder's own ragged-column problem), rather than one flat
- * alphabetical table: a caller answering "what can I grant against
- * `users`?" opens one card instead of scanning a long list for matching
- * rows. Cards start collapsed (a header + count only) so five resource
- * types' worth of actions don't all render open at once and turn the page
- * into one long scroll; a search or resource-type filter force-expands
- * every group with a match, same as the collapse-then-reveal pattern
- * elsewhere in the app (UserPoliciesDialog's expand/collapse). Unlike
- * PoliciesPage this stays entirely client-side and unpaginated - the whole
- * catalog is ~20 static rows (usePermissionCatalogQuery's long staleTime),
- * small enough that grouped cards are the whole "list" once collapsed.
+ * Actions are grouped into one collapsible card per resource type (collapsed
+ * by default so the page is not one long scroll); a search or resource-type
+ * filter expands every matching group. It stays client-side and unpaginated
+ * because the catalog is about 20 static rows.
  *
- * Reads an initial `?search=` query param the same way AuditLogPage reads
- * `?category=`/`?scope=`: CommandPaletteResults' catalog-entry matches link
- * here with the matched action so the page opens with it already shown.
+ * Reads an initial `?search=` param, which the command palette uses to open
+ * the page with an action already shown.
  */
 const PermissionsPage: React.FC = () => {
     const { t } = useTranslation(["permissions", "ui_text", "policies"]);
@@ -227,8 +209,7 @@ const PermissionsPage: React.FC = () => {
                 </div>
             }
         >
-            {/* Full-width row above the groups (design/permissions.html's
-                results-row), rather than PageContainer's `actions` slot:
+            {/* Full-width row above the groups (the results row), rather than PageContainer's `actions` slot:
                 `actions` sits beside headerExtra in the same flex row,
                 which would squeeze the how/stats cards above narrower than
                 the page instead of letting them span it edge to edge.
@@ -252,8 +233,8 @@ const PermissionsPage: React.FC = () => {
                 </div>
             ) : groups.size === 0 ? (
                 // No second "Clear filters" button here: the filter bar
-                // above already has an always-visible one (design.md:
-                // controls stay visible/disabled, not duplicated), so this
+                // above already has an always-visible one (controls
+                // stay visible/disabled, not duplicated), so this
                 // empty state is just the explanatory text.
                 <div className="flex flex-col items-center gap-3 py-10">
                     <span className="text-fg-muted">

@@ -19,10 +19,11 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
     account_verification_service,
 )
 from backend.mystic_auth.database.connection import database
-from backend.mystic_auth.procrastinate_tasks.session_cleanup_tasks import (
+from backend.mystic_auth.procrastinate_tasks.maintenance_tasks import (
     purge_expired_sessions,
 )
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 PASSWORD = "StrongPass123!"
 
@@ -44,7 +45,7 @@ async def _signup_and_verify(client, created_emails, email):
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 
@@ -76,11 +77,14 @@ async def _age_every_session(email: str, expires_at: datetime) -> None:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _cleanup_sessions_and_audit_log(created_emails):
+async def _cleanup_sessions_and_audit_log(created_emails, superuser_session_factory):
     yield
     if not created_emails:
         return
-    async with database.async_session() as session:
+    # security_audit_log's DELETE below needs the superuser session:
+    # mystic_auth_app has no DELETE on it (see conftest.py's
+    # superuser_session_factory and docs/mystic_auth/security/decisions-infra.md).
+    async with superuser_session_factory() as session:
         await session.execute(
             text(
                 "DELETE FROM user_sessions WHERE user_id IN "
@@ -158,7 +162,7 @@ async def test_logout_all_deletes_every_row_for_the_user(client, created_emails)
 @pytest.mark.asyncio
 async def test_purge_job_deletes_only_sessions_past_the_retention_cutoff(client, created_emails, mocker):
     mocker.patch(
-        "backend.mystic_auth.procrastinate_tasks.session_cleanup_tasks.settings.SESSION_ROW_RETENTION_HOURS", 1
+        "backend.mystic_auth.procrastinate_tasks.maintenance_tasks.settings.SESSION_ROW_RETENTION_HOURS", 1
     )
 
     expired_email = _unique_email("expired")

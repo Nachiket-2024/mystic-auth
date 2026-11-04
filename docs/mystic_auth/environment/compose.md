@@ -26,6 +26,25 @@ container entrypoints, one-shot seed commands, or local helper scripts.
 | `PUBLIC_DOMAIN` | prod | Public app domain used by Caddy routing. |
 | `ACME_EMAIL` | prod | Email address Caddy passes to Let's Encrypt for certificate management. |
 | `BUGSINK_PUBLIC_DOMAIN` | prod | Public Bugsink domain used by Caddy routing and public frontend DSN planning. |
+| `BUGSINK_EMAIL_BACKEND` | all, optional | Leave unset to keep Bugsink error emails off. Set to `django.core.mail.backends.smtp.EmailBackend` to turn them on. |
+| `NTFY_BASE_URL` | prod, local-prod | Address the phone uses to reach the self-hosted ntfy service (`https://ntfy.<your-domain>` in prod, `http://localhost:8190` locally). |
+| `NTFY_PUBLIC_DOMAIN` | prod | DNS name Caddy serves ntfy on and gets a certificate for. |
+| `NTFY_UPSTREAM_BASE_URL` | optional | Set to `https://ntfy.sh` only for iPhone push; ntfy.sh then sees a hashed topic ping, never the message. |
+| `NTFY_LOCAL_PORT` | local-prod, optional | Loopback port ntfy is published on in the local stacks (default `8190`). |
+
+---
+
+## Published host ports
+
+Each mode publishes ports on `127.0.0.1` only, and the defaults are offset per mode so several stacks can run at once. Change one only if another program already uses it.
+
+| Variable | Dev | Cloudflare | ngrok | Tailscale | Prod |
+|---|---|---|---|---|---|
+| `FRONTEND_HOST_PORT` | `5173` | `8080` | `8180` | `8280` | not published (Caddy owns 80/443) |
+| `BACKEND_HOST_PORT` | `8000` | `8001` | `8101` | `8201` | not published |
+| `POSTGRES_HOST_PORT` | `5433` | not published | not published | not published | not published |
+| `VALKEY_HOST_PORT` | `6380` | not published | not published | not published | not published |
+| `BUGSINK_HOST_PORT` | `8010` | not published | not published | not published | not published |
 
 ---
 

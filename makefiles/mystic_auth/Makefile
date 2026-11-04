@@ -69,6 +69,7 @@ set-env-field:
 superuser:
 	docker compose \
 	  -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml \
+	  --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev \
 	  exec -it backend python -m mystic_auth.scripts.create_system_user
 
 backup:

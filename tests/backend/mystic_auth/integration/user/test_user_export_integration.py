@@ -20,6 +20,7 @@ from backend.mystic_auth.authorization.policies.default_policies import (
 )
 from backend.mystic_auth.core.settings import settings
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 from .user_test_accounts import (
     assign_policies,
@@ -47,7 +48,7 @@ async def test_regular_user_cannot_export_users(client, created_emails):
 
 
 @pytest.mark.asyncio
-async def test_admin_can_export_users_as_csv(client, created_emails):
+async def test_management_can_export_users_as_csv(client, created_emails):
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
     target_email = unique_email("exporttarget")
@@ -114,7 +115,7 @@ async def test_export_neutralizes_csv_formula_injection_in_name(client, created_
     assert signup_resp.status_code == 200
     created_emails.append(target_email)
     token = await account_verification_service.create_verification_token(target_email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
     await assign_policies(target_email, [SELF_SERVICE_POLICY_NAME])
@@ -135,7 +136,7 @@ async def test_export_neutralizes_csv_formula_injection_in_email(client, created
     """EmailStr's RFC 5322 local-part allows a leading "=", "+",
     "-", or "@" (unlike name, there's no app-level charset restriction
     stopping it either), so a self-registered account can land a formula
-    trigger in the email column too. Must get the same `_csv_safe`
+    trigger in the email column too. Must get the same `csv_safe`
     treatment as name, or opening the export in Excel/Sheets/LibreOffice
     runs it as a live formula (OWASP CSV Injection)."""
     admin_email = unique_email("admin")
@@ -152,7 +153,7 @@ async def test_export_neutralizes_csv_formula_injection_in_email(client, created
     assert signup_resp.status_code == 200
     created_emails.append(target_email)
     token = await account_verification_service.create_verification_token(target_email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
     await assign_policies(target_email, [SELF_SERVICE_POLICY_NAME])
@@ -186,11 +187,10 @@ async def test_export_rejects_a_filtered_set_larger_than_the_configured_max(clie
 
 @pytest.mark.asyncio
 async def test_export_is_rate_limited_per_account(client, created_emails):
-    """F-006 regression: a permitted caller used to be able to hammer this
-    expensive (up to USER_EXPORT_MAX_ROWS-row) endpoint with zero cooldown -
-    confirmed live in the 2026-10-14 audit (40/40 requests succeeded).
-    export_users now carries the same @rate_limiter_service.rate_limited
-    decorator every other sensitive endpoint in this codebase already has."""
+    """Regression: a permitted caller must not be able to hammer this expensive
+    (up to USER_EXPORT_MAX_ROWS rows) endpoint with no cooldown. export_users
+    carries the same @rate_limiter_service.rate_limited decorator as other
+    sensitive endpoints."""
     admin_email = unique_email("admin")
     await create_admin(client, created_emails, admin_email)
     await client.post("/auth/login", json={"email": admin_email, "password": PASSWORD})

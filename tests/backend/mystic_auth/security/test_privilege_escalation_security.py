@@ -32,6 +32,7 @@ async def test_policies_create_only_cannot_mint_a_policy_granting_an_unheld_sens
         },
     )
     assert resp.status_code == 403
+    assert resp.json()["code"] == "CANNOT_GRANT_UNHELD_ACTION"
 
 
 @pytest.mark.asyncio
@@ -46,6 +47,7 @@ async def test_policies_update_only_cannot_add_an_unheld_sensitive_action_to_an_
         json={"actions": ["policies:update", "users:assign_system_role"]},
     )
     assert resp.status_code == 403
+    assert resp.json()["code"] == "CANNOT_GRANT_UNHELD_ACTION"
 
 
 @pytest.mark.asyncio
@@ -60,6 +62,7 @@ async def test_policies_assign_only_cannot_self_escalate_to_system_superuser(cli
         json={"policy_name": SYSTEM_SUPERUSER_POLICY_NAME},
     )
     assert resp.status_code == 403
+    assert resp.json()["code"] == "CANNOT_GRANT_UNHELD_ACTION"
 
     # confirm it didn't take: still can't list policies (needs
     # policies:read, which system_superuser grants)
@@ -112,6 +115,7 @@ async def test_policies_update_only_cannot_rollback_to_a_revision_holding_an_unh
         f"/authorization/policies/{policy_name}/history/{target_entry['id']}/rollback"
     )
     assert rollback_resp.status_code == 403
+    assert rollback_resp.json()["code"] == "CANNOT_GRANT_UNHELD_ACTION"
 
 
 @pytest.mark.asyncio
@@ -161,6 +165,7 @@ async def test_policies_update_only_cannot_rollback_a_policy_it_does_not_current
         f"/authorization/policies/{policy_name}/history/{target_entry['id']}/rollback"
     )
     assert rollback_resp.status_code == 403
+    assert rollback_resp.json()["code"] == "CANNOT_GRANT_UNHELD_ACTION"
 
     # confirm it didn't take: policy is still on its current (sensitive)
     # definition, not rolled back to the attacker-held one
@@ -195,6 +200,7 @@ async def test_policies_update_only_cannot_repoint_resource_type_to_activate_a_d
         json={"resource_type": "users"},
     )
     assert resp.status_code == 403
+    assert resp.json()["code"] == "CANNOT_GRANT_UNHELD_ACTION"
 
 
 @pytest.mark.asyncio

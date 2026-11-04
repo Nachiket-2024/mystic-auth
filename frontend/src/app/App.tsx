@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState } from "react";
+import RouteTitleAnnouncer from "@/layout/RouteTitleAnnouncer";
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 
 // LoginPage loads eagerly since it's the most common entry point for an
@@ -12,7 +13,7 @@ const SignupPage = trackedLazy(() => import("../mystic_auth/auth/signup/SignupPa
 const VerifyAccountPage = trackedLazy(() => import("../mystic_auth/auth/verify_account/VerifyAccountPage"));
 const PasswordResetRequestPage = trackedLazy(() => import("../mystic_auth/auth/password_reset_request/PasswordResetRequestPage"));
 const PasswordResetConfirmPage = trackedLazy(() => import("../mystic_auth/auth/password_reset_confirm/PasswordResetConfirmPage"));
-const ConfirmDeleteAccountPage = trackedLazy(() => import("../mystic_auth/account_settings/confirm_delete/ConfirmDeleteAccountPage"));
+const ConfirmDeleteAccountPage = trackedLazy(() => import("../mystic_auth/account_deletion/ConfirmDeleteAccountPage"));
 const DashboardPage = trackedLazy(() => import("../mystic_auth/dashboard/DashboardPage"));
 const UsersPage = trackedLazy(() => import("../mystic_auth/users/UsersPage"));
 const PoliciesPage = trackedLazy(() => import("../mystic_auth/policies/PoliciesPage"));
@@ -77,6 +78,7 @@ const App: React.FC = () => {
         <Router>
             {/* Toast queue renderer (uses a Portal, so placement here doesn't affect layout) */}
             <Toaster />
+            <RouteTitleAnnouncer />
 
             {/* Top-of-viewport loading bar. Mounted here so it overlays the
                 current page during a lazy-route navigation instead of the

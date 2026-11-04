@@ -1,16 +1,9 @@
-// Covers every palette this app passes to a row-action button. Every
-// palette reads as a plain neutral icon button at rest - muted border/bg/
-// text, matching `neutral` - and only takes on its color on hover/focus, as
-// a light tint (same shape as `neutral`'s own hover:bg-brand-subtle/
-// hover:text-brand-fg), not a solid saturated fill with forced white text.
-// A table row doesn't show a permanent row of colored chips, and hovering
-// one doesn't flip it into a jarring solid block either - every action
-// button in a row hovers the same way, just tinted toward its own color.
-// The color itself still carries the same meaning as before (Delete red,
-// Reactivate green, Deactivate yellow, Edit orange, View blue, ...) - only
-// the resting state and hover weight changed, not what each color means. A
-// plain constants module (not a component) so both TableActionButton and
-// TableActionIconButton can import it without tripping react-refresh's
+// Every palette a row-action button uses. Each reads as a plain neutral icon
+// button at rest (muted border, bg and text, like `neutral`) and takes its color
+// only on hover/focus, as a light tint rather than a solid fill. Colors carry
+// fixed meaning: Delete red, Reactivate green, Deactivate yellow, Edit orange,
+// View blue. A plain constants module (not a component) so TableActionButton and
+// TableActionIconButton can both import it without tripping react-refresh's
 // only-export-components rule.
 const NEUTRAL_REST = "border border-border-strong bg-bg-surface text-fg-muted shadow-[0_1px_2px_rgba(15,23,42,0.06)]";
 

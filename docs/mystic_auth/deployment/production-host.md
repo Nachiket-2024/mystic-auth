@@ -12,7 +12,7 @@ Host-level requirements and runtime behavior shared by production-shaped deploym
 
 `backend/app/main.py` registers a FastAPI lifespan handler. On shutdown, including `docker stop` and rolling restarts, it disposes the SQLAlchemy connection pool and closes the Valkey client cleanly.
 
-The Procrastinate worker uses the same backend image but a different command. It owns background email delivery, account-lifecycle event delivery, and scheduled account purge, audit-log anonymization, session cleanup, refresh-claim cleanup, and lifecycle-outbox reconciliation jobs.
+The Procrastinate worker uses the same backend image but a different command. It owns background email delivery, account-lifecycle event delivery, and scheduled account purge, session cleanup, refresh-claim cleanup, passkey-challenge cleanup, and lifecycle-outbox reconciliation jobs.
 
 ---
 
@@ -42,11 +42,27 @@ The production-shaped Compose files include:
 | `frontend` | nginx static SPA server and same-origin API proxy. |
 | `postgres` | Durable data store for users, policies, audit logs, jobs, and Bugsink database. |
 | `valkey` | Rate-limit/lockout state, OAuth2 state, authorization cache, Pub/Sub, and a non-authoritative cache of PostgreSQL token versions. |
-| `procrastinate_worker` | Email and account-lifecycle delivery; scheduled account purge, audit-log anonymization, expired-session and refresh-claim cleanup, and lifecycle-outbox reconciliation. |
+| `procrastinate_worker` | Email and account-lifecycle delivery; scheduled account purge, expired-session, refresh-claim, and passkey-challenge cleanup, and lifecycle-outbox reconciliation. |
 | `alembic` | One-shot migration runner. |
 | `bugsink` | Self-hosted error monitoring. |
 | `db_backup` | Scheduled dump sidecar. |
 | `caddy` or tunnel service | Public TLS entrypoint, depending on deployment mode. |
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    Internet["Internet"] --> Entry["caddy or tunnel service<br/>public TLS entrypoint"]
+    Entry --> FE["frontend (nginx)<br/>SPA + same-origin API proxy"]
+    FE --> BE["backend (FastAPI)"]
+    BE --> PG[("postgres")]
+    BE --> VK[("valkey")]
+    WK["procrastinate_worker"] --> PG
+    AL["alembic<br/>one-shot migrations"] --> PG
+    DB["db_backup<br/>scheduled dumps"] --> PG
+    BS["bugsink<br/>error monitoring"] --> PG
+    BE -.errors.-> BS
+    linkStyle default stroke:#334155,stroke-width:2px
+```
 
 ---
 
@@ -56,7 +72,7 @@ The production-shaped Compose files include:
 These are intentional scope boundaries:
 
 1. No infrastructure-as-code module is shipped.
-2. No registry push or automated deployment workflow is shipped.
+2. No registry push or automated deployment workflow is shipped. `docker-build` in CI only checks that both images build, because a template cannot assume a host, registry or credentials. Image signing needs a registry push first, so revisit both together once a real host exists.
 3. No managed Postgres backup integration is assumed.
 4. No horizontal-scaling topology is documented as the default.
 5. Serverless request-driven backend deployment is out of scope because the worker and database lifecycle are long-running service responsibilities.

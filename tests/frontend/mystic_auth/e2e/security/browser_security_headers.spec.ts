@@ -27,7 +27,7 @@ test("browser security headers are present and framing is blocked", async ({ pag
 });
 
 test("opening a Radix dropdown (combobox) does not fire a CSP style-src violation", async ({ page }) => {
-  // Regression for F-003 (2026-10-14 audit): Radix UI primitives inject a
+  // Regression: Radix UI primitives inject a
   // computed, per-render <style> element and/or inline style="" attribute
   // for runtime positioning when a dropdown/popover opens. The strict
   // hash-only style-src CSP has no fixed value to allowlist for either, so

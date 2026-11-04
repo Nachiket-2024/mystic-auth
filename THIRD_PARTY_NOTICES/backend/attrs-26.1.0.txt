@@ -1,6 +1,6 @@
 attrs 26.1.0
 License: MIT
-URL: https://www.attrs.org/en/stable/changelog.html
+URL:
 Copyright: Copyright (c) 2015 Hynek Schlawack and the attrs contributors
 
 The MIT License (MIT)

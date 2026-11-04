@@ -1,3 +1,7 @@
+# The latest sync tools were kept out of the patch (they were already current
+# and running), so stage them here with the rest of the sync result.
+git add -- "$SYNC_TOOLS_DIR" 2>/dev/null || true
+
 # A synced script can land non-executable (mode 100644) on a repo running
 # core.filemode=false (the Windows default), since git never diffs a
 # mode-only change there. Fixed unconditionally rather than relying on a
@@ -56,15 +60,21 @@ if [ "$ALEMBIC_OK" -eq 0 ]; then
   exit 1
 fi
 
-git commit -m "Sync upstream template updates (mystic-auth@${UPSTREAM_SHA_SHORT})"
+if [ "$COMMIT_SYNC" -eq 1 ]; then
+  git commit -m "Sync upstream template updates (mystic-auth@${UPSTREAM_SHA_SHORT})"
+  RESULT_LINE="Synced and committed as a single commit (mystic-auth@${UPSTREAM_SHA_SHORT}). Your history stays yours; no upstream commits were imported."
+else
+  RESULT_LINE="Synced to mystic-auth@${UPSTREAM_SHA_SHORT}. The result is staged and NOTHING was committed, so you can review it first."
+fi
 
 cat <<EOF
 
-Synced and committed as a single commit (mystic-auth@${UPSTREAM_SHA_SHORT}).
-Your history stays yours -- no upstream commits were imported.
+${RESULT_LINE}
 
-Before trusting this, rebuild and rerun the test suite -- a sync can change
-behavior underneath you even when every file merged automatically:
+What to do next:
+  1. Look at what changed:      git diff --cached --stat
+  2. Run the full checks (rebuild and rerun the test suite). A sync can change
+     behavior underneath you even when every file merged automatically:
 
   docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build
   scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit tests/backend/mystic_auth/integration tests/backend/mystic_auth/security
@@ -73,4 +83,13 @@ behavior underneath you even when every file merged automatically:
   # workarounds documented in
   # docs/mystic_auth/docker/dev-workflow.md#running-a-one-off-command-inside-a-container
   # -- safe to use on every platform.
+
 EOF
+if [ "$COMMIT_SYNC" -ne 1 ]; then
+  cat <<EOF
+  3. When you are happy, commit it yourself:
+       git commit -m "Sync upstream template updates (mystic-auth@${UPSTREAM_SHA_SHORT})"
+     If you want to throw the sync away instead, run:
+       scripts/mystic_auth/upstream-sync/sync-upstream.sh --abort
+EOF
+fi

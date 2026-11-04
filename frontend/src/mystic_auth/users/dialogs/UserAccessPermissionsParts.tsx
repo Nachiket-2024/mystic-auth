@@ -25,7 +25,7 @@ import { CopyKeyButton, type CatalogEntry, type UserAccessState } from "./UserAc
 // grouped table it sits in, its conditions editor, and the resource-type
 // group header. Policies-tab rendering (PolicyActionsTable) lives in
 // UserAccessDialogParts.tsx, shared atoms in UserAccessDialogAtoms.tsx -
-// split out of one 576-line file, see AGENTS.md's ~350-line target.
+// split out of one 576-line file, see the repo's ~350-line target.
 
 function PermissionEntrySwitch({
   entry,

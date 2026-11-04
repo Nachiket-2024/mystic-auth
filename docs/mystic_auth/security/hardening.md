@@ -40,3 +40,10 @@ See [Security Hardening: Infrastructure](hardening-infra.md) for the full entrie
 - [Known accepted gaps](hardening-infra.md#known-accepted-gaps): see [Concerns](../concerns/README.md) for the current open list.
 
 ---
+
+---
+
+## Standards mapping
+
+- [ASVS Level 3 mapping](asvs-mapping.md): a self-assessment against OWASP ASVS 4.0.3, with evidence per requirement and the open gaps.
+- [Threat model](threat-model.md): assets, actors, trust boundaries and the control behind each STRIDE threat.

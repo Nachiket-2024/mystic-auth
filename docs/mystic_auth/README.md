@@ -13,7 +13,7 @@ Read the docs in this order if you are new to the repository:
 2. [System Overview](architecture/system-overview.md)
 3. [Authentication Overview](authentication/overview.md)
 4. [Authorization Architecture](authorization/architecture/README.md)
-5. [Deployment Guide](deployment/guide.md)
+5. [Deployment Overview](deployment/README.md)
 6. [Testing Overview](testing/overview.md)
 
 ---
@@ -92,6 +92,7 @@ Read the docs in this order if you are new to the repository:
 ## Error Monitoring
 
 - [Error Monitoring](error-monitoring/overview.md): enabled-by-default backend/frontend error reporting via the Sentry SDK protocol; self-hosted Bugsink quickstart and what gets reported
+- [Private security alerts with self-hosted ntfy](error-monitoring/ntfy-alerts.md): run ntfy next to the app and get alerts on your phone, with setup script and phone steps
 
 ---
 
@@ -123,6 +124,7 @@ Read the docs in this order if you are new to the repository:
 ## Testing
 
 - [Testing Overview](testing/overview.md): backend pytest suites, frontend vitest suites, the CI coverage gate, and how to run
+- [Test Verification History](testing/verification-history.md): dated records of measured test counts and coverage
 - [Manual Accessibility Checklist](testing/accessibility-manual-checklist.md): keyboard-only and screen-reader acceptance checks beyond axe automation
 
 ---
@@ -143,10 +145,15 @@ Read the docs in this order if you are new to the repository:
 
 ## Deployment
 
-- [Deployment Guide](deployment/guide.md): mode chooser and links to focused deployment references
+- [Deployment Overview](deployment/README.md): mode chooser and links to focused deployment references
 - [Environment and Runtime Configuration](deployment/environment.md): env file selection, build-time vs runtime settings, production review checklist
+- [Scaling and Multiple Backend Containers](deployment/scaling.md): worker sizing, connection budgets, load-balanced backends
+- [Rotating Secrets](deployment/secret-rotation.md): which secrets the script rotates and the order for the rest
 - [Frontend and Backend Routing](deployment/routing.md): same-origin nginx proxying, trusted proxy IPs, and SPA/API route collisions
-- [Migrations and Backups](deployment/migrations-and-backups.md): Alembic service behavior, PostgreSQL 15-to-18 volume migration, backup scripts, scheduled backup sidecar, restore discipline
+- [Dependency Locking](deployment/dependency-locking.md): hashed backend lockfiles, how to update dependencies, what CI checks
+- [Database Migrations](deployment/database-migrations.md): Alembic service behavior, authorization-cache invalidation, PostgreSQL 15-to-18 volume migration
+- [Database Backups](deployment/database-backups.md): backup scripts, Backblaze B2 copies, the scheduled sidecar, key rotation, limitations
+- [Restore and Recovery](deployment/database-restore-and-recovery.md): the restore drill and recovery discipline
 - [Production Host Requirements](deployment/production-host.md): shutdown behavior, service responsibilities, host requirements, deployment limitations
 - [Dev Deployment](deployment/dev.md): local development, hot reload, no TLS
 - [Local-Prod Deployment](deployment/local-prod/README.md): self-hosted production image shape exposed via a free tunnel, no public server needed, with walkthroughs for [Cloudflare Quick Tunnel](deployment/local-prod/cloudflare-quick-tunnel.md), [Cloudflare Named Tunnel](deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](deployment/local-prod/ngrok-tunnel.md), and [Tailscale Funnel](deployment/local-prod/tailscale-funnel.md)

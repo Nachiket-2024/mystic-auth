@@ -15,6 +15,7 @@ import { usePermissionCatalogQuery, useMyPermissionsQuery } from "../../policies
 import { buildEffectiveGrantKeySet, isAlreadyEffectivelyGranted, policyAddsNothingNew } from "../../policies/logic/effectiveGrants";
 import { useAuthStore } from "../../store/authStore";
 import { useAuthorization } from "../../authorization/useAuthorization";
+import { PERMISSIONS } from "../../authorization/permissions";
 import { canGrantAction, canGrantPolicy } from "../../authorization/grantability";
 import { toaster } from "../../ui/toaster/toasterInstance";
 import { cn } from "../../ui/styles/classNames";
@@ -45,8 +46,13 @@ const BulkUserAccessDialog: React.FC<Props> = ({ isOpen, userEmails, initialTab 
   const [lastAction, setLastAction] = useState<string | null>(null);
   const currentEmail = useAuthStore((state) => state.email);
   const { can } = useAuthorization();
-  const policies = usePoliciesQuery(isOpen);
-  const catalog = usePermissionCatalogQuery();
+  // Only request what this caller is allowed to read: a refused request is
+  // also a denied row in the authorization audit log on every dialog open.
+  const policies = usePoliciesQuery(isOpen && can(PERMISSIONS.POLICIES_READ));
+  const catalog = usePermissionCatalogQuery(
+    isOpen &&
+      can([PERMISSIONS.PERMISSIONS_READ, PERMISSIONS.POLICIES_CREATE, PERMISSIONS.POLICIES_UPDATE, PERMISSIONS.PERMISSIONS_GRANT]),
+  );
   const self = userEmails.length === 1 && userEmails[0] === currentEmail;
   const minePolicies = useMyPoliciesQuery(isOpen && self);
   const minePermissions = useMyPermissionsQuery(isOpen && self);

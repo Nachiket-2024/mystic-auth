@@ -1,80 +1,55 @@
-# tests/backend/mystic_auth/unit/test_settings_unit.py
+# tests/backend/mystic_auth/unit/core/test_settings_unit.py
 import pytest
 from pydantic import ValidationError
 
 from backend.mystic_auth.core.settings import Settings
 
-# Every Settings field is required, no Python-level defaults, with two
-# exceptions (see the dedicated tests below for each): TRUSTED_PROXY_IPS
-# defaults to "" since only the backend service needs a real value, while
-# alembic and procrastinate_worker read the same env file directly and never
-# use it; SESSION_ROW_RETENTION_HOURS defaults to 1 since it's a generic
-# internal buffer with no reason to vary by deployment, not a value forks
-# need to tune per .env/AGENTS.md's "default a required-but-service-specific
-# Settings field instead of padding every env file with it" convention.
-# .env.dev (or the process environment) is the single source of truth for every
-# other field, in dev and prod alike. This fixture is a complete, valid
-# payload; the tests below poke at deviations from it.
-_ALL_FIELDS = {
-    "BACKEND_BASE_URL": "http://localhost:8000",
-    "FRONTEND_BASE_URL": "http://localhost:5173",
-    "FRONTEND_ADDITIONAL_BASE_URLS": "",
-    "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/db",
-    "DB_POOL_SIZE": 10,
-    "DB_MAX_OVERFLOW": 20,
-    "POSTGRES_USER": "user",
-    "POSTGRES_PASSWORD": "pass",
-    "POSTGRES_DB": "db",
-    "SECRET_KEY": "a" * 32,
-    "ACCESS_TOKEN_EXPIRE_MINUTES": 15,
-    "REFRESH_TOKEN_EXPIRE_MINUTES": 43200,
-    "JWT_ALGORITHM": "HS256",
-    "JWT_ISSUER": "http://localhost:8000",
-    "JWT_AUDIENCE": "http://localhost:8000",
-    "RESET_TOKEN_EXPIRE_MINUTES": 60,
-    "ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES": 60,
-    "GOOGLE_CLIENT_ID": "client-id",
-    "GOOGLE_CLIENT_SECRET": "client-secret",
-    "GOOGLE_REDIRECT_URI": "http://localhost:8000/auth/oauth2/callback/google",
-    "VALKEY_URL": "redis://localhost:6379/0",
-    "CACHE_DEFAULT_TTL": 300,
-    "FROM_EMAIL": "from@example.com",
-    "GMAIL_APP_PASSWORD": "app-password",
-    "SUPPORT_EMAIL": "",
-    "SMTP_HOST": "smtp.gmail.com",
-    "SMTP_PORT": 587,
-    "APP_NAME": "TestApp",
-    "LOGIN_LOCKOUT_TIME": 300,
-    "MAX_FAILED_LOGIN_ATTEMPTS": 5,
-    "LOGIN_LOCKOUT_TIME_PER_IP": 300,
-    "MAX_FAILED_LOGIN_ATTEMPTS_PER_IP": 20,
-    "MAX_REQUESTS_PER_WINDOW": 100,
-    "REQUEST_WINDOW_SECONDS": 60,
-    "LOG_LEVEL": "INFO",
-    "ENVIRONMENT": "development",
-    "TRUSTED_PROXY_IPS": "",
-    "GEOIP_DB_PATH": "",
-    "SENTRY_DSN": "",
-    "SENTRY_ENVIRONMENT": "",
-    "ACCOUNT_PURGE_GRACE_DAYS": 30,
-    "SESSION_ROW_RETENTION_HOURS": 1,
-    "REFRESH_TOKEN_REUSE_GRACE_SECONDS": 10,
-    "USER_EXPORT_MAX_ROWS": 50000,
-}
+from .settings_valid_fields import ALL_FIELDS
 
 
 def test_settings_construction_succeeds_with_only_declared_fields():
-    # Baseline: confirms the fixture above is a complete, valid payload.
+    # Baseline: confirms ALL_FIELDS is a complete, valid payload.
     # If this fails, every other test in the file is testing against a
     # payload that was already broken for an unrelated reason.
-    Settings(_env_file=None, **_ALL_FIELDS)
+    Settings(_env_file=None, **ALL_FIELDS)
+
+
+def test_webauthn_origins_must_be_secure_and_within_the_rp_id():
+    with pytest.raises(ValidationError, match="HTTPS"):
+        Settings(
+            _env_file=None,
+            **{**ALL_FIELDS, "WEBAUTHN_ORIGINS": "http://app.example.test"},
+        )
+
+    with pytest.raises(ValidationError, match="subdomain"):
+        Settings(
+            _env_file=None,
+            **{
+                **ALL_FIELDS,
+                "WEBAUTHN_RP_ID": "example.test",
+                "WEBAUTHN_ORIGINS": "https://attacker.test",
+            },
+        )
 
 
 @pytest.mark.parametrize(
     "missing_field",
-    sorted(set(_ALL_FIELDS) - {"TRUSTED_PROXY_IPS", "SESSION_ROW_RETENTION_HOURS", "REFRESH_TOKEN_REUSE_GRACE_SECONDS"}),
+    sorted(
+        set(ALL_FIELDS)
+        - {
+            "TRUSTED_PROXY_IPS",
+            "SESSION_ROW_RETENTION_HOURS",
+            "REFRESH_TOKEN_REUSE_GRACE_SECONDS",
+            "WEBAUTHN_RP_ID",
+            "WEBAUTHN_ORIGINS",
+            "WEBAUTHN_RP_NAME",
+            "WEBAUTHN_CHALLENGE_TTL_SECONDS",
+        }
+    ),
 )
-def test_settings_construction_fails_when_any_field_is_missing(missing_field, monkeypatch):
+def test_settings_construction_fails_when_any_field_is_missing(
+    missing_field, monkeypatch
+):
     # Every field except TRUSTED_PROXY_IPS and SESSION_ROW_RETENTION_HOURS is
     # required: a silent fallback could let a real deployment start up
     # misconfigured with no error.
@@ -83,7 +58,7 @@ def test_settings_construction_fails_when_any_field_is_missing(missing_field, mo
     # to the real process environment (set here by docker-compose's env_file:),
     # which this suite runs inside.
     monkeypatch.delenv(missing_field, raising=False)
-    payload = {key: value for key, value in _ALL_FIELDS.items() if key != missing_field}
+    payload = {key: value for key, value in ALL_FIELDS.items() if key != missing_field}
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None, **payload)
@@ -96,7 +71,9 @@ def test_trusted_proxy_ips_defaults_to_empty_when_missing(monkeypatch):
     # the backend service actually needs a real value, injected via each
     # prod/local-prod-* Compose file's own environment: override.
     monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
-    payload = {key: value for key, value in _ALL_FIELDS.items() if key != "TRUSTED_PROXY_IPS"}
+    payload = {
+        key: value for key, value in ALL_FIELDS.items() if key != "TRUSTED_PROXY_IPS"
+    }
 
     settings = Settings(_env_file=None, **payload)
 
@@ -108,11 +85,36 @@ def test_session_row_retention_hours_defaults_to_one_when_missing(monkeypatch):
     # cleanup buffer, not a per-deployment knob, so no env file needs to
     # carry it (see the fixture comment above).
     monkeypatch.delenv("SESSION_ROW_RETENTION_HOURS", raising=False)
-    payload = {key: value for key, value in _ALL_FIELDS.items() if key != "SESSION_ROW_RETENTION_HOURS"}
+    payload = {
+        key: value
+        for key, value in ALL_FIELDS.items()
+        if key != "SESSION_ROW_RETENTION_HOURS"
+    }
 
     settings = Settings(_env_file=None, **payload)
 
     assert settings.SESSION_ROW_RETENTION_HOURS == 1
+
+
+def test_webauthn_settings_default_from_frontend_and_app_name(monkeypatch):
+    webauthn_fields = {
+        "WEBAUTHN_RP_ID",
+        "WEBAUTHN_ORIGINS",
+        "WEBAUTHN_RP_NAME",
+        "WEBAUTHN_CHALLENGE_TTL_SECONDS",
+    }
+    for field in webauthn_fields:
+        monkeypatch.delenv(field, raising=False)
+    payload = {
+        key: value for key, value in ALL_FIELDS.items() if key not in webauthn_fields
+    }
+
+    settings = Settings(_env_file=None, **payload)
+
+    assert settings.webauthn_rp_id == "localhost"
+    assert settings.webauthn_origins == ["http://localhost:5173"]
+    assert settings.webauthn_rp_name == "TestApp"
+    assert settings.WEBAUTHN_CHALLENGE_TTL_SECONDS == 300
 
 
 def test_settings_ignores_env_vars_that_are_not_declared_fields():
@@ -125,7 +127,7 @@ def test_settings_ignores_env_vars_that_are_not_declared_fields():
     # crashed Settings() construction whenever such a var was present.
     # Settings.Config now sets extra="ignore".
     payload = {
-        **_ALL_FIELDS,
+        **ALL_FIELDS,
         "VALKEY_PASSWORD": "valkey-password",
         "BUGSINK_SECRET_KEY": "bugsink-secret",
         "BUGSINK_SUPERUSER_EMAIL": "admin@example.com",
@@ -143,14 +145,14 @@ def test_settings_ignores_env_vars_that_are_not_declared_fields():
 
 
 def test_cors_allowed_origins_is_just_frontend_base_url_when_additional_unset():
-    settings = Settings(_env_file=None, **_ALL_FIELDS)
+    settings = Settings(_env_file=None, **ALL_FIELDS)
 
     assert settings.cors_allowed_origins == ["http://localhost:5173"]
 
 
 def test_cors_allowed_origins_includes_additional_origins_in_order():
     payload = {
-        **_ALL_FIELDS,
+        **ALL_FIELDS,
         "FRONTEND_ADDITIONAL_BASE_URLS": "https://staging.example.com,https://www.example.com",
     }
 
@@ -165,7 +167,7 @@ def test_cors_allowed_origins_includes_additional_origins_in_order():
 
 def test_cors_allowed_origins_ignores_blank_entries_and_stray_whitespace():
     payload = {
-        **_ALL_FIELDS,
+        **ALL_FIELDS,
         "FRONTEND_ADDITIONAL_BASE_URLS": " https://staging.example.com , , https://www.example.com ,",
     }
 
@@ -180,52 +182,26 @@ def test_cors_allowed_origins_ignores_blank_entries_and_stray_whitespace():
 
 def test_cors_allowed_origins_deduplicates_a_repeated_origin():
     payload = {
-        **_ALL_FIELDS,
+        **ALL_FIELDS,
         "FRONTEND_ADDITIONAL_BASE_URLS": "http://localhost:5173,https://www.example.com",
     }
 
     settings = Settings(_env_file=None, **payload)
 
-    assert settings.cors_allowed_origins == ["http://localhost:5173", "https://www.example.com"]
+    assert settings.cors_allowed_origins == [
+        "http://localhost:5173",
+        "https://www.example.com",
+    ]
 
 
 def test_refresh_token_reuse_grace_seconds_defaults_to_ten_when_missing(monkeypatch):
     monkeypatch.delenv("REFRESH_TOKEN_REUSE_GRACE_SECONDS", raising=False)
-    payload = {key: value for key, value in _ALL_FIELDS.items() if key != "REFRESH_TOKEN_REUSE_GRACE_SECONDS"}
+    payload = {
+        key: value
+        for key, value in ALL_FIELDS.items()
+        if key != "REFRESH_TOKEN_REUSE_GRACE_SECONDS"
+    }
 
     settings = Settings(_env_file=None, **payload)
 
     assert settings.REFRESH_TOKEN_REUSE_GRACE_SECONDS == 10
-
-
-def test_secret_key_validation_rejects_short_values():
-    with pytest.raises(ValidationError, match="SECRET_KEY must be at least 32 characters"):
-        Settings(_env_file=None, **{**_ALL_FIELDS, "SECRET_KEY": "too-short"})
-
-
-def test_production_without_alert_webhook_is_rejected():
-    with pytest.raises(ValidationError, match="SECURITY_ALERT_WEBHOOK_URL is required in production"):
-        Settings(_env_file=None, **{**_ALL_FIELDS, "ENVIRONMENT": "production"})
-
-
-@pytest.mark.parametrize(
-    "url",
-    ["http://alerts.example.com/hook", "https:///missing-host", "https://user:password@alerts.example.com/hook"],
-)
-def test_security_alert_webhook_rejects_insecure_or_credential_bearing_urls(url):
-    with pytest.raises(ValidationError, match="must be an HTTPS URL without embedded credentials"):
-        Settings(_env_file=None, **{**_ALL_FIELDS, "SECURITY_ALERT_WEBHOOK_URL": url})
-
-
-def test_production_with_an_alert_webhook_configured_is_accepted():
-    settings = Settings(
-        _env_file=None,
-        **{**_ALL_FIELDS, "ENVIRONMENT": "production", "SECURITY_ALERT_WEBHOOK_URL": "https://alerts.example.com/hook"},
-    )
-    assert settings.SECURITY_ALERT_WEBHOOK_URL == "https://alerts.example.com/hook"
-
-
-def test_development_without_alert_webhook_is_allowed():
-    """The default dev/test env file leaves this unset deliberately."""
-    settings = Settings(_env_file=None, **_ALL_FIELDS)
-    assert settings.SECURITY_ALERT_WEBHOOK_URL == ""

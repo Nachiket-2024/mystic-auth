@@ -7,10 +7,12 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from ....core.errors import service_unavailable_error
 from ....core.settings import settings
 from ....logging.logging_config import get_logger
 from ....valkey.client import valkey_client
-from ..client_ip import get_client_ip
+from ....valkey.key_names import email_key_id
+from ..client_ip import get_client_ip, ip_bucket
 
 logger = get_logger(__name__)
 
@@ -24,11 +26,38 @@ class RateLimiterService:
     # endpoint_name -> (max_requests, window_seconds) for every endpoint
     # that overrode the global default via rate_limited(...)'s max_requests/
     # window_seconds. Populated once at import time, when each decorated
-    # route's module loads - read by RateLimitDashboardService so the admin
+    # route's module loads - read by RateLimitDashboardService so the dashboard
     # dashboard reports the threshold actually enforced, not always the
     # global one. An endpoint that never overrides is simply absent here.
     ENDPOINT_OVERRIDES: dict[str, tuple[int, int]] = {}
     REGISTERED_ENDPOINTS: set[str] = set()
+
+    @staticmethod
+    async def _audit_denial(request: Request | None, endpoint: str, scope: str, key: str, window_seconds: int) -> None:
+        """Record the first denial per key and window as a security event.
+
+        Writing a row for every rejected request would let a flood of 429s
+        flood the audit table too, so a Valkey SET NX with the window as TTL
+        lets only the first denial through. Never raises: a failure here must
+        not turn a 429 into a 500.
+        """
+        try:
+            first = await valkey_client.set(f"rl_audited:{key}", "1", ex=window_seconds, nx=True)
+            if not first:
+                return
+            from ....audit_log.audit_log_service import RATE_LIMIT_EXCEEDED, log_security_event
+            from ....database.connection import database
+
+            async with database.async_session() as db:
+                await log_security_event(
+                    RATE_LIMIT_EXCEEDED,
+                    db,
+                    success=False,
+                    request=request,
+                    metadata={"endpoint": endpoint, "scope": scope},
+                )
+        except Exception:
+            logger.warning("Could not audit rate-limit denial for %s:\n%s", endpoint, traceback.format_exc())
 
     @staticmethod
     async def record_request(
@@ -55,7 +84,8 @@ class RateLimiterService:
 
         except Exception:
             logger.error("Error recording rate-limited request:\n%s", traceback.format_exc())
-            return False
+            # Still fail closed, but report the outage as 503, not as a 429.
+            raise service_unavailable_error() from None
 
     def rate_limited(
         self,
@@ -82,7 +112,7 @@ class RateLimiterService:
         route (e.g. get_current_user, logout) has no such field to read
         synchronously, only an encoded access_token cookie, so its
         account_key_func decodes that instead (see
-        auth_routes.py's `_access_token_account_key`, backed by
+        account_keys.py's `access_token_account_key`, backed by
         jwt_service.decode_payload - real signature+expiry verification, just
         skipping the revocation lookup verify_token also does, so this stays
         a local CPU-bound decode with no extra Valkey round trip). Pass None
@@ -106,12 +136,19 @@ class RateLimiterService:
             self.ENDPOINT_OVERRIDES[endpoint_name] = (effective_max, effective_window)
 
         def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+            # Without a Request the limiter cannot see the caller's IP and every
+            # caller would share one "<endpoint>:ip:unknown" bucket, so one
+            # client could lock all others out. Refuse such a handler at import
+            # time instead of letting it fail open at runtime.
+            if "request" not in inspect.signature(func).parameters:
+                raise TypeError(f"@rate_limited handler {func.__qualname__} must declare a `request: Request` parameter")
+
             def _limit_exceeded_response() -> JSONResponse | RedirectResponse:
                 if redirect_url:
                     return RedirectResponse(url=redirect_url)
                 return JSONResponse(
                     content={
-                        "error": f"Too many {endpoint_name} attempts",
+                        "detail": f"Too many {endpoint_name} attempts",
                         "code": "TOO_MANY_ATTEMPTS",
                         "params": {"endpoint": endpoint_name},
                     },
@@ -130,13 +167,14 @@ class RateLimiterService:
                 if not request:
                     request = kwargs.get("request")
 
-                ip_address = (get_client_ip(request) if request else None) or "unknown"
+                ip_address = ip_bucket(get_client_ip(request) if request else None)
 
                 ip_key = f"{endpoint_name}:ip:{ip_address}"
 
                 allowed = await self.record_request(ip_key, effective_max, effective_window)
 
                 if not allowed:
+                    await self._audit_denial(request, endpoint_name, "ip", ip_key, effective_window)
                     return _limit_exceeded_response()
 
                 if account_key_func is not None:
@@ -158,10 +196,11 @@ class RateLimiterService:
                         account_value = None
 
                     if account_value:
-                        account_key = f"{endpoint_name}:account:{account_value}"
+                        account_key = f"{endpoint_name}:account:{email_key_id(str(account_value))}"
                         account_allowed = await self.record_request(account_key, effective_max, effective_window)
 
                         if not account_allowed:
+                            await self._audit_denial(request, endpoint_name, "account", account_key, effective_window)
                             return _limit_exceeded_response()
 
                 return await func(*args, **kwargs)

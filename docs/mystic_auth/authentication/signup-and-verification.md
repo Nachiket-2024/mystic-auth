@@ -71,7 +71,7 @@ sequenceDiagram
     participant DB as Postgres
     U->>API: POST /auth/verify-account { token }
     API->>API: decode JWT (role=verify claim)
-    API->>R: GETDEL verify:{token} (atomic, single-use)
+    API->>R: GETDEL verify:{sha256(token)} (atomic, single-use)
     alt key present
         API->>DB: UPDATE user SET is_verified = true
         API-->>U: 200
@@ -87,7 +87,7 @@ sequenceDiagram
 ---
 
 1. The verification token is a scoped JWT (`role="verify"` internally, distinct from a login
-   token), paired with a Valkey key `verify:{token}` that makes it single-use even within the JWT's
+   token), paired with a Valkey key `verify:{sha256(token)}` that makes it single-use even within the JWT's
    own expiry window.
 2. Redemption is an atomic `GETDEL`, the same single-use pattern used by password reset and
    account-delete confirmation tokens elsewhere in this app.

@@ -9,6 +9,32 @@ Off by default. Resolves each login's city/country from its IP for the "Manage S
 
 ## How it works
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    Login["Login or token refresh\nrecords the client IP"]
+    Set{"GEOIP_DB_PATH set?"}
+    Off["Location shows Unknown"]
+    File{".mmdb file present?"}
+    Ready503["/health/ready returns 503"]
+    Look["Offline GeoLite2-City lookup\n(city, country)"]
+    Show["Manage Sessions shows Location"]
+
+    Login --> Set
+    Set -- "no" --> Off
+    Set -- "yes" --> File
+    File -- "no" --> Ready503
+    File -- "yes" --> Look --> Show
+
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class Set,File decision
+    class Ready503 caution
+    class Show terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 `backend/mystic_auth/user_session/session_geolocation.py` resolves the lookup from a local **MaxMind GeoLite2-City** database (`geoip2` library reading a `.mmdb` file), not a third-party HTTP API: the lookup is offline and sub-millisecond, so it adds no latency, no rate limit, and no external outage dependency to the login/refresh path.
 
 Leaving `GEOIP_DB_PATH` empty (the default) disables the feature entirely: `resolve_city_country` returns `(None, None)` for every lookup, and the Location column shows "Unknown", the same fail-open posture as every other best-effort field on `UserSession` (see `session_service.py`). Nothing else in the app depends on it.
@@ -56,7 +82,7 @@ It's gated behind the `geoip` Compose profile, so it never starts (and never res
 
 ---
 
-6. `geoipupdate` needs one successful run before the file exists. Its Compose healthcheck now requires a non-empty `GeoLite2-City.mmdb`; while the first download is pending it is `starting`, and invalid credentials, network failure, or a missing file make it `unhealthy` instead of reporting a false healthy state. Check both the service health and the mounted file:
+6. `geoipupdate` needs one successful run before the file exists. Its Compose healthcheck requires a non-empty `GeoLite2-City.mmdb`; while the first download is pending it is `starting`, and invalid credentials, network failure, or a missing file make it `unhealthy` instead of reporting a false healthy state. Check both the service health and the mounted file:
 
    ```bash
    docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml -f docker/app/compose/docker-compose.local-prod-ngrok.yml --env-file env/mystic_auth/.env.local-prod-ngrok --env-file env/app/.env.local-prod-ngrok exec geoipupdate ls -la /usr/share/GeoIP/

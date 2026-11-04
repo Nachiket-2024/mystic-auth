@@ -71,12 +71,12 @@ sequenceDiagram
     participant E as Email
     U->>API: DELETE /users/me (no password to send)
     API->>API: mint JWT (type=account_delete, TTL=ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES)
-    API->>R: SET account_delete:{token} (single-use)
+    API->>R: SET account_delete:{sha256(token)} (single-use)
     API->>E: send link to /confirm-delete?token=...
     API-->>U: 200 { confirmation_required: true }
     Note over U: account and session untouched until the link is used
     U->>API: (later, any device) POST /users/me/confirm-delete { token }
-    API->>R: GETDEL account_delete:{token} (atomic, single-use)
+    API->>R: GETDEL account_delete:{sha256(token)} (atomic, single-use)
     alt token valid
         API->>API: finalize_self_deletion() (same routine as Path A)
         API-->>U: 200, cookies cleared
@@ -90,7 +90,7 @@ sequenceDiagram
 1. **Send.** `DELETE /users/me` on an account with no password mints a signed JWT carrying a
    `type` claim of `"account_delete"`, scoping it away from access/refresh/reset tokens that share
    the same `SECRET_KEY`, so a valid deletion link can never be replayed as a login or
-   password-reset token or vice versa. It's stored in Valkey under `account_delete:{token}` with a
+   password-reset token or vice versa. It's stored in Valkey under `account_delete:{sha256(token)}` with a
    TTL from `ACCOUNT_DELETE_TOKEN_EXPIRE_MINUTES`, then emailed as a link to `/confirm-delete`. The
    account and the calling session are both left untouched at this point.
 2. **Confirm.** `POST /users/me/confirm-delete` is deliberately unauthenticated (the token itself

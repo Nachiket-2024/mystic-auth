@@ -88,6 +88,8 @@ CLAUDE.md
 AGENTS.md
 TODO.md
 audit-evidence/
+.project/
+backups/
 
 # ---------------------------- General ----------------------------
 .DS_Store

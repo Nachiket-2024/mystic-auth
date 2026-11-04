@@ -19,6 +19,7 @@ from ...authorization.dependencies.authorization_dependency import require_autho
 # PBAC action vocabulary and policy-based authorization. Replaces the removed
 # static role-permission helpers.
 from ...authorization.permissions import Permission
+from ...authorization.privilege_hierarchy import guard_privileged_target
 from ...core.errors import AppError
 from ...database.connection import database
 from ...emails.email_normalization import normalize_email
@@ -72,7 +73,7 @@ async def delete_any_user(
     # The frontend disables this action against the caller's own row, but
     # that's UI-only: without a server-side check here, anyone holding
     # users:deactivate_any could soft-delete themselves, revoking their own
-    # sessions immediately and, for a sole admin, with no other admin left
+    # sessions immediately and, for the only account with the admin role, with no other such account left
     # to reactivate the account.
     if user_email == current_user["email"]:
         raise AppError(
@@ -81,8 +82,12 @@ async def delete_any_user(
             detail="Cannot delete your own account through this endpoint"
         )
 
+    # See privilege_hierarchy.py: the narrowest grant of users:deactivate_any
+    # must not be enough to take an account with the admin role offline.
+    await guard_privileged_target(current_user, user.role, request, db)
+
     lifecycle_event = build_account_lifecycle_event(
-        "soft_deleted", user, actor=current_user["email"], source="admin"
+        "soft_deleted", user, actor=current_user["email"], source="management"
     )
     await user_crud.soft_delete(db_obj=user, db=db, lifecycle_event=lifecycle_event)
 
@@ -131,9 +136,10 @@ async def purge_user(
     Deliberately a separate, more sensitive action from users:deactivate_any (see
     permissions.py) since this is irreversible and cascades: policy
     assignments are removed via users.id -> policy_model.py's ON DELETE
-    CASCADE. Historical audit rows are anonymized before the purge event is
-    written, then survive as non-identifying snapshot history rather than as
-    a foreign-key dependency on the deleted user.
+    CASCADE. Historical audit rows are left exactly as written, never
+    anonymized (see docs/mystic_auth/security/decisions-infra.md's
+    "Account deletion never anonymizes the audit trail"), and survive with
+    no foreign-key dependency on the deleted user.
     """
     user_email = normalize_email(user_email)
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
@@ -154,8 +160,12 @@ async def purge_user(
             detail="Cannot purge your own account through this endpoint"
         )
 
+    # See privilege_hierarchy.py: the narrowest grant of users:delete_any
+    # must not be enough to permanently remove an account with the admin role.
+    await guard_privileged_target(current_user, user.role, request, db)
+
     # Shared with the scheduled grace-period purge job so both use the same
-    # revoke -> anonymize-history -> audit -> delete sequence.
+    # revoke -> audit -> delete sequence.
     #
     # Unlike the reversible soft-delete paths, this revokes BEFORE the
     # irreversible hard delete: a TokenVersionUnavailableError here
@@ -197,10 +207,14 @@ async def reactivate_user(
             detail="User is not deleted"
         )
 
+    # See privilege_hierarchy.py: restoring a deactivated account that holds
+    # the admin role is just as sensitive as deactivating one in the first place.
+    await guard_privileged_target(current_user, user.role, request, db)
+
     # Policy assignments were never touched by soft delete, so access returns
     # exactly as it was, so no re-granting needed.
     lifecycle_event = build_account_lifecycle_event(
-        "reactivated", user, actor=current_user["email"], source="admin"
+        "reactivated", user, actor=current_user["email"], source="management"
     )
     restored_user = await user_crud.reactivate(db_obj=user, db=db, lifecycle_event=lifecycle_event)
 

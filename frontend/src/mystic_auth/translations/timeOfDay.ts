@@ -2,16 +2,11 @@ import type { SupportedLanguage } from "./translations";
 import { formatNumber } from "./numerals";
 
 /**
- * Hour:minute formatting per language. English keeps the familiar "8:58 PM"
- * (AM/PM, time-then-period). Hindi, Marathi, and Gujarati don't use "AM"/"PM"
- * in natural usage: CLDR day-period data instead splits the day into four
- * native words (सुबह/सकाळ/સવારે morning, दोपहर/दुपार/બપોરે afternoon,
- * शाम/संध्याकाळ/સાંજે evening, रात/रात्र/રાત્રે night) placed *before* the
- * time, e.g. "सुबह 9:30". A literal "AM"/"PM" transliteration would read as
- * wrong to a native speaker. Digits are run through formatNumber afterward
- * regardless of what Intl produced (idempotent for mr, converts hi's and
- * gu's Latin-digit defaults to native digits per numerals.ts's DIGIT_MAPS)
- * so callers get one consistent digit style.
+ * Hour:minute formatting per language. English keeps "8:58 PM". Hindi, Marathi
+ * and Gujarati do not use AM/PM naturally: CLDR splits the day into four native
+ * words (morning, afternoon, evening, night) placed before the time, e.g.
+ * "सुबह 9:30". Digits go through formatNumber afterward so callers get one
+ * consistent digit style (see numerals.ts DIGIT_MAPS).
  */
 const LOCALE_TAGS: Record<SupportedLanguage, string> = {
     en: "en-US",

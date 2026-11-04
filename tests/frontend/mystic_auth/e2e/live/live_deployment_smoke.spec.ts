@@ -12,10 +12,10 @@
 //   LIVE_POSTGRES_CONTAINER=mystic-auth-local-prod-ngrok-postgres-1 \
 //     npx playwright test tests/frontend/mystic_auth/e2e/live/live_deployment_smoke.spec.ts --project=chromium-desktop
 //
-// LIVE_POSTGRES_CONTAINER must be reachable via `docker exec` from wherever
-// this runs (the same host the target stack's containers are on) - this
-// test verifies its own throwaway accounts directly in the database rather
-// than depending on real email delivery.
+// LIVE_POSTGRES_CONTAINER must be reachable via `docker exec` from where this
+// runs; the test verifies its throwaway accounts directly in the database
+// instead of depending on real email delivery.
+
 import { test, expect } from "../../../../../frontend/e2e/playwright";
 import type { BrowserContext } from "@playwright/test";
 import { execFileSync } from "node:child_process";

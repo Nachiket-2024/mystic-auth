@@ -25,6 +25,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
 )
 from backend.mystic_auth.core.settings import settings
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import email_key_id, one_time_token_key
 
 from .auth_test_accounts import PASSWORD, signup_verify_login, unique_email
 
@@ -209,7 +210,7 @@ async def test_repeated_already_verified_failures_do_not_lock_out_login(client, 
         # single-use entry) but mark_user_verified fails because is_verified
         # is already True, the "already verified" failure branch.
         token = await account_verification_service.create_verification_token(email)
-        await valkey_client.set(f"verify:{token}", "1", ex=600)
+        await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
         resp = await client.post("/auth/verify-account", json={"token": token})
         assert resp.status_code == (429 if attempt == settings.MAX_FAILED_LOGIN_ATTEMPTS - 1 else 400)
 
@@ -248,6 +249,6 @@ async def test_signup_account_key_rate_limit_is_tracked_in_real_valkey(client, c
     await client.post("/auth/signup", json={"name": "A", "email": email, "password": PASSWORD})
     created_emails.append(email)
 
-    count = await valkey_client.get(f"signup:account:{email}")
+    count = await valkey_client.get(f"signup:account:{email_key_id(email)}")
     assert count is not None
     assert int(count) == 1

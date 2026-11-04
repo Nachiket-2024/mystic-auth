@@ -27,7 +27,7 @@ def clear_listeners():
 
 def test_event_payload_round_trips_without_sensitive_fields():
     event = build_account_lifecycle_event(
-        "purged", SimpleNamespace(id=4, email="user@example.com"), actor="admin@example.com", source="admin"
+        "purged", SimpleNamespace(id=4, email="user@example.com"), actor="manager@example.com", source="management"
     )
 
     restored = AccountLifecycleEvent.from_payload(event.as_payload())

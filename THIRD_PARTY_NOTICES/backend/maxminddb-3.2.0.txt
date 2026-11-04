@@ -1,7 +1,7 @@
 maxminddb 3.2.0
 License: Apache-2.0
 URL: https://www.maxmind.com/en/home
-Copyright: "Licensor" shall mean the copyright owner or entity authorized by
+Copyright: See bundled license text
 
 Apache License
                            Version 2.0, January 2004

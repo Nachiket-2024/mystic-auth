@@ -68,8 +68,11 @@ async def test_login_or_create_user_marks_unverified_existing_user_verified(mock
     result = await oauth2_service.login_or_create_user(db=None, user_info={"email": "user@example.com"})
 
     assert result == {"access_token": "access-token", "refresh_token": "refresh-token"}
+    # Password cleared and name replaced (Google sent none here, so the same
+    # "Unknown" fallback a new account gets): nothing the unverified signup
+    # supplied survives the takeover.
     update_mock.assert_awaited_once_with(
-        "user@example.com", {"is_verified": True, "hashed_password": None}, None
+        "user@example.com", {"is_verified": True, "hashed_password": None, "name": "Unknown"}, None
     )
 
 

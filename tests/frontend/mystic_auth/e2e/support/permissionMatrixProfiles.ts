@@ -7,29 +7,15 @@ const matrixProfile = (name: string, permissions: string[]) => ({
   permissions,
 });
 
-// These are the distinct effective permission sets produced by the seed
-// matrix. Role, verification, and active-state variants do not change the
-// frontend permission projection, so each is represented once here.
-//
-// A 2026-09-24 audit session found this list was both incomplete (16 of the
-// 24 distinct verified/active role x policy-bundle x direct-grant
-// combinations local-scripts/mystic_auth/seed-user-permission-matrix.py actually
-// seeds were never represented here at all) and, for the two entries below
-// that were meant to model real policy bundles, actually wrong:
-// matrix-user-management included users:delete_any/users:reactivate,
-// which the real `user_management` policy does not grant, and
-// matrix-policy-management was missing rate_limits:read/rate_limits:reset,
-// which the real `policy_management` + `rate_limit_management`
-// bundle (seed script's third policy_bundle entry) does grant together.
-// Both are corrected below against the seed script's own POLICY_BUNDLES/
-// DIRECT_PERMISSION_BUNDLES definitions and a live DB read, not guessed.
-// The full 24-bucket gap itself is closed by a separate suite that logs in
-// as real seeded accounts instead of maintaining a permission list by hand
-// here: tests/frontend/mystic_auth/e2e/authorization/permission_matrix_real_accounts_browser.spec.ts.
-// Keep this list for the fast mocked-route checks (dialog behavior, focus
-// handling) that don't need a live backend; keep the real-account suite as
-// the source of truth for "does this permission list match what's actually
-// seeded."
+// The distinct effective permission sets produced by the seed matrix
+// (local-scripts/mystic_auth/seed-user-permission-matrix.py). Role,
+// verification and active-state variants do not change the frontend permission
+// projection, so each set appears once. Bundles must match the real policies
+// (for example `user_management` does not grant users:delete_any or
+// users:reactivate). The real-account suite is the source of truth; this list
+// is only for fast mocked-route checks (dialog behavior, focus handling) that
+// need no live backend. Real-account suite:
+// tests/frontend/mystic_auth/e2e/authorization/permission_matrix_real_accounts_browser.spec.ts.
 export const matrixPermissionProfiles = [
   matrixProfile("matrix-none", ["users:read_own", "users:update_own"]),
   matrixProfile("matrix-list-direct", ["users:read_own", "users:update_own", "users:list_all"]),

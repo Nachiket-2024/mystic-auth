@@ -8,6 +8,26 @@ A small Zustand store (the same pattern as `store/themeStore.ts` for dark/light 
 `localStorage` under the `"language"` key. It's built around a `LanguageMode` (what the user picks)
 which resolves to **two separate languages**:
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    Pick["User picks a LanguageMode\n(stored in localStorage 'language')"]
+    Res["Resolve to two languages"]
+    Chrome["chromeLanguage:\nNavbar, Sidebar, dates, month names"]
+    Page["pageLanguage:\neverything else\n(changeLanguage target)"]
+    Pick --> Res
+    Res --> Chrome
+    Res --> Page
+    Mode["Mode 'en+hi': chrome en, page hi\nMode 'hi': both hi"]
+    Res -.-> Mode
+
+    class Page,Chrome terminal
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ```ts
 export const LANGUAGE_MODES = ["en", "hi", "mr", "gu", "en+hi", "en+mr", "en+gu"] as const;
 export type LanguageMode = (typeof LANGUAGE_MODES)[number];

@@ -91,6 +91,25 @@ describe('RateLimitsPage', () => {
     expect(screen.getByText('5 / 5')).toBeInTheDocument();
   });
 
+  it('shows the account email for a digest-keyed counter and a shortened digest when it cannot be matched', async () => {
+    const digest = '8f5bad3a5998d1934915d69f02dd6b1c8d3e7a40f1c2b9a64e5d7c8b9a0f1e2d';
+    const otherDigest = '11c93799db689d9f63350ada183a0b6c4d5e6f708192a3b4c5d6e7f8091a2b3c';
+    mock.onGet('/rate-limits/').reply(200, {
+      entries: [
+        { ...ACCOUNT_ENTRY, identifier: digest, identifier_label: 'wei.zhang@example.com' },
+        { ...ACCOUNT_ENTRY, key: `login:account:${otherDigest}`, identifier: otherDigest, identifier_label: null },
+      ],
+      total: 2,
+      truncated: false,
+    });
+    renderPage();
+
+    expect(await screen.findByText('wei.zhang@example.com')).toBeInTheDocument();
+    expect(screen.queryByText(digest)).toBeNull();
+    const short = screen.getByText(`${otherDigest.slice(0, 12)}…`);
+    expect(short).toHaveAttribute('title', otherDigest);
+  });
+
   it('paginates via real numbered pages instead of accumulating rows, and Page 1 returns to the exact prior page', async () => {
     mock.onGet('/rate-limits/').reply((config) => {
       if (config.params?.page === 2) {

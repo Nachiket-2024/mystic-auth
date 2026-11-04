@@ -14,7 +14,7 @@ neither tree is an exhaustive file inventory. The "now" tree also omits `__pycac
 `node_modules`, build output, coverage reports, and anything else covered by `.gitignore`. The
 "then" tree is the real commit tree at
 [`946e384`](../../../..), the last commit of the manual, ChatGPT-assisted era, on 14 April, 2026. The
-"now" tree reflects the repository as verified on 25 October, 2026.
+"now" tree reflects the repository as verified on 5 November, 2026.
 
 ---
 
@@ -42,7 +42,7 @@ neither tree is an exhaustive file inventory. The "now" tree also omits `__pycac
   rendering, sending, address normalization), `error_monitoring/` (Sentry-protocol error
   reporting), and `core/` (settings, shared primitives, and the downstream secret-provider boundary),
   `procrastinate_tasks/` (replaced `taskiq_tasks/`, itself a replacement for the
-  original Celery setup), `user_lifecycle/` (self-service deletion, admin purge, and
+  original Celery setup), `user_lifecycle/` (self-service deletion, management purge, and
   durable account-lifecycle events),
   `user_session/` (the Manage Sessions dashboard and real-time session events). `user_crud/` and
   `user_table/` were renamed and merged into `user/`.

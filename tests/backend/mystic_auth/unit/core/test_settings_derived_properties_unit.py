@@ -34,8 +34,7 @@ def test_procrastinate_database_url_rewrites_only_the_sqlalchemy_scheme(database
 
 
 def test_procrastinate_worker_database_url_prefers_the_least_privilege_app_role():
-    """Regression guard for audit finding claude_code-2026-10-21-F-001: the
-    long-lived worker connector must connect as the scoped mystic_auth_app
+    """Regression guard: the long-lived worker connector must connect as the scoped mystic_auth_app
     role (via APP_DATABASE_URL) when one is configured, not the DDL-capable
     superuser DATABASE_URL role it only needs for Alembic's own runs."""
     settings = Settings.model_construct(

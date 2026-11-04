@@ -10,8 +10,7 @@ import { mock, seed, renderPage, SAMPLE_POLICIES } from './policiesPageFollowUpT
 // PoliciesPage follow-up flows: the details/edit dialog's tabs, keyboard
 // navigation, history/rollback, and the delete confirmation's holder count.
 // Protected-policy guards and the restricted view live in their own
-// sibling file - split out of one 408-line file, see AGENTS.md's
-// ~350-line target.
+// sibling file.
 
 describe('PoliciesPage follow-up flows: dialog', () => {
   beforeEach(() => {

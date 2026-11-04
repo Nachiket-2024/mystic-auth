@@ -18,7 +18,7 @@ deferred features, and known gaps.
 
 1. The row is soft-deleted and sessions are revoked exactly like `delete_any_user`, minus the path-parameterized target and the "not your own account" guard, which doesn't apply here since acting on your own account is the entire point.
 2. It writes a distinct audit event (`account_deleted_self`, versus permission-protected `account_deleted`) so the security audit log can tell the two apart at a glance.
-3. A soft-deleted account (self- or permission-protected) is not held forever: a daily Procrastinate periodic task (`procrastinate_tasks/account_purge_tasks.py::purge_expired_soft_deleted_accounts`, `@app.periodic(cron="0 3 * * *")`, running inside the worker process itself via Procrastinate's own `PeriodicDeferrer`, so there's no separate scheduler process for this to depend on) hard-purges any account whose `deleted_at` is older than `ACCOUNT_PURGE_GRACE_DAYS` (default 30), going through the exact same revoke → anonymize history → audit → delete sequence as a manual purge (`user_lifecycle/user_purge_service.py::purge_user_account`, shared by both call sites) so the grace-period purge and a permission-protected manual purge can never drift apart.
+3. A soft-deleted account (self- or permission-protected) is not held forever: a daily Procrastinate periodic task (`procrastinate_tasks/account_purge_tasks.py::purge_expired_soft_deleted_accounts`, `@app.periodic(cron="0 3 * * *")`, running inside the worker process itself via Procrastinate's own `PeriodicDeferrer`, so there's no separate scheduler process for this to depend on) hard-purges any account whose `deleted_at` is older than `ACCOUNT_PURGE_GRACE_DAYS` (default 30), going through the exact same revoke → audit → delete sequence as a manual purge (`user_lifecycle/user_purge_service.py::purge_user_account`, shared by both call sites) so the grace-period purge and a permission-protected manual purge can never drift apart. The purged account's prior security_audit_log/authorization_audit_log rows are left exactly as written, not anonymized: see decisions-infra.md's "Account deletion never anonymizes the audit trail" for why.
 4. This is what gives self-service deletion an actual recovery window instead of either purging synchronously (no recovery at all) or never purging (an unbounded pile of soft-deleted rows).
 
 Both the soft-delete step and the actual re-authentication proving intent differ by account type, though, and deliberately so:
@@ -38,25 +38,15 @@ Both the soft-delete step and the actual re-authentication proving intent differ
 
 ## Why MFA is not enabled
 
-No multi-factor authentication (TOTP, SMS, WebAuthn, or otherwise) is implemented. This is an intentionally deferred scope boundary, not an oversight discovered late.
+No multi-factor authentication (TOTP, SMS, or a WebAuthn second factor) is implemented. This is an intentionally deferred scope boundary, not an oversight discovered late.
+
+Passkeys do exist (see [Passkeys](../authentication/passkeys.md)), but as an optional single-step sign-in method and as the "confirm it's you" check before changing passkeys, not as a second factor after a password. A passkey login does not populate `security_context`, and a password login is never made to ask for one.
 
 **Why**: MFA adds real user friction (a context switch to a separate device or app to retrieve a code) that isn't justified for most applications built from this template. This was a deliberate product judgment call for a template meant to stay lean, not a technical limitation.
+
+**What I offer instead**: optional passkeys. They resist phishing and password reuse, which is most of what a second factor is for, without a second step on every login. The same reasoning is behind the password rule (8 or more characters with upper, lower and digit, no breach check): longer minimums are hard to remember and add daily friction for little real benefit. Both choices are mine, reconfirmed on 2026-11-03, and both are marked as accepted gaps in the [ASVS mapping](asvs-mapping.md).
 
 1. `authorization/conditions/condition_types/security_context_condition.py` and `authorization/context/request_context_builder.py` both carry explicit comments that `security_context` starts empty because this app does not implement MFA/device-trust infrastructure; any policy condition keyed on it (e.g. a hypothetical `mfa_verified` check) would currently always evaluate to false/deny.
 2. The PBAC condition framework (`context_attributes`, `security_context` condition types: see [../authorization/condition-schema-reference.md](../authorization/condition-schema-reference.md)) was deliberately built generic enough that a real MFA layer could plug in later by populating `security_context` at authentication time and writing policies that key off it, without any redesign of the authorization engine itself. The `mfa_verified` key appears in tests and docs today purely as an illustrative example of the generic mechanism, not a real, enforced check.
 
-Any real deployment that needs MFA should treat it as a deliberate follow-up: add a TOTP/WebAuthn enrollment+verification flow, populate `security_context.mfa_verified` on successful step-up auth, and gate sensitive policies on that context key. The hooks already exist to receive it.
-
----
-
-## Intentionally deferred features
-
-Recorded in one place rather than scattered across code comments: each of these was a deliberate scope decision for this template, not something missed:
-
-- **MFA / device trust**: see above.
-- **Email provider swapping beyond SMTP**: `emails/email_sender.py` now isolates the transport behind an `EmailSender` protocol, but only one implementation (`SMTPEmailSender`) exists; adding SES/SendGrid/Postmark support is a new class, not a framework change, and is left for whoever needs a specific provider.
-- **Deploy automation**: CI verifies both Dockerfiles build but never pushes to a registry or deploys anywhere; this template assumes no specific production host (see [Deployment Guide](../deployment/production-host.md)).
-
-See [Known Issues](../concerns/README.md) for the current backlog of accepted gaps and follow-ups (backups and others), tracked there as the single canonical list rather than duplicated here.
-
----
+Any real deployment that needs MFA should treat it as a deliberate follow-up: add a TOTP enrollment+verification flow (or reuse the passkey ceremony as a second factor), populate `security_context.mfa_verified` on successful step-up auth, and gate sensitive policies on that context key. The hooks already exist to receive it.

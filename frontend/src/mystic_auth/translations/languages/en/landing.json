@@ -14,19 +14,19 @@
         "heading": "What's included",
         "authentication": {
             "title": "Authentication",
-            "description": "Password + Google OAuth2, refresh-token rotation, brute-force lockout."
+            "description": "Password, Google OAuth2, or passkeys, with refresh-token rotation and brute-force lockout."
         },
         "authorization": {
             "title": "PBAC authorization",
-            "description": "Access decided by assigned policies, not a hardcoded role check."
+            "description": "Access decided by assigned policies and permissions, not a hardcoded role check."
         },
         "auditLog": {
             "title": "Audit logging",
-            "description": "Every session event and access decision recorded, queryable per user."
+            "description": "Every session event and access decision recorded and queryable per user."
         },
         "selfHosted": {
             "title": "Self-hosted",
-            "description": "Runs on your own VPS - Postgres, Valkey, and every audit log stay on infrastructure you control."
+            "description": "Runs on your own VPS: Postgres, Valkey, and every audit log stay on infrastructure you control."
         }
     },
     "footer": {

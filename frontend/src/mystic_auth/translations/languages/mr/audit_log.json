@@ -101,7 +101,8 @@
                 "sessions": "सत्रे",
                 "account": "खाते",
                 "password": "पासवर्ड",
-                "accessChanges": "प्रवेश बदल"
+                "accessChanges": "प्रवेश बदल",
+                "passkeys": "पासकी"
             },
             "eventLabels": {
                 "login": "साइन इन केले",
@@ -115,6 +116,8 @@
                 "account_verified": "खाते सत्यापित",
                 "account_locked": "खाते लॉक केले",
                 "login_ip_locked": "या खाते आणि स्रोत IP साठी लॉगिन मर्यादित केले",
+                "login_account_cooldown": "खात्याचे लॉगिन मंद केले (अनेक अयशस्वी प्रयत्न)",
+                "rate_limit_exceeded": "खूप जास्त विनंत्या रोखल्या",
                 "account_deleted": "खाते हटवले",
                 "account_purged": "खाते कायमचे हटवले",
                 "account_reactivated": "खाते पुन्हा सक्रिय केले",
@@ -125,7 +128,13 @@
                 "policy_action_revoked": "धोरण क्रिया रद्द केली",
                 "permission_granted": "परवानगी दिली",
                 "permission_revoked": "परवानगी रद्द केली",
-                "user_role_changed": "भूमिका बदलली"
+                "user_role_changed": "भूमिका बदलली",
+                "passkey_login": "पासकीने साइन-इन",
+                "passkey_step_up": "पासकी पुष्टी (स्टेप-अप)",
+                "passkey_registered": "पासकी जोडली",
+                "passkey_registration_failure": "पासकी जोडणे अयशस्वी",
+                "passkey_renamed": "पासकीचे नाव बदलले",
+                "passkey_removed": "पासकी काढली"
             }
         },
         "columns": {

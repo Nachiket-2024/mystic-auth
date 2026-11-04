@@ -1,22 +1,19 @@
 # tests/backend/mystic_auth/integration/auth/test_signup_verify_concurrency_integration.py
 #
-# Regression guard for an intermittent verify-account failure reported
-# during earlier production-audit work (see concerns.md): chaining
-# signup -> create a verification token -> immediately verify it, for many
-# accounts in quick succession, was once observed to occasionally reject a
-# token as "Invalid, expired, or already used" even though the token had
-# just been issued and nothing else writes to the "verify:*" Valkey
-# keyspace. Two rounds of focused Valkey-level tracing (valkey-cli MONITOR,
-# sequential and concurrent, well over 1000 chains total) never reproduced
-# it, so no fix was made. This test exists so that if the underlying
-# condition recurs, CI catches it instead of relying on another manual
-# investigation.
+# Regression guard for an intermittent verify-account failure (see concerns.md):
+# chaining signup -> create a verification token -> immediately verify it, for
+# many accounts in quick succession, was once seen to reject a fresh token as
+# "Invalid, expired, or already used". Valkey-level tracing (over 1000 chains)
+# never reproduced it, so no fix was made. This test makes CI catch it if the
+# condition recurs.
 import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import text
 
 from backend.mystic_auth.database.connection import database
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 from .auth_test_accounts import PASSWORD, unique_email
 
@@ -44,7 +41,7 @@ async def _signup_and_verify(client, created_emails) -> bool:
     # than depending on the email worker, so this test controls exactly how
     # many chains fire and how quickly.
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
 
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     return verify_resp.status_code == 200
@@ -60,7 +57,7 @@ async def test_sequential_signup_verify_chains_never_reject_a_fresh_token(client
 
 
 @pytest.mark.asyncio
-async def test_concurrent_signup_verify_chains_never_reject_a_fresh_token(client, created_emails):
+async def test_concurrent_signup_verify_chains_never_reject_a_fresh_token(open_hash_gate, client, created_emails):
     # Each chain uses its own email/token, so there is no legitimate reason
     # for any of these to fail: unlike
     # test_concurrent_refresh_with_the_same_token_only_one_succeeds
@@ -73,12 +70,15 @@ async def test_concurrent_signup_verify_chains_never_reject_a_fresh_token(client
 
 
 @pytest.mark.asyncio
-async def test_concurrent_identical_signups_create_exactly_one_user(client, created_emails):
+async def test_concurrent_identical_signups_create_exactly_one_user(open_hash_gate, client, created_emails, mocker):
     # signup_service's check-then-insert (get_by_email, then create) has no
     # locking between the two steps; the users.email unique constraint is
     # what actually stops a duplicate row under real concurrency.
     email = unique_email()
     created_emails.append(email)
+    # A lost create race is an expected outcome, so it must never reach the
+    # unhandled-exception handler that reports to error monitoring.
+    monitor_mock = mocker.patch("backend.app.main.capture_exception", new_callable=AsyncMock)
 
     responses = await asyncio.gather(
         *(
@@ -89,6 +89,8 @@ async def test_concurrent_identical_signups_create_exactly_one_user(client, crea
     # Always 200 regardless of outcome (anti-enumeration), so the row count
     # below is what actually proves no duplicate landed.
     assert all(resp.status_code == 200 for resp in responses)
+    assert len({resp.text for resp in responses}) == 1, "winner and losers must be indistinguishable"
+    monitor_mock.assert_not_called()
 
     async with database.async_session() as session:
         result = await session.execute(text("SELECT count(*) FROM users WHERE email = :email"), {"email": email})

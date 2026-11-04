@@ -4,6 +4,7 @@ import base64
 # Hashlib/base64 are used to derive a PKCE code_challenge (SHA256 + base64url) from
 # the code_verifier, per RFC 7636 / OAuth 2.1's S256 method.
 import hashlib
+import json
 import secrets
 import traceback
 import uuid
@@ -19,6 +20,7 @@ from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME,
 # never via their (metadata-only) role; see the role-as-metadata invariant.
 # Mirrors signup_service.py.
 from ...authorization.repositories.policy_repository import policy_repository
+from ...core.settings import settings
 from ...emails.email_normalization import normalize_email
 from ...logging.logging_config import get_logger
 from ...user.user_crud_collector import user_crud
@@ -56,7 +58,7 @@ class OAuth2LoginRejected(Exception):
 
 class OAuth2Service:
     @staticmethod
-    async def generate_and_store_state() -> tuple[str, str]:
+    async def generate_and_store_state(step_up_context: dict[str, str] | None = None) -> tuple[str, str]:
         """
         Issues a single-use CSRF state token plus a PKCE code_challenge for an
         OAuth2 login attempt, returning (state, code_challenge) to embed in the
@@ -76,8 +78,54 @@ class OAuth2Service:
         code_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
         await valkey_client.set(f"oauth_state:{state}", code_verifier, ex=OAUTH2_STATE_TTL_SECONDS)
+        if step_up_context:
+            # Marks this state as a re-authentication for passkey changes (see
+            # passkey_handler.google_step_up_context), not a login. The callback
+            # reads it to know which session to unlock and which Google account
+            # is required.
+            await valkey_client.set(
+                f"oauth_state_ctx:{state}", json.dumps(step_up_context), ex=OAUTH2_STATE_TTL_SECONDS
+            )
 
         return state, code_challenge
+
+    @staticmethod
+    def build_authorization_url(state: str, code_challenge: str, extra_params: str = "") -> str:
+        """Google's consent URL for a PKCE login. `extra_params` is appended
+        as-is (already URL-encoded, starting with &), e.g. prompt=login."""
+        scopes = "openid email profile"
+        # No access_type=offline/prompt=consent: this app never stores or uses
+        # Google's own refresh_token (see the session note above), so forcing a
+        # persistent offline-access grant and a full consent re-prompt on every
+        # login would only widen this app's footprint on the user's Google
+        # account for no benefit.
+        return (
+            "https://accounts.google.com/o/oauth2/v2/auth?response_type=code"
+            f"&client_id={settings.GOOGLE_CLIENT_ID}"
+            f"&redirect_uri={settings.GOOGLE_REDIRECT_URI}"
+            f"&scope={scopes.replace(' ', '%20')}"
+            f"&code_challenge={code_challenge}"
+            f"&code_challenge_method=S256"
+            f"&state={state}"
+            f"{extra_params}"
+        )
+
+    @staticmethod
+    async def consume_step_up_context(state: str) -> dict[str, str] | None:
+        """Single-use read of the step-up context stored with a state, or None
+        for an ordinary login state."""
+        if not state:
+            return None
+        raw = cast("str | None", await valkey_client.getdel(f"oauth_state_ctx:{state}"))
+        if not raw:
+            return None
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            return None
+        if isinstance(data, dict) and isinstance(data.get("chain"), str) and isinstance(data.get("email"), str):
+            return {"chain": data["chain"], "email": data["email"]}
+        return None
 
     @staticmethod
     async def consume_state(state: str) -> str | None:
@@ -233,9 +281,14 @@ class OAuth2Service:
             # unverified account is verified now. See the pre-hijacking note above
             # for why hashed_password is cleared in the same step.
             elif not user.is_verified:
-                updated_user = await user_crud.update_by_email(
-                    email, {"is_verified": True, "hashed_password": None}, db
-                )
+                # Everything the unverified signup supplied came from whoever typed
+                # the form, not from the email's owner, so the password is cleared
+                # and the display name is replaced with Google's (the same
+                # "Unknown" fallback as a new account if Google sent none).
+                # Otherwise the owner would sign in to an account that still
+                # carries a name the attacker picked.
+                takeover_updates: dict = {"is_verified": True, "hashed_password": None, "name": name}
+                updated_user = await user_crud.update_by_email(email, takeover_updates, db)
                 # Keep the already-fetched user object if the update raced with a
                 # deletion; role/email are unaffected either way.
                 if updated_user:

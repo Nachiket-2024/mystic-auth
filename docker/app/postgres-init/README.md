@@ -4,10 +4,8 @@ Postgres only scans files directly inside `/var/lib/postgres/initdb/` (not
 subdirectories), and only on a fresh volume's first init - see
 [Database Design](../../../docs/mystic_auth/database/design.md) and
 [Docker Overview](../../../docs/mystic_auth/docker/overview.md#services).
-(This is Chainguard's postgres image's own init-script path, not the
-official Postgres image's `/docker-entrypoint-initdb.d/` - confirmed by
-reading its `/usr/bin/docker-entrypoint.sh` directly; mounting at the
-official path silently runs nothing.)
+(This is the Chainguard postgres image's init path, not the official image's
+`/docker-entrypoint-initdb.d/`; mounting at the official path runs nothing.)
 Upstream's own `docker-compose.<mode>.yml` mounts `docker/mystic_auth/postgres-init/`
 as a whole directory at that path, so adding your own script here does
 nothing by itself - Compose merges volume mounts by target path, not by
@@ -24,6 +22,6 @@ services:
 Numeric prefixes control run order relative to upstream's own scripts, the
 same convention the official Postgres image itself expects.
 
-Ships empty; upstream never edits this file again.
+Ships empty. Upstream may later fix this starter file; a sync merges it three-way, so keep your version on any conflict.
 
 ---

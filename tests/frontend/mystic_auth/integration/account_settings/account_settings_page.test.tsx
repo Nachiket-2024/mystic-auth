@@ -106,7 +106,7 @@ describe('AccountSettingsPage', () => {
     }
   });
 
-  it('shows "Set" for an account with a password and "Not set" for an OAuth2-only account, on the Password tab', async () => {
+  it('shows the password state while keeping Google and passkeys available, on the Password tab', async () => {
     seedProfile({ hasPassword: false });
     renderAccountSettings();
     const user = userEvent.setup();
@@ -115,7 +115,7 @@ describe('AccountSettingsPage', () => {
 
     expect(await screen.findByText('Not set')).toBeInTheDocument();
     expect(
-      screen.getByText(/This account currently signs in with Google only/)
+      screen.getByText(/Google sign-in and any passkeys you've added remain available/)
     ).toBeInTheDocument();
   });
 

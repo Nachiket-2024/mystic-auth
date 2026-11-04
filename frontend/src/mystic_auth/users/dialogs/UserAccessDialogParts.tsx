@@ -15,7 +15,7 @@ import { CopyKeyButton, type CatalogEntry, type UserAccessState } from "./UserAc
 // policy is expanded. Shared atoms (types, FilterSegment/StatTile/InfoRow,
 // accessChangeLabel) live in UserAccessDialogAtoms.tsx, the Permissions
 // tab's own parts in UserAccessPermissionsParts.tsx - split out of one
-// 576-line file, see AGENTS.md's ~350-line target.
+// 576-line file, see the repo's ~350-line target.
 
 export function PolicyActionsTable({
   policy,

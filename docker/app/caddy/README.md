@@ -22,6 +22,6 @@ edit to `docker/mystic_auth/Caddyfile` directly instead - a glob import
 can't reach inside an existing block. See
 [Using This Repository as a Template: the app/ + mystic_auth/ split](../../../docs/mystic_auth/template-usage/ownership-split.md).
 
-Ships empty; upstream never edits this file again.
+Ships empty. Upstream may later fix this starter file; a sync merges it three-way, so keep your version on any conflict.
 
 ---

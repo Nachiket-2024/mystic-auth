@@ -35,6 +35,10 @@ tests and should not be used as a capacity guarantee.
   attempts to grant permissions the caller cannot grant and verifies the
   grant guard blocks escalation. A caller must never self-grant a sensitive
   action, and one denied bulk item must never authorize that item.
+- `tests/backend/mystic_auth/security/test_user_passkey_management_security.py`
+  checks that listing and revoking another user's passkeys needs the
+  `users:manage_passkeys` permission plus the privileged-target rule. A caller
+  without it must never read or remove another account's credentials.
 - `tests/backend/mystic_auth/security/test_policy_tampering_security.py`
   attempts unauthorized changes to protected or baseline policy data. Baseline
   policies must never be renamed/deleted and the last protected holder must

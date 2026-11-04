@@ -14,8 +14,8 @@ import type { PolicyHistoryEntryRead } from "../../api/policies_api";
 const HISTORY_PAGE_SIZE = 5;
 
 /** One line describing a history entry: "Updated actions, description",
- * "Created this policy", etc. Mirrors design/policies.html's Recent
- * changes rows, but built from the real changed_fields/change_type
+ * "Created this policy", etc. Rendered in the Recent
+ * changes rows, built from the real changed_fields/change_type
  * instead of hardcoded copy. */
 function describeChange(entry: PolicyHistoryEntryRead, t: ReturnType<typeof useTranslation>["t"]): string {
     switch (entry.change_type) {
@@ -48,7 +48,7 @@ interface PolicyHistorySectionProps {
  * PolicyDetailsDialog: the paginated change list, each entry's rollback
  * button, and the rollback confirmation dialog. Owns its own page/rollback
  * state so the parent dialog doesn't have to - split out of one 407-line
- * file, see AGENTS.md's ~350-line target. */
+ * file, see the repo's ~350-line target. */
 const PolicyHistorySection: React.FC<PolicyHistorySectionProps> = ({
     policyName,
     isOpen,

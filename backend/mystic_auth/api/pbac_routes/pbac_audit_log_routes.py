@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Authentication-only dependency (no permission required), used by
@@ -31,9 +31,8 @@ _TO_DESCRIPTION = "Only entries at or before this timestamp (created_at, inclusi
 
 
 @router.get("/audit-log", response_model=list[AuthorizationAuditLogEntryRead])
-# Same resource-level rate-limiting gap as /users/export and /audit/security-log
-# (see F-006): a table-wide query with no prior throttling beyond the
-# policies:read permission check.
+# Like /users/export and /audit/security-log, a table-wide query that needs
+# throttling beyond the policies:read check.
 @rate_limiter_service.rate_limited(
     "authorization_audit_log_list",
     account_key_func=lambda kwargs: kwargs["current_user"]["email"],
@@ -41,7 +40,7 @@ _TO_DESCRIPTION = "Only entries at or before this timestamp (created_at, inclusi
     window_seconds=60,
 )
 async def list_audit_log(
-    response: Response,
+    request: Request, response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0, le=10_000_000),
     search: str | None = Query(

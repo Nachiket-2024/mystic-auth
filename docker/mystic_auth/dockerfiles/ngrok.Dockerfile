@@ -1,19 +1,13 @@
-# Minimal ngrok agent image: the vendor's own ngrok/ngrok images (debian and
-# alpine variants) carry a large OS package set the agent itself never uses -
-# confirmed via `trivy image`: the official debian-based image showed 340
-# vulnerabilities (228 with no fix published anywhere yet), the alpine
-# variant 91 (0 unfixable), while the ngrok binary copied onto a bare
-# `scratch` base - with nothing else - showed only the vulnerabilities baked
-# into ngrok's own compiled Go dependencies (unrelated OS-package noise
-# eliminated entirely), at roughly a tenth the image size.
+# Minimal ngrok agent image. The vendor's ngrok/ngrok images carry a large OS
+# package set the agent never uses (trivy: 340 vulnerabilities in the debian
+# image, 91 in alpine). The static ngrok binary on a bare `scratch` base shows
+# only the vulnerabilities in ngrok's own Go dependencies, at about a tenth of
+# the size.
 #
-# The agent binary is statically linked (confirmed: `ldd` reports "Not a
-# valid dynamic program"), so it needs nothing from the OS except a CA
-# bundle for its own outbound TLS to ngrok's edge. No vendor entrypoint
-# script is needed either: --authtoken is a first-class CLI flag (`ngrok
-# http --authtoken=... frontend:80 --url=...`), so the compose service's
-# `command:` carries the same authtoken explicitly instead of relying on
-# the vendor image's env-var-to-config-file rewrite.
+# The binary is statically linked, so it needs only a CA bundle for outbound TLS
+# to ngrok's edge. No vendor entrypoint is needed: --authtoken is a CLI flag, so
+# the compose service's `command:` passes the authtoken explicitly instead of
+# relying on the vendor image's env-var-to-config-file rewrite.
 FROM ngrok/ngrok@sha256:2658b5ad05e1111e3ff07caa38d2eea742407b8de9a5978b88b87516debc0d2f AS source
 
 FROM golang:1.26.10-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba AS healthcheck-build

@@ -62,3 +62,45 @@ async def test_app_role_is_not_superuser():
         assert is_superuser is False
     finally:
         await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_policy_history_is_append_only_for_the_app_role():
+    from sqlalchemy import text
+
+    from tests.backend.conftest import superuser_async_session
+
+    name = "sectest_append_only_policy"
+    conn = await asyncpg.connect(_to_dsn(settings.APP_DATABASE_URL))
+    try:
+        await conn.execute(
+            "INSERT INTO policy_history (policy_name, change_type, changed_by) VALUES ($1, 'created', 'sectest')",
+            name,
+        )
+        assert await conn.fetchval("SELECT count(*) FROM policy_history WHERE policy_name = $1", name) == 1
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.execute("UPDATE policy_history SET change_type = 'deleted' WHERE policy_name = $1", name)
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.execute("DELETE FROM policy_history WHERE policy_name = $1", name)
+    finally:
+        await conn.close()
+        # Only the owner role may remove rows; do it the way an operator would.
+        async with superuser_async_session() as session:
+            await session.execute(text("DELETE FROM policy_history WHERE policy_name = :n"), {"n": name})
+            await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_app_role_can_read_but_not_change_the_migration_marker():
+    conn = await asyncpg.connect(_to_dsn(settings.APP_DATABASE_URL))
+    try:
+        assert await conn.fetchval("SELECT count(*) FROM alembic_version") == 1
+        for statement in (
+            "UPDATE alembic_version SET version_num = 'forged'",
+            "DELETE FROM alembic_version",
+            "INSERT INTO alembic_version (version_num) VALUES ('forged')",
+        ):
+            with pytest.raises(asyncpg.InsufficientPrivilegeError):
+                await conn.execute(statement)
+    finally:
+        await conn.close()

@@ -32,8 +32,6 @@
     },
     "filterLabel": "ફિલ્ટર: {{label}}",
     "selectedCount": "{{count}} પસંદ કરેલ",
-    "bulkUsersSelected": "{{count}} વપરાશકર્તાઓ પસંદ કર્યા",
-    "bulkOperation": "સામૂહિક ક્રિયા",
     "clearSelection": "પસંદગી સાફ કરો",
     "selectAllRows": "બધી પંક્તિઓ પસંદ કરો",
     "openRow": "પંક્તિની વિગતો ખોલો",

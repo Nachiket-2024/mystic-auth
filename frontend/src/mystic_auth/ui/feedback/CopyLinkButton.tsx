@@ -14,7 +14,7 @@ interface CopyLinkButtonProps {
 }
 
 /**
- * "Copy link to this view" (design/audit-log.html's page-header button): builds a URL from the
+ * "Copy link to this view": builds a URL from the
  * current page path plus the caller's params and writes it to the clipboard. Flips to a
  * checkmark for 1.5s on success, same transient-feedback pattern as the details drawer's own
  * Copy buttons (AuthorizationDetailsDrawer.tsx) rather than a toast.

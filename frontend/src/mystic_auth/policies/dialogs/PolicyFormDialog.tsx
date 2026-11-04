@@ -43,7 +43,7 @@ interface PolicyFormDialogProps {
 /** Shared create/edit policy form with scoped actions and condition
  * validation. Form state, derived options, and edit handlers live in
  * usePolicyFormState.ts - this file is the JSX layer, split out of one
- * 402-line file, see AGENTS.md's ~350-line target. */
+ * 402-line file, see the repo's ~350-line target. */
 const PolicyFormDialog: React.FC<PolicyFormDialogProps> = ({
   isOpen,
   policy,

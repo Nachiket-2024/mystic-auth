@@ -33,7 +33,7 @@ describe('VerifyAccountButton', () => {
   });
 
   it('is enabled with a token, and disables itself after a failed verification', async () => {
-    mock.onPost('/auth/verify-account').reply(400, { error: 'This link is invalid or has expired' });
+    mock.onPost('/auth/verify-account').reply(400, { detail: 'This link is invalid or has expired' });
 
     renderButton('a-token');
     const button = screen.getByRole('button', { name: 'Verify email' }) as HTMLButtonElement;

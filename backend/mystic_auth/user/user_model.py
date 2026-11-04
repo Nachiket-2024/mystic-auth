@@ -43,7 +43,7 @@ class User(Base):
 
     # Per-user re-skin of the app's brand accent/logo/favicon (#rrggbb). NULL
     # means "use the app default" (app/theme.ts's brand scale). See
-    # AppearanceCard.tsx/applyAppearanceOverride.ts on the frontend for how
+    # AppearanceCard.tsx and theme/applyBrandCssVars.ts on the frontend for how
     # this becomes a full color scale.
     brand_color: Mapped[str | None] = mapped_column(String(7))
 

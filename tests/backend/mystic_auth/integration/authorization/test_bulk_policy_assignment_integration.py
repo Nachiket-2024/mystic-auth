@@ -8,11 +8,10 @@
 # policy) is reported "already_held" rather than a plain "success" - see
 # PolicyAssignmentRepository.bulk_assign_policies's own docstring.
 #
-# Permission/role counterparts live in their own sibling files
-# (test_bulk_permission_assignment_integration.py /
-# test_bulk_role_assignment_integration.py) - split out from one combined
-# file to keep each under ~300 lines and grouped by the same domain
-# boundary the route/repository files themselves use.
+# Permission/role counterparts live in sibling files
+# (test_bulk_permission_assignment_integration.py and
+# test_bulk_role_assignment_integration.py), split by the same domain boundary
+# the route and repository files use.
 import asyncio
 
 import pytest

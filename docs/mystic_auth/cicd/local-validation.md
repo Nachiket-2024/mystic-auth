@@ -11,6 +11,20 @@ Postgres and Valkey services. Compose commands always use both ownership
 overrides and both env files, with MysticAuth first. Never overwrite an
 existing runtime env file to make a check run.
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    A["Backend: audit, lint, typecheck, security"]
+    B["Start Postgres + Valkey,\nalembic upgrade head + check"]
+    C["Backend tests in CI order:\nunit, integration, security (90% gate), performance"]
+    D["Frontend: audit, typecheck, lint,\ntest-coverage, build"]
+    E["Tooling guards, Docker builds,\nbrowser E2E"]
+    A --> B --> C --> D --> E
+    class E terminal
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ---
 
 ## Backend and frontend

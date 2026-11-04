@@ -48,7 +48,7 @@ export function useUsersQuery(page: number, pageSize: number, filters: UsersFilt
             return { users: res.data, total: Number.isFinite(total) ? total : 0 };
         },
         // Keeps the current page's rows on screen while the next page loads
-        // (same as auditQueries.ts), avoiding a loading-skeleton flash and
+        // (same as securityLogQueries.ts), avoiding a loading-skeleton flash and
         // page-height shift on navigation.
         // CommandPalette reuses this hook to search users on-demand and
         // needs to skip the request entirely while its query is empty,

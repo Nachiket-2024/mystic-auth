@@ -6,12 +6,10 @@
 # here (e.g. losing pool_pre_ping) would only show up as an intermittent
 # "connection already closed" in production, not as a test failure.
 #
-# Pool/session assertions below construct a fresh Database(...) instead of
-# inspecting the global `database` singleton's .engine/.async_session:
-# tests/backend/conftest.py reassigns those two attributes on the shared
-# singleton to a NullPool engine for the whole test session, so asserting
-# on the singleton here would test conftest's override, not Database's
-# actual default behavior.
+# Pool/session assertions construct a fresh Database(...) instead of inspecting
+# the global `database` singleton: tests/backend/conftest.py reassigns the
+# singleton's engine and async_session to a NullPool engine for the whole
+# session, so asserting on it would test that override, not Database's defaults.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 

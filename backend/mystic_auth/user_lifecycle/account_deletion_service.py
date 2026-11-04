@@ -13,6 +13,7 @@ from ..logging.logging_config import get_logger
 from ..procrastinate_tasks.email_tasks import send_email_task
 from ..user.user_crud_collector import user_crud
 from ..valkey.client import valkey_client
+from ..valkey.key_names import one_time_token_key
 from .user_self_deletion_service import finalize_self_deletion
 
 logger = get_logger(__name__)
@@ -105,7 +106,7 @@ class AccountDeletionService:
             # Persisted in Valkey so confirm_deletion() can enforce single
             # use; without it the JWT stays valid and replayable for the
             # whole expiry window even after being redeemed once.
-            await valkey_client.set(f"account_delete:{token}", "1", ex=expires_minutes * 60)
+            await valkey_client.set(one_time_token_key("account_delete", token), "1", ex=expires_minutes * 60)
 
             # Fragments stay in the browser and are not sent in HTTP requests
             # or Referer headers.
@@ -164,7 +165,7 @@ class AccountDeletionService:
                 logger.warning("Invalid or expired account deletion token")
                 return False
 
-            if not await valkey_client.getdel(f"account_delete:{token}"):
+            if not await valkey_client.getdel(one_time_token_key("account_delete", token)):
                 logger.warning("Account deletion token not found or already used")
                 return False
 

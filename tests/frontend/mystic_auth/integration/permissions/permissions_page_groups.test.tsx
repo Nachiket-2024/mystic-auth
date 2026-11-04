@@ -6,8 +6,7 @@ import { mock, seed, renderPage, CATALOG, USAGE } from './permissionsPageTestSup
 
 // PermissionsPage: resource-type grouping, expand/collapse, and the
 // Expand all / Collapse all controls. Filters and the details dialog live
-// in their own sibling files - split out of one 408-line file, see
-// AGENTS.md's ~350-line target.
+// in their own sibling files.
 
 describe('PermissionsPage: groups', () => {
   beforeEach(() => {

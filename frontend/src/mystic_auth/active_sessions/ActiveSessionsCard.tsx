@@ -28,30 +28,17 @@ import { DESTRUCTIVE_TABLE_ACTION_CLASSNAME } from "../ui/table_actions/tableAct
 /**
  * ActiveSessionsCard
  * ----------------------------
- * Lists the caller's own active login sessions (GET /auth/sessions) as a
- * table (device/browser, location, IP address, first-signed-in, last-seen,
- * an action column), same shape as every other management list in the app.
- * Every row gets a working "Log out", including the current device's row ("This device"
- * badge): that one goes through the ordinary single-device logout
- * (POST /auth/logout, same as the navbar's Logout button) instead of
- * DELETE /auth/sessions/{id}, because the backend rejects revoking your own
- * current session that way (it would invalidate the request doing it).
+ * The caller's active login sessions (GET /auth/sessions) as a table. Every
+ * row has "Log out". The current device's row ("This device") goes through
+ * the ordinary single-device logout (POST /auth/logout), because
+ * DELETE /auth/sessions/{id} rejects revoking your own session.
  *
- * Lives in its own top-level `active_sessions/` feature folder (mirroring
- * the backend's `auth/active_sessions/` + `user_session/`), not under
- * `dashboard/`: this is session-management domain logic that happens to
- * render on DashboardPage.tsx, not owned by it. It's the sole place to
- * manage sessions - Account Settings no longer duplicates it on its own
- * tab, and Dashboard's identity card only shows an Active Sessions *count*,
- * from the same underlying data, as one of its own stat tiles.
- *
- * Also owns "Log out everywhere" (POST /auth/logout-all): ends every active
- * session, including the caller's own, and redirects to /login - distinct
- * from "Log out selected" below, which bulk-revokes chosen OTHER sessions
- * and can never touch "This device" (see disabledSessionKeys below). Both
- * live on this one card now, rather than splitting "end some sessions" here
- * and "end all of them" as a separate Dashboard quick action: every way to
- * end a session belongs together.
+ * Also owns "Log out everywhere" (POST /auth/logout-all, ends every session
+ * including this one and redirects to /login) and "Log out selected" (bulk
+ * revoke of OTHER sessions only, see disabledSessionKeys). It lives in
+ * `active_sessions/`, not `dashboard/`, because it is session-management
+ * logic that DashboardPage merely renders; the identity card shows only a
+ * session count.
  */
 
 const ActiveSessionsCard: React.FC<React.ComponentPropsWithoutRef<"div">> = ({ ...cardProps }) => {
@@ -168,7 +155,7 @@ const ActiveSessionsCard: React.FC<React.ComponentPropsWithoutRef<"div">> = ({ .
     return (
         <Card {...cardProps}>
             {/* Title and "Log out everywhere" as direct space-between
-                siblings (design/dashboard.html's `.session-toolbar`) - an
+                siblings - an
                 earlier version grouped them together in one left-aligned
                 flex row, with the "this device isn't selectable" hint
                 stranded on the right instead, which put the wrong two
@@ -209,8 +196,7 @@ const ActiveSessionsCard: React.FC<React.ComponentPropsWithoutRef<"div">> = ({ .
 
             {sessions && sessions.length > 1 && (
                 <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                    {/* Two separate spans (design/dashboard.html's two
-                        `.session-hint` spans), not one concatenated string -
+                    {/* Two separate spans, not one concatenated string -
                         keeps "N selected" on its own as real, separately
                         findable text instead of merging it into a longer
                         sentence. */}
@@ -269,6 +255,8 @@ const ActiveSessionsCard: React.FC<React.ComponentPropsWithoutRef<"div">> = ({ .
             )}
 
             <DataTable
+
+                ariaLabel={t("activeSessionsCard.heading")}
                 columns={columns}
                 rows={sessions}
                 rowKey={(s) => s.id}

@@ -8,6 +8,14 @@ Record the browser, assistive technology, date, and defects found.
 
 ---
 
+## What is already checked automatically
+
+- The Playwright axe scan covers common markup, contrast and ARIA problems.
+- The Chromium keyboard pass covers focus into and out of dialogs, Escape handling, route controls and focus-visible styles.
+- The browser accessibility tree (what a screen reader receives) was dumped and checked on the login, signup, password-reset, legal, dashboard, users, account-settings, audit-log, policies and permissions pages: every interactive control has an accessible name, each page has one `h1`, a `main` landmark and a language, and every data table has an accessible name (`DataTable` takes an `ariaLabel`).
+
+Nobody has listened to a screen reader read the app, so announcement quality and reading order are unverified and the passes below are still manual. This is not a claim of full WCAG conformance.
+
 ## Keyboard-only pass
 
 - [ ] Reach signup, login, password reset, and OAuth controls with `Tab` and `Shift+Tab`.

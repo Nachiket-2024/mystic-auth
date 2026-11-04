@@ -6,22 +6,16 @@ import { useThemeStore } from "../store/themeStore";
 import appThemeOverrides from "../../app/theme";
 
 /**
- * Plain-CSS-variable theme implementation: writes --brand-50..900 plus
- * the two light/dark pairs
- * that don't derive automatically from those steps (--bg-canvas-from,
- * --bg-sidebar - see appearanceThemeOverrides.ts's deriveCanvasFrom/
- * deriveSidebar) onto <html>, from the signed-in user's own Appearance pick
- * (falling back to BRAND_COLOR, then app/theme.ts's own override for a
- * fork-level default). Every other brand-derived token in tailwind-tokens.css
- * (brand-fg, brand-subtle, brand-selected, etc.) already references
- * var(--brand-*) itself, so overriding just the raw steps is enough for
- * them to follow along in both light and dark.
+ * Plain-CSS-variable theme: writes --brand-50..900 plus the light/dark pairs
+ * that do not derive from those steps (--bg-canvas-from, --bg-sidebar; see
+ * appearanceThemeOverrides.ts) onto <html>, from the signed-in user's
+ * Appearance pick (falling back to BRAND_COLOR, then app/theme.ts). Other
+ * brand tokens in tailwind-tokens.css reference var(--brand-*), so overriding
+ * the raw steps is enough in light and dark.
  *
- * Runs once at import time, same "before first paint" eager-import pattern
- * as themeStore.ts, then again on every appearanceStore or themeStore
- * change (the canvas/sidebar pair depends on colorMode too, unlike the raw
- * brand steps) - no React tree/provider needed since this only touches a
- * DOM attribute, not component state.
+ * Runs once at import time (before first paint, like themeStore.ts) and again
+ * on every appearanceStore or themeStore change, since the canvas/sidebar pair
+ * depends on colorMode. No React provider needed; it only sets DOM styles.
  */
 function applyBrandCssVars(hex: string) {
     const scale = generateBrandScale(hex);

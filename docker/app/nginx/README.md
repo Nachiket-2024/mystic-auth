@@ -21,6 +21,6 @@ nginx picks the most specific matching `location` regardless of file
 order, so where your block lands among upstream's doesn't matter the
 way it would in Caddy.
 
-Ships empty; upstream never edits this file again.
+Ships empty. Upstream may later fix this starter file; a sync merges it three-way, so keep your version on any conflict.
 
 ---

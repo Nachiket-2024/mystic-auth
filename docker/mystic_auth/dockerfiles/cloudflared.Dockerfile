@@ -7,6 +7,7 @@ FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f
 ARG CLOUDFLARED_VERSION=2026.10.2
 ARG CLOUDFLARED_SOURCE_SHA256=8dde1e9e4b0ad5ae09abd7b5790dabc9195ba48a5c7f0af7e54e787eef54a3cb
 ARG KLAUSPOST_COMPRESS_VERSION=v1.18.7
+ARG GO_JOSE_VERSION=v4.1.6
 
 RUN apk add --no-cache ca-certificates curl tar \
     && mkdir -p /src /out \
@@ -24,7 +25,9 @@ WORKDIR /src
 
 RUN go install github.com/google/go-licenses@v1.6.0
 
-RUN go mod edit -require="github.com/klauspost/compress@${KLAUSPOST_COMPRESS_VERSION}" \
+RUN go mod edit \
+    -require="github.com/klauspost/compress@${KLAUSPOST_COMPRESS_VERSION}" \
+    -require="github.com/go-jose/go-jose/v4@${GO_JOSE_VERSION}" \
     && go mod tidy \
     && go test ./cmd/cloudflared/... \
     && /go/bin/go-licenses save ./cmd/cloudflared --save_path=/out/licenses \

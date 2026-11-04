@@ -27,7 +27,7 @@ import { PolicyActionsTable } from "./UserAccessDialogParts";
 // Policies tab of the User Access dialog: search/filter, the expandable
 // policy list, and per-policy assign/revoke. Details and Permissions tabs
 // live in their own sibling files, composed together by UserAccessTabs.tsx -
-// split out of one 540-line file, see AGENTS.md's ~350-line target.
+// split out of one 540-line file, see the repo's ~350-line target.
 
 type PolicyEntry = {
   name: string;
@@ -68,6 +68,13 @@ const UserAccessPoliciesTab: React.FC<UserAccessPoliciesTabProps> = ({
         state.tab !== "policies" && "hidden",
       )}
     >
+      {/* Only the active tab renders its list. All three panels stay mounted
+          (forceMount keeps aria-controls valid), but the hidden Policies and
+          Permissions lists used to be built in full every time the dialog
+          opened, which dominated the open latency. Filters, queries and open
+          groups live in the dialog state hook, so nothing is lost on a switch. */}
+      {state.tab === "policies" && (
+        <>
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2 pt-3">
         <SearchInput
           value={state.polQuery}
@@ -261,6 +268,8 @@ const UserAccessPoliciesTab: React.FC<UserAccessPoliciesTabProps> = ({
           </div>
         )}
       </div>
+        </>
+      )}
     </TabsContent>
   );
 };

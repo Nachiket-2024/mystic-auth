@@ -37,7 +37,7 @@ interface UsePolicyFormStateParams {
  * PolicyFormDialog: field state, the resource-type/action option lists
  * (scoped to what the catalog and the caller's own grantable actions
  * allow), the unsaved-changes dirty check, and submit. Split out of one
- * 402-line file, see AGENTS.md's ~350-line target. */
+ * 402-line file, see the repo's ~350-line target. */
 export function usePolicyFormState({
   isOpen,
   policy,
@@ -282,7 +282,7 @@ export function usePolicyFormState({
   const destructiveSelectedCount = actions.filter(isDestructiveAction).length;
   const canSave =
     !!name.trim() && !!resourceType && actions.length > 0 && !conditionsError;
-  // design/policies.html's #saveSummary: a plain-language recap of what
+  // A plain-language recap of what
   // Save is about to do, shown next to the buttons instead of only inside
   // the Actions tab's own counts.
   const saveSummary =

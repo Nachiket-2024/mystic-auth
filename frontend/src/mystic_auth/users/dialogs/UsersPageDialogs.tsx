@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import ConfirmDialog from "../../ui/feedback/ConfirmDialog";
 import type { ManagedUserRead } from "../../api/users_api";
 import UserAccessDialog from "./UserAccessDialog";
+import UserPasskeysDialog from "./UserPasskeysDialog";
 import { capitalize } from "../usersColumns";
 
 interface PendingRoleChange {
@@ -15,6 +16,8 @@ interface UsersPageDialogsProps {
     accessUser: ManagedUserRead | null;
     accessTab: "details" | "policies" | "permissions";
     onCloseAccess: () => void;
+    passkeysUser: ManagedUserRead | null;
+    onClosePasskeys: () => void;
     deletingUser: ManagedUserRead | null;
     isDeletePending: boolean;
     onConfirmDelete: () => void;
@@ -37,6 +40,8 @@ const UsersPageDialogs: React.FC<UsersPageDialogsProps> = ({
     accessUser,
     accessTab,
     onCloseAccess,
+    passkeysUser,
+    onClosePasskeys,
     deletingUser,
     isDeletePending,
     onConfirmDelete,
@@ -61,6 +66,8 @@ const UsersPageDialogs: React.FC<UsersPageDialogsProps> = ({
                 isSystemUser={accessUser?.role === "system"}
                 onClose={onCloseAccess}
             />
+
+            <UserPasskeysDialog user={passkeysUser} onClose={onClosePasskeys} />
 
             <ConfirmDialog
                 isOpen={!!deletingUser}

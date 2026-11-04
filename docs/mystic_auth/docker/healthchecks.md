@@ -4,6 +4,22 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
+Which service waits for which health signal:
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    PG["postgres\npg_isready"] --> AL["alembic\none-shot"]
+    VK["valkey\nvalkey-cli ping"] --> BE
+    AL -- "completed successfully" --> BE["backend\nGET /health/ready"]
+    AL -- "completed successfully" --> WK["procrastinate_worker\nprocrastinate healthchecks"]
+    BE -- "healthy" --> FE["frontend (prod)\nwget /"]
+
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class FE terminal
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ---
 
 ## Service healthchecks

@@ -20,6 +20,7 @@
     "POLICY_MUST_BE_INACTIVE_TO_DELETE": "કાઢી નાખતા પહેલાં નીતિ '{{policyName}}' ને નિષ્ક્રિય કરો",
     "INSUFFICIENT_PERMISSIONS": "તમારી પાસે આ ક્રિયા કરવાની પરવાનગી નથી",
     "CANNOT_GRANT_UNHELD_ACTION": "ક્રિયા '{{action}}' આપી શકાતી નથી: તમે પોતે તે ધરાવતા નથી",
+    "SERVICE_UNAVAILABLE": "સેવા થોડા સમય માટે ઉપલબ્ધ નથી. કૃપા કરીને થોડી સેકંડ પછી ફરી પ્રયાસ કરો",
     "DATABASE_ERROR": "ડેટાબેઝ ભૂલ આવી. કૃપા કરી ફરીથી પ્રયાસ કરો",
     "SESSION_NOT_FOUND": "સત્ર મળ્યું નથી",
     "CANNOT_REVOKE_CURRENT_SESSION": "તમારું વર્તમાન સત્ર સમાપ્ત કરવા માટે લોગઆઉટનો ઉપયોગ કરો",
@@ -54,5 +55,8 @@
     "OAUTH_LOGIN_FAILED": "અમે તમને Google વડે સાઇન ઇન કરી શક્યા નહીં. કૃપા કરી ફરીથી પ્રયાસ કરો",
     "OAUTH_STATE_INVALID": "તમારો સાઇન-ઇન પ્રયાસ સમાપ્ત થઈ ગયો અથવા ચકાસી શકાયો નહીં. કૃપા કરી ફરીથી પ્રયાસ કરો",
     "OAUTH_EMAIL_NOT_VERIFIED": "તમારા Google ખાતાનું ઈમેલ સરનામું ચકાસાયેલ નથી. કૃપા કરી તેને Google સાથે ચકાસો અને ફરીથી પ્રયાસ કરો",
-    "OAUTH_CANCELLED": "Google સાથે સાઇન-ઇન રદ કરવામાં આવ્યું"
+    "OAUTH_CANCELLED": "Google સાથે સાઇન-ઇન રદ કરવામાં આવ્યું",
+    "PASSKEY_STEP_UP_REQUIRED": "પાસકી બદલવા માટે તમારી ઓળખની પુષ્ટિ કરો",
+    "PASSKEY_STEP_UP_FAILED": "Google પુષ્ટિ આ એકાઉન્ટ સાથે મેળ ખાતી નથી. તમે જે Google એકાઉન્ટથી સાઇન અપ કર્યું હતું તેનો ઉપયોગ કરો",
+    "PASSKEY_STEP_UP_PASSWORD_UNAVAILABLE": "આ એકાઉન્ટમાં પાસવર્ડ નથી. તેના બદલે પાસકીથી પુષ્ટિ કરો"
 }

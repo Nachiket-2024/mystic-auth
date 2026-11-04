@@ -1,5 +1,5 @@
 httpx 0.28.1
-License: BSD License
+License: BSD-3-Clause
 URL: https://github.com/encode/httpx
 Copyright: Copyright © 2019, [Encode OSS Ltd](https://www.encode.io/).
 

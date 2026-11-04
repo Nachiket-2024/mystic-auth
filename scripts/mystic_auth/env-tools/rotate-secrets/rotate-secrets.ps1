@@ -1,22 +1,12 @@
-# Rotates SECRET_KEY and/or BUGSINK_SECRET_KEY in place in one or more real
-# env/mystic_auth/.env* files, generating a fresh random value for each.
-# Also rotates any of your own env/app/ secret fields declared in
-# scripts/app/env-tools/rotate-secrets/fields.env - see that file's own
-# header. Ships empty, so by default this script only ever touches the two
-# mystic_auth fields below.
+# Rotates SECRET_KEY and/or BUGSINK_SECRET_KEY in place in real
+# env/mystic_auth/.env* files, with a fresh random value for each. Also rotates
+# any of your own env/app/ secrets listed in
+# scripts/app/env-tools/rotate-secrets/fields.env (ships empty).
 #
-# Scope is deliberately narrow: these two fields are the only secrets safe
-# to rotate by just editing the file and restarting. Every other secret
-# field (POSTGRES_PASSWORD, APP_DB_PASSWORD, BUGSINK_SUPERUSER_PASSWORD,
-# VALKEY_PASSWORD) is backed by state a live service already has: Postgres
-# only applies POSTGRES_PASSWORD on first volume init, so editing the file
-# after that does nothing to the role's real password and just breaks
-# DATABASE_URL; Bugsink's admin password lives in its own database, not
-# this file. Rotating those safely means changing them at the live service
-# (ALTER ROLE, Bugsink's own admin tools) first, not something this script
-# attempts. The same reasoning applies to whatever you list in
-# fields.env - only list a field there if editing the file and restarting
-# is genuinely enough to rotate it.
+# Narrow on purpose: only these fields are safe to rotate by editing the file and
+# restarting. POSTGRES_PASSWORD, APP_DB_PASSWORD, BUGSINK_SUPERUSER_PASSWORD and
+# VALKEY_PASSWORD are also stored by a live service, so change them there first.
+# List a field in fields.env only if editing the file and restarting is enough.
 #
 # Usage:
 #   .\rotate-secrets.ps1 [-Field NAME] [file ...]

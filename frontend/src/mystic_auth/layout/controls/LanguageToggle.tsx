@@ -57,7 +57,7 @@ const LanguageToggle: React.FC = () => {
                 ))}
             </select>
             {/* Icon-only trigger, matching the design's navbar icon buttons
-                (see design/dashboard.html's .icon-btn) - shares Button's
+                - shares Button's
                 "icon"/"icon-sm" variant classes with ThemeToggle so the
                 styles can't drift apart. The dropdown itself is unchanged;
                 only the trigger's visible content is a fixed icon instead

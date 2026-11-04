@@ -1,7 +1,7 @@
 email-validator 2.3.0
-License: The Unlicense (Unlicense)
+License: Unlicense
 URL: https://github.com/JoshData/python-email-validator
-Copyright: In jurisdictions that recognize copyright laws, the author or
+Copyright: See bundled license text
 
 This is free and unencumbered software released into the public
 domain.

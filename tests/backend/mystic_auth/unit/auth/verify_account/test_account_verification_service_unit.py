@@ -1,3 +1,5 @@
+import hashlib
+
 # Regression guard for a fix to verify_token: single-use enforcement
 # previously did a separate GET then DELETE against Valkey, and a TOCTOU
 # race let two concurrent requests both pass the GET before either ran
@@ -34,7 +36,7 @@ async def test_verify_token_uses_atomic_getdel_not_separate_get_and_delete(mocke
     result = await account_verification_service.verify_token("some-token")
 
     assert result == {"email": "user@example.com", "type": "verify"}
-    getdel_mock.assert_awaited_once_with("verify:some-token")
+    getdel_mock.assert_awaited_once_with(f"verify:{hashlib.sha256(b'some-token').hexdigest()}")
     # No separate GET/DELETE round-trip: the whole point of the fix is that
     # a single atomic operation replaces the racy two-step check.
     get_mock.assert_not_called()

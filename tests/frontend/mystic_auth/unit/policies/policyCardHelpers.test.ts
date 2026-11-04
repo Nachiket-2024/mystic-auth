@@ -58,8 +58,7 @@ describe("policy card helpers", () => {
     });
 
     it("uses the caller-provided translated label for the wildcard type, not the English literal", () => {
-        // Regression guard for audit finding claude_code-2026-10-21-F-015:
-        // every real call site passes its own translated string here -
+        // Every real call site passes its own translated string here -
         // the English default only applies when none is given (tests,
         // non-component code with no locale context).
         expect(formatResourceTypeLabel("*", "બધા સંસાધન પ્રકારો")).toBe("બધા સંસાધન પ્રકારો");

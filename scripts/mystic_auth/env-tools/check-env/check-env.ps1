@@ -128,8 +128,8 @@ foreach ($f in $Files) {
         if ([string]::IsNullOrWhiteSpace($alertUrl)) {
             Write-Host "  ERROR: SECURITY_ALERT_WEBHOOK_URL is blank, but ENVIRONMENT=production. Configure an HTTPS incident endpoint before starting the app."
             $HasError = $true
-        } elseif ($alertUrl -notmatch '^https://[^/\s]+') {
-            Write-Host "  ERROR: SECURITY_ALERT_WEBHOOK_URL must be an HTTPS URL."
+        } elseif ($alertUrl -notmatch '^(https://[^/\s]+|http://[A-Za-z0-9_-]+(:[0-9]+)?/)') {
+            Write-Host "  ERROR: SECURITY_ALERT_WEBHOOK_URL must be an HTTPS URL (or http://<compose-service>:port/ on the private network)."
             $HasError = $true
         }
 

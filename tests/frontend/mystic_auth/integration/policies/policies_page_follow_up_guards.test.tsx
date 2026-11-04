@@ -9,7 +9,7 @@ import { mock, seed, renderPage, PERMISSION_CATALOG, SAMPLE_POLICIES } from './p
 // PoliciesPage follow-up flows: protected-policy guards, the
 // policies:create-only restricted view, and the per-action toggle. Dialog
 // tabs, rollback, and the delete confirmation live in their own sibling
-// file - split out of one 408-line file, see AGENTS.md's ~350-line target.
+// file.
 
 describe('PoliciesPage follow-up flows: guards', () => {
   beforeEach(() => {

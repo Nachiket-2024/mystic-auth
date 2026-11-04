@@ -39,3 +39,5 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
+    # drop_table leaves the native enum behind, which made the next upgrade fail
+    op.execute("DROP TYPE IF EXISTS userrole")

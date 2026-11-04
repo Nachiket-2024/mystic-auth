@@ -9,7 +9,7 @@ import LogoutButton from "../../auth/logout/LogoutButton";
 import ControlCluster from "../controls/ControlCluster";
 import { Button } from "../../ui/buttons/Button";
 import { cn } from "../../ui/styles/classNames";
-import { initialsFor } from "./initialsFor";
+import { initialsFor } from "../../ui/display/initialsFor";
 
 interface NavbarProps {
     onToggleSidebar: () => void;
@@ -49,7 +49,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                 // lined up with Sidebar's border-bottom.
                 "flex-wrap md:flex-nowrap",
                 // bg-bg-sidebar, not bg-bg-surface: matches Sidebar.tsx's panel
-                // tone (design/dashboard.html's --bg-chrome, a faint warm tint -
+                // tone (the --bg-chrome token, a faint warm tint -
                 // not flat white/near-black) so the two chrome surfaces read as
                 // one cohesive frame around the page, rather than the navbar
                 // looking like just another card.
@@ -68,7 +68,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                 </Button>
                 {name && (
                     <div className="flex items-center gap-2.5 min-w-0">
-                        {/* design/dashboard.html's `.avatar-sm`: a soft
+                        {/* A soft
                             brand-tinted badge (brand-100/brand-600 light,
                             translucent brand wash/#e8926f dark), not a solid
                             brand.solid fill - that's DashboardIdentityCard's
@@ -76,7 +76,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                             fully-filled gradient treatment. This smaller
                             navbar avatar previously reused the solid
                             treatment, reading noticeably bolder/heavier than
-                            the mockup's subtle topbar badge. */}
+                            the intended design's subtle topbar badge. */}
                         <div
                             className="w-8 h-8 shrink-0 rounded-full border border-[var(--brand-400)] bg-brand-subtle text-brand-fg flex items-center justify-center text-sm font-semibold"
                             aria-hidden="true"
@@ -89,8 +89,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                             wraps, since a wrapped line would overflow the
                             fixed-height (md+) navbar. */}
                         <div className="flex items-center gap-1 min-w-0">
-                            {/* "sm", matching design/dashboard.html's
-                                .topbar-left (14px, tightened from 16px). */}
+                            {/* "sm" (14px, tightened from 16px). */}
                             <p className="text-sm text-fg-muted shrink-0 whitespace-nowrap">
                                 {t("signedInAs")}
                             </p>
@@ -123,8 +122,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, extraContent, onOpenCo
                         className={cn(
                             "hidden md:flex items-center gap-2 w-56 h-9 px-3 rounded-control border border-border-strong bg-bg-canvas text-fg-muted cursor-pointer",
                             "transition-[background-color,border-color,color] duration-[var(--duration-hover)] ease-[var(--easing-hover)]",
-                            // Matches design/dashboard.html's own
-                            // `.search-box:hover` (brand-tinted border+fill),
+                            // Brand-tinted border+fill on hover,
                             // same brand-bold treatment Button's "icon" variant
                             // uses - a previous neutral-gray-only hover here read
                             // as a barely-there cue next to the icon-button

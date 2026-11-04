@@ -31,7 +31,7 @@ template, not a funded security team with a formal SLA.
 ## Scope
 
 This repo's own security posture is in scope. That includes authentication
-(JWT/cookie handling, password hashing, rate limiting, lockout, OAuth2/PKCE),
+(JWT/cookie handling, password hashing, rate limiting, lockout, OAuth2/PKCE, passkeys/WebAuthn),
 authorization (PBAC policy evaluation), and audit logging around both. See
 [Security Hardening](docs/mystic_auth/security/hardening.md) and
 [Security Decisions](docs/mystic_auth/security/decisions.md) for issues that

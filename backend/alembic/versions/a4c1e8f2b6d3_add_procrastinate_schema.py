@@ -19,7 +19,9 @@ from collections.abc import Sequence
 from importlib import resources
 
 import psycopg
+import sqlalchemy as sa
 
+from alembic import op
 from mystic_auth.core.settings import settings
 
 revision: str = "a4c1e8f2b6d3"
@@ -54,37 +56,46 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Unlike upgrade(), this runs on Alembic's own connection (one statement per
+    # execute, which asyncpg accepts). A second connection, as upgrade() uses,
+    # would wait forever on locks that Alembic's connection still holds from the
+    # earlier steps of a multi-step downgrade, and the downgrade would hang.
+    #
     # Function/procedure names carry versioned suffixes (_v1, _v2, ...) that
     # change across Procrastinate releases, so rather than hand-listing every
     # one (and having this downgrade silently rot on the next schema bump),
     # drop every routine and table this schema could plausibly have created
     # by querying the catalog for anything named procrastinate_*.
-    _run_multi_statement_sql(
-        """
-        DO $$
-        DECLARE
-            r record;
-        BEGIN
-            FOR r IN
-                SELECT p.oid::regprocedure AS signature, p.prokind
-                FROM pg_proc p
-                JOIN pg_namespace n ON n.oid = p.pronamespace
-                WHERE n.nspname = 'public' AND p.proname LIKE 'procrastinate\\_%'
-            LOOP
-                EXECUTE format(
-                    'DROP %s IF EXISTS %s CASCADE',
-                    CASE r.prokind WHEN 'p' THEN 'PROCEDURE' ELSE 'FUNCTION' END,
-                    r.signature
-                );
-            END LOOP;
-        END $$;
-
-        DROP TABLE IF EXISTS procrastinate_events CASCADE;
-        DROP TABLE IF EXISTS procrastinate_periodic_defers CASCADE;
-        DROP TABLE IF EXISTS procrastinate_jobs CASCADE;
-        DROP TABLE IF EXISTS procrastinate_workers CASCADE;
-        DROP TYPE IF EXISTS procrastinate_job_status CASCADE;
-        DROP TYPE IF EXISTS procrastinate_job_event_type CASCADE;
-        DROP TYPE IF EXISTS procrastinate_job_to_defer_v1 CASCADE;
-        """
+    op.execute(
+        sa.text(
+            """
+            DO $$
+            DECLARE
+                r record;
+            BEGIN
+                FOR r IN
+                    SELECT p.oid::regprocedure AS signature, p.prokind
+                    FROM pg_proc p
+                    JOIN pg_namespace n ON n.oid = p.pronamespace
+                    WHERE n.nspname = 'public' AND p.proname LIKE 'procrastinate\\_%'
+                LOOP
+                    EXECUTE format(
+                        'DROP %s IF EXISTS %s CASCADE',
+                        CASE r.prokind WHEN 'p' THEN 'PROCEDURE' ELSE 'FUNCTION' END,
+                        r.signature
+                    );
+                END LOOP;
+            END $$
+            """
+        )
     )
+    for statement in (
+        "DROP TABLE IF EXISTS procrastinate_events CASCADE",
+        "DROP TABLE IF EXISTS procrastinate_periodic_defers CASCADE",
+        "DROP TABLE IF EXISTS procrastinate_jobs CASCADE",
+        "DROP TABLE IF EXISTS procrastinate_workers CASCADE",
+        "DROP TYPE IF EXISTS procrastinate_job_status CASCADE",
+        "DROP TYPE IF EXISTS procrastinate_job_event_type CASCADE",
+        "DROP TYPE IF EXISTS procrastinate_job_to_defer_v1 CASCADE",
+    ):
+        op.execute(sa.text(statement))

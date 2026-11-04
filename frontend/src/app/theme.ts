@@ -18,21 +18,13 @@ export interface AppThemeOverrides {
 /**
  * App-owned theme overrides (see docs/mystic_auth/template-usage/overview.md).
  *
- * For the common case, just changing the brand color, you don't need this
- * file: set VITE_BRAND_COLOR (env/mystic_auth/.env.dev's BRAND_COLOR, aliased
- * like APP_NAME) to any hex and rebuild. See
- * docs/mystic_auth/template-usage/overview.md#environment-configuration.
+ * To change only the brand color, set VITE_BRAND_COLOR (BRAND_COLOR in the env
+ * file) to any hex and rebuild; you do not need this file.
  *
- * This file is for anything beyond that single color. Counterpart to
- * app_sdk.ts: theme/applyBrandCssVars.ts and theme/tailwind-tokens.css are
- * upstream-owned, so hand-editing them directly would conflict on every
- * `scripts/mystic_auth/upstream-sync/sync-upstream.sh` sync. This file's
- * `cssVars` gets applied on top of them instead - the same "yours, upstream
- * never touches it again" pattern app_sdk.ts uses. A signed-in user's own
- * Appearance pick still overrides `brandColor` client-side for that user
- * only.
- *
- * Ships empty in every release, so it never conflicts on a sync.
+ * Use this file for anything beyond that. `cssVars` is applied on top of the
+ * upstream-owned theme files, so you never hand-edit them and never conflict
+ * with a sync. A signed-in user's own Appearance pick still overrides
+ * `brandColor` for that user. Ships empty.
  *
  * Example:
  *

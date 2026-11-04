@@ -8,11 +8,11 @@
 
 ## Frontend behavior
 
-1. **Ownership.** `ActiveSessionsCard.tsx` (renamed from `ManageSessionsCard.tsx`) lives in its own top-level `frontend/src/mystic_auth/active_sessions/` folder, not nested under `dashboard/` - Dashboard, Account Settings, and the Audit Log and Rate Limits pages' device/location cells (`rateLimitsColumns.tsx`, `securityLogColumns.tsx`, `authorizationLogColumns.tsx`) all render it or its row-formatting helpers now, so it no longer has a single owning page. It owns its own API query and mutation (`useSessionsQuery.ts`/`useRevokeSessionMutation.ts`); device labels come from `parseUserAgent.ts`; failure and empty states are rendered locally by the card.
+1. **Ownership.** `ActiveSessionsCard.tsx` lives in its own top-level `frontend/src/mystic_auth/active_sessions/` folder, not nested under `dashboard/` - Dashboard, Account Settings, and the Audit Log and Rate Limits pages' device/location cells (`rateLimitsColumns.tsx`, `securityLogColumns.tsx`, `authorizationLogColumns.tsx`) all render it or its row-formatting helpers, so it has no single owning page. It owns its own API query and mutation (`useSessionsQuery.ts`/`useRevokeSessionMutation.ts`); device labels come from `parseUserAgent.ts`; failure and empty states are rendered locally by the card.
 
 ---
 
-2. **Table.** `activeSessionsTable.tsx`'s columns are Device, Location, IP Address, Signed In, and Last Seen, plus a row-actions column - `ip_address` is its own column directly (no longer hidden behind a separate detail view), and Location shows `city`/`country` inline. There is no separate details dialog anymore (the old `SessionDetailsDialog.tsx` is gone): every session's full information is visible in the row itself, since the columns stopped truncating.
+2. **Table.** `activeSessionsTable.tsx`'s columns are Device, Location, IP Address, Signed In, and Last Seen, plus a row-actions column - `ip_address` is its own column directly (not hidden behind a detail view), and Location shows `city`/`country` inline. There is no separate details dialog: every session's full information is visible in the row itself.
 
 ---
 

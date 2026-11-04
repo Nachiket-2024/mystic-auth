@@ -27,10 +27,8 @@ interface PermissionsStatsCardProps {
 /**
  * PermissionsStatsCard
  * ----------------------------
- * One row of brand-tinted tiles under PermissionsPage's title
- * (design/permissions.html), replacing the old 2x2 orange/cyan card, which
- * broke design.md's "tell tiles apart by icon, not a fixed hue per
- * category" rule (see .project/permissions-page-review.md's suggestions).
+ * One row of brand-tinted tiles under PermissionsPage's title.
+ * Tiles are told apart by icon and label, not a fixed hue per category.
  * Each tile also acts as a quick filter, same pattern as PolicyStatsCard:
  * clicking Destructive/Unused applies PermissionsPage's matching quick
  * filter.

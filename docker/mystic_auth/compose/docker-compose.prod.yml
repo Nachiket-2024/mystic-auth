@@ -11,29 +11,17 @@
 # VALKEY_PASSWORD and a real SECRET_KEY/POSTGRES_PASSWORD are effectively
 # required here since env/mystic_auth/.env.prod is assumed to hold real secrets.
 #
-# Explicit project name: without one, every compose file here defaults to
-# the same name (the directory name) and shares containers/network/volumes
-# with the others, so a command meant for one stack could wipe another's data.
-# Set in env/mystic_auth/.env.prod - see docs/mystic_auth/docker/compose-modes.md.
+# The project name comes from env/mystic_auth/.env.prod, so stacks never share
+# containers or volumes (see docs/mystic_auth/docker/compose-modes.md).
 name: ${COMPOSE_PROJECT_NAME}
 
 x-container-hardening: &container_hardening
   cap_drop: [ALL]
-  # no-new-privileges blocks a process from gaining more than it started
-  # with via a setuid/setgid binary, independent of the capability set
-  # above. pids_limit caps fork-bomb-style resource exhaustion (a runaway
-  # or compromised process spawning children until the host's PID table
-  # fills) - the CPU/memory limits below don't cover process count.
-  # pids_limit (the top-level Compose field) can't live here: it conflicts
-  # with every service's own `deploy.resources.limits` block below
-  # ("can't set distinct values on 'pids_limit' and
-  # 'deploy.resources.limits.pids'", confirmed live against this file) -
-  # each service sets its own `pids:` under its own deploy block instead
-  # (see each service's own comment on that line). Caught by actually
-  # running Docker Bench for Security (CIS Docker Benchmark) against the
-  # live stack rather than a manual `docker inspect` sweep (which also
-  # confirmed `.HostConfig.SecurityOpt` was empty on every container
-  # before this was added).
+  # no-new-privileges blocks gaining privileges via a setuid/setgid binary,
+  # independent of the capability set above. pids_limit (the top-level Compose
+  # field) cannot be set here: it conflicts with each service's
+  # `deploy.resources.limits`, so every service sets `pids:` under its own deploy
+  # block instead. The CPU and memory limits do not cover process count.
   security_opt: [no-new-privileges:true]
   # Bounds each container's own json-file log driver so a noisy or
   # attacked service can't fill the host disk - confirmed live via
@@ -51,7 +39,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /var/run/postgresql]
-    image: chainguard/postgres@sha256:4c8ef6bcf82ab05f4cca769d44847809fc069b5113893f3dc68b95983189a874
+    image: chainguard/postgres@sha256:2b01d03a201a92b6afcbf2351b7bcc8b08035fd9e835632bfdd647ee6377d80f
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     # Keep database traffic on the isolated backend network while giving the
@@ -88,12 +76,13 @@ services:
     tmpfs: [/tmp, /data]
     image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     restart: unless-stopped
-    cap_add: [CHOWN, SETUID, SETGID]
+    # The command below is a plain `sh -c`, which skips the image entrypoint that
+    # would drop root, so run as the image's valkey user directly. No capabilities needed.
+    user: "999:1000"
     networks: [valkey_net]
     environment:
       # Passed as a container env var, not a CLI arg - see the
-      # 2026-10-21 audit note on docker-compose.local-prod-ngrok.yml's
-      # valkey service for why.
+      # note on docker-compose.local-prod-ngrok.yml's valkey service for why.
       VALKEY_PASSWORD: "${VALKEY_PASSWORD:?VALKEY_PASSWORD must be set for production}"
     command: ["sh", "-c", "echo \"requirepass $$VALKEY_PASSWORD\" > /tmp/valkey.conf && chmod 600 /tmp/valkey.conf && exec valkey-server /tmp/valkey.conf"]
     healthcheck:
@@ -124,10 +113,10 @@ services:
     # app_egress_net: Google OAuth token/userinfo endpoints and outbound
     # SMTP both need a real route to the internet; postgres_net/valkey_net/frontend_proxy
     # are both internal:true (DB/cache/proxy isolation), so without this,
-    # OAuth login and email sending silently fail outbound (confirmed live,
-    # confirmed live). Mirrors db_backup's existing
+    # OAuth login and email sending silently fail outbound (seen in practice).
+    # Mirrors db_backup's existing
     # backup_egress_net pattern below rather than dropping internal:true.
-    networks: [frontend_proxy, postgres_net, valkey_net, app_egress_net]
+    networks: [frontend_proxy, postgres_net, valkey_net, alert_net, app_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
@@ -135,6 +124,28 @@ services:
     # FRONTEND_STATIC_IP/CADDY_STATIC_IP so it can never drift out of sync
     # with the actual pinned addresses below.
     environment:
+      # Blanked (superuser creds unused at runtime, see
+      # docs/mystic_auth/security/decisions-infra.md):
+      # backend queries exclusively through APP_DATABASE_URL (see
+      # core/settings.py); the raw superuser DATABASE_URL/POSTGRES_PASSWORD
+      # from env_file above are overridden to empty here so they're not
+      # readable from this container's own environment.
+      DATABASE_URL: ""
+      POSTGRES_PASSWORD: ""
+      # Secrets that belong to other services (the shared env file feeds this
+      # container too). Blanked so a compromised backend/worker cannot read
+      # the backup key, storage credentials or tunnel/monitoring tokens from
+      # its own environment. tests/.../test_backend_env_secret_isolation_unit.py
+      # fails if a new infra secret is added to the env example without
+      # being listed here.
+      APP_DB_PASSWORD: ""
+      BACKUP_ENCRYPTION_KEY: ""
+      BACKUP_SENTRY_DSN: ""
+      BUGSINK_SECRET_KEY: ""
+      BUGSINK_SUPERUSER_PASSWORD: ""
+      GEOIPUPDATE_LICENSE_KEY: ""
+      NGROK_AUTHTOKEN: ""
+      RCLONE_CONFIG_B2_KEY: ""
       TRUSTED_PROXY_IPS: ${FRONTEND_PROXY_STATIC_IP},${CADDY_STATIC_IP}
       EMAIL_ENABLED: ${EMAIL_ENABLED:?EMAIL_ENABLED must be set explicitly}
     command: |
@@ -147,12 +158,20 @@ services:
       WORKERS=\"$${UVICORN_WORKERS:-}\"
       if [ -z \"$$WORKERS\" ]; then
         WORKERS=$$(nproc)
+        if [ -r /sys/fs/cgroup/cpu.max ]; then
+          read QUOTA PERIOD < /sys/fs/cgroup/cpu.max
+          if [ \"$$QUOTA\" != max ] && [ \"$${PERIOD:-0}\" -gt 0 ]; then
+            LIMIT=$$(( (QUOTA + PERIOD - 1) / PERIOD ))
+            [ \"$$LIMIT\" -lt \"$$WORKERS\" ] && WORKERS=$$LIMIT
+          fi
+        fi
+        [ \"$$WORKERS\" -lt 1 ] && WORKERS=1
         [ \"$$WORKERS\" -gt 4 ] && WORKERS=4
-        echo \"[backend] UVICORN_WORKERS not set - auto-sizing to $$WORKERS worker(s) (min(nproc,4); set UVICORN_WORKERS to override)\"
+        echo \"[backend] UVICORN_WORKERS not set - auto-sizing to $$WORKERS worker(s) (min(CPU cores, container CPU limit, 4); set UVICORN_WORKERS to override)\"
       else
         echo \"[backend] UVICORN_WORKERS=$$WORKERS (explicit)\"
       fi
-      echo \"[backend] DB pool per worker: DB_POOL_SIZE=$$DB_POOL_SIZE DB_MAX_OVERFLOW=$$DB_MAX_OVERFLOW - see docs/mystic_auth/deployment/environment.md#7-scaling-and-load-capacity\"
+      echo \"[backend] DB pool per worker: DB_POOL_SIZE=$$DB_POOL_SIZE DB_MAX_OVERFLOW=$$DB_MAX_OVERFLOW - see docs/mystic_auth/deployment/scaling.md#1-sizing-workers-on-one-host\"
       exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --workers \"$$WORKERS\""
     depends_on:
       postgres:
@@ -277,10 +296,12 @@ services:
       # falls back to a placeholder so an unset ACME_EMAIL doesn't crash-loop.
       ACME_EMAIL: ${ACME_EMAIL:-you@example.com}
       BUGSINK_PUBLIC_DOMAIN: ${BUGSINK_PUBLIC_DOMAIN:-}
+      NTFY_PUBLIC_DOMAIN: ${NTFY_PUBLIC_DOMAIN:-}
     # Pinned address, see the frontend service's TRUSTED_PROXY_IPS comment.
     networks:
       default:
         ipv4_address: ${CADDY_STATIC_IP}
+      ntfy_proxy: {}
     ports:
       - "80:80"
       - "443:443"
@@ -315,12 +336,34 @@ services:
       target: runtime
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
-    networks: [postgres_net, valkey_net]
+    # app_egress_net: this worker sends the verification, password-reset and
+    # account-deletion emails (EMAIL_ENABLED) and security alerts, so it needs a
+    # route to the SMTP server and alert webhook. Without it every email job
+    # fails once EMAIL_ENABLED=true. It still has no published ports and no
+    # access to frontend_proxy.
+    networks: [postgres_net, valkey_net, alert_net, app_egress_net]
     env_file:
       - ../../../env/mystic_auth/.env.prod
       - ../../../env/app/.env.prod
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
+      # See backend's identical override above for why.
+      DATABASE_URL: ""
+      POSTGRES_PASSWORD: ""
+      # Secrets that belong to other services (the shared env file feeds this
+      # container too). Blanked so a compromised backend/worker cannot read
+      # the backup key, storage credentials or tunnel/monitoring tokens from
+      # its own environment. tests/.../test_backend_env_secret_isolation_unit.py
+      # fails if a new infra secret is added to the env example without
+      # being listed here.
+      APP_DB_PASSWORD: ""
+      BACKUP_ENCRYPTION_KEY: ""
+      BACKUP_SENTRY_DSN: ""
+      BUGSINK_SECRET_KEY: ""
+      BUGSINK_SUPERUSER_PASSWORD: ""
+      GEOIPUPDATE_LICENSE_KEY: ""
+      NGROK_AUTHTOKEN: ""
+      RCLONE_CONFIG_B2_KEY: ""
       EMAIL_ENABLED: ${EMAIL_ENABLED:?EMAIL_ENABLED must be set explicitly}
       # The `procrastinate` console-script doesn't add the working directory
       # to sys.path like uvicorn does, so without this the app fails to load
@@ -454,7 +497,7 @@ services:
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY must be set}
-      # Backblaze B2 uses rclone's native backend. See docs/mystic_auth/deployment/migrations-and-backups.md.
+      # Backblaze B2 uses rclone's native backend. See docs/mystic_auth/deployment/database-backups.md.
       BACKUP_UPLOAD_COMMAND: ${BACKUP_UPLOAD_COMMAND:?BACKUP_UPLOAD_COMMAND must be set for production}
       BACKUP_SENTRY_DSN: ${BACKUP_SENTRY_DSN:-}
       B2_BUCKET: ${B2_BUCKET:-}
@@ -469,9 +512,13 @@ services:
       - ../../../backups:/backups
       - bugsink_dsn:/shared/bugsink-dsn:ro
       - db_backup_tmp:/tmp
+    # alembic must have finished: a dump taken before the migrations run holds no
+    # tables and would otherwise look like a good first backup.
     depends_on:
       postgres:
         condition: service_healthy
+      alembic:
+        condition: service_completed_successfully
     # Plain sleep loop instead of cron, simpler than adding a cron daemon to
     # a stock postgres image. `set -e` makes a failed dump exit and restart
     # (visible in `docker compose ps`/logs) rather than skip silently. An
@@ -490,9 +537,12 @@ services:
           PLAINTEXT_FILE="/tmp/$${DB}-$${TIMESTAMP}.dump"
           echo "[db_backup] Dumping and encrypting $${DB} to $${DUMP_FILE}"
           pg_dump -h postgres -U "$$POSTGRES_USER" --format=custom --file="$$PLAINTEXT_FILE" "$$DB" || { rc=$$?; /usr/local/bin/backup-failure-alert "pg_dump failed for $$DB"; exit $$rc; }
+          # A dump with no tables is not a backup (migrations had not run yet). Drop it so it
+          # cannot count as a fresh backup, and try again next cycle.
+          if ! pg_restore --list "$$PLAINTEXT_FILE" | grep " TABLE " >/dev/null; then rm -f "$$PLAINTEXT_FILE"; echo "[db_backup] SKIPPED $${DB}: dump has no tables yet"; /usr/local/bin/backup-failure-alert "backup skipped for $$DB: dump has no tables"; continue; fi
           openssl enc -aes-256-cbc -pbkdf2 -salt -in "$$PLAINTEXT_FILE" -out "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY || { rc=$$?; rm -f "$$PLAINTEXT_FILE"; /usr/local/bin/backup-failure-alert "backup encryption failed for $$DB"; exit $$rc; }
           rm -f "$$PLAINTEXT_FILE"
-          openssl enc -d -aes-256-cbc -pbkdf2 -in "$$DUMP_FILE" -pass env:BACKUP_ENCRYPTION_KEY | pg_restore --list >/dev/null || { rc=$$?; /usr/local/bin/backup-failure-alert "encrypted backup verification failed for $$DUMP_FILE"; exit $$rc; }
+          { openssl enc -d -aes-256-cbc -pbkdf2 -in "$$DUMP_FILE" -out "$$DUMP_FILE.verify" -pass env:BACKUP_ENCRYPTION_KEY && pg_restore --list "$$DUMP_FILE.verify" >/dev/null; rc=$$?; rm -f "$$DUMP_FILE.verify"; [ "$$rc" -eq 0 ]; } || { /usr/local/bin/backup-failure-alert "encrypted backup verification failed for $$DUMP_FILE"; exit $$rc; }
           /usr/local/bin/backup-hmac tag "$$DUMP_FILE" "$$BACKUP_ENCRYPTION_KEY" || { rc=$$?; /usr/local/bin/backup-failure-alert "HMAC tagging failed for $$DUMP_FILE"; exit $$rc; }
           echo "[db_backup] Wrote encrypted $${DUMP_FILE} ($$(du -h "$$DUMP_FILE" | cut -f1))"
           if [ -n "$$BACKUP_UPLOAD_COMMAND" ]; then
@@ -537,6 +587,10 @@ services:
       # Bugsink (Django) reads its own EMAIL_* names, so this reuses
       # SMTP_HOST/FROM_EMAIL/GMAIL_APP_PASSWORD rather than a second mail
       # account. See docs/mystic_auth/error-monitoring/overview.md.
+      # Error emails are OFF by default (the quiet console backend only logs the
+      # subject). Turn them on with BUGSINK_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      # in the env file; see docs/mystic_auth/error-monitoring/overview.md.
+      EMAIL_BACKEND: ${BUGSINK_EMAIL_BACKEND:-bugsink.email_backends.QuietConsoleEmailBackend}
       EMAIL_HOST: ${SMTP_HOST}
       EMAIL_PORT: ${SMTP_PORT}
       EMAIL_HOST_USER: ${FROM_EMAIL}
@@ -635,8 +689,56 @@ services:
       print('Seeded Bugsink project ' + str(project.id) + ', key ' + key)
       \""
 
+  # Self-hosted ntfy: the private channel for security alerts. The backend and
+  # worker post to it over alert_net (internal, no internet route), so alert
+  # text never leaves your own infrastructure. Access is deny-all: only the
+  # users and tokens created by scripts/mystic_auth/ntfy/ntfy-setup.sh can
+  # read or write. See docs/mystic_auth/error-monitoring/ntfy-alerts.md.
+  ntfy:
+    <<: *container_hardening
+    image: binwiederhier/ntfy:v2.37.1@sha256:a1dde1f3210b68ac0c29e53298c96a988d06c320d1201d72f3e8e224d1a546f3
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    command: ["serve"]
+    # app_egress_net is only used when NTFY_UPSTREAM_BASE_URL is set (iOS
+    # push, see the doc); without it ntfy makes no outbound calls.
+    networks: [alert_net, ntfy_proxy, app_egress_net]
+    env_file:
+      - ../../../env/mystic_auth/.env.prod
+      - ../../../env/app/.env.prod
+    environment:
+      NTFY_BASE_URL: ${NTFY_BASE_URL:?NTFY_BASE_URL must be set}
+      NTFY_LISTEN_HTTP: ":8080"
+      NTFY_AUTH_FILE: /var/lib/ntfy/user.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_CACHE_FILE: /var/lib/ntfy/cache.db
+      NTFY_CACHE_DURATION: 12h
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_WEB_ROOT: disable
+      NTFY_ENABLE_SIGNUP: "false"
+      NTFY_ENABLE_LOGIN: "false"
+      NTFY_UPSTREAM_BASE_URL: ${NTFY_UPSTREAM_BASE_URL:-}
+    volumes:
+      - ntfy_data:/var/lib/ntfy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+          pids: 64
+
 volumes:
   postgres_data:
+  # ntfy's user database and message cache. Losing it means re-running
+  # scripts/mystic_auth/ntfy/ntfy-setup.sh and re-subscribing the phone.
+  ntfy_data:
   bugsink_dsn:
   # Caddy's cert/ACME state. Losing it means re-issuing certs, which Let's
   # Encrypt rate-limits, so this persists across `docker compose down`.
@@ -650,6 +752,13 @@ volumes:
   db_backup_tmp:
 
 networks:
+  # Only backend, procrastinate_worker and ntfy: alerts are posted here and
+  # nowhere else. internal: true means no route to or from the internet.
+  alert_net:
+    internal: true
+  # Only caddy and ntfy, so the proxy can publish ntfy without joining alert_net.
+  ntfy_proxy:
+    internal: true
   # Distinct subnet so any local-prod variant can run alongside this one
   # without a pool collision. Set in env/mystic_auth/.env.prod - change it if another
   # mystic-auth fork's stack on this machine uses the same subnet. See

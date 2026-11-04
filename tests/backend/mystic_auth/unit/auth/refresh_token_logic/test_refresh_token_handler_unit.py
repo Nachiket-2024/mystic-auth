@@ -13,6 +13,7 @@ import pytest
 from backend.mystic_auth.auth.refresh_token_logic.refresh_token_handler import (
     refresh_token_handler,
 )
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 HANDLER_MODULE = "backend.mystic_auth.auth.refresh_token_logic.refresh_token_handler"
 
@@ -129,7 +130,7 @@ async def test_refresh_lockout_is_also_keyed_by_account_not_just_ip(mocker):
     )
 
     async def _is_locked(key: str) -> bool:
-        return "account:victim@example.com" in key
+        return f"account:{email_key_id('victim@example.com')}" in key
 
     is_locked_mock = mocker.patch(
         f"{HANDLER_MODULE}.login_protection_service.is_locked", side_effect=_is_locked
@@ -141,7 +142,7 @@ async def test_refresh_lockout_is_also_keyed_by_account_not_just_ip(mocker):
     assert getattr(exc_info.value, "status_code", None) == 429
     checked_keys = [call.args[0] for call in is_locked_mock.call_args_list]
     assert any("ip:1.2.3.4" in k for k in checked_keys)
-    assert any("account:victim@example.com" in k for k in checked_keys)
+    assert any(f"account:{email_key_id('victim@example.com')}" in k for k in checked_keys)
 
 
 @pytest.mark.asyncio
@@ -164,7 +165,7 @@ async def test_refresh_failure_records_against_both_ip_and_account_locks(mocker)
     assert getattr(exc_info.value, "status_code", None) == 401
     recorded_keys = [call.args[0] for call in record_mock.call_args_list]
     assert any("ip:1.2.3.4" in k for k in recorded_keys)
-    assert any("account:victim@example.com" in k for k in recorded_keys)
+    assert any(f"account:{email_key_id('victim@example.com')}" in k for k in recorded_keys)
 
 
 @pytest.mark.asyncio

@@ -88,24 +88,14 @@ export function DataTableRow<T>({
         onRowClick();
     };
 
-    // bg-row-hover: brand color at low opacity (color-mix over
-    // brand-solid), matching .nav-item:hover/.tile:hover elsewhere in the
-    // app. Kept distinct from the sticky header's own background
-    // (DataTableStyles.ts's STICKY_HEADER_CELL_CLASS) and from
-    // border-strong (a different token despite the similar name) - that
-    // pairing is what the selectable column's unchecked checkbox border is
-    // drawn in, and this app hit that exact collision once already when
-    // hover briefly used a flat gray directly: the checkbox border blended
-    // straight into its own hovered background. bg-row-hover is a
-    // translucent brand tint, not a flat gray, so it doesn't repeat that
-    // collision either. A checked row gets bg-brand-selected, the same
-    // token Sidebar/CommandPalette use for "currently selected", not accent
-    // or a solid brand fill which would fight text contrast.
+    // bg-row-hover is a translucent brand tint (color-mix over brand-solid), not
+    // a flat gray, so the selectable column's unchecked checkbox border
+    // (border-strong) does not blend into a hovered row. It is also distinct
+    // from the sticky header background (DataTableStyles.ts). A checked row uses
+    // bg-brand-selected, the token Sidebar/CommandPalette use for "selected".
     //
-    // Applied to each <td>, not <tr>: a child's painted background always
-    // sits on top of its parent's, so a bg on the row alone wouldn't
-    // visibly show through cell content anyway - painting each cell
-    // directly is the reliable way to color a row.
+    // Applied to each <td>, not <tr>: a child's background paints over its
+    // parent's, so a row background would not show through cell content.
     const cellBgClass = isSelected || isActive
         ? "bg-[color-mix(in_srgb,var(--brand-solid)_11%,var(--bg-surface))] dark:bg-[color-mix(in_srgb,var(--brand-solid)_22%,var(--bg-surface))]"
         : // group-hover (needs className="group" on the ancestor, not

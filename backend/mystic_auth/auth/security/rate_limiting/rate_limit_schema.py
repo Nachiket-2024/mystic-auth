@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class RateLimitEntryRead(BaseModel):
-    """One live Valkey-backed rate-limit counter, as shown on the admin Rate
+    """One live Valkey-backed rate-limit counter, as shown on the Rate
     Limit Dashboard. `key` is the raw Valkey key (endpoint:scope:identifier),
     kept so the frontend can target DELETE /rate-limits/{key} for a
     row-level Reset without having to reconstruct it client-side."""
@@ -11,6 +11,9 @@ class RateLimitEntryRead(BaseModel):
     endpoint: str
     scope: str
     identifier: str
+    # Email (or "email from IP") for a counter keyed by a digest, when it can be
+    # matched to an account. See rate_limit_identifier_labels.py.
+    identifier_label: str | None = None
     count: int
     limit: int
     resets_in_seconds: int | None

@@ -13,8 +13,8 @@ function makeAxiosError(data: unknown): AxiosError {
 }
 
 describe('extractApiErrorMessage', () => {
-  it('reads this app\'s own { error: string } shape', () => {
-    expect(extractApiErrorMessage(makeAxiosError({ error: 'Invalid credentials or account locked' }), 'fallback'))
+  it('reads the { detail: string } shape', () => {
+    expect(extractApiErrorMessage(makeAxiosError({ detail: 'Invalid credentials or account locked' }), 'fallback'))
       .toBe('Invalid credentials or account locked');
   });
 
@@ -23,9 +23,8 @@ describe('extractApiErrorMessage', () => {
       .toBe('Password does not meet minimum strength requirements');
   });
 
-  it('prefers { error } over { detail } when both are present', () => {
-    expect(extractApiErrorMessage(makeAxiosError({ error: 'from error', detail: 'from detail' }), 'fallback'))
-      .toBe('from error');
+  it('ignores a legacy { error } body, since the backend no longer sends one', () => {
+    expect(extractApiErrorMessage(makeAxiosError({ error: 'legacy' }), 'fallback')).toBe('fallback');
   });
 
   it('falls back when detail is a list of Pydantic validation errors, not a string', () => {

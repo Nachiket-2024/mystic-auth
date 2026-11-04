@@ -51,18 +51,13 @@ interface GroupedSearchSelectProps {
 }
 
 /**
- * Searchable, grouped single-select combobox: a typed query narrows visible
- * options across every group at once, sticky group headers stay visible
- * while scrolling a long list, and arrow keys move a highlighted row
- * independent of literal DOM/mouse focus (Radix's own Select has no search
- * box and no grouping, hence this from-scratch popover instead of
- * StyledSelect - see .project/audit-log-design-review.md's "Picks needed"
- * for the shared-with-Users-page context this was built under).
+ * Searchable, grouped single-select combobox: a typed query narrows options across
+ * every group, sticky group headers stay visible while scrolling, and arrow keys
+ * move a highlighted row independent of DOM focus. Radix's Select has no search
+ * box or grouping, hence this from-scratch popover instead of StyledSelect.
  *
- * Deliberately generic over `groups`/`allValue`/`allLabel` rather than
- * baking in "actions" or "events": both the Action and Event pickers on
- * this page, and any future page needing the same shape, pass their own
- * vocabulary in.
+ * Generic over `groups`/`allValue`/`allLabel`, so the Action and Event pickers
+ * (and any future page) pass their own vocabulary.
  */
 const GroupedSearchSelect: React.FC<GroupedSearchSelectProps> = ({
     value, onChange, groups, allValue, allLabel, ariaLabel, searchPlaceholder, isActive, className, onSelectGroup,

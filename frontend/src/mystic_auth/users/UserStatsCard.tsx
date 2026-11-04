@@ -17,8 +17,7 @@ interface UserStatsCardProps {
     /** Filters the table to deactivated users only. */
     onFilterInactive?: () => void;
     /** Which tile's own filter combination is currently applied, if any -
-     * drives the pressed/brand-highlighted look (design/users.html's
-     * `.tile[aria-pressed="true"]`), so the row also reads as "what this
+     * drives the pressed/brand-highlighted look (aria-pressed), so the row also reads as "what this
      * table is filtered to" rather than just four buttons. */
     activeTile?: UserStatTileKey | null;
 }
@@ -31,11 +30,9 @@ interface UserStatsCardProps {
  * page/search/filters are currently applied, so the numbers don't shift as
  * an operator pages or filters through the list.
  *
- * One row of brand-tinted tiles under the page title (design/users.html:
- * "Stat tiles are one short row under the title, so the filters get the
- * full width instead of wrapping beside a tall stats card") - rendered via
- * UsersPage's `headerExtra`, not `actions`, so it spans the full width
- * instead of sitting narrow beside the title.
+ * One short row of brand-tinted tiles under the page title, so the filters keep
+ * the full width. Rendered via UsersPage's `headerExtra`, not `actions`, so it
+ * spans the full width.
  *
  * Each tile also acts as a filter shortcut when its handler is supplied:
  * clicking "Verified" applies the same filter as the Verified select below,

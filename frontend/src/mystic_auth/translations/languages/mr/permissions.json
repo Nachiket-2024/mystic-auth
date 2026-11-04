@@ -56,14 +56,6 @@
         "groupInPolicyCount_one": "{{count}} धोरणात",
         "groupInPolicyCount_other": "{{count}} धोरणांमध्ये"
     },
-    "howItWorks": {
-        "actionsTitle": "क्रिया",
-        "actionsDescription": "लोकांना करण्याची परवानगी दिली जाऊ शकते अशा गोष्टी, जसे “वापरकर्ते पहा”.",
-        "policiesTitle": "धोरणे",
-        "policiesDescription": "क्रियांचे नामांकित गट.",
-        "peopleTitle": "लोक",
-        "peopleDescription": "प्रत्यक्षात कोणाला प्रवेश मिळतो."
-    },
     "columns": {
         "action": "क्रिया",
         "resourceType": "संसाधन प्रकार",

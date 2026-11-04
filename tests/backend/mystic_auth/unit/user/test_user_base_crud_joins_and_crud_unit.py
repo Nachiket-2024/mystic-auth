@@ -1,17 +1,12 @@
 # tests/backend/mystic_auth/unit/user/test_user_base_crud_joins_and_crud_unit.py
 #
 # UserBaseCRUD's policy/permission join-based filters (_apply_filters) plus
-# update/delete. Column-level filter/sort builders and get_all/count's basic
-# path live in test_user_base_crud_filters_unit.py - split out of one
-# 354-line file, see AGENTS.md's ~350-line target.
+# update/delete. Column-level filters live in test_user_base_crud_filters_unit.py.
 #
-# "policy" and "permission" aren't columns on the users table at all:
-# matching them requires joining through user_policies -> policies, which is
-# easy to get subtly wrong (missing distinct() double-counting a user who
-# holds several matching policies, or leaking the join into every other,
-# unrelated query). Covered directly against the compiled SQL, same approach
-# as the column-level filters, rather than only indirectly via the
-# route-level integration tests.
+# "policy" and "permission" are not columns on users: matching them joins through
+# user_policies -> policies, which is easy to get wrong (a missing distinct()
+# double-counting a user with several matching policies, or the join leaking into
+# unrelated queries). Checked against the compiled SQL.
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest

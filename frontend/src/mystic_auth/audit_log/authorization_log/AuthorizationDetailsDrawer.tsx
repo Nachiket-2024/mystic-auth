@@ -21,17 +21,13 @@ interface AuthorizationDetailsDrawerProps {
     total: number | undefined;
     onPrevious: () => void;
     onNext: () => void;
-    /** Whether prev/next can actually move right now - independent of index/total, since
-     * those are the *global* filtered-result position (for display) while onPrevious/onNext
-     * currently only move within the caller's already-loaded page of rows (see
-     * AllAuthorizationLogSection's docstring on openRowIndex). Deriving these from
-     * index<total would enable a Next button that does nothing on a page's last row.
-     *
-     * Deliberately scoped to one page, not extended to fetch the adjacent page at a boundary:
-     * that would need a second in-flight query per drawer nav (racy with the table's own
-     * paging/filter state, which can change while the drawer is open) for a rare case - PAGE_SIZE
-     * is 25, so hitting a boundary means having already stepped through 24 rows in one sitting.
-     * Prev/Next simply disable at the boundary instead (this prop), same as Pagination's own
+    /** Whether prev/next can actually move right now. Independent of index/total,
+     * which are the global filtered-result position, while onPrevious/onNext only
+     * move within the already-loaded page (see AllAuthorizationLogSection's
+     * openRowIndex). Deliberately one page only: fetching the adjacent page would
+     * race the table's own paging/filter state for a rare case (PAGE_SIZE is 25).
+     * Prev/Next disable at the boundary instead, like Pagination's own
+Prev/Next simply disable at the boundary instead (this prop), same as Pagination's own
      * disabled Prev on page 1 - a real limit, not a broken button. */
     canGoPrevious: boolean;
     canGoNext: boolean;
@@ -42,7 +38,7 @@ interface AuthorizationDetailsDrawerProps {
 }
 
 /**
- * Authorization decision detail sections (design/audit-log.html): Decision, Policies (granted-
+ * Authorization decision detail sections: Decision, Policies (granted-
  * by vs. considered-but-not-granting), Failed conditions (denials only), Request context
  * rendered as readable rows. Every field here already comes back from GET /authorization/audit-log - this only
  * lays it out, no extra fetch.

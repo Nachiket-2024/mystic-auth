@@ -56,7 +56,7 @@ class PasswordResetRequestHandler:
         except Exception:
             logger.error("Error during password reset request logic:\n%s", traceback.format_exc())
             return JSONResponse(
-                content={"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
+                content={"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
             )
         finally:
             # Unknown addresses take the short database-lookup path, while

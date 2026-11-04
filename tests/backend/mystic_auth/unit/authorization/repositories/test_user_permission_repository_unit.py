@@ -92,6 +92,8 @@ async def test_assign_permission_to_user_inserts_new_row_when_none_exists(mocker
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
     db.add = MagicMock()
+    db.begin_nested = MagicMock(return_value=MagicMock(__aenter__=AsyncMock(), __aexit__=AsyncMock(return_value=False)))
+    db.flush = AsyncMock()
 
     await UserPermissionRepository.assign_permission_to_user(
         user_id=1, action="users:list_all", resource_type="users", conditions=None,
@@ -141,6 +143,8 @@ async def test_assign_permission_to_user_skips_invalidation_when_email_not_given
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
     db.add = MagicMock()
+    db.begin_nested = MagicMock(return_value=MagicMock(__aenter__=AsyncMock(), __aexit__=AsyncMock(return_value=False)))
+    db.flush = AsyncMock()
 
     await UserPermissionRepository.assign_permission_to_user(
         user_id=1, action="users:list_all", resource_type="users", conditions=None, db=db, assigned_by="system",

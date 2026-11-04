@@ -19,7 +19,7 @@ A test that exercises a real flow end to end against real dependencies (a real P
 
 ## security test suite
 
-A dedicated backend test suite (`tests/backend/mystic_auth/security/`) specifically targeting abuse scenarios: batch authorization abuse, context spoofing, invalid condition payloads, policy tampering, privilege escalation, and (opt-in) least-privilege database role checks. See [Testing Overview](../testing/overview.md).
+A dedicated backend test suite (`tests/backend/mystic_auth/security/`) specifically targeting abuse scenarios: batch authorization abuse, context spoofing, invalid condition payloads, policy tampering, privilege escalation, passkey management permissions, and (opt-in) least-privilege database role checks. See [Testing Overview](../testing/overview.md).
 
 ---
 

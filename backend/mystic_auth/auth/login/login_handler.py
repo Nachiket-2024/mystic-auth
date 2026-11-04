@@ -1,5 +1,3 @@
-import hashlib
-import hmac
 import math
 import traceback
 
@@ -7,11 +5,20 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...audit_log.audit_log_service import LOGIN_FAILURE, LOGIN_IP_LOCKED, LOGIN_SUCCESS, log_security_event
+from ...audit_log.audit_log_service import (
+    LOGIN_ACCOUNT_COOLDOWN,
+    LOGIN_FAILURE,
+    LOGIN_IP_LOCKED,
+    LOGIN_SUCCESS,
+    log_security_event,
+)
+from ...core.errors import AppError
 from ...core.settings import settings
 from ...error_monitoring.sentry_service import capture_security_alert
 from ...logging.logging_config import get_logger
+from ..security import account_cooldown_service
 from ..security.login_protection_service import login_protection_service
+from ..security.rate_limiting.account_keys import account_ip_digest
 from ..token_logic.token_cookie_handler import token_cookie_handler
 from ..token_logic.token_schema import TokenPairResponseSchema
 from .login_service import login_service
@@ -24,9 +31,7 @@ class LoginHandler:
 
     @staticmethod
     def _lock_key(email: str, client_ip: str) -> str:
-        pair = f"{email.strip().casefold()}\0{client_ip}".encode()
-        digest = hmac.new(settings.SECRET_KEY.encode("utf-8"), pair, hashlib.sha256).hexdigest()
-        return f"login_lock:account_ip:{digest}"
+        return f"login_lock:account_ip:{account_ip_digest(email, client_ip)}"
 
     @staticmethod
     def _lockout_response(retry_after_seconds: int) -> JSONResponse:
@@ -39,7 +44,7 @@ class LoginHandler:
         retry_after_minutes = math.ceil(retry_after_seconds / 60)
         response = JSONResponse(
             content={
-                "error": "Too many failed login attempts. Login is temporarily throttled.",
+                "detail": "Too many failed login attempts. Login is temporarily throttled.",
                 "code": "LOGIN_THROTTLED",
                 "params": {"minutes": retry_after_minutes},
             },
@@ -64,7 +69,7 @@ class LoginHandler:
         try:
             if not email or not password:
                 return JSONResponse(
-                    content={"error": "Email and password are required", "code": "EMAIL_PASSWORD_REQUIRED"},
+                    content={"detail": "Email and password are required", "code": "EMAIL_PASSWORD_REQUIRED"},
                     status_code=400,
                 )
 
@@ -82,6 +87,11 @@ class LoginHandler:
                     await login_protection_service.get_remaining_seconds(lock_key)
                 )
 
+            # Per-account brake across all sources (see account_cooldown_service).
+            cooldown = await account_cooldown_service.cooldown_remaining_seconds(email)
+            if cooldown:
+                return self._lockout_response(cooldown)
+
             tokens: TokenPairResponseSchema | None = await login_service.login(
                 email=email, password=password, db=db, request=request
             )
@@ -97,6 +107,22 @@ class LoginHandler:
                 success=success,
                 request=request,
             )
+
+            if success:
+                await account_cooldown_service.reset(email)
+            elif await account_cooldown_service.record_failure(email):
+                await log_security_event(
+                    LOGIN_ACCOUNT_COOLDOWN, db, user_email=email, success=False, request=request
+                )
+                await capture_security_alert(
+                    LOGIN_ACCOUNT_COOLDOWN,
+                    metadata={
+                        "target_email": email,
+                        "threshold": settings.LOGIN_ACCOUNT_FAILURE_THRESHOLD,
+                        "window_seconds": settings.LOGIN_ACCOUNT_FAILURE_WINDOW_SECONDS,
+                        "request_id": getattr(request.state, "request_id", "") if request else "",
+                    },
+                )
 
             lock_allowed = await login_protection_service.check_and_record_action(
                 lock_key,
@@ -124,17 +150,21 @@ class LoginHandler:
 
             if not tokens:
                 return JSONResponse(
-                    content={"error": "Invalid credentials", "code": "INVALID_CREDENTIALS"},
+                    content={"detail": "Invalid credentials", "code": "INVALID_CREDENTIALS"},
                     status_code=401,
                 )
 
             response = JSONResponse(content={"message": "Login successful"})
             return token_cookie_handler.set_tokens_in_cookies(response, tokens)
 
+        except AppError:
+            # A store outage (503 + Retry-After), not a server bug.
+            raise
+
         except Exception:
             logger.error("Error during login:\n%s", traceback.format_exc())
             return JSONResponse(
-                content={"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
+                content={"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
             )
 
 

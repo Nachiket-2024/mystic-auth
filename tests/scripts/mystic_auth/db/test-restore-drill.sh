@@ -4,11 +4,9 @@
 # docker-build job before this runs) - unlike the env-tools regression
 # suite, this genuinely needs a live database, not a throwaway temp dir.
 #
-# Covers the real bug found building the drill itself: pg_dump --file=-
-# silently wrote a 0-byte dump on this image's pg_dump build instead of
-# writing to stdout, and database-backup.sh used exactly that pattern. Both
-# scripts now omit --file and rely on stdout redirection instead - see
-# their own comments at the fixed line.
+# Covers a real bug: pg_dump --file=- wrote a 0-byte dump on this image's
+# pg_dump build instead of writing to stdout. Both scripts now omit --file and
+# redirect stdout.
 #
 # Usage (from repo root, dev stack's postgres already up):
 #   tests/scripts/mystic_auth/db/test-restore-drill.sh

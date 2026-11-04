@@ -26,14 +26,11 @@ interface PolicyActionGridProps {
 /**
  * PolicyActionGrid
  * ----------------------------
- * design/policies.html's create/edit dialog Actions tab: a toolbar with an
- * All/Selected/Destructive quick filter and a search box.
- * above the same `.agroup`/`.aitems` grouped-table layout PolicyActionGroups
- * uses for the read-only card/details views, except each row is a Switch
- * toggle instead of static text. Replaces ActionChipGroup, which had no
- * search for a resource type with a large action
- * count.
- *
+ * The create/edit dialog's Actions tab: a toolbar with an
+ * All/Selected/Destructive quick filter and a search box, above the same
+ * `.agroup`/`.aitems` grouped layout PolicyActionGroups uses for the read-only
+ * views, except each row is a Switch toggle. Search matters for a resource type
+ * with a large action count.
  */
 const PolicyActionGrid: React.FC<PolicyActionGridProps> = ({
   values,

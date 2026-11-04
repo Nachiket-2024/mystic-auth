@@ -32,8 +32,7 @@ See [Security Decisions: Infrastructure](decisions-infra.md) for the full entrie
 - [`.dockerignore` previously let local files leak into built images](decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images): two real, verified image-content leaks, both fixed.
 - [`Settings` ignores env vars it doesn't declare](decisions-infra.md#settings-ignores-env-vars-it-doesnt-declare-because-env-is-shared-with-docker-compose): because `.env` is shared with Docker Compose.
 - [A malformed `SENTRY_DSN` must never crash the app](decisions-infra.md#a-malformed-sentry_dsn-must-never-crash-the-app): `init_sentry()` fails soft, monitoring-only.
-- [Background task queue: Taskiq vs Celery](decisions-infra.md#background-task-queue-taskiq-vs-celery): the original reasoning, kept as historical record.
-- [Taskiq replaced with Procrastinate](decisions-infra.md#taskiq-replaced-with-procrastinate): a full swap to a Postgres-native queue, and why.
+- [Background task queue: Procrastinate on Postgres](decisions-infra.md#background-task-queue-procrastinate-on-postgres): why jobs live in Postgres instead of a Valkey broker or Celery.
 - [Least-privilege app DB role instead of running as Postgres superuser](decisions-infra.md#least-privilege-app-db-role-instead-of-running-as-postgres-superuser): what it protects against, what it doesn't, and why not Row-Level Security.
 - [Test suite gets its own dedicated Postgres database](decisions-infra.md#test-suite-gets-its-own-dedicated-postgres-database): a real dev-stack procrastinate_worker crash, traced to tests deleting jobs out from under it.
 
@@ -44,7 +43,6 @@ See [Security Decisions: Infrastructure](decisions-infra.md) for the full entrie
 See [Security Decisions: Product](decisions-product.md) for the full entries.
 
 - [Account lifecycle: soft delete by default](decisions-product.md#account-lifecycle-soft-delete-by-default): reversible by default, purge gated by its own permission, grace-period auto-purge.
-- [Why MFA is not enabled](decisions-product.md#why-mfa-is-not-enabled): an intentionally deferred scope boundary, with the hooks already in place.
-- [Intentionally deferred features](decisions-product.md#intentionally-deferred-features): non-SMTP email providers, deploy automation. See [Known Issues](../concerns/README.md) for the current backlog of accepted gaps and follow-ups.
+- [Why MFA is not enabled](decisions-product.md#why-mfa-is-not-enabled): a deliberate scope boundary, with optional passkeys offered instead and the hooks already in place.
 
 ---

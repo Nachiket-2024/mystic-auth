@@ -61,6 +61,86 @@ export function deleteBrowserSystemUser(email: string) {
   });
 }
 
+/**
+ * Pretends the user logged in `minutes` ago so the passkey step-up window
+ * (15 minutes since login) has lapsed, without waiting in real time.
+ */
+export function ageBrowserSessions(email: string, minutes: number) {
+  execFileSync("docker", [
+    ...composeArgs,
+    "exec",
+    "-T",
+    "-e",
+    `PLAYWRIGHT_SYSTEM_EMAIL=${email}`,
+    "-e",
+    `PLAYWRIGHT_SESSION_AGE_MINUTES=${minutes}`,
+    "backend",
+    "python",
+    "-c",
+    ageSessionsPython,
+  ], {
+    cwd: process.cwd().endsWith("/frontend") ? ".." : ".",
+    stdio: "pipe",
+  });
+}
+
+/** Inserts `count` placeholder passkey rows (no real authenticator behind them) for list/bulk-removal UI checks. */
+export function seedBrowserPasskeyRows(email: string, count: number) {
+  execFileSync("docker", [
+    ...composeArgs,
+    "exec",
+    "-T",
+    "-e",
+    `PLAYWRIGHT_SYSTEM_EMAIL=${email}`,
+    "-e",
+    `PLAYWRIGHT_PASSKEY_ROWS=${count}`,
+    "backend",
+    "python",
+    "-c",
+    seedPasskeyRowsPython,
+  ], {
+    cwd: process.cwd().endsWith("/frontend") ? ".." : ".",
+    stdio: "pipe",
+  });
+}
+
+const seedPasskeyRowsPython = String.raw`
+import asyncio
+import os
+from sqlalchemy import text
+from mystic_auth.database.connection import database
+
+async def main():
+    async for db in database.get_session():
+        for i in range(int(os.environ["PLAYWRIGHT_PASSKEY_ROWS"])):
+            await db.execute(
+                text("INSERT INTO passkey_credentials (user_id, credential_id, public_key, sign_count, name) VALUES ((SELECT id FROM users WHERE email = :e), :cid, :pk, 0, :n)"),
+                {"e": os.environ["PLAYWRIGHT_SYSTEM_EMAIL"], "cid": os.urandom(16), "pk": b"placeholder", "n": f"Seeded key {i + 1}"},
+            )
+        await db.commit()
+        return
+
+asyncio.run(main())
+`;
+
+const ageSessionsPython = String.raw`
+import asyncio
+import os
+from sqlalchemy import text
+from mystic_auth.database.connection import database
+
+async def main():
+    async for db in database.get_session():
+        await db.execute(
+            text("UPDATE user_sessions SET created_at = now() - make_interval(mins => :m) WHERE user_id = (SELECT id FROM users WHERE email = :e)"),
+            {"m": int(os.environ["PLAYWRIGHT_SESSION_AGE_MINUTES"]), "e": os.environ["PLAYWRIGHT_SYSTEM_EMAIL"]},
+        )
+        await db.commit()
+        return
+
+asyncio.run(main())
+`;
+
 const seedPython = String.raw`
 import asyncio
 import os

@@ -16,7 +16,8 @@ Lets a user authenticate with their Google account instead of (or in addition to
 | File | Role |
 |---|---|
 | `backend/mystic_auth/auth/oauth2/oauth2_login_handler.py` | Route-facing orchestration: builds the Google redirect, validates the callback, issues the app's own JWTs |
-| `backend/mystic_auth/auth/oauth2/oauth2_service.py` | State/PKCE generation and storage, Google token exchange, userinfo fetch, user creation/login |
+| `backend/mystic_auth/auth/oauth2/oauth2_service.py` | State/PKCE generation and storage, Google consent URL (`build_authorization_url`), token exchange, userinfo fetch, user creation/login. State can carry a passkey step-up context |
+| `backend/mystic_auth/auth/passkeys/passkey_google_step_up_handler.py` | Reuses this flow to re-check a signed-in user with Google for passkey changes. The shared callback hands it the result and never logs anyone in. See [Passkeys](passkeys.md) |
 | `backend/mystic_auth/api/auth_routes/auth_routes.py` | `GET /auth/oauth2/login/google`, `GET /auth/oauth2/callback/google` |
 | `frontend/src/mystic_auth/auth/oauth2/` | `OAuth2LoginButton`/`OAuth2LoginButtonComponent`: a plain link/redirect to the backend's initiate endpoint, no client-side OAuth SDK involved |
 

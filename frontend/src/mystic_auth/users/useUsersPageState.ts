@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { usePageResetOn } from "../ui/hooks/usePageResetOn";
 import { toaster } from "../ui/toaster/toasterInstance";
 import { useAuthStore } from "../store/authStore";
+import { useCan } from "../authorization/useCan";
+import { PERMISSIONS } from "../authorization/permissions";
 import { useLanguageStore } from "../store/languageStore";
 import { useUsersQuery, fetchAllMatchingUserEmails } from "./queries/userQueries";
 import {
@@ -28,7 +30,7 @@ function toBoolFilter(value: string): boolean | undefined {
 
 /** Filter/sort/pagination/selection state and handlers for UsersPage, split
  * out so that file stays composition and JSX. Filter/sort state itself
- * lives in useUsersPageFilters.ts, see AGENTS.md's ~350-line target. */
+ * lives in useUsersPageFilters.ts, see the repo's ~350-line target. */
 export function useUsersPageState() {
     const { t } = useTranslation(["users", "ui_text"]);
     const {
@@ -64,14 +66,17 @@ export function useUsersPageState() {
     // Shared with handleExport and handleSelectAllMatching below: both need
     // the same server-side filters as the table itself, minus sort (neither
     // cares about row order).
+    // Policy/permission filters reveal who holds which access (policies:read
+    // information). A deep link or stale state must not send them without it.
+    const canFilterByAccess = useCan(PERMISSIONS.POLICIES_READ);
     const activeFilters = {
         search: debouncedSearch,
         role: role || undefined,
         isVerified: toBoolFilter(verified),
         status: status || undefined,
-        policy: policy || undefined,
-        permission: permission || undefined,
-        permissionSource,
+        policy: canFilterByAccess ? policy || undefined : undefined,
+        permission: canFilterByAccess ? permission || undefined : undefined,
+        permissionSource: canFilterByAccess ? permissionSource : undefined,
         lastLogin: lastLogin || undefined,
     };
 
@@ -97,6 +102,7 @@ export function useUsersPageState() {
     // that can only ever fail. accessTab picks which of UserAccessDialog's
     // three tabs a row's icon (View/Policies/Permissions) jumps straight to.
     const [accessUser, setAccessUser] = useState<ManagedUserRead | null>(null);
+    const [passkeysUser, setPasskeysUser] = useState<ManagedUserRead | null>(null);
     const [accessTab, setAccessTab] = useState<"details" | "policies" | "permissions">("details");
 
     // Bulk multi-select, keyed by user id. Reset whenever the page or filters
@@ -236,6 +242,7 @@ export function useUsersPageState() {
             setAccessUser(user);
         },
         onReactivate: handleReactivate,
+        onManagePasskeys: setPasskeysUser,
         reactivatingEmail: reactivateMutation.isPending ? reactivateMutation.variables?.userEmail : undefined,
         onPurgeRequest: setPurgingUser,
         onDeleteRequest: setDeletingUser,
@@ -281,6 +288,8 @@ export function useUsersPageState() {
         setPendingRoleChange,
         accessUser,
         setAccessUser,
+        passkeysUser,
+        setPasskeysUser,
         accessTab,
         selectedUserIds,
         setSelectedUserIds,

@@ -118,6 +118,8 @@ async def test_assign_policy_to_user_invalidates_only_that_users_cache_when_emai
     db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
+    db.begin_nested = MagicMock(return_value=MagicMock(__aenter__=AsyncMock(), __aexit__=AsyncMock(return_value=False)))
+    db.flush = AsyncMock()
 
     await PolicyRepository.assign_policy_to_user(
         user_id=1, policy_id=2, db=db, assigned_by="admin@example.com", user_email="target@example.com"
@@ -138,6 +140,8 @@ async def test_assign_policy_to_user_skips_invalidation_when_email_not_given(moc
     db.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
     db.commit = AsyncMock()
     db.refresh = AsyncMock()
+    db.begin_nested = MagicMock(return_value=MagicMock(__aenter__=AsyncMock(), __aexit__=AsyncMock(return_value=False)))
+    db.flush = AsyncMock()
 
     await PolicyRepository.assign_policy_to_user(user_id=1, policy_id=2, db=db, assigned_by="system")
 

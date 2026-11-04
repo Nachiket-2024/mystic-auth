@@ -143,6 +143,7 @@ const AllSecurityLogSection: React.FC = () => {
                 </div>
             ) : (
                 <DataTable
+                    ariaLabel={t("tabs.securityEvents")}
                     columns={getSecurityColumns(t, language)}
                     rows={data?.rows}
                     rowKey={(e) => e.id}

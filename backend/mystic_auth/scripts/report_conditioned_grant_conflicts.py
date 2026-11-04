@@ -36,7 +36,7 @@ async def _report() -> list[dict]:
     not a hard ceiling on an action: it only actually restricts a user if
     it's the *only* grant they hold for that (action, resource_type). Any
     other grant for the same pair - conditioned or not, a policy or a
-    direct permission, added by a different admin at a different time -
+    direct permission, added by a different manager at a different time -
     silently makes the restriction moot, with no warning anywhere in the
     UI or API. This read-only report surfaces exactly that: it changes
     no authorization behavior, and

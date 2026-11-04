@@ -19,15 +19,15 @@ and accessibility behavior.
   covers selected-tab persistence through navigation/reload.
 - `integration/account_settings/appearance_card.test.tsx` covers theme choice,
   persistence, and feedback.
-- `integration/account_settings/delete_account_card.test.tsx` covers
+- `integration/account_deletion/delete_account_card.test.tsx` covers
   destructive confirmation requirements and failure handling.
-- `integration/account_settings/confirm_delete_account_page.test.tsx` covers
+- `integration/account_deletion/confirm_delete_account_page.test.tsx` covers
   valid, missing, expired, and invalid confirmation tokens.
 - `integration/dashboard/dashboard_page.test.tsx` covers loading/error/data
   states, statistics, identity, quick actions, and session controls.
 - `e2e/account_settings/account_settings_page_browser.spec.ts` covers these
   settings interactions in a real browser with mocked API responses.
-- `e2e/account_settings/confirm_delete_account_browser_flow.spec.ts` covers
+- `e2e/account_deletion/confirm_delete_account_browser_flow.spec.ts` covers
   token-page navigation and invalid-token redirects.
 - `e2e/dashboard/dashboard_page_browser.spec.ts` covers responsive dashboard
   rendering, controls, and least-privilege redirects.

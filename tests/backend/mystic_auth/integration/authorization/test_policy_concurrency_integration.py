@@ -173,3 +173,116 @@ async def test_concurrent_bulk_removes_cannot_jointly_strip_every_superuser_hold
     finally:
         await client_a.aclose()
         await client_b.aclose()
+
+
+@pytest.mark.asyncio
+async def test_losing_a_policy_assignment_race_returns_the_winning_row_not_a_500(client, created_emails):
+    """Regression: two identical assignments checking 'already held' at the
+    same moment both tried to INSERT; the loser hit uq_user_policy and the
+    route returned 500. The loser now gets the winner's row, the same as a
+    sequential duplicate. The race is forced deterministically: the pair is
+    inserted by another session after the loser's check has already said
+    'not held'."""
+    from sqlalchemy import select
+
+    from backend.mystic_auth.authorization.models.policy_model import UserPolicy
+    from backend.mystic_auth.user.user_crud_collector import user_crud
+
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+    policy_name = unique_policy_name()
+    assert (
+        await client.post(
+            "/authorization/policies",
+            json={"name": policy_name, "actions": ["projects:read"], "resource_type": "projects"},
+        )
+    ).status_code == 201
+
+    async with database.async_session() as winner_db, database.async_session() as loser_db:
+        user = await user_crud.get_by_email(system_email, winner_db)
+        policy = await policy_repository.get_by_name(policy_name, winner_db)
+
+        real_execute = loser_db.execute
+        calls = {"n": 0}
+
+        class _NotHeld:
+            def scalar_one_or_none(self):
+                return None
+
+        async def execute_first_check_says_not_held(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _NotHeld()
+            return await real_execute(*args, **kwargs)
+
+        loser_db.execute = execute_first_check_says_not_held  # type: ignore[method-assign]
+
+        won = await policy_assignment_repository.assign_policy_to_user(
+            user_id=user.id, policy_id=policy.id, db=winner_db, assigned_by="winner"
+        )
+        lost = await policy_assignment_repository.assign_policy_to_user(
+            user_id=user.id, policy_id=policy.id, db=loser_db, assigned_by="loser"
+        )
+
+        assert lost.id == won.id
+        rows = (
+            await winner_db.execute(
+                select(UserPolicy).where(UserPolicy.user_id == user.id, UserPolicy.policy_id == policy.id)
+            )
+        ).scalars().all()
+        assert len(rows) == 1
+        # the caller's own objects are still usable after the lost race
+        assert user.email == system_email
+
+
+@pytest.mark.asyncio
+async def test_losing_a_direct_permission_grant_race_applies_conditions_to_the_winning_row(client, created_emails):
+    from sqlalchemy import select
+
+    from backend.mystic_auth.authorization.models.user_permission_model import (
+        UserPermission,
+    )
+    from backend.mystic_auth.authorization.repositories.user_permission_repository import (
+        user_permission_repository,
+    )
+    from backend.mystic_auth.user.user_crud_collector import user_crud
+
+    system_email = unique_email("system")
+    await create_system_user(client, created_emails, system_email)
+
+    async with database.async_session() as winner_db, database.async_session() as loser_db:
+        user = await user_crud.get_by_email(system_email, winner_db)
+        real_execute = loser_db.execute
+        calls = {"n": 0}
+
+        class _NotHeld:
+            def scalar_one_or_none(self):
+                return None
+
+        async def first_check_says_not_held(*args, **kwargs):
+            calls["n"] += 1
+            return _NotHeld() if calls["n"] == 1 else await real_execute(*args, **kwargs)
+
+        loser_db.execute = first_check_says_not_held  # type: ignore[method-assign]
+
+        won = await user_permission_repository.assign_permission_to_user(
+            user.id, "projects:race", "projects", None, winner_db, assigned_by="winner"
+        )
+        lost = await user_permission_repository.assign_permission_to_user(
+            user.id, "projects:race", "projects", {"self_only": True}, loser_db, assigned_by="loser"
+        )
+
+        assert lost.id == won.id
+        rows = (
+            await winner_db.execute(
+                select(UserPermission).where(
+                    UserPermission.user_id == user.id, UserPermission.action == "projects:race"
+                )
+            )
+        ).scalars().all()
+        assert len(rows) == 1
+        await winner_db.refresh(rows[0])
+        assert rows[0].conditions == {"self_only": True}
+        assert rows[0].assigned_by == "loser"
+        await winner_db.delete(rows[0])
+        await winner_db.commit()

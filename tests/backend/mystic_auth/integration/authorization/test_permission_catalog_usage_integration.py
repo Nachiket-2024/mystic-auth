@@ -5,7 +5,7 @@
 # holds each catalog action right now, folding active Policy/UserPolicy
 # assignments and active direct UserPermission grants together. Backs the
 # Permissions page's "Held by" column, its quick filters, and the details
-# dialog - see .project/permissions-page-review.md.
+# dialog.
 import pytest
 
 from backend.mystic_auth.authorization.permissions_catalog import PERMISSION_CATALOG

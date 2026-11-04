@@ -5,6 +5,7 @@ import pytest
 from backend.mystic_auth.auth.security.login_protection_service import (
     login_protection_service,
 )
+from backend.mystic_auth.core.errors import AppError
 
 MODULE = "backend.mystic_auth.auth.security.login_protection_service"
 
@@ -63,11 +64,13 @@ async def test_is_locked_false_under_threshold(mocker):
 
 
 @pytest.mark.asyncio
-async def test_is_locked_fails_closed_on_valkey_error(mocker):
+async def test_is_locked_reports_valkey_outage_as_503(mocker):
     mocker.patch(f"{MODULE}.valkey_client.get", side_effect=ConnectionError("valkey unreachable"))
     error_mock = mocker.patch(f"{MODULE}.logger.error")
 
-    assert await login_protection_service.is_locked("key") is True
+    with pytest.raises(AppError) as raised:
+        await login_protection_service.is_locked("key")
+    assert raised.value.status_code == 503
     error_mock.assert_called_once()
 
 
@@ -144,11 +147,13 @@ async def test_begin_protected_action_denies_when_key_is_already_locked(mocker):
 
 
 @pytest.mark.asyncio
-async def test_begin_protected_action_fails_closed_when_reservation_write_errors(mocker):
+async def test_begin_protected_action_reports_outage_as_503_when_reservation_write_errors(mocker):
     mocker.patch(f"{MODULE}.valkey_client.get", new_callable=AsyncMock, return_value=None)
     mocker.patch(f"{MODULE}.valkey_client.set", new_callable=AsyncMock, side_effect=RuntimeError("down"))
 
-    assert await login_protection_service.begin_protected_action("key") is False
+    with pytest.raises(AppError) as raised:
+        await login_protection_service.begin_protected_action("key")
+    assert raised.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -264,3 +269,13 @@ async def test_check_and_record_action_uses_custom_threshold_and_window_for_ip_k
     assert allowed is True
     incr_mock.assert_awaited_once_with("login_lock:ip:1.2.3.4")
     expire_mock.assert_awaited_once_with("login_lock:ip:1.2.3.4", 999)
+
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count,allowed", [(1, True), (3, True), (4, False)])
+async def test_failed_action_is_allowed_up_to_and_including_the_limit(mocker, count, allowed):
+    mocker.patch(f"{MODULE}.valkey_client.incr", new_callable=AsyncMock, return_value=count)
+    mocker.patch(f"{MODULE}.valkey_client.expire", new_callable=AsyncMock)
+    result = await login_protection_service.check_and_record_action("k", success=False, max_attempts=3, lockout_time=60)
+    assert result is allowed

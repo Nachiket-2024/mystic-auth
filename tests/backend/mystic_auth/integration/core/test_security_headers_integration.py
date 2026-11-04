@@ -11,14 +11,14 @@ async def test_response_carries_security_hardening_headers(client):
 
     assert resp.headers["X-Content-Type-Options"] == "nosniff"
     assert resp.headers["X-Frame-Options"] == "DENY"
-    assert resp.headers["Content-Security-Policy"] == "default-src 'none'; frame-ancestors 'none'"
+    assert resp.headers["Content-Security-Policy"] == "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     assert resp.headers["Referrer-Policy"] == "no-referrer"
     assert resp.headers["Permissions-Policy"] == "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
 
 @pytest.mark.asyncio
 async def test_hsts_header_present_in_production(client, mocker):
-    mocker.patch("backend.mystic_auth.auth.security.security_headers_middleware.settings.ENVIRONMENT", "production")
+    mocker.patch("backend.mystic_auth.middleware.security_headers_middleware.settings.ENVIRONMENT", "production")
 
     resp = await client.get("/")
 
@@ -27,7 +27,7 @@ async def test_hsts_header_present_in_production(client, mocker):
 
 @pytest.mark.asyncio
 async def test_hsts_header_absent_outside_production(client, mocker):
-    mocker.patch("backend.mystic_auth.auth.security.security_headers_middleware.settings.ENVIRONMENT", "development")
+    mocker.patch("backend.mystic_auth.middleware.security_headers_middleware.settings.ENVIRONMENT", "development")
 
     resp = await client.get("/")
 
@@ -71,7 +71,7 @@ async def test_redoc_page_gets_a_csp_that_allows_its_cdn_assets(client):
 async def test_ordinary_routes_keep_the_strict_csp_docs_relaxation_does_not_leak(client):
     resp = await client.get("/")
 
-    assert resp.headers["Content-Security-Policy"] == "default-src 'none'; frame-ancestors 'none'"
+    assert resp.headers["Content-Security-Policy"] == "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
 
 @pytest.mark.asyncio
@@ -91,7 +91,7 @@ async def test_security_headers_present_when_trusted_host_rejects_request(client
     assert resp.status_code == 400
     assert resp.headers["X-Content-Type-Options"] == "nosniff"
     assert resp.headers["X-Frame-Options"] == "DENY"
-    assert resp.headers["Content-Security-Policy"] == "default-src 'none'; frame-ancestors 'none'"
+    assert resp.headers["Content-Security-Policy"] == "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
 
 @pytest.mark.asyncio
@@ -126,3 +126,16 @@ async def test_cors_preflight_rejects_an_untrusted_origin(client):
     # 4xx; it just omits Access-Control-Allow-Origin, which is what makes
     # the browser block the real request.
     assert "Access-Control-Allow-Origin" not in resp.headers
+
+
+@pytest.mark.asyncio
+async def test_api_responses_are_never_cacheable_but_docs_pages_are_left_alone(client):
+    # Tokens, profiles and audit rows must not sit in a browser or proxy cache
+    # (ASVS V8.2.1). Static docs pages carry no sensitive data.
+    health = await client.get("/health")
+    unauthenticated = await client.get("/auth/me")
+    docs = await client.get("/docs")
+
+    assert health.headers["cache-control"] == "no-store"
+    assert unauthenticated.headers["cache-control"] == "no-store"
+    assert "cache-control" not in docs.headers

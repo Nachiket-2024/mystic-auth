@@ -1,15 +1,69 @@
 import asyncio
+import unicodedata
 import uuid
+import weakref
 from datetime import UTC, datetime, timedelta
 
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 
+from ...core.errors import service_unavailable_error
 from ...core.settings import settings
 from ..token_logic.jwt_service import jwt_service
 
 _hasher = PasswordHasher()
+
+
+class _HashGate:
+    """Bounds how many Argon2 operations run at once on one worker, and how many may wait.
+
+    Each hash costs about 0.4 CPU-seconds, so a stack with a couple of CPUs
+    sustains only a few logins per second. Without a bound, a burst queues
+    behind that limit and callers hang until their client times out (30 s in
+    the load test). Past the waiting limit a caller is told to retry shortly
+    (503 with Retry-After), which keeps latency bounded for the ones admitted.
+    """
+
+    def __init__(self) -> None:
+        self.running = asyncio.Semaphore(max(1, settings.PASSWORD_HASH_CONCURRENCY))
+        self.waiting = 0
+
+
+# One gate per event loop: a Semaphore binds to the loop it first waits on.
+_gates: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, _HashGate] = weakref.WeakKeyDictionary()
+
+
+async def _run_hash(function, *args):
+    loop = asyncio.get_running_loop()
+    gate = _gates.get(loop)
+    if gate is None:
+        gate = _gates[loop] = _HashGate()
+    if gate.running.locked():
+        if gate.waiting >= settings.PASSWORD_HASH_MAX_WAITING:
+            raise service_unavailable_error("Too many sign-in attempts at once; please try again shortly")
+        gate.waiting += 1
+        try:
+            await gate.running.acquire()
+        finally:
+            gate.waiting -= 1
+    else:
+        await gate.running.acquire()
+    try:
+        return await asyncio.to_thread(function, *args)
+    finally:
+        gate.running.release()
+
+
+def normalize_password(password: str) -> str:
+    """NFKC-normalize a password before hashing or checking it (NIST SP 800-63B).
+
+    "é" can be typed as one character or as "e" plus a combining accent, and
+    different keyboards, browsers and operating systems pick differently. Without
+    this, a user who set a password on one device can be told "wrong password" on
+    another, because the two byte strings hash differently.
+    """
+    return unicodedata.normalize("NFKC", password)
 
 
 class PasswordService:
@@ -26,20 +80,31 @@ class PasswordService:
         # Off the event loop: Argon2 is deliberately slow (that's the point), and
         # calling it synchronously inside a coroutine blocks every other
         # concurrent request on this worker for the duration of the hash.
-        return await asyncio.to_thread(_hasher.hash, password)
+        return await _run_hash(_hasher.hash, normalize_password(password))
 
     @staticmethod
     async def verify_password(plain_password: str, hashed_password: str) -> bool:
         # argon2-cffi raises on a mismatch or malformed hash rather than
         # returning False; normalized to a bool here so callers don't need
         # to know that.
+        normalized = normalize_password(plain_password)
+        if await PasswordService._matches(normalized, hashed_password):
+            return True
+        # Accounts created before normalization hashed the password exactly as
+        # typed. Only inputs that normalization actually changes (non-ASCII text)
+        # need this second check, so ordinary passwords still cost one hash.
+        return normalized != plain_password and await PasswordService._matches(plain_password, hashed_password)
+
+    @staticmethod
+    async def _matches(password: str, hashed_password: str) -> bool:
         try:
-            return await asyncio.to_thread(_hasher.verify, hashed_password, plain_password)
+            return await _run_hash(_hasher.verify, hashed_password, password)
         except (VerifyMismatchError, InvalidHashError):
             return False
 
     @staticmethod
     async def validate_password_strength(password: str) -> bool:
+        password = normalize_password(password)
         if len(password) < 8:
             return False
 

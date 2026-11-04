@@ -28,6 +28,6 @@ upstream-owned files:
 See [Docker: Compose Modes](../../../docs/mystic_auth/docker/compose-modes.md#two-files-per-mode-mystic_auth--app)
 for the two-file-per-mode pattern this extends.
 
-Ships empty; upstream never edits this file again.
+Ships empty. Upstream may later fix this starter file; a sync merges it three-way, so keep your version on any conflict.
 
 ---

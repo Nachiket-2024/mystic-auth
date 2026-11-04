@@ -64,24 +64,20 @@ async function refreshAndRetry(originalRequest: RetryableRequestConfig) {
     return api(originalRequest);
 }
 
-// Registers a response interceptor on the shared `api` instance that, on a 401 from an
-// endpoint eligible for silent refresh, attempts to rotate the session via
-// /auth/refresh/ and retry the original request exactly once. If refresh fails, the
-// endpoint isn't eligible, or this is already a post-refresh retry that 401'd again,
-// marks the Zustand auth store as unauthenticated and invalidates the cached
-// currentUser query: every ProtectedRoute-wrapped page already re-renders reactively
-// off that store and redirects to /login, so no hard `window.location` redirect is
-// needed here.
+// Registers a response interceptor on the shared `api` instance: on a 401 from an
+// endpoint eligible for silent refresh it rotates the session via /auth/refresh/
+// and retries the request exactly once. If refresh fails, the endpoint is not
+// eligible, or the retry 401s again, it marks the Zustand auth store
+// unauthenticated and invalidates the currentUser query; ProtectedRoute pages
+// re-render off that store and redirect to /login, so no hard redirect is needed.
 //
-// Deliberately 401-only, not 401-or-403: a 403 means the caller IS authenticated but
-// lacks a specific permission, so forcing a logout on that would be confusing (the
-// session is fine) and would fight with the route-guard components (Authorized/IfCan/
-// ProtectedRoute) that already handle "you don't have this permission" without ending
-// the session.
+// 401-only, not 403: a 403 means the caller is authenticated but lacks a
+// permission, and logging out would be wrong and would fight the route guards
+// (Authorized/IfCan/ProtectedRoute) that already handle it.
 //
-// Lives in its own module (not inside axiosInstance.ts) to avoid a circular import:
-// axiosInstance.ts -> queryClient.ts -> useCurrentUserQuery.ts -> auth_api.ts ->
-// axiosInstance.ts. Call once at app startup (see main.tsx), after `api` exists.
+// Its own module to avoid a circular import (axiosInstance.ts -> queryClient.ts
+// -> useCurrentUserQuery.ts -> auth_api.ts -> axiosInstance.ts). Call once at
+// startup (see main.tsx), after `api` exists.
 export function setupAuthInterceptor(): void {
     api.interceptors.response.use(
         (response) => response,

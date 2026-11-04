@@ -9,11 +9,11 @@ import VerificationEmailRequestForm from '@/auth/verify_account/VerificationEmai
 
 const mock = new MockAdapter(api);
 
-function renderForm() {
+function renderForm(emailKnown = false) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-        <VerificationEmailRequestForm initialEmail="user@example.com" />
+        <VerificationEmailRequestForm initialEmail="user@example.com" emailKnown={emailKnown} />
     </QueryClientProvider>
   );
 }
@@ -26,6 +26,27 @@ describe('VerificationEmailRequestForm', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('hides the email field when the address is already known, and still resends to it', async () => {
+    let sent = '';
+    mock.onPost('/auth/verify-account/request').reply((config) => {
+      sent = JSON.parse(config.data).email;
+      return [200, { message: 'Verification email sent' }];
+    });
+
+    renderForm(true);
+    expect(screen.queryByRole('textbox')).toBeNull();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByRole('button', { name: 'Resend verification email' }));
+
+    await screen.findByText('Verification email sent');
+    expect(sent).toBe('user@example.com');
+  });
+
+  it('shows the email field by default (verify page, where the user typed nothing yet)', () => {
+    renderForm();
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
   it('starts a cooldown after a successful resend', async () => {
@@ -43,7 +64,7 @@ describe('VerificationEmailRequestForm', () => {
   // start on click regardless of the response, so a 429 showed a "try again
   // in Ns" countdown on the button while the alert said to try later.
   it('does not start a cooldown when the resend fails', async () => {
-    mock.onPost('/auth/verify-account/request').reply(429, { error: 'Please try again later' });
+    mock.onPost('/auth/verify-account/request').reply(429, { detail: 'Please try again later' });
 
     renderForm();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });

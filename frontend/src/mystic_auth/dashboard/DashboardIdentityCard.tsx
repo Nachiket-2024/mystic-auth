@@ -7,7 +7,7 @@ import AppTooltip from "../ui/feedback/AppTooltip";
 import Badge from "../ui/badges/Badge";
 import { Button } from "../ui/buttons/Button";
 import { cn } from "../ui/styles/classNames";
-import { initialsFor } from "../layout/app_layout/initialsFor";
+import { initialsFor } from "../ui/display/initialsFor";
 import DashboardIdentityCardSkeleton from "./DashboardIdentityCardSkeleton";
 import DashboardStatItem from "./DashboardStatItem";
 import FormAlert from "../ui/feedback/FormAlert";
@@ -15,16 +15,16 @@ import { formatMemberSince, formatTimeOnly } from "../ui/dates/dateFormatters";
 import { parseUserAgent } from "../active_sessions/parseUserAgent";
 import type { SupportedLanguage } from "../translations/translations";
 import type { CurrentUserProfile } from "../auth/current_user/current_user_types";
-import type { PreviousLogin } from "./usePreviousLoginQuery";
+import type { PreviousLogin } from "../active_sessions/usePreviousLoginQuery";
 
-/** Rest state matches design/dashboard.html's `.btn-ghost`: a neutral
+/** Rest state is a ghost button: a neutral
  * bg.surface/border.strong/fg.muted button, not brand-tinted at rest - only
  * turning brand-colored (bg.brand-subtle/border.brand-solid/fg.brand) on
  * hover. TableActionButton's "brand" palette (tried first) is tinted even at
  * rest, which read as too prominent for what are secondary shortcuts next to
  * the page's real primary actions. border.strong (not border.default,
  * used before): `.btn-ghost{border-color:var(--border-strong)}` in the
- * mockup - border.default is a darker, differently-toned gray tuned for
+ * intended design - border.default is a darker, differently-toned gray tuned for
  * form-input visibility instead. */
 const NEUTRAL_HOVER_BRAND_BUTTON_CLASSNAME =
     "font-medium bg-bg-surface border-border-strong text-fg-muted hover:bg-brand-subtle hover:border-brand-solid hover:text-brand-fg";
@@ -45,7 +45,7 @@ const HEADER_CLASSNAME =
 const BUTTONS_CLASSNAME = "flex flex-wrap gap-2 @min-[50rem]/identity:flex-nowrap @min-[50rem]/identity:shrink-0";
 
 /** Three stats spread evenly with divider lines between them
- * (design/dashboard.html's .stat-strip) when there's room; stacked without
+ * when there's room; stacked without
  * dividers otherwise, where a left border would read as a stray line. */
 const STATS_CLASSNAME = "flex flex-col gap-4 @min-[36rem]/identity:flex-row @min-[36rem]/identity:gap-0";
 const STAT_ITEM_CLASSNAME = "flex-1 min-w-0";

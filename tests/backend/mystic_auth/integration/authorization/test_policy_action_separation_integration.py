@@ -4,10 +4,9 @@
 # holding only one of policies:read/create/update/delete/assign/revoke is
 # authorized on the matching route(s) only, and denied (403) on every other
 # policy-management route across policy_crud_routes.py and
-# policy_assignment_routes.py. Split out of what used to be one 568-line
-# test_authorization_routes_integration.py: kept as its own file (rather
-# than folded into either routes file's test file) since each test here
-# exercises both CRUD and assignment routes together in one pass.
+# policy_assignment_routes.py. Kept as its own file (rather than folded into
+# the CRUD or assignment test files) since each test here exercises both
+# CRUD and assignment routes together in one pass.
 import pytest
 
 from backend.mystic_auth.authorization.policies.default_policies import (

@@ -108,6 +108,23 @@ export const purgeUserApi = (userEmail: string) => api.delete(`/users/${encodeUR
 export const reactivateUserApi = (userEmail: string) =>
     api.patch<ManagedUserRead>(`/users/${encodeURIComponent(userEmail)}/reactivate`);
 
+/** Another user's passkeys, for incident response. Metadata only: the API never returns credential material. */
+export interface UserPasskeyRead {
+    id: number;
+    name: string;
+    created_at: string;
+    last_used_at: string | null;
+}
+
+export const listUserPasskeysApi = (userEmail: string) =>
+    api.get<UserPasskeyRead[]>(`/users/${encodeURIComponent(userEmail)}/passkeys`);
+
+export const revokeUserPasskeyApi = (userEmail: string, passkeyId: number) =>
+    api.delete<{ detail: string; removed: number }>(`/users/${encodeURIComponent(userEmail)}/passkeys/${passkeyId}`);
+
+export const revokeAllUserPasskeysApi = (userEmail: string) =>
+    api.delete<{ detail: string; removed: number }>(`/users/${encodeURIComponent(userEmail)}/passkeys`);
+
 export const updateUserRoleApi = (userEmail: string, role: string) =>
     api.patch(`/users/${encodeURIComponent(userEmail)}/role`, { role });
 

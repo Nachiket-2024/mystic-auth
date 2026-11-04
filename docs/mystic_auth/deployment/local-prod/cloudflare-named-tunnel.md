@@ -117,6 +117,10 @@ frontend and backend share one public origin behind the tunnel, and nginx
 (`docker/mystic_auth/nginx.frontend.conf`) proxies API prefixes to `backend`
 same-origin, so the browser never needs a separate API URL.
 
+Set `WEBAUTHN_RP_ID=your-hostname` and `WEBAUTHN_ORIGINS=https://your-hostname`
+for passkeys. Keep the hostname and RP ID stable after users enroll credentials;
+see [Passkeys](../../authentication/passkeys.md).
+
 Also set `JWT_ISSUER` and `JWT_AUDIENCE` to `https://your-hostname`. They
 don't have to match `FRONTEND_BASE_URL` for tokens to work (they're only
 checked against themselves, see
@@ -164,7 +168,7 @@ Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
 ```
 
 Without it, the updater is not started and Manage Sessions' Location column
-shows "Unknown". When the profile is enabled, the updater healthcheck now
+shows "Unknown". When the profile is enabled, the updater healthcheck
 requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.

@@ -21,10 +21,10 @@ const LogoutButtonComponent: React.FC<LogoutButtonComponentProps> = ({
 
     return (
         <div className="flex flex-col items-center">
-            {/* design/dashboard.html's `.btn.btn-danger`: hug-content width,
+            {/* Hug-content width,
                 600 label, a 14px LogOut icon with a 6px gap - not a fixed
                 160x40 box (the previous size="lg" w="40" h="10"), which
-                rendered noticeably larger/blockier than the mockup's topbar
+                rendered noticeably larger/blockier than the intended design's topbar
                 Logout button. h-8 + text-sm match ControlCluster's icon-sm
                 buttons (FontSizeControl/LanguageToggle/ThemeToggle) and the
                 rest of Navbar's text right beside it, which the earlier

@@ -11,6 +11,7 @@ import uuid
 from sqlalchemy import text
 
 from backend.mystic_auth.database.connection import database
+from tests.backend.conftest import superuser_async_session
 
 
 def unique_tag() -> str:
@@ -93,6 +94,11 @@ async def cleanup_perftest_rows(tag: str) -> None:
         await session.execute(
             text("DELETE FROM policies WHERE name LIKE :pattern"), {"pattern": f"perftest_policy_{tag}_%"}
         )
+        await session.commit()
+    # Separate superuser session: mystic_auth_app has no DELETE on
+    # security_audit_log (see conftest.py's superuser_async_session and
+    # docs/mystic_auth/security/decisions-infra.md).
+    async with superuser_async_session() as session:
         await session.execute(
             text("DELETE FROM security_audit_log WHERE request_id LIKE :pattern"), {"pattern": f"perftest_{tag}_%"}
         )

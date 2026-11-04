@@ -9,9 +9,7 @@ import { mock, seed, renderPage, SAMPLE_USERS, PERMISSION_CATALOG } from "./user
 // Permissions tab of the unified per-user Access dialog: instant grant/
 // revoke with Undo, and sensitive-action grants (only enabled when the
 // caller already holds the action themselves). Details/keyboard-nav and
-// Policies-tab coverage live in their own sibling files - split out of one
-// 715-line file to keep each under the repo's ~350-line target, see
-// AGENTS.md.
+// Policies-tab coverage live in their own sibling files.
 
 describe("UsersPage access dialog: permissions tab", () => {
   beforeEach(() => {

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...audit_log.audit_log_service import USER_ROLE_CHANGED, log_security_event
+from ...audit_log.audit_log_service import USER_FIELDS_UPDATED, USER_ROLE_CHANGED, log_security_event
 from ...auth.password_logic.password_service import password_service
 
 # Session invalidation on account deletion: the same mechanism logout-all
@@ -20,6 +20,7 @@ from ...authorization.dependencies.authorization_dependency import require_autho
 # PBAC action vocabulary and policy-based authorization. Replaces the removed
 # static role-permission helpers.
 from ...authorization.permissions import Permission
+from ...authorization.privilege_hierarchy import guard_privileged_target
 from ...authorization.services.authorization_service import authorization_service
 from ...core.errors import AppError
 from ...database.connection import database
@@ -32,7 +33,7 @@ from ...user.user_crud_modules.user_update_payload_preparation import prepare_up
 # reserved system account from generic endpoints. It is resource metadata, not
 # caller authorization; PBAC policies still decide access.
 from ...user.user_model import UserRole
-from ...user.user_schema import UserAdminUpdateResponse, UserRoleUpdate, UserUpdate
+from ...user.user_schema import UserManagementUpdateResponse, UserRoleUpdate, UserUpdate
 from ..get_or_404.get_or_404 import get_or_404
 
 # Management field updates on another user's account, split out from
@@ -46,10 +47,11 @@ logger = get_logger(__name__)
 _RESOURCE_TYPE = "users"
 
 
-@router.put("/{user_email}", response_model=UserAdminUpdateResponse)
+@router.put("/{user_email}", response_model=UserManagementUpdateResponse)
 async def update_any_user(
     user_email: str,
     update_data: UserUpdate,
+    request: Request,
     current_user: dict = Depends(require_authorization(Permission.USERS_UPDATE_ANY.value, _RESOURCE_TYPE)),
     db: AsyncSession = Depends(database.get_session)
 ):
@@ -66,6 +68,12 @@ async def update_any_user(
             detail="System user cannot be modified"
         )
 
+    # Same password-overwrite risk as the system guard above, one tier down:
+    # without this, the narrowest grant of users:update_any (e.g. just the
+    # user_management policy, no further grant) could set the password of any
+    # account holding the admin role and log in as it. See privilege_hierarchy.py.
+    await guard_privileged_target(current_user, user.role, request, db)
+
     if (
         update_data.password is not None
         and user.hashed_password is not None
@@ -80,7 +88,7 @@ async def update_any_user(
     prepared_data = await prepare_update_data(update_data)
     updated_user = await user_crud.update(db_obj=user, update_data=prepared_data, db=db)
 
-    # An admin-driven password change must revoke the target's existing
+    # A management-driven password change must revoke the target's existing
     # sessions too. sessions_revoked stays None unless a revoke was
     # attempted: the password write always succeeds regardless.
     sessions_revoked = None
@@ -90,9 +98,22 @@ async def update_any_user(
             await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
         except TokenVersionUnavailableError:
             sessions_revoked = False
-            logger.error("Could not confirm session revocation on admin password change for %s", user_email)
+            logger.error("Could not confirm session revocation on management password change for %s", user_email)
 
-    response_payload = UserAdminUpdateResponse.model_validate(updated_user)
+    await log_security_event(
+        USER_FIELDS_UPDATED,
+        db,
+        user_email=user_email,
+        success=True,
+        request=request,
+        metadata={
+            "updated_by": current_user["email"],
+            "fields": sorted(prepared_data.keys()),
+            "sessions_revoked": sessions_revoked,
+        },
+    )
+
+    response_payload = UserManagementUpdateResponse.model_validate(updated_user)
     response_payload.sessions_revoked = sessions_revoked
     return response_payload
 
@@ -127,6 +148,13 @@ async def update_user_role(
             code="CANNOT_CHANGE_OWN_ROLE",
             detail="You cannot change your own role",
         )
+
+    # See privilege_hierarchy.py: the narrowest grant of users:assign_role
+    # must not be enough to demote (or re-promote) an account holding the admin role.
+    # Promoting a user *to* admin is intentionally not gated here beyond the
+    # existing users:assign_role check - granting the admin role is the normal,
+    # expected use of that permission.
+    await guard_privileged_target(current_user, user.role, request, db)
 
     # Assigning the system role requires the separate, more sensitive
     # users:assign_system_role authorization. This can't be a static

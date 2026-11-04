@@ -19,19 +19,13 @@ export interface RateLimitsFilters {
 const POLL_INTERVAL_MS = 5000;
 
 /**
- * Numbered-page pagination, same shape as the audit log's queries: the
- * backend walks the matching Valkey keyspace to compute a real total and
- * slice out one page, instead of a Prev/Next-only cursor.
+ * Numbered-page pagination, like the audit log's queries: the backend walks the
+ * matching Valkey keyspace to compute a real total and slice one page.
  *
- * keepPreviousData: without it, switching pages briefly flashes the loading
- * skeleton over an otherwise-unchanged table, which reads as a bigger change
- * than moving one page actually is. It also keeps a poll's background
- * refetch silent, so counters update in place instead of flashing the whole
- * table back to loading every 5s.
- *
- * refetchIntervalInBackground defaults to false: polling pauses while the
- * tab isn't visible and resumes (with an immediate refetch) once it regains
- * focus.
+ * keepPreviousData stops page switches and the 5s background poll from flashing
+ * the loading skeleton over an unchanged table. refetchIntervalInBackground
+ * defaults to false, so polling pauses while the tab is hidden and refetches
+ * immediately when it regains focus.
  */
 export function useRateLimitsQuery(page: number, pageSize: number, filters: RateLimitsFilters = {}) {
     return useQuery({

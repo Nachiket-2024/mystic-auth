@@ -1,15 +1,13 @@
-// Tracks whether a request that rotates the current session's cookies (right now:
-// only "set/change password" PUT /users/me, see useUpdateMyAccountMutation.ts) is in
+// Tracks whether a request that rotates the current session's cookies (today only
+// the "set/change password" PUT /users/me, see useUpdateMyAccountMutation.ts) is in
 // flight.
 //
-// Why: that endpoint bumps the account's Valkey version (invalidating every existing
-// token, including this device's own) before minting and returning fresh cookies.
-// Between those two moments, any *other* request already in flight with the old
-// cookies can 401 and then fail its silent refresh too, since the old refresh
-// cookie's account_ver is momentarily stale until the rotating request's Set-Cookie
-// headers land. Without this, setupAuthInterceptor.ts would treat that timing loss as
-// a real session death and show "Your session has expired" even though the device was
-// never logged out.
+// Why: that endpoint bumps the account's Valkey version (invalidating every token,
+// including this device's) before returning fresh cookies. Meanwhile any other
+// in-flight request with the old cookies can 401 and fail its silent refresh too,
+// because the old refresh cookie's account_ver is stale until the Set-Cookie headers
+// land. Without this guard, setupAuthInterceptor.ts would treat that timing loss as
+// a real session death and show "Your session has expired".
 //
 // Deliberately narrow: only gates the interceptor's last-resort fallback, never
 // suppresses a genuinely terminal 401. Once the tracked request settles (plus a short

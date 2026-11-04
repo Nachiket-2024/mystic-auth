@@ -5,7 +5,12 @@ They are useful for a short demo or for sharing one local HTTP service. A
 Quick Tunnel gets a random `trycloudflare.com` hostname each time it starts.
 That makes it a poor fit for OAuth providers that require a registered
 callback URL: you must update the provider's allowed origin and callback URL,
-and the app's public URL settings, every time the hostname changes.
+and the app's public URL settings, every time the hostname changes. Passkeys
+can still be used for a short demo, but their relying-party identity is tied
+to that hostname. Credentials enrolled at one Quick Tunnel URL stop working
+when the next URL changes. Set `FRONTEND_BASE_URL` (or explicitly set
+`WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS`) to the current public URL before
+enrolling passkeys. See [Passkey domain configuration](../../authentication/passkeys.md#relying-party-configuration-and-domains).
 
 This repository is a base with several tunnel choices. Pick the one that fits
 your demo: use Quick Tunnel for a fast, temporary URL; use a stable ngrok
@@ -68,6 +73,22 @@ convenience gate for a demo, not a replacement for the app's own authentication.
 
 ## Share this repository's full local-prod app
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    A["1. Install Docker and cloudflared,\nprepare local-prod env files"]
+    B["2. Start local-prod services\nexcept cloudflared"]
+    C["3. Run cloudflared quick tunnel\nto the frontend port"]
+    D["Random trycloudflare.com URL printed"]
+    E["4. Set FRONTEND_BASE_URL, BACKEND_BASE_URL,\nJWT_ISSUER, JWT_AUDIENCE to that URL,\nrestart the app"]
+    F["Share the URL.\nIt changes on the next tunnel start"]
+    A --> B --> C --> D --> E --> F
+    class F terminal
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
+
 The local-prod Cloudflare Compose file normally includes the Named Tunnel
 service. To use a Quick Tunnel instead, start the same app stack while naming
 the app services explicitly, which leaves the `cloudflared` service stopped;
@@ -120,23 +141,26 @@ origin.
    docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare down
    ```
 
-4. If Google OAuth is enabled, the random public hostname must be registered
-   with Google as both an authorized JavaScript origin and an authorized
-   redirect URI (`https://<random-name>.trycloudflare.com` and
-   `https://<random-name>.trycloudflare.com/auth/oauth2/callback/google`).
-   Set `GOOGLE_REDIRECT_URI` to the callback and set `FRONTEND_BASE_URL`,
-   `BACKEND_BASE_URL`, `JWT_ISSUER`, and `JWT_AUDIENCE` to the generated HTTPS
-   origin in `env/mystic_auth/.env.local-prod-cloudflare`. Apply the new
-   runtime and frontend build settings from the repository root:
+4. Set `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `JWT_ISSUER`, and
+   `JWT_AUDIENCE` to the generated HTTPS origin in
+   `env/mystic_auth/.env.local-prod-cloudflare`. Blank `WEBAUTHN_RP_ID` and
+   `WEBAUTHN_ORIGINS` derive from `FRONTEND_BASE_URL`; keep them blank or set
+   them to the exact current hostname and origin before enrolling passkeys.
+   Rebuild the backend and frontend with the updated settings:
 
    ```bash
    docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml -f docker/app/compose/docker-compose.local-prod-cloudflare.yml --env-file env/mystic_auth/.env.local-prod-cloudflare --env-file env/app/.env.local-prod-cloudflare up -d --build backend frontend
    ```
 
-   Repeat these updates and the Google registration when the Quick Tunnel
-   hostname changes. For a demo without OAuth, skip the Google
-   registration and use another account setup already configured in your
-   environment.
+   If Google OAuth is enabled, also register the random public hostname with
+   Google as an authorized JavaScript origin and redirect URI, and set
+   `GOOGLE_REDIRECT_URI` to
+   `https://<random-name>.trycloudflare.com/auth/oauth2/callback/google`.
+   Repeat the public URL updates and rebuild when the Quick Tunnel hostname
+   changes. Passkeys enrolled at the previous hostname cannot be used at the
+   new one, so enroll a new passkey there before removing the old credential.
+   For a demo without OAuth, skip the Google registration and use another
+   account setup already configured in your environment.
 
 ## When the demo needs a stable OAuth callback
 

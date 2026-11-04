@@ -18,6 +18,7 @@ import { buildRateLimitsColumns } from "./rateLimitsColumns";
 import { totalPagesFor } from "./rateLimitsListConfig";
 import type { RateLimitEntry } from "../api/rate_limits_api";
 import { isForbiddenError } from "../api/apiError";
+import { describeIdentifier } from "./rateLimitIdentifier";
 import { useRateLimitsUiStore } from "./rateLimitsUiStore";
 import { useRateLimitsSummaryQuery } from "./rateLimitsSummaryQueries";
 import RateLimitsStatsCard from "./RateLimitsStatsCard";
@@ -161,6 +162,7 @@ const RateLimitsPage: React.FC = () => {
             )}
             {!isLoading && !isError && entries.length > 0 && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mb-4" />}
             <DataTable
+                ariaLabel={t("page.title")}
                 columns={columns}
                 rows={entries}
                 rowKey={(e) => e.key}
@@ -180,7 +182,7 @@ const RateLimitsPage: React.FC = () => {
                 title={t("page.resetDialogTitle")}
                 description={t("page.resetDialogDescription", {
                     endpoint: resettingEntry?.endpoint,
-                    identifier: resettingEntry?.identifier,
+                    identifier: resettingEntry ? describeIdentifier(resettingEntry).full : undefined,
                 })}
                 confirmLabel={t("page.reset")}
                 isDestructive

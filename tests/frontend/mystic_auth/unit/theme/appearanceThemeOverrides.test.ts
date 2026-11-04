@@ -17,8 +17,8 @@ describe('deriveCanvasFrom', () => {
 
     // A plain scale['100'] carries the input hue's full saturation, which
     // read pink/salmon at the top of the page for several hues - see this
-    // function's own comment. The muted formula (retuned to match
-    // design/dashboard.html's approved mockup): re-derive hue/saturation
+    // function's own comment. The muted formula (retuned so the
+    // sidebar stays close to the canvas): re-derive hue/saturation
     // from scale['600'], rebuild at 45% of that saturation and L=95.
     const { h, s } = colord(scale['600']).toHsl();
     const expected = colord({ h, s: Math.min(100, s * 0.45), l: 95 }).toHex();
@@ -47,8 +47,8 @@ describe('deriveSidebar', () => {
   // blend output at least that light - it could never reach the design
   // canvas's actual chrome darkness (#160f0d, L=6.9) no matter the blend
   // weight, so Sidebar/Navbar rendered a visibly lighter, flatter dark-mode
-  // background than the mockup at the app's own default brand color.
-  it("comes within a few RGB values of design/dashboard.html's literal #fbf4f2/#160f0d at the app's actual default brand color", () => {
+  // background than the intended design at the app's own default brand color.
+  it("comes within a few RGB values of the intended #fbf4f2/#160f0d at the app's actual default brand color", () => {
     const scale = generateBrandScale(BRAND_COLOR);
     const { light, dark } = deriveSidebar(scale);
 

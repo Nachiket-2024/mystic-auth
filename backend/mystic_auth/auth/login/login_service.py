@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from fastapi import Request
 
+from ...core.errors import AppError
 from ...logging.logging_config import get_logger
 from ...user.user_crud_collector import user_crud
 from ...user_session.session_service import session_service
@@ -80,6 +81,10 @@ class LoginService:
                 )
 
             return TokenPairResponseSchema(access_token=access_token, refresh_token=refresh_token)
+
+        except AppError:
+            # Overload or a store outage (503 + Retry-After): not a failed sign-in.
+            raise
 
         except Exception:
             logger.error("Error during login:\n%s", traceback.format_exc())

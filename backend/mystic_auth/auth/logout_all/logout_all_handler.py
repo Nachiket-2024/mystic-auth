@@ -25,7 +25,7 @@ class LogoutAllHandler:
         try:
             if not refresh_token:
                 return JSONResponse(
-                    content={"error": "No refresh token cookie found", "code": "NO_REFRESH_TOKEN_COOKIE"},
+                    content={"detail": "No refresh token cookie found", "code": "NO_REFRESH_TOKEN_COOKIE"},
                     status_code=400
                 )
 
@@ -54,7 +54,7 @@ class LogoutAllHandler:
                 )
                 resp = JSONResponse(
                     content={
-                        "error": "Could not confirm logout from all devices; please try again shortly",
+                        "detail": "Could not confirm logout from all devices; please try again shortly",
                         "code": "SESSION_REVOCATION_UNAVAILABLE",
                     },
                     status_code=503,
@@ -86,7 +86,7 @@ class LogoutAllHandler:
         except Exception:
             logger.error("Error during logout-all logic:\n%s", traceback.format_exc())
             return JSONResponse(
-                content={"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
+                content={"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500
             )
 
 

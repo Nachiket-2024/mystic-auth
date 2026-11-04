@@ -95,7 +95,7 @@ yes | env PATH="$BASE/restore-fake-bin:$PATH" ./scripts/mystic_auth/upstream-syn
 RESTORE_EXIT=${PIPESTATUS[1]}
 set -e
 [ "$RESTORE_EXIT" -ne 0 ] || fail "worktree restore: sync hid the restore failure"
-grep -q "saved downstream work could not be restored cleanly" /tmp/restore-sync.log || fail "worktree restore: failure was not actionable"
+grep -q "saved work could not be put back cleanly" /tmp/restore-sync.log || fail "worktree restore: failure was not actionable"
 pass "worktree restore: sync returned non-zero with actionable recovery"
 [ "$(git rev-parse HEAD)" != "$RESTORE_BASELINE" ] || fail "worktree restore: successful sync commit was lost"
 pass "worktree restore: sync commit was retained"

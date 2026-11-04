@@ -17,10 +17,11 @@ import {
 import { Tabs } from "../../ui/shadcn/tabs";
 import { cn } from "../../ui/styles/classNames";
 import { useLanguageStore } from "../../store/languageStore";
-import { initialsFor } from "../../layout/app_layout/initialsFor";
+import { initialsFor } from "../../ui/display/initialsFor";
 import type { ManagedUserRead } from "../../api/users_api";
 import { useUserAccessDialogState } from "./useUserAccessDialogState";
 import UserAccessTabs from "./UserAccessTabs";
+import { buildUserAccessRows } from "./userAccessDialogRows";
 import {
   DIALOG_FOOTER_CLASSNAME,
   DIALOG_HEADER_CLASSNAME,
@@ -50,10 +51,12 @@ const UserAccessDialog: React.FC<UserAccessDialogProps> = ({
     user?.email ?? null,
     initialTab,
   );
+  // Tabs the caller is not allowed to read are left out entirely, not shown
+  // empty: nobody should learn what exists without the permission to see it.
   const tabValues: Array<"details" | "policies" | "permissions"> = [
     "details",
-    "policies",
-    "permissions",
+    ...(state.canSeePolicies ? (["policies"] as const) : []),
+    ...(state.canSeePermissions ? (["permissions"] as const) : []),
   ];
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   if (!user) return null;
@@ -61,59 +64,8 @@ const UserAccessDialog: React.FC<UserAccessDialogProps> = ({
   const lockText = isSystemUser
     ? t("users:columns.cannotModifySystemUser")
     : undefined;
-  const catalog = state.catalogQuery.data ?? [];
-  const totalGranted = catalog.filter((entry) =>
-    state.isAlreadyEffectivelyGranted(
-      state.effectiveGrantKeys,
-      entry.action,
-      entry.resource_type,
-    ),
-  ).length;
-  const allPolicies = [
-    ...new Map(
-      [...state.assignedPolicies, ...(state.allPoliciesQuery.data ?? [])].map(
-        (policy) => [policy.name, policy],
-      ),
-    ).values(),
-  ];
-  const policyQuery = state.polQuery.trim().toLowerCase();
-  // Keep the catalog order stable while toggles refresh assignment state.
-  // Sorting assigned policies to the top made the row jump immediately
-  // after a click, forcing permission holders to relocate the item they just
-  // changed. The filter still controls visibility; assignment should not.
-  const policyRows = allPolicies
-    .filter(
-      (policy) =>
-        state.polFilter === "all" ||
-        (state.polFilter === "on") === state.assignedNames.has(policy.name),
-    )
-    .filter(
-      (policy) =>
-        !policyQuery ||
-        policy.name.toLowerCase().includes(policyQuery) ||
-        policy.description?.toLowerCase().includes(policyQuery),
-    )
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const permissionQuery = state.permQuery.trim().toLowerCase();
-  const permissionRows = catalog.filter(
-    (entry) =>
-      (state.permFilter === "all" ||
-        (state.permFilter === "on") ===
-          state.isAlreadyEffectivelyGranted(
-            state.effectiveGrantKeys,
-            entry.action,
-            entry.resource_type,
-          )) &&
-      (!permissionQuery ||
-        entry.action.toLowerCase().includes(permissionQuery) ||
-        entry.description?.toLowerCase().includes(permissionQuery) ||
-        entry.resource_type.toLowerCase().includes(permissionQuery)),
-  );
-  const permissionGroups = [
-    ...new Set(catalog.map((entry) => entry.resource_type)),
-  ].filter((group) =>
-    permissionRows.some((entry) => entry.resource_type === group),
-  );
+  const { catalog, totalGranted, allPolicies, policyRows, permissionRows, permissionGroups } =
+    buildUserAccessRows(state);
   const setTab = (tab: "details" | "policies" | "permissions") =>
     state.setTab(tab);
   const activateTab = (nextTab: "details" | "policies" | "permissions") => {
@@ -193,68 +145,75 @@ const UserAccessDialog: React.FC<UserAccessDialogProps> = ({
                   <UserIcon size={16} aria-hidden="true" />
                   {t("users:accessDialog.tabDetails")}
                 </button>
-                <button
-                  ref={(element) => {
-                    tabRefs.current[1] = element;
-                  }}
-                  type="button"
-                  role="tab"
-                  aria-selected={state.tab === "policies"}
-                  aria-controls="user-access-tabpanel-policies"
-                  tabIndex={state.tab === "policies" ? 0 : -1}
-                  onClick={() => activateTab("policies")}
-                  onKeyDown={(event) => handleTabKeyDown(event, "policies")}
-                  className={cn(
-                    "inline-flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 border-l border-border-strong px-3 text-sm font-semibold transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-[-2px]",
-                    state.tab === "policies"
-                      ? "bg-brand-tile-subtle text-brand-fg shadow-[inset_0_0_0_2px_var(--brand-solid)]"
-                      : "text-fg-muted hover:bg-brand-subtle hover:text-brand-fg",
-                  )}
-                >
-                  <Shield size={16} aria-hidden="true" />
-                  {t("users:accessDialog.tabPolicies")}
-                  <span
+                {state.canSeePolicies && (
+                  <button
+                    ref={(element) => {
+                      tabRefs.current[tabValues.indexOf("policies")] = element;
+                    }}
+                    type="button"
+                    role="tab"
+                    aria-selected={state.tab === "policies"}
+                    aria-controls="user-access-tabpanel-policies"
+                    tabIndex={state.tab === "policies" ? 0 : -1}
+                    onClick={() => activateTab("policies")}
+                    onKeyDown={(event) => handleTabKeyDown(event, "policies")}
                     className={cn(
-                      "min-w-5 rounded-full px-1.5 text-center text-xs",
+                      "inline-flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 border-l border-border-strong px-3 text-sm font-semibold transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-[-2px]",
                       state.tab === "policies"
-                        ? "bg-brand-solid text-white"
-                        : "bg-bg-muted text-fg-muted",
+                        ? "bg-brand-tile-subtle text-brand-fg shadow-[inset_0_0_0_2px_var(--brand-solid)]"
+                        : "text-fg-muted hover:bg-brand-subtle hover:text-brand-fg",
                     )}
                   >
-                    {state.assignedPolicies.length}
-                  </span>
-                </button>
-                <button
-                  ref={(element) => {
-                    tabRefs.current[2] = element;
-                  }}
-                  type="button"
-                  role="tab"
-                  aria-selected={state.tab === "permissions"}
-                  aria-controls="user-access-tabpanel-permissions"
-                  tabIndex={state.tab === "permissions" ? 0 : -1}
-                  onClick={() => activateTab("permissions")}
-                  onKeyDown={(event) => handleTabKeyDown(event, "permissions")}
-                  className={cn(
-                    "inline-flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 border-l border-border-strong px-3 text-sm font-semibold transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-[-2px]",
-                    state.tab === "permissions"
-                      ? "bg-brand-tile-subtle text-brand-fg shadow-[inset_0_0_0_2px_var(--brand-solid)]"
-                      : "text-fg-muted hover:bg-brand-subtle hover:text-brand-fg",
-                  )}
-                >
-                  <Key size={16} aria-hidden="true" />
-                  {t("users:accessDialog.tabPermissions")}
-                  <span
+                    <Shield size={16} aria-hidden="true" />
+                    {t("users:accessDialog.tabPolicies")}
+                    <span
+                      className={cn(
+                        "min-w-5 rounded-full px-1.5 text-center text-xs",
+                        state.tab === "policies"
+                          ? "bg-brand-solid text-white"
+                          : "bg-bg-muted text-fg-muted",
+                      )}
+                    >
+                      {state.assignedPolicies.length}
+                    </span>
+                  </button>
+                )}
+                {state.canSeePermissions && (
+                  <button
+                    ref={(element) => {
+                      tabRefs.current[tabValues.indexOf("permissions")] =
+                        element;
+                    }}
+                    type="button"
+                    role="tab"
+                    aria-selected={state.tab === "permissions"}
+                    aria-controls="user-access-tabpanel-permissions"
+                    tabIndex={state.tab === "permissions" ? 0 : -1}
+                    onClick={() => activateTab("permissions")}
+                    onKeyDown={(event) =>
+                      handleTabKeyDown(event, "permissions")
+                    }
                     className={cn(
-                      "min-w-5 rounded-full px-1.5 text-center text-xs",
+                      "inline-flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 border-l border-border-strong px-3 text-sm font-semibold transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-[-2px]",
                       state.tab === "permissions"
-                        ? "bg-brand-solid text-white"
-                        : "bg-bg-muted text-fg-muted",
+                        ? "bg-brand-tile-subtle text-brand-fg shadow-[inset_0_0_0_2px_var(--brand-solid)]"
+                        : "text-fg-muted hover:bg-brand-subtle hover:text-brand-fg",
                     )}
                   >
-                    {totalGranted}
-                  </span>
-                </button>
+                    <Key size={16} aria-hidden="true" />
+                    {t("users:accessDialog.tabPermissions")}
+                    <span
+                      className={cn(
+                        "min-w-5 rounded-full px-1.5 text-center text-xs",
+                        state.tab === "permissions"
+                          ? "bg-brand-solid text-white"
+                          : "bg-bg-muted text-fg-muted",
+                      )}
+                    >
+                      {totalGranted}
+                    </span>
+                  </button>
+                )}
               </div>
               <GlossaryHelp
                 ariaLabel={t("users:accessDialog.glossaryAriaLabel")}

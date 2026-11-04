@@ -1,12 +1,16 @@
 import traceback
 
 from fastapi import Request
+from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
+from valkey.exceptions import ValkeyError
 
+from ...core.errors import service_unavailable_error
 from ...logging.logging_config import get_logger
 from ...user_session.session_service import session_service
 from ..security.client_ip import get_client_ip
 from ..token_logic.jwt_service import jwt_service
+from ..token_logic.token_version_store import TokenVersionUnavailableError
 from .refresh_token_revocation import (
     handle_reuse_detected,
     revoke_all_tokens_for_user,
@@ -141,6 +145,12 @@ class RefreshTokenService:
             )
 
             return {"access_token": new_access_token, "refresh_token": new_refresh_token}
+
+        except (TokenVersionUnavailableError, ValkeyError, OperationalError, InterfaceError) as error:
+            # A store outage is not a bad token: 503, so the client keeps its
+            # session and no failed-attempt is counted against the caller.
+            logger.error("Store unavailable while refreshing token:\n%s", traceback.format_exc())
+            raise service_unavailable_error() from error
 
         except Exception:
             logger.error("Error refreshing token:\n%s", traceback.format_exc())

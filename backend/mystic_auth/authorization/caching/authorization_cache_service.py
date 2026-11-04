@@ -3,12 +3,13 @@ import traceback
 
 from ...logging.logging_config import get_logger
 from ...valkey.client import valkey_client
+from ...valkey.key_names import email_key_id
 from ..models.policy_model import Policy
 from ..models.user_permission_model import UserPermission
 
 logger = get_logger(__name__)
 
-# authz:user_policies:{email} -> a user's active, assigned policy list
+# authz:user_policies:{email_key_id} -> a user's active, assigned policy list
 # (JSON array of serialized policies). See the class docstring for why
 # "policy lookup by name" and "evaluation results" are deliberately not
 # cached.
@@ -17,10 +18,10 @@ _USER_POLICIES_KEY_PATTERN = f"{_USER_POLICIES_KEY_PREFIX}*"
 
 
 def _user_policies_key(user_email: str) -> str:
-    return f"{_USER_POLICIES_KEY_PREFIX}{user_email}"
+    return f"{_USER_POLICIES_KEY_PREFIX}{email_key_id(user_email)}"
 
 
-# authz:user_permissions:{email} -> a user's active direct permission
+# authz:user_permissions:{email_key_id} -> a user's active direct permission
 # grants (JSON array). A sibling namespace, not merged into
 # _USER_POLICIES_KEY_PREFIX above: a UserPermission row IS the per-user
 # grant (unlike a Policy, which many users can share), so it only ever
@@ -30,7 +31,7 @@ _USER_PERMISSIONS_KEY_PREFIX = "authz:user_permissions:"
 
 
 def _user_permissions_key(user_email: str) -> str:
-    return f"{_USER_PERMISSIONS_KEY_PREFIX}{user_email}"
+    return f"{_USER_PERMISSIONS_KEY_PREFIX}{email_key_id(user_email)}"
 
 
 # TTL bounds how long a cached policy list can outlive a missed

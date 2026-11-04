@@ -17,7 +17,7 @@
     "goToActiveSessions_other": "{{count}} सक्रिय सत्र, सत्र सूची पर जाएँ",
     "noUserData": "कोई उपयोगकर्ता डेटा उपलब्ध नहीं",
     "administration": {
-        "heading": "प्रशासन",
+        "heading": "प्रबंधन",
         "loadError": "लोड नहीं हो सका",
         "users": {
             "label": "उपयोगकर्ता",
@@ -91,7 +91,5 @@
         "unknownBrowser": "अज्ञात ब्राउज़र",
         "unknownOS": "अज्ञात OS",
         "deviceLabel": "{{browser}}, {{os}} पर"
-    },
-    "loginActivityHeading": "मेरी लॉगिन गतिविधि",
-    "loginActivitySubtitle": "पिछले {{days}} दिन"
+    }
 }

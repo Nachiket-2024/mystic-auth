@@ -21,9 +21,9 @@ const SEGMENT_COUNT = 4;
 
 /**
  * Strength bar + label full width above the checklist, left-aligned - not a
- * centered block with the bar off to one side (design/auth.html's signup/
+ * centered block with the bar off to one side (as in the signup and
  * reset states). The checklist collapses to a single column below ~400px
- * (design.md's narrow-width rule) so each rule stays on one line at 360px.
+ * so each rule stays on one line at 360px.
  */
 // Semantic strength color, as both a bg- and text- Tailwind class (the
 // segment bars need the former, the label the latter).

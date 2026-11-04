@@ -17,9 +17,8 @@ UserStatus = Literal["active", "inactive", "deleted"]
 PermissionSource = Literal["policy", "direct"]
 
 # Relative-bucket presets for the "last login" filter, matching how Okta/
-# Auth0/Workspace admin consoles filter this field: quick relative buckets
-# first, a custom {from, to} range only when none fit (see
-# design/users.html's lastLoginOpts).
+# Auth0/Workspace management consoles filter this field: quick relative buckets
+# first, a custom {from, to} range only when none fit .
 LastLoginBucket = Literal["today", "7d", "30d", "90d", "never"]
 _LAST_LOGIN_BUCKET_DAYS: dict[str, int] = {"today": 1, "7d": 7, "30d": 30, "90d": 90}
 
@@ -112,7 +111,7 @@ class UserBaseCRUD:
         status_condition = self._status_filter(status)
         # Verification is an account-state filter in the management UI. When
         # no explicit status is requested, do not let soft-deleted accounts
-        # leak into a verified/unverified result; an admin can still combine
+        # leak into a verified/unverified result; a caller can still combine
         # verification with status="deleted" when intentionally inspecting
         # deactivated accounts.
         if is_verified is not None and status is None:
@@ -193,7 +192,7 @@ class UserBaseCRUD:
         # Postgres defaults NULLs to sort first on DESC, which would put
         # every never-logged-in user ahead of real, more-recent timestamps
         # on a "most recent login first" sort - the opposite of what an
-        # admin sorting this column would expect. Pin last_login_at's NULLs
+        # a user sorting this column would expect. Pin last_login_at's NULLs
         # to the bottom regardless of direction; every other sortable column
         # here is NOT NULL, so this never bites them.
         if sort_by == "last_login_at":

@@ -20,6 +20,21 @@ Detail](frontend-pages-test-detail.md).
 
 ---
 
+How tests flow from a local edit to a merged change:
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    Edit["Edit code"] --> Unit["Unit tests\n(backend pytest, frontend Vitest)"]
+    Unit --> Integ["Integration and security tests\n(real Postgres + Valkey)"]
+    Integ --> E2E["Browser E2E\n(Playwright, four projects)"]
+    E2E --> CI["CI runs all of it,\nwith the 90% backend coverage gate"]
+
+    class CI terminal
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ## Backend: pytest
 
 1. Config lives in `pytest.ini` at the repo root. It sets `testpaths = tests/backend` and collects coverage for `backend/app` and `backend/mystic_auth`.
@@ -28,40 +43,8 @@ Detail](frontend-pages-test-detail.md).
 4. CI enforces the 90% cumulative coverage gate after the app wrapper, unit,
    integration, and security suites append to the same coverage data.
 
-### 8 October, 2026 verification
-
-- The backend cumulative coverage audit exceeded the unchanged 90% CI gate. It
-  includes the app wrapper, unit, integration, and security suites plus focused tests
-  for lifecycle events/tasks, session-event failure paths, app lifecycle,
-  token-version models, and login protection. The two advisory performance
-  modules remain a separate, non-gating run.
-- Frontend Vitest passed 873 tests in 137 files. The measured report was
-  97.33% statements, 91.20% branches, 95.71% functions, and 97.96% lines.
-  The new unit coverage includes shared UI primitives, font-size state,
-  security-log details, and existing theme and segmented-control behavior.
-- The browser matrix produced 424 passing checks and 25 intentional skips.
-  One WebKit language-selector timeout occurred during the shared-host run;
-  the exact test passed when rerun in isolation with one worker.
-- The Windows PowerShell setup-env regression is a host-level check. Run it
-  from native Windows PowerShell; WSL2's absence of `pwsh` does not mean the
-  Windows host lacks PowerShell.
-- Backend performance checks remain advisory. The concurrent-login check uses
-  a 10-second ceiling for 25 real Argon2 verifications: the previous 5-second
-  ceiling produced false alarms on WSL2 and shared GitHub runners even after
-  the login path's database connection amplification was fixed.
-
-### 10 October, 2026 verification
-
-- Added backend unit cases for both authorization-maintenance CLIs and `/auth/me`
-  error handling, including duplicate-email counts, report filtering, invalid
-  tokens, inactive accounts, and safe database/unexpected-error responses. The
-  cumulative backend suite passed at 95.07% coverage across 1,044 app-wrapper
-  and unit tests, 309 integration tests, and 37 security tests. The CI gate
-  remains 90%.
-- Added four frontend regressions for app-supplied navbar actions, command-
-  palette wiring, chart keyboard tooltips, 90-day label thinning, and
-  background-refetch feedback. Vitest passed 882 tests in 138 files with
-  97.28% statements, 91.59% branches, 95.53% functions, and 97.96% lines.
+Dated verification records (8 October, 10 October, and 3 November, 2026) are kept in
+[Test Verification History](verification-history.md) so this page stays focused on current rules.
 
 The backend 90% gate is deliberately below 100%: defensive exception
 branches, framework wiring, and deployment-only paths are valuable to review
@@ -80,10 +63,10 @@ glue. A 70% gate would allow too much untested product behavior to regress.
 
 **Why this exists**: a shared database was a real, reproducible bug.
 
-1. A test's own teardown fixture (`_procrastinate_app_lifecycle` below) used to delete every row from `procrastinate_jobs` after each test.
-2. This used to race a real dev-stack `procrastinate_worker` still mid-write on a job the test itself deferred (an audit-log entry, most commonly): it lost the row it needed to persist "succeeded" against, logged a `ConnectorException`, and enough of those repeated eventually took the container down.
+1. A test's teardown fixture (`_procrastinate_app_lifecycle` below) deletes rows from `procrastinate_jobs` after each test.
+2. Against a shared database this races a real dev-stack `procrastinate_worker` that is mid-write on a job the test deferred (most commonly an audit-log entry): the worker loses the row it needs to mark "succeeded", logs a `ConnectorException`, and repeated failures can take the container down.
 3. A dedicated database removes the shared table entirely, not just this one symptom of sharing it.
-4. Teardown now deletes only terminal (`succeeded`/`failed`) jobs. In-flight
+4. Teardown deletes only terminal (`succeeded`/`failed`) jobs. In-flight
    `todo`/`doing` rows are left for the worker to finish, preventing the same
    race within one dedicated test database and making successful authorization
    audit entries deterministic after a broad suite run.
@@ -99,7 +82,7 @@ settings and SDK boundaries, and application lifecycle signal handling.
 
 ### Unit tests
 
-`tests/backend/mystic_auth/unit/` contains 120 modules. Its subdirectories
+`tests/backend/mystic_auth/unit/` holds the unit tests. Its subdirectories
 mirror the backend implementation and cover authentication, authorization and
 PBAC, condition validation, rate limits, middleware, logging, email tasks,
 users, sessions, deletion/purge, database and Valkey helpers, and settings.
@@ -108,7 +91,7 @@ file.
 
 ### Integration tests
 
-`tests/backend/mystic_auth/integration/` contains 52 modules. They exercise
+`tests/backend/mystic_auth/integration/` holds the integration tests. They exercise
 audit logs, policy CRUD and assignment, authorization checks, auth flows,
 health, OAuth, sessions, rate limits, user export and lifecycle, and cache
 behavior against real test infrastructure. See [Backend Integration
@@ -131,13 +114,13 @@ and Performance](backend-security-performance.md).
 
 These are two different kinds of "load" and only one of them lives in this suite:
 
-- **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory: e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race, concurrent-identical-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_login_lockout_race_integration.py` (failed-login lockout counter under a concurrent burst), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_admin_management_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/`. Add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
+- **Concurrency/race correctness** (does the app stay *correct*, not just fast, when N requests hit the same shared state at once) is regular pytest coverage, living inline in the relevant `integration/` file rather than a separate directory: e.g. `test_signup_verify_concurrency_integration.py` (duplicate-signup race, concurrent-identical-signup race), `test_refresh_token_integration.py::test_concurrent_refresh_with_the_same_token_only_one_succeeds` (refresh-token double-spend), `test_login_lockout_race_integration.py` (failed-login lockout counter under a concurrent burst), `test_policy_concurrency_integration.py` (concurrent policy edits), and the self-role-change regression tests in `test_user_management_crud_integration.py` / `test_bulk_role_assignment_integration.py`. These are cheap, deterministic, and run in every CI pass alongside the rest of `integration/`. Add a new one next to the feature it protects whenever a fix closes a race, the same way the tests above did.
   The `admin` text in those fixture names describes role metadata or a test
   account, not an authorization decision; access is always PBAC permission- and
   policy-derived.
 - **Throughput/capacity load testing** (how many req/s before latency or error rate degrades) is deliberately **not** part of this suite: it needs an isolated environment (not a shared CI runner), pass/fail thresholds tied to a real deployment's expected traffic, and it rots fast if left unattended in-repo. `scripts/mystic_auth/load-test/load_test.py` is a small `httpx`-based script for this, run by hand against a local-prod/staging stack before a release, not on every push. See its own header comment for usage and the per-IP rate-limit budget it needs to stay under to measure real capacity rather than the rate limiter.
 
-The local audit run on 2026-09-23 exercised 500 `/health/ready` requests at
+A local run exercised 500 `/health/ready` requests at
 50-request concurrency with four worker processes and 80 authenticated
 `/auth/me` requests at 20-request concurrency. Both runs completed with zero
 server errors. These are baseline measurements for the current Docker stack,
@@ -216,14 +199,14 @@ pages. These protect the host application boundary.
 
 ### Unit tests
 
-`tests/frontend/mystic_auth/unit/` contains 109 modules for API clients,
+`tests/frontend/mystic_auth/unit/` holds the tests for API clients,
 refresh and session lifecycle, authorization helpers, audit presentation,
 password rules, stores, theme, shared UI, error reporting, translation parity,
 and mobile overflow. See [Frontend Unit Tests](frontend-unit.md).
 
 ### Integration tests
 
-`tests/frontend/mystic_auth/integration/` contains 33 rendered-page modules
+`tests/frontend/mystic_auth/integration/` contains 35 rendered-page modules
 for audit logs, auth, dashboard, active sessions, PBAC UI, policies,
 permissions, rate limits, users, and account settings. API responses are
 controlled, so these prove frontend composition rather than backend
@@ -231,7 +214,7 @@ authorization. See [Frontend Integration Tests](frontend-integration.md).
 
 ### Browser E2E tests
 
-The 28 Playwright specs under `tests/frontend/**/e2e/` add real browser
+The 29 Playwright specs under `tests/frontend/**/e2e/` add real browser
 navigation, focus, keyboard, responsive, accessibility, disposable-account,
 real seeded-account, and opt-in live-deployment checks. See [Frontend Browser
 E2E Tests](frontend-e2e.md).
@@ -282,9 +265,8 @@ codebase already uses, rather than introducing a new pattern:
   data-fetching, mutations, and dialog state; the extracted component takes
   plain props and owns only presentation.
 - **A backend unit/integration test file covering more than one route or
-  concern**: split along the same seam the source side already has - e.g.
-  `test_policy_authorization_security_unit.py` (covering both
-  `policy_crud_routes.py` and `policy_assignment_routes.py`) became
+  concern**: split along the same seam the source side already has - e.g. one file covering both
+  `policy_crud_routes.py` and `policy_assignment_routes.py` is split into
   `test_policy_crud_authorization_security_unit.py` and
   `test_policy_assignment_authorization_security_unit.py`, matching
   `backend/mystic_auth/api/pbac_routes/`'s own crud-vs-assignment file

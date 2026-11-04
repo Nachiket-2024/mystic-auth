@@ -56,14 +56,6 @@
         "groupInPolicyCount_one": "{{count}} નીતિમાં",
         "groupInPolicyCount_other": "{{count}} નીતિઓમાં"
     },
-    "howItWorks": {
-        "actionsTitle": "ક્રિયાઓ",
-        "actionsDescription": "લોકોને જે કરવાની છૂટ આપી શકાય, જેમ કે “વપરાશકર્તાઓ જુઓ”.",
-        "policiesTitle": "નીતિઓ",
-        "policiesDescription": "ક્રિયાઓના નામાંકિત જૂથો.",
-        "peopleTitle": "લોકો",
-        "peopleDescription": "ખરેખર કોને પ્રવેશ મળે છે."
-    },
     "columns": {
         "action": "ક્રિયા",
         "resourceType": "સંસાધન પ્રકાર",

@@ -1,46 +1,31 @@
 #!/usr/bin/env bash
-# Sets one or more fields across every real env file that already declares
-# each key, leaving every other field untouched. For a value that's the
-# same everywhere on purpose (SUPPORT_EMAIL, GOOGLE_CLIENT_ID,
-# ...), instead of opening and editing five files by
-# hand, one field at a time.
+# Sets one or more fields in every real env file that already declares the key,
+# leaving everything else untouched. For values that are the same everywhere on
+# purpose (SUPPORT_EMAIL, GOOGLE_CLIENT_ID, ...).
 #
-# Two ways to use it:
+# From a file (no arguments, easiest): copy shared-values.env.example (next to
+# this script) to shared-values.env, fill in the fields in a text editor, run:
 #
-#   From a file (no arguments, easiest): copy shared-values.env.example
-#   (next to this script) to shared-values.env, fill in whichever fields
-#   you want set everywhere with a normal text editor, then run:
+#   scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh
 #
-#     scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh
+# For a field only env/app/ declares, use the parallel
+# scripts/app/env-tools/set-env-field/shared-values.env.example the same way
+# (ships empty). Both files are read; the app one wins on overlap.
+# shared-values.env is gitignored, and the script prints field names, never
+# values, so nothing secret goes on a command line or into an AI chat.
 #
-#   For a field you added yourself (one only env/app/ declares), use the
-#   parallel scripts/app/env-tools/set-env-field/shared-values.env.example
-#   instead - same copy/fill/run steps, ships empty, upstream never edits
-#   it. Both files are read in this mode; the app one wins on overlap.
+# Direct (scriptable, what docs and agent prompts use):
 #
-#   Nothing here ever puts a value on the command line or asks you to
-#   type it into a chat with an AI agent - shared-values.env is gitignored
-#   and only this script's own output (field names, never values) needs to
-#   be shared with anyone.
+#   scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh KEY1=VALUE1 [KEY2=VALUE2 ...] [file ...]
 #
-#   Direct (one-line, scriptable - what docs/agent prompts use):
+# An argument containing "=" is an assignment (only the first "=" splits key
+# from value); any other argument is a target file, anywhere in the list.
 #
-#     scripts/mystic_auth/env-tools/set-env-field/set-env-field.sh KEY1=VALUE1 [KEY2=VALUE2 ...] [file ...]
+# With no file arguments it targets every existing env/mystic_auth/.env* and
+# env/app/.env* file plus frontend/.env. A file without a given KEY= line is
+# skipped for that field: values are only changed, never added.
 #
-#   Any argument containing "=" is a field assignment (only the first "="
-#   splits key from value, so a value can itself contain "="). Any
-#   argument without "=" is a target file - so file arguments can appear
-#   anywhere, not just at the end.
-#
-# With no file arguments (either form), targets every env/mystic_auth/.env*
-# and env/app/.env* file plus frontend/.env that actually exists. A file
-# missing a given KEY= line is
-# skipped for that field, not created or appended to - this only ever
-# changes a value that's already there.
-#
-# Uses awk instead of sed so a value is never interpreted as a regex or a
-# sed replacement pattern: slashes, ampersands, etc. in a URL or email
-# address are safe to pass as-is.
+# Uses awk, not sed, so slashes and ampersands in a URL or email are safe.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/../../../.."
@@ -142,9 +127,6 @@ for f in "${FILES[@]}"; do
   # silently turn a mode-600 credential file into mode 644, undoing the
   # secret-hygiene preflight's protection after an otherwise safe field edit.
   file_mode="$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || true)"
-  if [ -n "$file_mode" ]; then
-    chmod "$file_mode" "$tmp"
-  fi
 
   for key in "${KEY_ORDER[@]}"; do
     if grep -q "^${key}=" "$tmp"; then
@@ -153,10 +135,22 @@ for f in "${FILES[@]}"; do
         $0 ~ pattern { print key "=" val; next }
         { print }
       ' "$tmp" > "${tmp}.next"
+      # Each rewrite above recreates the file under the process umask
+      # (awk's `>` redirect makes a brand-new inode), so the mode has to be
+      # reapplied on every pass, not just once before the loop starts -
+      # otherwise only the first chmod survives and a later key in the same
+      # file silently undoes it again.
+      if [ -n "$file_mode" ]; then
+        chmod "$file_mode" "${tmp}.next"
+      fi
       mv "${tmp}.next" "$tmp"
       SET_IN["$key"]=1
     fi
   done
+
+  if [ -n "$file_mode" ]; then
+    chmod "$file_mode" "$tmp"
+  fi
 
   mv "$tmp" "$f"
 done

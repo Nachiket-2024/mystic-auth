@@ -103,14 +103,17 @@ async def test_purge_job_revokes_sessions_of_purged_accounts(client, created_ema
 
 
 @pytest.mark.asyncio
-async def test_purge_job_anonymizes_past_history_but_keeps_its_own_purge_record_reviewable(client, created_emails, mocker):
-    """Regression for the self-erasure bug: anonymize_for_user matches every
-    row with the purged email, with no exception for rows written moments
-    earlier in the same purge. The account's pre-purge history (e.g. its
-    login event) must end up with user_email=None, but the ACCOUNT_PURGED
-    row the purge itself writes must still carry the real email -- that's
-    the one record whose whole job is to answer "who got purged," and it
-    must survive the anonymization sweep that runs right alongside it."""
+async def test_purge_job_never_anonymizes_past_history(client, created_emails, mocker):
+    """Account deletion (self-service or admin purge) must never erase an
+    account's own audit trail: that's the most predictable thing a user who
+    just did something malicious does next, and the easiest way for a
+    compromised/malicious admin to cover their own tracks via the purge
+    route. Both security_audit_log and authorization_audit_log are
+    append-only for mystic_auth_app (no UPDATE, no DELETE - see Alembic
+    migrations 9c3e7f1a4b8d/4b8d1f6e9c2a), so this isn't just an application
+    policy, it's enforced at the database grant level. The account's
+    pre-purge history (e.g. its login event) and the ACCOUNT_PURGED row the
+    purge itself writes must both still carry the real email afterward."""
     mocker.patch(
         "backend.mystic_auth.procrastinate_tasks.account_purge_tasks.settings.ACCOUNT_PURGE_GRACE_DAYS", 7
     )
@@ -126,9 +129,10 @@ async def test_purge_job_anonymizes_past_history_but_keeps_its_own_purge_record_
         result = await session.execute(select(AuditLog).where(AuditLog.event_type == ACCOUNT_PURGED))
         purge_rows = [row for row in result.scalars().all() if row.event_metadata and row.event_metadata.get("purged_by")]
         matching = [row for row in purge_rows if row.user_email == email]
-        assert matching, "ACCOUNT_PURGED row for this email was anonymized away instead of surviving the purge"
+        assert matching, "ACCOUNT_PURGED row for this email is missing or lost its real email"
 
         result = await session.execute(
             select(AuditLog).where(AuditLog.event_type != ACCOUNT_PURGED, AuditLog.user_email == email)
         )
-        assert result.scalars().all() == [], "pre-purge history for this email was not anonymized"
+        pre_purge_rows = result.scalars().all()
+        assert pre_purge_rows, "pre-purge history for this email was wiped instead of surviving the purge"

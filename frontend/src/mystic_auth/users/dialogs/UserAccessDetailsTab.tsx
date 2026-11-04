@@ -23,12 +23,18 @@ import {
 import { useAllSecurityLogUiStore } from "../../audit_log/security_log/securityLogUiStore";
 import type { SupportedLanguage } from "../../translations/translations";
 import type { ManagedUserRead } from "../../api/users_api";
-import { accessChangeLabel, InfoRow, StatTile, type Translate, type UserAccessState } from "./UserAccessDialogAtoms";
+import {
+  accessChangeLabel,
+  InfoRow,
+  StatTile,
+  type Translate,
+  type UserAccessState,
+} from "./UserAccessDialogAtoms";
 
 // Details tab of the User Access dialog: role/status/created info plus the
 // "Recent access changes" list. Policies and Permissions tabs live in their
 // own sibling files, composed together by UserAccessTabs.tsx - split out of
-// one 540-line file, see AGENTS.md's ~350-line target.
+// one 540-line file, see the repo's ~350-line target.
 
 interface UserAccessDetailsTabProps {
   user: ManagedUserRead;
@@ -60,32 +66,38 @@ const UserAccessDetailsTab: React.FC<UserAccessDetailsTabProps> = ({
   >
     <div className="flex flex-col gap-3 mt-2 flex-1 min-h-0 overflow-y-auto pb-1 [scrollbar-gutter:stable]">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatTile
-          icon={<Shield size={21} />}
-          num={state.assignedPolicies.length}
-          label={t("users:accessDialog.statPolicies")}
-          onClick={() => onTabChange("policies")}
-          ariaLabel={t("users:accessDialog.viewPolicies", {
-            count: state.assignedPolicies.length,
-          })}
-        />
-        <StatTile
-          icon={<Key size={21} />}
-          num={totalGranted}
-          label={t("users:accessDialog.statPermissions")}
-          onClick={() => onTabChange("permissions")}
-          ariaLabel={t("users:accessDialog.viewPermissions", {
-            count: totalGranted,
-          })}
-        />
-        <StatTile
-          icon={<UserIcon size={21} />}
-          num={state.directGrants.length}
-          label={t("users:accessDialog.statGivenDirectly")}
-          ariaLabel={t("users:accessDialog.givenDirectlyStat", {
-            count: state.directGrants.length,
-          })}
-        />
+        {state.canSeePolicies && (
+          <StatTile
+            icon={<Shield size={21} />}
+            num={state.assignedPolicies.length}
+            label={t("users:accessDialog.statPolicies")}
+            onClick={() => onTabChange("policies")}
+            ariaLabel={t("users:accessDialog.viewPolicies", {
+              count: state.assignedPolicies.length,
+            })}
+          />
+        )}
+        {state.canSeePermissions && (
+          <StatTile
+            icon={<Key size={21} />}
+            num={totalGranted}
+            label={t("users:accessDialog.statPermissions")}
+            onClick={() => onTabChange("permissions")}
+            ariaLabel={t("users:accessDialog.viewPermissions", {
+              count: totalGranted,
+            })}
+          />
+        )}
+        {state.canSeePermissions && (
+          <StatTile
+            icon={<UserIcon size={21} />}
+            num={state.directGrants.length}
+            label={t("users:accessDialog.statGivenDirectly")}
+            ariaLabel={t("users:accessDialog.givenDirectlyStat", {
+              count: state.directGrants.length,
+            })}
+          />
+        )}
       </div>
       <div className="border-t border-border-card pt-3">
         <p className="mb-2 text-base font-semibold">

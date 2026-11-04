@@ -1,8 +1,8 @@
 # Third-party notices
 
 This directory lists the application dependency licenses: one file per
-package under `backend/` (Python, 66 packages) or `frontend/` (npm production
-bundle, 131 packages). Each file has the package's name, version, license
+package under `backend/` (Python, 72 packages) or `frontend/` (npm production
+bundle, 132 packages). Each file has the package's name, version, license
 identifier, copyright line, and full license text. Any package `NOTICE` file
 is included with that package's license.
 

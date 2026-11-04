@@ -105,20 +105,20 @@ async def test_list_active_limits_parses_ip_and_account_keys(mocker):
 
 @pytest.mark.asyncio
 async def test_list_active_limits_reports_an_endpoint_override_not_the_global_limit(mocker):
-    # password_reset_request here stands in for any endpoint that passed
+    # example_endpoint here stands in for any endpoint that passed
     # its own max_requests/window_seconds to rate_limited(...) - the
     # dashboard must show the threshold actually enforced for it, not the
     # unrelated global default every other endpoint shares.
-    RateLimiterService.ENDPOINT_OVERRIDES["password_reset_request"] = (5, 900)
+    RateLimiterService.ENDPOINT_OVERRIDES["example_endpoint"] = (5, 900)
     try:
-        _patch_scan(mocker, 0, ["password_reset_request:ip:1.2.3.4"])
+        _patch_scan(mocker, 0, ["example_endpoint:ip:1.2.3.4"])
         _patch_pipeline(mocker, ["1", 900])
 
         entries, _, _ = await rate_limit_dashboard_service.list_active_limits()
 
         assert entries[0]["limit"] == 5
     finally:
-        del RateLimiterService.ENDPOINT_OVERRIDES["password_reset_request"]
+        del RateLimiterService.ENDPOINT_OVERRIDES["example_endpoint"]
 
 
 @pytest.mark.asyncio

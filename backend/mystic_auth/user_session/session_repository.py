@@ -25,7 +25,7 @@ class SessionRepository:
     forever. Sessions that lapse via expires_at without ever being
     explicitly revoked aren't caught here (there's no revoke call to hook
     into) - see delete_expired_unrevoked and procrastinate_tasks/
-    session_cleanup_tasks.py's periodic sweep for those.
+    maintenance_tasks.py's periodic sweep for those.
     """
 
     @staticmethod
@@ -201,7 +201,7 @@ class SessionRepository:
         there's nothing revoked left for this to find - the filter here is
         expires_at alone). `before` is the caller's cutoff (now() minus
         settings.SESSION_ROW_RETENTION_HOURS), not computed here, so
-        procrastinate_tasks/session_cleanup_tasks.py and its tests can pin
+        procrastinate_tasks/maintenance_tasks.py and its tests can pin
         an exact instant instead of racing the real clock."""
         stmt = delete(UserSession).where(UserSession.expires_at < before)
         result = cast(CursorResult, await db.execute(stmt))

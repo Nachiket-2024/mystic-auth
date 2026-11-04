@@ -8,8 +8,7 @@ import { mock, seed, renderPage, PERMISSION_CATALOG, SAMPLE_POLICIES } from './p
 
 // PoliciesPage: the list, expand/collapse, and the create/edit form
 // (including conditions JSON validation). Status toggles, delete, and undo
-// live in their own sibling file - split out of one 395-line file, see
-// AGENTS.md's ~350-line target.
+// live in their own sibling file.
 
 describe('PoliciesPage: list and form', () => {
   beforeEach(() => {

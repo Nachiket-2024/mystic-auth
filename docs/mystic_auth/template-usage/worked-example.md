@@ -1,6 +1,24 @@
 # Worked Example: Adding a New Domain, End to End
 ---
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    M["1. Model, schema,\nrouter in backend/app"]
+    R["2. include_router\nin main.py"]
+    D["3. Import model in\napp/models.py, alembic revision"]
+    P["4. Policy grants\nprojects:read"]
+    F["5. Page, route and\nnav item in frontend/src/app"]
+    L["Optional: pre-auth\nlanding page"]
+
+    M --> R --> D --> P --> F
+    F -.-> L
+
+    class F terminal
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 [Using This Repository as a Template](overview.md) describes the pieces (ownership tiers, `sdk.py`/`sdk.ts`, PBAC usage, shared-chrome extension points) individually. This page wires them together for one fake domain (`projects`) so you have something to copy and rename rather than assemble from scratch. None of this is upstream code to run as-is; it's a template for the shape your own feature takes.
 
 ---
@@ -10,7 +28,7 @@
 ```
 backend/app/projects/
     __init__.py
-    project_model.py     # SQLAlchemy model
+    project_model.py     # SQLAlchemy model (declare it on `Base` from `app.sdk`)
     project_schema.py     # Pydantic request/response schemas
     project_crud.py       # DB queries
     project_routes.py     # APIRouter, including the PBAC usage snippet below
@@ -49,6 +67,15 @@ app.include_router(projects_router)
 ---
 
 ## 3. Add the migration
+
+Alembic only sees models that were imported when it starts. Import yours in the app-owned `backend/app/models.py`, otherwise autogenerate writes an empty migration:
+
+```python
+# backend/app/models.py
+from .projects.project_model import Project  # noqa: F401
+```
+
+Then generate and apply it:
 
 ```bash
 alembic -c backend/alembic.ini revision --autogenerate -m "add projects table"

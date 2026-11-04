@@ -171,3 +171,26 @@ async def test_bulk_remove_permissions_reports_not_held_without_blocking_other_i
     statuses = {r["user_email"]: (r["status"], r["error"]) for r in body["results"]}
     assert statuses[holder][0] == "success"
     assert statuses[non_holder] == ("error", "not_held")
+
+
+@pytest.mark.asyncio
+async def test_bulk_assign_permissions_rejects_a_nul_byte_as_validation_error(client, created_emails):
+    """Regression: a NUL byte (\\x00) embedded
+    in `action` previously reached asyncpg unescaped and raised an unhandled
+    CharacterNotInRepertoireError (surfaced to the caller as a bare 500),
+    since Postgres text columns can't store one. Now rejected as an
+    ordinary 422 validation error before it ever reaches the database - see
+    authorization/schemas/bulk_schema.py's _reject_nul."""
+    system_email = unique_email("system")
+    target = unique_email("bulk-perm-nul")
+    await create_verified_user(client, created_emails, target, [SELF_SERVICE_POLICY_NAME])
+    await create_system_user(client, created_emails, system_email)
+
+    resp = await client.post(
+        "/authorization/bulk/permissions/assign",
+        json={"items": [
+            {"user_email": target, "action": "users:read\x00", "resource_type": "users", "conditions": None}
+        ]},
+    )
+    assert resp.status_code == 422
+    assert "NUL byte" in resp.text

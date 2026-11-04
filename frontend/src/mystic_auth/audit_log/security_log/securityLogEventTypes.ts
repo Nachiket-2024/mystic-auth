@@ -20,6 +20,8 @@ export const SECURITY_EVENT_TYPES = [
     "account_verified",
     "account_locked",
     "login_ip_locked",
+    "login_account_cooldown",
+    "rate_limit_exceeded",
     "refresh_token_reuse_detected",
     "account_deleted",
     "account_purged",
@@ -30,6 +32,14 @@ export const SECURITY_EVENT_TYPES = [
     "permission_granted",
     "permission_revoked",
     "user_role_changed",
+    // "passkey_login" and "passkey_step_up" are UI aliases like "login": the backend expands each
+    // to its success and failure rows.
+    "passkey_login",
+    "passkey_step_up",
+    "passkey_registered",
+    "passkey_registration_failure",
+    "passkey_renamed",
+    "passkey_removed",
 ] as const;
 
 export function humanizeSecurityEventType(value: string): string {
@@ -39,13 +49,14 @@ export function humanizeSecurityEventType(value: string): string {
 
 /**
  * Groups SECURITY_EVENT_TYPES for the Event picker (GroupedSearchSelect in SecurityFilterBar),
- * the same "Sign-in / Sessions / Account / Password / Access changes" split
- * .project/audit-log-design-review.md called for. Order here is the order groups render in.
+ * the "Sign-in / Sessions / Account / Password / Access changes" split.
+ * Order here is the order groups render in.
  */
 export const SECURITY_EVENT_TYPE_GROUPS: Record<string, readonly (typeof SECURITY_EVENT_TYPES)[number][]> = {
-    signIn: ["login", "oauth2_login_success", "login_ip_locked", "refresh_token_reuse_detected"],
+    signIn: ["login", "oauth2_login_success", "login_ip_locked", "login_account_cooldown", "rate_limit_exceeded", "refresh_token_reuse_detected"],
     sessions: ["logout", "logout_all", "session_revoked"],
     account: ["signup", "account_verification_requested", "account_verified", "account_locked", "account_deleted", "account_purged", "account_reactivated"],
+    passkeys: ["passkey_login", "passkey_step_up", "passkey_registered", "passkey_registration_failure", "passkey_renamed", "passkey_removed"],
     password: ["password_reset_requested", "password_reset_confirmed"],
     accessChanges: ["policy_assigned", "policy_revoked", "policy_action_revoked", "permission_granted", "permission_revoked", "user_role_changed"],
 };

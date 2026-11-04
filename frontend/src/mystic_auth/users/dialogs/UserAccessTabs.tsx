@@ -2,14 +2,17 @@ import React from "react";
 
 import type { SupportedLanguage } from "../../translations/translations";
 import type { ManagedUserRead } from "../../api/users_api";
-import type { Translate, CatalogEntry, UserAccessState } from "./UserAccessDialogAtoms";
+import type {
+  Translate,
+  CatalogEntry,
+  UserAccessState,
+} from "./UserAccessDialogAtoms";
 import UserAccessDetailsTab from "./UserAccessDetailsTab";
 import UserAccessPoliciesTab from "./UserAccessPoliciesTab";
 import UserAccessPermissionsTab from "./UserAccessPermissionsTab";
 
 // Composes the User Access dialog's three tabs (Details, Policies,
-// Permissions), each in its own file - split out of one 540-line file, see
-// AGENTS.md's ~350-line target.
+// Permissions), each in its own file - split out of one 540-line file, see the repo's ~350-line target.
 
 type PolicyEntry = {
   name: string;
@@ -61,25 +64,29 @@ const UserAccessTabs: React.FC<UserAccessTabsProps> = ({
       navigate={navigate}
       onTabChange={onTabChange}
     />
-    <UserAccessPoliciesTab
-      state={state}
-      locked={locked}
-      lockText={lockText}
-      allPolicies={allPolicies}
-      policyRows={policyRows}
-      catalog={catalog}
-      t={t}
-    />
-    <UserAccessPermissionsTab
-      state={state}
-      locked={locked}
-      lockText={lockText}
-      totalGranted={totalGranted}
-      catalog={catalog}
-      permissionRows={permissionRows}
-      permissionGroups={permissionGroups}
-      t={t}
-    />
+    {state.canSeePolicies && (
+      <UserAccessPoliciesTab
+        state={state}
+        locked={locked}
+        lockText={lockText}
+        allPolicies={allPolicies}
+        policyRows={policyRows}
+        catalog={catalog}
+        t={t}
+      />
+    )}
+    {state.canSeePermissions && (
+      <UserAccessPermissionsTab
+        state={state}
+        locked={locked}
+        lockText={lockText}
+        totalGranted={totalGranted}
+        catalog={catalog}
+        permissionRows={permissionRows}
+        permissionGroups={permissionGroups}
+        t={t}
+      />
+    )}
   </>
 );
 

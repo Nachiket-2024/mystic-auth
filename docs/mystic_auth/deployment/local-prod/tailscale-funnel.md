@@ -154,11 +154,14 @@ once `tailscale` registers. Then set, in `env/mystic_auth/.env.local-prod-tailsc
 ```
 GOOGLE_REDIRECT_URI=https://mystic-auth.<tailnet>.ts.net/auth/oauth2/callback/google
 FRONTEND_BASE_URL=https://mystic-auth.<tailnet>.ts.net
+WEBAUTHN_RP_ID=mystic-auth.<tailnet>.ts.net
+WEBAUTHN_ORIGINS=https://mystic-auth.<tailnet>.ts.net
 JWT_ISSUER=https://mystic-auth.<tailnet>.ts.net
 JWT_AUDIENCE=https://mystic-auth.<tailnet>.ts.net
 ```
 
 - `FRONTEND_BASE_URL` is baked into verification/password-reset email links and the CORS allow-list too, so it matters even if you never enable Google login.
+- Keep `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` at this stable hostname after users register passkeys. The RP ID is the hostname without a scheme; see [Passkeys](../../authentication/passkeys.md).
 - `BACKEND_BASE_URL` must identify the backend/API origin because the backend uses its hostname for trusted-host validation. It normally matches `FRONTEND_BASE_URL` when Tailscale exposes the same-origin proxy.
 - `JWT_ISSUER`/`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for tokens to work (they're only checked against themselves, see [Authentication Overview](../../authentication/overview.md)), but leaving them at the placeholder default means every deployment that copies this tutorial mints tokens with the same `iss`/`aud`, so update them to this deployment's real domain too.
 
@@ -207,7 +210,7 @@ docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale
 ```
 
 Without it, the updater is not started and Manage Sessions' Location column
-shows "Unknown". When the profile is enabled, the updater healthcheck now
+shows "Unknown". When the profile is enabled, the updater healthcheck
 requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.
@@ -242,6 +245,24 @@ Funnel: `docker/tailscale-serve-config.json` proxies `frontend:80` alone.
 Reach Bugsink over your tailnet directly (Tailscale gives every device on
 the tailnet access without Funnel), or at `http://localhost:8211` on the
 host itself.
+
+---
+
+## TLS termination is entirely Tailscale's, not this app's
+
+Funnel terminates TLS at Tailscale's own edge before traffic ever reaches
+`frontend` or `backend`; neither container sees a TLS handshake. That means
+the cipher suite, protocol versions, and certificate policy for the public
+`.ts.net` URL are whatever Tailscale's edge offers, with no config knob in
+this repo to change them. A scan of a live Funnel endpoint
+(`nmap --script ssl-enum-ciphers`) found TLS 1.2 CBC cipher suites offered
+alongside the GCM/ChaCha20 ones, which falls short of Mozilla's "intermediate"
+compatibility guideline. This is not a gap in this template; there is no
+Caddy, nginx, or other TLS terminator in the Tailscale path to configure.
+If strict cipher-suite control matters for your deployment, use
+[Prod Deployment](../prod.md) instead, where this repo's own Caddy
+configuration terminates TLS and controls the cipher/protocol policy
+directly.
 
 ---
 

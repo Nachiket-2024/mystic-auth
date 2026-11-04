@@ -22,9 +22,8 @@ interface PermissionsFilterBarProps {
     quickFilter: PermissionQuickFilter;
     setQuickFilter: (v: PermissionQuickFilter) => void;
     quickFilterCounts: Record<PermissionQuickFilter, number>;
-    /** Built from the loaded catalog, not a hardcoded resource-type list -
-     * fixes .project/permissions-page-review.md bug #1 (a fork adding its
-     * own resource type couldn't be selected at all). Undefined while the
+    /** Built from the loaded catalog, not a hardcoded resource-type list,
+     * so a fork's own resource type can be selected. Undefined while the
      * catalog is still loading. */
     catalog: PermissionCatalogEntry[] | undefined;
     totalResults: number;
@@ -37,9 +36,9 @@ interface PermissionsFilterBarProps {
 }
 
 /** PermissionsPage's search box, resource-type picker, and quick-filter
- * segmented control (design/permissions.html). Same search+select pattern
+ * segmented control. Same search+select pattern
  * as PoliciesFilterBar, with the quick filter kept in the primary control row and an
- * always-visible "Clear filters" button (design.md: controls stay visible
+ * always-visible "Clear filters" button (controls stay visible
  * and disabled rather than appearing/disappearing based on state). */
 const PermissionsFilterBar: React.FC<PermissionsFilterBarProps> = ({
     search, setSearch, resourceType, setResourceType, quickFilter, setQuickFilter, quickFilterCounts,

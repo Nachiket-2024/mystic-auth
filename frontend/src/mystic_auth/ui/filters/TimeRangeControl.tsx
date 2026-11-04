@@ -26,7 +26,7 @@ function todayIso(): string {
 
 /**
  * "Time range" filter: Last 7/14/30/90-days presets as rows with a check, plus a custom From/To
- * range behind a hairline - design/audit-log.html's range popover. Same popover shape as
+ * range behind a hairline in a popover. Same popover shape as
  * GroupedSearchSelect (a from-scratch trigger + Radix Popover, not StyledSelect, since this
  * needs two date inputs the plain single-select can't host).
  */

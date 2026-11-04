@@ -21,7 +21,7 @@ Valkey authentication, secret strength, reverse-proxy IP trust, session geolocat
 
 ## Reverse-proxy IP trust
 
-`auth/security/client_ip.py::get_client_ip` only trusts `X-Forwarded-For` when the literal TCP peer is listed in `TRUSTED_PROXY_IPS` (empty/untrusted by default): every rate-limit, lockout, audit-log, and PBAC context call site goes through it. Deploying behind a reverse proxy only requires setting `TRUSTED_PROXY_IPS` to that proxy's address, no code change needed. In the prod/local-prod-* Compose files, that value is derived automatically from `FRONTEND_STATIC_IP`/the tunnel's `*_STATIC_IP` var (see [Routing: Trusted proxy IPs](../deployment/routing.md#2-trusted-proxy-ips)) rather than set directly in `.env`. `Settings.TRUSTED_PROXY_IPS` defaults to `""` so it doesn't need to be present in the env file at all: only the `backend` service gets the derived value (via that Compose `environment:` override); `alembic` and `procrastinate_worker` read the same env file directly, never use this setting, and fall back to the default instead of failing to start.
+`auth/security/client_ip.py::get_client_ip` only trusts `X-Forwarded-For` when the literal TCP peer is listed in `TRUSTED_PROXY_IPS` (empty/untrusted by default): every rate-limit, lockout, audit-log, and PBAC context call site goes through it (`rate_limited` refuses, at import time, a handler that has no `request` parameter, so none can fall into a shared bucket). IPv6 addresses are grouped by their /64 prefix (`ip_bucket`) for per-source counters. Deploying behind a reverse proxy only requires setting `TRUSTED_PROXY_IPS` to that proxy's address, no code change needed. In the prod/local-prod-* Compose files, that value is derived automatically from `FRONTEND_STATIC_IP`/the tunnel's `*_STATIC_IP` var (see [Routing: Trusted proxy IPs](../deployment/routing.md#2-trusted-proxy-ips)) rather than set directly in `.env`. `Settings.TRUSTED_PROXY_IPS` defaults to `""` so it doesn't need to be present in the env file at all: only the `backend` service gets the derived value (via that Compose `environment:` override); `alembic` and `procrastinate_worker` read the same env file directly, never use this setting, and fall back to the default instead of failing to start.
 
 ---
 
@@ -33,8 +33,8 @@ Resolves each login's city/country from its IP via a local MaxMind GeoLite2-City
 
 ## Known accepted gaps
 
-1. See [Concerns](../concerns/README.md) for the current open list (off-host backup shipping, no deploy automation): everything else previously tracked there, including automated backup scheduling and the single global rate-limit threshold, has since been resolved and folded into this document.
-2. `pytest` no longer ships in the production backend image: `docker/mystic_auth/dockerfiles/backend.Dockerfile`'s multi-stage build has a `runtime` target (no test tooling, the default and the only target `backend`/`procrastinate_worker`/`alembic` actually run) and a separate `test` target that layers `requirements-dev.txt` on top of it, selected via the backend service's `target: ${BACKEND_BUILD_TARGET:-runtime}` in `docker-compose.dev.yml`.
-3. Error monitoring is available (opt-in) rather than a tracked gap now: see [Error Monitoring](../error-monitoring/overview.md).
+1. See [Concerns](../concerns/README.md) for the current open list (non-blocking performance tests, horizontal scaling).
+2. `pytest` does not ship in the production backend image: `docker/mystic_auth/dockerfiles/backend.Dockerfile`'s multi-stage build has a `runtime` target (no test tooling, the default and the only target `backend`/`procrastinate_worker`/`alembic` actually run) and a separate `test` target that layers `requirements-dev.txt` on top of it, selected via the backend service's `target: ${BACKEND_BUILD_TARGET:-runtime}` in `docker-compose.dev.yml`.
+3. Error monitoring is available: see [Error Monitoring](../error-monitoring/overview.md).
 
 ---

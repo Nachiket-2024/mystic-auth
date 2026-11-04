@@ -28,25 +28,18 @@ function toBoolFilter(value: string): boolean | undefined {
 /**
  * PoliciesPage
  * ----------------------------
- * Management CRUD for policies (backend: /authorization/policies). The
- * route is gated by ProtectedRoute on policies:read or policies:create;
- * create/edit/delete are further gated per-action via IfCan since a caller
- * might have read without create/update/delete. Search and resource-type/
- * status filters run server-side (same as UsersPage) since the policy list
- * can no longer be assumed small enough to filter client-side.
+ * Management CRUD for policies (/authorization/policies). The route needs
+ * policies:read or policies:create; create/edit/delete are further gated per
+ * action with IfCan. Search and filters run server-side.
  *
- * Renders one card per policy (design/policies.html), not a table: at
- * dozens of policies and hundreds of actions, a table row of badges became
- * a wall of text. Each card collapses its actions by default and expands
- * to show them grouped by verb. Activating/deactivating is an instant
- * switch with a 6s Undo toast instead of a confirm dialog, since it's
- * fully reversible; only Delete keeps a confirmation.
+ * One card per policy, not a table: with hundreds of actions a table row of
+ * badges became a wall of text. Cards collapse their actions by default and
+ * group them by verb when expanded. Activate/deactivate is an instant switch
+ * with a 6s Undo toast (fully reversible); only Delete asks for confirmation.
  *
- * A caller with only policies:create (not policies:read) can't list, search,
- * or filter policies, since GET /authorization/policies requires read. For
- * them the list/stats queries never fire (see canReadPolicies below) and the
- * page shows a restricted-view notice plus a standalone Create Policy
- * button instead of an empty list stuck in an error state.
+ * A caller with policies:create but not policies:read cannot list policies
+ * (see canReadPolicies), so the list and stats queries never fire and the page
+ * shows a restricted-view notice plus a standalone Create Policy button.
  */
 const PoliciesPage: React.FC = () => {
     const { t } = useTranslation(["policies", "ui_text"]);
@@ -132,7 +125,7 @@ const PoliciesPage: React.FC = () => {
     const [openNames, setOpenNames] = useState<Set<string>>(new Set());
 
     // Fetched only once the delete confirm is actually open, to show "N
-    // users will lose access" (design/policies.html's deleteNote) instead
+    // users will lose access" instead
     // of the generic warning alone.
     const {
         data: deletingPolicyHolders,

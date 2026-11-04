@@ -9,6 +9,7 @@ from backend.mystic_auth.auth.verify_account.account_verification_service import
     account_verification_service,
 )
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 PASSWORD = "StrongPass123!"
 
@@ -63,7 +64,7 @@ async def signup_verify_login(client, created_emails, email: str, password: str 
     # account_verification_service.send_verification_email would, without
     # depending on the email worker actually being up.
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 

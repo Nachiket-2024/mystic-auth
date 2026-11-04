@@ -86,8 +86,8 @@ function TabsTrigger({
         "group-data-[variant=line]/tabs-list:flex-none",
         "data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 dark:data-[state=active]:text-foreground",
         // Brand/red tint on hover and the active line-variant tab, matching
-        // the rest of the app's active-state color (see .project/design.md:
-        // brand color is the product's identity, applies to active states
+        // the rest of the app's active-state color (the brand color
+        // is the product's identity and applies to active states
         // everywhere) - "destructive" tone (Danger Zone) gets red instead,
         // both on hover and once selected, so it never looks like a normal
         // tab. ! (important) throughout because these and the plain
@@ -100,20 +100,11 @@ function TabsTrigger({
         "group-data-[variant=line]/tabs-list:data-[tone=default]:data-[state=active]:!text-[var(--brand-700)] dark:group-data-[variant=line]/tabs-list:data-[tone=default]:data-[state=active]:!text-brand-fg",
         "group-data-[variant=line]/tabs-list:data-[tone=destructive]:hover:!text-red-500 dark:group-data-[variant=line]/tabs-list:data-[tone=destructive]:hover:!text-red-300",
         "group-data-[variant=line]/tabs-list:data-[tone=destructive]:data-[state=active]:!text-red-500 dark:group-data-[variant=line]/tabs-list:data-[tone=destructive]:data-[state=active]:!text-red-300",
-        // Vertical/default-variant indicator only now (kept for a future
-        // vertical or pill-style tab list, neither used today): an ::after
-        // bar offset from the trigger's own box. The horizontal "line"
-        // variant used to reuse this same offset ::after approach, but its
-        // -5px/-bottom offset floated the bar below the trigger's own box
-        // instead of sharing an edge with it, which (a) got clipped
-        // entirely inside AccountSettingsPage's overflow-y-hidden TabsList
-        // (barely 1-2px of room below the trigger there) and (b) even
-        // where visible, never quite lined up with tabs-variants.ts's line
-        // baseline (a 1px border-b on TabsList itself), reading as two
-        // separate parallel lines instead of one. Replaced below with a
-        // border-bottom directly on the trigger, which by construction
-        // shares the exact same edge as its neighbors and as any border on
-        // an ancestor - no offset math, no clipping risk.
+        // Vertical/default-variant indicator only (kept for a future vertical or
+        // pill tab list): an ::after bar offset from the trigger's box. The
+        // horizontal "line" variant uses a border-bottom on the trigger instead,
+        // which shares an edge with its neighbors and the TabsList baseline with
+        // no offset math and no clipping inside overflow-y-hidden lists.
         "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5",
         // Line-variant horizontal indicator: the baseline itself lives on
         // TabsList (tabs-variants.ts), one continuous border-b under the

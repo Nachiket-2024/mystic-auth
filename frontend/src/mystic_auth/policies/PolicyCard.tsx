@@ -29,9 +29,8 @@ import {
 import PolicyActionGroups from "./PolicyActionGroups";
 import type { PolicyRead } from "../api/policies_api";
 
-// A fixed status green, not brand: design/policies.html's
-// .switch[aria-checked="true"] is a fixed status green, not the
-// user-customizable brand color - this is a status/state (design.md: status
+// A fixed status green, not brand: the checked switch is a fixed status green, not the
+// user-customizable brand color - this is a status/state (status
 // colors stay separate from brand), not a brand accent. shadcn's Switch
 // defaults data-[state=checked] to bg-primary (the brand color), so this
 // overrides it to the app's green-500/green-600 steps already ported to
@@ -52,8 +51,8 @@ interface PolicyCardProps {
 }
 
 /** One policy's row + expandable action list, replacing the old DataTable
- * row (design/policies.html: "cards instead of a table, with a gap between
- * them"). Same interaction split as PermissionsPage's resource-type group
+ * row (cards instead of a table, with a gap between
+ * them). Same interaction split as PermissionsPage's resource-type group
  * header: clicking anywhere on the row (other than a button) toggles the
  * expanded action list, and a separate, explicit View button opens the
  * read-only details dialog - clicking the row itself used to open that
@@ -132,9 +131,8 @@ const PolicyCard: React.FC<PolicyCardProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-medium truncate">{policy.name}</p>
-              {/* Neutral pill (design/policies.html's .tag), not a
-                            brand-colored badge: design.md's exception for
-                            "small elements repeated on every row" - a
+              {/* Neutral pill, not a
+                            brand-colored badge: small elements repeated on every row" - a
                             brand-tinted chip on every single card would
                             compete with the avatar box, the one element on
                             this row that should actually carry the brand

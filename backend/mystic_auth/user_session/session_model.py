@@ -80,5 +80,5 @@ class UserSession(Base):
     # column (not dropped) only so a row fetched moments before its own
     # delete still has a well-typed field to read, never actually persisted
     # as non-NULL. Rows that lapse via expires_at without an explicit revoke
-    # are swept separately by procrastinate_tasks/session_cleanup_tasks.py.
+    # are swept separately by procrastinate_tasks/maintenance_tasks.py.
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

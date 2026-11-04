@@ -22,7 +22,7 @@ services:
 
   postgres:
     <<: *logging_defaults
-    image: chainguard/postgres@sha256:4c8ef6bcf82ab05f4cca769d44847809fc069b5113893f3dc68b95983189a874
+    image: chainguard/postgres@sha256:2b01d03a201a92b6afcbf2351b7bcc8b08035fd9e835632bfdd647ee6377d80f
     restart: always
     env_file:
       - ../../../env/mystic_auth/.env.dev
@@ -94,9 +94,20 @@ services:
       fi
       exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app --reload-dir mystic_auth --no-access-log"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # Blanked (superuser creds unused at runtime, see
+      # docs/mystic_auth/security/decisions-infra.md):
+      # backend queries exclusively through APP_DATABASE_URL (see
+      # core/settings.py); the raw superuser DATABASE_URL/POSTGRES_PASSWORD
+      # from env_file above are overridden to empty here so they're not
+      # readable from this container's own environment.
+      DATABASE_URL: ""
+      POSTGRES_PASSWORD: ""
       BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://localhost:8000}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-}
+      WEBAUTHN_ORIGINS: ${WEBAUTHN_ORIGINS:-}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-}
+      WEBAUTHN_CHALLENGE_TTL_SECONDS: ${WEBAUTHN_CHALLENGE_TTL_SECONDS:-300}
       FRONTEND_ADDITIONAL_BASE_URLS: ${FRONTEND_ADDITIONAL_BASE_URLS:-}
       ENVIRONMENT: development
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
@@ -207,6 +218,9 @@ services:
       - ../../../env/app/.env.dev
     command: sh -c "procrastinate --app=mystic_auth.procrastinate_tasks.procrastinate_app.app worker"
     environment:
+      # See backend's identical override above for why.
+      DATABASE_URL: ""
+      POSTGRES_PASSWORD: ""
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       PYTHONPATH: /app
     depends_on:
@@ -302,6 +316,10 @@ services:
       # Bugsink (Django) reads its own EMAIL_* names, so this reuses
       # SMTP_HOST/FROM_EMAIL/GMAIL_APP_PASSWORD rather than a second mail
       # account. See docs/mystic_auth/error-monitoring/overview.md.
+      # Error emails are OFF by default (the quiet console backend only logs the
+      # subject). Turn them on with BUGSINK_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      # in the env file; see docs/mystic_auth/error-monitoring/overview.md.
+      EMAIL_BACKEND: ${BUGSINK_EMAIL_BACKEND:-bugsink.email_backends.QuietConsoleEmailBackend}
       EMAIL_HOST: ${SMTP_HOST}
       EMAIL_PORT: ${SMTP_PORT}
       EMAIL_HOST_USER: ${FROM_EMAIL}

@@ -5,6 +5,7 @@ from typing import Any
 from ....core.settings import settings
 from ....logging.logging_config import get_logger
 from ....valkey.client import valkey_client
+from ....valkey.key_names import email_key_id
 from .rate_limiter_service import RateLimiterService
 
 logger = get_logger(__name__)
@@ -22,10 +23,10 @@ def _escape_glob(value: str) -> str:
 
 
 class RateLimitDashboardService:
-    """Read/admin side of the rate limiter's Valkey keyspace, split out of
+    """Read/management side of the rate limiter's Valkey keyspace, split out of
     RateLimiterService so that class stays focused on the hot path
     (record_request/rate_limited, called on every rate-limited request).
-    Backs the admin Rate Limit Dashboard only."""
+    Backs the Rate Limit Dashboard only."""
 
     @staticmethod
     def _effective_limit(endpoint_name: str, key_scope: str) -> int:
@@ -76,7 +77,7 @@ class RateLimitDashboardService:
         # Without clearing the scan snapshot cache, the dashboard's
         # post-reset refetch could re-serve a stale snapshot still listing
         # this just-deleted key. Clears every cached pattern rather than
-        # figuring out which ones this key could match; an admin-only,
+        # figuring out which ones this key could match; a permission-gated,
         # low-QPS page can afford to lose the rest of the cache.
         RateLimitDashboardService._scan_snapshot_cache = {}
 
@@ -84,7 +85,7 @@ class RateLimitDashboardService:
     # total/page. Keeps the dashboard on real numbered pages while capping
     # SCAN cost: production keyspace can run into the tens of thousands of
     # keys, and a capped walk on read beats a secondary index on every
-    # write for an admin-only, low-QPS page.
+    # write for a permission-gated, low-QPS page.
     MAX_SCANNED_KEYS: int = 5000
     _SCAN_BATCH: int = 500
 
@@ -117,7 +118,7 @@ class RateLimitDashboardService:
         sort_dir: str = "asc",
     ) -> tuple[list[dict[str, Any]], int, bool]:
         """
-        Powers the admin Rate Limit Dashboard. `scope`/`endpoint`/
+        Powers the Rate Limit Dashboard. `scope`/`endpoint`/
         `identifier` filter via Valkey-side `MATCH`, not a Python filter
         after fetching everything. `identifier` matches as a substring.
 
@@ -130,6 +131,10 @@ class RateLimitDashboardService:
         MAX_SCANNED_KEYS before exhausting the keyspace, so `total` is a
         floor, not exact; the caller should prompt narrowing the filters.
         """
+        # Account keys hold a keyed hash, never the email itself (see
+        # valkey/key_names.py). Typing a full address still finds its keys.
+        if identifier and "@" in identifier:
+            identifier = email_key_id(identifier)
         scope_segment = scope if scope in ("ip", "account", "email", "account_ip") else "*"
         identifier_segment = f"*{_escape_glob(identifier)}*" if identifier else "*"
         endpoint_segment = _escape_glob(endpoint) if endpoint else "*"

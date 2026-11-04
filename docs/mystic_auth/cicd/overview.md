@@ -57,8 +57,10 @@ flowchart TD
   clearly fake CI-only values because CI has no checked-in `env/mystic_auth/.env.dev`. `APP_NAME`
   is set to `MysticAuth` only because `Settings` requires a value. It is a test
   placeholder, not branding that a downstream project must keep in sync.
-- Installs `backend/requirements.txt` and `backend/requirements-dev.txt`, then
-  runs `pip-audit -r backend/requirements.txt`.
+- Installs `backend/requirements.txt` and `backend/requirements-dev.txt` with
+  `--require-hashes`, checks the locks are up to date with their `.in` files
+  (`scripts/mystic_auth/deps/compile-lock.sh --check`), then runs
+  `pip-audit -r backend/requirements.txt`.
 - Runs MysticAuth and app `ruff`, `mypy`, and `bandit -c pyproject.toml` checks
   as separate steps through `ci/mystic_auth/backend.sh` and
   `ci/app/backend.sh`, so the failing ownership area is obvious in the
@@ -109,13 +111,10 @@ flowchart TD
   broke the README's own first command; together they've since caught 30+
   further stale-path instances the same way.
 - Runs `check-image-digests.sh` through the MysticAuth tooling entrypoint:
-  asserts
-  every `@sha256:...`-pinned image in `docker/{mystic_auth,app}/compose/*.yml`
-  is a syntactically valid 64-character digest. Added after a 2026-10-05
-  security audit found a one-character-short digest on the `geoipupdate`
-  image, copy-pasted into all four production-shaped compose files, that
-  failed `docker pull` outright on a clean host (`docker compose config`
-  does not validate digest length, only that the field parses as a string).
+  asserts every `@sha256:...`-pinned image in
+  `docker/{mystic_auth,app}/compose/*.yml` is a valid 64-character digest.
+  `docker compose config` only checks that the field parses as a string, so a
+  truncated digest would otherwise fail `docker pull` on a clean host.
 - Runs `check-log-rotation.sh`, `check-ci-action-pinning.sh`, and
   `check-readonly-rootfs.sh` to enforce bounded Compose logs, immutable CI
   action references, and read-only root filesystems for production-shaped
@@ -148,6 +147,13 @@ flowchart TD
   directory. The standalone nginx smoke supplies a loopback `backend` host
   alias so its production proxy configuration can be parsed without joining
   the app network.
+- Runs two smoke scripts against that standalone frontend container on port 18080.
+  `ci/mystic_auth/frontend-error-headers-smoke.py` sends an over-long request target and an oversized
+  header and checks that Nginx's own `414` and `431` replies, which are produced before any
+  routing, still carry the security headers (CSP, HSTS, frame and content-type options, cache
+  control). `ci/mystic_auth/frontend-csp-nonce-smoke.py` fetches the SPA entry routes and checks
+  each response has a matching per-response CSP nonce and a style policy without `'unsafe-inline'`.
+  See [HTTP Hardening](../security/hardening-http.md).
 - Verifies `/app/logs` exists but is empty in the backend image. This catches
   host-side logs or other local data copied into an image.
 - Does not boot the dev stack, run browser E2E, push images, or deploy. Those
@@ -190,6 +196,11 @@ flowchart TD
   coverage output writes to `/repo`, the whole-repo bind mount. Native Linux
   does not let the container's non-root `app` user write there. See
   [Docker Overview: running a one-off command inside a container](../docker/dev-workflow.md#running-a-one-off-command-inside-a-container).
+- The backend service keeps its privileged `DATABASE_URL` blank at runtime
+  and connects with `APP_DATABASE_URL`. The test command loads the disposable
+  CI `DATABASE_URL` from the generated env file and sets `CI=true`; this gives
+  test-only cleanup the migration role without changing the running service's
+  environment or redirecting tests into a `mystic_auth_test` database.
 - Boots the frontend, then runs its full test suite inside that container the same way.
 - Same on-failure `docker compose logs` step as `docker-build`.
 - This repeats tests already run natively. The value is running them through the
@@ -219,9 +230,9 @@ flowchart TD
 
 ## What's not covered (tracked, not silently missing)
 
-See [Concerns](../concerns/README.md) for the full entries:
+Open items are tracked in [Concerns](../concerns/README.md); this one is a scope boundary, also noted in [Deployment limits](../deployment/production-host.md#4-deployment-limits):
 
-- No image push to a registry and no deployment stage: deploying is a manual, documented process (see [Deployment Guide](../deployment/guide.md)), not automated.
+- No image push to a registry and no deployment stage: deploying is a manual, documented process (see [Deployment overview](../deployment/README.md)), not automated.
 
 This is deliberately left as a documented gap rather than added: extending `ci.yml` with a deploy stage is a workflow change with its own blast radius (new required checks, new secrets, a specific hosting target to assume), and unnecessary cloud-specific tooling doesn't belong in a template repository with no assumed production target.
 

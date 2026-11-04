@@ -56,14 +56,6 @@
         "groupInPolicyCount_one": "{{count}} नीति में",
         "groupInPolicyCount_other": "{{count}} नीतियों में"
     },
-    "howItWorks": {
-        "actionsTitle": "क्रियाएं",
-        "actionsDescription": "जो काम लोगों को करने दिए जा सकते हैं, जैसे “उपयोगकर्ता देखें”।",
-        "policiesTitle": "नीतियां",
-        "policiesDescription": "क्रियाओं के नामित समूह।",
-        "peopleTitle": "लोग",
-        "peopleDescription": "असल में किसे पहुंच मिलती है।"
-    },
     "columns": {
         "action": "क्रिया",
         "resourceType": "संसाधन प्रकार",

@@ -27,7 +27,7 @@ below.
 - Use one of the `docker-compose.local-prod-*.yml` variants when you want to self-host the production image/runtime shape from a machine that does not own a public IP, with a free tunnel (Cloudflare, ngrok, or Tailscale Funnel - see [Local-Prod: which tunnel do I want?](../deployment/local-prod/README.md#which-tunnel-do-i-want)) owning the public URL and TLS.
 - Use `docker-compose.prod.yml` when the host itself should expose only Caddy on 80/443.
 
-See [Deployment Guide](../deployment/guide.md).
+See [Deployment Overview](../deployment/README.md).
 
 ---
 
@@ -125,7 +125,7 @@ template":
 Every `name:`, host port, and network subnet/static-IP in `docker/mystic_auth/compose/*.yml`
 reads from an env var with no fallback (`${COMPOSE_PROJECT_NAME}`, `${POSTGRES_HOST_PORT}`,
 `${DOCKER_SUBNET}`, `${FRONTEND_STATIC_IP}`, etc.), set in the matching
-`env/mystic_auth/.env*.example` to the same literal value the compose file used to hardcode.
+`env/mystic_auth/.env*.example`.
 
 - A fork that needs to coexist with another on one machine uses a separate multi-project port configuration: change `COMPOSE_PROJECT_NAME`, the relevant `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the `*_STATIC_IP` vars in its own `env/mystic_auth/.env*` file - see the top of each `env/mystic_auth/.env*.example`.
 - The production/local-prod variants also derive `TRUSTED_PROXY_IPS` (a security-relevant anti-spoofing setting - see [get_client_ip()](../../../backend/mystic_auth/auth/security/client_ip.py)) straight from those same static-IP vars in the compose file itself, rather than setting it independently in the env file, so the two can never drift out of sync.

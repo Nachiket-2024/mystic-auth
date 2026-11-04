@@ -1,7 +1,5 @@
 import asyncio
-from pathlib import Path
 
-import geoip2.database
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -10,25 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.settings import settings
 from ...database.connection import database
 from ...logging.logging_config import get_logger
+from ...user_session.session_geolocation import geoip_database_is_readable
 from ...valkey.client import valkey_client
 
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["Health"])
-
-
-def _geoip_database_available(path: str) -> bool:
-    geoip_path = Path(path)
-    if not geoip_path.is_file() or geoip_path.stat().st_size == 0:
-        return False
-    reader = geoip2.database.Reader(str(geoip_path))
-    try:
-        # Opening the file alone isn't enough: a truncated or corrupt mmdb
-        # can exist and be non-empty while every real lookup fails.
-        reader.metadata()
-        return True
-    finally:
-        reader.close()
 
 
 @router.get("/health")
@@ -69,7 +54,7 @@ async def health_ready(db: AsyncSession = Depends(database.get_session)):
     # has failed or the mounted database is empty.
     if settings.GEOIP_DB_PATH:
         try:
-            if not await asyncio.to_thread(_geoip_database_available, settings.GEOIP_DB_PATH):
+            if not await asyncio.to_thread(geoip_database_is_readable, settings.GEOIP_DB_PATH):
                 raise FileNotFoundError(settings.GEOIP_DB_PATH)
             checks["geoip"] = "ok"
         except Exception:

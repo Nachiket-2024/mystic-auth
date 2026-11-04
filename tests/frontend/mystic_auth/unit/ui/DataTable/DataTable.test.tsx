@@ -24,6 +24,12 @@ function renderTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>>
 }
 
 describe('DataTable', () => {
+  it('gives the table an accessible name when ariaLabel is passed, so a screen reader announces which table it entered', () => {
+    renderTable({ rows: [{ id: 1, name: 'Alice' }], ariaLabel: 'Users' });
+
+    expect(screen.getByRole('table', { name: 'Users' })).toBeInTheDocument();
+  });
+
   it('renders skeleton placeholders while loading, not the rows or empty state', () => {
     renderTable({ isLoading: true, rows: [{ id: 1, name: 'Alice' }] });
 

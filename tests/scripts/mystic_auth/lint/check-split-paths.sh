@@ -1,36 +1,25 @@
 #!/usr/bin/env bash
-# Regression guard for the class of bug found live in this repo three
-# separate times in one session: docker/, env/, and scripts/ each got
-# split into mystic_auth/ + app/ subfolders, but a comment, doc, or a
-# script that builds a path at runtime (rather than a literal, fully
-# spelled-out script path token check-script-paths.sh already validates)
-# kept referencing the old unsplit location. Each one silently broke a
-# real workflow (alembic locally, a Playwright E2E helper, pytest's own
-# localhost-derivation) with no error pointing at the actual cause.
+# Regression guard: docker/, env/ and scripts/ were each split into mystic_auth/
+# + app/ subfolders, and comments, docs and scripts that build a path at runtime
+# kept the old unsplit location, silently breaking real workflows (alembic, a
+# Playwright helper, pytest's localhost derivation).
 #
-# check-script-paths.sh already validates every scripts/local-scripts/
-# path ending in .sh/.py/.ps1/.cmd/.bat actually exists. This script
-# covers what that one can't: literal pre-split path substrings
-# (env/.env, docker/compose/, docker/dockerfiles/, docker/postgres-init/,
-# docker/Caddyfile, docker/nginx.frontend.conf) appearing anywhere in
-# source, scripts, or docs - these don't reliably end in a checkable file
-# extension (a .yml Dockerfile path, a bare directory reference in a
-# comment), so an existence check can't catch them; a denylist can.
+# check-script-paths.sh validates literal script paths. This script covers what
+# it cannot: pre-split path substrings (env/.env, docker/compose/,
+# docker/dockerfiles/, docker/postgres-init/, docker/Caddyfile,
+# docker/nginx.frontend.conf) anywhere in source, scripts or docs, which have no
+# checkable file extension, so a denylist is used.
 #
-# Excluded on purpose, same reasoning as check-script-paths.sh:
-#   - This script's own file: the patterns list below necessarily
-#     contains the literal strings being searched for.
-#   - docs/mystic_auth/project-story/ and docker/validation-history.md:
-#     historical narrative describing paths as they were at the time.
-#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh:
-#     build fixture repos with pre-split paths on purpose, to simulate a
-#     consumer syncing from an old template version.
-#   - tests/scripts/mystic_auth/lint/check-script-paths.sh: its own
-#     docstring names the real pre-split paths from the bug it was built
-#     to catch, as history, not a live reference.
+# Excluded on purpose:
+#   - this file (its pattern list contains the strings);
+#   - docs/mystic_auth/project-story/ and docker/validation-history.md
+#     (history describes paths as they were);
+#   - tests/scripts/mystic_auth/upstream-sync/test-sync-upstream*.sh (fixture
+#     repos use pre-split paths to simulate an old template);
+#   - check-script-paths.sh (its header names the old paths as history).
 #
 # Usage: tests/scripts/mystic_auth/lint/check-split-paths.sh
-# Exit 0: no pre-split path found. Exit 1: one or more found, listed.
+# Exit 0: no pre-split path found. Exit 1: found, listed.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -55,7 +44,7 @@ PATTERNS=(
 )
 
 # git ls-files (tracked + untracked-but-not-ignored), not find: skips
-# gitignored files (a personal AGENTS.md/CLAUDE.md, generated
+# gitignored files (a personal agent-notes file, generated
 # env/mystic_auth/.env.dev, etc.) that aren't part of what actually ships,
 # and would otherwise show up as false positives, while still covering a
 # file that's new on disk but not committed yet.

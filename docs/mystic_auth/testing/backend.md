@@ -28,7 +28,7 @@ Sessions Test Detail](backend-users-sessions.md).
 
 ## Application wrapper
 
-The five modules under `tests/backend/app/` cover the thin FastAPI application
+The modules under `tests/backend/app/` cover the thin FastAPI application
 wrapper, settings boundaries, SDK identity, and lifecycle signal handling.
 They verify that unexpected exceptions become safe public 500 responses, app
 settings remain valid, and startup/shutdown behavior is observable without
@@ -39,7 +39,7 @@ a failure here can hide or distort every route-level failure.
 
 ## Unit tests
 
-The 120 modules under `tests/backend/mystic_auth/unit/` isolate handlers,
+The modules under `tests/backend/mystic_auth/unit/` isolate handlers,
 services, repositories, schemas, middleware, and pure policy logic. They are
 the fastest way to identify which decision or transformation changed. The
 [Backend Unit Tests](backend-unit.md) page names each module and explains its
@@ -54,7 +54,7 @@ as Valkey failure, invalid conditions, and token replay deterministic.
 
 ## Integration tests
 
-The 52 modules under `tests/backend/mystic_auth/integration/` exercise real
+The modules under `tests/backend/mystic_auth/integration/` exercise real
 application boundaries with the test database and Valkey fixtures. They cover
 HTTP-shaped workflows, transaction behavior, cache invalidation, concurrency,
 and the interaction between authorization and user/session state.
@@ -67,13 +67,13 @@ tests but fails once persistence, transactions, or cache state is involved.
 
 ## Security and performance
 
-The seven security modules under `tests/backend/mystic_auth/security/` are
+The security modules under `tests/backend/mystic_auth/security/` are
 attacker-shaped regression tests. They verify that callers cannot forge
 authorization context, amplify batch checks, smuggle unsafe conditions, or
 escalate grants. The least-privilege database test also verifies deployment
 permissions when the restricted database role is available.
 
-The two performance modules under `tests/backend/mystic_auth/performance/`
+The performance modules under `tests/backend/mystic_auth/performance/`
 measure repeated authorization plus login and audit-log paths. They are
 diagnostic bounds, not a replacement for production load testing. Details and
 file-by-file intent are in [Backend Security and Performance](backend-security-performance.md).

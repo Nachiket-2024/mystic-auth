@@ -103,8 +103,7 @@ const AllAuthorizationLogSection: React.FC<AllAuthorizationLogSectionProps> = ({
 
     const isEmpty = !isLoading && !isError && (data?.rows.length ?? 0) === 0;
     // Two distinct empty states: a filter/search narrowed to zero (chips + Clear filters) vs.
-    // the time range itself having nothing in it (a "Show last 90 days" shortcut) - see
-    // .project/audit-log-design-review.md's "Two empty states".
+    // the time range itself having nothing in it (a "Show last 90 days" shortcut).
     const showRangeEmpty = isEmpty && !hasNonRangeFilters;
     const emptyMessage = showRangeEmpty
         ? t("authorization.emptyRange", { days: rangeParams.days })
@@ -142,6 +141,7 @@ const AllAuthorizationLogSection: React.FC<AllAuthorizationLogSectionProps> = ({
                 </div>
             ) : (
                 <DataTable
+                    ariaLabel={t("tabs.authorizationDecisions")}
                     columns={getAuthorizationColumns(t, language)}
                     rows={data?.rows}
                     rowKey={(e) => e.id}

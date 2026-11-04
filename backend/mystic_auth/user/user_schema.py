@@ -34,7 +34,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema used when registering a new user account. Role defaults to
-    'user'; admin accounts are assigned separately."""
+    'user'; accounts with the admin role are assigned separately."""
 
     password: str = Field(..., max_length=128)
 
@@ -49,8 +49,8 @@ class UserUpdate(BaseModel):
     feed straight into Argon2 hashing uncapped.
 
     extra="forbid": role/is_active/is_verified/id/email mass-assignment
-    attempts were already harmless (Pydantic's default "ignore" behavior
-    silently dropped them, confirmed live during the 2026-10-21 audit), but
+    attempts are harmless under Pydantic's default "ignore" behavior
+    (the fields are silently dropped), but
     silently succeeding with a 200 meant the attempt itself left zero
     trace anywhere - indistinguishable from an ordinary profile update in
     every log. "forbid" turns the same attempt into an immediate 422,
@@ -148,7 +148,7 @@ class UserRead(UserBase):
     deleted_at: datetime | None = None
 
     # Set on every successful sign-in; None means the account has never
-    # signed in (e.g. created by an admin but not yet used).
+    # signed in (e.g. created by a manager but not yet used).
     last_login_at: datetime | None = None
 
     # Pulled from the ORM object (from_attributes) only to derive
@@ -181,8 +181,8 @@ class UserSelfUpdateResponse(UserRead):
     sessions_revoked: bool | None = None
 
 
-class UserAdminUpdateResponse(UserRead):
-    """PUT /users/{email}'s response shape (an admin editing another user's
+class UserManagementUpdateResponse(UserRead):
+    """PUT /users/{email}'s response shape (a permission holder editing another user's
     account). Same sessions_revoked contract as UserSelfUpdateResponse
     above; see user_management_update_routes.py's update_any_user."""
 

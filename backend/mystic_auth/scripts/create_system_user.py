@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 SYSTEM_ROLE = UserRole.system
 
 # Every baseline policy the system superuser must hold, so it has strictly
-# greater access than any other account (self-service + user administration +
+# greater access than any other account (self-service + user management +
 # the system-only actions).
 SYSTEM_USER_POLICY_NAMES = (
     SELF_SERVICE_POLICY_NAME,

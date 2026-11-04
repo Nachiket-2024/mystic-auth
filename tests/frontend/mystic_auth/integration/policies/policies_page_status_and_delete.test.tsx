@@ -8,8 +8,7 @@ import { mock, seed, renderPage, SAMPLE_POLICIES } from './policiesPageTestSuppo
 
 // PoliciesPage: delete confirmation, and the activate/deactivate switch's
 // instant toggle plus Undo. The list and create/edit form live in their
-// own sibling file - split out of one 395-line file, see AGENTS.md's
-// ~350-line target.
+// own sibling file.
 
 describe('PoliciesPage: status and delete', () => {
   beforeEach(() => {

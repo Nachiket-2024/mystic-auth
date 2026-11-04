@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from ..core.settings import settings
+from .brand_logo import LOGO_CONTENT_ID
 
 # Verification and password-reset emails render the same table-based HTML
 # skeleton (tables rather than flex/grid because Outlook's rendering engine,
@@ -61,8 +62,14 @@ def render_transactional_email(
                 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:8px; overflow:hidden; border:1px solid #e0e0e0;">
                     <tr>
                         <td style="padding:24px 32px 8px 32px;">
-                            <div style="font-size:20px; font-weight:bold; color:#2c3e50;">{settings.APP_NAME}</div>
-                            <div style="font-size:12px; color:#999999; margin-top:2px;">Secure access, centrally managed</div>
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                <tr>
+                                    <td style="padding:0 12px 0 0; vertical-align:middle;">
+                                        <img src="cid:{LOGO_CONTENT_ID}" height="44" alt="" style="display:block; border:0; height:44px; width:auto;">
+                                    </td>
+                                    <td style="vertical-align:middle; font-size:26px; line-height:30px; font-weight:bold; letter-spacing:-0.5px; color:{accent_color};">{settings.APP_NAME}</td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
                     <tr>

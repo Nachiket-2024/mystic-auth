@@ -19,17 +19,13 @@ import { useUsersPageState } from "./useUsersPageState";
 /**
  * UsersPage
  * ----------------------------
- * Management list of every user (backend: GET /users/), with per-row role
- * change, delete, and a "Policies" dialog for assigning/revoking individual
- * policy grants. Route is gated by ProtectedRoute permission="users:list_all";
- * each destructive/privileged action is additionally gated via IfCan.
- * Name/Email/Role sort and Role/Verified/Status/Policy/Permission filter
- * both happen server-side, narrowing the whole result set rather than just
- * the loaded page (same as audit_log/, sharing its
- * ui/hooks/usePageResetOn.ts for resetting to page 1 on filter change).
- * The filter controls live in UsersFilterBar.tsx, every dialog this page
- * can open lives in UsersPageDialogs.tsx, and the query/mutation/handler
- * wiring lives in useUsersPageState.ts; this file just composes the three.
+ * Management list of every user (GET /users/) with per-row role change, delete
+ * and a "Policies" dialog. The route needs users:list_all; destructive and
+ * privileged actions are further gated with IfCan. Sorting and the
+ * Role/Verified/Status/Policy/Permission filters run server-side, and a filter
+ * change resets to page 1 (ui/hooks/usePageResetOn.ts, shared with audit_log/).
+ * This file composes UsersFilterBar.tsx, UsersPageDialogs.tsx and the
+ * useUsersPageState.ts query/mutation/handler wiring.
  */
 const UsersPage: React.FC = () => {
     const { t } = useTranslation(["users", "ui_text"]);
@@ -68,6 +64,8 @@ const UsersPage: React.FC = () => {
         setPendingRoleChange,
         accessUser,
         setAccessUser,
+        passkeysUser,
+        setPasskeysUser,
         accessTab,
         selectedUserIds,
         handleSelectionChange,
@@ -96,8 +94,7 @@ const UsersPage: React.FC = () => {
     // Drives UserStatsCard's pressed tile: only "on" when the filter state
     // exactly matches what that tile's own click handler sets below, so a
     // tile never looks pressed just because its number happens to agree
-    // with an unrelated combination of filters (design/users.html's
-    // `.tile[aria-pressed="true"]`).
+    // with an unrelated combination of filters.
     const activeTile: UserStatTileKey | null = search || role !== ALL_VALUE || policy !== ALL_VALUE
         || permission !== ALL_VALUE || lastLogin !== ALL_VALUE
         ? null
@@ -130,7 +127,7 @@ const UsersPage: React.FC = () => {
             description={t("users:page.description")}
             actions={
                 // Top-right of the page header, next to the title
-                // (design/users.html's #exportBtn) - its own dedicated
+                // - its own dedicated
                 // slot instead of a sibling in the search row, so it can
                 // never get pushed out of view by the filter row wrapping.
                 <IfCan action={PERMISSIONS.USERS_LIST_ALL}>
@@ -141,10 +138,9 @@ const UsersPage: React.FC = () => {
                 </IfCan>
             }
             headerExtra={
-                // Stats row above the filter bar, both full width (design/
-                // users.html: "Stat tiles are one short row under the
+                // Stats row above the filter bar, both full width (the stat tiles are one short row under the
                 // title, so the filters get the full width instead of
-                // wrapping beside a tall stats card") - rendered here, not
+                // wrapping beside a tall stats card), rendered here, not
                 // PageContainer's narrow `actions` slot.
                 <div className="flex flex-col gap-4">
                     <UserStatsCard
@@ -228,6 +224,8 @@ const UsersPage: React.FC = () => {
             />
 
             <DataTable
+
+                ariaLabel={t("users:page.title")}
                 columns={columns}
                 rows={users}
                 rowKey={(u) => u.id}
@@ -259,6 +257,8 @@ const UsersPage: React.FC = () => {
                 accessUser={accessUser}
                 accessTab={accessTab}
                 onCloseAccess={() => setAccessUser(null)}
+                passkeysUser={passkeysUser}
+                onClosePasskeys={() => setPasskeysUser(null)}
                 deletingUser={deletingUser}
                 isDeletePending={deleteMutation.isPending}
                 onConfirmDelete={handleDeleteConfirm}

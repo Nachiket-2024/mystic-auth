@@ -17,7 +17,7 @@
     "goToActiveSessions_other": "{{count}} સક્રિય સત્રો, સત્રોની યાદી પર જાઓ",
     "noUserData": "કોઈ વપરાશકર્તા ડેટા ઉપલબ્ધ નથી",
     "administration": {
-        "heading": "વહીવટ",
+        "heading": "સંચાલન",
         "loadError": "લોડ થઈ શક્યું નહીં",
         "users": {
             "label": "વપરાશકર્તાઓ",
@@ -91,7 +91,5 @@
         "unknownBrowser": "અજ્ઞાત બ્રાઉઝર",
         "unknownOS": "અજ્ઞાત OS",
         "deviceLabel": "{{os}} પર {{browser}}"
-    },
-    "loginActivityHeading": "મારી લોગિન પ્રવૃત્તિ",
-    "loginActivitySubtitle": "છેલ્લા {{days}} દિવસ"
+    }
 }

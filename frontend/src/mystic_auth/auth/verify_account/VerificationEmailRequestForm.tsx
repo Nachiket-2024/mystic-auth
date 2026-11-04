@@ -17,9 +17,13 @@ interface VerificationEmailRequestFormProps {
      * obvious next step at that point) gets focus instead of the user
      * having to notice it below a disabled Verify button. */
     autoFocus?: boolean;
+    /** True when the address is already known and shown nearby (right after
+     * signup): the field is hidden so it cannot be edited, which would resend
+     * to a different address than the one just registered. */
+    emailKnown?: boolean;
 }
 
-const VerificationEmailRequestForm: React.FC<VerificationEmailRequestFormProps> = ({ initialEmail = "", autoFocus = false }) => {
+const VerificationEmailRequestForm: React.FC<VerificationEmailRequestFormProps> = ({ initialEmail = "", autoFocus = false, emailKnown = false }) => {
     const { t } = useTranslation("auth");
     // chromeLanguage, not pageLanguage: numerals stay in English/ASCII digits even in
     // a mixed "en+hi" mode (same as dates); only translated text switches with pageLanguage.
@@ -50,7 +54,7 @@ const VerificationEmailRequestForm: React.FC<VerificationEmailRequestFormProps> 
 
     return (
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
+            {!emailKnown && <div className="flex flex-col gap-1.5">
                 <Label htmlFor="verify-email-request-email" className="text-base">{t("verifyEmailRequest.emailLabel")}</Label>
                 <Input
                     id="verify-email-request-email"
@@ -63,7 +67,7 @@ const VerificationEmailRequestForm: React.FC<VerificationEmailRequestFormProps> 
                     size="lg"
                     disabled={requestMutation.isPending}
                 />
-            </div>
+            </div>}
 
             <Button
                 type="submit"

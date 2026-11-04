@@ -6,8 +6,7 @@ import { mock, seed, renderPage, CATALOG, USAGE } from './permissionsPageTestSup
 
 // PermissionsPage: search, resource-type filter, and the Destructive/Unused
 // quick filters. Group behavior and the details dialog live in their own
-// sibling files - split out of one 408-line file, see AGENTS.md's
-// ~350-line target.
+// sibling files.
 
 describe('PermissionsPage: filters', () => {
   beforeEach(() => {
@@ -16,7 +15,7 @@ describe('PermissionsPage: filters', () => {
   });
 
   it('the resource-type filter is built from the loaded catalog, not a hardcoded list', async () => {
-    // Regression for .project/permissions-page-review.md bug #1: a fork's
+    // Regression: a fork's
     // own resource type (here, an "invoices" entry the fixed 5-type
     // AUTHORIZATION_RESOURCE_TYPES list has never heard of) must still be
     // selectable.

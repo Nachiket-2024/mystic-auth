@@ -101,7 +101,8 @@
                 "sessions": "સેશન્સ",
                 "account": "ખાતું",
                 "password": "પાસવર્ડ",
-                "accessChanges": "ઍક્સેસ ફેરફારો"
+                "accessChanges": "ઍક્સેસ ફેરફારો",
+                "passkeys": "પાસકી"
             },
             "eventLabels": {
                 "login": "સાઇન ઇન કર્યું",
@@ -115,6 +116,8 @@
                 "account_verified": "ખાતું ચકાસાયેલું",
                 "account_locked": "ખાતું લોક કરાયું",
                 "login_ip_locked": "આ ખાતા અને સ્ત્રોત IP માટે લોગિન મર્યાદિત થયું",
+                "login_account_cooldown": "ખાતાનું લોગિન ધીમું કરાયું (ઘણા નિષ્ફળ પ્રયાસો)",
+                "rate_limit_exceeded": "ઘણી વિનંતીઓ અવરોધિત",
                 "account_deleted": "ખાતું ડિલીટ કરાયું",
                 "account_purged": "ખાતું કાયમી ડિલીટ કરાયું",
                 "account_reactivated": "ખાતું ફરી સક્રિય કરાયું",
@@ -125,7 +128,13 @@
                 "policy_action_revoked": "પોલિસી ક્રિયા રદ કરાઈ",
                 "permission_granted": "પરવાનગી આપવામાં આવી",
                 "permission_revoked": "પરવાનગી રદ કરાઈ",
-                "user_role_changed": "ભૂમિકા બદલાઈ"
+                "user_role_changed": "ભૂમિકા બદલાઈ",
+                "passkey_login": "પાસકીથી સાઇન-ઇન",
+                "passkey_step_up": "પાસકી પુષ્ટિ (સ્ટેપ-અપ)",
+                "passkey_registered": "પાસકી ઉમેરાઈ",
+                "passkey_registration_failure": "પાસકી ઉમેરવી નિષ્ફળ",
+                "passkey_renamed": "પાસકીનું નામ બદલાયું",
+                "passkey_removed": "પાસકી દૂર કરાઈ"
             }
         },
         "columns": {

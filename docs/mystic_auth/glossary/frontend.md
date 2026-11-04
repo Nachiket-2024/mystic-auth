@@ -31,7 +31,7 @@ The HTTP client library the frontend uses to call the backend API, wrapped in on
 
 ## SPA (Single-Page Application)
 
-A frontend architecture where the browser loads one HTML page and JavaScript handles all navigation and rendering afterward, without full page reloads. This app's frontend (React 19 + TypeScript + Vite) is a SPA; the backend serves it as a static build in production. See [Frontend Architecture](../architecture/frontend.md).
+A frontend architecture where the browser loads one HTML page and JavaScript handles all navigation and rendering afterward, without full page reloads. This app's frontend (React 19 + TypeScript + Vite) is a SPA; nginx serves it as a static build in production. See [Frontend Architecture](../architecture/frontend.md).
 
 ---
 

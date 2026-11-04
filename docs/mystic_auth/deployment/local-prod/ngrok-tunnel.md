@@ -123,11 +123,14 @@ Still in `env/mystic_auth/.env.local-prod-ngrok`, set:
 ```
 GOOGLE_REDIRECT_URI=https://<your-ngrok-domain>/auth/oauth2/callback/google
 FRONTEND_BASE_URL=https://<your-ngrok-domain>
+WEBAUTHN_RP_ID=<your-ngrok-domain>
+WEBAUTHN_ORIGINS=https://<your-ngrok-domain>
 JWT_ISSUER=https://<your-ngrok-domain>
 JWT_AUDIENCE=https://<your-ngrok-domain>
 ```
 
 - `FRONTEND_BASE_URL` is baked into verification/password-reset email links and the CORS allow-list too, so it matters even if you never enable Google login.
+- The WebAuthn RP ID is the hostname only; the origin includes `https://`. Keep both stable after passkeys are enrolled. See [Passkeys](../../authentication/passkeys.md).
 - `BACKEND_BASE_URL` must identify the backend/API origin because the backend uses its hostname for trusted-host validation. It normally matches `FRONTEND_BASE_URL` when ngrok exposes the same-origin proxy.
 - `JWT_ISSUER`/`JWT_AUDIENCE` don't have to match `FRONTEND_BASE_URL` for tokens to work (they're only checked against themselves, see [Authentication Overview](../../authentication/overview.md)), but leaving them at the placeholder default means every deployment that copies this tutorial mints tokens with the same `iss`/`aud`, so update them to this deployment's real domain too.
 
@@ -175,7 +178,7 @@ docker compose -f docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml
 ```
 
 Without it, the updater is not started and Manage Sessions' Location column
-shows "Unknown". When the profile is enabled, the updater healthcheck now
+shows "Unknown". When the profile is enabled, the updater healthcheck
 requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.

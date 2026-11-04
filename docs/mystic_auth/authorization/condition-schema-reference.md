@@ -8,7 +8,7 @@ A policy's `conditions` field is a JSON object where each key is a condition typ
 Every condition type has **exactly one** canonical field-name shape, enforced identically by two independent layers:
 
 1. **`authorization/conditions/condition_validator.py`**: rejects an invalid `conditions` block at `POST`/`PUT /authorization/policies` time, before any database write.
-2. **The matching handler in `authorization/conditions/*.py`**: fails safe (denies) at evaluation time if it somehow receives something the validator didn't catch (e.g. a row written directly to the database).
+2. **The matching handler in `authorization/conditions/condition_types/*.py`**: fails safe (denies) at evaluation time if it somehow receives something the validator didn't catch (e.g. a row written directly to the database).
 
 This is deliberate defense in depth, not redundancy: the validator stops bad data from being stored at all; the handler's own fail-safe protects real requests even if bad data got in some other way.
 

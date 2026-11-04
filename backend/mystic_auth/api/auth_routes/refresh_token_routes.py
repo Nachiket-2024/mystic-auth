@@ -12,7 +12,7 @@ router = APIRouter(prefix="/auth/refresh", tags=["Refresh Token"])
 
 
 @router.post("", response_model=TokenPairResponseSchema)
-@router.post("/", response_model=TokenPairResponseSchema)
+@router.post("/", response_model=TokenPairResponseSchema, include_in_schema=False)  # same handler as "" without a redirect; hidden so the API docs list it once
 async def refresh_tokens(request: Request, db: AsyncSession = Depends(database.get_session)):
     """
     Reads the refresh token from its httponly cookie: it's issued httponly

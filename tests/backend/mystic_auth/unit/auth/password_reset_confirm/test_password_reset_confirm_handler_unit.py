@@ -10,6 +10,7 @@ import pytest
 from backend.mystic_auth.auth.password_reset_confirm.password_reset_confirm_handler import (
     password_reset_confirm_handler,
 )
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 MODULE = "backend.mystic_auth.auth.password_reset_confirm.password_reset_confirm_handler"
 
@@ -57,7 +58,7 @@ async def test_successful_reset_is_recorded_under_its_own_lock_namespace(mocker)
     )
 
     assert response.status_code == 200
-    finish_mock.assert_awaited_once_with("password_reset_confirm_lock:email:user@example.com", success=True)
+    finish_mock.assert_awaited_once_with(f"password_reset_confirm_lock:email:{email_key_id('user@example.com')}", success=True)
 
 
 @pytest.mark.asyncio
@@ -92,7 +93,7 @@ async def test_failed_reset_is_recorded_under_its_own_lock_namespace_not_logins(
     )
 
     assert response.status_code == 400
-    finish_mock.assert_awaited_once_with("password_reset_confirm_lock:email:user@example.com", success=False)
+    finish_mock.assert_awaited_once_with(f"password_reset_confirm_lock:email:{email_key_id('user@example.com')}", success=False)
 
 
 @pytest.mark.asyncio

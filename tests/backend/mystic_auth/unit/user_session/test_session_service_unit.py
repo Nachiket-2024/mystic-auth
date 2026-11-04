@@ -146,8 +146,8 @@ async def test_rotate_session_backfills_missing_legacy_row(mocker):
 
 @pytest.mark.asyncio
 async def test_rotate_session_logs_and_alerts_when_ip_differs_from_prior_redemption(mocker):
-    """Regression for F-001: a clean (non-reuse) refresh-token theft and
-    first use used to leave zero signal anywhere. rotate() never touches
+    """Regression: a clean (non-reuse) refresh-token theft and first use must
+    leave a signal. rotate() never touches
     ip_address/user_agent, so the row it returns still carries the chain's
     *prior* redemption context - comparing that against the current
     request's real IP/UA is the one concrete artifact a stolen-token's

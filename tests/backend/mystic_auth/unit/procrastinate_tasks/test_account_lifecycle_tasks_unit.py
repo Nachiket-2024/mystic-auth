@@ -59,7 +59,7 @@ async def test_delivery_task_skips_delivery_mark_when_event_is_not_from_outbox(m
         "user_id": None,
         "user_email": "user@example.com",
         "actor": "admin@example.com",
-        "source": "admin",
+        "source": "management",
         "occurred_at": datetime.now(UTC).isoformat(),
     }
 

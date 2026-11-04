@@ -1,4 +1,4 @@
-import { Ban, Eye, KeyRound, MoreHorizontal, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
+import { Ban, Eye, Fingerprint, KeyRound, MoreHorizontal, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
 
 import Badge from "../ui/badges/Badge";
@@ -29,8 +29,7 @@ export function capitalize(value: string): string {
 }
 
 /** First letter of up to two words of a name, e.g. "Amara Chen" -> "AC" -
- * mirrors design/users.html's row avatar so the table reads the same as the
- * mockup instead of a bare initial or a generic person icon. */
+ * a small avatar instead of a bare initial or a generic person icon. */
 function initialsFor(name: string): string {
     return name
         .split(" ")
@@ -50,6 +49,7 @@ interface BuildUsersColumnsParams {
      * row icon (View/Policies/Permissions) still jumps to its own tab, they
      * just share one dialog now instead of three. */
     onOpenAccess: (user: ManagedUserRead, tab: "details" | "policies" | "permissions") => void;
+    onManagePasskeys: (user: ManagedUserRead) => void;
     onReactivate: (email: string) => void;
     reactivatingEmail: string | undefined;
     onPurgeRequest: (user: ManagedUserRead) => void;
@@ -65,6 +65,7 @@ export function buildUsersColumns({
     currentUserEmail,
     onRoleChangeRequest,
     onOpenAccess,
+    onManagePasskeys,
     onReactivate,
     reactivatingEmail,
     onPurgeRequest,
@@ -77,7 +78,7 @@ export function buildUsersColumns({
             sortable: true,
             // Wider than the old separate Name/Email columns combined -
             // this is now the table's one flexible identity column
-            // (design/users.html), holding an avatar plus stacked name/email.
+            //, holding an avatar plus stacked name/email.
             width: "20rem",
             render: (u) => (
                 <div className="flex min-w-0 items-center gap-2.5">
@@ -219,7 +220,18 @@ export function buildUsersColumns({
                         the self-account case below, there's no explanation
                         worth surfacing since a system row is never the
                         caller's own account. */}
+                    {/* The menu only holds actions that need these permissions, so
+                        a caller with none of them gets no menu at all rather
+                        than a button that opens an empty list. */}
                     {u.role !== "system" ? (
+                        <IfCan
+                            action={[
+                                PERMISSIONS.USERS_MANAGE_PASSKEYS,
+                                PERMISSIONS.USERS_REACTIVATE,
+                                PERMISSIONS.USERS_DEACTIVATE_ANY,
+                                PERMISSIONS.USERS_DELETE_ANY,
+                            ]}
+                        >
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -232,6 +244,17 @@ export function buildUsersColumns({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                                {/* The API refuses your own account (use Account Settings,
+                                    which asks you to confirm it's you first), so the item is
+                                    not offered on your own row. */}
+                                {u.email !== currentUserEmail && (
+                                    <IfCan action={PERMISSIONS.USERS_MANAGE_PASSKEYS}>
+                                        <DropdownMenuItem onSelect={() => onManagePasskeys(u)}>
+                                            <Fingerprint size={16} aria-hidden="true" />
+                                            {t("users:passkeysDialog.menu")}
+                                        </DropdownMenuItem>
+                                    </IfCan>
+                                )}
                                 {u.deleted_at ? (
                                     <IfCan action={PERMISSIONS.USERS_REACTIVATE}>
                                         <DropdownMenuItem onSelect={() => onReactivate(u.email)} disabled={reactivatingEmail === u.email}>
@@ -288,6 +311,7 @@ export function buildUsersColumns({
                                 )}
                             </DropdownMenuContent>
                         </DropdownMenu>
+                        </IfCan>
                     ) : (
                         <span className="size-8 shrink-0" aria-hidden="true" />
                     )}

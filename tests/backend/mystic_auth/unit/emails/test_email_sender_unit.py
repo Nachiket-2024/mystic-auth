@@ -72,3 +72,25 @@ async def test_send_uses_plain_text_when_requested(mocker):
 
     message = send_mock.call_args.args[0]
     assert message.get_content_type() == "text/plain"
+
+
+@pytest.mark.asyncio
+async def test_logo_is_attached_inline_with_the_loaded_image_type(mocker):
+    send_mock = mocker.patch(f"{MODULE}.aiosmtplib.send", new_callable=AsyncMock)
+    mocker.patch(f"{MODULE}.load_email_logo", return_value=(b"\xff\xd8\xffjpeg-bytes", "jpeg"))
+
+    await SMTPEmailSender().send("user@example.com", "Subject", '<img src="cid:brand-logo">')
+
+    parts = [p for p in send_mock.call_args.args[0].walk() if p.get_content_maintype() == "image"]
+    assert [(p.get_content_subtype(), p["Content-ID"]) for p in parts] == [("jpeg", "<brand-logo>")]
+
+
+@pytest.mark.asyncio
+async def test_no_logo_is_attached_when_the_body_does_not_reference_it(mocker):
+    send_mock = mocker.patch(f"{MODULE}.aiosmtplib.send", new_callable=AsyncMock)
+    load = mocker.patch(f"{MODULE}.load_email_logo")
+
+    await SMTPEmailSender().send("user@example.com", "Subject", "<p>Hi</p>")
+
+    load.assert_not_called()
+    assert not [p for p in send_mock.call_args.args[0].walk() if p.get_content_maintype() == "image"]

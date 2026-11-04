@@ -40,8 +40,9 @@ control; integration and browser tests prove the user-visible flow.
 
 - `unit/auth/auth_page_mobile_overflow.test.tsx` verifies auth pages remain
   usable at narrow widths without horizontal overflow.
-- `unit/auth/signup_form_legal_consent.test.tsx` verifies required consent is
-  enforced before signup submission.
+- `unit/auth/signup_form_legal_consent.test.tsx` verifies the signup consent
+  notice links to the Terms of Service and Privacy Policy pages; it is a
+  notice, not a submission gate.
 - `unit/auth/password_rules/passwordRules.test.ts` verifies each password
   predicate and boundary value.
 - `unit/auth/password_rules/PasswordRulesChecklist.test.tsx` verifies each
@@ -58,6 +59,9 @@ control; integration and browser tests prove the user-visible flow.
   verification states and navigation.
 - `unit/auth/oauth2/OAuth2LoginButton.test.tsx` verifies provider selection,
   disabled state, and redirect initiation.
+- `integration/auth/passkey_login.test.tsx` verifies passkey sign-in runs the browser ceremony,
+  loads the profile, marks the app authenticated, and stays unavailable when the browser lacks
+  WebAuthn.
 - `integration/auth/password_policy_consistency.test.tsx` compares the rules
   used by signup and reset-confirm forms to the backend policy contract, so a
   frontend-only password relaxation cannot ship silently.

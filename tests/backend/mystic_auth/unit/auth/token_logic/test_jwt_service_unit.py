@@ -23,6 +23,10 @@ def _decode(token: str) -> dict:
 def _mock_no_versions(mocker):
     """A fresh account/chain reads version zero from the durable store."""
     mocker.patch.object(jwt_service, "get_token_versions", new_callable=AsyncMock, return_value=(0, 0))
+    # verify_token also re-reads both versions; without these it hit the real
+    # database and only passed when tables happened to exist already.
+    mocker.patch.object(jwt_service, "get_account_version", new_callable=AsyncMock, return_value=0)
+    mocker.patch.object(jwt_service, "get_chain_version", new_callable=AsyncMock, return_value=0)
 
 
 @pytest.mark.asyncio

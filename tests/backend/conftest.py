@@ -79,24 +79,18 @@ if "VALKEY_URL" not in os.environ:
         )
 
 # ---------------------------- Dedicated test database ----------------------------
-# Redirects DATABASE_URL/APP_DATABASE_URL to a `mystic_auth_test` database on
-# the same Postgres server, instead of the real `mystic_auth` one a running
-# dev stack's `backend`/`procrastinate_worker` containers use.
+# Redirects DATABASE_URL/APP_DATABASE_URL to a `mystic_auth_test` database on the
+# same Postgres server, not the real `mystic_auth` one a running dev stack uses.
 #
-# Without this, running the suite from a container hits the exact same live
-# database a `docker compose up` session's `procrastinate_worker` is
-# watching (DATABASE_URL is already set from the container's env_file, so
-# the localhost-rewrite above never touches it). Concretely: a deferred job
-# gets picked up by the real worker, but before it can mark itself
-# "succeeded" in procrastinate_jobs, this file's own
-# _procrastinate_app_lifecycle fixture runs its per-test `DELETE FROM
-# procrastinate_jobs` teardown, deleting the row the real worker is mid-write
-# on ("Job was not found or not in doing/todo status"). A dedicated database
-# removes the shared table entirely.
+# Why: inside a container DATABASE_URL is already set from the env_file, so the
+# localhost rewrite above never applies, and the suite would share a database
+# with the dev stack's `procrastinate_worker`. That worker could pick up a
+# deferred job while this file's per-test `DELETE FROM procrastinate_jobs`
+# teardown removes the row it is mid-write on ("Job was not found or not in
+# doing/todo status").
 #
-# Skipped when CI is set: CI already provisions its own dedicated
-# `mystic_auth_ci` Postgres service per run (see ci.yml), and no dev-stack
-# container ever runs alongside it.
+# Skipped when CI is set: CI provisions its own `mystic_auth_ci` database and no
+# dev-stack container runs beside it.
 _BACKEND_DIR = Path(__file__).resolve().parents[2] / "backend"
 _TEST_DB_NAME = "mystic_auth_test"
 
@@ -157,6 +151,7 @@ if "EMAIL_ENABLED" not in os.environ:
     os.environ["EMAIL_ENABLED"] = "false"
 
 # ---------------------------- Imports (after env overrides above) ----------------------------
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -180,6 +175,32 @@ from backend.mystic_auth.valkey.client import valkey_client
 # request/session that created it.
 database.engine = create_async_engine(database.database_url, echo=False, poolclass=NullPool)
 database.async_session = sessionmaker(bind=database.engine, class_=AsyncSession, expire_on_commit=False)
+
+# Dedicated superuser session for test-only cleanup, separate from
+# `database.async_session` (bound to APP_DATABASE_URL, the least-privilege
+# mystic_auth_app role real traffic uses). That role has no DELETE on
+# security_audit_log/authorization_audit_log (see
+# docs/mystic_auth/security/decisions-infra.md and Alembic migration
+# 9c3e7f1a4b8d), but a test's cleanup fixture must remove the rows it created.
+# DATABASE_URL (the DDL-capable migration role) is used here, as an operator
+# would, rather than loosening what the app can do.
+from backend.mystic_auth.core.settings import settings as _settings
+
+_superuser_engine = create_async_engine(_settings.DATABASE_URL, echo=False, poolclass=NullPool)
+
+# Importable directly (`from tests.backend.conftest import superuser_async_session`)
+# for plain helper functions outside pytest's fixture graph, e.g.
+# performance/conftest.py's cleanup_perftest_rows. Fixture-based test code
+# should prefer the superuser_session_factory fixture below instead.
+superuser_async_session = sessionmaker(bind=_superuser_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+@pytest_asyncio.fixture
+def superuser_session_factory():
+    """Session factory for test-only cleanup that needs privileges
+    mystic_auth_app doesn't have (see the module-level comment above).
+    Usage: `async with superuser_session_factory() as session:`."""
+    return superuser_async_session
 
 
 # ---------------------------- Valkey isolation ----------------------------
@@ -251,3 +272,13 @@ async def _cleanup_users(created_emails):
     async with database.async_session() as session:
         await session.execute(text("DELETE FROM users WHERE email = ANY(:emails)"), {"emails": created_emails})
         await session.commit()
+
+
+@pytest.fixture
+def open_hash_gate(monkeypatch):
+    """Lets bursts of concurrent hashes through, for tests about concurrency
+    behaviour other than Argon2 admission control (which has its own tests)."""
+    from backend.mystic_auth.core.settings import settings
+
+    monkeypatch.setattr(settings, "PASSWORD_HASH_CONCURRENCY", 64)
+    monkeypatch.setattr(settings, "PASSWORD_HASH_MAX_WAITING", 1000)

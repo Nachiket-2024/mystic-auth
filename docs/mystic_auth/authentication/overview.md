@@ -12,6 +12,7 @@ instead of competing for space in one long page:
 - [Logout and Logout-All](logout.md)
 - [Password Reset and Password Change](password-reset.md)
 - [Google OAuth2 / PKCE](oauth2-pkce.md)
+- [Passkeys](passkeys.md): optional discoverable credentials, account management, and relying-party configuration
 - [Session Management](session-management/README.md): active-session tracking, refresh-token rotation mirror, real-time revocation push
 - [Account Deletion and Purge](account-deletion/README.md)
 
@@ -59,12 +60,12 @@ flowchart TD
 ```
 ---
 
-1. Decode the refresh token's claims once (not the two-or-three separate decodes an earlier version did).
+1. Decode the refresh token's claims once.
 2. **Version check first**: if the token's embedded `account_ver`/`chain_ver` has already fallen behind the durable PostgreSQL version after logout, logout-all, password change, or a targeted Manage Sessions revoke, it is rejected as stale. Valkey only caches these versions. This runs *before* the reuse check below, so an intentionally ended session is not treated as suspected theft.
 3. **Reuse detection**: refresh tokens are still single-use, enforced by an atomic per-`jti` claim (`claim_jti_for_rotation`), independent of the version check above. If a token whose `jti` is *already* claimed is presented again, a same-IP retry within the configured grace window is rejected without minting another pair or revoking the first request's chain. Older or cross-IP reuse bumps that token's own `chain_ver` (`revoke_chain_for_user`) and logs the incident at `critical`. Tokens without the required chain/version claims are rejected before reuse detection. See [Session Management](session-management/token-lifecycle.md#rotation-chains-and-reuse-detection) for why revocation stays scoped to the compromised chain instead of every session on the account.
 4. On a clean (non-reused, current-version) token: claim the old `jti`, issue a new access+refresh pair carrying the same `chain_id` forward.
 
-After a successful rotation, the session mirror compares the request IP address and User-Agent with the values previously recorded for that chain. A difference writes a `refresh_token_context_changed` security audit event and sends a metadata-only security alert. This is a review signal, not proof of theft: users can change networks or browsers. The event metadata records only which fields changed; IP and User-Agent remain in the audit row's standard columns, where the normal retention job anonymizes them.
+After a successful rotation, the session mirror compares the request IP address and User-Agent with the values previously recorded for that chain. A difference writes a `refresh_token_context_changed` security audit event and sends a metadata-only security alert. This is a review signal, not proof of theft: users can change networks or browsers. The event metadata records only which fields changed; IP and User-Agent remain in the audit row's standard columns permanently, never anonymized (see [Security Decisions: Infrastructure](../security/decisions-infra.md#account-deletion-never-anonymizes-the-audit-trail)).
 
 Token validity is version-based, governed by durable Postgres (`account_ver`/`chain_ver` counters, not a registry of live tokens); Valkey is only a best-effort cache. Refresh-token single-use claims are also durable in Postgres and expire with the token. `refresh_tokens()` does not re-check `is_active`/account existence itself. The `user_sessions` table mirrors the current `jti`/`chain_id` only for display and targeted revoke in the Manage Sessions card. See [Session Management](session-management/README.md) for the full source-of-truth breakdown.
 

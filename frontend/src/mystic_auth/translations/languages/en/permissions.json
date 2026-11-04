@@ -56,14 +56,6 @@
         "groupInPolicyCount_one": "{{count}} in a policy",
         "groupInPolicyCount_other": "{{count}} in policies"
     },
-    "howItWorks": {
-        "actionsTitle": "Actions",
-        "actionsDescription": "Things people can be allowed to do, like “view users”.",
-        "policiesTitle": "Policies",
-        "policiesDescription": "Named bundles of actions.",
-        "peopleTitle": "People",
-        "peopleDescription": "Who actually gets access."
-    },
     "columns": {
         "action": "Action",
         "resourceType": "Resource type",

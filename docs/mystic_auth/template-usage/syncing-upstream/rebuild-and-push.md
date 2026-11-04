@@ -2,6 +2,33 @@
 
 ---
 
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    Sync["Staged sync result\n(or resolved conflicts)"]
+    DB{"Database major version\nchanged in the diff?"}
+    Up["Follow the data-volume\nupgrade first"]
+    Build["Step 7: compose up --build,\nbackend tests, frontend typecheck + build"]
+    Ok{"All green?"}
+    Fix["Fix the break\n(for example a renamed dependency)"]
+    Push["Step 8: commit, then push or open\nyour own pull request"]
+
+    Sync --> DB
+    DB -- "yes" --> Up --> Build
+    DB -- "no" --> Build
+    Build --> Ok
+    Ok -- "no" --> Fix --> Build
+    Ok -- "yes" --> Push
+
+    class DB,Ok decision
+    class Fix caution
+    class Push terminal
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ## Step 7: Rebuild and test before you trust any of it
 
 Even a sync that applied with zero conflicts can quietly change how the app behaves, so don't skip this:
@@ -10,7 +37,7 @@ Before starting the stack, review database image major-version changes in
 the synced Compose files. The sync script only applies files; it does not
 upgrade a data volume. If the database major version changed, follow its
 documented migration procedure first. For PostgreSQL 15 to 18, use the
-[encrypted dump-and-restore upgrade](../../deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade)
+[encrypted dump-and-restore upgrade](../../deployment/database-migrations.md#postgresql-15-to-18-data-volume-upgrade)
 and keep the old project and volume available until acceptance is complete.
 
 ```bash
@@ -24,9 +51,9 @@ scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/my
 
 ---
 
-## Step 8: Push whenever you're happy with it
+## Step 8: Commit and push whenever you're happy with it
 
-At this point you just have one new, ordinary commit sitting on top of your project's history, same as any commit you'd normally make. Push it to your branch, or open your own internal pull request to have a teammate look it over first. There's no PR or step required back against the original template repo; the sync only ever pulls, it never pushes anywhere.
+The sync never commits by itself: its result is staged, waiting for you. Once the checks in Step 7 are green, commit it with the message the script printed (`git commit -m "Sync upstream template updates (mystic-auth@<sha>)"`). That gives you one new, ordinary commit on top of your project's history. If you would rather throw the sync away, `sync-upstream.sh --abort` explains what it will undo and asks before doing anything. Push the commit to your branch, or open your own internal pull request to have a teammate look it over first. There's no PR or step required back against the original template repo; the sync only ever pulls, it never pushes anywhere.
 
 ---
 
@@ -72,7 +99,7 @@ git add backend/app/main.py
 git commit -m "Sync upstream template updates (mystic-auth@<sha>)"
 ```
 
-Same process for `App.tsx`'s route list. After committing, rebuild and re-run the test suite before trusting it: see [Testing Overview](../../testing/overview.md).
+Same process for `App.tsx`'s route list. Once the conflicts are resolved and staged, rebuild and re-run the test suite before trusting it: see [Testing Overview](../../testing/overview.md).
 
 ---
 

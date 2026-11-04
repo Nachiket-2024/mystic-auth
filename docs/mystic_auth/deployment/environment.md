@@ -50,7 +50,7 @@ Compose files.
 ## 3. Compose env-file rule
 ---
 
-The `--env-file` flag matters for local-prod and prod. Compose only auto-loads a file literally named `env/mystic_auth/.env.dev` for `${VAR}` substitution in Compose YAML. Each service's `env_file:` entry points at the correct dedicated file, but frontend build args and other Compose-level substitutions still need `--env-file`.
+The `--env-file` flag matters for local-prod and prod. Compose only auto-loads a file named `.env` in the working directory for `${VAR}` substitution in Compose YAML, so the files under `env/` must be passed explicitly. Each service's `env_file:` entry points at the correct dedicated file, but frontend build args and other Compose-level substitutions still need `--env-file`.
 
 Use the helper scripts when possible because they always pass the matching env file:
 
@@ -101,7 +101,8 @@ Review these settings before sharing a production-shaped deployment:
 10. Configure `SENTRY_DSN` and `VITE_SENTRY_DSN` only when error monitoring is enabled.
 11. Configure `GEOIP_DB_PATH` and `GEOIPUPDATE_*` only when enabling the `geoip` Compose profile.
 12. Keep `USER_EXPORT_MAX_ROWS` sized for the largest safe CSV export your deployment can handle.
-13. `UVICORN_WORKERS` auto-sizes on boot and needs no default value; only set it to override the auto-picked count, and size `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` to match if you do - see [§7 below](#7-scaling-and-load-capacity).
+13. `UVICORN_WORKERS` auto-sizes on boot and needs no default value; only set it to override the auto-picked count, and size `DB_POOL_SIZE`/`DB_MAX_OVERFLOW` to match if you do - see [Scaling](scaling.md#1-sizing-workers-on-one-host).
+14. For passkeys, set `WEBAUTHN_RP_ID` to the public hostname and `WEBAUTHN_ORIGINS` to the exact HTTPS frontend origin(s), or leave them blank to derive defaults from `FRONTEND_BASE_URL`. Keep the RP ID stable after users register credentials. See [Passkeys](../authentication/passkeys.md#relying-party-configuration-and-domains).
 
 ---
 
@@ -114,7 +115,7 @@ reload loop than the Dockerized `dev` target gives you. Postgres and Valkey
 still run in Docker either way; only the FastAPI process itself moves to
 the host.
 
-1. From the repo root, create a virtualenv and install both dependency files: `pip install -r backend/requirements.txt -r backend/requirements-dev.txt`.
+1. From the repo root, create a virtualenv and install both dependency files: `pip install --require-hashes -r backend/requirements.txt -r backend/requirements-dev.txt`. These files are generated locks; see [Dependency locking](dependency-locking.md) before changing a dependency.
 2. Run `scripts/mystic_auth/docker/dev/backend-host-run.sh` (`.ps1`/`.cmd`). It starts only Postgres and Valkey, reads `POSTGRES_HOST_PORT`/`VALKEY_HOST_PORT`, derives the host-reachable URLs in memory, runs migrations, and starts Uvicorn with `--reload`. Pass extra Uvicorn arguments after the script path when needed.
 
 `Settings` (`backend/mystic_auth/core/settings.py`) reads `env/mystic_auth/.env.dev` and `env/app/.env.dev` directly when a variable isn't already in the process environment. The host-run helper supplies only the rewritten connection URLs and leaves the env files unchanged, so a single host-port edit works for both Docker and host-run workflows.
@@ -123,153 +124,22 @@ Running the whole suite this way? `tests/backend/conftest.py` does the same `pos
 
 ---
 
-## 7. Scaling and load capacity
+## 7. Scaling, multiple backends and secret rotation
 ---
 
-`UVICORN_WORKERS` (prod-shaped deployments only; `dev` uses `--reload`, which
-forces a single process) sets how many uvicorn worker processes the
-`backend` service runs, each with its own DB connection pool sized by
-`DB_POOL_SIZE`/`DB_MAX_OVERFLOW`. Keep
-`UVICORN_WORKERS * (DB_POOL_SIZE + DB_MAX_OVERFLOW)` under Postgres's own
-`max_connections` (100 by default), leaving headroom for
-`alembic`/`procrastinate_worker`/`db_backup`'s own connections.
-
-**Left unset (the shipped default), it auto-sizes on every boot** to
-`min(host CPU cores, 4)` - every prod-shaped Compose file (`prod`,
-`local-prod-cloudflare`, `local-prod-ngrok`, `local-prod-tailscale`) runs
-this same `nproc`-based calculation in its `backend` service's startup
-command and logs which value it picked (`docker logs <backend container>`
-shows `[backend] UVICORN_WORKERS not set - auto-sizing to N worker(s)`).
-The cap at 4 is deliberate, not a host-size guess: with the default
-`DB_POOL_SIZE=5`/`DB_MAX_OVERFLOW=10`, 4 workers tops out at 60 of
-Postgres's default 100 `max_connections`, leaving headroom regardless of
-how many cores the host actually has. Set `UVICORN_WORKERS` explicitly to
-override in either direction - fewer on a host you're sharing with other
-services, more on a box with real spare capacity (raise
-`DB_POOL_SIZE`/`DB_MAX_OVERFLOW` to match if you do, per the formula
-above).
-
-Measured against a real local-prod-ngrok stack with `wrk` (4 threads, 200
-persistent connections, 15s, `GET /health/ready`). At the time of this
-measurement, this repo's own `scripts/mystic_auth/load-test/load_test.py`
-was a single-process Python client that pegged one CPU core and became the
-actual bottleneck before the server did, masking the difference workers
-make, so `wrk` was used instead for this specific comparison. That script
-has since been fixed to split work across multiple OS processes (see its
-own `--workers` flag, default one per CPU core) and no longer has this
-problem - either tool now gives a trustworthy number:
-
-| Config | Throughput | Timeouts (of ~5,000 req) | Notes |
-|---|---|---|---|
-| `UVICORN_WORKERS=1` | 299 req/s | 175 | Single event loop; Argon2 and JSON work all serialize behind it |
-| `UVICORN_WORKERS=4` (shipped default, this host has 12 cores) | 375 req/s | 31 | ~25% higher throughput, ~82% fewer timeouts, same host |
-
-The gain here is real but modest compared to a dedicated benchmarking
-host, because Postgres, Valkey, and every other stack service were
-competing for the same machine's cores during the test - representative
-of a small self-hosted box, not a provisioned multi-machine deployment.
-Re-run the comparison yourself against your own target hardware before
-trusting either number, using [`wrk`](https://github.com/wg/wrk) (packaged
-for most distros - `apt install wrk` on Debian/Ubuntu, `brew install wrk`
-on macOS - so you're running a package-manager-verified build, not an
-unaudited third-party Docker image):
-```bash
-wrk -t4 -c200 -d15s http://localhost:<BACKEND_HOST_PORT>/health/ready
-```
-
-`POST /auth/login` is the outlier: capped around 15-20 req/s regardless of
-worker count, since Argon2 password verification is deliberately
-CPU-expensive per request (see `backend/mystic_auth/auth/password_logic/password_service.py`) -
-more workers help concurrency, not this per-request cost.
+- [Scaling and Multiple Backend Containers](scaling.md): `UVICORN_WORKERS` auto-sizing, connection budgets, measurements, and running several backend containers behind a load balancer.
+- [Rotating Secrets](secret-rotation.md): which secrets the script rotates and the order for secrets a running service also holds.
 
 ---
 
-## 8. Running multiple backend containers
----
-
-The Compose files in this repository are a one-host deployment shape. When
-one host is the capacity ceiling, run multiple identical backend containers
-behind a load balancer and move the data services to shared infrastructure:
-
-```mermaid
-flowchart LR
-    Browser --> LB[Load balancer / reverse proxy]
-    LB --> B1[Backend container 1]
-    LB --> B2[Backend container 2]
-    LB --> B3[Backend container 3]
-    B1 --> PG[(Managed/shared Postgres)]
-    B2 --> PG
-    B3 --> PG
-    B1 --> VK[(Managed/shared Valkey)]
-    B2 --> VK
-    B3 --> VK
-```
-
-1. Provision one managed or separately shared Postgres instance and one
-   managed or separately shared Valkey instance. Set every replica's
-   `APP_DATABASE_URL`/`DATABASE_URL` and `VALKEY_URL` to those shared endpoints.
-   Do not point replicas at the `postgres` and `valkey` service names from the
-   single-host Compose files. Separate data containers would split state.
-2. Size the total database connection budget across all replicas and workers:
-   `replicas * UVICORN_WORKERS * (DB_POOL_SIZE + DB_MAX_OVERFLOW)`, plus
-   connections for the migration runner, `procrastinate_worker`, and backups.
-   Keep that total below the shared Postgres limit with operational headroom.
-3. Run `cd backend && alembic upgrade head` exactly once per deployment, from a
-   release job or one explicitly selected migration task. Route traffic to new
-   replicas only after it succeeds. Do not let every replica run migrations
-   during startup.
-4. Use the same `SECRET_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE`, cookie settings,
-   and application configuration on every replica. Access and refresh tokens
-   are in cookies and are verified by each replica, so sticky sessions are not
-   required. OAuth state, token-version invalidation, rate limits, and
-   session-event publication use Valkey and must not fall back to memory.
-
-The live `/auth/session-events` connection is held by the process that
-accepted it. A reconnect can land on another replica, so clients must handle
-reconnects; a backend process is not durable session state. Process-local
-logging/context state and the SQLAlchemy pool are not user session state.
-Postgres and Valkey are the shared sources of truth.
-
-An nginx instance or managed load balancer can use the existing readiness
-endpoint as its backend health check. This nginx-style upstream illustrates
-the routing decision:
-
-```nginx
-upstream mystic_auth_backend {
-    server backend-1.internal:8000 max_fails=3 fail_timeout=10s;
-    server backend-2.internal:8000 max_fails=3 fail_timeout=10s;
-    server backend-3.internal:8000 max_fails=3 fail_timeout=10s;
-}
-
-server {
-    listen 443 ssl;
-
-    location / {
-        proxy_pass http://mystic_auth_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Active check: GET /health/ready, expect HTTP 200.
-    # It returns 503 when Postgres or Valkey is unavailable.
-}
-```
-
-Use `/health` only as a liveness check. Use `/health/ready` for traffic
-eligibility because it checks both shared dependencies. Preserve the trusted
-proxy configuration described in [Routing: Trusted proxy IPs](routing.md#2-trusted-proxy-ips)
-when the load balancer adds `X-Forwarded-For`.
-
----
-
-## 9. Related docs
+## 8. Related docs
 ---
 
 1. [Configuration Reference](../environment/README.md)
-2. [Deployment Guide](guide.md)
+2. [Deployment Overview](README.md)
 3. [Local-Prod Deployment](local-prod/README.md)
-4. [Error Monitoring](../error-monitoring/overview.md)
-5. [Session Geolocation](../geolocation/overview.md)
+4. [Scaling](scaling.md) and [Rotating Secrets](secret-rotation.md)
+5. [Error Monitoring](../error-monitoring/overview.md)
+6. [Session Geolocation](../geolocation/overview.md)
 
 ---

@@ -1,7 +1,7 @@
 cffi 2.1.1
 License: MIT-0
-URL: https://cffi.readthedocs.io/en/latest/whatsnew.html
-Copyright: THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+URL: https://github.com/python-cffi/cffi
+Copyright: See bundled license text
 
 Except when otherwise stated (look for LICENSE files in directories or
 information at the beginning of each file) all software and

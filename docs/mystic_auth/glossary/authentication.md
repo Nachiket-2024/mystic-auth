@@ -41,6 +41,24 @@ A random id minted once at login and carried forward unchanged through every rot
 
 ---
 
+## passkey / WebAuthn
+
+A passkey is a sign-in credential stored on a device or password manager. WebAuthn is the browser standard behind it: the device keeps a private key and signs a random challenge, and the server only keeps the matching public key, so there is no secret on the server to leak or phish. See [Passkeys](../authentication/passkeys.md).
+
+---
+
+## RP ID (relying party ID)
+
+The hostname a passkey is bound to (`WEBAUTHN_RP_ID`). A passkey made for one RP ID will not work on another, which is also why a look-alike site cannot use it. Changing it later orphans existing passkeys. See [Passkeys: Relying-party configuration](../authentication/passkeys.md#relying-party-configuration-and-domains).
+
+---
+
+## step-up (sudo mode)
+
+A fresh identity check demanded before a sensitive change, even though the user is already signed in. Here it gates adding or removing a passkey and stays valid for 15 minutes (a fresh login counts too). Confirm with password, an existing passkey, or Google. See [Passkeys: Security behavior](../authentication/passkeys.md#security-behavior).
+
+---
+
 ## PKCE
 
 Short for Proof Key for Code Exchange (pronounced "pixy"). An OAuth2 extension that stops a stolen authorization code from being redeemed by anyone but the party that started the login. This app's Google login generates a random secret, sends only a hash of it to Google upfront, then proves possession of the original secret when exchanging the code for tokens. See [OAuth2 / PKCE](../authentication/oauth2-pkce.md#pkce-mechanics).
@@ -88,7 +106,7 @@ branding, and verification status in Google Cloud Console.
 
 ## superuser (system account)
 
-A single reserved account (`role == system`) with full access, created only via a one-off script, never through the API or a self-service signup. It's blocked from Google OAuth2 login entirely and can only authenticate with a password. See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md).
+A single reserved account (`role == system`) assigned the protected `system_superuser` policy, created only via a one-off script, never through the API or a self-service signup. The role is metadata and also blocks Google OAuth2 login; the policy grants its access. It can only authenticate with a password. See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md).
 
 ---
 

@@ -57,10 +57,15 @@ AuthorizationDecision = _m("authorization.evaluators.authorization_decision").Au
 
 # Authentication, see docs/mystic_auth/authentication/overview.md
 get_current_user = _m("auth.current_user.current_user_dependency").get_current_user
-SecurityHeadersMiddleware = _m("auth.security.security_headers_middleware").SecurityHeadersMiddleware
+SecurityHeadersMiddleware = _m("middleware.security_headers_middleware").SecurityHeadersMiddleware
+OriginCheckMiddleware = _m("middleware.origin_check_middleware").OriginCheckMiddleware
 
 # Database: Depends(database.get_session) in a route signature
 database = _m("database.connection").database
+
+# Declarative base for app-owned models. Import the models in app/models.py so
+# Alembic autogenerate sees them.
+Base = _m("database.base").Base
 # Bootstrap/policy assignment helpers: app-owned setup scripts may use these
 # through this stable surface instead of importing Mystic Auth repositories
 # directly. Keep the repository objects behind sdk.py so upstream can preserve
@@ -79,6 +84,22 @@ register_condition_type = _m("authorization.conditions.condition_registry").regi
 
 # Small route helpers
 get_or_404 = _m("api.get_or_404.get_or_404").get_or_404
+get_client_ip = _m("auth.security.client_ip").get_client_ip
+normalize_email = _m("emails.email_normalization").normalize_email
+
+# Per-route rate limiting for app routes: @rate_limiter_service.rate_limited("name", ...),
+# see docs/mystic_auth/security/hardening-abuse-prevention.md
+rate_limiter_service = _m("auth.security.rate_limiting.rate_limiter_service").rate_limiter_service
+
+# Audit trail and alerts: write an app event to the security audit log, or raise a
+# security alert, with the same retention, redaction and delivery as built-in events.
+log_security_event = _m("audit_log.audit_log_service").log_security_event
+capture_security_alert = _m("error_monitoring.sentry_service").capture_security_alert
+
+# Email: queue a message through the worker (retries, rate of delivery), and build it
+# with the branded template so app emails match the built-in ones.
+send_email_task = _m("procrastinate_tasks.email_tasks").send_email_task
+render_transactional_email = _m("emails.email_template_service").render_transactional_email
 
 # Machine-readable error codes for frontend translation, see
 # docs/mystic_auth/translations/overview/README.md
@@ -91,6 +112,7 @@ user_self_service_router = _m("api.user_routes.user_self_service_routes").router
 user_management_query_router = _m("api.user_routes.user_management_query_routes").router
 user_management_update_router = _m("api.user_routes.user_management_update_routes").router
 user_lifecycle_router = _m("api.user_routes.user_lifecycle_routes").router
+user_passkey_management_router = _m("api.user_routes.user_passkey_management_routes").router
 policy_crud_router = _m("api.pbac_routes.policies.policy_crud_routes").router
 policy_history_router = _m("api.pbac_routes.policies.policy_history_routes").router
 policy_self_router = _m("api.pbac_routes.policies.policy_self_routes").self_router
@@ -161,8 +183,8 @@ async def get_procrastinate_job_status(job_id: int) -> str:
     return status.value
 
 # Logging/observability middleware and helpers, wired up in main.py
-LoggingMiddleware = _m("logging.logging_middleware").LoggingMiddleware
-CorrelationIdMiddleware = _m("logging.correlation_id_middleware").CorrelationIdMiddleware
+LoggingMiddleware = _m("middleware.logging_middleware").LoggingMiddleware
+CorrelationIdMiddleware = _m("middleware.correlation_id_middleware").CorrelationIdMiddleware
 get_logger = _m("logging.logging_config").get_logger
 
 # Error monitoring: init_sentry() runs once at import time; capture_exception()
@@ -192,7 +214,9 @@ __all__ = [
     "build_authorization_context",
     "AuthorizationDecision",
     "get_current_user",
+    "OriginCheckMiddleware",
     "SecurityHeadersMiddleware",
+    "Base",
     "database",
     "policy_repository",
     "user_crud",
@@ -200,6 +224,13 @@ __all__ = [
     "ConditionHandler",
     "register_condition_type",
     "get_or_404",
+    "get_client_ip",
+    "normalize_email",
+    "rate_limiter_service",
+    "log_security_event",
+    "capture_security_alert",
+    "send_email_task",
+    "render_transactional_email",
     "AppError",
     "auth_router",
     "refresh_token_router",
@@ -207,6 +238,7 @@ __all__ = [
     "user_management_query_router",
     "user_management_update_router",
     "user_lifecycle_router",
+    "user_passkey_management_router",
     "policy_crud_router",
     "policy_history_router",
     "policy_assignment_router",

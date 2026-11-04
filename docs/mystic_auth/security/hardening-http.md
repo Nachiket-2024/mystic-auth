@@ -9,13 +9,13 @@ Response headers, CORS, cookie flags, middleware ordering, and error handling: t
 
 ## Security response headers
 
-`backend/mystic_auth/auth/security/security_headers_middleware.py`, applied to every response:
+`backend/mystic_auth/middleware/security_headers_middleware.py`, applied to every response:
 
 | Header | Value | Reasoning |
 |---|---|---|
 | `X-Content-Type-Options` | `nosniff` | Stops MIME-type sniffing |
 | `X-Frame-Options` | `DENY` | This is a JSON API with no HTML pages of its own beyond the auto-generated docs below: no framing use case exists |
-| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'` on every route except `/docs`/`/redoc`/`/openapi.json` (see below) | Zero functional cost on the real API surface since there's no HTML/script to allow |
+| `Content-Security-Policy` | `default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` on every route except `/docs`/`/redoc`/`/openapi.json` (see below) | Zero functional cost on the real API surface since there's no HTML/script to allow |
 | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` (production only: see below) | Forces HTTPS for a year, protecting the cookies from protocol downgrade |
 | `Referrer-Policy` | `no-referrer` | URLs here can carry sensitive query params (OAuth2 `state`/`code`) |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` | This is a JSON API with no page of its own that would ever invoke these browser features: denying them closes off a class of clickjacking-adjacent abuse at zero functional cost |
@@ -28,7 +28,7 @@ Response headers, CORS, cookie flags, middleware ordering, and error handling: t
 2. **`/docs`, `/redoc`, and `/openapi.json` get a relaxed CSP, carved out by request path.**
    - FastAPI's auto-generated Swagger UI (`/docs`) and ReDoc (`/redoc`) pages are enabled whenever `ENVIRONMENT != "production"` (see `backend/app/main.py`), and are the one place this API actually serves HTML.
    - Both load their JS/CSS from a CDN (`cdn.jsdelivr.net`) plus an inline `<script>`/`<style>` block; ReDoc additionally pulls a Google Fonts stylesheet.
-   - The blanket `default-src 'none'` policy used to apply here too, and it didn't error or warn: the page returned 200 and rendered as silently blank, every asset blocked with nothing in the response to say why.
+   - A blanket `default-src 'none'` policy here would not error or warn: the page would return 200 and render silently blank, every asset blocked with nothing in the response to say why.
    - `security_headers_middleware.py`'s `_DOCS_PATHS`/`_DOCS_CSP` scope a permissive-but-specific policy (`cdn.jsdelivr.net`, `fonts.googleapis.com`/`fonts.gstatic.com`, `'unsafe-inline'`) to exactly those three paths; every other route keeps the strict policy above.
 
 3. `Strict-Transport-Security` on the frontend static build is set by nginx itself (`docker/mystic_auth/nginx.frontend.conf`), unconditionally rather than gated on `ENVIRONMENT` like the backend's copy: the frontend production image only ever ships in a production-shaped deployment, and needs to send it itself since the local-prod-ngrok/cloudflare/tailscale tunnel modes have no other layer in front of it that would. `docker/mystic_auth/Caddyfile` (the real prod TLS terminator) deliberately does *not* also set it: nginx already covers every response reaching Caddy, backend and frontend alike, so Caddy adding it too would just duplicate the header. See [Docker Overview](../docker/overview.md).
@@ -69,6 +69,23 @@ derived from `ENVIRONMENT`, not from a request-controlled host or scheme.
 
 ---
 
+## Cross-origin request check
+
+`SameSite=Strict` cookies and the CORS allow-list stop cross-site forgery, but a
+same-site sibling (another subdomain under the same registrable domain) is
+still allowed to send cookies. `OriginCheckMiddleware`
+(`middleware/origin_check_middleware.py`) closes that gap for `POST`, `PUT`,
+`PATCH` and `DELETE`:
+
+- A request whose `Origin` is a configured frontend origin, or has the same
+  hostname as the request's own `Host`, is accepted.
+- Any other `Origin` (including `null`) gets `403 CROSS_ORIGIN_REQUEST_BLOCKED`.
+- A request with no `Origin` is accepted unless `Sec-Fetch-Site` says a browser
+  sent it cross-site, so curl, server-to-server calls and tests keep working.
+
+It is plain ASGI, not `BaseHTTPMiddleware`, so it does not touch streaming
+responses.
+
 ## Middleware ordering
 
 1. `main.py` adds middleware in this order: `CORSMiddleware`, `LoggingMiddleware`, `SecurityHeadersMiddleware`, then `CorrelationIdMiddleware` last.
@@ -91,3 +108,7 @@ Two handlers registered in `main.py`:
    - See [API Reference: error responses](../api/reference.md#error-responses) and [Translations Overview](../translations/overview/ui-and-errors.md#5-backend-error-codes-frontendsrcmystic_authapiapierrorts).
 
 ---
+
+## Missing static files return 404
+
+The frontend nginx falls back to `index.html` for client-side routes, but not for static-looking paths. A missing file under `/assets/`, `/robots.txt` or `/.well-known/` returns a real `404` (through the security-header error location) instead of the SPA page with status 200. To publish a `robots.txt` or `security.txt`, put the file in the frontend's `public/` folder and it is served with the usual security headers.

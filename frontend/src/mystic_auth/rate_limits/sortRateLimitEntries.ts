@@ -1,5 +1,6 @@
 import type { SortState } from "../ui/hooks/useSortState";
 import type { RateLimitEntry } from "../api/rate_limits_api";
+import { describeIdentifier } from "./rateLimitIdentifier";
 
 // Column key -> value extractor. "requests" sorts by count, not the
 // count/limit ratio (limit is the same constant for every row today, so
@@ -9,7 +10,7 @@ import type { RateLimitEntry } from "../api/rate_limits_api";
 const SORT_VALUE: Record<string, (e: RateLimitEntry) => string | number> = {
     endpoint: (e) => e.endpoint,
     scope: (e) => e.scope,
-    identifier: (e) => e.identifier,
+    identifier: (e) => describeIdentifier(e).text,
     requests: (e) => e.count,
     resets_at: (e) => e.resets_in_seconds ?? Number.POSITIVE_INFINITY,
 };

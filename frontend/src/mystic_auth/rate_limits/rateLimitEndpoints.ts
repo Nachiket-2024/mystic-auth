@@ -1,7 +1,7 @@
 /**
  * The fixed set of `endpoint` values a rate-limit key can carry: every
  * `rate_limiter_service.rate_limited("<name>", ...)` call site in
- * auth_routes.py/user_self_service_routes.py, plus "login_lock" (written
+ * auth_routes.py/passkey_routes.py/user_self_service_routes.py, plus "login_lock" (written
  * directly by login_handler.py via login_protection_service, not through
  * the rate_limited decorator). The backend matches `endpoint` exactly, so
  * a free-text filter box couldn't discover valid values; this backs the
@@ -26,4 +26,8 @@ export const RATE_LIMIT_ENDPOINTS = [
     "verify_account",
     "verify_account_request",
     "account_delete_confirm",
+    "passkey_login",
+    "passkey_management",
+    "passkey_step_up",
+    "passkey_step_up_google",
 ] as const;

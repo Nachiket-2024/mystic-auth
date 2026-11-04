@@ -1,6 +1,0 @@
-dnspython 2.9.0
-License: ISC
-URL: https://www.dnspython.org
-Copyright: See license text
-
-UNKNOWN

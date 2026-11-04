@@ -188,7 +188,7 @@ describe('UsersPage bulk policy actions', () => {
 
   it('excludes a policy that adds nothing the sole selected user (themselves) does not already effectively hold, from the bulk-assign list', async () => {
     // Same regression as the matching test for direct permission grants.
-    seed(['users:list_all', 'policies:assign', 'reports:view']);
+    seed(['users:list_all', 'policies:assign', 'policies:read', 'reports:view']);
     mock.onGet('/users/').reply(200, SAMPLE_USERS);
     mock.onGet('/authorization/policies').reply(200, [
       { id: 1, name: 'user_management', description: '', actions: ['users:list_all'], resource_type: 'users', conditions: null, is_active: true, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', created_by: null },

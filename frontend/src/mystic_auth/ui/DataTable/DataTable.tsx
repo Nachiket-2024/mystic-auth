@@ -23,20 +23,13 @@ export interface DataTableColumn<T> {
      * backend - every current caller's column keys already match the
      * backend's own allowlisted sortable column names 1:1. */
     sortable?: boolean;
-    /** Fixed width (e.g. "10rem"), applied via <colgroup> below with
-     * `table-layout: fixed`. Without this, a plain HTML table sizes each
-     * column from its own current cell contents, so switching filters/tabs
-     * reflows every column width on every render. Give a fixed width to any
-     * column whose content varies a lot in length; columns left unset share
-     * the remaining space evenly - AS LONG AS every column in the table is
-     * either unset or a percentage. Mixing an unset column with this
-     * table's own rem-sized columns doesn't reliably share leftover space:
-     * once the rem-sized columns alone exceed the container's width, the
-     * unset column can get squeezed to a few illegible px instead of the
-     * table properly overflowing into the scroll area's horizontal scroll.
-     * Give every column in a table that has ANY rem-sized column a rem
-     * width too, so a too-narrow viewport scrolls the whole table instead
-     * of silently truncating just that one column. */
+    /** Fixed width (e.g. "10rem"), applied via <colgroup> with
+     * `table-layout: fixed`, so changing filters or tabs does not reflow every
+     * column. Give a width to any column whose content length varies a lot.
+     * Unset columns share the remaining space only if every other column is also
+     * unset or a percentage: mixed with rem widths, an unset column can be
+     * squeezed illegibly. So if any column has a rem width, give them all one, and
+     * a narrow viewport scrolls the table instead of truncating one column. */
     width?: string;
     /** Clips this column's content to one line with a trailing ellipsis
      * instead of overflowing into the next column - for a long unbroken
@@ -129,6 +122,9 @@ interface DataTableProps<T> {
      * swapping to the loading skeleton, so the table doesn't flash on every filter keystroke.
      * Has no effect while `isLoading` (the real first-load skeleton takes precedence). */
     isFetching?: boolean;
+    /** Accessible name for the table, so a screen reader announces which table
+     * it entered (pages can hold several). Pass an existing translated title. */
+    ariaLabel?: string;
 }
 
 /**
@@ -162,6 +158,7 @@ function DataTable<T>({
     activeRowKey,
     getRowClassName,
     isFetching,
+    ariaLabel,
 }: DataTableProps<T>) {
     const { t } = useTranslation("ui_text");
     // chromeLanguage, not pageLanguage: numerals stay ASCII even in a mixed
@@ -204,8 +201,7 @@ function DataTable<T>({
         return (
             <div className="flex flex-col items-center text-center gap-4 py-12 px-6">
                 {emptyIcon && (
-                    // Brand ring, not accent-tinted: design/users.html's empty-state treatment,
-                    // carried over to every DataTable empty state instead of just Users'.
+                    // Brand ring, not accent-tinted, used for every DataTable empty state.
                     <div className="flex items-center justify-center size-16 rounded-full border border-[var(--brand-400)] bg-[var(--brand-tint)] text-brand-fg">
                         {emptyIcon}
                     </div>
@@ -243,6 +239,7 @@ function DataTable<T>({
                 already gets its own border-bottom from shadcn's table
                 styles) rather than alternating shading. */}
             <Table
+                aria-label={ariaLabel}
                 className={cn(
                     "table-fixed w-full text-sm",
                     // The last row's own border-bottom stacked directly on

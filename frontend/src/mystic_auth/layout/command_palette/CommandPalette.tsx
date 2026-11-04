@@ -23,27 +23,19 @@ interface CommandPaletteProps {
 }
 
 /**
- * Cmd+K / Ctrl+K quick-jump palette: search/select any nav destination the
- * caller has permission to see (same gating as Sidebar, via
- * useAuthorization().can). Once the query is non-empty it also searches:
- *  - content within pages (SEARCH_ITEMS/searchItems.ts - a settings tab, an
- *    audit-log category/scope), so e.g. "password" surfaces "Change
- *    Password" even though it's not a nav item itself. Selecting one
- *    navigates to a `?query=param` a page reads on mount to pick a tab, or a
- *    `#hash` AppLayout's useScrollToHash scrolls to.
- *  - every matching string across all pages, Ctrl+F-style: each distinct
- *    string under a page's PAGE_CONTENT_NAMESPACES or a SEARCH_ITEMS'
- *    `scope` that contains the query becomes its own row, capped at
- *    TEXT_MATCH_RESULTS_LIMIT.
- *  - real policy records server-side, gated on policies:read. Selecting one
- *    jumps to /policies?search=<policy-name>, which PoliciesPage reads on entry.
- *  - real user accounts server-side (same endpoint UsersPage.tsx uses),
- *    gated on users:list_all. Selecting one jumps to
- *    /users?search=<email>, which UsersPage reads on mount to pre-filter.
- * Controlled by App.tsx, which owns the global keydown listener that toggles
- * `isOpen`. Result-building lives in CommandPaletteResults.ts, the list's
- * rendering in CommandPaletteResultsList.tsx - this file owns the dialog
- * shell, search input, and keyboard navigation.
+ * Cmd+K / Ctrl+K quick-jump palette. Lists every nav destination the caller
+ * may see (same gating as Sidebar). Once the query is non-empty it also
+ * searches:
+ *  - in-page content (searchItems.ts: a settings tab, an audit-log scope);
+ *    selecting one navigates to a `?query=param` the page reads on mount, or a
+ *    `#hash` that useScrollToHash scrolls to;
+ *  - every matching string under PAGE_CONTENT_NAMESPACES or a search item's
+ *    `scope`, Ctrl+F style, capped at TEXT_MATCH_RESULTS_LIMIT;
+ *  - policy records (needs policies:read) -> /policies?search=<name>;
+ *  - user accounts (needs users:list_all) -> /users?search=<email>.
+ * App.tsx owns the global keydown listener that toggles `isOpen`.
+ * CommandPaletteResults.ts builds results and CommandPaletteResultsList.tsx
+ * renders them; this file owns the dialog shell, input and keyboard navigation.
  */
 const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, extraNavItems, extraSearchItems }) => {
     const { t } = useTranslation("layout");

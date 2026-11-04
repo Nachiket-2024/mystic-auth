@@ -19,7 +19,7 @@ sequenceDiagram
     participant TabB as Tab B (same account, another device)
     TabA->>API: Any revoke (logout-all, targeted revoke, password change, ...)
     API->>API: publish_session_revoked(email)
-    API->>R: PUBLISH session_events:{email} {"type": "revoked"}
+    API->>R: PUBLISH session_events:{email_key_id} {"type": "revoked"}
     R-->>TabB: pushed over open GET /auth/session-events stream
     TabB->>TabB: invalidate current-user + sessions queries
     TabB->>API: GET /auth/me / GET /auth/sessions (real check)
@@ -28,8 +28,8 @@ sequenceDiagram
 
 ---
 
-1. **Push (primary).** `GET /auth/session-events` is a Server-Sent Events stream, one per open tab,
-   subscribed to a per-account Valkey Pub/Sub channel (`session_events:{email}`).
+1. **Push (primary).** `GET /auth/session-events` is a Server-Sent Events stream, normally one per open tab (see the
+   limits below), subscribed to a per-account Valkey Pub/Sub channel (`session_events:{email_key_id}`).
    `user_session/session_events.publish_session_revoked` is called from every revocation path,
    including `refresh_token_service.revoke_all_tokens_for_user`, `revoke_chain_for_user`, and
    `session_service.revoke_one_session`. Logout-all, password changes, account
@@ -55,6 +55,15 @@ sequenceDiagram
 ### Connection details
 
 The stream requires authentication the same way `GET /auth/me` does, sends a heartbeat comment line every 20s to keep proxies/load balancers from treating an idle-but-healthy connection as dead, and is not `@rate_limited`: that decorator is built around short request/response calls within a rolling window, not one connection a client holds open for its whole session.
+
+#### Limits on streams
+
+Holding a connection open costs a Valkey Pub/Sub slot, so the number of streams is capped, with the counts kept in Valkey so they hold across every worker:
+
+- **5 per account** (`SESSION_EVENT_MAX_CONNECTIONS_PER_ACCOUNT`) and **20 per client IP** (`SESSION_EVENT_MAX_CONNECTIONS_PER_IP`).
+- A stream over either cap is refused with `429`, and a `session_event_connection_limit_exceeded` alert is raised. A sixth tab on one account therefore gets no live updates and relies on the 2-minute poll above, which is why that poll exists.
+- Each stream is closed cleanly after **15 minutes**, and the browser reconnects on its own. This frees the slot of a token that was revoked while the stream was open.
+- A stream that disconnects releases its slot at once. If a worker dies first, the slot expires on its own after the lease time.
 
 ---
 

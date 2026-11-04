@@ -22,6 +22,7 @@ from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.user.user_crud_collector import user_crud
 from backend.mystic_auth.user.user_model import UserRole
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 PASSWORD = "StrongPass123!"
 
@@ -79,7 +80,7 @@ async def create_verified_user(
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 
@@ -100,6 +101,22 @@ async def create_admin(client, created_emails, email: str):
         client, created_emails, email,
         role=UserRole.admin,
         policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME],
+    )
+
+
+async def create_admin_with_manage_privileged(client, created_emails, email: str):
+    """An admin that also holds system_superuser, i.e. users:manage_privileged
+    - the only grant that can act on another account already holding the
+    admin role (see privilege_hierarchy.py). create_admin() alone cannot:
+    that's the fix for the privilege-hierarchy gap found during a security
+    audit, where the bare user_management policy was enough to take over,
+    demote, deactivate, purge, or reactivate any account holding the admin
+    role. Named for the permission it holds, not a role tier - PBAC has no
+    concept of "superadmin"; this account's role is still plain admin."""
+    return await create_verified_user(
+        client, created_emails, email,
+        role=UserRole.admin,
+        policy_names=[SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLICY_NAME, SYSTEM_SUPERUSER_POLICY_NAME],
     )
 
 

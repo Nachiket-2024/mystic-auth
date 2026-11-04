@@ -7,6 +7,7 @@ from ...authorization.policies.default_policies import SELF_SERVICE_POLICY_NAME
 # PBAC: new users get their access via an explicit default policy assignment,
 # never via their (metadata-only) role: see the role-as-metadata invariant.
 from ...authorization.repositories.policy_repository import policy_repository
+from ...core.errors import AppError
 from ...logging.logging_config import get_logger
 from ...user.user_crud_collector import user_crud
 
@@ -101,6 +102,10 @@ class SignupService:
                 return False
 
             return True
+
+        except AppError:
+            # Overload (503 + Retry-After): the account was not created, so say so.
+            raise
 
         except Exception:
             logger.error("Error during signup:\n%s", traceback.format_exc())

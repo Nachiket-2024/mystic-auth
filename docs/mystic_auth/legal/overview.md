@@ -17,6 +17,18 @@ Ships a Privacy Policy and Terms of Service as real in-app pages, written agains
 | Entry points | `SignupForm.tsx`, `LoginPage.tsx`, `frontend/src/app/landing_page/LandingPage.tsx` (footer), `frontend/src/mystic_auth/account_settings/AccountSettingsPage.tsx` | Every place a link to either document is reachable from. |
 | Tests | `tests/frontend/mystic_auth/unit/auth/signup_form_legal_consent.test.tsx` | Regression guard confirming the consent line links to `/terms` and `/privacy`. |
 
+How a legal page is built and reached:
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    Entry["Signup, Login, Landing footer,<br/>Account Settings link"] --> Route["/privacy or /terms<br/>public route, lazy-loaded"]
+    Route --> Page["PrivacyPolicyPage or<br/>TermsOfServicePage"]
+    JSON["legal.json per language<br/>(legal namespace)"] --> Page
+    Page --> Layout["LegalDocumentLayout<br/>title, intro, sections, Back"]
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ---
 
 ## Signup consent is a notice, not a gate
@@ -33,7 +45,7 @@ The same links (`AuthInlineLink to="/terms"` / `to="/privacy"`) also appear on `
 
 Both `PrivacyPolicyPage` and `TermsOfServicePage` follow the same shape: a `title`, an `intro` (array of paragraphs), and `sections` (array of `{ heading, paragraphs }`), all resolved from `legal.json` via `t(..., { returnObjects: true })` and typed as `LegalSection[]`. `LegalDocumentLayout` renders whatever it's given, plus a shared "Last updated" date (`lastUpdatedDate` in `legal.json`) and a Back button.
 
-`legal.json`'s privacy policy is organized as: account data collected, session/device data (IP, user agent, geolocation, cookies), security/authorization logs, who data is shared with (Google, the SMTP relay, the error-monitoring service), retention (including that audit entries are retained in anonymized form after account purge and identifiers are removed after the configured retention period), user rights, children's privacy, and how policy changes are communicated. Its content is written to describe *this template's own actual behavior* (e.g. "we use two cookies: `access_token` and `refresh_token`, both `httpOnly`, `Secure`, and `SameSite=Strict`"; "audit entries remain after identifiers have been anonymized"), not generic placeholder legal text.
+`legal.json`'s privacy policy is organized as: account data collected, session/device data (IP, user agent, geolocation, cookies), security/authorization logs, who data is shared with (Google, the SMTP relay, the error-monitoring service), retention (including that audit entries, with their identifying details intact, are retained permanently and are never deleted or anonymized by account deletion - see [Security Decisions: Infrastructure](../security/decisions-infra.md#account-deletion-never-anonymizes-the-audit-trail)), user rights, children's privacy, and how policy changes are communicated. Its content is written to describe *this template's own actual behavior* (e.g. "we use two cookies: `access_token` and `refresh_token`, both `httpOnly`, `Secure`, and `SameSite=Strict`"; "purging your account does not delete or anonymize prior... log entries"), not generic placeholder legal text.
 
 Two interpolated placeholders are deliberately left for the operator to fill in, not this template:
 

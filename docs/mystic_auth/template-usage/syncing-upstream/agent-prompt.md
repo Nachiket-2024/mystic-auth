@@ -2,7 +2,7 @@
 
 ---
 
-The steps in [README](README.md)/[Rebuild, Push, and Reference](rebuild-and-push.md)/[Troubleshooting](troubleshooting.md) are written for a person to follow by hand. If you'd rather hand the whole thing to an agentic coding tool (Claude Code, Codex, or similar) and review the result, use [`agent-prompts/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) at the repo root: a copy-paste starting prompt for exactly that. This page is the reasoning behind it.
+The steps in [README](README.md)/[Rebuild, Push, and Reference](rebuild-and-push.md)/[Troubleshooting](troubleshooting.md) are written for a person to follow by hand. If you'd rather hand the whole thing to an agentic coding tool (Claude Code, Codex, or similar) and review the result, use [`agent-prompts/mystic_auth/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) at the repo root: a copy-paste starting prompt for exactly that. This page is the reasoning behind it.
 
 ---
 
@@ -11,27 +11,28 @@ The steps in [README](README.md)/[Rebuild, Push, and Reference](rebuild-and-push
 Paste the prompt from [`agent-prompts/mystic_auth/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) while the agent is working in the downstream repository. Before it runs anything, tell it which branch to update if that is not obvious. The agent should:
 
 1. Work from the downstream repository root.
-2. Review `git status` and refuse to proceed with staged changes. Commit or stash staged downstream work first. Unstaged and untracked work can be preserved by the sync script, which temporarily stashes it and restores it after the sync commit.
+2. Review `git status`. The script refuses a non-empty index, so the agent preserves staged downstream work with the guide's pre-sync procedure (it must not commit or discard it). Unstaged and untracked work can be preserved by the sync script, which temporarily stashes it and restores it after the sync commit.
 3. Keep the app split available when checking ownership. If the app split is stashed for a first sync, downstream-only files are still not incoming upstream changes.
-4. Ask for confirmation at the script's sync prompt; do not silently accept it.
+4. Review the incoming commit list and structural moves before answering the script's sync prompt. The pasted prompt is your request to sync, so the agent does not ask a second time.
 5. Stop on ownership violations, conflicts, failed validation, or multiple Alembic heads. Do not force a partial sync.
 
 The sync completes the upstream-owned MysticAuth update. It preserves
 downstream app code and does not redesign or update app-owned product files as
 part of the sync. Handle app-side follow-up separately only when the
-repository owner requests it.
+maintainer requests it.
 
 Inspect database image changes before starting Compose. The sync script
 applies files but does not migrate database volumes. Follow the relevant data
 upgrade procedure when a database major version changes; PostgreSQL 15 to 18
-uses the [documented encrypted dump-and-restore path](../../deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade).
+uses the [documented encrypted dump-and-restore path](../../deployment/database-migrations.md#postgresql-15-to-18-data-volume-upgrade).
 
 Before stashing preparatory work, confirm that
 `scripts/mystic_auth/upstream-sync/sync-upstream.sh` and its sibling
 `sync-upstream-review.sh`, `sync-upstream-apply.sh`, and
-`sync-upstream-finalize.sh` stages exist in the working tree. If they are not
-in `HEAD` but exist locally, preserve those current scripts and exclude them
-from any stash of downstream work. If they are staged, unstage only those
+`sync-upstream-finalize.sh` stages come from the latest fetched upstream
+branch, not from the project's own (possibly stale) copy: replace the whole
+folder with `git restore --source=upstream/<branch> --worktree --`. Do not commit
+it; the sync stages it with the rest of the result. The script checks this itself. If they are staged, unstage only those
 scripts without discarding them. Never restore an older stashed script over
 the current one. If the scripts exist only in a preserved stash, restore only
 those paths from the current stash, or restore them from the fetched upstream
@@ -39,16 +40,23 @@ branch. Do not restore the whole split stash before the first sync, and do not
 treat app files absent from `HEAD` as a blocker for the unrelated-history
 first-sync path.
 
-The script creates one sync commit on success. If the repository owner wants
-to review the sync without keeping that generated commit, run
-`git reset --soft HEAD^` immediately afterward, inspect the staged changes,
-and commit them only after approval. Never use `git reset --hard`, and do not
-run another sync while the review changes remain staged. The same rule applies
-to a conflict or migration-head failure: resolve and commit the existing
-staged sync state before starting another sync. If `HEAD` predates the staged
-result and `.mystic-auth-sync-state` is staged but not committed, treat that
-as the same pending review even when there are no conflicts or unstaged files.
-Do not stash it or rerun the sync as a fresh first sync.
+The script leaves its result staged and never commits on its own (the
+maintainer commits after review; `--commit` is an opt-in for people who want the
+script to do it). The agent must not commit or push either. Never use
+`git reset --hard`, and do not run another sync while an earlier one is
+unfinished: a conflict, a migration-head failure, or a clean result that is
+staged but not committed all count. The script refuses to start in that case and
+says so. If `.mystic-auth-sync-state` is staged but not committed, treat that as
+the same pending sync even when there are no conflicts. Do not stash it or rerun
+the sync as a fresh first sync.
+
+To drop an unfinished sync the agent uses `sync-upstream.sh --abort`, which is
+destructive, so the agent must always ask first. It runs
+`sync-upstream.sh --abort </dev/null` to print the plain-language explanation
+(what it undoes, what it leaves alone, what is lost) without changing anything,
+relays that to the maintainer in simple words, and only after a yes runs
+`printf 'abandon\n' | sync-upstream.sh --abort`. A piped `yes` is deliberately
+not accepted.
 
 The prompt is an operating procedure, not permission to edit upstream-owned Mystic Auth internals in the downstream project. A defect in `backend/mystic_auth/`, the official sync tooling, or template-owned deployment files belongs in this repository and should be reported or fixed here.
 
@@ -101,7 +109,7 @@ A real sync can hit several things that don't show up in a first-time read of th
 
 Regenerating env files is part of a full sync (fresh secrets, upstream's latest fields), but an agent reading your real `GOOGLE_CLIENT_SECRET`, `GMAIL_APP_PASSWORD`, or `DATABASE_URL` to "carry them forward" puts those values into its context and transcript for no real reason. The prompt routes around this with two scripts, neither of which ever prints a secret value to its own output, only field *names*:
 
-1. Only when the sync adds env fields and the owner has approved it, the agent
+1. Only when the sync adds env fields and the maintainer has approved it, the agent
    **renames** each real env file in both `env/mystic_auth/` and `env/app/`
    aside (`.env` to `.env.bak`, and so on), plus `frontend/.env` if present -
    never deletes - so nothing is lost.
@@ -115,7 +123,14 @@ identity when answering `setup-env`'s prompts. It never reads secret values.
 
 The sync script also enforces the ownership table before applying a patch:
 upstream changes to downstream-owned code, CI, or app folders block the whole sync,
-while root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` changes are
+except the seeded starter files (`app_sdk.*`, `models.py`, `main.tsx`, `theme.ts`, and each
+`app/` folder's `README.md`), which merge three-way once they are in the recorded
+baseline. A conflict there means you customized the file. Judge each conflict
+on its own, not with a blanket take-or-keep: take upstream when it is a fix or
+needed wiring (a corrected import path after an upstream move, a new required
+import, a bug fix, a new env example line the app now reads); keep your version
+when it is your own product customization (branding, landing page, copy, product
+routes, your env values). When both apply, merge by hand and say what you did. Root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` changes are
 reported, excluded, and preserved locally.
 The prompt therefore tells the agent to classify conflicts by ownership
 instead of blindly merging every conflict.
@@ -137,13 +152,13 @@ See [Environment Configuration](../../environment/README.md) for what both scrip
 
 See [Rebuild, Push, and Reference](rebuild-and-push.md) and [Troubleshooting](troubleshooting.md) for what each numbered step in the prompt is actually doing under the hood, if the agent (or you, reviewing its work) needs the full explanation behind a given step.
 
-The sync script requires a clean Git index before it starts, then intentionally
-creates one sync commit when it succeeds. The prompt therefore asks the agent
-not to add another commit or push; a conflict
-or migration-head failure remains for human review instead. The agent should
-show the resulting commit and validation summary, but leave pushing to the
-repository owner. If the script reports that saved downstream work could not
-be restored cleanly, keep the sync commit, resolve the worktree conflict, and
-retain the stash until the restored files have been verified.
+The sync script requires a clean Git index before it starts and leaves its
+result staged without committing. The prompt asks the agent not to commit or push
+at all; a conflict or migration-head failure remains for human review instead.
+The agent shows the staged result, the full CI results, and any MysticAuth
+issues it found, and leaves committing and pushing to the maintainer. If the
+script reports that saved work could not be put back cleanly, keep the staged
+result, resolve the overlap, and keep the saved copy (`git stash list`) until the
+restored files have been verified.
 
 ---

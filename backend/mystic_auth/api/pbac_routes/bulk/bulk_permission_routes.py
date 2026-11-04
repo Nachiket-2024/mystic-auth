@@ -14,40 +14,12 @@ from ....authorization.schemas.bulk_schema import (
     bulk_error,
     summarize,
 )
-from ....authorization.services.authorization_service import authorization_service
+from ....authorization.services.bulk_item_resolution import resolve_permission_item
 from ....authorization.services.bulk_notification import log_and_notify_bulk_success
-from ....core.errors import AppError
 from ....database.connection import database
 from ....user.user_crud_collector import user_crud
-from ....user.user_model import UserRole
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
-
-
-async def _resolve_and_authorize(
-    item, users_by_email: dict, current_user_email: str, db: AsyncSession, context, grant_cache: dict,
-    error_results: list[BulkItemResult],
-):
-    """Shared per-item validation for both assign and remove: user exists,
-    isn't system-role, and the caller actually holds the action being
-    granted/revoked. Returns the resolved User, or None with the failure
-    already appended to error_results."""
-    user = users_by_email.get(item.user_email)
-    if user is None:
-        error_results.append(bulk_error(item.user_email, item.action, "USER_NOT_FOUND"))
-        return None
-    if user.role == UserRole.system:
-        error_results.append(bulk_error(item.user_email, item.action, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
-        return None
-    try:
-        await authorization_service.assert_authorized_to_grant(
-            current_user_email, [item.action], item.resource_type, db,
-            context=context, conditions=getattr(item, "conditions", None), cache=grant_cache,
-        )
-    except AppError:
-        error_results.append(bulk_error(item.user_email, item.action, "CANNOT_GRANT_UNHELD_ACTION"))
-        return None
-    return user
 
 
 @router.post("/bulk/permissions/assign", response_model=BulkResponse)
@@ -79,7 +51,7 @@ async def bulk_assign_permissions(
             error_results.append(bulk_error(item.user_email, item.action, "INVALID_CONDITIONS"))
             continue
 
-        user = await _resolve_and_authorize(
+        user = await resolve_permission_item(
             item, users_by_email, current_user["email"], db, context, grant_cache, error_results
         )
         if user is None:
@@ -113,7 +85,7 @@ async def bulk_remove_permissions(
     valid_items = []
     error_results: list[BulkItemResult] = []
     for item in body.items:
-        user = await _resolve_and_authorize(
+        user = await resolve_permission_item(
             item, users_by_email, current_user["email"], db, context, grant_cache, error_results
         )
         if user is None:

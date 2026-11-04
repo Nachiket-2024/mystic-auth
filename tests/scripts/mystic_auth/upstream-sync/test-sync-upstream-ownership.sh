@@ -3,7 +3,7 @@ cd "$BASE"
 mkdir own-upstream && cd own-upstream
 git init -q -b main
 git config user.email up@test.com; git config user.name Upstream
-mkdir -p mystic_auth backend/app frontend/src/app tests/backend/app ci/mystic_auth docs/app
+mkdir -p mystic_auth backend/app frontend/src/app tests/backend/app ci/mystic_auth docs/app docker/app/postgres-init scripts/app
 echo "core v1" > mystic_auth/core.py
 echo "main v1" > backend/app/main.py
 echo "sdk v1" > backend/app/sdk.py
@@ -14,6 +14,11 @@ printf '// template theme comment v1\n// stable context 1\n// stable context 2\n
 echo "downstream test v1" > tests/backend/app/test_downstream.py
 echo "template CI v1" > ci/mystic_auth/backend.sh
 echo "readme v1" > docs/app/README.md
+printf '"""sdk v1"""\n' > backend/app/app_sdk.py
+printf '"""models v1"""\n' > backend/app/models.py
+printf '// sdk v1\n// stable 1\n// stable 2\n// stable 3\n// stable 4\n// stable 5\nexport {};\n' > frontend/src/app/app_sdk.ts
+printf 'init readme v1\n' > docker/app/postgres-init/README.md
+printf 'scripts readme v1\n' > scripts/app/README.md
 echo "root readme v1" > README.md
 git add -A && git commit -q -m "own-upstream base"
 cd "$BASE"
@@ -26,6 +31,8 @@ cp -r "$BASE/own-upstream/frontend" .
 cp -r "$BASE/own-upstream/tests" .
 cp -r "$BASE/own-upstream/ci" .
 cp -r "$BASE/own-upstream/docs" .
+cp -r "$BASE/own-upstream/docker" .
+mkdir -p scripts && cp -r "$BASE/own-upstream/scripts/app" scripts/
 cp "$BASE/own-upstream/README.md" .
 git add -A && git commit -q -m "Initial commit from template"
 install_script "$BASE/own-consumer"
@@ -135,7 +142,7 @@ grep -q "template reference test update" tests/backend/app/test_downstream.py \
   || fail "ownership guard: inherited reference test update did not land"
 pass "ownership guard: inherited reference test update lands normally"
 
-echo "=== Ownership guard: allow comment-only app-shell maintenance, keep code protected ==="
+echo "=== Ownership guard: seeded app-shell files take upstream edits ==="
 cd "$BASE/own-consumer"
 sed -i 's/const appValue = 1;/const downstreamAppValue = 2;/' frontend/src/app/main.tsx
 sed -i 's/const themeValue = 1;/const downstreamThemeValue = 2;/' frontend/src/app/theme.ts
@@ -158,20 +165,119 @@ grep -q 'downstreamThemeValue = 2' frontend/src/app/theme.ts || fail "comment-on
 pass "comment-only maintenance: comments update and downstream code remains"
 
 cd "$BASE/own-upstream"
-sed -i 's/const appValue = 1;/const upstreamAppValue = 3;/' frontend/src/app/main.tsx
+sed -i 's#^// stable context 1#// stable context 1 upstreamThemeCode#' frontend/src/app/theme.ts
 echo "core v3" > mystic_auth/core.py
-git add -A && git commit -q -m "upstream: attempt app-shell code change"
+git add -A && git commit -q -m "upstream: code change in a seeded app-shell file"
 cd "$BASE/own-consumer"
 
 set +e
 yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-code.log 2>&1
-OWN_SYNC_CODE_EXIT=${PIPESTATUS[1]}
+SEEDED_CODE_EXIT=${PIPESTATUS[1]}
 set -e
-grep -q 'downstream-owned paths' /tmp/own-sync-code.log || fail "app-shell code guard: did not report ownership violation"
-[ "$OWN_SYNC_CODE_EXIT" -ne 0 ] || fail "app-shell code guard: executable-code change was not blocked"
-grep -q 'frontend/src/app/main.tsx' /tmp/own-sync-code.log || fail "app-shell code guard: did not name the path"
-[ "$(cat mystic_auth/core.py)" = "core v2" ] || fail "app-shell code guard: unrelated template change landed despite the violation"
-pass "app-shell code guard: executable-code changes remain blocked"
+[ "$SEEDED_CODE_EXIT" -eq 0 ] || fail "seeded app-shell files: non-overlapping upstream edit should merge cleanly"
+if grep -q 'downstream-owned paths' /tmp/own-sync-code.log; then
+  fail "seeded app-shell files: code change was blocked instead of taken"
+fi
+grep -q 'upstreamThemeCode' frontend/src/app/theme.ts || fail "seeded app-shell files: upstream change was not applied"
+grep -q 'downstreamThemeValue = 2' frontend/src/app/theme.ts || fail "seeded app-shell files: downstream code was lost"
+[ "$(cat mystic_auth/core.py)" = "core v3" ] || fail "seeded app-shell files: template change did not land"
+pass "seeded app-shell files: upstream code changes merge three-way instead of blocking"
 
-echo ""
-echo "=== ALL CHECKS PASSED ==="
+echo "=== Ownership guard: other seeded files (app_sdk.*, app READMEs) ==="
+cd "$BASE/own-consumer"
+printf '# my own exports\nexport const mine = 1;\n' >> frontend/src/app/app_sdk.ts
+git add -A && git commit -q -m "consumer: customize app_sdk.ts"
+cd "$BASE/own-upstream"
+printf '"""sdk v2 docstring"""\n' > backend/app/app_sdk.py
+printf '"""models v2 docstring"""\n' > backend/app/models.py
+printf 'init readme v2\n' > docker/app/postgres-init/README.md
+printf 'scripts readme v1\n---\n' > scripts/app/README.md
+sed -i 's#^// sdk v1#// sdk v2#' frontend/src/app/app_sdk.ts
+git add -A && git commit -q -m "upstream: fix seeded app files"
+cd "$BASE/own-consumer"
+
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-seeded.log 2>&1 || true
+if grep -q 'downstream-owned paths' /tmp/own-sync-seeded.log; then
+  fail "seeded files: blocked instead of taken"
+fi
+grep -q 'sdk v2 docstring' backend/app/app_sdk.py || fail "seeded files: untouched app_sdk.py did not update"
+grep -q 'models v2 docstring' backend/app/models.py || fail "seeded files: untouched models.py did not update"
+grep -q 'init readme v2' docker/app/postgres-init/README.md || fail "seeded files: README correction did not land"
+grep -q '^---' scripts/app/README.md || fail "seeded files: scripts README did not update"
+grep -q 'export const mine = 1;' frontend/src/app/app_sdk.ts || fail "seeded files: customized app_sdk.ts lost downstream code"
+grep -q '// sdk v2' frontend/src/app/app_sdk.ts || fail "seeded files: customized app_sdk.ts missed the upstream comment fix"
+pass "seeded files: untouched copies update, customized copy merges and keeps downstream code"
+
+cd "$BASE/own-upstream"
+mkdir -p docker/app/newdir
+echo "new" > docker/app/newdir/README.md
+git add -A && git commit -q -m "upstream: add a README not in the baseline"
+cd "$BASE/own-consumer"
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-newseed.log 2>&1
+NEWSEED_EXIT=${PIPESTATUS[1]}
+set -e
+[ "$NEWSEED_EXIT" -ne 0 ] || fail "seeded files: a README absent from the baseline was not blocked"
+grep -q 'docker/app/newdir/README.md' /tmp/own-sync-newseed.log || fail "seeded files: did not name the new README"
+pass "seeded files: a file absent from the baseline stays blocked"
+
+cd "$BASE/own-upstream"
+git rm -q -r docker/app/newdir
+git commit -q -m "upstream: drop the README absent from the baseline"
+cd "$BASE/own-consumer"
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-recover.log 2>&1
+RECOVER_EXIT=${PIPESTATUS[1]}
+set -e
+[ "$RECOVER_EXIT" -eq 0 ] || fail "seeded files: sync did not recover (empty net diff) once the blocked path was gone"
+
+echo "=== Ownership guard: same-line edit in a seeded file surfaces as a conflict ==="
+cd "$BASE/own-consumer"
+printf '"""my own docstring"""\n' > backend/app/app_sdk.py
+git add -A && git commit -q -m "consumer: rewrite app_sdk.py docstring"
+cd "$BASE/own-upstream"
+printf '"""upstream rewrites the same line"""\n' > backend/app/app_sdk.py
+git add -A && git commit -q -m "upstream: rewrite the same app_sdk.py line"
+cd "$BASE/own-consumer"
+
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/own-upstream" >/tmp/own-sync-conflict.log 2>&1
+SEEDED_CONFLICT_EXIT=${PIPESTATUS[1]}
+set -e
+if grep -q 'downstream-owned paths' /tmp/own-sync-conflict.log; then
+  fail "seeded conflict: blocked by the ownership guard instead of merging"
+fi
+[ "$SEEDED_CONFLICT_EXIT" -ne 0 ] || fail "seeded conflict: sync reported success despite a conflict"
+grep -q '^<<<<<<<' backend/app/app_sdk.py || fail "seeded conflict: no conflict markers in app_sdk.py"
+grep -q 'my own docstring' backend/app/app_sdk.py || fail "seeded conflict: downstream text missing from the conflict"
+pass "seeded conflict: same-line edit surfaces as a conflict and keeps both sides"
+git merge --abort 2>/dev/null || true
+git reset -q
+git checkout -q -- .
+
+echo "=== Ownership guard: first sync (no baseline) keeps seeded files guarded ==="
+cd "$BASE"
+mkdir first-upstream && cd first-upstream
+git init -q -b main
+git config user.email up@test.com; git config user.name Upstream
+mkdir -p mystic_auth backend/app
+echo "core v1" > mystic_auth/core.py
+echo "upstream sdk" > backend/app/app_sdk.py
+git add -A && git commit -q -m "first-upstream base"
+cd "$BASE"
+mkdir first-consumer && cd first-consumer
+git init -q -b main
+git config user.email me@test.com; git config user.name Consumer
+mkdir -p backend/app
+echo "my own sdk" > backend/app/app_sdk.py
+git add -A && git commit -q -m "Initial commit"
+install_script "$BASE/first-consumer"
+git add -A && git commit -q -m "Add sync script"
+set +e
+yes | ./scripts/mystic_auth/upstream-sync/sync-upstream.sh "$BASE/first-upstream" >/tmp/own-sync-first.log 2>&1
+FIRST_EXIT=${PIPESTATUS[1]}
+set -e
+[ "$FIRST_EXIT" -ne 0 ] || fail "first sync: seeded file differing from upstream was not blocked"
+grep -q 'backend/app/app_sdk.py' /tmp/own-sync-first.log || fail "first sync: did not name app_sdk.py"
+[ "$(cat backend/app/app_sdk.py)" = "my own sdk" ] || fail "first sync: downstream app_sdk.py was overwritten"
+pass "first sync: seeded files stay guarded and downstream copy is untouched"

@@ -8,6 +8,7 @@ import pytest
 from backend.mystic_auth.auth.verify_account.account_verification_handler import (
     account_verification_handler,
 )
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 MODULE = "backend.mystic_auth.auth.verify_account.account_verification_handler"
 
@@ -61,7 +62,7 @@ async def test_already_verified_failure_is_recorded_under_its_own_lock_namespace
     )
 
     assert response.status_code == 400
-    finish_mock.assert_awaited_once_with("verify_account_lock:email:user@example.com", success=False)
+    finish_mock.assert_awaited_once_with(f"verify_account_lock:email:{email_key_id('user@example.com')}", success=False)
 
 
 @pytest.mark.asyncio

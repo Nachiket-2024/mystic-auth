@@ -4,8 +4,7 @@
 # account-lifecycle routes (soft delete, purge, reactivate) plus
 # admin-driven password change (user_management_update_routes.py), against
 # the real ASGI app, real PostgreSQL, and real Valkey (see conftest.py).
-# Split out of the old 629-line test_user_management_routes_integration.py:
-# this half covers changes to an account's standing (deleted/purged/
+# This file covers changes to an account's standing (deleted/purged/
 # reactivated, or a session revoked by a password reset);
 # test_user_list_and_update_integration.py covers viewing/editing an
 # existing account.
@@ -49,7 +48,7 @@ async def test_system_user_can_assign_system_role(client, created_emails):
 # ---------------------------- Account lifecycle: soft delete / purge / reactivate ----------------------------
 
 @pytest.mark.asyncio
-async def test_admin_delete_soft_deletes_a_user(client, created_emails):
+async def test_management_delete_soft_deletes_a_user(client, created_emails):
     # DELETE /users/{email} is the default, reversible flow: the row stays
     # (keeping audit history and FK-referencing rows) with is_active=False
     # and deleted_at set, not a hard delete.
@@ -69,7 +68,7 @@ async def test_admin_delete_soft_deletes_a_user(client, created_emails):
 
 
 @pytest.mark.asyncio
-async def test_admin_cannot_delete_their_own_account(client, created_emails):
+async def test_management_cannot_delete_their_own_account(client, created_emails):
     # The frontend disables this for the caller's own row, but that's UI
     # only; the backend must also block it, since a sole admin deleting
     # themselves would revoke their own sessions and lock them out for good.
@@ -159,7 +158,7 @@ async def test_logout_after_admin_password_change_for_another_user_still_succeed
 
 
 @pytest.mark.asyncio
-async def test_admin_password_change_rejects_same_password(client, created_emails):
+async def test_management_password_change_rejects_same_password(client, created_emails):
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     await create_verified_user(client, created_emails, target_email)
@@ -172,7 +171,7 @@ async def test_admin_password_change_rejects_same_password(client, created_email
 
 
 @pytest.mark.asyncio
-async def test_admin_password_change_does_not_require_admins_current_password(client, created_emails):
+async def test_management_password_change_does_not_require_admins_current_password(client, created_emails):
     # PUT /users/{email} reuses UserUpdate, but the current-password check
     # only applies to the self-service route (update_my_profile). An admin
     # is authorized by their own users:update_any permission, not by
@@ -188,7 +187,7 @@ async def test_admin_password_change_does_not_require_admins_current_password(cl
 
 
 @pytest.mark.asyncio
-async def test_admin_password_change_revokes_targets_existing_sessions(client, created_emails):
+async def test_management_password_change_revokes_targets_existing_sessions(client, created_emails):
     admin_email = unique_email("admin")
     target_email = unique_email("target")
     target_login_resp = await create_verified_user(client, created_emails, target_email)
@@ -206,7 +205,7 @@ async def test_admin_password_change_revokes_targets_existing_sessions(client, c
 
 
 @pytest.mark.asyncio
-async def test_admin_without_purge_permission_cannot_purge(client, created_emails):
+async def test_management_without_purge_permission_cannot_purge(client, created_emails):
     # users:delete_any is granted only by system_superuser. user_management
     # (which includes users:deactivate_any) does not include it: hard delete is
     # a deliberately separate, more sensitive action.
@@ -259,7 +258,7 @@ async def test_purge_holder_cannot_purge_their_own_account(client, created_email
 
 
 @pytest.mark.asyncio
-async def test_admin_cannot_purge_system_user(client, created_emails):
+async def test_management_cannot_purge_system_user(client, created_emails):
     admin_email = unique_email("admin")
     system_email = unique_email("system")
     await create_system_user(client, created_emails, system_email)
@@ -308,7 +307,7 @@ async def test_reactivate_rejects_a_never_deleted_user(client, created_emails):
 
 
 @pytest.mark.asyncio
-async def test_admin_without_reactivate_permission_cannot_reactivate(client, created_emails):
+async def test_management_without_reactivate_permission_cannot_reactivate(client, created_emails):
     # users:reactivate is granted only by system_superuser, same tier as
     # users:delete_any: restoring access is more sensitive than day-to-day user
     # administration.

@@ -4,10 +4,15 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...audit_log.audit_log_service import OAUTH2_LOGIN_SUCCESS, OAUTH2_STATE_MISMATCH, log_security_event
+from ...audit_log.audit_log_service import (
+    OAUTH2_LOGIN_SUCCESS,
+    OAUTH2_STATE_MISMATCH,
+    log_security_event,
+)
 from ...core.settings import settings
 from ...error_monitoring.sentry_service import capture_security_alert
 from ...logging.logging_config import get_logger
+from ..passkeys.passkey_google_step_up_handler import passkey_google_step_up_handler
 from ..token_logic.token_cookie_handler import token_cookie_handler
 from ..token_logic.token_schema import TokenPairResponseSchema
 from .oauth2_service import OAUTH2_STATE_TTL_SECONDS, OAuth2LoginRejected, oauth2_service
@@ -27,10 +32,9 @@ class OAuth2LoginHandler:
         account identity is known (state/cookie mismatch or an
         invalid/expired state). user_email is always None here - unlike
         OAUTH2_LOGIN_SUCCESS/success=False, which fires only once a real
-        target email exists. Previously this was only a WARNING-level
-        application log line (see the 2026-10-21 audit's F-007):
-        invisible in both the audit-log UI and Bugsink, so a burst of these
-        from one IP (state-replay/CSRF probing) had no queryable record."""
+        target email exists. A log line alone would be invisible in both the
+        audit-log UI and Bugsink, so a burst of these from one IP
+        (state-replay/CSRF probing) would leave no queryable record."""
         try:
             await log_security_event(
                 OAUTH2_STATE_MISMATCH, db, user_email=None, success=False, request=request,
@@ -57,26 +61,8 @@ class OAuth2LoginHandler:
 
     async def handle_oauth2_login_initiate(self) -> RedirectResponse:
         try:
-            google_auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
-            scopes = "openid email profile"
-            redirect_uri = settings.GOOGLE_REDIRECT_URI
-
             state, code_challenge = await self.oauth2_service.generate_and_store_state()
-
-            # No access_type=offline/prompt=consent: this app never stores or uses
-            # Google's own refresh_token (see oauth2_service.py's session note), so
-            # forcing a persistent offline-access grant and a full consent
-            # re-prompt on every login would only widen this app's footprint on
-            # the user's Google account for no benefit.
-            auth_url = (
-                f"{google_auth_url}?response_type=code"
-                f"&client_id={settings.GOOGLE_CLIENT_ID}"
-                f"&redirect_uri={redirect_uri}"
-                f"&scope={scopes.replace(' ', '%20')}"
-                f"&code_challenge={code_challenge}"
-                f"&code_challenge_method=S256"
-                f"&state={state}"
-            )
+            auth_url = self.oauth2_service.build_authorization_url(state, code_challenge)
 
             # SameSite=Lax (not Strict) is required here: this cookie must still be
             # sent when Google redirects the browser back to our callback as a
@@ -118,6 +104,9 @@ class OAuth2LoginHandler:
             # consent) or a missing authorization code, before touching
             # state/Valkey at all, since neither exists meaningfully in this case.
             if error or not code:
+                if state and await self.oauth2_service.consume_step_up_context(state):
+                    await self.oauth2_service.consume_state(state)
+                    return passkey_google_step_up_handler.return_to_passkeys("OAUTH_CANCELLED")
                 logger.info("OAuth2 callback did not complete: error=%s, code_present=%s", error, bool(code))
                 return self._redirect_to_login_clearing_state("OAUTH_CANCELLED")
 
@@ -131,6 +120,13 @@ class OAuth2LoginHandler:
                 logger.warning("OAuth2 callback rejected: invalid or expired state")
                 await self._log_state_rejection(db, request, "invalid or expired state")
                 return self._redirect_to_login_clearing_state("OAUTH_STATE_INVALID")
+
+            step_up_context = await self.oauth2_service.consume_step_up_context(state)
+            if step_up_context:
+                # A passkey step-up never logs in, creates, or links accounts.
+                return await passkey_google_step_up_handler.handle_callback(
+                    step_up_context, code, code_verifier, db, request
+                )
 
             redirect_uri = settings.GOOGLE_REDIRECT_URI
 

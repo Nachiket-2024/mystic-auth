@@ -1,8 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import Select, asc, case, desc, func, update
-from sqlalchemy.engine import CursorResult
+from sqlalchemy import Select, asc, case, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql.elements import ColumnElement, OrderByList, UnaryExpression
@@ -11,13 +10,20 @@ from ..core.search_query import ILIKE_ESCAPE_CHAR, ilike_pattern
 from .audit_log_model import AuditLog
 
 # Duplicated (not imported) from audit_log_service.py's LOGIN_SUCCESS/
-# LOGIN_FAILURE/OAUTH2_LOGIN_SUCCESS constants: that module already imports
-# this one via log_security_event, so importing back would be circular. Keep
-# the two lists in sync if the event-type vocabulary changes.
-_LOGIN_EVENT_TYPES = ("login_success", "login_failure", "oauth2_login_success")
+# LOGIN_FAILURE/OAUTH2_LOGIN_SUCCESS/PASSKEY_LOGIN_* constants: that module
+# already imports this one via log_security_event, so importing back would be
+# circular. Keep the two lists in sync if the event-type vocabulary changes.
+# These are the sign-in attempts the Sign-in activity chart counts.
+_LOGIN_EVENT_TYPES = (
+    "login_success",
+    "login_failure",
+    "oauth2_login_success",
+    "passkey_login_success",
+    "passkey_login_failure",
+)
 
 # UI-only alias (see UserAccessDialog's Details tab "Recent access changes"):
-# every event type that represents an admin changing what a user is allowed
+# every event type that represents a permission holder changing what a user is allowed
 # to do, as opposed to that user's own auth activity (login, password reset,
 # etc). Duplicated (not imported) from audit_log_service.py's own constants
 # for the same reason _LOGIN_EVENT_TYPES is: that module already imports this
@@ -67,11 +73,16 @@ def _apply_filters(
     if search:
         stmt = stmt.where(AuditLog.user_email.ilike(ilike_pattern(search), escape=ILIKE_ESCAPE_CHAR))
     if event_type == "login":
-        # UI-only alias (see frontend securityEventTypes.ts): the filter
+        # UI-only alias (see frontend securityLogEventTypes.ts): the filter
         # dropdown offers one "login" option instead of listing
         # login_success/login_failure separately. The Result filter already
         # covers narrowing to one outcome or the other.
         stmt = stmt.where(AuditLog.event_type.in_(("login_success", "login_failure")))
+    elif event_type == "passkey_login":
+        # Same idea as "login": one UI option, the Result filter picks the outcome.
+        stmt = stmt.where(AuditLog.event_type.in_(("passkey_login_success", "passkey_login_failure")))
+    elif event_type == "passkey_step_up":
+        stmt = stmt.where(AuditLog.event_type.in_(("passkey_step_up_success", "passkey_step_up_failure")))
     elif event_type == "access_change":
         stmt = stmt.where(AuditLog.event_type.in_(_ACCESS_CHANGE_EVENT_TYPES))
     elif event_type:
@@ -181,56 +192,6 @@ class AuditLogRepository:
         stmt = _apply_filters(stmt, None, event_type, ip_address, success, from_, to)
         result = await db.execute(stmt)
         return result.scalar_one()
-
-    @staticmethod
-    async def anonymize_for_user(user_email: str, db: AsyncSession) -> int:
-        """Strips this account's PII (email, IP, user-agent) from its own
-        historical rows in place. Called once from purge_user_account right
-        after the user row itself is hard-deleted, so "deleted" actually
-        means the account's identity stops being readable here too, not
-        just that the `users` row is gone while every login/logout/
-        password-reset event it ever made keeps a plaintext email and IP
-        forever (see docs/mystic_auth/concerns - this closes that gap).
-
-        Keeps event_type/success/created_at/metadata/request_id: those
-        carry no PII and still have aggregate security value (login trend
-        charts, event counts) even with no account left to tie them to.
-        user_email -> NULL reuses the same state already used for events
-        with no resolvable account (e.g. a failed login against an
-        unregistered email) - a purged account's history becomes
-        indistinguishable from one of those going forward, which is the
-        intent.
-
-        Also called by the scheduled retention job (audit_log_tasks.py) for
-        rows past settings.AUDIT_LOG_RETENTION_DAYS regardless of whether
-        the account was ever deleted, so this table doesn't accumulate PII
-        forever even for accounts that are never purged.
-
-        Returns the number of rows anonymized (for logging only)."""
-        stmt = (
-            update(AuditLog)
-            .where(AuditLog.user_email == user_email)
-            .values(user_email=None, ip_address=None, user_agent=None)
-        )
-        result = cast(CursorResult, await db.execute(stmt))
-        await db.commit()
-        return result.rowcount or 0
-
-    @staticmethod
-    async def anonymize_older_than(cutoff: datetime, db: AsyncSession) -> int:
-        """Retention backstop: strips PII from every row older than
-        `cutoff`, independent of account status. Only touches rows that
-        still have a user_email set, so re-running this doesn't keep
-        re-"anonymizing" already-null rows forever."""
-        stmt = (
-            update(AuditLog)
-            .where(cast(ColumnElement[bool], AuditLog.created_at < cutoff))
-            .where(AuditLog.user_email.is_not(None))
-            .values(user_email=None, ip_address=None, user_agent=None)
-        )
-        result = cast(CursorResult, await db.execute(stmt))
-        await db.commit()
-        return result.rowcount or 0
 
     @staticmethod
     async def get_login_trend(

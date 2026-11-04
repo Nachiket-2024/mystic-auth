@@ -26,6 +26,7 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
 from backend.mystic_auth.database.connection import database
 from backend.mystic_auth.user.user_crud_collector import user_crud
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 PASSWORD = "StrongPass123!"
 
@@ -42,7 +43,7 @@ async def _create_verified_user(client, created_emails, email, policy_names):
     created_emails.append(email)
 
     token = await account_verification_service.create_verification_token(email)
-    await valkey_client.set(f"verify:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("verify", token), "1", ex=600)
     verify_resp = await client.post("/auth/verify-account", json={"token": token})
     assert verify_resp.status_code == 200
 
@@ -67,14 +68,17 @@ async def _create_system_user(client, created_emails, email):
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def _cleanup_security_audit_log(created_emails):
+async def _cleanup_security_audit_log(created_emails, superuser_session_factory):
     """Security audit rows are append-only and not cascade-deleted with a
     test user, so clean up rows for this test's emails so repeated runs
-    don't accumulate unbounded log rows in the shared test database."""
+    don't accumulate unbounded log rows in the shared test database. Needs
+    the superuser session: mystic_auth_app has no DELETE on
+    security_audit_log (see conftest.py's superuser_session_factory and
+    docs/mystic_auth/security/decisions-infra.md)."""
     yield
     if not created_emails:
         return
-    async with database.async_session() as session:
+    async with superuser_session_factory() as session:
         await session.execute(
             text("DELETE FROM security_audit_log WHERE user_email = ANY(:emails)"),
             {"emails": created_emails},

@@ -1,6 +1,6 @@
 # Compiles native extensions into a venv so build tools never ship in the
 # runtime image.
-FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS builder
+FROM python:3.14-alpine@sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2 AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,8 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# --require-hashes: install only the exact, hash-verified files in the lock.
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # Install test-only dependencies while pip is still available in the builder
 # venv. The runtime stage deliberately strips pip/setuptools, and relying on
@@ -29,7 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM builder AS test-deps
 
 COPY backend/requirements-dev.txt .
-RUN pip install --no-cache-dir -r requirements-dev.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements-dev.txt
 
 # Slim final image: interpreter, runtime libraries, venv, and app source.
 # The one image dev, local-prod, and prod all deploy from. Named so the
@@ -38,7 +39,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 # Alpine over Debian for the CVE count: Trivy found python:3.14-alpine at
 # 0 High/Critical on this app's built image vs. python:3.14-slim at 50+,
 # all unpatched Debian OS packages unrelated to app code.
-FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS runtime
+FROM python:3.14-alpine@sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2 AS runtime
 
 WORKDIR /app
 

@@ -146,7 +146,7 @@ describe('PoliciesPage list controls', () => {
   });
 
   it('regression: offers a fork-added resource type in the filter, not just the built-in ones', async () => {
-    // .project/policies-design-review.md bug #1: the resource type filter
+    // The resource type filter
     // used to come from the fixed AUTHORIZATION_RESOURCE_TYPES constant, so
     // a fork-added type (e.g. "invoices") could never be selected even
     // though a real policy used it.

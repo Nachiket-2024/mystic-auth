@@ -4,6 +4,7 @@ ARG RCLONE_VERSION=1.75.1
 ARG RCLONE_SOURCE_SHA256=fcc9351ab3976c73b4824cf7919f98f911f2442a606e2910fc2bd562111da220
 ARG GRPC_VERSION=v1.85.0-dev.0.20260825072537-93e31b48545e
 ARG X_NET_VERSION=v0.60.0
+ARG GO_CHI_VERSION=v5.4.0
 
 RUN apk add --no-cache ca-certificates curl tar \
     && mkdir -p /src /out \
@@ -18,6 +19,7 @@ RUN go install github.com/google/go-licenses@v1.6.0
 
 RUN go mod edit -require="google.golang.org/grpc@${GRPC_VERSION}" \
     -require="golang.org/x/net@${X_NET_VERSION}" \
+    -require="github.com/go-chi/chi/v5@${GO_CHI_VERSION}" \
     && go mod tidy \
     && GOFLAGS="-tags=noselfupdate" /go/bin/go-licenses save . --save_path=/out/rclone-licenses \
     && CGO_ENABLED=0 go build -tags=noselfupdate -trimpath -ldflags="-s -w" -o /out/rclone .

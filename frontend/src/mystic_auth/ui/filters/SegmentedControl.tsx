@@ -6,7 +6,7 @@ export interface SegmentedControlOption {
     value: string;
     label: React.ReactNode;
     /** Small colored dot before the label (e.g. green for "Allowed", red for "Denied") -
-     * design/audit-log.html's Result segmented control. Omit for a plain text option. */
+     * as in the Result control. Omit for a plain text option. */
     dotClassName?: string;
 }
 
@@ -30,7 +30,7 @@ interface SegmentedControlProps {
  * One-click segmented control (a row of toggle buttons, exactly one pressed at a time), for a
  * small fixed vocabulary that would otherwise be an open-then-pick StyledSelect - Result
  * (Allowed/Denied, Success/Failed) here, and the login chart's All/Failed-only and Chart/Table
- * toggles. See .project/audit-log-design-review.md's "Result as a one-click segmented control".
+ * toggles.
  */
 const SegmentedControl: React.FC<SegmentedControlProps> = ({ value, onChange, options, ariaLabel, className, tabRole = false, tabPanelIds }) => {
     const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);

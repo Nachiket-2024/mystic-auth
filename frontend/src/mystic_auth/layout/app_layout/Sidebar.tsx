@@ -12,7 +12,7 @@ import { prefetchRoute } from "./routePrefetch";
 import { SUPPORT_EMAIL } from "../../core/settings";
 import { cn } from "../../ui/styles/classNames";
 
-// Same value as themeTokens.ts's durations.hover/easings.hover, composed as
+// Same value as the --duration-hover/--easing-hover CSS variables, composed as
 // a literal transition string for these plain-inline-style call sites
 // (NavLink's `style` prop takes an object, not Tailwind classes).
 const FAST_HOVER_TRANSITION = ["background-color", "border-color", "color"]
@@ -47,12 +47,11 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, ico
     const [isHovered, setIsHovered] = useState(false);
     const isDark = useThemeStore((s) => s.colorMode === "dark");
 
-    // Copied directly from design/dashboard.html's own `.nav-item`/
-    // `.nav-item:hover`/`.nav-item.active` rules rather than re-derived: a
+    // Hand-tuned nav item hover/active styling rather than re-derived: a
     // translucent brand-500 wash at a handful of specific alphas (16%/22%
     // hover, 24%/34% active - light/dark), not a solid color step. A solid
     // brand.200/800/900 step lands on visibly different colors than the
-    // mockup's actual translucent fills, and can't self-adjust the way an
+    // intended translucent fills, and can't self-adjust the way an
     // alpha wash does when layered over bg.sidebar's own brand tint.
     // color-mix keeps this tied to the live brand.solid token (works for
     // any brand color a fork/Appearance picks), same reasoning as
@@ -61,12 +60,12 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, ico
     // directly instead.
     const hoverBg = `color-mix(in srgb, var(--brand-solid) ${isDark ? 22 : 16}%, transparent)`;
     const activeBg = `color-mix(in srgb, var(--brand-solid) ${isDark ? 34 : 24}%, transparent)`;
-    // brand.fg already resolves to the mockup's own active-text colors:
-    // brand.700 light (measured against the mockup's `.nav-item.active`
-    // color) / brand.300ish dark (the mockup's literal #e8926f is a step in
+    // brand.fg already resolves to the intended design's own active-text colors:
+    // brand.700 light (measured against the intended design's `.nav-item.active`
+    // color) / brand.300ish dark (the intended design's literal #e8926f is a step in
     // that same light-tinted range).
     const activeColor = "var(--brand-fg)";
-    // Mockup's `.nav-item` is fg-muted at rest and only brightens to
+    // The nav item is fg-muted at rest and only brightens to
     // fg-default on hover (`.nav-item:hover{color:var(--fg-default)}`) -
     // an inactive link was previously pinned to fg-default even at rest,
     // reading as full-strength text identical to the active item's weight.
@@ -85,11 +84,10 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, ico
             onFocus={() => prefetchRoute(to)}
             style={({ isActive }) => ({
                 display: "block",
-                // Plain padding, no border-left reservation: the mockup's
+                // Plain padding, no border-left reservation: the intended design's
                 // `.nav-item.active` has no left-border indicator at all
                 // (an earlier version added one) - background/color/
-                // font-weight alone mark the active item, matching
-                // design/dashboard.html exactly.
+                // font-weight alone mark the active item.
                 // 0.75rem/0.375rem: Tailwind's own p-3/rounded-md values -
                 // literal, not a var, since Tailwind v4 only exposes a
                 // spacing/radius step as a CSS custom property for steps
@@ -162,10 +160,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
         <nav
             aria-label={t("mainNavigation")}
             className={cn(
-                // 13.875rem (222px), matching design/dashboard.html's own
+                // 13.875rem (222px)
                 // `.sidebar{width:222px}` exactly - narrow enough of a gap
                 // from a round number to go unnoticed prop-by-prop, but
-                // visible side-by-side against the mockup.
+                // visible side-by-side against the intended design.
                 "fixed md:sticky top-0 left-0 h-screen w-[13.875rem] shrink-0 bg-bg-sidebar border-r border-border-strong z-[1300] flex flex-col",
                 // md:translate-x-0 unconditionally (not just an override):
                 // this is a plain className, not fighting an inline style,
@@ -174,10 +172,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
                 isOpen ? "translate-x-0" : "-translate-x-full"
             )}
         >
-            {/* h-16: no border here (design/dashboard.html's `.brand-row`
+            {/* h-16: no border here (the brand row
                 has none - a previous border-bottom "to line up with
-                Navbar's own" didn't actually exist in the mockup and read
-                as a stray line under the logo that design doesn't have).
+                Navbar's own" didn't belong there and read
+                as a stray line under the logo).
                 The fixed height still keeps this row visually level with
                 Navbar's own 64px bar, without needing a border to do it. */}
             <div className="h-16 px-6 flex items-center shrink-0">
@@ -186,11 +184,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onNavigate, extraItems }) => 
                 </Link>
             </div>
 
-            {/* gap-0, not a positive gap: design/dashboard.html's
-                `.nav-item` already carries its own 10px vertical padding as
+            {/* gap-0, not a positive gap: each
+                nav item already carries its own 10px vertical padding as
                 the only spacing between items - an extra gap on top of that
                 padding was stacking two spacing sources, reading as visibly
-                airier than the mockup. overflow-y-auto (not in the mockup,
+                airier than the intended design. overflow-y-auto (not in the intended design,
                 which only ever shows 3 items) so a fork that adds many more
                 nav items scrolls this list independently instead of
                 overflowing past the pinned footer below. */}

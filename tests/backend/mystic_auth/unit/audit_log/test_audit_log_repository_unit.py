@@ -43,3 +43,33 @@ async def test_login_trend_rejects_an_inverted_exact_range_without_querying():
 
     assert points == []
     db.execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("alias", "expected"),
+    [
+        ("login", {"login_success", "login_failure"}),
+        ("passkey_login", {"passkey_login_success", "passkey_login_failure"}),
+        ("passkey_step_up", {"passkey_step_up_success", "passkey_step_up_failure"}),
+        ("passkey_removed", {"passkey_removed"}),
+    ],
+)
+def test_event_type_filter_aliases_expand_to_success_and_failure_rows(alias, expected):
+    from sqlalchemy import select
+
+    from backend.mystic_auth.audit_log.audit_log_model import AuditLog
+    from backend.mystic_auth.audit_log.audit_log_repository import _apply_filters
+
+    sql = str(
+        _apply_filters(select(AuditLog), None, alias, None, None).compile(compile_kwargs={"literal_binds": True})
+    )
+
+    for event in expected:
+        assert f"'{event}'" in sql
+    assert sql.count("'passkey_") + sql.count("'login_") == len(expected)
+
+
+def test_sign_in_activity_counts_passkey_attempts():
+    from backend.mystic_auth.audit_log import audit_log_repository
+
+    assert {"passkey_login_success", "passkey_login_failure"} <= set(audit_log_repository._LOGIN_EVENT_TYPES)

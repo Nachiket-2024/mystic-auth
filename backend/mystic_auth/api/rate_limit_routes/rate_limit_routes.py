@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, Query, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...auth.security.rate_limiting.rate_limit_dashboard_service import rate_limit_dashboard_service
+from ...auth.security.rate_limiting.rate_limit_identifier_labels import add_identifier_labels
 from ...auth.security.rate_limiting.rate_limit_schema import RateLimitEntryRead, RateLimitPageRead, RateLimitSummaryRead
 from ...authorization.dependencies.authorization_dependency import require_authorization
 from ...authorization.permissions import Permission
 from ...core.search_query import SEARCH_QUERY_MAX_LENGTH
+from ...database.connection import database
 
 router = APIRouter(prefix="/rate-limits", tags=["Rate Limits"])
 
@@ -34,9 +37,10 @@ async def list_rate_limits(
     sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
     page_size: int = Query(default=25, ge=1, le=100),
     current_user: dict = _READ_DEPENDENCY,
+    db: AsyncSession = Depends(database.get_session),
 ):
     # Bounded keyspace walk, capped at RateLimitDashboardService.MAX_SCANNED_KEYS
-    # (see list_active_limits' own docstring) - an admin-only, low-QPS page,
+    # (see list_active_limits' own docstring) - a permission-gated, low-QPS page,
     # so this trades a capped read-time walk for real numbered pages instead
     # of a cursor the UI can only step through one page at a time.
     entries, total, truncated = await rate_limit_dashboard_service.list_active_limits(
@@ -49,6 +53,7 @@ async def list_rate_limits(
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
+    await add_identifier_labels(db, entries)
     return RateLimitPageRead(
         entries=[RateLimitEntryRead(**entry) for entry in entries],
         total=total,

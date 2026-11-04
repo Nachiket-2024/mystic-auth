@@ -12,8 +12,8 @@ rather than route from your own machine through a tunnel. If you do
 not have a public server, see [Local-Prod Deployment](local-prod/README.md) instead.
 
 Not sure this is the mode you want? See the
-[dev vs. local-prod vs. prod comparison](guide.md#1-deployment-modes) in the
-Deployment Guide.
+[dev vs. local-prod vs. prod comparison](README.md#1-deployment-modes) in the
+[Deployment overview](README.md).
 
 Use the `prod-up` helper when possible: it passes both the upstream and
 app-owned Compose/env files. For a manual `docker compose` command, always
@@ -95,7 +95,7 @@ Also rotate before starting:
 
 - `SECRET_KEY`, `POSTGRES_PASSWORD`, `BUGSINK_SECRET_KEY`, and `BUGSINK_SUPERUSER_PASSWORD`.
 - `VALKEY_PASSWORD` is required. `setup-env` generates it and embeds it in `VALKEY_URL`; production Compose refuses to start if it is missing - see [Valkey authentication](../security/hardening-infra.md#valkey-authentication).
-- `APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s, if you keep the least-privilege app role enabled (the default; see [Deployment Guide: Database migrations](migrations-and-backups.md#1-database-migrations)).
+- `APP_DATABASE_URL`'s password alongside `DATABASE_URL`'s, if you keep the least-privilege app role enabled (the default; see [Database Migrations](database-migrations.md#database-migrations)).
 
 Also configure before opening the app to real users:
 
@@ -103,7 +103,7 @@ Also configure before opening the app to real users:
 - Google OAuth2 before showing Google login.
 - `BACKUP_ENCRYPTION_KEY` and `BACKUP_UPLOAD_COMMAND` before starting the
   production-shaped stack. The backup sidecar refuses to start without both;
-  use the [off-host backup guide](migrations-and-backups.md#backblaze-b2-off-host-copies)
+  use the [off-host backup guide](database-backups.md#backblaze-b2-off-host-copies)
   to configure the upload command in the gitignored runtime env file.
 - The CLI-created system superuser can sign in without Google or SMTP because the script marks it verified. See [System Superuser](../authentication/system-superuser/README.md) for the interactive command, or `local-scripts/mystic_auth/prod/create-system-user.*` for a non-interactive version (fill in non-dev credentials, not the dev placeholder).
 
@@ -201,7 +201,7 @@ Runtime values can be changed with a container restart:
 `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SENTRY_DSN`, and
 `VITE_SENTRY_ENVIRONMENT` are baked in at image build time, not read at
 container runtime. Set them in `env/mystic_auth/.env.prod` before `--build`, not after. See
-[Deployment Guide: required production environment variables](environment.md#5-required-production-review)
+[required production environment variables](environment.md#5-required-production-review)
 for the full explanation of each.
 
 ---
@@ -218,9 +218,11 @@ TLS terminator.
 
 ## Backups, migrations, graceful shutdown, limitations
 
-These are the same across every Compose file. See
-[Deployment Guide](migrations-and-backups.md#1-database-migrations) for migrations, backups
-(`scripts/mystic_auth/db/database-backup/database-backup.sh docker-compose.prod.yml`), graceful shutdown, and
-known limitations of this deployment approach.
+These are the same across every Compose file:
+
+- Migrations and the PostgreSQL upgrade: [Database Migrations](database-migrations.md).
+- Backups (`scripts/mystic_auth/db/database-backup/database-backup.sh docker-compose.prod.yml`): [Database Backups](database-backups.md).
+- Restore drill: [Restore and Recovery](database-restore-and-recovery.md).
+- Graceful shutdown and known limitations: [Production Host Requirements](production-host.md).
 
 ---

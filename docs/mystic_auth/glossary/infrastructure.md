@@ -67,13 +67,13 @@ Code that runs on every request/response, wrapped around the actual route handle
 
 ## Procrastinate / background worker
 
-Procrastinate is the Postgres-backed job queue this app uses to run work outside the request/response cycle, such as sending emails and account-lifecycle events, so a slow SMTP call or listener never makes an API response wait on it. A separate `procrastinate_worker` process picks up queued jobs and runs scheduled tasks for account purge, audit-log anonymization, expired-session and refresh-claim cleanup, and lifecycle-outbox reconciliation. See [Background Email Delivery](../background-workers/procrastinate.md).
+Procrastinate is the Postgres-backed job queue this app uses to run work outside the request/response cycle, such as sending emails and account-lifecycle events, so a slow SMTP call or listener never makes an API response wait on it. A separate `procrastinate_worker` process picks up queued jobs and runs scheduled tasks for account purge, expired-session, refresh-claim, and passkey-challenge cleanup, and lifecycle-outbox reconciliation. See [Background Email Delivery](../background-workers/procrastinate.md).
 
 ---
 
 ## periodic task / cron-style job
 
-A task Procrastinate runs automatically on a recurring schedule (for example, daily), rather than being enqueued by a specific request. Account purge, audit-log anonymization, session and refresh-claim cleanup, and lifecycle-outbox reconciliation run inside the same `procrastinate_worker` process as on-demand delivery jobs, with no separate scheduler process. See [Background Email Delivery](../background-workers/procrastinate.md).
+A task Procrastinate runs automatically on a recurring schedule (for example, daily), rather than being enqueued by a specific request. Account purge, session, refresh-claim, and passkey-challenge cleanup, and lifecycle-outbox reconciliation run inside the same `procrastinate_worker` process as on-demand delivery jobs, with no separate scheduler process. See [Background Email Delivery](../background-workers/procrastinate.md).
 
 ---
 
@@ -169,7 +169,7 @@ A response header that tells the browser to only ever contact this domain over H
 
 ## backup / restore
 
-The scheduled, automatic custom-format dump of both the app's and Bugsink's Postgres databases to local files, handled by the `db_backup` container running on a loop in every production-style Compose file. Each dump is verified with `pg_restore --list` before the job reports success. See [Deployment Guide: Backups](../deployment/migrations-and-backups.md).
+The scheduled, automatic custom-format dump of both the app's and Bugsink's Postgres databases to local files, handled by the `db_backup` container running on a loop in every production-style Compose file. Each dump is verified with `pg_restore --list` before the job reports success. See [Database Backups](../deployment/database-backups.md).
 
 ---
 
@@ -221,8 +221,8 @@ response; it is not a signature, proof that an image is safe, or a backup.
 
 A backup stored outside the machine that runs the application, such as an
 encrypted object-storage bucket, another server, or removable media. It is what
-protects against loss of the VPS or its local disk. See [Migrations and
-Backups](../deployment/migrations-and-backups.md#6-off-host-copy-without-a-cloud-account).
+protects against loss of the VPS or its local disk. See [Database
+Backups](../deployment/database-backups.md#off-host-copy-without-a-cloud-account).
 
 ---
 

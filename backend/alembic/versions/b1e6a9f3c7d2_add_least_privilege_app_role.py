@@ -134,7 +134,16 @@ def downgrade() -> None:
             DO $$
             BEGIN
                 IF EXISTS (SELECT FROM pg_roles WHERE rolname = '{APP_ROLE}') THEN
-                    DROP ROLE {APP_ROLE};
+                    -- A role belongs to the whole Postgres cluster, so it cannot be dropped
+                    -- while another database (for example a second app database or a test
+                    -- database) still grants it privileges. Keep the role in that case:
+                    -- every privilege on THIS database is already revoked above, and
+                    -- upgrade() reuses an existing role.
+                    BEGIN
+                        DROP ROLE {APP_ROLE};
+                    EXCEPTION WHEN dependent_objects_still_exist THEN
+                        RAISE NOTICE 'role {APP_ROLE} kept: other databases still grant it privileges';
+                    END;
                 END IF;
             END
             $$;

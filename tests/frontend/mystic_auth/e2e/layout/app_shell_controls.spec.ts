@@ -36,6 +36,11 @@ test.describe("app shell browser controls", () => {
   // the same time is correct, not a bug, so this checks chrome text for
   // pure modes and page-content text for bilingual ones.
   test("every language mode changes rendered chrome or content text correctly", async ({ page }) => {
+    // Six sequential language switches in one test. Alone it takes a few
+    // seconds, but WebKit under parallel workers can spend most of the default
+    // 30s budget on them, so allow three times as long instead of weakening
+    // any assertion.
+    test.slow();
     await page.setViewportSize({ width: 1366, height: 900 });
     await page.goto("/dashboard");
     // Not getByRole(..., { name: /main navigation/i }): the sidebar's own

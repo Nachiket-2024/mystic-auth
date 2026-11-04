@@ -15,7 +15,10 @@ from .auth_test_accounts import signup_verify_login, unique_email
 
 
 @pytest.mark.asyncio
-async def test_concurrent_failed_logins_lock_out_at_exactly_the_configured_threshold(client, created_emails):
+async def test_concurrent_failed_logins_lock_out_at_exactly_the_configured_threshold(
+    open_hash_gate, client, created_emails
+):
+    # About the lockout counter, not hash admission control.
     email = unique_email()
     await signup_verify_login(client, created_emails, email)
     client.cookies.clear()

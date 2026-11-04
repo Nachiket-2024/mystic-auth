@@ -8,6 +8,7 @@ import FilterPanel from "../ui/cards/FilterPanel";
 import SearchInput from "../ui/filters/SearchInput";
 import FilterChips, { type FilterChip } from "../ui/filters/FilterChips";
 import { PERMISSIONS } from "../authorization/permissions";
+import { useCan } from "../authorization/useCan";
 import { isDestructiveAction } from "../authorization/destructiveActions";
 import { usePoliciesQuery } from "../policies/queries/policyQueries";
 import { formatPolicyActionLabel, formatResourceTypeLabel } from "../policies/policyCardHelpers";
@@ -64,7 +65,12 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
     const [filtersOpen, setFiltersOpen] = useState(false);
     // Full policy list (same query UserPoliciesDialog's "assign a policy"
     // dropdown uses) so the Policy filter shows real names, not a stale list.
-    const { data: policies, isLoading: isPoliciesLoading } = usePoliciesQuery();
+    // Who holds which policy or permission is policies:read information, so
+    // without it the two access filters are not shown at all and the policy
+    // list is never requested (a refused request would also write a denied
+    // row to the audit log on every page load).
+    const canSeeAccess = useCan(PERMISSIONS.POLICIES_READ);
+    const { data: policies, isLoading: isPoliciesLoading } = usePoliciesQuery(canSeeAccess);
     // Same pattern as AuthorizationFilterBar/PoliciesFilterBar's action
     // picker: PERMISSIONS already runs well past 20 flat values, so a plain
     // StyledSelect here meant an un-searchable, un-grouped wall of options.
@@ -99,8 +105,8 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
     }, [policies, t]);
     const chips: FilterChip[] = [
         ...(search ? [{ key: "search", label: `Search: ${search}`, onClear: () => setSearch("") }] : []),
-        ...(permission !== ALL_VALUE ? [{ key: "permission", label: `Permission: ${formatPolicyActionLabel(permission)}`, onClear: () => setPermission(ALL_VALUE) }] : []),
-        ...(permissionSource ? [{
+        ...(canSeeAccess && permission !== ALL_VALUE ? [{ key: "permission", label: `Permission: ${formatPolicyActionLabel(permission)}`, onClear: () => setPermission(ALL_VALUE) }] : []),
+        ...(canSeeAccess && permissionSource ? [{
             key: "permission-source",
             label: permissionSource === "policy" ? t("users:page.permissionViaPolicy") : t("users:page.permissionDirect"),
             onClear: () => setPermission(ALL_VALUE),
@@ -116,7 +122,7 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
             label: status === "active" ? t("ui_text:active") : t("users:page.deactivated"),
             onClear: () => setStatus(ALL_VALUE),
         }] : []),
-        ...(policy !== ALL_VALUE ? [{ key: "policy", label: `Policy: ${policy}`, onClear: () => setPolicy(ALL_VALUE) }] : []),
+        ...(canSeeAccess && policy !== ALL_VALUE ? [{ key: "policy", label: `Policy: ${policy}`, onClear: () => setPolicy(ALL_VALUE) }] : []),
         ...(lastLogin !== ALL_VALUE ? [{
             key: "last-login",
             label: {
@@ -155,17 +161,19 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
             </div>
 
             {filtersOpen && <div className="flex items-center gap-3 flex-wrap">
-                <GroupedSearchSelect
-                    className="w-56"
-                    ariaLabel={t("users:page.filterByPermission")}
-                    value={permission}
-                    onChange={setPermission}
-                    isActive={permission !== ALL_VALUE}
-                    groups={permissionGroups}
-                    allValue={ALL_VALUE}
-                    allLabel={t("users:page.allPermissions")}
-                    searchPlaceholder={t("users:accessDialog.searchPermissions")}
-                />
+                {canSeeAccess && (
+                    <GroupedSearchSelect
+                        className="w-56"
+                        ariaLabel={t("users:page.filterByPermission")}
+                        value={permission}
+                        onChange={setPermission}
+                        isActive={permission !== ALL_VALUE}
+                        groups={permissionGroups}
+                        allValue={ALL_VALUE}
+                        allLabel={t("users:page.allPermissions")}
+                        searchPlaceholder={t("users:accessDialog.searchPermissions")}
+                    />
+                )}
                 <StyledSelect
                     className="w-36"
                     ariaLabel={t("users:page.filterByRole")}
@@ -212,21 +220,22 @@ const UsersFilterBar: React.FC<UsersFilterBarProps> = ({
                     ]}
                 />
 
-                <GroupedSearchSelect
-                    className="w-44"
-                    ariaLabel={t("users:page.filterByPolicy")}
-                    value={policy}
-                    onChange={setPolicy}
-                    isActive={policy !== ALL_VALUE}
-                    groups={policyGroups}
-                    allValue={ALL_VALUE}
-                    allLabel={isPoliciesLoading ? t("ui_text:loading") : t("users:page.allPolicies")}
-                    searchPlaceholder={t("users:accessDialog.searchPolicies")}
-                />
+                {canSeeAccess && (
+                    <GroupedSearchSelect
+                        className="w-44"
+                        ariaLabel={t("users:page.filterByPolicy")}
+                        value={policy}
+                        onChange={setPolicy}
+                        isActive={policy !== ALL_VALUE}
+                        groups={policyGroups}
+                        allValue={ALL_VALUE}
+                        allLabel={isPoliciesLoading ? t("ui_text:loading") : t("users:page.allPolicies")}
+                        searchPlaceholder={t("users:accessDialog.searchPolicies")}
+                    />
+                )}
 
                 {/* Relative-bucket presets, same pattern as Okta/Auth0/
-                 * Workspace permission-management consoles (design/users.html's
-                 * lastLoginOpts): quick buckets cover the common cases at
+                 * Workspace permission-management consoles: quick buckets cover the common cases at
                  * far less UI than a full custom date-range picker. */}
                 <StyledSelect
                     className="w-40"

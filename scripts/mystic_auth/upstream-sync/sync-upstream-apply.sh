@@ -6,12 +6,27 @@ WORKTREE_STASH_NAME=""
 
 restore_worktree_stash() {
   [ "$WORKTREE_STASH_CREATED" -eq 1 ] || return 0
+  # Git cannot put saved work back on top of unresolved conflicts. That is not
+  # an error: the work is safe on the shelf and goes back once the conflicts
+  # are resolved. Say so plainly and give the exact command.
+  if [ -n "$(git ls-files -u)" ]; then
+    local saved_ref
+    saved_ref="$(find_stash_ref_by_name "$WORKTREE_STASH_NAME" || true)"
+    echo ""
+    echo "Your uncommitted work is still set aside (${saved_ref:-in the stash}) because the sync has"
+    echo "unresolved conflicts, and git cannot put it back on top of them."
+    echo "It is safe. After you resolve the conflicts, put it back with:"
+    echo "  git stash pop ${saved_ref}"
+    echo "(If you abandon the sync instead, --abort puts it back for you.)"
+    return 0
+  fi
   echo "Restoring downstream work saved before the sync..."
   if git stash pop; then
     WORKTREE_STASH_CREATED=0
   else
-    echo "ERROR: the sync commit succeeded, but the saved downstream work could not be restored cleanly." >&2
-    echo "Resolve the restore conflict, then remove the retained stash with: git stash drop" >&2
+    echo "ERROR: the sync finished, but your saved work could not be put back cleanly." >&2
+    echo "It is still safe in the stash. Look at it with: git stash show -p" >&2
+    echo "Resolve the overlap, then remove the saved copy with: git stash drop" >&2
     return 1
   fi
 }
@@ -26,6 +41,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# The sync tools (this script and its stages) are already the latest upstream
+# versions here (checked by the entry point) and are running right now, so they
+# stay out of the stash and out of the patch. They are staged with the rest of
+# the result at the end. Without a recorded baseline (first sync) the whole
+# tree is handled as before.
+TOOLS_PATHSPEC=()
+if [ -n "$LAST_SYNCED_SHA" ]; then
+  TOOLS_PATHSPEC=(":!${SYNC_TOOLS_DIR}")
+fi
+
 # What the diff says should change, computed before the apply/merge touches
 # anything -- compared against reality afterward to catch a file that
 # silently failed to apply despite an overall "success".
@@ -34,23 +59,33 @@ if [ -z "$LAST_SYNCED_SHA" ]; then
   # would list every file that only exists on our side (e.g. this script)
   # as "deleted" -- but the squash-merge doesn't actually delete those, it
   # unions both sides. --diff-filter=ACMR (no D) matches that.
-  EXPECTED_FILES="$(git diff --name-only --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' | sort -u)"
+  EXPECTED_FILES="$(git diff --name-only --diff-filter=ACMR HEAD "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' "${KEEP_LOCAL_PATHSPECS[@]}" | sort -u)"
 else
-  EXPECTED_FILES="$(git diff --name-only "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' "${STRUCTURAL_PATH_ARGS[@]}" | sort -u)"
+  EXPECTED_FILES="$(git diff --name-only "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' "${STRUCTURAL_PATH_ARGS[@]}" "${KEEP_LOCAL_PATHSPECS[@]}" "${TOOLS_PATHSPEC[@]}" | sort -u)"
 fi
 
-# The index must be clean because the sync commits it, but downstream users
+# The index must be clean because the sync result is staged in it, but downstream users
 # often have an app split in the working tree during their first sync. A
 # squash merge cannot use HEAD as its index baseline while those unstaged
 # deletions or untracked app files are present. Save that work temporarily,
 # including untracked app files, apply upstream against a clean tree, then
-# restore it after the sync commit. Ignored files such as real env files are
+# restore it at the end. Ignored files such as real env files are
 # deliberately excluded from the stash.
-if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+if [ -n "$(git status --porcelain --untracked-files=all -- . "${TOOLS_PATHSPEC[@]}")" ]; then
   WORKTREE_STASH_NAME="mystic-auth-sync-worktree-$(date +%s)"
-  echo "Saving unstaged downstream work while applying the sync: $WORKTREE_STASH_NAME"
-  git stash push --include-untracked --message "$WORKTREE_STASH_NAME" >/dev/null
-  WORKTREE_STASH_CREATED=1
+  echo "Saving your uncommitted work aside while applying the sync: $WORKTREE_STASH_NAME"
+  git stash push --include-untracked --message "$WORKTREE_STASH_NAME" -- . "${TOOLS_PATHSPEC[@]}" >/dev/null
+  # Only treat the stash as ours if git really created it. Popping blindly
+  # could restore an older, unrelated stash of the project's own.
+  case "$(git stash list --format='%gs' -n 1)" in
+    *"$WORKTREE_STASH_NAME"*)
+      WORKTREE_STASH_CREATED=1
+      ;;
+    *)
+      echo "ERROR: could not save your uncommitted work aside; stopping before changing anything." >&2
+      exit 1
+      ;;
+  esac
 fi
 
 # A downstream app split can also have removed an upstream-owned path in a
@@ -89,8 +124,10 @@ if [ -z "$LAST_SYNCED_SHA" ]; then
     cat "$SYNC_LOG"
   fi
 else
-  git diff --binary "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' "${STRUCTURAL_PATH_ARGS[@]}" > "$PATCH_FILE"
-  if ! git apply --3way --index "$PATCH_FILE" >"$SYNC_LOG" 2>&1; then
+  git diff --binary "$LAST_SYNCED_SHA" "upstream/${UPSTREAM_BRANCH}" -- . ':!README.md' ':!SECURITY.md' ':!CONTRIBUTING.md' "${STRUCTURAL_PATH_ARGS[@]}" "${KEEP_LOCAL_PATHSPECS[@]}" "${TOOLS_PATHSPEC[@]}" > "$PATCH_FILE"
+  # --allow-empty: upstream can add then revert a path between syncs, leaving
+  # no net diff; that is a valid (no-op) sync, not an apply failure.
+  if ! git apply --3way --index --allow-empty "$PATCH_FILE" >"$SYNC_LOG" 2>&1; then
     cat "$SYNC_LOG"
     # `git apply --3way` leaves unmerged index entries for genuine conflicts,
     # same signal a real merge would give -- anything else is a real failure.
@@ -166,6 +203,30 @@ fi
 # to apply.
 ACTUAL_FILES="$( { git diff --cached --name-only; git diff --name-only; git ls-files -u | cut -f2-; } | sort -u )"
 MISSING_FILES="$(comm -23 <(printf '%s\n' "$EXPECTED_FILES") <(printf '%s\n' "$ACTUAL_FILES") | sed '/^$/d')"
+
+# A file the project already holds in exactly upstream's current form (same
+# mode and content, or absent on both sides) produces no change when the patch
+# is applied. That is "already applied", not a silent failure, for example
+# when the project ported an upstream fix by hand before this sync.
+if [ -n "$MISSING_FILES" ]; then
+  STILL_MISSING=""
+  ALREADY_CURRENT=""
+  while IFS= read -r missing_path; do
+    [ -n "$missing_path" ] || continue
+    if [ "$(git ls-tree HEAD -- "$missing_path" | cut -f1)" = "$(git ls-tree "upstream/${UPSTREAM_BRANCH}" -- "$missing_path" | cut -f1)" ] \
+      && git diff --quiet "upstream/${UPSTREAM_BRANCH}" -- "$missing_path" 2>/dev/null; then
+      ALREADY_CURRENT="${ALREADY_CURRENT}${missing_path}"$'\n'
+    else
+      STILL_MISSING="${STILL_MISSING}${missing_path}"$'\n'
+    fi
+  done <<< "$MISSING_FILES"
+  if [ -n "$ALREADY_CURRENT" ]; then
+    echo ""
+    echo "Already identical to upstream in this project (no change needed):"
+    printf '%s' "$ALREADY_CURRENT" | sed 's/^/  /'
+  fi
+  MISSING_FILES="$(printf '%s' "$STILL_MISSING" | sed '/^$/d')"
+fi
 
 if [ -n "$MISSING_FILES" ]; then
   echo ""

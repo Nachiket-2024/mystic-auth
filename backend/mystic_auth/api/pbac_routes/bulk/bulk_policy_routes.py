@@ -7,44 +7,12 @@ from ....authorization.dependencies.policy_route_dependencies import ASSIGN_DEPE
 from ....authorization.policies.default_policies import SYSTEM_SUPERUSER_POLICY_NAME
 from ....authorization.repositories.policy_repository import policy_repository
 from ....authorization.schemas.bulk_schema import BulkItemResult, BulkPolicyRequest, BulkResponse, bulk_error, summarize
-from ....authorization.services.authorization_service import authorization_service
+from ....authorization.services.bulk_item_resolution import resolve_policy_item
 from ....authorization.services.bulk_notification import log_and_notify_bulk_success
-from ....core.errors import AppError
 from ....database.connection import database
 from ....user.user_crud_collector import user_crud
-from ....user.user_model import UserRole
 
 router = APIRouter(prefix="/authorization", tags=["Authorization"])
-
-
-async def _resolve_and_authorize(
-    item, users_by_email: dict, policies_by_name: dict, current_user_email: str, db: AsyncSession, context,
-    grant_cache: dict, error_results: list[BulkItemResult],
-):
-    """Shared per-item validation for both assign and remove: user and
-    policy exist, user isn't system-role, and the caller actually holds
-    every action the policy grants. Returns the resolved (User, Policy), or
-    None with the failure already appended to error_results."""
-    user = users_by_email.get(item.user_email)
-    policy = policies_by_name.get(item.policy_name)
-    if user is None:
-        error_results.append(bulk_error(item.user_email, item.policy_name, "USER_NOT_FOUND"))
-        return None
-    if policy is None:
-        error_results.append(bulk_error(item.user_email, item.policy_name, "POLICY_NOT_FOUND"))
-        return None
-    if user.role == UserRole.system:
-        error_results.append(bulk_error(item.user_email, item.policy_name, "SYSTEM_USER_CANNOT_BE_MODIFIED"))
-        return None
-    try:
-        await authorization_service.assert_authorized_to_grant(
-            current_user_email, policy.actions, policy.resource_type, db,
-            context=context, conditions=policy.conditions, cache=grant_cache,
-        )
-    except AppError:
-        error_results.append(bulk_error(item.user_email, item.policy_name, "CANNOT_GRANT_UNHELD_ACTION"))
-        return None
-    return user, policy
 
 
 @router.post("/bulk/policies/assign", response_model=BulkResponse)
@@ -74,7 +42,7 @@ async def bulk_assign_policies(
     valid_items = []
     error_results: list[BulkItemResult] = []
     for item in body.items:
-        resolved = await _resolve_and_authorize(
+        resolved = await resolve_policy_item(
             item, users_by_email, policies_by_name, current_user["email"], db, context, grant_cache, error_results
         )
         if resolved is None:
@@ -128,7 +96,7 @@ async def bulk_remove_policies(
     valid_items = []
     error_results: list[BulkItemResult] = []
     for item in body.items:
-        resolved = await _resolve_and_authorize(
+        resolved = await resolve_policy_item(
             item, users_by_email, policies_by_name, current_user["email"], db, context, grant_cache, error_results
         )
         if resolved is None:

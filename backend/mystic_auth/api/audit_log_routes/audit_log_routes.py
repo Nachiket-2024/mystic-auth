@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...audit_log.audit_log_repository import audit_log_repository
@@ -43,7 +43,7 @@ _TO_DESCRIPTION = "Only entries at or before this timestamp (created_at, inclusi
     "security_log_list", account_key_func=lambda kwargs: kwargs["current_user"]["email"], max_requests=20, window_seconds=60
 )
 async def list_security_audit_log(
-    response: Response,
+    request: Request, response: Response,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0, le=10_000_000),
     search: str | None = Query(
@@ -101,7 +101,7 @@ async def list_user_security_audit_log(
     db: AsyncSession = Depends(database.get_session),
 ):
     """A specific user's security events, newest first by default - the
-    admin counterpart to /security-log/me, gated on security_audit:read
+    management counterpart to /security-log/me, gated on security_audit:read
     like /security-log rather than self-scoped. Backs the User Access
     dialog's "Recent access changes" (event_type=access_change, see
     _apply_filters' alias in audit_log_repository.py)."""

@@ -68,16 +68,16 @@ const PolicyDialogTabs: React.FC<PolicyDialogTabsProps> = ({ activeTab, showEdit
                         id="policy-dialog-tab-edit"
                         type="button"
                         role="tab"
-                    aria-selected={activeTab === "edit"}
-                    aria-controls="policy-dialog-panel-edit"
-                    tabIndex={activeTab === "edit" && !editDisabled ? 0 : -1}
-                    aria-disabled={editDisabled || undefined}
-                    disabled={editDisabled}
-                    title={editDisabled ? editDisabledLabel : undefined}
-                    onClick={() => activate("edit")}
+                        aria-selected={activeTab === "edit"}
+                        aria-controls="policy-dialog-panel-edit"
+                        tabIndex={activeTab === "edit" && !editDisabled ? 0 : -1}
+                        aria-disabled={editDisabled || undefined}
+                        disabled={editDisabled}
+                        title={editDisabled ? editDisabledLabel : undefined}
+                        onClick={() => activate("edit")}
                         onKeyDown={(event) => handleKeyDown(event, "edit")}
-                        className="inline-flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 border-l border-border-strong px-3 text-sm font-semibold text-fg-muted transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] hover:bg-brand-subtle hover:text-brand-fg focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-[-2px]"
-                    style={activeTab === "edit" && !editDisabled ? { backgroundColor: "var(--brand-tile-subtle)", color: "var(--brand-fg)", boxShadow: "inset 0 0 0 2px var(--brand-solid)" } : undefined}
+                        className={`inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-2 border-l border-border-strong px-3 text-sm font-semibold text-fg-muted transition-[background-color,color,box-shadow] duration-[var(--duration-hover)] ease-[var(--easing-hover)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-brand-solid focus-visible:outline-offset-[-2px] ${editDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-brand-subtle hover:text-brand-fg"}`}
+                        style={activeTab === "edit" && !editDisabled ? { backgroundColor: "var(--brand-tile-subtle)", color: "var(--brand-fg)", boxShadow: "inset 0 0 0 2px var(--brand-solid)" } : undefined}
                     >
                         <Pencil size={16} aria-hidden="true" />
                         {t("detailsDialog.tabEdit")}

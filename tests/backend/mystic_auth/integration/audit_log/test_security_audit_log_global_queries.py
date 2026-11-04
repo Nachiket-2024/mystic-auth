@@ -248,9 +248,8 @@ async def test_global_security_log_filters_by_from_and_to(client, created_emails
 
 @pytest.mark.asyncio
 async def test_security_log_list_is_rate_limited_per_account(client, created_emails):
-    """F-006 regression: a table-wide query with no prior throttling beyond
-    the security_audit:read permission check - confirmed live in the
-    2026-10-14 audit. list_security_audit_log now carries the same
+    """Regression: a table-wide query needs throttling beyond the
+    security_audit:read permission check. list_security_audit_log carries the same
     @rate_limiter_service.rate_limited decorator every other sensitive
     endpoint in this codebase already has."""
     system_email = _unique_email("system")

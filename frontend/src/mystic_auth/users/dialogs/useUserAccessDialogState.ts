@@ -45,27 +45,16 @@ export type AccessFilter = "all" | "on" | "off";
 /**
  * useUserAccessDialogState
  * ----------------------------
- * All query selection, mutation wiring, and toggle/undo handlers behind
- * UserAccessDialog's unified Details/Policies/Permissions tabs. Replaces the
- * separate useUserPoliciesDialogState + the inline state UserPermissionsDialog
- * used to carry, per design/user-access.html and
- * .project/user-access-dialog-review.md.
+ * Query selection, mutation wiring and toggle/undo handlers behind
+ * UserAccessDialog's Details/Policies/Permissions tabs. Toast wiring lives in
+ * userAccessDialogHandlers.ts; this hook is the state and query layer.
  *
- * Toast-wiring for each mutation (assign/revoke a policy, revoke one policy
- * action, grant/revoke a direct permission, save conditions) lives in
- * userAccessDialogHandlers.ts as plain functions; this hook stays the state/
- * query layer that calls them.
- *
- * Two different undo shapes, because the backend only supports two of the
- * three edits both ways:
- * - Whole-policy assign/revoke and direct-permission grant/revoke are both
- *   fully reversible API calls (assign <-> revoke, grant <-> revoke), so
- *   both get an instant toggle with a real Undo toast.
- * - Revoking one action from an otherwise-still-assigned policy
- *   (revokePolicyActionApi) has no inverse endpoint - re-assigning the whole
- *   policy would restore every other action already revoked from it, not
- *   just this one. It is therefore an immediate one-way toggle, with no
- *   misleading Undo action or extra confirmation dialog.
+ * Two undo shapes, because the backend reverses only some edits:
+ * - Whole-policy assign/revoke and direct-permission grant/revoke are
+ *   reversible calls, so they toggle instantly with a real Undo toast.
+ * - Revoking one action from a still-assigned policy (revokePolicyActionApi)
+ *   has no inverse endpoint (re-assigning the policy would restore every
+ *   other revoked action too), so it is a one-way toggle with no Undo.
  */
 export function useUserAccessDialogState(
   isOpen: boolean,
@@ -90,8 +79,7 @@ export function useUserAccessDialogState(
   // Reset on every open, adjusted during render (same pattern as the
   // dialogs this replaces): tab starts on whichever tab the row icon that
   // opened the dialog points at (View->Details, Policies->Policies,
-  // Permissions->Permissions), defaulting to Details - matching the first
-  // mockup review's "opened on the last tab" fix.
+  // Permissions->Permissions), defaulting to Details.
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
@@ -110,24 +98,37 @@ export function useUserAccessDialogState(
   // Own row uses the self-service /me endpoints regardless of holding
   // policies:read/permissions:read, same reasoning as the three dialogs
   // this merges (see their docstrings for why).
+  // Need-to-know: someone's policies and permissions are only requested (and
+  // only shown) to a caller who holds the matching read permission. Without
+  // it the tabs and counts are omitted instead of rendering a false "0".
+  const canReadPolicies = useCan(PERMISSIONS.POLICIES_READ);
+  const canReadPermissions = useCan(PERMISSIONS.PERMISSIONS_READ);
+  const canReadCatalog = useCan([
+    PERMISSIONS.PERMISSIONS_READ,
+    PERMISSIONS.POLICIES_CREATE,
+    PERMISSIONS.POLICIES_UPDATE,
+    PERMISSIONS.PERMISSIONS_GRANT,
+  ]);
+  const canSeePolicies = isSelf || canReadPolicies;
+  const canSeePermissions = isSelf || canReadPermissions;
   const managementPoliciesQuery = useUserPoliciesQuery(
     userEmail ?? "",
-    isOpen && !!userEmail && !isSelf,
+    isOpen && !!userEmail && !isSelf && canReadPolicies,
   );
   const myPoliciesQuery = useMyPoliciesQuery(isOpen && isSelf);
   const userPoliciesQuery = isSelf ? myPoliciesQuery : managementPoliciesQuery;
 
   const managementPermissionsQuery = useUserPermissionsQuery(
     userEmail ?? "",
-    isOpen && !!userEmail && !isSelf,
+    isOpen && !!userEmail && !isSelf && canReadPermissions,
   );
   const myPermissionsQuery = useMyPermissionsQuery(isOpen && isSelf);
   const userPermissionsQuery = isSelf
     ? myPermissionsQuery
     : managementPermissionsQuery;
 
-  const allPoliciesQuery = usePoliciesQuery(isOpen);
-  const catalogQuery = usePermissionCatalogQuery(isOpen);
+  const allPoliciesQuery = usePoliciesQuery(isOpen && canReadPolicies);
+  const catalogQuery = usePermissionCatalogQuery(isOpen && canReadCatalog);
 
   // "Recent access changes" (Details tab): own row uses /me (no permission
   // required, same self-service reasoning as the policies/permissions
@@ -250,6 +251,8 @@ export function useUserAccessDialogState(
   return {
     t,
     isSelf,
+    canSeePolicies,
+    canSeePermissions,
     tab,
     setTab,
     polQuery,

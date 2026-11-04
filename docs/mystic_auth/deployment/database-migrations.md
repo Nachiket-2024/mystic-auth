@@ -3,6 +3,22 @@
 
 *New to a term here? See the [Infrastructure Glossary](../glossary/infrastructure.md).*
 
+Startup order in the production-shaped Compose files:
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart LR
+    PG["postgres\n(healthy)"] --> AL["alembic\nupgrade head, then exits"]
+    AL -- "service_completed_successfully" --> BE["backend"]
+    AL -- "service_completed_successfully" --> WK["procrastinate_worker"]
+    AL -- "service_completed_successfully" --> BK["db_backup"]
+    BE --> FE["frontend / proxy"]
+
+    class BE,FE,WK,BK terminal
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
+
 ## Database migrations
 ---
 
@@ -38,6 +54,33 @@ The Compose files now use PostgreSQL 18. PostgreSQL data directories are not
 portable across major versions: do not start the PostgreSQL 18 image against a
 volume initialized by PostgreSQL 15, and do not remove the old volume as part
 of the upgrade. This is a dump-and-restore migration, separate from Alembic.
+
+Overview of the upgrade, with the old stack kept until acceptance:
+
+```mermaid
+%%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
+flowchart TD
+    A["Old PG 15 stack:\nencrypted dumps of app + bugsink"]
+    B["Restore drill on the old stack,\ncopy dumps + .hmac off-host"]
+    C["New unique COMPOSE_PROJECT_NAME\n(new postgres_data volume)"]
+    D["Start only postgres (PG 18),\nrestore both dumps"]
+    E["Restore drill on the new project,\nthen start the full stack"]
+    F{"Readiness, frontend, worker\nand smoke checks pass?"}
+    G["Direct traffic to the new stack,\nkeep the old volume until accepted"]
+    H["Stay on the old stack,\nfix and repeat"]
+
+    A --> B --> C --> D --> E --> F
+    F -- "yes" --> G
+    F -- "no" --> H
+
+    class F decision
+    class H caution
+    class G terminal
+    classDef decision fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a
+    classDef caution fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef terminal fill:#dcfce7,stroke:#16a34a,color:#14532d
+    linkStyle default stroke:#334155,stroke-width:2px
+```
 
 Before changing a deployment:
 

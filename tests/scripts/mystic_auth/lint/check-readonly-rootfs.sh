@@ -1,19 +1,15 @@
 #!/usr/bin/env bash
-# Regression guard for production-shaped Compose services that should run
-# with a read-only root filesystem.
+# Regression guard: production-shaped Compose services must run with a read-only
+# root filesystem.
 #
-# Intentionally NOT required here: ngrok, cloudflared, tailscale, and caddy.
-# Each is a third-party vendor image whose internal entrypoint writes to
-# paths this repo doesn't control (ngrok rewrites its own config file into
-# /var/lib/ngrok on every start - verified live: tmpfs-mounting that
-# directory erases the image's baked-in default config and the container
-# restart-loops), and cloudflared/tailscale/caddy need real provider
-# credentials this session didn't have to test live. See each service's own
+# Not required here: ngrok, cloudflared, tailscale and caddy. They are vendor
+# images whose entrypoints write to paths this repo does not control (ngrok
+# rewrites its config under /var/lib/ngrok on every start, and a tmpfs there
+# erases the baked-in default and restart-loops it). See each service's own
 # comment in its compose file.
 #
 # Usage: tests/scripts/mystic_auth/lint/check-readonly-rootfs.sh
-# Exit 0: every required service has read_only: true. Exit 1: one or more
-# don't, listed.
+# Exit 0: every required service has read_only: true. Exit 1: some do not, listed.
 #
 # Scoped to the local-prod-*/prod compose files only: docker-compose.dev.yml
 # bind-mounts live source into these same containers for hot-reload (npm

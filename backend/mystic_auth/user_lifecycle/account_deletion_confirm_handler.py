@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.security.login_protection_service import login_protection_service
 from ..auth.token_logic.token_cookie_handler import token_cookie_handler
 from ..logging.logging_config import get_logger
+from ..valkey.key_names import email_key_id
 from .account_deletion_service import account_deletion_service
 
 logger = get_logger(__name__)
@@ -33,7 +34,7 @@ class AccountDeletionConfirmHandler:
 
             if not payload or "email" not in payload:
                 return JSONResponse(
-                    {"error": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_DELETE_TOKEN"},
+                    {"detail": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_DELETE_TOKEN"},
                     status_code=400,
                 )
 
@@ -44,11 +45,11 @@ class AccountDeletionConfirmHandler:
             # failures unrelated to a real login attempt (a stale/reused
             # deletion link) trip an unrelated lockout for the same email.
             # Same reasoning as password_reset_confirm_handler.
-            email_lock_key = f"account_delete_confirm_lock:email:{email}"
+            email_lock_key = f"account_delete_confirm_lock:email:{email_key_id(email)}"
 
             if not await self.login_protection_service.begin_protected_action(email_lock_key):
                 return JSONResponse(
-                    {"error": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
+                    {"detail": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
                     status_code=429,
                 )
 
@@ -59,11 +60,11 @@ class AccountDeletionConfirmHandler:
                 if not success:
                     if await self.login_protection_service.is_locked(email_lock_key):
                         return JSONResponse(
-                            {"error": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
+                            {"detail": "Too many failed attempts, temporarily locked", "code": "ACCOUNT_LOCKED"},
                             status_code=429,
                         )
                     return JSONResponse(
-                        {"error": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_DELETE_TOKEN"},
+                        {"detail": "Invalid or expired token", "code": "INVALID_OR_EXPIRED_DELETE_TOKEN"},
                         status_code=400,
                     )
 
@@ -75,7 +76,7 @@ class AccountDeletionConfirmHandler:
 
         except Exception:
             logger.error("Error during account deletion confirm logic:\n%s", traceback.format_exc())
-            return JSONResponse({"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500)
+            return JSONResponse({"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"}, status_code=500)
 
 
 account_deletion_confirm_handler = AccountDeletionConfirmHandler()

@@ -18,7 +18,7 @@ day-to-day workflow.
 | `valkey` | `valkey/valkey:9.1.2-alpine` | Cache, rate limits, lockout counters, cached account/chain version counters |
 | `backend` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` | FastAPI app (uvicorn) |
 | `frontend` | `docker/mystic_auth/dockerfiles/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
-| `procrastinate_worker` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes email and audit-log jobs and runs the scheduled account-purge, audit-retention, session-cleanup, refresh-claim-cleanup, and lifecycle-reconciliation jobs (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
+| `procrastinate_worker` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes email and audit-log jobs and runs the scheduled account-purge, audit-retention, session-cleanup, refresh-claim-cleanup, passkey-challenge-cleanup, and lifecycle-reconciliation jobs (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
 | `alembic` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend` and `procrastinate_worker` wait on its success |
 | `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring that starts by default with the stack. See [Error Monitoring](../error-monitoring/overview.md) |
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy. It creates the "MysticAuth" team/project idempotently and writes seeded DSNs into the `bugsink_dsn` volume. Locally, both backend and frontend DSN forms are written and read at startup. In prod, only the backend form is written because `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time |
@@ -26,7 +26,17 @@ day-to-day workflow.
 | `tailscale` | Pulled, not built | Optional provider-specific local-prod tunnel. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want) for its limits. |
 | `ngrok` | `docker/mystic_auth/dockerfiles/ngrok.Dockerfile` (the official `ngrok/ngrok` image's statically-linked binary, copied onto bare `scratch` - no OS, no shell) | The `local-prod-ngrok` tunnel. Same proxy role as `cloudflared`/`tailscale` above, built instead of pulled directly because the vendor's own debian/alpine images carry a large, mostly-unused OS package set the agent binary never touches |
 | `geoipupdate` | Pinned `ghcr.io/maxmind/geoipupdate` image (pulled, not built) | Optional, off by default (`geoip` Compose profile): keeps `backend`'s GeoLite2-City `.mmdb` file current when valid MaxMind credentials are configured. See [Session Geolocation](../geolocation/overview.md) |
-| `db_backup` | `docker/mystic_auth/dockerfiles/db-backup.Dockerfile` | On by default in every production-style Compose file: dumps both databases to `./backups` on a loop. Its dump/upload loop runs as UID/GID 10001 after a short root-owned bind-mount normalization step. See [Deployment Guide: Backups](../deployment/migrations-and-backups.md) |
+| `db_backup` | `docker/mystic_auth/dockerfiles/db-backup.Dockerfile` | On by default in every production-style Compose file: dumps both databases to `./backups` on a loop. Its dump/upload loop runs as UID/GID 10001 after a short root-owned bind-mount normalization step. See [Database Backups](../deployment/database-backups.md) |
+
+
+## Windows PowerShell scripts
+
+Every shell script under `scripts/mystic_auth/` and `local-scripts/mystic_auth/` has a `.ps1`
+twin beside it with the same name and behavior, so the stack can be started and maintained from
+native Windows PowerShell. The exception is `scripts/mystic_auth/upstream-sync/`, whose three
+stage scripts (`sync-upstream-review.sh`, `sync-upstream-apply.sh`, `sync-upstream-finalize.sh`)
+are run through the Bash entry point and its Windows wrapper. `ci/mystic_auth/tooling.ps1` checks
+the PowerShell side; see [Local Validation](../cicd/local-validation.md#tooling-and-windows-powershell).
 
 ---
 
@@ -38,10 +48,9 @@ across all three roles.
 The `postgres` service mounts `docker/mystic_auth/postgres-init/` to
 `/var/lib/postgres/initdb/` - Chainguard's postgres image uses this path
 for first-boot init scripts, not the official image's
-`/docker-entrypoint-initdb.d/` (confirmed by reading its own
+`/docker-entrypoint-initdb.d/` (per its own
 `/usr/bin/docker-entrypoint.sh`; mounting at the official path silently
-runs nothing, which showed up as Bugsink failing to find its database on
-first boot). On a fresh volume, the script creates the separate `bugsink`
+runs nothing, and Bugsink then fails to find its database on first boot). On a fresh volume, the script creates the separate `bugsink`
 database, so Bugsink does not need a second Postgres container.
 
 Production-style Compose modes isolate Postgres and Valkey on separate

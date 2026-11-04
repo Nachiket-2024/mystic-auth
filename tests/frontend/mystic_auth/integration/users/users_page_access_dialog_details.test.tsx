@@ -9,8 +9,7 @@ import { mock, seed, renderPage, SAMPLE_USERS } from "./userAccessDialogTestSupp
 // Details tab and cross-tab keyboard navigation for the unified per-user
 // Access dialog. Policies-tab and Permissions-tab coverage live in their own
 // sibling files (users_page_access_dialog_policies.test.tsx /
-// users_page_access_dialog_permissions.test.tsx) - split out of one 715-line
-// file to keep each under the repo's ~350-line target, see AGENTS.md.
+// users_page_access_dialog_permissions.test.tsx).
 
 describe("UsersPage access dialog: details tab", () => {
   beforeEach(() => {
@@ -20,8 +19,8 @@ describe("UsersPage access dialog: details tab", () => {
   afterEach(async () => {
     // toaster is a module-level singleton that outlives each test's render
     // tree; clear it so a leftover toast (every instant toggle creates one)
-    // can't leak into the next test - see policies_page.test.tsx's identical
-    // cleanup.
+    // can't leak into the next test - same cleanup as in
+    // the policies page tests.
     await act(async () => {
       toaster.remove();
     });
@@ -47,7 +46,7 @@ describe("UsersPage access dialog: details tab", () => {
   });
 
   it("supports keyboard navigation across User Access tabs", async () => {
-    seed(["users:list_all"]);
+    seed(["users:list_all", "policies:read", "permissions:read"]);
     mock.onGet("/users/").reply(200, SAMPLE_USERS);
 
     renderPage();

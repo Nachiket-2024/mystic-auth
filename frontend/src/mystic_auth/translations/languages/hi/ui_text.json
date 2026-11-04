@@ -32,8 +32,6 @@
     },
     "filterLabel": "फ़िल्टर: {{label}}",
     "selectedCount": "{{count}} चयनित",
-    "bulkUsersSelected": "{{count}} उपयोगकर्ता चुने गए",
-    "bulkOperation": "सामूहिक कार्रवाई",
     "clearSelection": "चयन साफ़ करें",
     "selectAllRows": "सभी पंक्तियां चुनें",
     "openRow": "पंक्ति का विवरण खोलें",

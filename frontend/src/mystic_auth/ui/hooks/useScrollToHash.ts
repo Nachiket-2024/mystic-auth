@@ -2,16 +2,13 @@ import { useEffect } from "react";
 import { useLocation } from "react-router";
 
 /**
- * Scrolls the element whose `id` matches the current URL's `#hash` into
- * view once it exists in the DOM. Mounted once in AppLayout so every page
- * gets this for free - CommandPalette's content search can use it to land
- * on a specific in-page section via an extraSearchItems entry's `#hash`
- * destination (none of the built-in SEARCH_ITEMS need it right now; every
- * built-in destination is a whole tab/page instead).
+ * Scrolls the element whose `id` matches the current URL's `#hash` into view
+ * once it exists. Mounted once in AppLayout; CommandPalette's content search
+ * uses it to land on an in-page section via an extraSearchItems `#hash`
+ * (no built-in item needs it today).
  *
- * Retries briefly instead of running once: the target can still be mounting
- * (a lazy-loaded route chunk, a loading skeleton) when this effect first
- * runs, so a single `getElementById` right after navigation often finds nothing.
+ * Retries briefly, since the target may still be mounting (lazy route chunk,
+ * loading skeleton) when the effect first runs.
  */
 export function useScrollToHash() {
     const { hash } = useLocation();

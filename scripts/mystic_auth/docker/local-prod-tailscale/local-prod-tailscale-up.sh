@@ -23,7 +23,26 @@ scripts/mystic_auth/env-tools/check-env/check-env.sh \
   env/mystic_auth/.env.local-prod-tailscale \
   env/app/.env.local-prod-tailscale
 
+# GeoIP is opt-in. When this env requests it, include the Compose profile
+# automatically so the updater provisions the shared database before
+# readiness is checked - a configured path without the profile leaves
+# /health/ready reporting "error" forever (see docs/mystic_auth/geolocation/overview.md).
+PROFILE_ARGS=()
+if awk -F= '$1 == "GEOIP_DB_PATH" && $2 != "" { found=1 } END { exit !found }' env/mystic_auth/.env.local-prod-tailscale; then
+  if ! awk -F= '
+    $1 == "GEOIPUPDATE_ACCOUNT_ID" && $2 != "" { account=1 }
+    $1 == "GEOIPUPDATE_LICENSE_KEY" && $2 != "" { license=1 }
+    END { exit !(account && license) }
+  ' env/mystic_auth/.env.local-prod-tailscale; then
+    echo "ERROR: GEOIP_DB_PATH is set in env/mystic_auth/.env.local-prod-tailscale, but GEOIPUPDATE_ACCOUNT_ID and GEOIPUPDATE_LICENSE_KEY are both required for the GeoIP updater." >&2
+    echo "Set both MaxMind credentials or clear GEOIP_DB_PATH before running this script." >&2
+    exit 1
+  fi
+  PROFILE_ARGS=(--profile geoip)
+fi
+
 exec docker compose \
+  "${PROFILE_ARGS[@]}" \
   -f docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml \
   -f docker/app/compose/docker-compose.local-prod-tailscale.yml \
   --env-file env/mystic_auth/.env.local-prod-tailscale \

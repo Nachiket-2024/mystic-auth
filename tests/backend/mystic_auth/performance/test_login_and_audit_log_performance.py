@@ -38,7 +38,7 @@ _SECURITY_AUDIT_READ_POLICIES = [SELF_SERVICE_POLICY_NAME, USER_MANAGEMENT_POLIC
 
 
 @pytest.mark.asyncio
-async def test_concurrent_logins_stay_fast(client):
+async def test_concurrent_logins_stay_fast(open_hash_gate, client):
     """N distinct users logging in at once must not serialize on a shared
     resource (DB connection pool, password hashing threadpool): total
     wall time for all of them in parallel should stay close to one

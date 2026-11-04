@@ -13,7 +13,7 @@ This doc covers the Manage Sessions feature across backend, frontend, database, 
 | Layer | Files | Responsibility |
 |---|---|---|
 | Routes | `backend/mystic_auth/api/auth_routes/auth_routes.py` | Mounts `GET /auth/sessions` and `DELETE /auth/sessions/{session_id}` under the auth router |
-| Handlers | `backend/mystic_auth/auth/manage_sessions/` | Builds response rows, computes `is_current`, rejects self-revoke, maps missing/foreign/revoked sessions to `404` |
+| Handlers | `backend/mystic_auth/user_session/` | Builds response rows, computes `is_current`, rejects self-revoke, maps missing/foreign/revoked sessions to `404` |
 | Persistence mirror | `backend/mystic_auth/user_session/` | Stores one row per visible login session and updates it when refresh tokens rotate; normal revocation deletes the mirror row |
 | Geolocation | `backend/mystic_auth/user_session/session_geolocation.py` | Best-effort city/country lookup for a login IP, via a local MaxMind GeoLite2-City `.mmdb` file |
 | Token authority | `backend/mystic_auth/auth/token_logic/jwt_service.py` and `auth/refresh_token_logic/refresh_token_service.py` | Postgres-backed version counters (`account_ver`, `chain_ver`) and consumed-refresh-token claims, reuse detection |

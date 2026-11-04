@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
+import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import { Fingerprint } from "lucide-react";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 
 import { useLoginMutation } from "./useLoginMutation";
+import { usePasskeyLoginMutation } from "./usePasskeyLoginMutation";
 import FormAlert from "../../ui/feedback/FormAlert";
 import PasswordInput from "../../ui/inputs/PasswordInput";
 import AuthInlineLink from "../../ui/links/AuthInlineLink";
@@ -16,8 +19,7 @@ interface LoginFormProps {
     onAttempt?: () => void;
 }
 
-// mm:ss for the lockout countdown ("Try again in 14:52"), matching
-// design/auth.html. Minutes can exceed 59 (a long lockout), so this isn't
+// mm:ss for the lockout countdown ("Try again in 14:52"). Minutes can exceed 59 (a long lockout), so this isn't
 // clamped to a fixed two digits.
 function formatMinutesSeconds(totalSeconds: number): string {
     const minutes = Math.floor(totalSeconds / 60);
@@ -36,6 +38,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
     const errorPanelRef = useRef<HTMLDivElement>(null);
 
     const loginMutation = useLoginMutation();
+    const passkeyMutation = usePasskeyLoginMutation();
     const cause = loginMutation.error?.cause;
     const isRetryableError = loginMutation.isError && axios.isAxiosError(cause) &&
         (!cause.response || cause.response.status >= 500);
@@ -45,6 +48,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
             onSuccess();
         }
     }, [loginMutation.isSuccess, onSuccess]);
+
+    useEffect(() => {
+        if (passkeyMutation.isSuccess && onSuccess) onSuccess();
+    }, [passkeyMutation.isSuccess, onSuccess]);
 
     useEffect(() => {
         if (!loginMutation.isError) return;
@@ -164,6 +171,18 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, onAttempt }) => {
                         ? t("login.retryButton")
                         : t("login.submitButton")}
             </Button>
+            {browserSupportsWebAuthn() && (
+                <>
+                    <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                        <span className="h-px flex-1 bg-border-default" />{t("loginPage.or")}<span className="h-px flex-1 bg-border-default" />
+                    </div>
+                    {passkeyMutation.isError && <FormAlert status="error">{passkeyMutation.error.message}</FormAlert>}
+                    <Button type="button" variant="secondary" size="lg" className="w-full"
+                        loading={passkeyMutation.isPending} onClick={() => { onAttempt?.(); passkeyMutation.mutate(); }}>
+                        <Fingerprint size={18} aria-hidden="true" />{t("login.usePasskey")}
+                    </Button>
+                </>
+            )}
         </form>
     );
 };

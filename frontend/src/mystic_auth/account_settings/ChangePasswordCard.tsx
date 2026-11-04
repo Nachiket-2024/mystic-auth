@@ -29,10 +29,8 @@ interface ChangePasswordCardProps {
  * change never shows a loading spinner or a stale error on the unrelated
  * name card, and vice versa.
  *
- * Also owns the read-only Set/Not set status badge. It used to live on the
- * Account Status tab, but that's authorization info, and whether a password
- * is set is a password concern, not an authorization one. Living here also
- * puts the badge right next to the form that would change it.
+ * Also owns the read-only Set/Not set status badge: whether a password is set
+ * is a password concern, and it sits next to the form that would change it.
  */
 const ChangePasswordCard: React.FC<ChangePasswordCardProps> = ({ hasPassword, onDirtyChange }) => {
     const { t } = useTranslation("account_settings");

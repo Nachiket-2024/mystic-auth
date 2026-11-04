@@ -16,19 +16,14 @@ import { generateBrandScale, contrastRatio } from "../theme/generateBrandScale";
 import { deriveCanvasFrom } from "../theme/appearanceThemeOverrides";
 import { BRAND_COLOR as DEFAULT_BRAND_COLOR } from "../core/settings";
 
-// Quick-pick presets shown under the color input (design/account-settings.html's
-// "Suggested (all readable)" swatch row): a curated spread of hues, each
-// already passing the same white-text contrast check as a hand-typed hex
-// (see brandLowContrast below), so every swatch here is a safe one-click
-// pick - every entry here must pass contrastRatio(generateBrandScale(hex)["600"],
-// "#ffffff") >= 3, the same check the manual hex field is held to. Stock
-// Tailwind teal-600/green-600 fail that (contrast ~2.3-2.6, generateBrandScale
-// only carries a swatch's hue/saturation into the 600 step, not its
-// lightness, so a vivid teal/green stays too light at l:44% to clear 3:1);
-// #2d6876/#2f7448 are hand-desaturated equivalents that pass with margin
-// (~3.3-3.7). Not an exhaustive palette - just enough variety (warm default,
-// cool blues/violets, a couple of warm accents, and a neutral) to cover most
-// tastes without turning this into a full color picker.
+// Quick-pick presets under the color input ("Suggested (all readable)"): a
+// curated spread of hues, each passing the same white-text contrast check as a
+// hand-typed hex (brandLowContrast below), i.e.
+// contrastRatio(generateBrandScale(hex)["600"], "#ffffff") >= 3. Stock Tailwind
+// teal-600/green-600 fail it (generateBrandScale keeps only a swatch's hue and
+// saturation, so vivid teal/green stays too light at the 600 step);
+// #2d6876/#2f7448 are hand-desaturated equivalents that pass. Not an exhaustive
+// palette, just enough variety to cover most tastes.
 const SUGGESTED_BRAND_COLORS = [
     DEFAULT_BRAND_COLOR,
     "#2563eb",

@@ -23,12 +23,14 @@ with the sequence of each path made explicit.
 | Soft-delete mechanics | `backend/mystic_auth/user/user_crud_modules/user_lifecycle_crud.py` | `soft_delete`, `reactivate`, `get_deleted_before(cutoff)` |
 | Scheduled job | `backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py` | Daily 03:00 UTC purge of accounts past their grace period |
 
-| Frontend | `frontend/src/mystic_auth/account_settings/DeleteAccountCard.tsx`, `confirm_delete/ConfirmDeleteAccountPage.tsx` | Delete UI, password re-confirm, "check your email" state, the public `/confirm-delete` landing page |
+| Frontend | `frontend/src/mystic_auth/account_deletion/DeleteAccountCard.tsx`, `account_deletion/ConfirmDeleteAccountPage.tsx` | Delete UI, password re-confirm, "check your email" state, the public `/confirm-delete` landing page |
 | Tests | `tests/backend/mystic_auth/integration/user/`, `tests/backend/mystic_auth/unit/user_lifecycle/`, matching frontend suites under `tests/frontend/mystic_auth/` | End-to-end and unit coverage for every path below |
 
 Each soft-delete, reactivation, and purge also queues a generic downstream
-account-lifecycle event. Purge anonymizes historical audit identity fields
-before writing the surviving `account_purged` event. See [Background Email Delivery: downstream lifecycle
+account-lifecycle event. Purge writes the `account_purged` event; the
+account's prior audit history is left exactly as written, never anonymized
+(see [Security Decisions: Infrastructure](../../security/decisions-infra.md#account-deletion-never-anonymizes-the-audit-trail)
+for why). See [Background Email Delivery: downstream lifecycle
 extensions](../../background-workers/procrastinate.md#downstream-task-and-worker-extensions)
 for the event contract and retry behavior.
 

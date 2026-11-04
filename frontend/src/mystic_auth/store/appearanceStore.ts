@@ -6,7 +6,7 @@ interface AppearanceState {
     /** null = using the app default scale (app/theme.ts). */
     brandColor: string | null;
     /** Applies immediately (favicon/meta + localStorage cache). The brand scale and
-     * background CSS react automatically since AppearanceThemeProvider.tsx subscribes
+     * background CSS react automatically since theme/applyBrandCssVars.ts subscribes
      * to this store directly. See AppearanceCard.tsx for the save step, and
      * useCurrentUserQuery.ts's useAuthSession for applying the server's value. */
     setBrandColor: (hex: string | null) => void;

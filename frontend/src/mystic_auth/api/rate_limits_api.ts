@@ -7,6 +7,8 @@ export interface RateLimitEntry {
     // failure counter, distinct from the generic "account" request limit.
     scope: "ip" | "account" | "email" | "account_ip";
     identifier: string;
+    // Email (or "email from IP") when the server could match a digest-keyed counter to an account.
+    identifier_label?: string | null;
     count: number;
     limit: number;
     resets_in_seconds: number | null;
@@ -16,7 +18,7 @@ export interface RateLimitPage {
     entries: RateLimitEntry[];
     total: number;
     // The keyspace walk backing this page hit its cap (see rate_limiter_
-    // service.py's MAX_SCANNED_KEYS) before reaching the end: `total`, and
+    // rate_limit_dashboard_service.py's MAX_SCANNED_KEYS) before reaching the end: `total`, and
     // any page count derived from it, is a floor, not an exact count.
     truncated: boolean;
 }

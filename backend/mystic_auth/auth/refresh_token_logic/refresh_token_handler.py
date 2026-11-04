@@ -10,10 +10,11 @@ from ...auth.security.rate_limiting.rate_limiter_service import rate_limiter_ser
 from ...auth.token_logic.jwt_service import jwt_service
 from ...core.errors import AppError
 from ...logging.logging_config import get_logger
+from ...valkey.key_names import email_key_id
 
 # Resolves the real client IP, honoring X-Forwarded-For only from a configured
 # trusted reverse proxy (see auth/security/client_ip.py).
-from ..security.client_ip import get_client_ip
+from ..security.client_ip import get_client_ip, ip_bucket
 from ..token_logic.token_cookie_handler import token_cookie_handler
 from ..token_logic.token_schema import TokenPairResponseSchema
 
@@ -47,31 +48,24 @@ class RefreshTokenHandler:
             # not, count towards the 5-attempt lockout threshold: a handful of
             # legitimate token rotations from one IP could trip "too many failed
             # attempts" with zero actual failures.
-            rate_key = f"refresh:ratelimit:ip:{client_ip}"
-            lock_key = f"refresh:lockout:ip:{client_ip}"
+            rate_key = f"refresh:ratelimit:ip:{ip_bucket(client_ip)}"
+            lock_key = f"refresh:lockout:ip:{ip_bucket(client_ip)}"
 
-            # Account-level lockout dimension for token replay, independent
-            # from login_lock:account_ip:* on the login flow.
-            # Without this, the IP-keyed lock_key above is the only backstop:
-            # a leaked/stolen refresh token replayed from many different IPs
-            # (a botnet, rotating proxies, a mobile connection that changes
-            # IP) never accumulates enough failures on any single IP key to
-            # lock out, while two unrelated accounts sharing one IP (same
-            # office network/NAT) can lock each other out of refresh through
-            # no fault of their own. decode_payload does signature+expiry
-            # checks only, deliberately skipping the revocation check (same
-            # reason jwt_service.decode_payload exists for reuse-detection
-            # below this handler's own call chain) - a stolen-but-still-
-            # correctly-signed token still yields its account email even
-            # once revoked/stale, which is exactly the token this dimension
-            # needs to catch. A token that fails signature verification
-            # entirely (a guess, not a leaked real token) yields no email;
-            # the IP-keyed lock above already covers that case.
+            # Account-level lockout dimension for token replay, independent from
+            # login_lock:account_ip:* on the login flow. The IP-keyed lock_key
+            # above alone fails twice: a stolen token replayed from many IPs never
+            # accumulates failures on one IP key, and unrelated accounts behind
+            # one NAT can lock each other out.
+            # decode_payload checks signature and expiry only, skipping the
+            # revocation check (as jwt_service.decode_payload does for reuse
+            # detection), so a revoked or stale but correctly signed token still
+            # yields its email. A token that fails signature verification yields
+            # none, and the IP-keyed lock covers that case.
             account_lock_key: str | None = None
             payload = await jwt_service.decode_payload(refresh_token)
             email = payload.get("email") if payload else None
             if email:
-                account_lock_key = f"refresh:lockout:account:{email}"
+                account_lock_key = f"refresh:lockout:account:{email_key_id(email)}"
 
             allowed = await rate_limiter_service.record_request(rate_key)
             if not allowed:

@@ -20,6 +20,7 @@
     "POLICY_MUST_BE_INACTIVE_TO_DELETE": "धोरण '{{policyName}}' हटवण्यापूर्वी ते निष्क्रिय करा",
     "INSUFFICIENT_PERMISSIONS": "हे कार्य करण्याची तुम्हाला परवानगी नाही",
     "CANNOT_GRANT_UNHELD_ACTION": "'{{action}}' अधिकार देता येणार नाही: तो तुमच्याकडे स्वतःकडे नाही",
+    "SERVICE_UNAVAILABLE": "सेवा काही वेळासाठी उपलब्ध नाही. कृपया काही सेकंदांनी पुन्हा प्रयत्न करा",
     "DATABASE_ERROR": "डेटाबेस त्रुटी आली. कृपया पुन्हा प्रयत्न करा",
     "SESSION_NOT_FOUND": "सत्र सापडले नाही",
     "CANNOT_REVOKE_CURRENT_SESSION": "तुमचे सध्याचे सत्र संपवण्यासाठी लॉगआउट वापरा",
@@ -54,5 +55,8 @@
     "OAUTH_LOGIN_FAILED": "आम्ही तुम्हाला Google द्वारे साइन इन करू शकलो नाही. कृपया पुन्हा प्रयत्न करा",
     "OAUTH_STATE_INVALID": "तुमचा साइन-इन प्रयत्न कालबाह्य झाला किंवा त्याची पडताळणी होऊ शकली नाही. कृपया पुन्हा प्रयत्न करा",
     "OAUTH_EMAIL_NOT_VERIFIED": "तुमच्या Google खात्याचा ईमेल पत्ता पडताळलेला नाही. कृपया तो Google सोबत पडताळून पुन्हा प्रयत्न करा",
-    "OAUTH_CANCELLED": "Google सह साइन-इन रद्द करण्यात आले"
+    "OAUTH_CANCELLED": "Google सह साइन-इन रद्द करण्यात आले",
+    "PASSKEY_STEP_UP_REQUIRED": "पासकी बदलण्यासाठी तुमची ओळख निश्चित करा",
+    "PASSKEY_STEP_UP_FAILED": "Google पुष्टी या खात्याशी जुळली नाही. ज्या Google खात्याने साइन अप केले तेच वापरा",
+    "PASSKEY_STEP_UP_PASSWORD_UNAVAILABLE": "या खात्यात पासवर्ड नाही. त्याऐवजी पासकीने खात्री करा"
 }

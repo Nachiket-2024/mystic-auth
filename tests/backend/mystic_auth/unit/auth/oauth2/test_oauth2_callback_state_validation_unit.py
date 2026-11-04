@@ -186,9 +186,8 @@ async def test_callback_rejects_missing_email_verified_field(mocker):
 
 
 # ---------------------------- audit trail on state/cookie rejections ----------------------------
-# Regression guard for audit finding claude_code-2026-10-21-F-007: a state
-# rejection used to be a WARNING-level application log line only, invisible
-# in both the audit-log UI and Bugsink. Both rejection branches must now
+# Regression guard: a state rejection must not be only a WARNING log line
+# (invisible in the audit-log UI and Bugsink). Both rejection branches must
 # write a durable audit row (user_email=None, since no identity is known
 # yet) and fire the same real-time alert path refresh-token reuse uses.
 

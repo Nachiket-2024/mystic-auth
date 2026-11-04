@@ -31,7 +31,7 @@ interface StyledSelectProps {
      * "Loading..." placeholder instead of rendering a briefly-empty list. */
     isLoading?: boolean;
     /** True when `value` is off the filter bar's own "All"/default option -
-     * design/users.html's `.fsel.is-set`. The caller (not this component)
+     * (shown as the "set" state). The caller (not this component)
      * knows what its own default value is, so it passes the comparison
      * result rather than this component guessing from `value` alone. Adds a
      * brand tint/border so a set filter is visible at a glance instead of
@@ -72,20 +72,12 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
     return (
         <AppTooltip content={title}>
             <SelectPrimitive.Root
-                // Remounts once real options first arrive (server-backed
-                // filter lists start at options=[] while loading). Radix's
-                // internal hidden bubble-input syncs its native <select>'s
-                // value in an effect that runs against whatever options are
-                // registered at that instant - if `value` arrives correctly
-                // set (e.g. from a policy being edited) but the matching
-                // <Item>/<option> hasn't registered yet because options
-                // populated one render later, the browser's native select
-                // finds no matching <option>, silently resets to "", and
-                // Radix reads that back as a real onValueChange(""), wiping
-                // out the caller's value. Keying on whether options exist
-                // yet forces a fresh mount once they do, so the bubble
-                // input's native options are correct from its very first
-                // render instead of racing a stale, empty set.
+                // Remounts once real options first arrive (server-backed lists start
+                // empty). Radix's hidden native <select> syncs its value against the
+                // options registered at that instant; if `value` is set before its
+                // <option> exists, the browser resets it to "" and Radix reports a
+                // real onValueChange(""), wiping the caller's value. Keying on whether
+                // options exist forces a fresh mount with correct native options.
                 key={options.length > 0 ? "loaded" : "loading"}
                 value={radixValue}
                 onValueChange={(next) => onChange(fromRadixValue(next))}
@@ -117,7 +109,7 @@ const StyledSelect: React.FC<StyledSelectProps> = ({
                     aria-label={ariaLabel}
                     className={cn(
                         // Same brand-tinted chip look as every other icon/filter
-                        // control (design/dashboard.html's .search-box/.icon-btn):
+                        // control:
                         // border-strong at rest, a brand-tinted hover instead of a
                         // plain gray one.
                         "flex items-center justify-between gap-2 rounded-[var(--radius-control)] border h-9 px-3 text-sm overflow-hidden transition-colors outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:border-brand-solid focus-visible:ring-[1px] focus-visible:ring-brand-solid",

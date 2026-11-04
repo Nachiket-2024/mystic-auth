@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/shadcn/tabs";
 import {
     FileText,
+    Fingerprint,
     KeyRound,
     Palette,
     Settings,
@@ -21,7 +22,8 @@ import ProfileNameCard from "./ProfileNameCard";
 import ChangePasswordCard from "./ChangePasswordCard";
 import AccountStatusCard from "./AccountStatusCard";
 import AppearanceCard from "./AppearanceCard";
-import DeleteAccountCard from "./DeleteAccountCard";
+import DeleteAccountCard from "../account_deletion/DeleteAccountCard";
+import PasskeysCard from "../passkeys/PasskeysCard";
 import { useUnsavedChangesWarning } from "./useUnsavedChangesWarning";
 import { useAccountSettingsUiStore } from "./accountSettingsUiStore";
 
@@ -67,31 +69,21 @@ const DANGER_TAB_CLASSNAME =
 /**
  * AccountSettingsPage (nav label/route: "Account Settings")
  * ----------------------------
- * Self-service account management: rename your own account, change/set your
- * password, and see your own effective policies. Name and password both go
- * through PUT /users/me, via two independent forms/cards below. Doesn't
- * repeat email/role/member-since since DashboardPage already shows those as
- * read-only context. Session management (ActiveSessionsCard) also lives on
- * DashboardPage now, not here - see that page's docstring. No permission
- * required beyond authentication: this is the self-service surface
- * users:read_own/users:update_own exist for.
+ * Self-service account management: rename the account, change or set the
+ * password, see your own policies. Name and password both go through
+ * PUT /users/me via independent cards. Needs authentication only
+ * (users:read_own/users:update_own). Email, role and member-since are on the
+ * Dashboard, which also owns session management.
  *
- * Composes five independent widgets, each its own tab: ProfileNameCard
- * (name), ChangePasswordCard (password, including whether one is set),
- * AccountStatusCard (read-only policy/permission list), a Legal tab
- * (Privacy Policy/Terms of Service links, the only way to reach either once
- * signed in), and DeleteAccountCard (self-service deletion, DELETE
- * /users/me), kept last since it's destructive. This page only owns what has to live
- * above all of them: a combined unsaved-changes warning, since switching
- * tabs shouldn't discard an in-progress edit on another tab. Radix's
- * TabsContent always unmounts an inactive panel unless `forceMount` is
- * set, and `forceMount` alone would render every tab's content up front
- * (defeating the point). So `visitedTabs` tracks which tabs have been
- * opened at least once; a visited tab renders with `forceMount` and is
- * hidden via a `hidden` class instead of being unmounted - mount on
- * first visit, then keep mounted-but-hidden. DeleteAccountCard is
- * excluded from the dirty tracking: its password field isn't an edit worth
- * warning about losing, and its own ConfirmDialog is warning enough already.
+ * Each card is its own tab: ProfileNameCard, ChangePasswordCard,
+ * AccountStatusCard, a Legal tab (the only place to reach the Privacy Policy
+ * and Terms once signed in) and DeleteAccountCard (last, since destructive).
+ * This page owns the combined unsaved-changes warning. Radix unmounts an
+ * inactive TabsContent, and `forceMount` alone would render every tab up
+ * front, so `visitedTabs` mounts a tab on first visit and then keeps it
+ * mounted but hidden, so switching tabs does not discard an edit.
+ * DeleteAccountCard is excluded from dirty tracking; its own ConfirmDialog
+ * is the warning.
  */
 const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) => {
     const { t } = useTranslation(["account_settings", "layout"]);
@@ -102,26 +94,12 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
     const [passwordDirty, setPasswordDirty] = useState(false);
     useUnsavedChangesWarning(nameDirty || passwordDirty);
 
-    // Precedence: (1) `?tab=` is a one-shot deep-link override - CommandPalette
-    // navigates to e.g. /account-settings?tab=password to land on a specific
-    // tab; `key` below forces Tabs to pick up a new `initialTab` on a fresh
-    // deep link while leaving normal in-page tab clicks (which don't touch
-    // the URL) alone, so manual tab switches still don't lose an
-    // in-progress edit. (2) failing that, accountSettingsUiStore remembers
-    // the tab last open here across in-app navigation away and back (e.g.
-    // Dashboard -> Account Settings should reopen on Appearance, not reset
-    // to Profile). (3) "profile" otherwise.
-    // `deepLinkTab` (not `initialTab` as a whole) is what the below `key`
-    // reacts to. Keying on `initialTab` itself was a bug: initialTab falls
-    // back to storedTab, which handleTabChange updates on every tab
-    // switch - so every click (or arrow-key move) changed storedTab, which
-    // changed initialTab, which changed `key`, remounting the whole Tabs
-    // tree on every switch. That threw focus back to <body> mid-navigation
-    // (breaking roving-tabindex arrow-key support across the tab strip)
-    // and needlessly discarded each TabsContent's forceMount instance.
-    // Keying on deepLinkTab alone still remounts for the one case that
-    // needs it (a fresh `?tab=` navigation while already mounted) without
-    // reacting to storedTab at all.
+    // Initial tab precedence: (1) a one-shot `?tab=` deep link (the command
+    // palette uses it), (2) the tab last open here (accountSettingsUiStore, so
+    // Dashboard -> Account Settings reopens where you left), (3) "profile".
+    // `key` reacts to `deepLinkTab` only, not `initialTab`: keying on
+    // `initialTab` remounted the whole Tabs tree on every tab click (storedTab
+    // feeds it), losing focus and arrow-key navigation.
     const [searchParams] = useSearchParams();
     const deepLinkTab = searchParams.get("tab");
     const storedTab = useAccountSettingsUiStore((s) => s.activeTab);
@@ -140,7 +118,7 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
     return (
         <PageContainer title={t("pageTitle")} icon={Settings} description={t("pageDescription")}>
             <Tabs key={deepLinkTab} defaultValue={initialTab} onValueChange={handleTabChange}>
-                {/* Six built-in tabs (more with extraTabs) don't fit a phone-width
+                {/* Seven built-in tabs (more with extraTabs) don't fit a phone-width
                     viewport at natural size. Without a scroll container, the
                     tab list shrinks each trigger below its own text width instead
                     of wrapping, so labels overlap and become unreadable (same fix
@@ -173,6 +151,7 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                 >
                     <TabsTrigger value="profile" className={SETTINGS_TAB_CLASSNAME}><UserRound size={15} aria-hidden="true" />{t("tabs.profile")}</TabsTrigger>
                     <TabsTrigger value="password" className={SETTINGS_TAB_CLASSNAME}><KeyRound size={15} aria-hidden="true" />{t("tabs.password")}</TabsTrigger>
+                    <TabsTrigger value="passkeys" className={SETTINGS_TAB_CLASSNAME}><Fingerprint size={15} aria-hidden="true" />{t("tabs.passkeys")}</TabsTrigger>
                     <TabsTrigger value="status" className={SETTINGS_TAB_CLASSNAME}><ShieldCheck size={15} aria-hidden="true" />{t("tabs.status")}</TabsTrigger>
                     <TabsTrigger value="appearance" className={SETTINGS_TAB_CLASSNAME}><Palette size={15} aria-hidden="true" />{t("tabs.appearance")}</TabsTrigger>
                     <TabsTrigger value="legal" className={SETTINGS_TAB_CLASSNAME}><FileText size={15} aria-hidden="true" />{t("tabs.legal")}</TabsTrigger>
@@ -204,6 +183,15 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({ extraTabs }) 
                         <div className="max-w-3xl">
                             <ChangePasswordCard hasPassword={hasPassword} onDirtyChange={setPasswordDirty} />
                         </div>
+                    </TabsContent>
+                )}
+
+                {visitedTabs.has("passkeys") && (
+                    <TabsContent value="passkeys" forceMount className={hiddenUnless("passkeys")}>
+                        {/* Full page width, like the Active Sessions table on the dashboard
+                            and the Status tab: a capped card left the table narrower than
+                            the page it sits on. */}
+                        <PasskeysCard hasPassword={hasPassword} />
                     </TabsContent>
                 )}
 

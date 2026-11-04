@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...audit_log.audit_log_service import SIGNUP, log_security_event
+from ...core.errors import AppError
 from ...logging.logging_config import get_logger
 from ..password_logic.password_service import password_service
 from ..verify_account.account_verification_service import account_verification_service
@@ -31,7 +32,7 @@ class SignupHandler:
             if not name or not email or not password:
                 return JSONResponse(
                     content={
-                        "error": "Name, email, and password are required",
+                        "detail": "Name, email, and password are required",
                         "code": "NAME_EMAIL_PASSWORD_REQUIRED",
                     },
                     status_code=400
@@ -44,7 +45,7 @@ class SignupHandler:
             if not await password_service.validate_password_strength(password):
                 return JSONResponse(
                     content={
-                        "error": "Password does not meet minimum strength requirements",
+                        "detail": "Password does not meet minimum strength requirements",
                         "code": "PASSWORD_TOO_WEAK",
                     },
                     status_code=400
@@ -72,10 +73,14 @@ class SignupHandler:
                 status_code=200
             )
 
+        except AppError:
+            # Overload (503 + Retry-After): nothing was created, so do not claim success.
+            raise
+
         except Exception:
             logger.error("Error during signup logic:\n%s", traceback.format_exc())
             return JSONResponse(
-                content={"error": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"},
+                content={"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"},
                 status_code=500
             )
 

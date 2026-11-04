@@ -18,6 +18,8 @@ erDiagram
     policies ||--o{ user_policies : "assigned via"
     policies ||--o{ policy_history : "change log for"
     users ||--o{ user_sessions : "tracked by"
+    users ||--o{ passkey_credentials : "authenticates with"
+    users ||--o{ passkey_challenges : "registers with"
     users ||--o{ user_permissions : "granted directly"
 
     users {
@@ -50,6 +52,20 @@ erDiagram
         string current_jti UK
         string chain_id
         string ip_address
+    }
+    passkey_credentials {
+        int id PK
+        int user_id FK
+        bytes credential_id UK
+        bytes public_key
+        int sign_count
+        string name
+    }
+    passkey_challenges {
+        string challenge PK
+        int user_id FK
+        string purpose
+        timestamp expires_at
     }
     user_permissions {
         int id PK
@@ -92,6 +108,8 @@ The single, unified identity table: password and OAuth2 (Google) accounts share 
 | `is_verified` | bool | Email ownership confirmed (via the verification flow, or implicitly via Google's `email_verified`). |
 | `is_active` | bool | **The single flag every auth check point gates on** (`login_service.py`, `oauth2_service.py`, `current_user_handler.py`). Also what soft delete reuses; see Account Lifecycle below. |
 | `deleted_at` | timestamp, nullable | Soft-delete marker. `NULL` = never deleted. Set by soft delete, cleared by reactivation. |
+| `brand_color` | string(7), nullable | The user's own Appearance pick as a hex color; see [Appearance](../appearance/overview.md). |
+| `last_login_at` | timestamp, nullable | Last successful sign-in; `NULL` for an account that has never signed in. A plain column so the Users page can sort and filter on it. |
 | `created_at` / `updated_at` | timestamp | Server-side, automatic. |
 
 ---
@@ -110,7 +128,7 @@ Many-to-many join between `users` and `policies`: **the only thing that actually
 
 ### `policy_history`
 
-Append-only change log for `policies`: every create/update/delete/rollback writes a row capturing the before/after state. See [../authorization/writing-testing-policies.md](../authorization/writing-testing-policies.md). Not a foreign-key target from anywhere; purely a forward-append audit trail.
+Append-only change log for `policies`: every create/update/delete/rollback writes a row capturing the before/after state. See [../authorization/writing-testing-policies.md](../authorization/writing-testing-policies.md). Columns: `policy_name` (the durable lookup key, which survives the policy row being deleted), `change_type`, `new_definition` (`jsonb`), `changed_fields` (`text[]`) and `changed_by`. Not a foreign-key target from anywhere; purely a forward-append audit trail.
 
 ---
 
@@ -122,26 +140,28 @@ A direct, per-user grant of a single `(action, resource_type)` pair, bypassing `
 
 ### `authorization_audit_log`
 
-One row per `authorize()`/`authorize_with_decision()`/`authorize_batch()` call: every real access decision, allow or deny. `user_email` is a **plain string column, not a foreign key** to `users.id`. This is deliberate: the audit trail must remain intact and queryable even after a user row is purged (hard-deleted). See [../authorization/architecture/README.md](../authorization/architecture/component-responsibilities.md#audit-log) for the full column list.
+Besides the decision itself, each row records `granting_policy_names` (`text[]`, empty when denied) and `failed_conditions` (`jsonb`, why candidate policies did not match). One row per `authorize()`/`authorize_with_decision()`/`authorize_batch()` call: every real access decision, allow or deny. `user_email` is a **plain string column, not a foreign key** to `users.id`. This is deliberate: the audit trail must remain intact and queryable even after a user row is purged (hard-deleted). See [../authorization/architecture/README.md](../authorization/architecture/component-responsibilities.md#audit-log) for the full column list.
 
 ---
 
 ### `security_audit_log`
 
-Separate audit vocabulary from the table above: login/logout/signup/OAuth2/password-reset/lockout/refresh-token-reuse events, plus the account lifecycle events (`account_deleted`/`account_purged`/`account_reactivated`, see below). Also `user_email` as a nullable **snapshot string**, not a foreign key, for the identical reason: this table must survive a purge. See `backend/mystic_auth/audit_log/audit_log_model.py`.
+Separate audit vocabulary from the table above: login/logout/signup/OAuth2/password-reset/lockout/refresh-token-reuse events, plus the account lifecycle events (`account_deleted`/`account_purged`/`account_reactivated`, see below). Rows also carry `user_agent`, `request_id` (the request's correlation id) and `event_metadata` (`jsonb`, stored in a column named `metadata`). Also `user_email` as a nullable **snapshot string**, not a foreign key, for the identical reason: this table must survive a purge. See `backend/mystic_auth/audit_log/audit_log_model.py`.
 
-Purge anonymizes historical security and authorization rows for that account
-before writing the `account_purged` event. Independently, the daily
-`anonymize_expired_audit_log_entries` task removes identifying email, IP, and
-user-agent data from both audit tables after `AUDIT_LOG_RETENTION_DAYS` (400
-days by default); it retains the event record for review. See
-[Background Workers](../background-workers/procrastinate.md#tasks).
+Purge writes the `account_purged` event; the account's prior security and
+authorization rows are left exactly as written, with their original
+email/IP intact, never anonymized. Both tables are append-only for the
+app's own DB role (no `UPDATE`, no `DELETE` on either, enforced at the
+Postgres grant level) specifically so account deletion can never be used
+to erase an account's own audit trail. See
+[Security Decisions: Infrastructure](../security/decisions-infra.md#account-deletion-never-anonymizes-the-audit-trail)
+and [Background Workers](../background-workers/procrastinate.md#tasks).
 
 ---
 
 ### `user_sessions`
 
-One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Postgres (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Postgres-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management/README.md).
+One row per login session, backing the "Manage Sessions" dashboard card. `current_jti` tracks whichever refresh-token `jti` currently represents the session (updated in place on each rotation, since refresh tokens are single-use and rotate their `jti` on every `/auth/refresh` call); `chain_id` is that session's stable identity across every rotation (unchanged, unlike `current_jti`) and what a targeted revoke actually bumps in Postgres (`jwt_service.bump_chain_version`); `id` stays the stable identifier surfaced to and revoked by the client. `city`/`country` are nullable, best-effort geolocation columns, resolved from the login IP at session create/rotate time against a local MaxMind GeoLite2-City database (`user_session/session_geolocation.py`, `GEOIP_DB_PATH` setting) and shown as the dashboard's Location column; a lookup fails open (never blocks login) when the database file is absent or the address can't be resolved, so both columns can be `NULL` even on a real session, same as `ip_address` itself. `user_id` **is** a real foreign key here (`ON DELETE CASCADE`), unlike the two audit tables above: a session has no meaning once its owning user is gone. Deliberately best-effort and independent of the actual Postgres-backed version counters that govern real token validity: this table only mirrors that state for display and for choosing which chain to revoke, so a row here going missing or stale never affects login/refresh correctness. See `backend/mystic_auth/user_session/session_model.py` and [Session Management](../authentication/session-management/README.md). Other columns: `user_agent`, `last_used_at` (set on creation and bumped only by an explicit refresh, never by an `onupdate`, so revoking a session does not look like activity) and `revoked_at` (the revoke marker).
 
 ---
 
@@ -164,6 +184,27 @@ Valkey entries; current cache entries use the same HMAC identifiers. Valkey
 may cache a value, but token checks read PostgreSQL as the authority. See
 `backend/mystic_auth/auth/token_logic/` and
 [Session Management](../authentication/session-management/README.md).
+
+---
+
+### `passkey_credentials` and `passkey_challenges`
+
+`passkey_credentials` stores each account's WebAuthn credential ID, public key, signature counter,
+transport hints (`transports`, `jsonb`), user-chosen label, registration time, and last-use time (`last_used_at`). Credential IDs are unique
+across the deployment. The private key stays with the user's authenticator. Deleting a user cascades
+to their credentials.
+
+`passkey_challenges` stores short-lived registration and authentication challenges so the server
+can bind each response to its purpose and, for registration, its account. Login challenges have no
+user ID because discoverable credentials identify the account from the assertion. Challenges are
+single-use, expire after five minutes, and expired rows are pruned hourly by the scheduled worker task. `passkey_challenges.user_id` is indexed (`ix_passkey_challenges_user_id`) so deleting a user does not scan the table.
+See [Passkeys](../authentication/passkeys.md) and
+`backend/mystic_auth/auth/passkeys/passkey_model.py`.
+
+| Table | Key columns | Notes |
+|---|---|---|
+| `passkey_credentials` | `id` PK, `user_id` FK, `credential_id` unique | Public credential material and user-managed label. |
+| `passkey_challenges` | `challenge` PK, nullable `user_id` FK | Ceremony purpose, expiry, and consumption timestamp. |
 
 | Column | Type | Notes |
 |---|---|---|
@@ -205,16 +246,20 @@ reconciler retries rows whose `queued_at` and `delivered_at` are both `NULL`.
 | `event_type` | string, indexed | `soft_deleted`, `reactivated`, or `purged`. |
 | `user_id` | int, nullable | Snapshot of the account id; nullable because purge removes the user row. |
 | `user_email` | string, indexed | Snapshot used by downstream reconciliation after purge. |
-| `actor` / `source` | string | Who caused the transition and whether it came from admin, self-service, or scheduled purge. |
+| `actor` / `source` | string | Who caused the transition and whether it came from a management route, self-service, or scheduled purge. |
 | `occurred_at` | timestamp | When the state transition was built. |
 | `queued_at` / `delivered_at` | timestamp, nullable | Queue submission and successful listener-delivery markers. |
 
-Outbox rows, including their email snapshot, currently have no cleanup or
-anonymization job after delivery; they remain in Postgres for operational
-history. Delivery is at-least-once. A worker crash after listeners succeed but before
-`delivered_at` is committed can repeat an event, so downstream listeners must
-be idempotent. The table is template-owned infrastructure; product delivery
-behavior and deduplication storage belong under `backend/app/`.
+Delivered outbox rows are not deleted: the transition metadata stays in
+Postgres for operational history. Once all listeners succeed, the worker
+redacts `user_id`, `user_email`, and `actor` from the outbox row while
+retaining the event type, source, and timestamp. This queue handoff is not the
+account audit trail; the separate security and authorization audit rows keep
+their identifying details. Delivery is at-least-once. A worker crash after
+listeners succeed but before `delivered_at` is committed can repeat an event,
+so downstream listeners must be idempotent. The table is template-owned
+infrastructure; product delivery behavior and deduplication storage belong
+under `backend/app/`.
 
 ---
 
@@ -245,7 +290,7 @@ Three operations, two permissions, deliberately separate:
 
 ---
 
-**Purge** (`DELETE /users/{email}/purge`, or the daily automatic job below) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`). Before the purge event is written, the historical `authorization_audit_log` and `security_audit_log` rows are anonymized: account-identifying email, IP, user-agent, and authorization context are stripped or replaced with a deleted-account sentinel, while event types, actions, outcomes, and timestamps remain for aggregate review. The `account_purged` event itself remains reviewable. The manual route is gated by `users:delete_any`, a distinct and more sensitive permission from `users:deactivate_any`, granted only by the seeded `system_superuser` policy, never `user_management`. An admin who can delete accounts day-to-day cannot irreversibly destroy one. Both the manual route and the automatic job call the same `purge_user_account()` (`backend/mystic_auth/user_lifecycle/user_purge_service.py`) so the revoke → anonymize history → audit → delete sequence can never drift between the two call sites.
+**Purge** (`DELETE /users/{email}/purge`, or the daily automatic job below) permanently removes the row. `user_policies` rows cascade-delete automatically (`ON DELETE CASCADE`). The historical `authorization_audit_log` and `security_audit_log` rows are left exactly as written - account-identifying email, IP, user-agent, and authorization context all remain, never stripped or anonymized, since account deletion must never double as a way to erase an account's own audit trail (see [Security Decisions: Infrastructure](../security/decisions-infra.md#account-deletion-never-anonymizes-the-audit-trail)). The `account_purged` event itself is written before the row is deleted, making the purge reviewable. The manual route is gated by `users:delete_any`, a distinct and more sensitive permission from `users:deactivate_any`, granted only by the seeded `system_superuser` policy, never `user_management`. An admin who can delete accounts day-to-day cannot irreversibly destroy one. Both the manual route and the automatic job call the same `purge_user_account()` (`backend/mystic_auth/user_lifecycle/user_purge_service.py`) so the revoke → audit → delete sequence can never drift between the two call sites.
 
 ---
 

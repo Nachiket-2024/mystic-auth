@@ -9,7 +9,24 @@ POLICY_DESCRIPTION_MAX_LENGTH = 160
 POLICY_NAME_MAX_LENGTH = 100
 POLICY_ACTION_MAX_LENGTH = 200
 POLICY_RESOURCE_TYPE_MAX_LENGTH = 100
+# Upper bound on actions in one policy. The permission catalog is well under
+# half of this; the cap keeps one request from doing unbounded per-action
+# grant checks and audit writes.
+POLICY_MAX_ACTIONS = 100
+# Policy names are URL path segments (/authorization/policies/{name}) and are
+# shown next to each other in the UI. Restricting the charset keeps '/', '<',
+# whitespace, bidi controls and look-alike characters out, so every policy
+# can be addressed and cannot visually impersonate another. Applied on
+# create/update only: PolicyRead must still serialise rows that predate it.
+POLICY_NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
 PolicyAction = Annotated[str, Field(min_length=1, max_length=POLICY_ACTION_MAX_LENGTH)]
+
+
+def _dedupe_actions(actions: list[str] | None) -> list[str] | None:
+    """Drop repeated actions, keeping first-seen order."""
+    if actions is None:
+        return None
+    return list(dict.fromkeys(actions))
 
 
 class PolicyBase(BaseModel):
@@ -26,10 +43,18 @@ class PolicyBase(BaseModel):
     # validated separately at write time (see conditions/condition_validator.py).
     conditions: dict | None = None
 
+    @field_validator("actions")
+    @classmethod
+    def _unique_actions(cls, value: list[str]) -> list[str]:
+        return _dedupe_actions(value) or value
+
 
 class PolicyCreate(PolicyBase):
     """Schema for creating a new policy via the authorization management API."""
-    pass
+
+    name: str = Field(..., min_length=1, max_length=POLICY_NAME_MAX_LENGTH, pattern=POLICY_NAME_PATTERN)
+    # The cap is create/update only: PolicyRead must still serialise older rows.
+    actions: list[PolicyAction] = Field(..., min_length=1, max_length=POLICY_MAX_ACTIONS)
 
 
 class PolicyUpdate(BaseModel):
@@ -38,12 +63,19 @@ class PolicyUpdate(BaseModel):
     only provided fields are applied (see repository's update semantics).
     """
 
-    name: str | None = Field(default=None, min_length=1, max_length=POLICY_NAME_MAX_LENGTH)
+    name: str | None = Field(
+        default=None, min_length=1, max_length=POLICY_NAME_MAX_LENGTH, pattern=POLICY_NAME_PATTERN
+    )
     description: str | None = Field(default=None, max_length=POLICY_DESCRIPTION_MAX_LENGTH)
-    actions: list[PolicyAction] | None = Field(default=None, min_length=1)
+    actions: list[PolicyAction] | None = Field(default=None, min_length=1, max_length=POLICY_MAX_ACTIONS)
     resource_type: str | None = Field(default=None, min_length=1, max_length=POLICY_RESOURCE_TYPE_MAX_LENGTH)
     conditions: dict | None = None
     is_active: bool | None = None
+
+    @field_validator("actions")
+    @classmethod
+    def _unique_actions(cls, value: list[str] | None) -> list[str] | None:
+        return _dedupe_actions(value)
 
     # Not a Policy column itself : recorded in policy_history as this
     # change's audit-trail explanation (see api/pbac_routes/policies/policy_crud_routes.py).

@@ -1,5 +1,5 @@
 // Covers useUserAccessDialogState's toggle and immediate result feedback
-// behind UserAccessDialog (design/user-access.html): assigning/revoking a
+// behind UserAccessDialog: assigning/revoking a
 // whole policy, and granting/revoking a direct permission, including
 // sensitive actions.
 import React from 'react';
@@ -30,7 +30,7 @@ const encodedTarget = encodeURIComponent(TARGET_EMAIL);
 beforeEach(() => {
   mock.reset();
   queryClient.clear();
-  useAuthStore.setState({ email: SELF_EMAIL, isAuthenticated: true, permissions: [] });
+  useAuthStore.setState({ email: SELF_EMAIL, isAuthenticated: true, permissions: ['policies:read', 'permissions:read'] });
 
   mock.onGet(`/authorization/users/${encodedTarget}/policies`).reply(200, { user_email: TARGET_EMAIL, policies: [] });
   mock.onGet(`/authorization/users/${encodedTarget}/permissions`).reply(200, { user_email: TARGET_EMAIL, permissions: [] });
@@ -119,7 +119,7 @@ describe('useUserAccessDialogState: direct permission grant/revoke', () => {
 
 describe('useUserAccessDialogState: recentAccessChangesQuery (Details tab "Recent access changes")', () => {
   it('fetches the target user\'s access-change log via the admin route when the caller holds security_audit:read', async () => {
-    useAuthStore.setState({ email: SELF_EMAIL, isAuthenticated: true, permissions: ['security_audit:read'] });
+    useAuthStore.setState({ email: SELF_EMAIL, isAuthenticated: true, permissions: ['policies:read', 'permissions:read', 'security_audit:read'] });
     mock
       .onGet(`/audit/security-log/users/${encodedTarget}`)
       .reply(200, [{ id: 1, user_email: TARGET_EMAIL, event_type: 'policy_assigned', success: true, ip_address: null, user_agent: null, request_id: null, event_metadata: { policy_name: 'self_service', assigned_by: SELF_EMAIL }, created_at: '2026-01-01T00:00:00Z' }]);
@@ -131,7 +131,7 @@ describe('useUserAccessDialogState: recentAccessChangesQuery (Details tab "Recen
   });
 
   it('never fires the admin route for another user without security_audit:read - the section is simply omitted', async () => {
-    useAuthStore.setState({ email: SELF_EMAIL, isAuthenticated: true, permissions: [] });
+    useAuthStore.setState({ email: SELF_EMAIL, isAuthenticated: true, permissions: ['policies:read', 'permissions:read'] });
     const { result } = renderState();
     await waitFor(() => expect(result.current.userPoliciesQuery.isSuccess).toBe(true));
 

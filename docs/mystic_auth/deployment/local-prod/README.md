@@ -8,8 +8,8 @@ and a free tunnel exposes the app to the internet without your own public
 IP, router port forwarding, or Caddy.
 
 Not sure this is the mode you want? See the
-[dev vs. local-prod vs. prod comparison](../guide.md#1-deployment-modes) in the
-Deployment Guide.
+[dev vs. local-prod vs. prod comparison](../README.md#1-deployment-modes) in the
+Deployment overview.
 
 ---
 
@@ -37,7 +37,11 @@ the `env/mystic_auth/` file (`.env.dev` is the development exception).
 
 Quick Tunnels are a fast, free option for a temporary demo and do not require
 a Cloudflare account or domain. Their random hostname changes on restart, so
-OAuth origins and callback URLs must be updated each time. They expose one
+OAuth origins and callback URLs must be updated each time. Passkeys also use
+that hostname as their WebAuthn origin/RP ID: they work for the demo, but
+credentials registered under one Quick Tunnel hostname do not work under a
+new one. Update `FRONTEND_BASE_URL` and the WebAuthn settings after each
+restart if you want passkeys to work during the demo. They expose one
 local HTTP service, have no uptime guarantee, support at most 200 in-flight
 requests, and do not support Server-Sent Events. Anyone with the generated
 URL can reach the service. The [Quick Tunnel walkthrough](cloudflare-quick-tunnel.md)
@@ -82,8 +86,8 @@ flowchart LR
 ```
 
 Not sure local-prod itself is the mode you want (vs. dev or prod)? See the
-[dev vs. local-prod vs. prod comparison](../guide.md#1-deployment-modes) in the
-Deployment Guide.
+[dev vs. local-prod vs. prod comparison](../README.md#1-deployment-modes) in the
+Deployment overview.
 
 ---
 
@@ -138,7 +142,7 @@ alert endpoint and both backup values are set: `SECURITY_ALERT_WEBHOOK_URL`,
 examples include a generic B2/rclone upload command; fill in `B2_BUCKET`, the
 B2 credentials, and the encryption key in the gitignored runtime env file.
 The upload command must reference `$DUMP_FILE` and ship the verified encrypted
-dump and its detached HMAC to an off-host destination; the [backup guide](../migrations-and-backups.md#backblaze-b2-off-host-copies)
+dump and its detached HMAC to an off-host destination; the [backup guide](../database-backups.md#backblaze-b2-off-host-copies)
 shows the same `rclone` form. Set the command in the gitignored runtime env file
 if your destination differs, then run the matching Compose config or helper
 before starting the tunnel. This is required even when the tunnel is only
@@ -165,6 +169,7 @@ Runtime values can be changed with a container restart:
   `VALKEY_PASSWORD`
 - `FRONTEND_BASE_URL`, `BACKEND_BASE_URL`, `GOOGLE_REDIRECT_URI`
 - SMTP settings, rate-limit settings, and backend `SENTRY_DSN`
+- `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGINS`, and `WEBAUTHN_RP_NAME`; keep the RP ID stable after passkeys are registered
 
 `VITE_API_BASE_URL`, `VITE_APP_NAME`, `VITE_SUPPORT_EMAIL`, `VITE_SENTRY_DSN`,
 and `VITE_SENTRY_ENVIRONMENT` are baked in at image build time, not read at
@@ -174,7 +179,7 @@ Always run Compose with `--env-file` pointed at that same file (or the
 matching `scripts/mystic_auth/docker/local-prod-*/local-prod-*-up.sh` / `.ps1` / `.cmd`
 helper, which does this for you) - without it, `${VAR}` build-arg
 substitution silently falls back to whatever's in `env/mystic_auth/.env.dev` instead. See
-[Deployment Guide: required production environment variables](../environment.md#5-required-production-review)
+[Environment and Runtime Configuration](../environment.md#5-required-production-review)
 for the full explanation of each.
 
 Session geolocation (`GEOIP_DB_PATH`/`GEOIPUPDATE_*`) is covered as an

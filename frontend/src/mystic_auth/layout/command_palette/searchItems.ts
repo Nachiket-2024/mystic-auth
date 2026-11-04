@@ -1,4 +1,4 @@
-import { IdCard, KeyRound, Laptop, Palette, Scale, ScrollText, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
+import { Fingerprint, IdCard, KeyRound, Laptop, Palette, Scale, ScrollText, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
 
 import { PERMISSIONS } from "../../authorization/permissions";
 import type { Namespace } from "../../translations/translations";
@@ -56,6 +56,13 @@ export const SEARCH_ITEMS: SearchItem[] = [
         scope: { namespace: "account_settings", paths: ["tabs.password", "changePassword"] },
         to: "/account-settings?tab=password",
         icon: KeyRound,
+    },
+    {
+        label: "account_settings:tabs.passkeys",
+        group: "account_settings:pageTitle",
+        scope: { namespace: "account_settings", paths: ["tabs.passkeys", "passkeys"] },
+        to: "/account-settings?tab=passkeys",
+        icon: Fingerprint,
     },
     {
         label: "account_settings:tabs.profile",

@@ -20,7 +20,7 @@ async def finalize_self_deletion(user, db: AsyncSession, *, request: Request | N
     (account_deletion_service.py::confirm_deletion, reached via POST
     /users/me/confirm-delete). One shared call site keeps the two from
     drifting apart, same reasoning as purge_user_account being shared
-    between the admin purge route and the scheduled grace-period job.
+    between the management purge route and the scheduled grace-period job.
 
     The soft-delete itself (a Postgres write) always succeeds regardless of
     whether the account-version bump below can be confirmed: the account is

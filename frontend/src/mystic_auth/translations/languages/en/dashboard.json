@@ -91,7 +91,5 @@
         "unknownBrowser": "Unknown browser",
         "unknownOS": "Unknown OS",
         "deviceLabel": "{{browser}} on {{os}}"
-    },
-    "loginActivityHeading": "My Login Activity",
-    "loginActivitySubtitle": "Last {{days}} days"
+    }
 }

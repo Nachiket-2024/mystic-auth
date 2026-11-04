@@ -4,7 +4,7 @@ import { Gauge, KeyRound, LockKeyhole, Shield, ShieldCheck, Users, type LucideIc
 // a component file from also exporting plain constants/functions.
 
 // Mirrors backend/mystic_auth/authorization/dependencies/policy_route_
-// dependencies.py's PROTECTED_POLICY_NAMES: the backend already rejects
+// policy_route_dependencies.py's PROTECTED_POLICY_NAMES: the backend already rejects
 // deactivating/deleting these, this just disables the controls instead of
 // letting the click round-trip to a 403.
 export const PROTECTED_POLICY_NAMES = new Set(["self_service", "user_management", "system_superuser"]);
@@ -71,21 +71,14 @@ export function formatPolicyActionLabel(action: string): string {
 }
 
 /** Turns an internal resource type into the plain-language label shown to
- * authorized operators. The raw value remains the filter/API value.
+ * operators. The raw value remains the filter/API value.
  *
- * `allResourceTypesLabel`, when given, is the already-translated string
- * for the wildcard ("*") resource type - every call site is a component
- * with hook access to `useTranslation`, and each one uses a different key
- * for its own context (e.g. policies:columns.allResourceTypesTag for a
- * card's badge vs policies:page.allResourceTypes for a filter dropdown vs
- * permissions:page.allResourceTypes for the Permissions page), so this
- * plain, non-component helper can't pick one key itself. Defaults to the
- * English literal only so callers that genuinely don't care about i18n
- * (tests, non-component code with no locale context) still get a sensible
- * value - every real UI call site should pass the translated string.
- * Regression guard for audit finding claude_code-2026-10-21-F-015: this
- * used to hardcode the English literal unconditionally, bypassing i18n
- * even though translations existed in every shipped locale. */
+ * `allResourceTypesLabel` is the already-translated string for the wildcard
+ * ("*") type. This plain helper cannot pick a translation key itself because
+ * each call site uses its own (policies:columns.allResourceTypesTag,
+ * policies:page.allResourceTypes, permissions:page.allResourceTypes). The
+ * English default exists only for tests and code with no locale context; real
+ * UI call sites should pass the translated string. */
 export function formatResourceTypeLabel(resourceType: string, allResourceTypesLabel = "All resource types"): string {
     if (resourceType === "*") return allResourceTypesLabel;
     const words = resourceType.replace(/[_-]+/g, " ").trim();

@@ -22,7 +22,7 @@
 
 MysticAuth is a full-stack template for web application authentication and authorization.
 
-- **Authentication:** Email/password and Google OAuth2 with PKCE, account verification, password reset, JWT access tokens, rotating refresh tokens, and session management.
+- **Authentication:** Email/password, Google OAuth2 with PKCE, and optional passkeys, with account verification, password reset, JWT access tokens, rotating refresh tokens, and session management.
 - **Authorization:** Policy-Based Access Control (PBAC) using database-backed policies, direct permission grants, and condition checks.
 
 See [Authentication](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/overview) and [Authorization](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/architecture) for details.
@@ -42,7 +42,7 @@ The screenshots cover the public pages, authenticated user experience, account s
 ![System User Dashboard](screenshots/mystic_auth/system_user_dashboard.png)
 
 <details>
-<summary><strong>See all 22 screenshots</strong> (landing page through audit logs)</summary>
+<summary><strong>See all 23 screenshots</strong> (landing page through audit logs)</summary>
 
 ### 1. Landing Page
 ![Landing Page](screenshots/mystic_auth/landing_page.png)
@@ -69,54 +69,58 @@ Seven modes: English, three regional languages, and three bilingual pairings tha
 ### 8. Account Settings: Profile
 ![Account Settings](screenshots/mystic_auth/account_settings.png)
 
-### 9. Account Settings: Permissions
+### 9. Account Settings: Passkeys
+Add, rename, and remove WebAuthn passkeys, with bulk removal and a step-up confirmation (password, an existing passkey, or Google) before any change.
+![Account Settings Passkeys](screenshots/mystic_auth/account_settings_passkeys.png)
+
+### 10. Account Settings: Permissions
 Every effective permission a user holds, grouped by resource type, with which policy (or direct grant) is the source of each one.
 ![Account Settings Permissions](screenshots/mystic_auth/account_settings_permissions.png)
 
-### 10. Appearance
+### 11. Appearance
 ![Appearance](screenshots/mystic_auth/appearance.png)
 
-### 11. User Management
+### 12. User Management
 ![User Management](screenshots/mystic_auth/users.png)
 
-### 12. User Details Dialog
+### 13. User Details Dialog
 Role metadata, status, sign-in method, and recent access changes for one account.
 ![User Details Dialog](screenshots/mystic_auth/user_access_dialog.png)
 
-### 13. Bulk Actions on Users
+### 14. Bulk Actions on Users
 ![Users Bulk Actions](screenshots/mystic_auth/users_bulk_actions.png)
 
-### 14. Assign / Revoke Policies
+### 15. Assign / Revoke Policies
 Per-user policy assignment from the users table, with immediate saving and undo.
 ![Policy Assignment](screenshots/mystic_auth/assign_policies.png)
 
-### 15. Grant / Revoke Permissions
+### 16. Grant / Revoke Permissions
 The Permissions tab shows every action grouped by resource and identifies policy-based and direct grants.
 ![Grant Permission](screenshots/mystic_auth/grant_permission.png)
 
-### 16. Policy Management
+### 17. Policy Management
 ![Policy Management](screenshots/mystic_auth/policies.png)
 
-### 17. Policy Details / Edit Dialog
+### 18. Policy Details / Edit Dialog
 ![Edit Policy](screenshots/mystic_auth/edit_policy.png)
 
-### 18. Permissions Catalog
+### 19. Permissions Catalog
 Every known action, which policies grant it, how many users hold it directly, and which actions are destructive.
 ![Permissions Catalog](screenshots/mystic_auth/permissions_catalog.png)
 
-### 19. Rate Limits
+### 20. Rate Limits
 Live Valkey-backed counters per IP address and account, resettable by a caller with the required permission.
 ![Rate Limits](screenshots/mystic_auth/rate_limits.png)
 
-### 20. Authorization Decisions
+### 21. Authorization Decisions
 Every allow and deny decision the PBAC engine makes, across every user, with the policy that granted or would have granted it.
 ![Audit Logs](screenshots/mystic_auth/audit_log_system_user.png)
 
-### 21. Security Events
+### 22. Security Events
 Sign-in activity and session security events, with a success/failure trend chart.
 ![Security Events](screenshots/mystic_auth/security_events.png)
 
-### 22. Not Authorized (403)
+### 23. Not Authorized (403)
 What a signed-in user without the required permission sees when opening a protected route directly.
 ![Not Authorized](screenshots/mystic_auth/not_authorized.png)
 
@@ -129,6 +133,7 @@ What a signed-in user without the required permission sees when opening a protec
 - **Refresh-token rotation with reuse detection**: each refresh consumes one refresh-token JTI and issues a replacement. Reuse of an already-consumed refresh token revokes the affected session chain.
 - **Real-time cross-device session revocation**: logout, logout-all, targeted session revocation, and permission changes publish Valkey Pub/Sub events that reach open browsers through Server-Sent Events.
 - **Dual rate limiting**: per-IP and per-account counters are enforced independently, with separate brute-force lockout for login.
+- **Optional passkeys**: verified WebAuthn credentials can be added and managed per account (table with bulk removal, 15-minute confirm-it's-you check by password, passkey, or Google) while password and Google sign-in remain available. See [Passkeys](docs/mystic_auth/authentication/passkeys.md).
 - **Offline session geolocation**: session location is resolved from a local MaxMind database when configured, avoiding per-request calls to a third-party geolocation API.
 - **Dual audit logs**: security events and authorization decisions are stored separately so user-facing history and authorization analysis remain distinct.
 - **Per-account appearance**: each account can set its own brand color, applied across the whole UI.
@@ -139,11 +144,11 @@ What a signed-in user without the required permission sees when opening a protec
 
 - **Backend:** Python 3.14, FastAPI, SQLAlchemy async, Pydantic, and Alembic.
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, shadcn/ui (Radix), Zustand, TanStack Query, and `react-i18next`.
-- **Authentication and authorization:** Argon2, JWT cookies, OAuth2 with PKCE, and database-backed PBAC. See [Authentication](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/overview) and [PBAC Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/architecture).
+- **Authentication and authorization:** Argon2, JWT cookies, OAuth2 with PKCE, WebAuthn passkeys, and database-backed PBAC. See [Authentication](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/overview) and [PBAC Architecture](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authorization/architecture).
 - **Data and jobs:** PostgreSQL 18, Valkey, and Procrastinate.
 - **Error monitoring:** Self-hosted Bugsink with the Sentry SDK protocol.
 - **Deployment:** Docker Compose for development, local-prod through Cloudflare Quick or Named Tunnel, ngrok, or Tailscale Funnel, and production behind Caddy-managed TLS. See the [local-prod tunnel guide](docs/mystic_auth/deployment/local-prod/README.md) to compare setup steps and hostname behavior. Cloudflare Quick Tunnel is free and useful for temporary demos; its generated hostname can change between runs, which may require updating OAuth callback URLs. ngrok's assigned free domain can keep those URLs stable.
-- **Backups:** Encrypted PostgreSQL dumps can be uploaded to Backblaze B2 with rclone; freshness and restore checks are documented in [Migrations and Backups](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/migrations-and-backups).
+- **Backups:** Encrypted PostgreSQL dumps can be uploaded to Backblaze B2 with rclone; freshness and restore checks are documented in [Database Backups](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/database-backups).
 - **Localization:** English, Hindi, Marathi, and Gujarati. See [Translations](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/translations/overview).
 
 ---
@@ -190,7 +195,7 @@ This quickstart uses Docker Compose. Make sure Docker Desktop is running, with W
 ### 1. Use an AI coding agent
 
 - **Set up a new project:** Create a repository with [Use this template](https://github.com/Nachiket-2024/mystic-auth/generate), clone it, then give your agent [`agent-prompts/mystic_auth/new-project-setup.md`](agent-prompts/mystic_auth/new-project-setup.md). It runs the quickstart and asks for your app name and brand color.
-- **Sync an existing project:** Give your agent [`agent-prompts/mystic_auth/sync-with-upstream.md`](agent-prompts/mystic_auth/sync-with-upstream.md). The sync script requires a clean Git index and creates a sync commit after confirmation. See the [sync guide](docs/mystic_auth/template-usage/syncing-upstream/README.md) for the full workflow.
+- **Sync an existing project:** Give your agent [`agent-prompts/mystic_auth/sync-with-upstream.md`](agent-prompts/mystic_auth/sync-with-upstream.md). The sync script requires a clean Git index and leaves its result staged (it never commits by itself), so you review and commit it. A short prompt is enough, for example: *"Check the latest MysticAuth at https://github.com/Nachiket-2024/mystic-auth and follow its sync agent prompt (`agent-prompts/mystic_auth/sync-with-upstream.md`), run the full CI, and tell me any MysticAuth issues you find."* See the [sync guide](docs/mystic_auth/template-usage/syncing-upstream/README.md) for the full workflow.
 
 ---
 
@@ -210,7 +215,7 @@ This quickstart uses Docker Compose. Make sure Docker Desktop is running, with W
    The script creates missing environment files, asks for your app name and
    brand color, starts the stack, and offers to create a system superuser. The
    first run may take several minutes; later starts reuse images and volumes.
-   For step-by-step setup, see the [manual quickstart guide](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/template-usage/overview#quickstart).
+   For step-by-step setup, see the [manual quickstart guide](docs/mystic_auth/template-usage/quickstart.md).
 
 3. Once it's up, open:
 
@@ -222,7 +227,7 @@ This quickstart uses Docker Compose. Make sure Docker Desktop is running, with W
    `POSTGRES_HOST_PORT`, `VALKEY_HOST_PORT`, `BACKEND_HOST_PORT`,
    `FRONTEND_HOST_PORT`, and `BUGSINK_HOST_PORT` in `env/mystic_auth/.env.dev`.
 
-For non-Docker setup, deployment modes, and environment variables, see the [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview) and [Deployment Guide](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment/guide). See [System Superuser](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser) for account setup.
+For non-Docker setup, deployment modes, and environment variables, see the [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview) and [Deployment Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment). See [System Superuser](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser) for account setup.
 
 ---
 
@@ -232,7 +237,7 @@ See [Using This Repository as a Template](https://nachiket-2024.github.io/mystic
 
 The sync script applies tracked files and does not migrate database volumes.
 If an upstream update changes the PostgreSQL major version, follow the
-[PostgreSQL 15 to 18 dump-and-restore guide](docs/mystic_auth/deployment/migrations-and-backups.md#postgresql-15-to-18-data-volume-upgrade)
+[PostgreSQL 15 to 18 dump-and-restore guide](docs/mystic_auth/deployment/database-migrations.md#postgresql-15-to-18-data-volume-upgrade)
 before starting the new database image against existing data.
 
 ---

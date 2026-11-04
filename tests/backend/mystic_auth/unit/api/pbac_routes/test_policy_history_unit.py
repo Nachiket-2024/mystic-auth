@@ -9,7 +9,6 @@ import pytest
 from fastapi import HTTPException
 
 from backend.mystic_auth.api.pbac_routes.policies.policy_history_routes import (
-    _definition_for_entry,
     compare_policy_history,
     rollback_policy,
 )
@@ -19,6 +18,9 @@ from backend.mystic_auth.authorization.repositories.policy_repository import (
 )
 from backend.mystic_auth.authorization.schemas.policy_history_schema import (
     PolicyRollbackRequest,
+)
+from backend.mystic_auth.authorization.services.policy_history_service import (
+    definition_for_entry,
 )
 
 from .authorization_test_helpers import authorization_decision
@@ -239,7 +241,7 @@ async def test_rollback_policy_applies_target_definition_and_labels_history(mock
 async def test_rollback_policy_to_deleted_entry_restores_previous_definition(mocker):
     """A "deleted" history entry has no new_definition, but its
     previous_definition (the state right before deletion) is still a
-    valid rollback target: _definition_for_entry falls back to it."""
+    valid rollback target: definition_for_entry falls back to it."""
     policy = _make_policy()
     pre_deletion_definition = {"name": "self_service", "actions": ["users:read_own"]}
     deleted_entry = _make_history_entry(
@@ -282,11 +284,11 @@ async def test_rollback_policy_rejects_entry_belonging_to_another_policy(mocker)
     assert exc_info.value.status_code == 404
 
 
-def test_definition_for_entry_falls_back_to_previous_when_deleted():
+def testdefinition_for_entry_falls_back_to_previous_when_deleted():
     deleted_entry = _make_history_entry(new_definition=None, previous_definition={"name": "self_service"})
-    assert _definition_for_entry(deleted_entry) == {"name": "self_service"}
+    assert definition_for_entry(deleted_entry) == {"name": "self_service"}
 
 
-def test_definition_for_entry_uses_new_definition_when_present():
+def testdefinition_for_entry_uses_new_definition_when_present():
     entry = _make_history_entry(new_definition={"name": "x"}, previous_definition={"name": "y"})
-    assert _definition_for_entry(entry) == {"name": "x"}
+    assert definition_for_entry(entry) == {"name": "x"}

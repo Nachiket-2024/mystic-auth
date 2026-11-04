@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from backend.mystic_auth.auth.token_logic.jwt_service import jwt_service
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 MODULE = "backend.mystic_auth.auth.token_logic.jwt_service"
 
@@ -155,7 +156,7 @@ async def test_revoke_all_tokens_for_user_bumps_the_account_version(mocker):
     assert revoked_count == 2
     # Every other open tab/device on the account gets a real-time nudge to
     # re-check itself, not just wait for its next background poll.
-    publish_mock.assert_awaited_once_with("session_events:user@example.com", mocker.ANY)
+    publish_mock.assert_awaited_once_with(f"session_events:{email_key_id('user@example.com')}", mocker.ANY)
 
 
 @pytest.mark.asyncio
@@ -210,7 +211,7 @@ async def test_revoke_chain_for_user_bumps_only_that_chain(mocker):
 
     bump_mock.assert_awaited_once_with("user@example.com", "chain-A")
     revoke_chain_mock.assert_awaited_once_with(None, "chain-A")
-    publish_mock.assert_awaited_once_with("session_events:user@example.com", mocker.ANY)
+    publish_mock.assert_awaited_once_with(f"session_events:{email_key_id('user@example.com')}", mocker.ANY)
 
 
 # ---------------------------- is_benign_duplicate_rotation (database window) ----------------------------

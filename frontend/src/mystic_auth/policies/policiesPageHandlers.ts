@@ -7,7 +7,7 @@ import type { PolicyRead } from "../api/policies_api";
 
 // Toast-wiring handlers for PoliciesPage.tsx's two undo-capable mutations
 // (per-action toggle, activate/deactivate), split out to keep that file
-// under the repo's ~350-line target, see AGENTS.md.
+// under the repo's ~350-line target.
 
 type UpdatePolicyMutation = ReturnType<typeof useUpdatePolicyMutation>;
 
@@ -71,7 +71,7 @@ export function handleActionsChange(params: {
 }
 
 // Activating/deactivating applies instantly and offers a 6s Undo instead of
-// a confirm dialog first, per design/policies.html: it's fully reversible
+// a confirm dialog first: it's fully reversible
 // (unlike Delete), so a blocking confirmation was just an extra click for
 // no safety benefit.
 export function handleToggleActive(params: {

@@ -10,8 +10,7 @@ import { cn } from "../ui/styles/classNames";
 import { isDestructiveAction } from "../authorization/destructiveActions";
 import { formatPolicyActionLabel } from "./policyCardHelpers";
 
-// design/policies.html's verbIcon(): a small icon per verb-group header
-// (.agroup-head). Falls back to a bare Circle for a verb this list doesn't
+// A small icon per verb-group header. Falls back to a bare Circle for a verb this list doesn't
 // recognize (a fork's own action vocabulary).
 interface PolicyActionGroupsProps {
   actions: string[];
@@ -20,16 +19,12 @@ interface PolicyActionGroupsProps {
 /**
  * PolicyActionGroups
  * ----------------------------
- * design/policies.html's `.ag-columns`/`.agroup`/`.aitems`/`.aitem`: a
- * policy's actions as readable permission cards. Shared by
- * PolicyDetailsDialog's Actions field so both read identically - the
- * mockup uses the exact same classes in both places.
+ * A policy's actions as readable permission cards, shared by the policy card
+ * and PolicyDetailsDialog's Actions field so both read identically.
  *
- * Groups flow in CSS multi-column layout (`column-width`), not a single
- * vertical stack: the mockup deliberately lays several verb groups out
- * side by side so a multi-verb policy doesn't read as one long linear list
- * a reader has to scroll top to bottom through. `breakInside: "avoid"` on
- * each group keeps its header+rows from splitting across two columns.
+ * Groups flow in CSS multi-column layout (`column-width`) so a multi-verb policy
+ * does not read as one long list. `breakInside: "avoid"` keeps each group's
+ * header and rows together in one column.
  */
 const PolicyActionGroups: React.FC<PolicyActionGroupsProps> = ({ actions }) => {
   const { t } = useTranslation(["policies", "users"]);

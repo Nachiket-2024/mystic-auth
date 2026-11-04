@@ -10,7 +10,9 @@ test.describe("app landing page browser behavior", () => {
     const title = await page.title();
 
     expect(title).not.toBe("");
-    expect(brandHomeLabel).toContain(title);
+    // Document titles read "<page> | <app name>"; the brand link carries the app name.
+    const appName = title.split(" | ").pop() ?? title;
+    expect(brandHomeLabel).toContain(appName);
     await expect(page.getByRole("link", { name: /log in/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: /sign up/i }).first()).toBeVisible();
     await expect(page.getByRole("main")).toBeVisible();

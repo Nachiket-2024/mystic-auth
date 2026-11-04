@@ -1,5 +1,6 @@
 import traceback
 
+from ...core.errors import service_unavailable_error
 from ...core.settings import settings
 from ...logging.logging_config import get_logger
 from ...valkey.client import valkey_client
@@ -47,7 +48,7 @@ class LoginProtectionService:
             return bool(reserved)
         except Exception:
             logger.error("Error reserving protected action:\n%s", traceback.format_exc())
-            return False
+            raise service_unavailable_error() from None
 
     @classmethod
     async def finish_protected_action(cls, key: str, *, success: bool) -> None:
@@ -101,7 +102,8 @@ class LoginProtectionService:
 
         except Exception:
             logger.error("Error checking login lock status:\n%s", traceback.format_exc())
-            return True
+            # Fail closed, but as an outage (503), not as a false "locked" 429.
+            raise service_unavailable_error() from None
 
     @staticmethod
     async def get_remaining_seconds(key: str) -> int:

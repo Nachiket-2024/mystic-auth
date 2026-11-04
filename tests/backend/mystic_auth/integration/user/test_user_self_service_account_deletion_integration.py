@@ -13,6 +13,7 @@ from backend.mystic_auth.user_lifecycle.account_deletion_service import (
     account_deletion_service,
 )
 from backend.mystic_auth.valkey.client import valkey_client
+from backend.mystic_auth.valkey.key_names import one_time_token_key
 
 from .user_test_accounts import (
     PASSWORD,
@@ -212,7 +213,7 @@ async def test_confirm_delete_actually_deletes_and_revokes_sessions(client, crea
     assert delete_resp.status_code == 200
 
     token = await account_deletion_service.create_account_deletion_token(email)
-    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("account_delete", token), "1", ex=600)
 
     confirm_resp = await client.post("/users/me/confirm-delete", json={"token": token})
     assert confirm_resp.status_code == 200
@@ -232,7 +233,7 @@ async def test_confirm_delete_token_is_single_use(client, created_emails):
     await _make_oauth_only_user(client, created_emails, email)
 
     token = await account_deletion_service.create_account_deletion_token(email)
-    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("account_delete", token), "1", ex=600)
 
     first_resp = await client.post("/users/me/confirm-delete", json={"token": token})
     assert first_resp.status_code == 200
@@ -269,7 +270,7 @@ async def test_confirm_delete_rejects_a_token_minted_before_a_later_account_ver_
     await _make_oauth_only_user(client, created_emails, email)
 
     token = await account_deletion_service.create_account_deletion_token(email)
-    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("account_delete", token), "1", ex=600)
 
     assert await jwt_service.bump_account_version(email) is True
 
@@ -297,7 +298,7 @@ async def test_confirm_delete_one_accounts_token_cannot_delete_a_different_accou
     await _make_oauth_only_user(client, created_emails, other_email)
 
     token = await account_deletion_service.create_account_deletion_token(victim_email)
-    await valkey_client.set(f"account_delete:{token}", "1", ex=600)
+    await valkey_client.set(one_time_token_key("account_delete", token), "1", ex=600)
 
     resp = await client.post("/users/me/confirm-delete", json={"token": token})
     assert resp.status_code == 200

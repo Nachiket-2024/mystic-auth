@@ -8,8 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import PermissionsPage from '@/permissions/PermissionsPage';
 
 // Shared fixtures/helpers for PermissionsPage's three test files (list/
-// groups, filters, details dialog + errors) - split out of one 408-line
-// file to stay under the repo's ~350-line target, see AGENTS.md.
+// groups, filters, details dialog + errors).
 
 export const mock = new MockAdapter(api);
 const initialAuthState = useAuthStore.getState();

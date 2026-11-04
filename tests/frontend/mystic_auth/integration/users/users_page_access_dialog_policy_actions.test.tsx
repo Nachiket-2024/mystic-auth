@@ -7,9 +7,8 @@ import { toaster } from "@/ui/toaster/toasterInstance";
 import { mock, seed, renderPage, SAMPLE_USERS } from "./userAccessDialogTestSupport";
 
 // Policies tab, per-action revoke and the already-covered-so-disabled case.
-// Split out of users_page_access_dialog_policies.test.tsx (assign/revoke a
-// whole policy) to keep each file under the repo's ~350-line target, see
-// AGENTS.md.
+// Assigning or revoking a whole policy is covered in
+// users_page_access_dialog_policies.test.tsx.
 
 describe("UsersPage access dialog: policy actions", () => {
   beforeEach(() => {

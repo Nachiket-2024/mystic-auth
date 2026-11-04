@@ -13,17 +13,14 @@ interface ErrorBoundaryState {
 }
 
 /**
- * Top-level React error boundary. Catches an otherwise-uncaught render/
- * lifecycle error anywhere in the tree below it and shows a recoverable
- * fallback instead of the whole app unmounting to a blank white screen.
- * Deliberately a class component: React has no hook equivalent for
- * getDerivedStateFromError/componentDidCatch.
+ * Top-level React error boundary: catches an uncaught render or lifecycle error
+ * below it and shows a recoverable fallback instead of a blank screen. A class
+ * component because React has no hook equivalent of getDerivedStateFromError and
+ * componentDidCatch.
  *
- * Does not catch errors in event handlers or async code (a rejected promise
- * or a thrown error inside an onClick handler never reaches an error
- * boundary), so those still need their own try/catch. Mounted once at the
- * app root (main.tsx), outside the router, so it also catches an error
- * thrown before routing gets a chance to render.
+ * It does not catch errors in event handlers or async code, which need their own
+ * try/catch. Mounted once at the app root (main.tsx), outside the router, so it
+ * also catches errors thrown before routing renders.
  */
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
     state: ErrorBoundaryState = { hasError: false };

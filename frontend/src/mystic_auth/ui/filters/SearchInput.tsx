@@ -33,16 +33,11 @@ interface SearchInputProps
 /**
  * Search box shared by every server-searched (or, with isFetching omitted,
  * client-filtered) list page: UsersFilterBar, PoliciesFilterBar,
- * RateLimitsFilterBar, SecurityFilterBar, PermissionsFilterBar. Shows a
- * spinner while a request is in flight, then the matching-row count once it
- * resolves, inside the box's own right edge - not as a separate element next
- * to it, and only while there's actual text in the box. Without this, typing
- * a search/filter value that doesn't visibly change the current page's rows
- * (e.g. it only affects which page 2+ would show) looks like it silently did
- * nothing; showing a leftover count after clearing the box back to empty
- * (stale until the unfiltered refetch resolves, then just irrelevant once it
- * does) would look just as broken, so the hint is gated on the box being
- * non-empty rather than on the request being for "the current" value.
+ * RateLimitsFilterBar, SecurityFilterBar, PermissionsFilterBar. Shows a spinner
+ * while a request is in flight, then the matching-row count, inside the box's
+ * right edge and only while the box has text. The count tells the user a search
+ * that does not change the visible rows did something; gating on non-empty
+ * avoids showing a stale count after the box is cleared.
  */
 const SearchInput: React.FC<SearchInputProps> = ({
     value, onChange, isFetching, totalResults, resultsLabel, loadingLabel, maxLength, size = "md", className, ...inputProps

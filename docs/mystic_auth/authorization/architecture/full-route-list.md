@@ -11,6 +11,7 @@
 | GET | `/authorization/policies/{name}` | `policies:read` |
 | PUT | `/authorization/policies/{name}` | `policies:update` |
 | DELETE | `/authorization/policies/{name}` | `policies:delete` |
+| GET | `/authorization/policies/{name}/holders` | `policies:read` (every user currently assigned the policy, newest first; backs the details dialog and the delete confirm's count) |
 | GET | `/authorization/policies/{name}/history` | `policies:read` |
 | GET | `/authorization/policies/{name}/history/compare` | `policies:read` |
 | POST | `/authorization/policies/{name}/history/{id}/rollback` | `policies:update` |

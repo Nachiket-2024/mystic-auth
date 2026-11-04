@@ -11,30 +11,33 @@ Both backend and frontend are split into two trees, and every file in the repo f
 | Tier | Files | Who edits it | Why |
 |---|---|---|---|
 | **Upstream-owned: never edit** | `backend/mystic_auth/`, `backend/app/sdk.py`, `frontend/src/mystic_auth/`, `frontend/src/app/sdk.ts`, `ci/mystic_auth/`, `docs/mystic_auth/`, `screenshots/mystic_auth/`, `scripts/mystic_auth/`, `agent-prompts/mystic_auth/`, `local-scripts/mystic_auth/`, tracked `docker/mystic_auth/`, tracked `env/mystic_auth/*.example`, `makefiles/mystic_auth/`, root `Makefile`/`make.ps1` | Only upstream | This is the template's source. Since you never hand-edit it, upstream syncs can replace it cleanly. The untracked runtime env copies under `env/mystic_auth/` are deployment state and are intentionally edited by the project owner; keep app-only variables in `env/app/`. |
-| **Yours: upstream never touches it again** | `backend/app/app_sdk.py`, `backend/app/core/settings.py`, `frontend/src/app/app_sdk.ts`, `frontend/src/app/theme.ts`, `ci/app/`, `docs/app/`, `screenshots/app/`, `scripts/app/`, `agent-prompts/app/`, `local-scripts/app/`, `docker/app/`, `env/app/`, `makefiles/app/`, root `README.md`, `SECURITY.md`, `CONTRIBUTING.md` | Only you | Upstream ships these once (`app_sdk.*`/`theme.ts` near-empty, with the backend hook and frontend theme override ready for additions; `core/settings.py` contains the app-owned settings starting point; the READMEs as generic starting points; `app/` script/prompt/compose/makefiles folders empty) and never edits them again in any future release. Since only you write to them, they never conflict either. |
+| **Yours: upstream rarely touches it** | `backend/app/app_sdk.py`, `backend/app/models.py`, `backend/app/core/settings.py`, `frontend/src/app/app_sdk.ts`, `frontend/src/app/main.tsx`, `frontend/src/app/theme.ts`, `ci/app/`, `docs/app/`, `screenshots/app/`, `scripts/app/`, `agent-prompts/app/`, `local-scripts/app/`, `docker/app/`, `env/app/`, `makefiles/app/`, root `README.md`, `SECURITY.md`, `CONTRIBUTING.md` | Only you | Upstream ships these once (`app_sdk.*`/`theme.ts` near-empty, with the backend hook and frontend theme override ready for additions; `core/settings.py` contains the app-owned settings starting point; the READMEs as generic starting points; `app/` script/prompt/compose/makefiles folders empty) and almost never edits them again. The exceptions are the seeded starter files (`app_sdk.*`, `models.py`, `main.tsx`, `theme.ts`, and the `README.md` in each `app/` folder), which upstream may still fix; see below. Everything else only you write to, so it never conflicts. |
 | **Shared: extend in place, expect occasional conflicts** | `backend/app/main.py`, `frontend/src/app/App.tsx`, plus root-level config neither side owns outright: `frontend/package.json`, `backend/requirements.txt`, `backend/alembic.ini`, `backend/pyproject.toml`, `.github/workflows/ci.yml`, `pytest.ini`, `.gitignore`, `.dockerignore`, `docker/tailscale-serve-config.json` | Both, over time | These have to ship as real, working files (an entry point that mounts routers, a router that renders routes, a dependency list, a CI pipeline, ignore rules, a JSON config a tool expects at one specific path with no include mechanism of its own), so they can't start empty the way `app_sdk.*` does, and each has to stay a single file per its own tool's convention rather than splitting into `app/`/`mystic_auth/` folders. You're expected to extend them (register your own router, add your own `<Route>`, add your own CI job, ignore your own generated paths, add your own Tailscale serve handler), and upstream may also touch the same file later (e.g. a middleware-ordering fix, or a dependency swap). This is the one tier where a sync merge can genuinely conflict, and it's a normal, expected part of syncing when it happens. |
 
 ---
 
-The upstream sync permits comment-only maintenance in
-`frontend/src/app/main.tsx` and `frontend/src/app/theme.ts` so template
-comments can stay accurate without taking ownership of downstream behavior.
-Any executable-code change in either file remains blocked as an ownership
-violation; a downstream edit to the same comment can still produce a normal
-three-way conflict.
+The upstream sync takes upstream edits to the files the template seeds once and
+may later fix: `app_sdk.*`, `models.py`, `main.tsx`, `theme.ts`, the `README.md` in each
+`app/` folder, the `env/app/.env*.example` files, the starter `legal/` and
+`status_pages/` components, and the `scripts/app/env-tools` example file. They go
+through the normal three-way apply, so an untouched copy updates cleanly and a
+customized copy shows up as a normal conflict. Decide each conflict on its merits
+(see the sync prompt): take upstream when it is a fix or a needed wiring change,
+keep your version when it is your own customization. Everything else under the
+`app/` trees stays blocked.
 
 ```mermaid
 %%{init: {"themeVariables": {"lineColor": "#334155"}} }%%
 flowchart TB
     subgraph upstream["Upstream-owned: never edit"]
         MA["mystic_auth/\n template internals:\n auth, PBAC, API, UI"]
-        SDK["sdk.py / sdk.ts\n extension surface:\n do not hand-edit"]
+        SDK["sdk.py / sdk.ts\n what MysticAuth exposes:\n never edit"]
     end
     subgraph shared["Shared: extend in place, expect occasional conflicts"]
         ENTRY["main.py / App.tsx\n entry point, ships working"]
     end
-    subgraph yours["Yours: upstream never touches again"]
-        APPSDK["app_sdk.py / app_sdk.ts\n your re-exports and hooks:\n shipped near-empty"]
+    subgraph yours["Yours: upstream rarely touches"]
+        APPSDK["app_sdk.py / app_sdk.ts\n anything sdk does not expose,\n plus your startup hooks"]
         FEATURES["your feature folders\n e.g. app/projects/"]
         DOCSAPP["docs/app/\n your own docs"]
     end
@@ -43,12 +46,18 @@ flowchart TB
     SDK -->|imported by| FEATURES
     APPSDK -->|imported by| ENTRY
     APPSDK -->|imported by| FEATURES
-    ENTRY -.->|"your imports go\n here, not app_sdk"| APPSDK
+    MA -.->|"import directly,\n only here"| APPSDK
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 ---
 
-`sdk.py`/`sdk.ts` re-export the pieces you're meant to build on (`require_authorization`, `Permission`, `useAuthorization`, `ProtectedRoute`, the shared `api` client, and more): import from there, not from internal `mystic_auth/` paths directly.
+## `sdk` versus `app_sdk`
+
+- **`sdk.py` / `sdk.ts` are upstream's.** They list what MysticAuth exposes to an app (`require_authorization`, `Permission`, `Base`, `useAuthorization`, `ProtectedRoute`, and more). You never edit them. Import from there, not from internal `mystic_auth/` paths.
+- **`app_sdk.py` / `app_sdk.ts` are yours.** When your app needs something MysticAuth has but the SDK does not expose, import it here straight from the MysticAuth tree (`from mystic_auth.emails.email_sender import send_email`) and re-export it. The rest of your code imports it from `app_sdk`. These two files are the only app files that import `mystic_auth` directly, so an upstream rename is a one-line fix and `mystic_auth/` itself is never edited. `backend/app/app_sdk.py` also holds the `register_extensions()` startup hook.
+- **If it keeps coming up**, it probably belongs in the SDK for everyone. That is an upstream contribution: add it to `sdk.py`/`sdk.ts`, not to a fork's copy.
+
+A guard test (`tests/backend/app/test_app_extension_points_unit.py`) fails if any other file under `backend/app/` imports `mystic_auth` directly.
 
 The root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` are maintained in
 the upstream repository as part of its own documentation, but a downstream
@@ -70,8 +79,6 @@ coverage. It calls the ownership-specific scripts for native backend,
 frontend, tooling, and backup checks. GitHub Actions cannot import arbitrary
 YAML from a root `ci/` directory, so the split files are executable scripts;
 workflow job definitions remain in `.github/workflows/ci.yml`.
-
-The same split reaches the rest of `docker/` too:
 
 ### How to decide where a change goes
 
@@ -100,6 +107,10 @@ surrounding MysticAuth translation code, and expect an upstream sync to report a
 conflict if the same file changed upstream. Resolve that conflict by retaining
 your reviewed deployment content and manually incorporating any new template
 keys. Do not silently accept upstream copy without reviewing it.
+
+### The rest of `docker/`
+
+The same split reaches the rest of `docker/` too:
 
 - `docker/mystic_auth/dockerfiles/` + `docker/app/dockerfiles/`: upstream's `backend.Dockerfile`/`frontend.Dockerfile`/`backend-entrypoint.sh` versus your own, for a whole new service (not just tweaking an existing one - that's a rare enough need to treat as a "Shared, extend in place" edit on the upstream file directly). Compose lets an override file introduce a brand-new service name, not just override an existing one, so your own `docker/app/compose/docker-compose.<mode>.yml` can add a service that builds from `docker/app/dockerfiles/your-service.Dockerfile` and it merges in cleanly alongside every upstream service - see `docker/app/dockerfiles/README.md` for the exact shape.
 - `docker/mystic_auth/postgres-init/` + `docker/app/postgres-init/`: Postgres bootstrap scripts. Postgres (Chainguard's image here, not the official one - see [Docker Overview](../docker/overview.md)) only scans files directly inside `/var/lib/postgres/initdb/`, not subdirectories, so a fork's own init script needs an explicit per-file mount in its own `docker/app/compose/docker-compose.<mode>.yml` rather than just dropping a file in - see `docker/app/postgres-init/README.md` for the exact mount syntax.

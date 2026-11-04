@@ -16,7 +16,7 @@ logger = get_worker_logger(__name__)
 async def purge_expired_soft_deleted_accounts(timestamp: int) -> int:
     """Daily hard-purge of accounts soft-deleted (deleted_at set) for longer
     than settings.ACCOUNT_PURGE_GRACE_DAYS: the automatic counterpart to an
-    admin's manual DELETE /users/{email}/purge, giving self-service deletion
+    manual DELETE /users/{email}/purge, giving self-service deletion
     (DELETE /users/me) a real recovery window instead of purging immediately
     or never.
 
@@ -25,8 +25,8 @@ async def purge_expired_soft_deleted_accounts(timestamp: int) -> int:
     process to depend on. `timestamp` is the scheduled cron tick Procrastinate
     calls this with; unused here since the cutoff is computed from the
     current time, not the tick time. Goes through the same revoke, audit,
-    delete sequence as the admin purge route via purge_user_account, with
-    "system:grace_period_purge" as the actor instead of an admin's email.
+    delete sequence as the management purge route via purge_user_account, with
+    "system:grace_period_purge" as the actor instead of a caller's email.
     """
     cutoff = datetime.now(UTC) - timedelta(days=settings.ACCOUNT_PURGE_GRACE_DAYS)
 

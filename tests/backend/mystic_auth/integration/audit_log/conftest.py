@@ -1,23 +1,15 @@
 # tests/backend/mystic_auth/integration/audit_log/conftest.py
 #
-# Runs the real `procrastinate ... worker` CLI as a subprocess for the
-# whole test session, pointed at this suite's database. A plain local
-# `pytest` run has no separate `procrastinate_worker` container, and audit
-# log rows (see authorization_audit_logger.log_decision) only appear once
-# some worker consumes the queue. poll_for_entries
-# (audit_log_test_accounts.py) polls for exactly that, so without a worker
-# draining the queue it always times out and sees nothing.
+# Runs the real `procrastinate ... worker` CLI as a subprocess for the whole
+# test session, pointed at this suite's database. A plain local `pytest` run has
+# no `procrastinate_worker` container, and audit log rows (see
+# authorization_audit_logger.log_decision) appear only once a worker drains the
+# queue; poll_for_entries (audit_log_test_accounts.py) would otherwise time out.
 #
-# A real subprocess, not an in-process asyncio worker task: an earlier
-# version ran a `procrastinate.worker.Worker` loop as a background asyncio
-# task inside the test process, and it reliably deadlocked partway through
-# a run, most likely fighting the top-level conftest's per-test connector
-# cycling over an event loop. A separate OS process has its own event loop
-# entirely, so it can't collide no matter how this suite's fixtures churn.
-#
-# Scoped to this directory, not the top-level conftest.py: the rest of the
-# real-DB suite doesn't defer/poll through the audit log, so there's no
-# reason to pay for a worker process there.
+# A separate OS process, not an in-process asyncio worker, which deadlocked
+# against the top-level conftest's per-test connector cycling. Scoped to this
+# directory because the rest of the real-DB suite does not poll the audit log.
+
 import os
 import subprocess
 import time
@@ -30,19 +22,13 @@ _BACKEND_DIR = Path(__file__).resolve().parents[5] / "backend"
 
 @pytest.fixture(scope="session", autouse=True)
 def _run_procrastinate_worker(tmp_path_factory: pytest.TempPathFactory):
-    # Same command docker/mystic_auth/compose/docker-compose.dev.yml's procrastinate_worker service runs,
-    # with the same cwd (`backend/`, so `mystic_auth...` resolves like it
-    # does inside the container's /app), just as a host process against
-    # this session's Postgres.
-    #
-    # PYTHONPATH must be set explicitly to match the container's
-    # `PYTHONPATH=/app`: unlike `python -m`, the `procrastinate` console
-    # script doesn't add its cwd to sys.path, so without this
-    # `import mystic_auth...` fails and the subprocess exits immediately
-    # (silently, since nothing here reads its output, so the fixture looked
-    # like it started a worker while every test ran with none).
-    # EMAIL_ENABLED=false rides along via the env copy, so this real worker
-    # doesn't also try to send real verification/reset emails.
+    # Same command and cwd (`backend/`) as docker-compose.dev.yml's
+    # procrastinate_worker service, run as a host process against this
+    # session's Postgres. PYTHONPATH must be set explicitly to match the
+    # container's `PYTHONPATH=/app`: the `procrastinate` console script does not
+    # add its cwd to sys.path, so without it `import mystic_auth...` fails and
+    # the subprocess exits silently. EMAIL_ENABLED=false rides along via the env
+    # copy so this worker sends no real emails.
     env = os.environ.copy()
     env["PYTHONPATH"] = str(_BACKEND_DIR)
     log_path = tmp_path_factory.mktemp("audit-log-worker") / "procrastinate_worker.log"

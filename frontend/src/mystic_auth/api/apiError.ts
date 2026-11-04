@@ -37,9 +37,8 @@ export function isForbiddenError(error: unknown): boolean {
 }
 
 // Pulls a readable message out of a failed axios request, for use in mutation catch
-// blocks. Checks two response shapes this backend uses: `{ error, code? }` (this
-// app's own auth handlers) and `{ detail, code?, params? }` (FastAPI's HTTPException,
-// extended by AppError). `detail` can also be a list of Pydantic validation errors
+// blocks. Every backend error uses one shape, `{ detail, code?, params? }` (FastAPI's
+// HTTPException extended by AppError, and the auth handlers' own responses). `detail` can also be a list of Pydantic validation errors
 // (422s); that shape isn't stringified, it falls through to `fallback` instead.
 export function extractApiErrorMessage(error: unknown, fallback: string): string {
     if (axios.isAxiosError(error)) {
@@ -50,7 +49,7 @@ export function extractApiErrorMessage(error: unknown, fallback: string): string
             return translated;
         }
 
-        const serverMessage = data?.error ?? data?.detail;
+        const serverMessage = data?.detail;
         if (typeof serverMessage === "string" && serverMessage.length > 0) {
             return serverMessage;
         }

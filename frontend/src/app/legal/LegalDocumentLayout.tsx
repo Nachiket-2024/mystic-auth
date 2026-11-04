@@ -81,7 +81,7 @@ const LegalDocumentLayout: React.FC<LegalDocumentLayoutProps> = ({
     // old scroll position instead of landing at the top of the document.
     useEffect(() => {
         // `document.body`, not the viewport, is this app's actual scrolling
-        // element (see globalCss's html/body split in theme/themeStyles.ts).
+        // element (see the html/body rules in theme/application.css).
         // window.scrollTo(0, 0) would be a silent no-op here.
         document.body.scrollTop = 0;
     }, []);

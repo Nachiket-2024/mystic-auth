@@ -3,7 +3,7 @@
 # End-to-end PBAC coverage for the GET /users/ authorization gate and the
 # core PBAC claims: role is metadata only and never consulted for access,
 # and roleless accounts still work. Admin-side listing/filtering/sorting
-# and admin-driven updates live in test_user_admin_management_integration.py;
+# and admin-driven updates live in test_user_management_crud_integration.py;
 # delete/purge/reactivate and password-change side effects live in
 # test_user_account_lifecycle_integration.py.
 import pytest

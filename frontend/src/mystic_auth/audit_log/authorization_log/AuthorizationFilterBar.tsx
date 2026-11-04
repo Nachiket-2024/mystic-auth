@@ -19,7 +19,7 @@ interface AuthorizationFilterBarProps {
     search: string;
     setSearch: (v: string) => void;
     /** True on "My activity": the search box stays visible but disabled, with a tooltip
-     * explaining why (already scoped to one user) - design/audit-log.html's search field. */
+     * explaining why (already scoped to one user) */
     mine: boolean;
     action: string;
     setAction: (v: string) => void;
@@ -45,7 +45,7 @@ interface AuthorizationFilterBarProps {
 /**
  * Time range, search, Action/Resource, Result, then active-filter chips and Clear filters - one
  * row, filters that scope everything below them (the table, and on the security side the
- * chart), matching design/audit-log.html. Action is grouped by resource type in a searchable
+ * chart). Action is grouped by resource type in a searchable
  * picker (GroupedSearchSelect) instead of a flat list, since PERMISSIONS already runs past 20
  * values and only grows with fork-added actions. Clicking a group's header sets the Resource
  * filter for that whole type (and clears any single-action filter), which is why there's no

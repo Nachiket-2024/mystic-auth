@@ -116,8 +116,9 @@ controlled inputs; it does not mean that the backend accepted a request.
   retry, logout, and failure handling in the HTTP interceptor.
 - `auth/session_lifecycle/useSessionEventsStream.test.tsx` verifies SSE session
   events update auth state and close/reconnect safely.
-- `auth/signup_form_legal_consent.test.tsx` verifies required legal consent
-  and the signup button's enabled state.
+- `auth/signup_form_legal_consent.test.tsx` verifies the signup consent
+  notice links to the Terms of Service and Privacy Policy pages; it does not
+  gate submission.
 - `auth/verify_account/verification_email_request_form.test.tsx` verifies
   verification-email form validation, pending, success, and errors.
 - `auth/verify_account/verify_account_button.test.tsx` verifies token
@@ -159,6 +160,9 @@ controlled inputs; it does not mean that the backend accepted a request.
   safe reporting behavior.
 - `layout/app_layout/AppLayout.test.tsx` verifies shell composition, mobile
   navigation dismissal, downstream navbar actions, and command-palette wiring.
+- `layout/auth_layout/AuthLayout.test.tsx` verifies the font, language and theme
+  controls stay outside `<main>`, so its card padding rule cannot push them away
+  from the corner.
 - `layout/app_layout/Logo.test.tsx` verifies logo rendering and accessible
   branding link behavior.
 - `layout/app_layout/Navbar.test.tsx` verifies navbar controls and responsive
@@ -201,6 +205,9 @@ wordmark text or the accessible custom-logo image, so downstream branding and
 
 ## Rate limits and shared UI
 
+- `rate_limits/rateLimitIdentifier.test.ts` verifies how a counter's identifier is
+  shown: IP as is, the server's email label, or a shortened digest with the full
+  value kept.
 - `rate_limits/RateLimitsFilterBar.test.tsx` verifies filter controls, values,
   reset, and accessibility labels.
 - `rate_limits/RateLimitsStatsCard.test.tsx` verifies statistics formatting,
@@ -248,12 +255,21 @@ wordmark text or the accessible custom-logo image, so downstream branding and
 
 ---
 
+## Additional unit tests
+
+- `tests/frontend/mystic_auth/unit/a11y/route_title_and_skip_link.test.tsx` verifies the skip link target, the tab title from the page `h1`, and the polite status region.
+- `tests/frontend/mystic_auth/unit/a11y/screen_reader_public_pages.test.tsx` walks public pages with a virtual screen reader to check labels, headings and focus after a result.
+- `tests/frontend/mystic_auth/unit/auth/signup_success_page.test.tsx` verifies the signup card shows only the "check your email" result afterward.
+- `tests/frontend/mystic_auth/unit/auth/verify_account/verify_account_page_prefill.test.tsx` verifies the resend field is prefilled from the link fragment and nothing is decided from it client-side.
+- `tests/frontend/mystic_auth/unit/policies/policyDialogTabs.test.tsx` verifies the Edit tab is disabled for protected, baseline and system policies.
+
+---
+
 ## See also
 
 - [Frontend Test Map](frontend.md)
 - [Frontend Integration Tests](frontend-integration.md)
 - [Frontend Browser E2E Tests](frontend-e2e.md)
-- [Frontend Test Map](frontend.md)
 - [Testing Overview](overview.md)
 
 ---

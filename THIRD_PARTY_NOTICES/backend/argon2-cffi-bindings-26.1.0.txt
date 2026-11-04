@@ -1,6 +1,6 @@
 argon2-cffi-bindings 26.1.0
 License: MIT
-URL: https://github.com/hynek/argon2-cffi-bindings/blob/main/CHANGELOG.md
+URL:
 Copyright: Copyright (c) 2021 Hynek Schlawack and the argon2-cffi-bindings contributors
 
 The MIT License (MIT)

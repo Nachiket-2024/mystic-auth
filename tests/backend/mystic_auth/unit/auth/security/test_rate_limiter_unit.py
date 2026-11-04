@@ -5,6 +5,8 @@ import pytest
 from backend.mystic_auth.auth.security.rate_limiting.rate_limiter_service import (
     rate_limiter_service,
 )
+from backend.mystic_auth.core.errors import AppError
+from backend.mystic_auth.valkey.key_names import email_key_id
 
 MODULE = "backend.mystic_auth.auth.security.rate_limiting.rate_limiter_service"
 
@@ -106,7 +108,7 @@ async def test_rate_limited_ip_and_account_keys_are_independent(mocker):
     await handler(request=_make_request(ip="5.5.5.5"), payload=_Payload())
 
     assert "test_endpoint:ip:5.5.5.5" in recorded_keys
-    assert "test_endpoint:account:user@example.com" in recorded_keys
+    assert f"test_endpoint:account:{email_key_id('user@example.com')}" in recorded_keys
 
 
 @pytest.mark.asyncio
@@ -171,23 +173,28 @@ async def test_record_request_fails_closed_on_valkey_exception(mocker):
     mocker.patch(f"{MODULE}.valkey_client.incr", side_effect=ConnectionError("valkey unreachable"))
     error_mock = mocker.patch(f"{MODULE}.logger.error")
 
-    allowed = await rate_limiter_service.record_request("some:key")
+    with pytest.raises(AppError) as raised:
+        await rate_limiter_service.record_request("some:key")
 
-    assert allowed is False
+    # Still denied, but reported as an outage (503 + Retry-After), not a 429.
+    assert raised.value.status_code == 503
+    assert raised.value.code == "SERVICE_UNAVAILABLE"
+    assert raised.value.headers == {"Retry-After": "5"}
     error_mock.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_rate_limited_returns_429_on_valkey_outage_rather_than_letting_request_through(mocker):
+async def test_rate_limited_returns_503_on_valkey_outage_rather_than_letting_request_through(mocker):
     mocker.patch(f"{MODULE}.valkey_client.incr", side_effect=ConnectionError("valkey unreachable"))
 
     @rate_limiter_service.rate_limited("test_endpoint")
     async def handler(request):
         return "ok"
 
-    response = await handler(request=_make_request())
+    with pytest.raises(AppError) as raised:
+        await handler(request=_make_request())
 
-    assert response.status_code == 429
+    assert raised.value.status_code == 503
 
 
 @pytest.mark.asyncio

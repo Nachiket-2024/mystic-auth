@@ -86,19 +86,15 @@ const DetailCard: React.FC<DetailCardProps> = ({ icon, label, children, classNam
 /**
  * PermissionDetailsDialog
  * ----------------------------
- * Read-only "View" panel for one permission catalog entry. Beyond the
- * original action/resource type/description, adds who actually holds it
- * (design/permissions.html, .project/permissions-page-review.md): which
- * active policies grant it (linking to Policies, filtered to that
- * resource type) and a direct-vs-via-policy user count, backed by GET
- * /authorization/permissions/catalog/usage. A destructive banner replaces
- * the old inline red badge for actions isDestructiveAction flags, since
- * this dialog has the room for an explanation a table row doesn't.
+ * Read-only "View" panel for one permission catalog entry: action, resource
+ * type, description, and who holds it. Shows which active policies grant it
+ * (linking to Policies, filtered to that resource type) and a direct vs
+ * via-policy user count from GET /authorization/permissions/catalog/usage. A
+ * destructive banner appears for actions isDestructiveAction flags.
  *
- * No per-user list (unlike the mockup's aspirational "Users who hold it"
- * row-by-row list): the usage endpoint intentionally returns counts, not
- * emails, to keep this read-only catalog view from becoming a second way
- * to browse individual users' access - UserAccessDialog already owns that.
+ * No per-user list: the usage endpoint returns counts, not emails, so this
+ * catalog view does not become a second way to browse individual users'
+ * access (UserAccessDialog owns that).
  */
 const PermissionDetailsDialog: React.FC<PermissionDetailsDialogProps> = ({
   isOpen,

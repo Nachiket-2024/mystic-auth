@@ -20,6 +20,7 @@
     "POLICY_MUST_BE_INACTIVE_TO_DELETE": "नीति '{{policyName}}' को हटाने से पहले निष्क्रिय करें",
     "INSUFFICIENT_PERMISSIONS": "इस कार्य को करने की आपके पास अनुमति नहीं है",
     "CANNOT_GRANT_UNHELD_ACTION": "'{{action}}' अधिकार प्रदान नहीं किया जा सकता: यह आपके पास स्वयं नहीं है",
+    "SERVICE_UNAVAILABLE": "सेवा अभी कुछ समय के लिए उपलब्ध नहीं है। कृपया कुछ सेकंड बाद फिर कोशिश करें",
     "DATABASE_ERROR": "डेटाबेस त्रुटि हुई। कृपया पुनः प्रयास करें",
     "SESSION_NOT_FOUND": "सत्र नहीं मिला",
     "CANNOT_REVOKE_CURRENT_SESSION": "अपना वर्तमान सत्र समाप्त करने के लिए लॉगआउट का उपयोग करें",
@@ -54,5 +55,8 @@
     "OAUTH_LOGIN_FAILED": "हम आपको Google से लॉग इन नहीं कर सके। कृपया पुनः प्रयास करें",
     "OAUTH_STATE_INVALID": "आपका साइन-इन प्रयास समाप्त हो गया या सत्यापित नहीं किया जा सका। कृपया पुनः प्रयास करें",
     "OAUTH_EMAIL_NOT_VERIFIED": "आपके Google खाते का ईमेल पता सत्यापित नहीं है। कृपया इसे Google के साथ सत्यापित करें और पुनः प्रयास करें",
-    "OAUTH_CANCELLED": "Google के साथ साइन-इन रद्द कर दिया गया"
+    "OAUTH_CANCELLED": "Google के साथ साइन-इन रद्द कर दिया गया",
+    "PASSKEY_STEP_UP_REQUIRED": "पासकी बदलने के लिए अपनी पहचान की पुष्टि करें",
+    "PASSKEY_STEP_UP_FAILED": "Google पुष्टि इस खाते से मेल नहीं खाई। उसी Google खाते का उपयोग करें जिससे आपने साइन अप किया था",
+    "PASSKEY_STEP_UP_PASSWORD_UNAVAILABLE": "इस खाते में पासवर्ड नहीं है। इसके बजाय पासकी से पुष्टि करें"
 }

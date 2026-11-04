@@ -29,14 +29,15 @@ async def test_successful_email_job_keeps_metadata_but_not_rendered_body():
                 {"job_id": job_id},
             )
             row = result.mappings().one_or_none()
-        if row and row["status"] == "succeeded":
+        # The worker deletes a job the moment it succeeds (delete_jobs=
+        # "successful"); the payload redaction is the fallback if a row is
+        # ever kept. Either way no payload may remain.
+        if row is None or row["status"] == "succeeded":
             break
         await asyncio.sleep(0.1)
 
-    assert row is not None
-    assert row["status"] == "succeeded"
-    assert row["args"] == {}
-    assert secret_fixture not in str(row["args"])
+    assert row is None or row["args"] == {}
+    assert row is None or secret_fixture not in str(row["args"])
 
 
 @pytest.mark.asyncio
@@ -47,7 +48,7 @@ async def test_successful_lifecycle_job_redacts_purged_account_identifiers():
             "user_id": 987654321,
             "user_email": "purged-job-retention@example.test",
             "actor": "operator-retention@example.test",
-            "source": "admin_purge",
+            "source": "management_purge",
             "occurred_at": "2026-10-23T00:00:00+00:00",
         },
         outbox_id=None,
@@ -62,10 +63,8 @@ async def test_successful_lifecycle_job_redacts_purged_account_identifiers():
                 {"job_id": job_id},
             )
             row = result.mappings().one_or_none()
-        if row and row["status"] == "succeeded":
+        if row is None or row["status"] == "succeeded":
             break
         await asyncio.sleep(0.1)
 
-    assert row is not None
-    assert row["status"] == "succeeded"
-    assert row["args"] == {}
+    assert row is None or row["args"] == {}

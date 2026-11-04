@@ -112,6 +112,7 @@ echo "=== check-env: fails early on incomplete production backup configuration =
 cp env/mystic_auth/.env.prod env/mystic_auth/.env.prod.backup-test
 sed -i.tmp 's/^BACKUP_ENCRYPTION_KEY=.*/BACKUP_ENCRYPTION_KEY=/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
 sed -i.tmp 's/^BACKUP_UPLOAD_COMMAND=.*/BACKUP_UPLOAD_COMMAND=/' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
+sed -i.tmp 's|^SECURITY_ALERT_WEBHOOK_URL=.*|SECURITY_ALERT_WEBHOOK_URL=|' env/mystic_auth/.env.prod.backup-test && rm -f env/mystic_auth/.env.prod.backup-test.tmp
 if scripts/mystic_auth/env-tools/check-env/check-env.sh env/mystic_auth/.env.prod.backup-test > /tmp/check-env-backup.$$ 2>&1; then
   fail "check-env: should have failed on blank production backup prerequisites"
 fi

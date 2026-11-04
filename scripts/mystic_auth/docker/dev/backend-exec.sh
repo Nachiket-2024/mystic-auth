@@ -1,24 +1,17 @@
 #!/usr/bin/env bash
-# Thin wrapper around `docker compose exec` for the backend container. Applies
-# two workarounds documented in
+# Thin wrapper around `docker compose exec` for the backend container, with the
+# workarounds from
 # docs/mystic_auth/docker/dev-workflow.md#running-a-one-off-command-inside-a-container:
 #
-#   - MSYS_NO_PATHCONV=1: Git Bash rewrites `-w /repo` into a Windows path
-#     before handing it to docker.exe, which then fails with
-#     "Cwd must be an absolute path" even though /repo plainly is one.
+#   - MSYS_NO_PATHCONV=1: Git Bash would rewrite `-w /repo` into a Windows path
+#     and docker.exe fails with "Cwd must be an absolute path".
 #   - --user root: pytest.ini writes coverage output to /repo, which is
-#     bind-mounted with the host checkout's ownership, not the container's
-#     non-root `app` user. Matters on native Linux, harmless elsewhere.
+#     bind-mounted with the host's ownership, not the container's `app` user
+#     (matters on native Linux, harmless elsewhere).
+#   - -w /repo: pytest paths are relative to the repo root. alembic.ini is in
+#     /repo/backend, so ALEMBIC_CONFIG points alembic at it from any cwd.
 #
-# Both are no-ops where they don't apply, so this is safe on every platform.
-#
-# -w /repo is needed for pytest (pytest.ini's testpaths/--cov paths are
-# relative to the repo root), but alembic.ini lives at /repo/backend, not
-# /repo, so a bare `alembic heads` from -w /repo fails with "No
-# 'script_location' key found in configuration" despite being this
-# script's own documented example. ALEMBIC_CONFIG points alembic at the
-# right file regardless of cwd, without changing -w for every other
-# command (alembic reads this env var itself, no argv rewriting needed).
+# Each is a no-op where it does not apply, so this is safe on every platform.
 #
 # Usage: scripts/mystic_auth/docker/dev/backend-exec.sh <command> [args...]
 #   scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/backend/mystic_auth/unit

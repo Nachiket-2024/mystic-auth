@@ -7,6 +7,7 @@ import TableActionButton from "../ui/table_actions/TableActionButton";
 import { formatDateTime } from "../ui/dates/dateFormatters";
 import type { SupportedLanguage } from "../translations/translations";
 import type { RateLimitEntry } from "../api/rate_limits_api";
+import { describeIdentifier } from "./rateLimitIdentifier";
 import { IfCan } from "../authorization/IfCan";
 import { PERMISSIONS } from "../authorization/permissions";
 import { DESTRUCTIVE_TABLE_ACTION_CLASSNAME } from "../ui/table_actions/tableActionPalettes";
@@ -33,7 +34,7 @@ export function buildRateLimitsColumns({
     resettingKey,
 }: BuildRateLimitsColumnsParams): DataTableColumn<RateLimitEntry>[] {
     return [
-        { key: "endpoint", header: t("page.endpointColumn"), width: "12rem", truncate: true, render: (e) => e.endpoint, sortable: true },
+        { key: "endpoint", header: t("page.endpointColumn"), width: "9.5rem", truncate: true, render: (e) => e.endpoint, sortable: true },
         {
             key: "scope",
             header: t("page.scopeColumn"),
@@ -43,19 +44,25 @@ export function buildRateLimitsColumns({
         },
         {
             // One column for both cases instead of two: a row's identifier
-            // is either an IP or an email, never both, so a second column
+            // is either an IP or an account, never both, so a second column
             // would always be empty. The Scope badge shows which kind it is.
+            // Account counters are stored under a digest; the server supplies
+            // the email when it can match one, otherwise a shortened digest
+            // is shown with the full value in the tooltip.
             key: "identifier",
             header: t("page.identifierColumn"),
-            width: "16rem",
+            width: "20rem",
             truncate: true,
-            render: (e) => e.identifier,
+            render: (e) => {
+                const { text, full, isDigest } = describeIdentifier(e);
+                return <span title={full} className={cn(isDigest && "font-mono text-sm text-fg-muted")}>{text}</span>;
+            },
             sortable: true,
         },
         {
             key: "requests",
             header: t("page.requestsColumn"),
-            width: "8rem",
+            width: "7rem",
             render: (e) => (
                 <span className={cn(e.count >= e.limit && "text-fg-error font-medium")}>
                     {e.count} / {e.limit}

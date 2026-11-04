@@ -1,5 +1,5 @@
 watchfiles 1.3.0
-License: MIT License
+License: MIT
 URL: https://github.com/samuelcolvin/watchfiles
 Copyright: Copyright (c) 2017 to present Samuel Colvin
 
