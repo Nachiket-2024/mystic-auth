@@ -1,4 +1,4 @@
-lucide-react@1.57.0
+lucide-react@1.69.0
 License: ISC
 Repository: https://github.com/lucide-icons/lucide
 Copyright: Copyright (c) 2026 Lucide Icons and Contributors

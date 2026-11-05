@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 usage() {
-  echo "Usage: $0 {script-paths|split-paths|platform-wrappers|image-digests|log-rotation|action-pinning|readonly-rootfs|env-tools|upstream-sync|backup-freshness|backup-encryption|backup-network|host-backend|backup-roundtrip|restore-drill}" >&2
+  echo "Usage: $0 {script-paths|split-paths|platform-wrappers|image-digests|log-rotation|third-party-notices|action-pinning|readonly-rootfs|env-tools|upstream-sync|backup-freshness|backup-encryption|backup-network|host-backend|backup-roundtrip|restore-drill}" >&2
   exit 2
 }
 
@@ -24,6 +24,9 @@ case "${1:-}" in
     ;;
   log-rotation)
     tests/scripts/mystic_auth/lint/check-log-rotation.sh
+    ;;
+  third-party-notices)
+    tests/scripts/mystic_auth/lint/check-third-party-notices.sh
     ;;
   action-pinning)
     tests/scripts/mystic_auth/lint/check-ci-action-pinning.sh

@@ -288,6 +288,9 @@ jobs:
       - name: Check every compose service sets log rotation
         run: ci/mystic_auth/tooling.sh log-rotation
 
+      - name: Check license notices match the dependency lockfiles
+        run: ci/mystic_auth/tooling.sh third-party-notices
+
       - name: Check every CI action is pinned by commit SHA
         run: ci/mystic_auth/tooling.sh action-pinning
 
@@ -396,7 +399,7 @@ jobs:
             test -s "$notices/PyYAML-6.0.3.txt"
             test -s "$notices/README.md"
             test -s "$notices/GPL-3.0.txt"
-            for package in psycopg-3.3.6 psycopg-binary-3.3.6 psycopg-pool-3.3.3; do
+            for package in psycopg-3.3.7 psycopg-binary-3.3.7 psycopg-pool-3.3.3; do
               test -s "$notices/$package.txt"
               grep -q "GNU LESSER GENERAL PUBLIC LICENSE" "$notices/$package.txt"
               grep -q "Version 3, 29 June 2007" "$notices/$package.txt"

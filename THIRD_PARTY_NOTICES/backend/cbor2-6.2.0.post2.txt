@@ -1,4 +1,4 @@
-cbor2 6.2.0
+cbor2 6.2.0.post2
 License: MIT
 URL: https://github.com/agronholm/cbor2
 Copyright: Copyright (c) 2016 Alex Grönholm

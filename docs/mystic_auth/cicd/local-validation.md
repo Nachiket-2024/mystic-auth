@@ -75,7 +75,7 @@ Run the `tooling-tests` checks through the repository entry point:
 
 ```bash
 for check in script-paths split-paths platform-wrappers image-digests \
-  log-rotation action-pinning readonly-rootfs env-tools upstream-sync \
+  log-rotation third-party-notices action-pinning readonly-rootfs env-tools upstream-sync \
   backup-freshness backup-encryption backup-network host-backend; do
   ci/mystic_auth/tooling.sh "$check"
 done

@@ -17,7 +17,11 @@ test.describe("app shell browser controls", () => {
     const palette = page.getByRole("dialog");
     await expect(palette).toBeVisible();
     await palette.getByRole("textbox").fill("settings");
-    await palette.getByRole("button", { name: /account settings/i }).click();
+    // The query is debounced and the unfiltered list already has this button, so
+    // wait for a non-match to drop out before clicking or the re-render eats the click.
+    // Pages sort first, so .first() is the page entry, not an in-page text match.
+    await expect(palette.getByRole("button", { name: /^dashboard/i })).toHaveCount(0);
+    await palette.getByRole("button", { name: /account settings/i }).first().click();
     await expect(page).toHaveURL(/\/account-settings/);
 
     await page.getByRole("button", { name: /switch to dark mode/i }).click();

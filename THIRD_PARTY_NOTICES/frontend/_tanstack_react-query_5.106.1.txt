@@ -1,11 +1,11 @@
-pydantic-settings 2.16.1
+@tanstack/react-query@5.106.1
 License: MIT
-URL: https://github.com/pydantic/pydantic-settings
-Copyright: Copyright (c) 2022 Samuel Colvin and other contributors
+Repository: https://github.com/TanStack/query
+Copyright: Copyright (c) 2021-present Tanner Linsley
 
-The MIT License (MIT)
+MIT License
 
-Copyright (c) 2022 Samuel Colvin and other contributors
+Copyright (c) 2021-present Tanner Linsley
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

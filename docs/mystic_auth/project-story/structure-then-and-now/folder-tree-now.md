@@ -2,7 +2,7 @@
 
 ---
 
-This selected repository tree reflects the structure as of 5 November, 2026. It highlights the
+This selected repository tree reflects the structure as of 6 November, 2026. It highlights the
 `app/` and `mystic_auth/` ownership split, recent extension points, deployment modes, and notable
 files; it is not an exhaustive listing of every tracked file. Generated files, local secrets,
 build output, and caches are omitted too.
@@ -212,9 +212,9 @@ mystic-auth/
         lint/
           check-ci-action-pinning.sh
           check-image-digests.sh
-          check-log-rotation.sh
+          check-log-rotation.sh / check-readonly-rootfs.sh
           check-platform-wrappers.sh
-          check-readonly-rootfs.sh
+          check-third-party-notices.sh
         docker/
           test-backend-host-run.sh
         env-tools/

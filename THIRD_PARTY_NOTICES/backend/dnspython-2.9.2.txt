@@ -1,4 +1,4 @@
-dnspython 2.9.1
+dnspython 2.9.2
 License: ISC
 URL: https://www.dnspython.org
 Copyright: Copyright (C) Dnspython Contributors; Copyright (C) 2001-2017 Nominum, Inc.; Copyright (C) Google Inc.

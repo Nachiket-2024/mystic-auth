@@ -129,7 +129,7 @@ reads from an env var with no fallback (`${COMPOSE_PROJECT_NAME}`, `${POSTGRES_H
 
 - A fork that needs to coexist with another on one machine uses a separate multi-project port configuration: change `COMPOSE_PROJECT_NAME`, the relevant `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the `*_STATIC_IP` vars in its own `env/mystic_auth/.env*` file - see the top of each `env/mystic_auth/.env*.example`.
 - The production/local-prod variants also derive `TRUSTED_PROXY_IPS` (a security-relevant anti-spoofing setting - see [get_client_ip()](../../../backend/mystic_auth/auth/security/client_ip.py)) straight from those same static-IP vars in the compose file itself, rather than setting it independently in the env file, so the two can never drift out of sync.
-- This is also called out in [overview.md](overview.md)'s fork checklist.
+- The [Quickstart](../template-usage/quickstart.md#environment-configuration) covers this too.
 
 None of this is specific to mystic-auth: a bound host port or an overlapping
 Docker bridge subnet is a generic Docker-level conflict. Any other

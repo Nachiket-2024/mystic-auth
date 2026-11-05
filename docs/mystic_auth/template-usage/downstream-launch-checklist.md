@@ -143,6 +143,10 @@ for the exact settings the template currently supports.
   can obtain and renew the HTTPS certificate. If another provider terminates
   TLS, follow that provider's certificate, forwarding, and client-IP guidance
   instead of enabling a second TLS terminator.
+- Set `NTFY_BASE_URL` (and `NTFY_PUBLIC_DOMAIN` in prod) for the self-hosted security
+  alert channel. Every production-shaped Compose file refuses to start without
+  `NTFY_BASE_URL`. After the first start, create the alert accounts and subscribe
+  a phone as described in [Private security alerts with ntfy](../error-monitoring/ntfy-alerts.md).
 - Create the first system user through the documented bootstrap command.
 - Test migrations against a production-like database copy before applying
   them to the live database.

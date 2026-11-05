@@ -145,6 +145,18 @@ checks, and the browser end-to-end tests for every configured browser project.
 Run the Windows PowerShell tooling job only on Windows. Run the "main only" job
 too, since this sync changes what `main` will run.
 
+The browser and Docker jobs boot the dev stack from `env/*/.env.dev`. The project
+name and the network subnet come from that file, so a second stack with the same
+values reuses the maintainer's containers and volumes, and
+`ci/mystic_auth/frontend-e2e-stack.sh down` removes the volumes and env files of
+the stack it started. Run those jobs in a throwaway copy of the repository that
+has only the `.example` env files, after setting a different
+`COMPOSE_PROJECT_NAME` and `DOCKER_SUBNET` in the copy's
+`env/mystic_auth/.env.dev`. Never point them at the project's real env files. If a
+browser engine cannot run on this OS (for example WebKit on a Linux release
+Playwright does not support), run that project in the matching
+`mcr.microsoft.com/playwright` image and say so in the report.
+
 Fix failures this sync caused. If something genuinely cannot run here (for
 example a check that needs credentials or hardware you do not have), say which
 check and exactly why. Do not describe a check as passed if you did not run it.

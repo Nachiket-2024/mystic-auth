@@ -44,12 +44,15 @@ cd frontend
 npx license-checker-rseidelsohn --production --excludePackages "frontend@0.0.0" --json
 ```
 
-Write one `backend/<name>-<version>.txt` or `frontend/<name>.txt` file per
-entry. Include the package name, version, license identifier, source URL,
+Write one `backend/<name>-<version>.txt` or `frontend/<name>_<version>.txt`
+file per entry (for a scoped npm package, `@` and `/` become `_`, so
+`@tanstack/react-query` 5.106.1 is `_tanstack_react-query_5.106.1.txt`). Include the package name, version, license identifier, source URL,
 copyright line, full license text, and any package `NOTICE` file. The npm
 inventory command reports metadata; copy the actual license and notice files
 from each matching package in `frontend/node_modules/`, rather than treating
 the license identifier as a substitute for its text. If an npm package omits
 its license file, retrieve it from the matching source release and record the
 source used. Review the changed inventory against the production dependency
-list before distributing an image.
+list before distributing an image. `ci/mystic_auth/tooling.sh third-party-notices`
+fails when a file no longer matches `backend/requirements.txt` or
+`frontend/package-lock.json`.

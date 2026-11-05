@@ -99,13 +99,13 @@ describe('SecurityDetailsDrawer', () => {
     renderDrawer({
       entry: baseEntry({
         event_type: 'account_reactivated',
-        event_metadata: { reactivated_by: 'nachiketk2021@gmail.com' },
+        event_metadata: { reactivated_by: 'admin@example.com' },
       }),
     });
 
     expect(screen.getByText('Reactivated by')).toBeInTheDocument();
     expect(screen.getByText('Account reactivated')).toBeInTheDocument();
-    expect(screen.getByText('nachiketk2021@gmail.com')).toBeInTheDocument();
+    expect(screen.getByText('admin@example.com')).toBeInTheDocument();
     expect(screen.queryByText('reactivated_by')).toBeNull();
   });
 

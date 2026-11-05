@@ -63,7 +63,7 @@ The screenshots cover the public pages, authenticated user experience, account s
 ![System User Dashboard](screenshots/mystic_auth/system_user_dashboard.png)
 
 ### 7. Language Switcher
-Seven modes: English, three regional languages, and three bilingual pairings that keep the app navbar, sidebar in English while page content switches.
+Seven modes: English, three regional languages, and three bilingual pairings that keep the navbar and sidebar in English while page content switches.
 ![Language Switcher](screenshots/mystic_auth/language_switcher.png)
 
 ### 8. Account Settings: Profile

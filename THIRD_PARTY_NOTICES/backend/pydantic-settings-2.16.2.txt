@@ -1,11 +1,11 @@
-zustand@5.0.15
+pydantic-settings 2.16.2
 License: MIT
-Repository: https://github.com/pmndrs/zustand
-Copyright: Copyright (c) 2019 Paul Henschel
+URL: https://github.com/pydantic/pydantic-settings
+Copyright: Copyright (c) 2022 Samuel Colvin and other contributors
 
-MIT License
+The MIT License (MIT)
 
-Copyright (c) 2019 Paul Henschel
+Copyright (c) 2022 Samuel Colvin and other contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

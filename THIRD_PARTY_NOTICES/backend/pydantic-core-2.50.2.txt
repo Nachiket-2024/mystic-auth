@@ -1,4 +1,4 @@
-pydantic_core 2.50.1
+pydantic_core 2.50.2
 License: MIT
 URL: https://github.com/pydantic
 Copyright: Copyright (c) 2022 Samuel Colvin

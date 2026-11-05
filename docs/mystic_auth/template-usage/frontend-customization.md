@@ -11,7 +11,7 @@ you can't.
 ## Frontend customization
 
 - **Theme**: just changing the brand color? Set `BRAND_COLOR` in the active runtime env file (normally `env/mystic_auth/.env.dev` for dev; downstream-only overrides belong in `env/app/`) (aliased to `VITE_BRAND_COLOR`, same pattern as `APP_NAME`), no code edit needed - see [Appearance: Default brand color](../appearance/overview.md#default-brand-color). For anything beyond a single color, `frontend/src/app/theme.ts` (empty by default, like `app_sdk.ts`) exports `brandColor`/`cssVars` overrides that `mystic_auth/theme/applyBrandCssVars.ts` applies on top of `theme/tailwind-tokens.css`'s CSS custom properties at startup, so neither ever needs editing directly. Either way this is the app-owner-level default; end users can additionally pick their own per-account brand color from Account Settings (`account_settings/AppearanceCard.tsx`, backed by `store/appearanceStore.ts` and `theme/generateBrandScale.ts`), which overrides this default client-side for that signed-in user only.
-- **Built-in pages and features**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `dashboard/`, `active_sessions/`, `account_settings/`, `users/`, `policies/`, `permissions/`, `audit_log/`, `authorization/`, `rate_limits/`), plus shared `layout/`, `ui/`, `store/`, `theme/`, `translations/`, `api/`, and `core/` folders. The legal, landing, and status pages are app-owned starting points under `frontend/src/app/`. Session management lives in `active_sessions/`; the dashboard displays its active-session summary. See [Frontend Architecture](../architecture/frontend.md#module-layout).
+- **Built-in pages and features**: `frontend/src/mystic_auth/` is organized one folder per feature (`auth/`, `passkeys/`, `dashboard/`, `active_sessions/`, `account_settings/`, `account_deletion/`, `users/`, `policies/`, `permissions/`, `audit_log/`, `authorization/`, `rate_limits/`), plus shared `layout/`, `ui/`, `store/`, `theme/`, `translations/`, `api/`, and `core/` folders. The legal, landing, and status pages are app-owned starting points under `frontend/src/app/`. Session management lives in `active_sessions/`; the dashboard displays its active-session summary. See [Frontend Architecture](../architecture/frontend.md#module-layout).
 - **Routing**: declared in `frontend/src/app/App.tsx`: add a `<Route>`, wrapped in `ProtectedRoute`.
 - **State**: Zustand (`frontend/src/mystic_auth/store/`) for client state, TanStack Query for server state: both re-exported from `sdk.ts`.
 - **Your own code** lives under `frontend/src/app/` (e.g. `frontend/src/app/projects/`), importing template pieces via `sdk.ts`. If you need something `sdk.ts` does not export, re-export it from your own `app_sdk.ts` (the only app file besides the entry points that imports `mystic_auth` directly) and import it from there.
@@ -26,7 +26,7 @@ Some UI, like the sidebar, is rendered by mystic_auth/ but genuinely needs to re
 
 | Component | Extension prop | Shape |
 |---|---|---|
-| `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string; order?: number; icon?: LucideIcon }` |
+| `AppLayout` (re-exported from `sdk.ts`) | `extraNavItems?: NavItem[]` | `NavItem` (also re-exported from `sdk.ts`): `{ label: string; to: string; permission?: string | string[]; order?: number; icon?: LucideIcon }` (an array means "any of") |
 | `AppLayout` (re-exported from `sdk.ts`) | `extraNavbarContent?: React.ReactNode` | Any renderable node: the top bar's own built-ins (name, ThemeToggle, LogoutButton) are bespoke components rather than a uniform list, so this slot is free-form instead of a typed item array. |
 | `CommandPalette` (re-exported from `sdk.ts`, mounted once in `App.tsx`) | `extraNavItems?: NavItem[]` | Same `NavItem`s you give `AppLayout` - pass the same reference so the palette's "Pages" results match the sidebar. |
 | `CommandPalette` (re-exported from `sdk.ts`, mounted once in `App.tsx`) | `extraSearchItems?: SearchItem[]` | `SearchItem` (also re-exported from `sdk.ts`): a specific feature/section *within* one of your pages (not a whole page - that's what `extraNavItems` is for), surfaced by the palette's content search once the query is non-empty. |
@@ -114,8 +114,9 @@ interface SearchItem {
     group: string;              // the page/section this belongs to - shown as detail's fallback,
                                  // and folded into the search text (typing the page name matches too)
     matchKeys?: string[];       // extra strings folded into search text without being displayed
+    scope?: { namespace: Namespace; paths: string[] };  // sweeps every string under these i18next paths into the search text
     to: string;                 // destination, e.g. "/projects?tab=billing" or "/projects#danger-zone"
-    permission?: string;
+    permission?: string | string[];  // an array means "any of"
     icon?: LucideIcon;
 }
 ```

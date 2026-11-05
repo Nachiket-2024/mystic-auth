@@ -1,11 +1,11 @@
-@tanstack/query-core@5.104.3
+zustand@5.0.16
 License: MIT
-Repository: https://github.com/TanStack/query
-Copyright: Copyright (c) 2021-present Tanner Linsley
+Repository: https://github.com/pmndrs/zustand
+Copyright: Copyright (c) 2019 Paul Henschel
 
 MIT License
 
-Copyright (c) 2021-present Tanner Linsley
+Copyright (c) 2019 Paul Henschel
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

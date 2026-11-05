@@ -103,9 +103,9 @@ matters if you set these by hand instead.
 
 If you'll ever run this fork on the same machine as another mystic-auth
 fork (another "Use this template" project, yours or someone else's), also
-set `COMPOSE_PROJECT_NAME`, the `*_HOST_PORT` vars, and `DOCKER_SUBNET`/the
-`*_STATIC_IP` vars in `env/mystic_auth/.env.dev` (and in whichever other `env/mystic_auth/.env.*` files
-you use) to something unique to this fork - every fork otherwise defaults
+set `COMPOSE_PROJECT_NAME`, the `*_HOST_PORT` vars, and `DOCKER_SUBNET` in
+`env/mystic_auth/.env.dev` (and in whichever other `env/mystic_auth/.env.*` files
+you use, where the `*_STATIC_IP` vars also live) to something unique to this fork - every fork otherwise defaults
 to the exact same Compose project name, host ports, and Docker network
 subnet, and the two collide. The built frontend image name derives
 from `COMPOSE_PROJECT_NAME` automatically, and the Bugsink team/project

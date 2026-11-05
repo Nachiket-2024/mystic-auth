@@ -88,7 +88,7 @@ See [Database Design: migrations](../database/design.md#migrations). No `create_
 
 ## 4. Grant access via a policy, not a role
 
-Nothing above grants anyone access by itself. `require_authorization` only checks whether the caller holds an active policy covering `("projects:read", "projects")`. Create one (via `/policies` in the UI, or the `POST /authorization/policies` API) and assign it to whichever users/roles should see this data. See [Policy JSON Examples](../authorization/policy-examples.md) if you want a template to start from.
+Nothing above grants anyone access by itself. `require_authorization` only checks whether the caller holds an active policy covering `("projects:read", "projects")`. Create one (via `/policies` in the UI, or the `POST /authorization/policies` API) and assign it to whichever users should see this data. See [Policy JSON Examples](../authorization/policy-examples.md) if you want a template to start from.
 
 ---
 

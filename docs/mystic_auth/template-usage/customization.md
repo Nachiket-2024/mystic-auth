@@ -39,10 +39,10 @@ and direction of the imports are the important part.
 ```text
 backend/app/projects/
   __init__.py
-  models.py
-  schemas.py
-  repository.py
-  routes.py
+  project_model.py
+  project_schema.py
+  project_crud.py
+  project_routes.py
 frontend/src/app/projects/
   ProjectsPage.tsx
 tests/backend/app/projects/
@@ -85,7 +85,7 @@ async def list_projects(
     current_user=Depends(require_authorization("projects:read", "projects")),
     db=Depends(database.get_session),
 ):
-    return await project_repository.list_for_user(db, current_user["email"])
+    return await project_crud.list_for_user(db, current_user["email"])
 ```
 
 Register the router in the shared `backend/app/main.py` entry point. Add an

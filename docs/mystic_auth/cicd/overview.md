@@ -115,6 +115,9 @@ flowchart TD
   `docker/{mystic_auth,app}/compose/*.yml` is a valid 64-character digest.
   `docker compose config` only checks that the field parses as a string, so a
   truncated digest would otherwise fail `docker pull` on a clean host.
+- Runs `check-third-party-notices.sh` to keep `THIRD_PARTY_NOTICES/` in step
+  with `backend/requirements.txt` and `frontend/package-lock.json`, so a
+  dependency bump cannot leave a stale license notice behind.
 - Runs `check-log-rotation.sh`, `check-ci-action-pinning.sh`, and
   `check-readonly-rootfs.sh` to enforce bounded Compose logs, immutable CI
   action references, and read-only root filesystems for production-shaped

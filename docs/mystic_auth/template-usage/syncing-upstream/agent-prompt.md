@@ -11,10 +11,11 @@ The steps in [README](README.md)/[Rebuild, Push, and Reference](rebuild-and-push
 Paste the prompt from [`agent-prompts/mystic_auth/sync-with-upstream.md`](../../../../agent-prompts/mystic_auth/sync-with-upstream.md) while the agent is working in the downstream repository. Before it runs anything, tell it which branch to update if that is not obvious. The agent should:
 
 1. Work from the downstream repository root.
-2. Review `git status`. The script refuses a non-empty index, so the agent preserves staged downstream work with the guide's pre-sync procedure (it must not commit or discard it). Unstaged and untracked work can be preserved by the sync script, which temporarily stashes it and restores it after the sync commit.
+2. Review `git status`. The script refuses a non-empty index, so the agent preserves staged downstream work with the guide's pre-sync procedure (it must not commit or discard it). Unstaged and untracked work can be preserved by the sync script, which temporarily stashes it and restores it after the sync.
 3. Keep the app split available when checking ownership. If the app split is stashed for a first sync, downstream-only files are still not incoming upstream changes.
 4. Review the incoming commit list and structural moves before answering the script's sync prompt. The pasted prompt is your request to sync, so the agent does not ask a second time.
 5. Stop on ownership violations, conflicts, failed validation, or multiple Alembic heads. Do not force a partial sync.
+6. Run the browser and Docker CI jobs in a throwaway copy with its own `COMPOSE_PROJECT_NAME` and `DOCKER_SUBNET`, never against the project's real env files or running dev stack. The prompt's CI step says why and how.
 
 The sync completes the upstream-owned MysticAuth update. It preserves
 downstream app code and does not redesign or update app-owned product files as
@@ -111,8 +112,7 @@ Regenerating env files is part of a full sync (fresh secrets, upstream's latest 
 
 1. Only when the sync adds env fields and the maintainer has approved it, the agent
    **renames** each real env file in both `env/mystic_auth/` and `env/app/`
-   aside (`.env` to `.env.bak`, and so on), plus `frontend/.env` if present -
-   never deletes - so nothing is lost.
+   aside (`.env` to `.env.bak`, and so on), plus `frontend/.env` if present. Nothing is deleted, so nothing is lost.
 2. The agent runs `scripts/mystic_auth/env-tools/setup-env/setup-env.sh` (`.ps1`/`.cmd`). Since the real files no longer exist under their normal names, it generates fresh files from the current `.example` files, with newly generated secrets and this sync's latest fields.
 3. The agent runs `scripts/mystic_auth/env-tools/copy-env-values/copy-env-values.sh OLD NEW` (`.ps1`/`.cmd`) for each old/new pair. It copies every field from the old file into the new one, except the handful setup-env just generated fresh (secrets, and the DB URLs that embed them). If an older file has a blank `BACKUP_UPLOAD_COMMAND` but the new example supplies a non-blank default, it preserves the new value and reports that field for review. The tool reports only which field *names* it moved, never their values, and flags any field that existed in the old file but not the new one (upstream may have dropped or renamed it) for you to decide on by hand.
 4. Once you've confirmed the new files are correct, the agent tells you to delete the `.bak` files yourself.

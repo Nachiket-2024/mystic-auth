@@ -13,6 +13,12 @@
 # Exit 0: single head (or no migrations yet). Exit 1: 2+ heads, details printed.
 set -euo pipefail
 
+# Needs bash 4+ (associative arrays). macOS ships 3.2; `brew install bash` fixes it.
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+  echo "ERROR: this script needs bash 4 or newer (found ${BASH_VERSION}). On macOS run: brew install bash" >&2
+  exit 1
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 VERSIONS_DIR="$REPO_ROOT/backend/alembic/versions"
 

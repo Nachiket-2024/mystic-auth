@@ -43,9 +43,9 @@ Work around it by re-diffing with the listed path(s) excluded (':!path' per file
 Then handle the excluded file(s) by hand (e.g. copy the file straight from upstream's working tree).
 ```
 
-Nothing is committed when this fires, run the suggested command to apply everything except the problem file(s), then copy the excluded file(s) over by hand (e.g. `git show upstream/main:screenshots/mystic_auth/dashboard.png > screenshots/mystic_auth/dashboard.png`) before committing. Once resolved, run the sync script again to pick up where you left off.
+Nothing is committed when this fires. Run the suggested command to apply everything except the problem file(s), then copy the excluded file(s) over by hand (e.g. `git show upstream/main:screenshots/mystic_auth/dashboard.png > screenshots/mystic_auth/dashboard.png`) before committing. Once resolved, run the sync script again to pick up where you left off.
 
-Note: this template's own screenshots live under `screenshots/mystic_auth/`, following the same `app/`/`mystic_auth/` ownership split used everywhere else in the repo (see [overview.md](../ownership-split.md)). Put your own project's screenshots in `screenshots/app/` instead: since upstream never touches that folder, a sync can never collide with anything you put there, which is what causes this failure mode in the first place.
+Note: this template's own screenshots live under `screenshots/mystic_auth/`, following the same `app/`/`mystic_auth/` ownership split used everywhere else in the repo (see [the ownership split](../ownership-split.md)). Put your own project's screenshots in `screenshots/app/` instead: since upstream never touches that folder, a sync can never collide with anything you put there, which is what causes this failure mode in the first place.
 
 ---
 
@@ -119,7 +119,7 @@ Not committing -- resolve the alembic branch above first, then:
   git commit -m "Sync upstream template updates (mystic-auth@<sha>)"
 ```
 
-Fix it the same way you'd fix any two-heads alembic history, with a merge migration. `backend-exec.sh` wraps `docker compose exec`, which needs the `backend` container already up and healthy - bring the stack up first if you haven't already (e.g. right after a fresh sync, before anything's running):
+Fix it the same way you'd fix any two-heads alembic history, with a merge migration. `backend-exec.sh` wraps `docker compose exec`, which needs the `backend` container already up and healthy, so bring the stack up first if you haven't already (e.g. right after a fresh sync, before anything's running):
 
 ```bash
 docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev up -d --build
@@ -130,7 +130,7 @@ git commit -m "Sync upstream template updates (mystic-auth@<sha>)"
 
 `docker compose run` looks like the natural alternative when the stack isn't up yet, but don't use it here: the backend image's entrypoint drops root privilege via `su-exec` regardless of `--user root` on `run` (only `exec` against an already-running container respects it), so `alembic merge heads` fails trying to write the new migration file under the bind-mounted, host-owned `backend/alembic/versions/`.
 
-This check also runs standalone any time you want it, without syncing: `scripts/mystic_auth/upstream-sync/check-alembic-heads.sh` (Git Bash/WSL/Linux/macOS), `.\scripts\mystic_auth\upstream-sync\check-alembic-heads.ps1` (PowerShell), or `scripts\mystic_auth\upstream-sync\check-alembic-heads.cmd` (Command Prompt) - same "locate Git Bash, run the real script" wrapper as `sync-upstream.ps1`/`.cmd`.
+This check also runs standalone any time you want it, without syncing: `scripts/mystic_auth/upstream-sync/check-alembic-heads.sh` (Git Bash/WSL/Linux/macOS), `.\scripts\mystic_auth\upstream-sync\check-alembic-heads.ps1` (PowerShell), or `scripts\mystic_auth\upstream-sync\check-alembic-heads.cmd` (Command Prompt). These use the same "locate Git Bash, run the real script" wrapper as `sync-upstream.ps1`/`.cmd`.
 
 ---
 

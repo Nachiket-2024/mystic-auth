@@ -23,6 +23,8 @@ Run the command from the root of the downstream project created from this templa
 
 The script requires a clean Git index (`git diff --cached` must be empty). A completely clean working tree is still the recommended starting point. If unstaged or untracked downstream work exists, the script temporarily stashes it, including an app split, applies upstream against a clean tree, and puts the work back at the end (a stash is just a temporary shelf for uncommitted work; nothing on it is lost until you drop it). Ignored files, such as real env files, are not included. If putting the work back conflicts, the sync result stays staged and the saved copy stays on the shelf (`git stash list`) until you resolve it.
 
+The script needs bash 4 or newer (Git Bash, WSL and Linux have it). macOS ships bash 3.2, so run `brew install bash` once; otherwise the script stops at the start with a message saying so.
+
 Before making a preparatory stash, refresh the sync scripts from the latest
 fetched upstream branch. The project's own copy of
 `scripts/mystic_auth/upstream-sync/` can be stale (an older ownership guard, or
@@ -91,7 +93,7 @@ only the upstream-owned sync files (the entry point and its three stage files)
 with the fetched upstream versions, and rerun.
 Do not force the sync, skip the ownership check, or weaken it for new tests.
 
-Root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` are downstream-owned starting points too. If upstream changed them, the script reports and excludes those changes so the local copies are preserved while unrelated upstream fixes continue. Most syncs go straight down the right-hand “Clean” path.
+Root `README.md`, `SECURITY.md`, and `CONTRIBUTING.md` are downstream-owned starting points too. If upstream changed them, the script reports and excludes those changes so the local copies are preserved while unrelated upstream fixes continue. Most syncs follow the “Clean” path.
 
 ---
 
@@ -146,7 +148,7 @@ This step is fully automatic: you don't type or decide anything here. For almost
 3. **It produced two alembic migration heads** (rare, only if this app and upstream both added a migration since your last sync): go to [If it reports multiple alembic heads](troubleshooting.md#if-it-reports-multiple-alembic-heads).
 4. **None of the above (everything applied cleanly)**: go to **Step 5**.
 
-Most syncs hit none of 1-3 and go straight to Step 5. The two "rare" cases are safety nets, not expected steps, they exist so a bad sync fails loudly instead of quietly.
+Most syncs hit none of 1-3 and go straight to Step 5. The two "rare" cases are safety nets, not expected steps; they exist so a bad sync fails loudly instead of quietly.
 
 The script applies tracked file changes; it does not migrate database data or
 convert Docker volumes. Before starting a synced Compose stack, review any

@@ -29,6 +29,12 @@ define which boundary is authoritative and which checks are informational.
   instead of `docker pull`/`docker compose up` on a clean host.
 - `tests/scripts/mystic_auth/lint/check-log-rotation.sh` verifies every
   Compose service sets bounded `json-file` log rotation.
+- `tests/scripts/mystic_auth/lint/check-third-party-notices.sh` verifies every
+  `THIRD_PARTY_NOTICES/backend/<name>-<version>.txt` matches the version pinned
+  in `backend/requirements.txt`, the backend README names the pinned Psycopg
+  version, and `THIRD_PARTY_NOTICES/frontend/` has exactly one file per
+  production package in `frontend/package-lock.json`. A dependency bump that
+  leaves a notice behind fails CI.
 - `tests/scripts/mystic_auth/lint/check-ci-action-pinning.sh` verifies every
   third-party GitHub Actions reference uses a commit SHA instead of a mutable
   tag.
