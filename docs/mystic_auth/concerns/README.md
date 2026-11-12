@@ -29,7 +29,7 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 **Description**: The `local-prod-ngrok` tunnel image ships ngrok's own statically linked agent binary, which embeds six High-severity Go-module advisories that only ngrok can fix by publishing a rebuilt agent. CI scans every image with Trivy (High and Critical, fixed issues only); the ngrok image alone uses the time-boxed exceptions in `ci/mystic_auth/trivy-ngrok.ignore.yaml`, and each exception expires on its listed date so the gap cannot be forgotten.
 
-**Impact**: Only the optional local-prod ngrok tunnel is affected. The backend, frontend, backup, Cloudflare and Tailscale images keep the full gate, and the ngrok container has no access to secrets beyond its own auth token.
+**Impact**: Only the optional local-prod ngrok tunnel is affected. The backend, frontend, backup, Cloudflare, GeoIP updater and Tailscale images keep the full gate. The ngrok container has no access to secrets beyond its own auth token.
 
 **Why it exists**: The project cannot patch modules inside a vendor-built binary.
 

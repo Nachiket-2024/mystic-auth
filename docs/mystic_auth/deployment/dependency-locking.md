@@ -28,6 +28,15 @@ The lock is compiled with [uv](https://docs.astral.sh/uv/) using `--universal`, 
 
 To refresh every transitive package to the newest allowed version, run the script with `--upgrade`, then test the same way.
 
+```mermaid
+flowchart LR
+    Source[Edit a requirements .in file] --> Compile[Compile both hashed locks]
+    Compile --> Install[Install with hash checking]
+    Install --> Tests[Run the test suite]
+    Tests --> Commit[Commit source and lock files]
+    Compile -. CI checks lock freshness .-> Check[compile-lock.sh --check]
+```
+
 ## What CI checks
 
 - **Lock is current:** `compile-lock.sh --check` re-resolves and fails the build if a committed lock differs from its `.in` file, so the two cannot drift.

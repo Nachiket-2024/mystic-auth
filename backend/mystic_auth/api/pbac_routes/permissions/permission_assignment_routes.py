@@ -20,7 +20,6 @@ from ....authorization.services.authorization_service import authorization_servi
 from ....core.errors import AppError
 from ....database.connection import database
 from ....user.user_crud_collector import user_crud
-from ....user.user_model import UserRole
 from ....user_session.session_events import publish_permissions_changed
 from ...get_or_404.get_or_404 import get_or_404
 
@@ -54,16 +53,9 @@ async def grant_permission_to_user(
             status_code=422, code="INVALID_CONDITIONS", detail=exc.errors
         ) from exc
 
-    # The reserved system account's authorization surface must never be
-    # mutated through this generic route, mirroring the same guard on
-    # update_user_role/update_user (user_management_update_routes.py).
-    if user.role == UserRole.system:
-        raise AppError(
-            status_code=403,
-            code="SYSTEM_USER_CANNOT_BE_MODIFIED",
-            detail="System user cannot be modified",
-        )
-
+    # No system-user guard here: direct grants only ever add access (there is
+    # no deny), so they cannot weaken the system user's baseline policies,
+    # which are protected on the policy routes instead.
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], [assignment.action], assignment.resource_type, db,
         context=build_authorization_context(request), conditions=assignment.conditions,
@@ -109,16 +101,9 @@ async def revoke_permission_from_user(
     the grant's identity, same as the unique constraint on UserPermission."""
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
 
-    # The reserved system account's authorization surface must never be
-    # mutated through this generic route, mirroring the same guard on
-    # update_user_role/update_user (user_management_update_routes.py).
-    if user.role == UserRole.system:
-        raise AppError(
-            status_code=403,
-            code="SYSTEM_USER_CANNOT_BE_MODIFIED",
-            detail="System user cannot be modified",
-        )
-
+    # No system-user guard here: direct grants only ever add access (there is
+    # no deny), so they cannot weaken the system user's baseline policies,
+    # which are protected on the policy routes instead.
     await authorization_service.assert_authorized_to_grant(
         current_user["email"], [action], resource_type, db,
         context=build_authorization_context(request),

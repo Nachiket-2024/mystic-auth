@@ -67,11 +67,8 @@ against both databases in the dev stack, on every push. It verifies the
 application restore, accepts an empty dev Bugsink database, and checks that
 both scratch databases are removed after the drill exits.
 
-This is how a real bug was found and fixed while building this drill:
-`pg_dump --format=custom --file=-` silently wrote a 0-byte dump on this
-image's `pg_dump` build instead of writing to stdout, and `database-backup.sh`
-used exactly that pattern. Both scripts now omit `--file` and rely on
-stdout redirection instead, which works portably regardless of that
-behavior. See the fixed line's own comment in either script for the detail.
+Both scripts write custom-format dumps by redirecting `pg_dump` stdout. Do
+not use `pg_dump --file=-`: the bundled client can create an empty file
+instead of writing the dump to stdout.
 
 ---

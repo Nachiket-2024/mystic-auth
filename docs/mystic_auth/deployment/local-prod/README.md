@@ -97,7 +97,7 @@ Deployment overview.
 |---|---|
 | `docker/mystic_auth/compose/docker-compose.local-prod-cloudflare.yml` | Production-shaped stack with an optional Cloudflare Named Tunnel service. The credential is a file-backed Compose secret. |
 | `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml` | Production-shaped stack exposed by the `ngrok` service and `NGROK_DOMAIN`. |
-| `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` | Production-shaped stack exposed by the `tailscale` service and `docker/tailscale-serve-config.json`. |
+| `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml` | Production-shaped stack exposed by the `tailscale` service and `docker/mystic_auth/tailscale/tailscale-serve-config.json`. |
 | `env/mystic_auth/.env.local-prod-cloudflare.example` | Cloudflare local-prod environment template. |
 | `env/mystic_auth/.env.local-prod-ngrok.example` | ngrok local-prod environment template. |
 | `env/mystic_auth/.env.local-prod-tailscale.example` | Tailscale local-prod environment template. |

@@ -10,7 +10,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-6+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-blue?logo=postgresql)
-![Valkey](https://img.shields.io/badge/Valkey-9.1.2-blue)
+![Valkey](https://img.shields.io/badge/Valkey-9.1.3-blue)
 ![Procrastinate](https://img.shields.io/badge/Procrastinate-async-orange)
 [![CI](https://github.com/Nachiket-2024/mystic-auth/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Nachiket-2024/mystic-auth/actions/workflows/ci.yml)
 ![Bugsink](https://img.shields.io/badge/Error%20Monitoring-Bugsink-purple)

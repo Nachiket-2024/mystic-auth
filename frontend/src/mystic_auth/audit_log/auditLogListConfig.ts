@@ -10,6 +10,7 @@ import type { SupportedLanguage } from "../translations/translations";
 import { formatNumber } from "../translations/numerals";
 import { monthNameShort } from "../translations/monthNames";
 import { formatHourMinute } from "../translations/timeOfDay";
+import type { Translate } from "../translations/translate";
 
 export const PAGE_SIZE = 25;
 export const ALL_VALUE = "";
@@ -107,7 +108,7 @@ export function timeRangeToApiParams(state: TimeRangeState, nowMs: number): Time
 
 /** "Last 14 days" / "2026-01-01 - 2026-01-07" - shared by TimeRangeControl's own trigger label
  * and each section's active-filter chip, so the two don't drift out of sync with each other. */
-export function timeRangeLabel(state: TimeRangeState, t: (key: string, opts?: Record<string, unknown>) => string): string {
+export function timeRangeLabel(state: TimeRangeState, t: Translate): string {
     if (state.range === "custom" && state.customFrom && state.customTo) {
         return state.customFrom === state.customTo
             ? state.customFrom

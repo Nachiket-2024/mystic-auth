@@ -5,7 +5,6 @@ import { useNavigate } from "react-router";
 
 import GlossaryHelp from "../../ui/display/GlossaryHelp";
 import Badge from "../../ui/badges/Badge";
-import FormAlert from "../../ui/feedback/FormAlert";
 import { Button } from "../../ui/buttons/Button";
 import {
   Dialog,
@@ -60,10 +59,9 @@ const UserAccessDialog: React.FC<UserAccessDialogProps> = ({
   ];
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   if (!user) return null;
+  // Only the system account's built-in baseline policies are locked (shown
+  // per row on the Policies tab); everything else is editable like any user.
   const locked = isSystemUser;
-  const lockText = isSystemUser
-    ? t("users:columns.cannotModifySystemUser")
-    : undefined;
   const { catalog, totalGranted, allPolicies, policyRows, permissionRows, permissionGroups } =
     buildUserAccessRows(state);
   const setTab = (tab: "details" | "policies" | "permissions") =>
@@ -263,17 +261,11 @@ const UserAccessDialog: React.FC<UserAccessDialogProps> = ({
                 </div>
               </div>
             </DialogHeader>
-            {locked && (
-              <div className="mt-3">
-                <FormAlert status="warning">{lockText}</FormAlert>
-              </div>
-            )}
             <UserAccessTabs
               user={user}
               state={state}
               language={language}
               locked={locked}
-              lockText={lockText}
               totalGranted={totalGranted}
               allPolicies={allPolicies}
               policyRows={policyRows}

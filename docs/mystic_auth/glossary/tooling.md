@@ -25,7 +25,7 @@ A `local-scripts/mystic_auth/<mode>/create-system-user.{sh,ps1,bat}` script that
 
 ## `create_system_user.py`
 
-The one and only way the reserved system (superuser) account is ever created or granted; there is no API endpoint for either, by design. Run once after the stack is up and migrations have completed. See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md).
+The operator workflow that creates or promotes the reserved system account and assigns its baseline policies. The API has no account-creation/bootstrap endpoint, though a separate permission-protected role route can set `role=system` on an existing account. Role metadata alone grants no access. Run after the stack is up and migrations have completed. See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md).
 
 ---
 

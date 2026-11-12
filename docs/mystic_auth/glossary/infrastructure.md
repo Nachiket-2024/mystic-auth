@@ -13,7 +13,7 @@ The relational database that is this app's actual system of record: user account
 
 ## Valkey
 
-An in-memory data store used here for anything that needs to be fast and short-lived: the PBAC policy cache, rate-limit counters, session version counters (`account_ver`/`chain_ver`), OAuth2 state/PKCE storage, and Pub/Sub events. It is not the system of record; Postgres is.
+An in-memory data store used here for fast, short-lived data: the PBAC policy cache, rate-limit counters, non-authoritative token-version cache (`account_ver`/`chain_ver`), OAuth2 state/PKCE storage, and Pub/Sub events. Durable token versions and other system-of-record data live in Postgres.
 
 ---
 
@@ -67,7 +67,7 @@ Code that runs on every request/response, wrapped around the actual route handle
 
 ## Procrastinate / background worker
 
-Procrastinate is the Postgres-backed job queue this app uses to run work outside the request/response cycle, such as sending emails and account-lifecycle events, so a slow SMTP call or listener never makes an API response wait on it. A separate `procrastinate_worker` process picks up queued jobs and runs scheduled tasks for account purge, expired-session, refresh-claim, and passkey-challenge cleanup, and lifecycle-outbox reconciliation. See [Background Email Delivery](../background-workers/procrastinate.md).
+Procrastinate is the Postgres-backed job queue this app uses to run work outside the request/response cycle, such as sending emails, persisting authorization decisions, delivering security alerts, and notifying downstream code about account-lifecycle events. A separate `procrastinate_worker` process picks up queued jobs and runs scheduled tasks for account purge, expired-session, refresh-claim, and passkey-challenge cleanup, and lifecycle-outbox reconciliation. See [Background Email Delivery](../background-workers/procrastinate.md).
 
 ---
 
@@ -211,7 +211,7 @@ provide PITR.
 
 Short for Software Bill of Materials: a machine-readable inventory of packages
 included in a built artifact. CI generates SPDX JSON SBOMs for the exact
-backend, frontend, database-backup, ngrok, and Cloudflare Tunnel runtime images it builds, then stores
+backend, frontend, database-backup, ngrok, Cloudflare Tunnel, and GeoIP updater runtime images it builds, then stores
 them as a 90-day artifact. An SBOM is an inventory for vulnerability
 response; it is not a signature, proof that an image is safe, or a backup.
 

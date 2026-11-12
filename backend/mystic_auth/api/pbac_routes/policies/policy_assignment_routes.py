@@ -11,7 +11,10 @@ from ....authorization.dependencies.policy_route_dependencies import (
     READ_DEPENDENCY,
     REVOKE_DEPENDENCY,
 )
-from ....authorization.policies.default_policies import SYSTEM_SUPERUSER_POLICY_NAME
+from ....authorization.policies.default_policies import (
+    SYSTEM_SUPERUSER_POLICY_NAME,
+    SYSTEM_USER_BASELINE_POLICY_NAMES,
+)
 from ....authorization.repositories.policy_repository import policy_repository
 from ....authorization.schemas.policy_schema import (
     PolicyActionRevocationRequest,
@@ -77,10 +80,10 @@ async def assign_policy_to_user(
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
     policy = await get_or_404(policy_repository.get_by_name(assignment.policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
 
-    # The reserved system account's authorization surface must never be
-    # mutated through this generic route, mirroring the same guard on
-    # update_user_role/update_user (user_management_update_routes.py).
-    if user.role == UserRole.system:
+    # The reserved system account keeps the baseline policies MysticAuth gave
+    # it; only those are protected. Any other policy (downstream app
+    # policies) can be assigned/removed like on any other account.
+    if user.role == UserRole.system and policy.name in SYSTEM_USER_BASELINE_POLICY_NAMES:
         raise AppError(
             status_code=status.HTTP_403_FORBIDDEN,
             code="SYSTEM_USER_CANNOT_BE_MODIFIED",
@@ -135,10 +138,10 @@ async def remove_policy_from_user(
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
     policy = await get_or_404(policy_repository.get_by_name(policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
 
-    # The reserved system account's authorization surface must never be
-    # mutated through this generic route, mirroring the same guard on
-    # update_user_role/update_user (user_management_update_routes.py).
-    if user.role == UserRole.system:
+    # The reserved system account keeps the baseline policies MysticAuth gave
+    # it; only those are protected. Any other policy (downstream app
+    # policies) can be assigned/removed like on any other account.
+    if user.role == UserRole.system and policy.name in SYSTEM_USER_BASELINE_POLICY_NAMES:
         raise AppError(
             status_code=status.HTTP_403_FORBIDDEN,
             code="SYSTEM_USER_CANNOT_BE_MODIFIED",
@@ -228,10 +231,10 @@ async def revoke_policy_action_from_user(
     user = await get_or_404(user_crud.get_by_email(user_email, db), "User not found", code="USER_NOT_FOUND")
     policy = await get_or_404(policy_repository.get_by_name(policy_name, db), "Policy not found", code="POLICY_NOT_FOUND")
 
-    # The reserved system account's authorization surface must never be
-    # mutated through this generic route, mirroring the same guard on
-    # update_user_role/update_user (user_management_update_routes.py).
-    if user.role == UserRole.system:
+    # The reserved system account keeps the baseline policies MysticAuth gave
+    # it; only those are protected. Any other policy (downstream app
+    # policies) can be assigned/removed like on any other account.
+    if user.role == UserRole.system and policy.name in SYSTEM_USER_BASELINE_POLICY_NAMES:
         raise AppError(
             status_code=status.HTTP_403_FORBIDDEN,
             code="SYSTEM_USER_CANNOT_BE_MODIFIED",

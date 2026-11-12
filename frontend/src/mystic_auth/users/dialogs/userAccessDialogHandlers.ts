@@ -8,6 +8,7 @@ import type {
   useRevokePermissionMutation,
 } from "../../policies/queries/permissionMutations";
 import { toaster } from "../../ui/toaster/toasterInstance";
+import type { Translate } from "../../translations/translate";
 
 // Toast-wiring mutation handlers for useUserAccessDialogState.ts: assign/
 // revoke a whole policy, revoke one action from a policy, grant/revoke a
@@ -17,7 +18,6 @@ import { toaster } from "../../ui/toaster/toasterInstance";
 // calls them - split out of one 455-line file, see the repo's ~350-line
 // target.
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 type AssignPolicyMutation = ReturnType<typeof useAssignPolicyMutation>;
 type RevokePolicyMutation = ReturnType<typeof useRevokePolicyMutation>;
 type RevokePolicyActionMutation = ReturnType<typeof useRevokePolicyActionMutation>;

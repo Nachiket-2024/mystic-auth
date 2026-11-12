@@ -106,7 +106,7 @@ branding, and verification status in Google Cloud Console.
 
 ## superuser (system account)
 
-A single reserved account (`role == system`) assigned the protected `system_superuser` policy, created only via a one-off script, never through the API or a self-service signup. The role is metadata and also blocks Google OAuth2 login; the policy grants its access. It can only authenticate with a password. See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md).
+An account with `role == system` and the protected `system_superuser` policy. The operator CLI creates or promotes the reserved system account and assigns its baseline policies. A separate permission-protected API route can set `role=system` on another existing account, but that metadata change does not assign policies or grant access. The system role blocks Google OAuth2 login; system accounts authenticate with a password. See [System Superuser: Bootstrapping and Promotion](../authentication/system-superuser/README.md).
 
 ---
 

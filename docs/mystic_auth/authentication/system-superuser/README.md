@@ -2,7 +2,7 @@
 
 ---
 
-`backend/mystic_auth/scripts/create_system_user.py` is the only way the reserved system account is ever created or granted; there is no API endpoint for either, by design (see [OAuth2 / PKCE: system account is blocked from OAuth2 login entirely](../oauth2-pkce.md)).
+`backend/mystic_auth/scripts/create_system_user.py` is the operator workflow for creating or promoting the reserved system account and assigning its baseline policies. There is no API endpoint for account creation or this bootstrap workflow. A separate `PATCH /users/{user_email}/role` endpoint can set `role=system` on another existing account when the caller has `users:assign_system_role`; role is display metadata and this endpoint does not grant policies or permissions. See the [API Reference](../../api/reference.md), [Writing and Testing Policies](../../authorization/writing-testing-policies.md), and [OAuth2 / PKCE](../oauth2-pkce.md#backend-implementation-details).
 
 Run it after the stack is started and migrations have completed. Pick the command for the mode you are running.
 
@@ -55,5 +55,6 @@ Repeat per affected file, then commit the mode change. If you're adding a new `.
 
 - [Interactive Commands](running-commands.md): the full command for each run mode.
 - [Behavior and Prompts](creation-and-promotion-behavior.md): what the script does for a fresh account, an existing password account, and a Google-only account.
+- [App Policies on the System User](app-policies.md): how a downstream app gives the system account its own policies and permissions.
 
 ---

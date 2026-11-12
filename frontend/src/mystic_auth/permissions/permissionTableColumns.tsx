@@ -9,8 +9,8 @@ import type {
   PermissionUsageEntry,
 } from "../api/permissions_api";
 import { formatPolicyActionLabel } from "../policies/policyCardHelpers";
+import type { Translate } from "../translations/translate";
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 export function createPermissionTableColumns(
   t: Translate,

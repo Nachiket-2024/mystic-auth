@@ -38,7 +38,11 @@ No external account or sign-up is involved anywhere in this path: Bugsink is ent
 
    These configure the Bugsink *container* directly: they are unrelated to this app's own `Settings` class and never read by the backend/frontend themselves. `BUGSINK_BASE_URL` is what Bugsink uses to construct links back to itself (e.g. in any email it sends): `http://localhost:8010` is only correct for local dev; update it to match wherever you're actually reaching Bugsink from (a LAN IP, a tunnel, a real hostname) if that's not `localhost`.
 
-   **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `env/mystic_auth/.env.dev.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If you don't want error monitoring at all, either set a real key anyway (cheapest fix, `openssl rand -base64 50`) or run `docker compose stop bugsink bugsink-seed` to stop the restart loop.
+   **`BUGSINK_SECRET_KEY` specifically must be a real, long value.** Leave it as `env/mystic_auth/.env.dev.example`'s placeholder and the `bugsink` container crash-loops on startup (Django's own deploy check rejects short/low-entropy secret keys): you'll see it endlessly restarting in `docker compose ps`/logs. This doesn't affect anything else: `backend`, `frontend`, and every other service start and work normally regardless, since nothing depends on `bugsink` being healthy. If `BUGSINK_SUPERUSER_EMAIL` is blank, Bugsink starts without an operator account and `bugsink-seed` skips DSN creation, so browser and backend error reporting stay off. To disable the service entirely, run:
+
+   ```bash
+   docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev stop bugsink bugsink-seed
+   ```
 
    **Email notifications on a new issue reuse this app's own mail settings.** Every Compose file's `bugsink` service maps `SMTP_HOST`/`SMTP_PORT`/`FROM_EMAIL`/`GMAIL_APP_PASSWORD` (already set for this app's own signup/reset emails, see [Authentication Overview](../authentication/overview.md)) onto Bugsink's own env var names (`EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_HOST_USER`/`EMAIL_HOST_PASSWORD`/`DEFAULT_FROM_EMAIL`, plus `EMAIL_USE_TLS: "true"`). Bugsink is a separate Django app with its own settings, so it never reads this app's `Settings` class regardless of naming. **Bugsink emails are off by default.** The compose files set `EMAIL_BACKEND` from `BUGSINK_EMAIL_BACKEND`, which defaults to Bugsink's quiet console backend: it logs the subject of each would-be email and sends nothing. To turn emails on, set `BUGSINK_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend` in the env file and restart Bugsink; a brand-new issue (not a repeat event on one already seen) then emails the project's members, using the mail vars above. Remove the line again to silence it. Without a real `SMTP_HOST`, Bugsink silently falls back to writing to its own console log instead of sending anything: check `docker compose logs bugsink` for `QuietConsoleEmailBackend` if notifications seem to be missing.
 
@@ -152,8 +156,8 @@ events:
   address or User-Agent from the session's previously recorded context. This
   can be a normal network or browser change, so treat it as a review signal,
   not proof of theft. Event metadata contains only `ip_changed` and
-  `user_agent_changed`; the audit row's standard IP/User-Agent columns are
-  removed by the normal retention job.
+  `user_agent_changed`; the append-only audit row retains its standard IP and
+  User-Agent snapshots.
 - `session_event_connection_limit_exceeded`: an account or client IP reached
   the maximum number of live session-event (SSE) connections.
 - `login_ip_locked`: failed logins for one normalized account/source-IP pair

@@ -58,23 +58,26 @@ condition representation, and validation errors independently of route code.
 
 ### `tests/backend/mystic_auth/unit/api/pbac_routes/test_permission_assignment_system_user_guard_unit.py`
 
-The grant and revoke cases prove a route cannot add or remove direct
-permissions on the protected system user. The test isolates the guard so a
-future repository refactor cannot accidentally move protection after the
-write.
+The grant and revoke cases prove app-owned direct permissions can be added to
+or removed from the system user, while the caller must still hold each action
+being granted. Role protection is tested separately in the user-management
+routes; direct permission management does not protect the system user as a
+whole.
 
 ### `tests/backend/mystic_auth/unit/api/pbac_routes/test_policy_assignment_system_user_guard_unit.py`
 
-The assignment, removal, and action-revoke cases apply the same protected-user
-rule to policy rows and policy actions. This is why `system_superuser` is not
-used as an ordinary seeded matrix policy.
+The assignment, removal, and action-revoke cases protect only the system
+user's three baseline policies. App-owned policies remain assignable and
+removable when the caller passes the normal grant-escalation check. This is
+why `system_superuser` is not used as an ordinary seeded matrix policy.
 
 ### `tests/backend/mystic_auth/unit/api/pbac_routes/test_bulk_system_user_guard_unit.py`
 
-Bulk direct-permission and bulk-policy tests prove only the system-user item is
-rejected while other selected users still proceed. Invalid conditions are
-rejected before repository writes. This establishes best-effort isolation:
-one protected target does not silently authorize or abort unrelated targets.
+Bulk tests prove app-owned direct permissions and policies can be managed on
+the system user, while attempts to change its baseline policies are rejected.
+Other selected users still proceed, and invalid conditions are rejected
+before repository writes. This establishes best-effort isolation: a rejected
+baseline change does not silently authorize or abort unrelated items.
 
 ### `tests/backend/mystic_auth/unit/api/pbac_routes/test_bulk_policy_routes_unit.py`
 
@@ -189,6 +192,9 @@ events and do not emit misleading success records when a mutation is denied.
   changes real access, missing assignments return 404, list endpoints expose
   current holders, and self-policy reads work without `policies:read` or being
   shadowed by the management route.
+- `test_system_user_policy_assignment_integration.py` verifies a real
+  `role=system` account keeps its three baseline policies (single and bulk
+  routes) while app policies can be assigned and removed.
 - `test_permission_assignment_integration.py` verifies direct grant/revoke,
   `/auth/me` effective permissions, missing-grant 404s, in-place condition
   updates, list endpoints, and self-permission reads without
@@ -254,7 +260,9 @@ events and do not emit misleading success records when a mutation is denied.
 - `security/test_policy_tampering_security.py` verifies protected/default
   policy definitions cannot be altered through unauthorized paths.
 - `security/test_privilege_escalation_security.py` verifies role, policy, and
-  direct-grant combinations cannot promote an ordinary user.
+  direct-grant combinations cannot promote an ordinary user; system-user
+  policy and permission changes still require the caller to hold each granted
+  action.
 - `security/test_least_privilege_db_role.py` verifies the restricted database
   role cannot perform operations outside its deployment contract when enabled.
 

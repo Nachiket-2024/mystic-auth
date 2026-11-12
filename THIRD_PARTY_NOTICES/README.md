@@ -2,7 +2,7 @@
 
 This directory lists the application dependency licenses: one file per
 package under `backend/` (Python, 72 packages) or `frontend/` (npm production
-bundle, 132 packages). Each file has the package's name, version, license
+bundle, 126 packages). Each file has the package's name, version, license
 identifier, copyright line, and full license text. Any package `NOTICE` file
 is included with that package's license.
 
@@ -46,7 +46,7 @@ npx license-checker-rseidelsohn --production --excludePackages "frontend@0.0.0" 
 
 Write one `backend/<name>-<version>.txt` or `frontend/<name>_<version>.txt`
 file per entry (for a scoped npm package, `@` and `/` become `_`, so
-`@tanstack/react-query` 5.106.1 is `_tanstack_react-query_5.106.1.txt`). Include the package name, version, license identifier, source URL,
+`@tanstack/react-query` 5.107.1 is `_tanstack_react-query_5.107.1.txt`). Include the package name, version, license identifier, source URL,
 copyright line, full license text, and any package `NOTICE` file. The npm
 inventory command reports metadata; copy the actual license and notice files
 from each matching package in `frontend/node_modules/`, rather than treating

@@ -36,7 +36,7 @@ async def purge_user_account(
     Hard-delete path shared by the management `DELETE /users/{email}/purge` route
     (user_lifecycle_routes.py::purge_user) and the scheduled grace-period
     purge job (procrastinate_tasks/account_purge_tasks.py), so both go
-    through the same revoke -> anonymize-history -> audit -> delete
+    through the same revoke -> audit -> delete
     sequence instead of two independently-maintained copies.
 
     Takes a row lock on the user and, if it was already soft-deleted when

@@ -1,25 +1,25 @@
-# ngrok 3.39.12 is the newest official agent image available on 2026-10-23.
+# ngrok 3.39.13 is the newest official agent image available on 2026-11-10.
 # Its statically linked binary still embeds these six HIGH Go-module CVEs.
 # The project cannot patch vendor-built modules independently. These narrowly
 # scoped exceptions let the local-prod tunnel image pass CI while keeping the
 # residual exposure visible and time-bounded; remove them as soon as ngrok
-# publishes a rebuilt agent. Recheck by 2026-11-14.
+# publishes a rebuilt agent. Recheck by 2026-11-24.
 vulnerabilities:
   - id: CVE-2026-50274
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.12 embeds the affected Datadog module; waiting for a vendor rebuild.
+    expired_at: 2026-11-24
+    statement: ngrok 3.39.13 embeds the affected Datadog module; waiting for a vendor rebuild.
   - id: CVE-2026-63209
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.12 embeds the affected compression module; waiting for a vendor rebuild.
-  - id: CVE-2026-78669
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.12 embeds the affected golang.org/x/net module; waiting for a vendor rebuild.
+    expired_at: 2026-11-24
+    statement: ngrok 3.39.13 embeds the affected compression module; waiting for a vendor rebuild.
+  - id: CVE-2026-78661
+    expired_at: 2026-11-24
+    statement: ngrok 3.39.13 embeds the affected golang.org/x/net module; waiting for a vendor rebuild.
   - id: CVE-2026-84304
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.12 embeds the affected gRPC module; waiting for a vendor rebuild.
+    expired_at: 2026-11-24
+    statement: ngrok 3.39.13 embeds the affected gRPC module; waiting for a vendor rebuild.
   - id: CVE-2026-84445
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.12 embeds the affected gRPC module; waiting for a vendor rebuild.
+    expired_at: 2026-11-24
+    statement: ngrok 3.39.13 embeds the affected gRPC module; waiting for a vendor rebuild.
   - id: GHSA-hrxh-6v49-42gf
-    expired_at: 2026-11-14
-    statement: ngrok 3.39.12 embeds the affected gRPC module; waiting for a vendor rebuild.
+    expired_at: 2026-11-24
+    statement: ngrok 3.39.13 embeds the affected gRPC module; waiting for a vendor rebuild.

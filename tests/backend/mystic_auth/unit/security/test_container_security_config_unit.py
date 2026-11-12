@@ -26,8 +26,8 @@ def test_ngrok_container_declares_non_root_user_and_healthcheck():
 
 
 def test_nginx_routes_generated_errors_through_security_header_locations():
-    config = (ROOT / "docker/mystic_auth/nginx.frontend.conf").read_text()
-    snippet = (ROOT / "docker/mystic_auth/nginx.error-headers.conf").read_text()
+    config = (ROOT / "docker/mystic_auth/nginx/nginx.frontend.conf").read_text()
+    snippet = (ROOT / "docker/mystic_auth/nginx/nginx.error-headers.conf").read_text()
     dockerfile = (ROOT / "docker/mystic_auth/dockerfiles/frontend.Dockerfile").read_text()
 
     for code in (400, 404, 405, 408, 413, 414, 429, 431, 500, 502, 503, 504):
@@ -61,7 +61,7 @@ def test_cloudflare_compose_secret_uses_the_documented_token_file():
 
 
 def test_nginx_returns_404_for_missing_static_files_instead_of_the_spa_page():
-    config = (ROOT / "docker/mystic_auth/nginx.frontend.conf").read_text()
+    config = (ROOT / "docker/mystic_auth/nginx/nginx.frontend.conf").read_text()
     for marker in ("location ~ ^/assets/", "location ~ ^/(robots"):
         start = config.index(marker)
         block = config[start : config.index("}", start)]
@@ -72,7 +72,7 @@ def test_nginx_returns_404_for_missing_static_files_instead_of_the_spa_page():
 
 
 def test_hashed_assets_are_cached_for_a_year_but_the_spa_page_is_not():
-    config = (ROOT / "docker/mystic_auth/nginx.frontend.conf").read_text()
+    config = (ROOT / "docker/mystic_auth/nginx/nginx.frontend.conf").read_text()
     start = config.index("location ~ ^/assets/")
     assets_block = config[start : config.index("}", start)]
     assert "public, max-age=31536000, immutable" in assets_block
@@ -119,13 +119,13 @@ def test_ntfy_is_not_published_to_the_internet_and_alert_net_has_no_route_out():
 
 
 def test_caddy_publishes_ntfy_on_its_own_domain_with_a_safe_fallback():
-    caddyfile = (ROOT / "docker/mystic_auth/Caddyfile").read_text()
+    caddyfile = (ROOT / "docker/mystic_auth/caddy/Caddyfile").read_text()
     assert "{$NTFY_PUBLIC_DOMAIN:ntfy.localhost} {" in caddyfile
     assert "reverse_proxy ntfy:8080" in caddyfile
 
 
 def test_nginx_access_log_never_records_query_strings():
-    config = (ROOT / "docker/mystic_auth/nginx.frontend.conf").read_text()
+    config = (ROOT / "docker/mystic_auth/nginx/nginx.frontend.conf").read_text()
     match = re.search(r"log_format no_query (.*?);", config, re.DOTALL)
     assert match, "custom access log format missing"
     fmt = match.group(1)
@@ -143,6 +143,15 @@ def test_bugsink_emails_are_off_unless_explicitly_enabled():
         assert (
             "EMAIL_BACKEND: ${BUGSINK_EMAIL_BACKEND:-bugsink.email_backends.QuietConsoleEmailBackend}" in service
         ), name
+
+
+def test_dev_bugsink_only_creates_a_superuser_when_email_is_configured():
+    compose = (ROOT / "docker/mystic_auth/compose/docker-compose.dev.yml").read_text()
+    service = _compose_service(compose, "bugsink")
+    seed_service = _compose_service(compose, "bugsink-seed")
+
+    assert "CREATE_SUPERUSER: ${BUGSINK_SUPERUSER_EMAIL:+${BUGSINK_SUPERUSER_EMAIL}:${BUGSINK_SUPERUSER_PASSWORD}}" in service
+    assert 'if [ -z \\"$$BUGSINK_SUPERUSER_EMAIL\\" ]; then' in seed_service
 
 
 def test_backend_worker_autosizing_respects_the_container_cpu_limit():

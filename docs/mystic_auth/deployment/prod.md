@@ -137,17 +137,18 @@ name. Nothing outside the Docker network can reach them directly.
 
 **Step 3b (Optional): Enable session geolocation.**
 
-Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
-`env/mystic_auth/.env.prod` alone does nothing: the `geoipupdate` service that downloads the
-`.mmdb` file is gated behind the `geoip` Compose profile, skipped by Step 3's
-command as written. Re-run Step 3 with the profile added instead:
+To enable session geolocation, set `GEOIP_DB_PATH`,
+`GEOIPUPDATE_ACCOUNT_ID`, and `GEOIPUPDATE_LICENSE_KEY` in
+`env/mystic_auth/.env.prod`. The `prod-up` wrapper enables the `geoip`
+Compose profile when the database path and both credentials are set. If you
+use raw Compose commands, add the profile explicitly:
 
 ```bash
 docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod --profile geoip up -d --build
 ```
 
-Without it, the updater is not started and Manage Sessions' Location column
-shows "Unknown". When the profile is enabled, the updater healthcheck now
+Without the profile, the updater is not started and Manage Sessions' Location column
+shows "Unknown". When the profile is enabled, the updater healthcheck
 requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../geolocation/overview.md)
 for the MaxMind account/license-key setup this depends on.
@@ -163,7 +164,7 @@ request, so the very first load may take a few extra seconds.
 
 ## How routing works
 
-The frontend container's nginx (`docker/mystic_auth/nginx.frontend.conf`) proxies API
+The frontend container's nginx (`docker/mystic_auth/nginx/nginx.frontend.conf`) proxies API
 route prefixes (`/auth`, `/audit`, `/users`, `/authorization`, `/health`,
 `/rate-limits`) to `backend`. It's pinned to `FRONTEND_STATIC_IP` so the
 backend can trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS`

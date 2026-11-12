@@ -33,7 +33,7 @@ flowchart LR
 
 ## Signup consent is a notice, not a gate
 
-Signup does **not** block submission behind an unchecked consent checkbox. `SignupForm.tsx` renders a static sentence under the submit button ("By signing up, you agree to our Terms of Service and Privacy Policy," via `agreeToTermsPrefix`/`termsOfService`/`and`/`privacyPolicy` keys in the `auth` namespace), with `AuthInlineLink`s to `/terms` and `/privacy`. Creating an account is treated as acceptance by using the service, the same "notice, not a checkbox" pattern many production signup flows use, rather than an interactive consent gate with its own validation state.
+Signup does **not** block submission behind an unchecked consent checkbox. `SignupForm.tsx` renders a static sentence under the submit button ("By signing up, you agree to our Terms of Service and Privacy Policy," via `agreeToTermsPrefix`/`termsOfService`/`and`/`privacyPolicy` keys in the `auth` namespace), with `AuthInlineLink`s to `/terms` and `/privacy`. This is a notice in the interface: the app does not condition signup on consent or store a separate consent record. The wording describes the UI and implementation, not the legal effect of creating an account.
 
 `signup_form_legal_consent.test.tsx` is a regression guard specifically for this: it renders `SignupForm` and asserts both links exist with the right `href`, guarding against the line (or either link) silently disappearing, not against a missing checkbox, since there isn't one.
 

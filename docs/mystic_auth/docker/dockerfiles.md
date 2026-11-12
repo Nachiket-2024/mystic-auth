@@ -17,7 +17,7 @@
   - Ships a `HEALTHCHECK` against `/health/ready` as a fallback for when the image runs outside Compose (Compose's own healthcheck, defined per-service, is what actually gates dependent-service startup).
   - Alpine's `adduser -S` assigns a different UID than the old Debian image did, so an existing `backend_logs` volume from before this migration needs `docker volume rm backend_logs` (or a chown) once; a fresh volume just inherits the right owner.
 - **`docker/mystic_auth/dockerfiles/frontend.Dockerfile`**: three stages:
-  - `dev` (default target: `node:22.23.3-bookworm`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user).
+  - `dev` (default target: `node:22.23.4-bookworm`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user).
   - `builder` (compiles the production bundle; takes `VITE_API_BASE_URL`/`VITE_APP_NAME`/`VITE_SENTRY_DSN`/`VITE_SENTRY_ENVIRONMENT` as build args, since this stage has no bind-mounted `frontend/.env` to read them from the way `dev` does: wired from that mode's `env/` file via each production-style Compose file's `build.args`, see [Environment and Runtime Configuration](../deployment/environment.md#5-required-production-review)).
   - `production` (`nginx:stable-alpine`, `apk upgrade`d for the same reason as the backend's above, serving the static build as a non-root `nginx` user, port 80, `HEALTHCHECK` via `wget`).
   - Copies `THIRD_PARTY_NOTICES/frontend/` into the static root. The production image serves the notices and a directory listing at `/third-party-notices/`.
@@ -46,7 +46,7 @@
   dependencies, with no unrelated OS-package findings, at roughly a tenth
   the image size (~44MB vs 418MB). The pinned upstream binary currently
   reports High findings in its Go modules; CI tracks those in an image-scoped
-  exception expiring 2026-11-14 while waiting for a rebuilt vendor release.
+  exception expiring 2026-11-24 while waiting for a rebuilt vendor release.
   `--authtoken` is passed as a CLI flag on the
   compose service's `command:` instead of the vendor image's env-var-to-
   config-file entrypoint rewrite, since there's no entrypoint script here to
@@ -54,13 +54,14 @@
   which the vendor image could not (its entrypoint needs to write a config
   file at startup).
 - **`docker/mystic_auth/dockerfiles/cloudflared.Dockerfile`** (`local-prod-cloudflare`): builds a digest-verified Cloudflare Tunnel source release on a pinned Go toolchain, upgrades the vulnerable `klauspost/compress` dependency to a fixed release, runs the tunnel and credential-launcher tests during the build, and copies only the static binaries, CA bundle, and dependency notices into `scratch`. A PID 1 launcher reads the Compose secret, copies it into a private tmpfs file, then drops supplementary groups, GID, and UID before starting `cloudflared`. Only the launcher has `DAC_OVERRIDE`, which lets it read the host-owned 0600 secret mount; the capability is discarded on the UID transition. The account token stays out of argv and environment while the tunnel runs as UID/GID 65532.
+- **`docker/mystic_auth/dockerfiles/geoipupdate.Dockerfile`** (`geoip` profile): builds a digest-verified MaxMind `geoipupdate` source release on the pinned Go toolchain, runs its tests, and ships it on a patched Alpine base with upstream's own `entry.sh` update loop and the dependency notices. Replaces the vendor image, which lagged behind Go and Alpine security fixes.
 
 CI builds and scans the Cloudflare Tunnel image alongside the other runtime
 images, verifies its shipped notices, and generates a validated SPDX JSON
 SBOM tied to the built image ID.
 
 Both `runtime` and `production` re-run their package-manager upgrade on every build rather than pinning to a snapshot, so a rebuild always picks up whatever Alpine security patches have been published since the base image tag was last republished, rather than waiting on the next `python`/`nginx` tag release.
-- **`docker/mystic_auth/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, and `Strict-Transport-Security`). Sends HSTS itself, unlike the backend's own copy of this header set which gates it on `ENVIRONMENT == "production"`: this stage only ever ships in a production-shaped deployment, so it can send it unconditionally, and needs to since the local-prod-ngrok/cloudflare/tailscale tunnel modes have no other layer in front of it that would (see [Security Hardening: HTTP Layer](../security/hardening-http.md#security-response-headers)).
+- **`docker/mystic_auth/nginx/nginx.frontend.conf`**: SPA fallback to `index.html`, gzip, security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP, and `Strict-Transport-Security`). Sends HSTS itself, unlike the backend's own copy of this header set which gates it on `ENVIRONMENT == "production"`: this stage only ever ships in a production-shaped deployment, so it can send it unconditionally, and needs to since the local-prod-ngrok/cloudflare/tailscale tunnel modes have no other layer in front of it that would (see [Security Hardening: HTTP Layer](../security/hardening-http.md#security-response-headers)).
 - The production frontend exposes its dependency notices under `/third-party-notices/`; the backend image keeps its notices under `/usr/share/licenses/mystic-auth/backend/`. See [Third-party notices](../../../THIRD_PARTY_NOTICES/README.md) for the package inventory and regeneration notes.
 - **`.dockerignore`** (repo root: the build context for both Dockerfiles above is `.`, not `backend/`/`frontend/` individually, so its patterns are written relative to the repo root): excludes `backend/logs/` (real local request logs, previously leaking into the backend image: a real bug, not a hypothetical one, see [Security Decisions](../security/decisions-infra.md#dockerignore-previously-let-local-files-leak-into-built-images)) and `**/`-recursive patterns for `__pycache__/`/`*.pyc`/`.pytest_cache/` (bare patterns without the `**/` prefix looked like they should already match at any depth but empirically didn't).
 

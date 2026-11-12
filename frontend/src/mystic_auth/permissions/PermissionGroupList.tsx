@@ -13,8 +13,8 @@ import {
   RESOURCE_TYPE_ICONS,
   resourceTypeIconTone,
 } from "../policies/policyCardHelpers";
+import type { Translate } from "../translations/translate";
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 interface PermissionGroupListProps {
   groups: Map<string, PermissionCatalogEntry[]>;

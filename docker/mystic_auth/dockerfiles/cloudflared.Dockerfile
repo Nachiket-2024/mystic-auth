@@ -2,12 +2,13 @@
 # dependencies can receive security fixes before Cloudflare republishes the
 # vendor binary. Keep the source archive digest-pinned and retain dependency
 # notices in the resulting runtime image.
-FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS builder
+FROM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS builder
 
 ARG CLOUDFLARED_VERSION=2026.10.2
 ARG CLOUDFLARED_SOURCE_SHA256=8dde1e9e4b0ad5ae09abd7b5790dabc9195ba48a5c7f0af7e54e787eef54a3cb
 ARG KLAUSPOST_COMPRESS_VERSION=v1.18.7
 ARG GO_JOSE_VERSION=v4.1.6
+ARG X_NET_VERSION=v0.62.0
 
 RUN apk add --no-cache ca-certificates curl tar \
     && mkdir -p /src /out \
@@ -16,10 +17,10 @@ RUN apk add --no-cache ca-certificates curl tar \
     && tar -xzf /tmp/cloudflared.tar.gz --strip-components=1 -C /src \
     && rm -f /tmp/cloudflared.tar.gz
 
-COPY docker/mystic_auth/cloudflared-healthcheck.go /tmp/healthcheck.go
-COPY docker/mystic_auth/cloudflared-healthcheck_test.go /tmp/healthcheck_test.go
-COPY docker/mystic_auth/cloudflared-entrypoint.go /tmp/entrypoint.go
-COPY docker/mystic_auth/cloudflared-entrypoint_test.go /tmp/entrypoint_test.go
+COPY docker/mystic_auth/cloudflared/cloudflared-healthcheck.go /tmp/healthcheck.go
+COPY docker/mystic_auth/cloudflared/cloudflared-healthcheck_test.go /tmp/healthcheck_test.go
+COPY docker/mystic_auth/cloudflared/cloudflared-entrypoint.go /tmp/entrypoint.go
+COPY docker/mystic_auth/cloudflared/cloudflared-entrypoint_test.go /tmp/entrypoint_test.go
 
 WORKDIR /src
 
@@ -28,6 +29,7 @@ RUN go install github.com/google/go-licenses@v1.6.0
 RUN go mod edit \
     -require="github.com/klauspost/compress@${KLAUSPOST_COMPRESS_VERSION}" \
     -require="github.com/go-jose/go-jose/v4@${GO_JOSE_VERSION}" \
+    -require="golang.org/x/net@${X_NET_VERSION}" \
     && go mod tidy \
     && go test ./cmd/cloudflared/... \
     && /go/bin/go-licenses save ./cmd/cloudflared --save_path=/out/licenses \

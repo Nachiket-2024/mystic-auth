@@ -11,8 +11,8 @@ import { formatDateTime, formatRelativeTime } from "../ui/dates/dateFormatters";
 import { deviceCategoryFor, parseUserAgent } from "./parseUserAgent";
 import type { SessionRead } from "../api/auth_api";
 import type { SupportedLanguage } from "../translations/translations";
+import type { Translate } from "../translations/translate";
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const TwoLineCell: React.FC<{ primary: string; secondary?: string }> = ({ primary, secondary }) => (
     <div className="overflow-hidden">

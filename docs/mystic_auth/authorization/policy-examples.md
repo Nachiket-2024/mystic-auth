@@ -117,7 +117,7 @@ Conditions are AND'ed across keys: every present key must pass:
 
 ## System superuser policy (seeded)
 
-The most sensitive policy in the system: it assigns the system role and manages the authorization system itself. Resource type `"*"` because its actions span both `users` and `policies` resource types:
+The most sensitive policy in the system: it grants selected user-management and authorization-management actions. The `system` role remains display metadata; the policy's actions grant access. Resource type `"*"` because its actions span multiple resource types:
 
 ```json
 {

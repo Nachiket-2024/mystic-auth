@@ -12,6 +12,7 @@ import QuickFilterSegment, {
 import { DIALOG_DETAIL_LABEL_CLASSNAME } from "../../ui/styles/dialogStyles";
 import type { SecurityAuditLogEntryRead } from "../../api/audit_api";
 import type { useUserAccessDialogState } from "./useUserAccessDialogState";
+import type { Translate } from "../../translations/translate";
 
 // Small, shared pieces of the User Access dialog: types, filter/stat/info
 // building blocks, and the access-change label formatter. Used by both
@@ -20,7 +21,7 @@ import type { useUserAccessDialogState } from "./useUserAccessDialogState";
 // import from the other, see the repo's ~350-line file-size target.
 
 export type UserAccessState = ReturnType<typeof useUserAccessDialogState>;
-export type Translate = (key: string, options?: Record<string, unknown>) => string;
+export type { Translate };
 export type CatalogEntry = {
   action: string;
   resource_type: string;

@@ -1,6 +1,6 @@
 # Backend third-party notices and source access
 
-The backend runtime includes Psycopg 3.3.7 (`psycopg`, `psycopg-binary`, and
+The backend runtime includes Psycopg 3.3.8 (`psycopg`, `psycopg-binary`, and
 `psycopg-pool`), licensed under LGPL-3.0-only. The complete license text is
 included with each package notice in this directory. `GPL-3.0.txt` is included
 as the companion license text required by LGPLv3 when conveying a Combined

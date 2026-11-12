@@ -7,7 +7,7 @@ Error monitoring, geolocation, and localization terms. See [Glossary](README.md)
 
 ## MaxMind GeoLite2
 
-A free-to-download IP-to-city/country lookup database. This app uses a local `.mmdb` file from it to add best-effort location data to the Manage Sessions list; it's optional and off by default, and MaxMind's license means the file itself is never shipped in this repo. See [Session Geolocation](../geolocation/overview.md).
+A downloadable IP-to-city/country lookup database available through a free MaxMind account. This app uses a local `.mmdb` file to add best-effort location data to the Manage Sessions list; the file is optional, is not included in this repo, and is downloaded with the operator's MaxMind credentials. See [Session Geolocation](../geolocation/overview.md).
 
 ---
 

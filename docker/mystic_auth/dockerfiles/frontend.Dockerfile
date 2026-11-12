@@ -2,7 +2,7 @@
 # root (unlike `production` below): it npm installs into a bind-mounted
 # frontend/, and a non-root UID would fight host/container UID mismatches
 # on that mount.
-FROM node:22.23.3-bookworm@sha256:0e5f906573693feaa1e21057ebdcfdb5bd5021f050b2dc7c9deceb629c7da2a8 AS dev
+FROM node:22.23.4-bookworm@sha256:7702d8aa4d5910871692af4480eb3ba86f23047a6417a44d857d06c95d060d3f AS dev
 
 RUN npm install --global npm@12.2.0
 
@@ -27,7 +27,7 @@ CMD ["npm", "run", "dev", "--", "--host"]
 
 # Produces the static production bundle (frontend/dist). Only reached with
 # --target production; dev never builds this far.
-FROM node:22.23.3-bookworm@sha256:0e5f906573693feaa1e21057ebdcfdb5bd5021f050b2dc7c9deceb629c7da2a8 AS builder
+FROM node:22.23.4-bookworm@sha256:7702d8aa4d5910871692af4480eb3ba86f23047a6417a44d857d06c95d060d3f AS builder
 
 RUN npm install --global npm@12.2.0
 
@@ -65,10 +65,10 @@ RUN npm run build
 
 # Serves the static build via nginx: no Node.js, dev dependencies, or
 # source maps, just the compiled assets. Used via `build.target: production`.
-FROM nginx:stable-alpine@sha256:47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951 AS production
+FROM nginx:stable-alpine@sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311 AS production
 
-COPY docker/mystic_auth/nginx.frontend.conf /etc/nginx/conf.d/default.conf
-COPY docker/mystic_auth/nginx.error-headers.conf /etc/nginx/snippets/security-error-headers.conf
+COPY docker/mystic_auth/nginx/nginx.frontend.conf /etc/nginx/conf.d/default.conf
+COPY docker/mystic_auth/nginx/nginx.error-headers.conf /etc/nginx/snippets/security-error-headers.conf
 # Your own nginx location blocks, if any - see docker/app/nginx/README.md.
 # Copying an empty directory is a no-op, not an error.
 COPY docker/app/nginx/ /etc/nginx/conf.d/app/

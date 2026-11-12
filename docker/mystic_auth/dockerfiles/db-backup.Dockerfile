@@ -1,9 +1,9 @@
-FROM golang:1.27.3-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS rclone-builder
+FROM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS rclone-builder
 
 ARG RCLONE_VERSION=1.75.1
 ARG RCLONE_SOURCE_SHA256=fcc9351ab3976c73b4824cf7919f98f911f2442a606e2910fc2bd562111da220
 ARG GRPC_VERSION=v1.85.0-dev.0.20260825072537-93e31b48545e
-ARG X_NET_VERSION=v0.60.0
+ARG X_NET_VERSION=v0.62.0
 ARG GO_CHI_VERSION=v5.4.0
 
 RUN apk add --no-cache ca-certificates curl tar \
@@ -24,7 +24,7 @@ RUN go mod edit -require="google.golang.org/grpc@${GRPC_VERSION}" \
     && GOFLAGS="-tags=noselfupdate" /go/bin/go-licenses save . --save_path=/out/rclone-licenses \
     && CGO_ENABLED=0 go build -tags=noselfupdate -trimpath -ldflags="-s -w" -o /out/rclone .
 
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:81211e15a86ea1d5357f284482af45730c51de45eaf10ad9ce205d6bfc2df323
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:94fa13e26d449f7d78dbcd02d12ea37a0da80d24fcc3e1f17b95d515dec607a7
 
 ARG POSTGRES_CLIENT_VERSION=18.6-r5
 

@@ -21,7 +21,7 @@ PBAC (policy-based access control), not role-based access control. `users.role` 
 **Where this is enforced structurally, not just by convention**:
 
 1. Every permission-protected route in `user_management_query_routes.py`, `user_management_update_routes.py`, and `user_lifecycle_routes.py` depends on `require_authorization(action, resource_type)`, never a role comparison.
-2. The handful of `role ==` checks that do exist (e.g. "the system account cannot be modified via these generic endpoints") are resource-protection invariants: they protect one specific reserved account from *every* caller regardless of what that caller is otherwise authorized to do, not authorization decisions. See the `UserRole` import comment at the top of each file for the exact reasoning, repeated at each guard site.
+2. The handful of `role ==` checks that do exist (e.g. "the system account's role, profile and password cannot be changed via these generic endpoints", or "the system account keeps its three baseline policies") are resource-protection invariants: they protect one specific reserved account from *every* caller regardless of what that caller is otherwise authorized to do, not authorization decisions. See the `UserRole` import comment at the top of each file for the exact reasoning, repeated at each guard site.
 3. The delete and purge routes additionally reject the caller acting on their own account, a self-lockout guard rather than an authorization decision.
 
 ---

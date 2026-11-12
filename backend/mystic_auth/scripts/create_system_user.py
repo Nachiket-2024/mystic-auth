@@ -5,9 +5,8 @@ from ..auth.password_logic.password_service import password_service
 from ..auth.refresh_token_logic.refresh_token_service import refresh_token_service
 from ..authorization.caching.authorization_cache_service import authorization_cache_service
 from ..authorization.policies.default_policies import (
-    SELF_SERVICE_POLICY_NAME,
-    SYSTEM_SUPERUSER_POLICY_NAME,
-    USER_MANAGEMENT_POLICY_NAME,
+    SYSTEM_USER_BASELINE_POLICY_NAMES,
+    assign_app_default_policies,
 )
 
 # PBAC: the system superuser's actual access comes from holding every
@@ -27,12 +26,8 @@ SYSTEM_ROLE = UserRole.system
 
 # Every baseline policy the system superuser must hold, so it has strictly
 # greater access than any other account (self-service + user management +
-# the system-only actions).
-SYSTEM_USER_POLICY_NAMES = (
-    SELF_SERVICE_POLICY_NAME,
-    USER_MANAGEMENT_POLICY_NAME,
-    SYSTEM_SUPERUSER_POLICY_NAME,
-)
+# the system-only actions). The API refuses to remove these from it.
+SYSTEM_USER_POLICY_NAMES = SYSTEM_USER_BASELINE_POLICY_NAMES
 
 
 async def _assign_system_policies(user_id: int, user_email: str, db, assigned_by: str) -> bool:
@@ -123,6 +118,24 @@ async def create_system_user():
             logger.info("Deleted Google-only account to recreate as system user: %s", email)
             existing = None
 
+        if existing and existing.role == SYSTEM_ROLE:
+            # Already the system user: only restore the baseline policies
+            # (e.g. after a manual DB edit). DEFAULT_APP_POLICIES are NOT
+            # re-applied here: they are a starting set at creation, and
+            # downstream may have removed some on purpose through the API.
+            print(f"\n '{email}' is already the system user.")
+            confirm = input("Re-apply the baseline policies? [y/N]: ").strip().lower()
+            if confirm != "y":
+                print("\n Aborted : no changes made.")
+                return
+            if not await _assign_system_policies(existing.id, existing.email, db, assigned_by="system"):
+                return
+            await authorization_cache_service.invalidate_user_policies(existing.email)
+            await authorization_cache_service.invalidate_user_permissions(existing.email)
+            print(f"\n Baseline policies re-applied for system user '{email}'.")
+            logger.info("System user baseline policies re-applied via CLI: %s", email)
+            return
+
         if existing:
             print(
                 f"\n A user with email '{email}' already exists "
@@ -142,6 +155,9 @@ async def create_system_user():
 
             if not await _assign_system_policies(existing.id, existing.email, db, assigned_by="system"):
                 return
+            await assign_app_default_policies(existing.id, db)
+            await authorization_cache_service.invalidate_user_policies(existing.email)
+            await authorization_cache_service.invalidate_user_permissions(existing.email)
 
             new_password = getpass.getpass("Set a new password for this account: ")
             hashed_password = await password_service.hash_password(new_password)
@@ -170,6 +186,9 @@ async def create_system_user():
 
         if not await _assign_system_policies(new_user.id, new_user.email, db, assigned_by="system"):
             return
+        # Starting set of downstream app policies, same as every verified user
+        # gets. Editable afterward through the API (only the baselines are not).
+        await assign_app_default_policies(new_user.id, db)
 
         print(f"\n System user '{email}' created successfully.")
         logger.info("System user created successfully: %s", email)

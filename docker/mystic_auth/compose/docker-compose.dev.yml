@@ -22,7 +22,7 @@ services:
 
   postgres:
     <<: *logging_defaults
-    image: chainguard/postgres@sha256:2b01d03a201a92b6afcbf2351b7bcc8b08035fd9e835632bfdd647ee6377d80f
+    image: chainguard/postgres@sha256:adbf3d8db097696ed6e997b108b51393786be999c04d543502f8959e1bafa8de
     restart: always
     env_file:
       - ../../../env/mystic_auth/.env.dev
@@ -50,7 +50,7 @@ services:
 
   valkey:
     <<: *logging_defaults
-    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
     restart: always
     # Empty VALKEY_PASSWORD (local-dev default) makes the generated
     # requirepass line a no-op (Valkey treats an empty value as no
@@ -274,7 +274,11 @@ services:
   # non-empty; raw Compose users should pass --profile geoip themselves.
   geoipupdate:
     <<: *logging_defaults
-    image: ghcr.io/maxmind/geoipupdate@sha256:51e70dd6f16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
+    image: ${COMPOSE_PROJECT_NAME}-geoipupdate
+    pull_policy: build
+    build:
+      context: ../../..
+      dockerfile: docker/mystic_auth/dockerfiles/geoipupdate.Dockerfile
     restart: unless-stopped
     read_only: true
     tmpfs: [/tmp]
@@ -299,14 +303,14 @@ services:
   # actually turns error reporting on, independent of this container running.
   bugsink:
     <<: *logging_defaults
-    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
+    image: bugsink/bugsink:2@sha256:d19378dc3ad8fac46b2d554019540e84d607c176b3e0774a10c55458f1288fa0
     restart: always
     env_file:
       - ../../../env/mystic_auth/.env.dev
       - ../../../env/app/.env.dev
     environment:
       SECRET_KEY: ${BUGSINK_SECRET_KEY}
-      CREATE_SUPERUSER: ${BUGSINK_SUPERUSER_EMAIL}:${BUGSINK_SUPERUSER_PASSWORD}
+      CREATE_SUPERUSER: ${BUGSINK_SUPERUSER_EMAIL:+${BUGSINK_SUPERUSER_EMAIL}:${BUGSINK_SUPERUSER_PASSWORD}}
       PORT: "8000"
       # Same Postgres server, separate database: avoids a second container
       # just for Bugsink.
@@ -381,7 +385,7 @@ services:
   # manual "create a project, copy the DSN" step.
   bugsink-seed:
     <<: *logging_defaults
-    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
+    image: bugsink/bugsink:2@sha256:d19378dc3ad8fac46b2d554019540e84d607c176b3e0774a10c55458f1288fa0
     # Root, since Docker creates a fresh named volume root-owned and the
     # non-root "bugsink" user can't write the DSN file into it otherwise.
     user: root
@@ -398,7 +402,11 @@ services:
     volumes:
       - bugsink_dsn:/shared/bugsink-dsn
     command: |
-      sh -c "bugsink-manage shell -c \"
+      sh -c "if [ -z \"$$BUGSINK_SUPERUSER_EMAIL\" ]; then
+        echo 'Skipping Bugsink project seeding because BUGSINK_SUPERUSER_EMAIL is blank'
+        exit 0
+      fi
+      bugsink-manage shell -c \"
       import os
       from django.contrib.auth import get_user_model
       from teams.models import Team, TeamMembership, TeamRole

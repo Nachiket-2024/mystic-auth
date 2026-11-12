@@ -121,12 +121,14 @@ docker build --target runtime -f docker/mystic_auth/dockerfiles/backend.Dockerfi
 docker build --target production -f docker/mystic_auth/dockerfiles/frontend.Dockerfile -t frontend:ci .
 docker build -f docker/mystic_auth/dockerfiles/db-backup.Dockerfile -t db-backup:ci .
 docker build -f docker/mystic_auth/dockerfiles/ngrok.Dockerfile -t ngrok:ci .
+docker build -f docker/mystic_auth/dockerfiles/cloudflared.Dockerfile -t cloudflared:ci .
+docker build -f docker/mystic_auth/dockerfiles/geoipupdate.Dockerfile -t geoipupdate:ci .
 ```
 
 Run Trivy against each image with the pinned CI image and these options:
 `image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed`. For `ngrok:ci`,
 also pass `--ignorefile ci/mystic_auth/trivy-ngrok.ignore.yaml`; those
-image-scoped exceptions expire on 2026-11-14 and cover only findings in the
+image-scoped exceptions expire on 2026-11-24 and cover only findings in the
 vendor-built binary. CI verifies dependency notices, frontend nginx behavior,
 the ngrok binary, and generates SPDX JSON SBOMs from the exact image IDs.
 GitHub artifact upload and hosted runner metadata cannot be reproduced locally.

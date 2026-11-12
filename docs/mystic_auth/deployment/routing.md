@@ -20,7 +20,7 @@ flowchart TD
     linkStyle default stroke:#334155,stroke-width:2px
 ```
 
-`docker/mystic_auth/nginx.frontend.conf` forwards these prefixes to `backend:8000`:
+`docker/mystic_auth/nginx/nginx.frontend.conf` forwards these prefixes to `backend:8000`:
 
 1. `/auth`
 2. `/audit`
@@ -58,7 +58,7 @@ The SPA and API share one origin, so a top-level SPA route can collide with an A
 
 Client-side navigation does not hit nginx, but hard refreshes and bookmarks do. Without exact-match overrides, nginx can return backend JSON instead of `index.html`.
 
-`docker/mystic_auth/nginx.frontend.conf` fixes those two collisions with exact-match locations:
+`docker/mystic_auth/nginx/nginx.frontend.conf` fixes those two collisions with exact-match locations:
 
 ```nginx
 location = /users {

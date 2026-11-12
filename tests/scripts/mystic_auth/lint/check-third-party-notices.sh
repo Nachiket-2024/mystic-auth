@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Regression guard for stale third-party license notices: a dependency bump once
-# left psycopg 3.3.6 notices (and a CI check that looked for them) in place
-# after requirements.txt moved to 3.3.7.
+# Regression guard for license notices that fall behind dependency locks.
 #
 # Every THIRD_PARTY_NOTICES/backend/<name>-<version>.txt must match the version
 # pinned in backend/requirements.txt, and the README must name the pinned

@@ -1,5 +1,5 @@
 Your own nginx server/location blocks, alongside upstream's
-`docker/mystic_auth/nginx.frontend.conf`.
+`docker/mystic_auth/nginx/nginx.frontend.conf`.
 
 `docker/mystic_auth/dockerfiles/frontend.Dockerfile`'s production stage
 copies this directory to `/etc/nginx/conf.d/app/` and

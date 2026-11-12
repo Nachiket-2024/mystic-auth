@@ -39,7 +39,6 @@ type PolicyEntry = {
 interface UserAccessPoliciesTabProps {
   state: UserAccessState;
   locked: boolean;
-  lockText?: string;
   allPolicies: PolicyEntry[];
   policyRows: PolicyEntry[];
   catalog: CatalogEntry[];
@@ -49,7 +48,6 @@ interface UserAccessPoliciesTabProps {
 const UserAccessPoliciesTab: React.FC<UserAccessPoliciesTabProps> = ({
   state,
   locked,
-  lockText,
   allPolicies,
   policyRows,
   catalog,
@@ -124,13 +122,16 @@ const UserAccessPoliciesTab: React.FC<UserAccessPoliciesTabProps> = ({
               const open = state.polOpen.has(policy.name);
               const selfProtected =
                 assigned && isSelfProtectedPolicy(policy.name);
+              // The system account is only locked for its built-in baseline
+              // policies; downstream app policies stay assignable/revocable.
+              const rowLocked = locked && PROTECTED_POLICY_NAMES.has(policy.name);
               const covered =
                 !assigned &&
                 policyAddsNothingNew(policy, state.effectiveGrantKeys);
               const ungrantable = !canGrantPolicy(policy, can);
-              const disabled = locked || selfProtected || covered || ungrantable;
-              const disabledReason = locked
-                ? lockText
+              const disabled = rowLocked || selfProtected || covered || ungrantable;
+              const disabledReason = rowLocked
+                ? t("users:accessDialog.systemBaselinePolicyLocked")
                 : selfProtected
                   ? t("users:accessDialog.selfProtectedPolicyLocked")
                   : covered
@@ -254,9 +255,9 @@ const UserAccessPoliciesTab: React.FC<UserAccessPoliciesTabProps> = ({
                       <PolicyActionsTable
                         policy={policy}
                         assigned={assigned}
-                        locked={locked}
+                        locked={rowLocked}
                         selfProtected={selfProtected}
-                        lockText={lockText}
+                        lockText={t("users:accessDialog.systemBaselinePolicyLocked")}
                         catalog={catalog}
                         state={state}
                       />

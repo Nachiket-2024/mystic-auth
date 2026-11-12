@@ -114,7 +114,7 @@ your domain or subdomain → Service: HTTP → `http://frontend:80`.
 In `env/mystic_auth/.env.local-prod-cloudflare`, set `FRONTEND_BASE_URL` and `BACKEND_BASE_URL` to
 `https://your-hostname` once it's live. Leave `VITE_API_BASE_URL` empty:
 frontend and backend share one public origin behind the tunnel, and nginx
-(`docker/mystic_auth/nginx.frontend.conf`) proxies API prefixes to `backend`
+(`docker/mystic_auth/nginx/nginx.frontend.conf`) proxies API prefixes to `backend`
 same-origin, so the browser never needs a separate API URL.
 
 Set `WEBAUTHN_RP_ID=your-hostname` and `WEBAUTHN_ORIGINS=https://your-hostname`
@@ -159,15 +159,17 @@ still fails after this.
 
 **Step 7b (Optional): Enable session geolocation.**
 
-Setting `GEOIP_DB_PATH`/`GEOIPUPDATE_ACCOUNT_ID`/`GEOIPUPDATE_LICENSE_KEY` in
-`env/mystic_auth/.env.local-prod-cloudflare` alone does nothing: the `geoipupdate` service that downloads the
-`.mmdb` file is gated behind the `geoip` Compose profile, skipped by the startup command as written. Re-run the helper with the profile added instead:
+To enable session geolocation, set `GEOIP_DB_PATH`,
+`GEOIPUPDATE_ACCOUNT_ID`, and `GEOIPUPDATE_LICENSE_KEY` in
+`env/mystic_auth/.env.local-prod-cloudflare`. The startup helper enables the
+`geoip` Compose profile when the database path and both credentials are set.
+If you use raw Compose commands, add the profile explicitly:
 
 ```bash
 ./scripts/mystic_auth/docker/local-prod-cloudflare/local-prod-cloudflare-up.sh --profile geoip up -d --build
 ```
 
-Without it, the updater is not started and Manage Sessions' Location column
+Without the profile, the updater is not started and Manage Sessions' Location column
 shows "Unknown". When the profile is enabled, the updater healthcheck
 requires a non-empty database and becomes unhealthy if the download fails. See
 [Session Geolocation](../../geolocation/overview.md)

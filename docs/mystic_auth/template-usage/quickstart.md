@@ -42,7 +42,7 @@ Every step above is safe to re-run: already-done work is skipped or made a no-op
    This is the fastest path from a fresh clone to a working login: it runs `setup-env` for you if `env/mystic_auth/.env.dev` doesn't exist yet, brings the dev stack up and waits for every service to become healthy, offers to create the system superuser right there, then tails `backend`/`frontend`/`procrastinate_worker` logs the same way `dev-up` normally does. Safe to re-run any time - each step is skipped or made a no-op once it's already done.
 
    The first `dev-up` can take several minutes. Docker may need to download the
-   `chainguard/postgres`, `valkey/valkey:9.1.2-alpine`, and `bugsink/bugsink:2` images, build the local
+   `chainguard/postgres`, `valkey/valkey:9.1.3-alpine`, and `bugsink/bugsink:2` images, build the local
    backend/worker/frontend images, initialize fresh named volumes, and run the
    migrations and Bugsink seed job. The duration depends on Docker Hub and
    Docker Desktop network speed. Subsequent starts normally reuse the pulled

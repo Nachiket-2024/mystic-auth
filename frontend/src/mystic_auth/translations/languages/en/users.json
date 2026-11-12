@@ -13,6 +13,7 @@
             "roleDefinition": "A profile category used to describe the user. Access is controlled by policies and permissions."
         },
         "roleChangeHint": "Change role from this row in the Users table.",
+        "systemBaselinePolicyLocked": "The system account's built-in policies cannot be removed",
         "selfProtectedPolicyLocked": "This is a baseline policy. You cannot remove it from your own account. Ask someone else who can manage user access.",
         "cannotGrantPolicy": "You must already hold every permission in this policy before you can assign or revoke it.",
         "policyAlreadyCovered": "Every permission this policy grants is already covered by policies or permissions you hold.",

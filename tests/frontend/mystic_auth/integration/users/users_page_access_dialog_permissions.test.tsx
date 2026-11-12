@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { toaster } from "@/ui/toaster/toasterInstance";
@@ -65,14 +65,20 @@ describe("UsersPage access dialog: permissions tab", () => {
     // Narrow to this one action first: every not-yet-granted, non-destructive
     // row shares the same "Give this permission directly" aria-label, so
     // without this the checkbox query below would be ambiguous.
-    await user.type(
-      within(dialog).getByPlaceholderText("Search permissions"),
-      "list_all",
+    // Set the value directly: the dialog's focus handling can move focus off
+    // the input just after it opens, which dropped typed keystrokes on a slow
+    // runner. Typing is not what this test covers.
+    fireEvent.change(within(dialog).getByPlaceholderText("Search permissions"), {
+      target: { value: "list_all" },
+    });
+    await waitFor(() =>
+      expect(
+        within(dialog).queryByText("Read one's own user profile."),
+      ).toBeNull(),
     );
-    await within(dialog).findByText("List and view any user's profile.");
     expect(
-      within(dialog).queryByText("Read one's own user profile."),
-    ).toBeNull();
+      within(dialog).getByText("List and view any user's profile."),
+    ).toBeInTheDocument();
 
     // The permission row itself is the toggle target; the copy icon remains a
     // separate, explicit copy-only control.

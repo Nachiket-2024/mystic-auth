@@ -26,7 +26,6 @@ interface UserAccessTabsProps {
   state: UserAccessState;
   language: SupportedLanguage;
   locked: boolean;
-  lockText?: string;
   totalGranted: number;
   allPolicies: PolicyEntry[];
   policyRows: PolicyEntry[];
@@ -43,7 +42,6 @@ const UserAccessTabs: React.FC<UserAccessTabsProps> = ({
   state,
   language,
   locked,
-  lockText,
   totalGranted,
   allPolicies,
   policyRows,
@@ -68,7 +66,6 @@ const UserAccessTabs: React.FC<UserAccessTabsProps> = ({
       <UserAccessPoliciesTab
         state={state}
         locked={locked}
-        lockText={lockText}
         allPolicies={allPolicies}
         policyRows={policyRows}
         catalog={catalog}
@@ -78,8 +75,7 @@ const UserAccessTabs: React.FC<UserAccessTabsProps> = ({
     {state.canSeePermissions && (
       <UserAccessPermissionsTab
         state={state}
-        locked={locked}
-        lockText={lockText}
+        locked={false}
         totalGranted={totalGranted}
         catalog={catalog}
         permissionRows={permissionRows}

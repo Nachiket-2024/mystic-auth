@@ -9,12 +9,12 @@ the change is visible at a glance instead of only described in prose, followed b
 the differences.
 
 The "then" tree lists files and folders that were actually committed. The "now" tree selects
-tracked files and current additions that illustrate the repository structure on 25 October;
+tracked files and current additions that illustrate the repository structure on 12 November;
 neither tree is an exhaustive file inventory. The "now" tree also omits `__pycache__`,
 `node_modules`, build output, coverage reports, and anything else covered by `.gitignore`. The
 "then" tree is the real commit tree at
 [`946e384`](../../../..), the last commit of the manual, ChatGPT-assisted era, on 14 April, 2026. The
-"now" tree reflects the repository as verified on 5 November, 2026.
+"now" tree reflects the repository as verified on 12 November, 2026.
 
 ---
 
@@ -57,7 +57,9 @@ neither tree is an exhaustive file inventory. The "now" tree also omits `__pycac
 - **Deployment grew from one Compose file to separate mode files.** Dev, each local-prod tunnel
   variant, and prod now live under `docker/mystic_auth/compose/` (each with an empty
   `docker/app/compose/` override for a fork's own additions), with Dockerfiles under
-  `docker/mystic_auth/dockerfiles/`, plus `docker/mystic_auth/Caddyfile`/`docker/app/caddy/`, and `docker/mystic_auth/nginx.frontend.conf`/`docker/app/nginx/`.
+  `docker/mystic_auth/dockerfiles/`, Caddy configuration under `docker/mystic_auth/caddy/` and
+  `docker/app/caddy/`, and nginx configuration under `docker/mystic_auth/nginx/` and
+  `docker/app/nginx/`.
   `scripts/` and `local-scripts/` (startup, backup/restore,
   system-user bootstrap, upstream sync) are also new; none of this existed when everything ran
   from a single `docker-compose.yml` with two Dockerfiles.

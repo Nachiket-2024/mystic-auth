@@ -78,7 +78,7 @@ It's gated behind the `geoip` Compose profile, so it never starts (and never res
    docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/app/compose/docker-compose.prod.yml --env-file env/mystic_auth/.env.prod --env-file env/app/.env.prod --profile geoip up -d --build
    ```
 
-   (swap in your tunnel's `docker-compose.local-prod-*.yml` and matching `env/mystic_auth/.env.local-prod-*` for local-prod). For dev, use the normal dev Compose files and add `--profile geoip`; `dev-up.sh`/`.ps1` adds that profile automatically when `GEOIP_DB_PATH` is non-empty and fails early if either updater credential is missing. Without the profile, `geoipupdate` is skipped entirely and `backend` mounts an empty volume, so a configured path makes readiness fail until the profile is enabled.
+   (swap in your tunnel's `docker-compose.local-prod-*.yml` and matching env files for local-prod). For dev, use the normal dev Compose files. Raw `docker compose` commands in every mode need `--profile geoip`; each mode's `*-up` wrapper adds that profile automatically when `GEOIP_DB_PATH` is non-empty and fails early if either updater credential is missing. Without the profile, `geoipupdate` is skipped entirely and `backend` mounts an empty volume, so a configured path makes readiness fail until the profile is enabled.
 
 ---
 

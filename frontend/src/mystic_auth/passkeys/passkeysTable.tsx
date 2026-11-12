@@ -9,8 +9,8 @@ import { Label } from "../ui/shadcn/label";
 import TableActionButton from "../ui/table_actions/TableActionButton";
 import { DESTRUCTIVE_TABLE_ACTION_CLASSNAME } from "../ui/table_actions/tableActionPalettes";
 import type { SupportedLanguage } from "../translations/translations";
+import type { Translate } from "../translations/translate";
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const TwoLineCell: React.FC<{ primary: string; secondary?: string }> = ({ primary, secondary }) => (
     <div className="overflow-hidden">

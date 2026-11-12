@@ -1,7 +1,8 @@
 # Every bulk PBAC route (bulk_permission_routes.py, bulk_policy_routes.py)
-# checks `user.role == UserRole.system` per item and reports
-# "SYSTEM_USER_CANNOT_BE_MODIFIED" for that item without blocking the
-# rest of the batch. This suite is the first to actually give a route a
+# reports "SYSTEM_USER_CANNOT_BE_MODIFIED" for a system-user item whose policy
+# is one of its baseline policies, without blocking the rest of the batch.
+# Direct permission routes treat the system user like any account (grants only
+# add access), and app policies stay editable on it. This suite is the first to actually give a route a
 # target with `.role` set to UserRole.system.
 from unittest.mock import AsyncMock, MagicMock
 
@@ -69,7 +70,7 @@ async def _fake_bulk_policy_result(valid_items, *args, **kwargs):
 
 
 @pytest.mark.asyncio
-async def test_bulk_assign_permissions_rejects_system_user_but_applies_other_items(mocker):
+async def test_bulk_assign_permissions_applies_to_system_user_like_any_account(mocker):
     system_user = _make_user("system@example.com", role=UserRole.system)
     normal_user = _make_user("normal@example.com")
 
@@ -91,10 +92,10 @@ async def test_bulk_assign_permissions_rejects_system_user_but_applies_other_ite
     result = await bulk_assign_permissions(body, MagicMock(), current_user=CALLER, db=MagicMock())
 
     statuses = {r.user_email: (r.status, r.error) for r in result.results}
-    assert statuses[system_user.email] == ("error", "SYSTEM_USER_CANNOT_BE_MODIFIED")
+    assert statuses[system_user.email] == ("success", None)
     assert statuses[normal_user.email] == ("success", None)
     (valid_items_arg, *_rest), _kwargs = bulk_assign_mock.call_args
-    assert [user.email for user, _item in valid_items_arg] == [normal_user.email]
+    assert {user.email for user, _item in valid_items_arg} == {system_user.email, normal_user.email}
 
 
 @pytest.mark.asyncio
@@ -130,7 +131,7 @@ async def test_bulk_assign_permissions_rejects_invalid_conditions_before_reposit
 
 
 @pytest.mark.asyncio
-async def test_bulk_remove_permissions_rejects_system_user_but_applies_other_items(mocker):
+async def test_bulk_remove_permissions_applies_to_system_user_like_any_account(mocker):
     system_user = _make_user("system@example.com", role=UserRole.system)
     normal_user = _make_user("normal@example.com")
 
@@ -152,17 +153,17 @@ async def test_bulk_remove_permissions_rejects_system_user_but_applies_other_ite
     result = await bulk_remove_permissions(body, MagicMock(), current_user=CALLER, db=MagicMock())
 
     statuses = {r.user_email: (r.status, r.error) for r in result.results}
-    assert statuses[system_user.email] == ("error", "SYSTEM_USER_CANNOT_BE_MODIFIED")
+    assert statuses[system_user.email] == ("success", None)
     assert statuses[normal_user.email] == ("success", None)
     (valid_items_arg, *_rest), _kwargs = bulk_remove_mock.call_args
-    assert [user.email for user, _item in valid_items_arg] == [normal_user.email]
+    assert {user.email for user, _item in valid_items_arg} == {system_user.email, normal_user.email}
 
 
 @pytest.mark.asyncio
-async def test_bulk_assign_policies_rejects_system_user_but_applies_other_items(mocker):
+async def test_bulk_assign_policies_rejects_system_user_baseline_but_applies_other_items(mocker):
     system_user = _make_user("system@example.com", role=UserRole.system)
     normal_user = _make_user("normal@example.com")
-    policy = _make_policy()
+    policy = _make_policy(name="user_management")
 
     mocker.patch(
         f"{POLICY_ROUTES_MODULE}.user_crud.get_by_emails", new_callable=AsyncMock,
@@ -193,7 +194,7 @@ async def test_bulk_assign_policies_rejects_system_user_but_applies_other_items(
 
 
 @pytest.mark.asyncio
-async def test_bulk_remove_policies_rejects_system_user_but_applies_other_items(mocker):
+async def test_bulk_remove_policies_rejects_system_user_baseline_but_applies_other_items(mocker):
     """Also confirms the system-user check runs before the system_superuser
     last-holder lockout accounting: get_holder_emails must never be
     consulted for a rejected item."""
@@ -227,3 +228,35 @@ async def test_bulk_remove_policies_rejects_system_user_but_applies_other_items(
     assert statuses[normal_user.email] == ("success", None)
     (valid_items_arg, *_rest), _kwargs = bulk_remove_mock.call_args
     assert [user.email for user, _p in valid_items_arg] == [normal_user.email]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route_name,repo_fn", [
+    ("bulk_assign_policies", "bulk_assign_policies"),
+    ("bulk_remove_policies", "bulk_remove_policies"),
+])
+async def test_bulk_policies_allow_app_policy_on_system_user(mocker, route_name, repo_fn):
+    system_user = _make_user("system@example.com", role=UserRole.system)
+    policy = _make_policy(name="billing_admin")
+    route = {"bulk_assign_policies": bulk_assign_policies, "bulk_remove_policies": bulk_remove_policies}[route_name]
+
+    mocker.patch(
+        f"{POLICY_ROUTES_MODULE}.user_crud.get_by_emails", new_callable=AsyncMock,
+        return_value={system_user.email: system_user},
+    )
+    mocker.patch(
+        f"{POLICY_ROUTES_MODULE}.policy_repository.get_policies_by_names", new_callable=AsyncMock,
+        return_value={policy.name: policy},
+    )
+    mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(True))
+    repo_mock = mocker.patch(
+        f"{POLICY_ROUTES_MODULE}.policy_repository.{repo_fn}",
+        new_callable=AsyncMock, side_effect=_fake_bulk_policy_result,
+    )
+
+    body = BulkPolicyRequest(items=[BulkPolicyItem(user_email=system_user.email, policy_name=policy.name)])
+    result = await route(body, MagicMock(), current_user=CALLER, db=MagicMock())
+
+    assert [(r.status, r.error) for r in result.results] == [("success", None)]
+    (valid_items_arg, *_rest), _kwargs = repo_mock.call_args
+    assert [user.email for user, _p in valid_items_arg] == [system_user.email]

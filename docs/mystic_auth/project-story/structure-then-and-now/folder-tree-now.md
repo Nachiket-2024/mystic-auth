@@ -2,7 +2,7 @@
 
 ---
 
-This selected repository tree reflects the structure as of 6 November, 2026. It highlights the
+This selected repository tree reflects the structure as of 12 November, 2026. It highlights the
 `app/` and `mystic_auth/` ownership split, recent extension points, deployment modes, and notable
 files; it is not an exhaustive listing of every tracked file. Generated files, local secrets,
 build output, and caches are omitted too.
@@ -116,7 +116,7 @@ mystic-auth/
           tailwind.css
           tailwind-tokens.css
           application.css
-        translations/
+        translations/             # languages/ plus the shared Translate type
         ui/
         users/
   THIRD_PARTY_NOTICES/           # Python/npm app notices; base images and db_backup need separate inventory
@@ -127,6 +127,9 @@ mystic-auth/
   docs/
     app/                          # project-owned docs
     mystic_auth/                  # upstream docs: API, auth, PBAC, operations, security, testing
+      authentication/
+        system-superuser/
+          app-policies.md
       cicd/
         local-validation.md
       deployment/
@@ -152,21 +155,13 @@ mystic-auth/
         test_core_settings.py
       mystic_auth/
         unit/
-          auth/current_user/
-            current_user_test_support.py
-          auth/security/
-            test_rate_limiter_dashboard_edge_cases_unit.py
           auth/token_logic/
             test_token_revocation_keys_unit.py
           scripts/
             test_authorization_maintenance_scripts_unit.py
-          core/
-            test_secret_provider_unit.py
-          procrastinate_tasks/
-            test_procrastinate_app_unit.py
-          user_lifecycle/
-            test_account_lifecycle_events_unit.py
         integration/
+          authorization/
+            test_system_user_policy_assignment_integration.py
           audit_log/
             audit_log_query_test_support.py
             test_email_job_payload_retention_integration.py
@@ -267,7 +262,6 @@ mystic-auth/
       local-prod-tailscale/
       prod/
   docker/
-    tailscale-serve-config.json  # single JSON, no include mechanism, stays Shared tier
     app/                         # project-owned Compose overrides, Dockerfiles, proxy config; ships empty
       compose/
         docker-compose.dev.yml
@@ -280,9 +274,13 @@ mystic-auth/
       nginx/                       # your own nginx include files, same glob pattern
       postgres-init/                # your own bootstrap scripts, mounted per-file in your compose override
     mystic_auth/                 # upstream Compose files, Dockerfiles, Caddyfile, nginx config, postgres-init
-      Caddyfile
-      nginx.frontend.conf
-      nginx.error-headers.conf
+      caddy/
+        Caddyfile
+      nginx/
+        nginx.frontend.conf
+        nginx.error-headers.conf
+      tailscale/
+        tailscale-serve-config.json  # single JSON, no include mechanism, stays Shared tier
       compose/
         docker-compose.dev.yml
         docker-compose.local-prod-cloudflare.yml
@@ -297,8 +295,11 @@ mystic-auth/
         db-backup-entrypoint.sh
         ngrok.Dockerfile
         cloudflared.Dockerfile
-      cloudflared-entrypoint.go / cloudflared-healthcheck.go
-      ngrok-supervisor.go / ngrok-healthcheck.go
+        geoipupdate.Dockerfile
+      cloudflared/
+        cloudflared-entrypoint.go / cloudflared-healthcheck.go (+ tests)
+      ngrok/
+        ngrok-supervisor.go / ngrok-healthcheck.go (+ tests)
       postgres-init/
         init-bugsink-db.sh
   screenshots/
@@ -310,7 +311,7 @@ mystic-auth/
     app/                          # project-owned CI entry points and checks
       backend.sh / frontend.sh / frontend-e2e.sh
     mystic_auth/                  # upstream CI entry points and tooling guards
-      backend.sh / frontend.sh / frontend-e2e.sh / frontend-e2e-stack.sh
+      backend.sh / frontend-e2e.sh / frontend-e2e-stack.sh
       tooling.sh / tooling.ps1
       trivy-ngrok.ignore.yaml
     PULL_REQUEST_TEMPLATE.md
@@ -346,5 +347,3 @@ mystic-auth/
 ---
 
 See [Then](folder-tree-then.md) for the pre-Claude-Code tree, or [What Changed](what-changed.md) for a summary.
-
----

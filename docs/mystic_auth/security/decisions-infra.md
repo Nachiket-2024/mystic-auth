@@ -74,9 +74,9 @@ The app is fully async, so the queue needs `async def` workers. [Celery](https:/
 
 1. A permanently failed email job stays in `procrastinate_jobs` as `status='failed'`, so failures are queryable and alertable. With a Valkey stream, an exhausted job was simply dropped.
 2. A retry's due time lives on the job row and the worker's own fetch query picks it up. There is no separate scheduler process whose outage could silently stop retries.
-3. Valkey stays a cache and counter store only (rate limits, lockout, token-version cache), so a flush cannot lose a queued job.
+3. Valkey remains the store for ephemeral state and fast counters (rate limits, lockout, OAuth2 state, Pub/Sub, and a non-authoritative token-version cache), so a flush cannot lose a queued job.
 
-**What it looks like**: `backend/mystic_auth/procrastinate_tasks/` (`procrastinate_app.py`'s `App`/`PsycopgConnector`, `email_tasks.py`, `account_purge_tasks.py`). One Alembic migration applies Procrastinate's packaged schema SQL, read from the installed package, so schema changes stay Alembic-only. The `procrastinate_worker` container runs `procrastinate --app=...worker` (which also runs the periodic deferrer) and uses `procrastinate ... healthchecks` as its healthcheck.
+**What it looks like**: `backend/mystic_auth/procrastinate_tasks/` (`procrastinate_app.py`'s `App`/`PsycopgConnector`, plus `email_tasks.py`, `account_purge_tasks.py`, `account_lifecycle_tasks.py`, `audit_log_tasks.py`, `alert_tasks.py`, and `maintenance_tasks.py`). One Alembic migration applies Procrastinate's packaged schema SQL, read from the installed package, so schema changes stay Alembic-only. The `procrastinate_worker` container runs `procrastinate --app=...worker` (which also runs the periodic deferrer) and uses `procrastinate ... healthchecks` as its healthcheck.
 
 ---
 

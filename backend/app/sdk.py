@@ -92,7 +92,7 @@ normalize_email = _m("emails.email_normalization").normalize_email
 rate_limiter_service = _m("auth.security.rate_limiting.rate_limiter_service").rate_limiter_service
 
 # Audit trail and alerts: write an app event to the security audit log, or raise a
-# security alert, with the same retention, redaction and delivery as built-in events.
+# security alert, with the same redaction and delivery as built-in events.
 log_security_event = _m("audit_log.audit_log_service").log_security_event
 capture_security_alert = _m("error_monitoring.sentry_service").capture_security_alert
 

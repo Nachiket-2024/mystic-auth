@@ -162,7 +162,7 @@ python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:80
 ```
 
 CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and
-security suites against GitHub Actions service containers (Postgres 18, Valkey 9.1.2-alpine)
+security suites against GitHub Actions service containers (Postgres 18, Valkey 9.1.3-alpine)
 on pushes to `develop` or `main`, and on pull requests targeting `main`. The
 workflow calls `ci/app/` and `ci/mystic_auth/` entrypoints so the failing
 ownership boundary is visible in Actions. App-wrapper and unit tests create the

@@ -46,10 +46,12 @@ so a failure can be understood without opening the source module.
   validation and response mapping.
 - `test_bulk_policy_routes_unit.py` verifies bulk policy assignment and its
   per-item result handling.
-- `test_bulk_system_user_guard_unit.py` verifies protected system users cannot
-  be changed through bulk operations.
-- `test_permission_assignment_system_user_guard_unit.py` verifies the same
-  protected-user rule for direct permission grants.
+- `test_bulk_system_user_guard_unit.py` verifies bulk policy operations reject
+  the system user only for its baseline policies, while app policies and
+  direct permissions are allowed.
+- `test_permission_assignment_system_user_guard_unit.py` verifies direct
+  permission grant and revoke work on the system user and keep the caller's
+  escalation check.
 - `test_permission_routes_condition_validation_unit.py` verifies condition
   payload validation before a permission grant is accepted.
 - `test_policy_assignment_authorization_security_unit.py` verifies that the

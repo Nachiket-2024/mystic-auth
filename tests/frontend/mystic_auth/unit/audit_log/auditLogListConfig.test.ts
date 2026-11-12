@@ -6,6 +6,7 @@ import {
   timeRangeLabel,
   DEFAULT_TIME_RANGE_STATE,
 } from '@/audit_log/auditLogListConfig';
+import type { Translate } from '@/translations/translate';
 
 // A fixed "now" so every assertion below is deterministic regardless of when the suite runs.
 const NOW_MS = Date.parse('2026-01-15T12:00:00.000Z');
@@ -60,7 +61,7 @@ describe('isTimeRangeActive', () => {
 });
 
 describe('timeRangeLabel', () => {
-  const t = (key: string, opts?: Record<string, unknown>) => {
+  const fakeT = (key: string, opts?: Record<string, unknown>) => {
     if (key === 'shared.timeRange.rangeText') return `${opts?.from} - ${opts?.to}`;
     const presets: Record<string, string> = {
       'shared.timeRange.preset_7': 'Last 7 days',
@@ -70,6 +71,8 @@ describe('timeRangeLabel', () => {
     };
     return presets[key] ?? key;
   };
+  // The component receives i18next's TFunction; a plain stub needs this cast.
+  const t = fakeT as unknown as Translate;
 
   it('labels a preset by its translated name', () => {
     expect(timeRangeLabel({ range: '30', customFrom: '', customTo: '' }, t)).toBe('Last 30 days');

@@ -14,6 +14,17 @@ SELF_SERVICE_POLICY_NAME = "self_service"
 USER_MANAGEMENT_POLICY_NAME = "user_management"
 SYSTEM_SUPERUSER_POLICY_NAME = "system_superuser"
 
+# The policies MysticAuth itself gives the system user. They are the system
+# account's actual access (PBAC, never `role`), so the API refuses to remove
+# them from it. Every other policy on the system user, including anything
+# from DEFAULT_APP_POLICIES, is downstream-owned and editable like any
+# other account's.
+SYSTEM_USER_BASELINE_POLICY_NAMES = (
+    SELF_SERVICE_POLICY_NAME,
+    USER_MANAGEMENT_POLICY_NAME,
+    SYSTEM_SUPERUSER_POLICY_NAME,
+)
+
 logger = get_logger(__name__)
 
 

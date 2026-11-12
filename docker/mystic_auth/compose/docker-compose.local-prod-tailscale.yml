@@ -13,7 +13,7 @@
 #
 # Public entrypoint is Tailscale Funnel: outbound tunnel to your tailnet,
 # routed to frontend:80, at a stable https://<TS_HOSTNAME>.<tailnet>.ts.net
-# URL. docker/tailscale-serve-config.json holds the actual proxy config.
+# URL. docker/mystic_auth/tailscale/tailscale-serve-config.json holds the actual proxy config.
 # See docs/mystic_auth/deployment/local-prod/tailscale-funnel.md for the one-time
 # tailnet setup this needs.
 #
@@ -44,7 +44,7 @@ services:
 
   tailscale:
     <<: *container_hardening
-    image: tailscale/tailscale@sha256:87c55d6be56ad85b3d8bceca5f87f73de288c609131460dd1be1874c250cc41d
+    image: tailscale/tailscale@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c
     restart: unless-stopped
     # Not read_only this pass: unlike ngrok/postgres/valkey/backend/frontend/
     # etc. above (verified live against docker-compose.local-prod-ngrok.yml,
@@ -60,7 +60,7 @@ services:
       TS_SERVE_CONFIG: /config/serve-config.json
     volumes:
       - tailscale_state:/var/lib/tailscale
-      - ../../tailscale-serve-config.json:/config/serve-config.json:ro
+      - ../tailscale/tailscale-serve-config.json:/config/serve-config.json:ro
     cap_add:
       - NET_ADMIN
     devices:
@@ -87,7 +87,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /var/run/postgresql]
-    image: chainguard/postgres@sha256:2b01d03a201a92b6afcbf2351b7bcc8b08035fd9e835632bfdd647ee6377d80f
+    image: chainguard/postgres@sha256:adbf3d8db097696ed6e997b108b51393786be999c04d543502f8959e1bafa8de
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     # Keep database traffic on the isolated backend network while giving the
@@ -124,7 +124,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /data]
-    image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
     restart: unless-stopped
     # The command below is a plain `sh -c`, which skips the image entrypoint that
     # would drop root, so run as the image's valkey user directly. No capabilities needed.
@@ -435,7 +435,11 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp]
-    image: ghcr.io/maxmind/geoipupdate@sha256:51e70dd6f16cd3e4d845ac02d09940b10772a75b9d741427d235a78570923c1d
+    image: ${COMPOSE_PROJECT_NAME}-geoipupdate
+    pull_policy: build
+    build:
+      context: ../../..
+      dockerfile: docker/mystic_auth/dockerfiles/geoipupdate.Dockerfile
     restart: unless-stopped
     # app_egress_net: see backend's own networks: comment above - the
     # updater needs a real route to updates.maxmind.com. It also no longer
@@ -576,7 +580,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /app/run]
-    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
+    image: bugsink/bugsink:2@sha256:d19378dc3ad8fac46b2d554019540e84d607c176b3e0774a10c55458f1288fa0
     restart: unless-stopped
     networks: [postgres_net, app_egress_net]
     env_file:
@@ -665,7 +669,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /app/run]
-    image: bugsink/bugsink:2@sha256:c5e3657451f4ba1ddb145a5118a4347314206cc5ba98f40e5f268c6c0975963e
+    image: bugsink/bugsink:2@sha256:d19378dc3ad8fac46b2d554019540e84d607c176b3e0774a10c55458f1288fa0
     # Root, since Docker creates a fresh named volume root-owned and the
     # non-root "bugsink" user can't write the DSN file into it otherwise.
     user: root
@@ -711,7 +715,7 @@ services:
   # read or write. See docs/mystic_auth/error-monitoring/ntfy-alerts.md.
   ntfy:
     <<: *container_hardening
-    image: binwiederhier/ntfy:v2.37.1@sha256:a1dde1f3210b68ac0c29e53298c96a988d06c320d1201d72f3e8e224d1a546f3
+    image: binwiederhier/ntfy:v2.37.2@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7
     restart: unless-stopped
     read_only: true
     tmpfs: [/tmp]

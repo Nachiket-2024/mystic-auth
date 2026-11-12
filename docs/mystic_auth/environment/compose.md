@@ -14,8 +14,8 @@ container entrypoints, one-shot seed commands, or local helper scripts.
 | `BUGSINK_SUPERUSER_EMAIL` | all env examples | Bugsink admin username/email and the switch that lets the backend watch for a late seeded DSN in dev/local stacks. |
 | `BUGSINK_SUPERUSER_PASSWORD` | all env examples | Bugsink admin password. |
 | `BUGSINK_BASE_URL` | all env examples | Internal or public Bugsink base URL, depending on mode. |
-| `GEOIPUPDATE_ACCOUNT_ID` | dev, local-prod, and prod | MaxMind account id used by the optional `geoipupdate` service. Requires `--profile geoip`; the dev wrapper adds that profile when `GEOIP_DB_PATH` is set. |
-| `GEOIPUPDATE_LICENSE_KEY` | dev, local-prod, and prod | MaxMind license key used by the optional `geoipupdate` service. Requires `--profile geoip`; the dev wrapper adds that profile when `GEOIP_DB_PATH` is set. |
+| `GEOIPUPDATE_ACCOUNT_ID` | dev, local-prod, and prod | MaxMind account id used by the optional `geoipupdate` service. Requires `--profile geoip` for raw Compose commands; each mode's startup wrapper adds the profile when `GEOIP_DB_PATH` is set and both credentials are present. |
+| `GEOIPUPDATE_LICENSE_KEY` | dev, local-prod, and prod | MaxMind license key used by the optional `geoipupdate` service. Requires `--profile geoip` for raw Compose commands; each mode's startup wrapper adds the profile when `GEOIP_DB_PATH` is set and both credentials are present. |
 | `BACKUP_INTERVAL_HOURS` | local-prod and prod | Sleep interval for the always-on `db_backup` sidecar. Defaults to `24` if Compose substitution gets an empty value. |
 | `BACKUP_RETENTION_DAYS` | local-prod and prod | Local dump retention for the `db_backup` sidecar. Defaults to `14` if Compose substitution gets an empty value. |
 | Cloudflare token file | local-prod Cloudflare named tunnel | `.cloudflare-tunnel-token` is a file-backed Compose secret read by the Cloudflare launcher. Keep it in `env/mystic_auth/` with owner-only permissions; it is not a Compose environment variable. |

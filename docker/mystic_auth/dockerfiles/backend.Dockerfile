@@ -1,6 +1,6 @@
 # Compiles native extensions into a venv so build tools never ship in the
 # runtime image.
-FROM python:3.14-alpine@sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2 AS builder
+FROM python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67 AS builder
 
 WORKDIR /app
 
@@ -39,7 +39,7 @@ RUN pip install --no-cache-dir --require-hashes -r requirements-dev.txt
 # Alpine over Debian for the CVE count: Trivy found python:3.14-alpine at
 # 0 High/Critical on this app's built image vs. python:3.14-slim at 50+,
 # all unpatched Debian OS packages unrelated to app code.
-FROM python:3.14-alpine@sha256:eb2c62658b8d51bff0acc408504b76521d02030de56a8a3c1e830083e89b89d2 AS runtime
+FROM python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67 AS runtime
 
 WORKDIR /app
 

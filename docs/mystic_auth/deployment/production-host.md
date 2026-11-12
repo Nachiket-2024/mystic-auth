@@ -72,7 +72,7 @@ flowchart LR
 These are intentional scope boundaries:
 
 1. No infrastructure-as-code module is shipped.
-2. No registry push or automated deployment workflow is shipped. `docker-build` in CI only checks that both images build, because a template cannot assume a host, registry or credentials. Image signing needs a registry push first, so revisit both together once a real host exists.
+2. No registry push or automated deployment workflow is shipped. `docker-build` in CI builds and scans the six runtime images, because a template cannot assume a host, registry or credentials. Image signing needs a registry push first, so revisit both together once a real host exists.
 3. No managed Postgres backup integration is assumed.
 4. No horizontal-scaling topology is documented as the default.
 5. Serverless request-driven backend deployment is out of scope because the worker and database lifecycle are long-running service responsibilities.

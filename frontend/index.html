@@ -20,7 +20,7 @@
     <!-- Boot shell styling lives in this dedicated <style> block, not
          style="" attributes, because the production CSP's style-src is a
          hash allowlist with no 'unsafe-inline'/'unsafe-hashes' entry (see
-         docker/mystic_auth/nginx.frontend.conf). A browser enforcing that
+         docker/mystic_auth/nginx/nginx.frontend.conf). A browser enforcing that
          CSP silently drops disallowed inline style attributes but still
          allows a <style> block whose exact contents match a listed sha256
          hash, the same mechanism the other CSP hashes there already rely
@@ -127,7 +127,7 @@
          getInitialColorMode() in mystic_auth/store/themeStore.ts exactly;
          keep the two in sync if that logic ever changes. Needs a listed
          CSP script-src hash the same way the <style> block above needs a
-         style-src hash - see docker/mystic_auth/nginx.frontend.conf. -->
+         style-src hash - see docker/mystic_auth/nginx/nginx.frontend.conf. -->
     <script>
       (function () {
         try {

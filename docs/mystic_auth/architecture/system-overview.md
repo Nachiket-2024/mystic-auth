@@ -14,7 +14,8 @@ High-level overview of the whole stack. For the PBAC authorization pipeline spec
 flowchart TD
     Browser["Browser (SPA)"]
     Browser -- "HTTPS\n TLS terminated in front\n see deployment guide" --> Nginx
-    Browser -- HTTPS --> Backend
+    Nginx -- "same-origin API proxy" --> Backend
+    Browser -. "optional split deployment\n(VITE_API_BASE_URL set)" .-> Backend
     Nginx["nginx\n (static frontend build)"]
     Backend["FastAPI backend\n (uvicorn)"]
     Backend --> Postgres[("PostgreSQL\n users, policies, audit logs,\n token versions and refresh claims")]

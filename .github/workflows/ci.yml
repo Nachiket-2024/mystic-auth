@@ -33,7 +33,7 @@ jobs:
       postgres:
         # GitHub-hosted runners are exempt from Docker Hub's anonymous-pull
         # rate limit; Public ECR's shared anonymous data quota can be exhausted.
-        image: docker.io/library/postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        image: docker.io/library/postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -49,7 +49,7 @@ jobs:
       valkey:
         # Use the same pinned Valkey image as the Compose environments. Docker
         # Hub is reliable for public images on GitHub-hosted runners.
-        image: docker.io/valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+        image: docker.io/valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
         ports:
           - 6379:6379
         options: >-
@@ -392,6 +392,9 @@ jobs:
       - name: Build Cloudflare Tunnel image
         run: docker build -f docker/mystic_auth/dockerfiles/cloudflared.Dockerfile -t cloudflared:ci .
 
+      - name: Build geoipupdate image
+        run: docker build -f docker/mystic_auth/dockerfiles/geoipupdate.Dockerfile -t geoipupdate:ci .
+
       - name: Verify shipped dependency notices
         run: |
           docker run --rm --entrypoint sh backend:ci -ec '
@@ -399,7 +402,7 @@ jobs:
             test -s "$notices/PyYAML-6.0.3.txt"
             test -s "$notices/README.md"
             test -s "$notices/GPL-3.0.txt"
-            for package in psycopg-3.3.7 psycopg-binary-3.3.7 psycopg-pool-3.3.3; do
+            for package in psycopg-3.3.8 psycopg-binary-3.3.8 psycopg-pool-3.3.3; do
               test -s "$notices/$package.txt"
               grep -q "GNU LESSER GENERAL PUBLIC LICENSE" "$notices/$package.txt"
               grep -q "Version 3, 29 June 2007" "$notices/$package.txt"
@@ -415,12 +418,16 @@ jobs:
             test -s "$notices/packages.tsv"
             test "$(wc -l < "$notices/packages.tsv")" -gt 20
             awk -F "$(printf "\t")" "NF != 3 || \$3 == \"\" { exit 1 }" "$notices/packages.tsv"
-            rclone version | grep -F "go/version: go1.27.3"
+            rclone version | grep -F "go/version: go1.27.4"
             ! rclone help | grep -q selfupdate
           '
           docker run --rm --add-host backend:127.0.0.1 --entrypoint sh frontend:ci -c 'test -s /usr/share/nginx/html/third-party-notices/react_19.3.1.txt && nginx -t'
           docker run --rm --entrypoint /ngrok ngrok:ci version
           docker run --rm --entrypoint /cloudflared cloudflared:ci version
+          docker run --rm --entrypoint sh geoipupdate:ci -ec '
+            test -s /usr/share/licenses/geoipupdate/LICENSE-APACHE
+            test -s /usr/share/licenses/geoipupdate/LICENSE-MIT
+          '
           cloudflared_notices_container="$(docker create cloudflared:ci)"
           trap 'docker rm "$cloudflared_notices_container" >/dev/null 2>&1 || true' EXIT
           mkdir -p "$RUNNER_TEMP/cloudflared-notices"
@@ -437,7 +444,7 @@ jobs:
 
       - name: Scan built images for known-critical/high vulnerabilities (Trivy)
         run: |
-          for image in backend:ci frontend:ci db-backup:ci ngrok:ci cloudflared:ci; do
+          for image in backend:ci frontend:ci db-backup:ci ngrok:ci cloudflared:ci geoipupdate:ci; do
             echo "::group::Trivy - $image"
             ignore_args=()
             if [ "$image" = ngrok:ci ]; then
@@ -518,12 +525,23 @@ jobs:
           upload-release-assets: false
           syft-version: v1.52.0
 
+      - name: Generate geoipupdate runtime SBOM (SPDX JSON)
+        uses: anchore/sbom-action@8e94d75ddd33f69f691467e42275782e4bfefe84
+        with:
+          image: geoipupdate:ci
+          format: spdx-json
+          output-file: sbom/geoipupdate-runtime.spdx.json
+          artifact-name: sbom-geoipupdate-runtime
+          upload-artifact: false
+          upload-release-assets: false
+          syft-version: v1.52.0
+
       - name: Validate and package image SBOMs
         env:
           GIT_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json sbom/db-backup-runtime.spdx.json sbom/ngrok-runtime.spdx.json sbom/cloudflared-runtime.spdx.json; do
+          for sbom in sbom/backend-runtime.spdx.json sbom/frontend-runtime.spdx.json sbom/db-backup-runtime.spdx.json sbom/ngrok-runtime.spdx.json sbom/cloudflared-runtime.spdx.json sbom/geoipupdate-runtime.spdx.json; do
             test -s "$sbom"
             jq -e '(.spdxVersion | type == "string") and (.packages | type == "array" and length > 0)' "$sbom" >/dev/null
           done
@@ -533,6 +551,7 @@ jobs:
           db_backup_image_id="$(docker image inspect db-backup:ci --format '{{.Id}}')"
           ngrok_image_id="$(docker image inspect ngrok:ci --format '{{.Id}}')"
           cloudflared_image_id="$(docker image inspect cloudflared:ci --format '{{.Id}}')"
+          geoipupdate_image_id="$(docker image inspect geoipupdate:ci --format '{{.Id}}')"
           jq -n \
             --arg commit "$GIT_COMMIT" \
             --arg backend_id "$backend_image_id" \
@@ -540,12 +559,14 @@ jobs:
             --arg db_backup_id "$db_backup_image_id" \
             --arg ngrok_id "$ngrok_image_id" \
             --arg cloudflared_id "$cloudflared_image_id" \
+            --arg geoipupdate_id "$geoipupdate_image_id" \
             '{schemaVersion: 1, generatedForCommit: $commit, images: {
               backend: {tag: "backend:ci", localImageId: $backend_id, sbom: "backend-runtime.spdx.json"},
               frontend: {tag: "frontend:ci", localImageId: $frontend_id, sbom: "frontend-runtime.spdx.json"},
               db_backup: {tag: "db-backup:ci", localImageId: $db_backup_id, sbom: "db-backup-runtime.spdx.json"},
               ngrok: {tag: "ngrok:ci", localImageId: $ngrok_id, sbom: "ngrok-runtime.spdx.json"},
-              cloudflared: {tag: "cloudflared:ci", localImageId: $cloudflared_id, sbom: "cloudflared-runtime.spdx.json"}
+              cloudflared: {tag: "cloudflared:ci", localImageId: $cloudflared_id, sbom: "cloudflared-runtime.spdx.json"},
+              geoipupdate: {tag: "geoipupdate:ci", localImageId: $geoipupdate_id, sbom: "geoipupdate-runtime.spdx.json"}
             }}' > sbom/manifest.json
 
       - name: Upload image SBOMs
