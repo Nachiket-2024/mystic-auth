@@ -144,3 +144,36 @@ async def test_a_wildcard_scoped_direct_grant_is_included(mocker):
     result = await current_user_handler.get_current_user("some-token", db=None)
 
     assert result["permissions"] == ["policies:read"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("policy_names", "expected"),
+    [
+        (["system_superuser"], True),
+        (["self_service", "system_superuser"], True),
+        (["user_management"], False),
+        ([], False),
+    ],
+)
+async def test_is_system_superuser_follows_the_policy_not_the_role(mocker, policy_names, expected):
+    mocker.patch(
+        f"{MODULE}.jwt_service.verify_token",
+        new_callable=AsyncMock,
+        return_value={"email": "user@example.com", "role": "admin"},
+    )
+    mocker.patch(f"{MODULE}.user_crud.get_by_email", return_value=_FakeUser(role="admin"))
+    mocker.patch(
+        f"{MODULE}.policy_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[_FakePolicy(["users:read_own"], name=name) for name in policy_names],
+    )
+    mocker.patch(
+        f"{MODULE}.user_permission_repository.get_active_permissions_for_user",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+
+    result = await current_user_handler.get_current_user("some-token", db=None)
+
+    assert result["is_system_superuser"] is expected

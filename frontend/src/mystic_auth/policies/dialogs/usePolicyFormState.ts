@@ -47,7 +47,7 @@ export function usePolicyFormState({
   onDetails,
 }: UsePolicyFormStateParams) {
   const { t } = useTranslation(["policies", "ui_text"]);
-  const { can } = useAuthorization();
+  const { can, isSystemSuperuser } = useAuthorization();
   const catalogQuery = usePermissionCatalogQuery(isOpen);
   const [tab, setTab] = useState<"basics" | "actions">("basics");
   const [name, setName] = useState("");
@@ -115,19 +115,19 @@ export function usePolicyFormState({
         : (catalogQuery.data ?? []).filter(
             (entry) => entry.resource_type === resourceType,
           );
-    const grantableEntries = entries.filter((entry) => canGrantAction(entry.action, can));
+    const grantableEntries = entries.filter((entry) => canGrantAction(entry.action, can, isSystemSuperuser));
     // When editing an existing policy, retain actions already in the policy
     // so the form can display them without silently dropping state. New
     // policies never offer an action the backend's grant guard would reject.
     const visibleEntries = [
       ...grantableEntries,
-      ...entries.filter((entry) => actions.includes(entry.action) && !canGrantAction(entry.action, can)),
+      ...entries.filter((entry) => actions.includes(entry.action) && !canGrantAction(entry.action, can, isSystemSuperuser)),
     ];
     return visibleEntries.map((entry) => ({
       value: entry.action,
       label: entry.description?.trim() || formatPolicyActionLabel(entry.action),
     }));
-  }, [actions, can, catalogQuery.data, resourceType]);
+  }, [actions, can, isSystemSuperuser, catalogQuery.data, resourceType]);
 
   // Snapshot of every field right after the dialog last opened, compared
   // against current values to detect unsaved edits before a close discards

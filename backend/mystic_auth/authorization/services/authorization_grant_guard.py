@@ -2,7 +2,6 @@ from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.errors import AppError
-from ..permissions import Permission
 from ..policies.default_policies import SYSTEM_SUPERUSER_POLICY_NAME
 from ..repositories.policy_assignment_repository import policy_assignment_repository
 
@@ -19,8 +18,8 @@ async def assert_authorized_to_grant(
     """
     Guards against privilege escalation. `caller_email` is the user
     creating/updating/assigning a policy; `actions` is the full set of
-    actions that would end up granted. Every action confirms that the caller
-    already holds it, raising HTTP 403 on the first one they don't. This
+    actions that would end up granted. Every action must already be held by
+    the caller unless they hold the protected system_superuser policy. This
     includes downstream app actions such as "projects:read": the
     authorization layer treats action identifiers as opaque strings, so it can
     enforce the same anti-escalation rule without owning the app's vocabulary.
@@ -40,10 +39,9 @@ async def assert_authorized_to_grant(
     with no real request (background tasks) can omit it; that's
     conservative (may under-grant, never over-grants).
 
-    The caller must receive an app's first custom action through a trusted
-    bootstrap path, normally an app-owned migration or seed policy. A caller
-    with only policies:create/assign cannot mint an arbitrary custom policy
-    and assign it to themselves.
+    A caller with only policies:create/assign cannot mint an arbitrary custom
+    policy and assign it to themselves. A system_superuser holder is the
+    trusted bootstrap path for any action.
 
     Imports AuthorizationService locally to avoid a circular import
     (authorization_service.py delegates its own assert_authorized_to_grant
@@ -54,28 +52,17 @@ async def assert_authorized_to_grant(
     in the same request (e.g. a bulk-assign loop). Safe to memoize without a
     TTL since caller_email and context are fixed for the request's duration;
     avoids re-running evaluation for the same action across many bulk items.
-    Caching the matched conditions alongside `allowed` (not just the bare
-    boolean) is required, not an optimization detail: a bulk request may
-    propose different `conditions` for the same action across its items, so
-    every item - cache hit or not - must still have its OWN proposed
-    conditions checked against the caller's actual grant via
-    `_has_scope_for_grant` below. An earlier version of this function cached
-    only `allowed` and skipped that check entirely on a cache hit, which let
-    a caller holding an action under a restrictive condition widen it to
-    unconditional for a later item in the same batch - fixed here by always
-    re-checking scope, whether this action's decision came from cache or was
-    just computed.
+    Caching matched conditions alongside `allowed` is required because a bulk
+    request may propose different `conditions` for the same action across
+    items. `_has_scope_for_grant` therefore checks every item's proposal,
+    including cache hits.
     """
     from .authorization_service import AuthorizationService
 
-    # The protected system_superuser policy is the trusted bootstrap path for
-    # app-owned actions. This remains policy-based, not role-based: only a
-    # caller who actually holds the protected policy gets this capability.
-    built_in_actions = frozenset(permission.value for permission in Permission)
-    is_system_superuser = False
-    if any(action not in built_in_actions for action in actions):
-        active_policies = await policy_assignment_repository.get_active_policies_for_user(caller_email, db)
-        is_system_superuser = any(policy.name == SYSTEM_SUPERUSER_POLICY_NAME for policy in active_policies)
+    # The protected system_superuser policy bypasses the grant guard for any
+    # action. This remains policy-based, not role-based.
+    active_policies = await policy_assignment_repository.get_active_policies_for_user(caller_email, db)
+    is_system_superuser = any(policy.name == SYSTEM_SUPERUSER_POLICY_NAME for policy in active_policies)
 
     for action in actions:
         cache_key = (action, resource_type)

@@ -110,6 +110,20 @@ docker run --rm -v "$PWD:/repo:ro" \
   fs --scanners secret --exit-code 1 --no-progress /repo
 ```
 
+CI only sees tracked files, but `$PWD` also includes ignored local folders such
+as saved test traces, which can contain session cookies and fail the scan. To
+match CI, copy `git ls-files -co --exclude-standard` into a scratch directory
+and mount that instead.
+
+---
+
+## CodeQL
+
+`.github/workflows/codeql.yml` runs only on GitHub Actions. Locally, check that
+its action references are SHA-pinned with `ci/mystic_auth/tooling.sh action-pinning`
+and that the YAML parses. Do not call the scan passed until the hosted run
+finishes and its results appear in the repository's Security tab.
+
 ---
 
 ## Docker images and Compose
@@ -182,9 +196,14 @@ ci/mystic_auth/frontend-e2e-stack.sh down
 ```
 
 The helper refuses to overwrite existing `env/mystic_auth/.env.dev` or
-`env/app/.env.dev` files and removes only files it created. It uses the dev
-Compose project configured by the example values; do not point it at a stack
-that contains data you need.
+`env/app/.env.dev` files and removes only files it created. The example values
+use the same Compose project name and subnet as a normal dev stack, and `down`
+runs `compose down -v`, which deletes that project's volumes. On a machine with
+a real dev stack, run the helper from a throwaway copy of the tree. After
+`prepare`, change `COMPOSE_PROJECT_NAME` and `DOCKER_SUBNET` in the copy's
+`env/mystic_auth/.env.dev` to unused values, and confirm with `docker compose
+config` before `up`. Stop the real dev stack first, because the helper's health
+checks and Playwright use the default host ports.
 
 ---
 

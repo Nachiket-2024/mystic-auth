@@ -9,6 +9,9 @@ export interface CurrentUserProfile {
      *  granularity, so instance-level checks still need POST /authorization/batch-check
      *  rather than this cached list. */
     permissions: string[];
+    /** True when the caller holds the protected system_superuser policy, which can grant
+     *  any action without holding it. */
+    is_system_superuser?: boolean;
     /** False for an OAuth-only account (no usable password credential). */
     has_password: boolean;
     created_at: string;

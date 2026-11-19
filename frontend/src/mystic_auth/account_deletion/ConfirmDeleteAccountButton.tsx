@@ -72,10 +72,7 @@ const ConfirmDeleteAccountButton: React.FC<ConfirmDeleteAccountButtonProps> = ({
 
     return (
         <div className="flex flex-col items-center w-full gap-3">
-            {/* D2/D4: what happens, in a red-tinted block instead of red heading
-                text (design.md's destructive-actions rules keep the solid red
-                button and red icon, but reserve the alarming red text for the
-                confirmation itself). */}
+            {/* Keep consequences muted; reserve red text for the destructive confirmation. */}
             <div className="grid w-full gap-3 rounded-xl border border-red-200 bg-red-50/65 p-3 dark:border-red-900/70 dark:bg-red-950/25 sm:grid-cols-3 sm:gap-2 sm:p-4">
                 {[
                     { icon: <Power size={17} />, title: t("confirmDeletePage.warnDeactivatedTitle"), sub: t("confirmDeletePage.warnDeactivatedSub") },

@@ -18,4 +18,18 @@ describe("grantability", () => {
         expect(canGrantPolicy({ actions: ["users:list_all"] }, can)).toBe(true);
         expect(canGrantPolicy({ actions: ["users:list_all", "users:delete_any"] }, can)).toBe(false);
     });
+
+    it("lets a system_superuser holder grant app-owned actions it does not hold", () => {
+        expect(canGrantAction("raag:write_official", () => false, true)).toBe(true);
+        expect(canGrantPolicy({ actions: ["raag:read_all", "taal:read_all"] }, () => false, true)).toBe(true);
+    });
+
+    it("lets a system_superuser holder grant built-in actions too", () => {
+        expect(canGrantAction("users:delete_any", () => false, true)).toBe(true);
+        expect(canGrantPolicy({ actions: ["raag:read_all", "users:delete_any"] }, () => false, true)).toBe(true);
+    });
+
+    it("gives no bypass to a caller without system_superuser", () => {
+        expect(canGrantAction("raag:write_official", () => false, false)).toBe(false);
+    });
 });

@@ -33,6 +33,25 @@ ROUTES_MODULE = "backend.mystic_auth.api.pbac_routes.policies.policy_crud_routes
 CALLER = {"email": "caller@example.com", "name": "Caller"}
 
 
+@pytest.fixture(autouse=True)
+def _mock_active_policies(mocker):
+    mocker.patch(
+        "backend.mystic_auth.authorization.services.authorization_grant_guard.policy_assignment_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+
+
+def _mock_system_superuser(mocker):
+    policy = MagicMock()
+    policy.name = SYSTEM_SUPERUSER_POLICY_NAME
+    return mocker.patch(
+        "backend.mystic_auth.authorization.services.authorization_grant_guard.policy_assignment_repository.get_active_policies_for_user",
+        new_callable=AsyncMock,
+        return_value=[policy],
+    )
+
+
 def _make_policy(**overrides):
     policy = MagicMock()
     policy.id = 1
@@ -95,18 +114,26 @@ async def test_assert_authorized_to_grant_guards_downstream_business_actions(moc
 
 @pytest.mark.asyncio
 async def test_system_superuser_can_bootstrap_downstream_business_actions(mocker):
-    system_policy = MagicMock()
-    system_policy.name = SYSTEM_SUPERUSER_POLICY_NAME
-    mocker.patch(
-        "backend.mystic_auth.authorization.services.authorization_grant_guard.policy_assignment_repository.get_active_policies_for_user",
-        new_callable=AsyncMock,
-        return_value=[system_policy],
-    )
+    _mock_system_superuser(mocker)
     authorize_mock = mocker.patch(f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision", new_callable=AsyncMock, return_value=authorization_decision(False))
 
     await AuthorizationService.assert_authorized_to_grant(
         "system@example.com", ["projects:read"], "projects", "fake-db"
     )
+
+    authorize_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_system_superuser_can_grant_builtin_actions_without_holding_them(mocker):
+    _mock_system_superuser(mocker)
+    authorize_mock = mocker.patch(
+        f"{SERVICE_MODULE}.AuthorizationService.authorize_with_decision",
+        new_callable=AsyncMock,
+        return_value=authorization_decision(False),
+    )
+
+    await AuthorizationService.assert_authorized_to_grant("root@example.com", ["users:delete_any"], "users", "fake-db")
 
     authorize_mock.assert_not_awaited()
 

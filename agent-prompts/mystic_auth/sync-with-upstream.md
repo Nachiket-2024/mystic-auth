@@ -144,6 +144,8 @@ secrets scan, the tooling regression tests, the Docker image builds and smoke
 checks, and the browser end-to-end tests for every configured browser project.
 Run the Windows PowerShell tooling job only on Windows. Run the "main only" job
 too, since this sync changes what `main` will run.
+`.github/workflows/codeql.yml` runs only on GitHub, so report it as GitHub-only
+and check its action pins with `ci/mystic_auth/tooling.sh action-pinning`.
 
 The browser and Docker jobs boot the dev stack from `env/*/.env.dev`. The project
 name and the network subnet come from that file, so a second stack with the same

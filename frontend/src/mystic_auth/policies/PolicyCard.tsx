@@ -70,15 +70,15 @@ const PolicyCard: React.FC<PolicyCardProps> = ({
   onDeleteRequest,
 }) => {
   const { t } = useTranslation(["policies", "ui_text"]);
-  const { can } = useAuthorization();
+  const { can, isSystemSuperuser: callerIsSystemSuperuser } = useAuthorization();
   const isProtected = PROTECTED_POLICY_NAMES.has(policy.name);
   const isSystemSuperuser = policy.name === "system_superuser";
   const destructiveCount = policy.actions.filter(isDestructiveAction).length;
   const ResourceIcon = RESOURCE_TYPE_ICONS[policy.resource_type] ?? ShieldCheck;
-  // The backend requires the caller to already hold every action affected by
-  // status changes and deletion. Keep those controls visible when the caller
-  // has the management permission, but make the stronger grant guard clear.
-  const canManageCurrentGrant = canGrantPolicy(policy, can);
+  // The backend requires the caller to hold every affected action unless they
+  // hold system_superuser. Keep controls visible with the management permission,
+  // and explain the grant guard when it prevents the action.
+  const canManageCurrentGrant = canGrantPolicy(policy, can, callerIsSystemSuperuser);
   const grantGuardMessage = t("policies:columns.cannotManageGrantWithoutActions");
 
   const toggleOpen = () => onToggleOpen(policy.name);

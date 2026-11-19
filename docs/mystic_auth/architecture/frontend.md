@@ -42,7 +42,7 @@ This layout is feature/page-first, not a layer-first (`components/`/`hooks`/`ser
 
 ## State management
 
-- **Zustand** for client state: `store/authStore.ts` (`isAuthenticated`, `name`, `email`, `role`, `permissions`, `hasPassword`) and `store/themeStore.ts` (light/dark). No Redux.
+- **Zustand** for client state: `store/authStore.ts` (`isAuthenticated`, `name`, `email`, `role`, `permissions`, `isSystemSuperuser`, `hasPassword`) and `store/themeStore.ts` (light/dark). No Redux.
 - **TanStack Query** for all server state/caching, via one shared `QueryClient` (`core/queryClient.ts`).
 - `authStore.isAuthenticated` starts as `null` ("not checked yet"), so `App.tsx` blocks rendering the router behind a loading screen until `useAuthSession()` resolves it to `true`/`false`, avoiding a flash of unauthenticated content.
 
@@ -100,7 +100,7 @@ Every lazy-split route in `App.tsx` uses `ui/routing/trackedLazy.ts`'s `trackedL
 ## Authorization on the frontend (PBAC-aware UI)
 
 - `authorization/permissions.ts` mirrors the backend's `Permission` enum as string constants, so route/component gates reference `PERMISSIONS.USERS_LIST_ALL` rather than a hand-typed string.
-- `authorization/useAuthorization.ts` reads `authStore.permissions` and exposes `can(action)`, failing closed (`false`) when unauthenticated or still loading. This is a **client-side UX convenience only**: the backend independently enforces every action via `require_authorization` (see [PBAC Architecture](../authorization/architecture/README.md)); a hidden button is not a security boundary.
+- `authorization/useAuthorization.ts` reads `authStore.permissions` and exposes `can(action)`, failing closed (`false`) when unauthenticated or still loading. This is a **client-side UX convenience only**: the backend independently enforces every action via `require_authorization` (see [PBAC Architecture](../authorization/architecture/README.md)); a hidden button is not a security boundary. `isSystemSuperuser` (from `GET /auth/me`, true only for a holder of the protected `system_superuser` policy) feeds `authorization/grantability.ts` alone: it mirrors the backend grant guard so the UI offers any action a `system_superuser` holder may grant without holding it. It never widens `can()`.
 - `authorization/ProtectedRoute.tsx`, `Authorized.tsx`, `IfCan.tsx`: route-level and in-page conditional gates built on `useAuthorization`.
 - `authorization/authorizationService.ts` layers real per-resource/conditional checks (`POST /authorization/batch-check`) on top of the cached flat permission list for cases that need it.
 - `role` is explicitly treated as metadata only on the frontend too, never used in a gating decision, mirroring the backend's own design (see [Security Decisions: role is never used to decide access](../security/decisions-auth.md#role-is-never-used-to-decide-access)).

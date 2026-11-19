@@ -19,6 +19,8 @@ interface AuthState {
     role: string | null;
     /** Flat list of every action string the caller currently holds via their active policies. */
     permissions: string[];
+    /** Whether the caller holds the system_superuser policy (see CurrentUserProfile). */
+    isSystemSuperuser: boolean;
     /** True from the instant dropPermissions() zeroes the list until the follow-up
      *  GET /auth/me resolves (setProfile) or fails (clearProfile/setAuthenticated(false)/
      *  reset). Signals "permissions is known-stale, don't treat the empty list as
@@ -57,6 +59,7 @@ const initialProfile = {
     email: null,
     role: null,
     permissions: [] as string[],
+    isSystemSuperuser: false,
     hasPassword: false,
     permissionsPending: false,
 };
@@ -79,13 +82,14 @@ export const useAuthStore = create<AuthState>((set) => ({
             email: profile.email,
             role: profile.role,
             permissions: profile.permissions ?? [],
+            isSystemSuperuser: profile.is_system_superuser ?? false,
             hasPassword: profile.has_password,
             permissionsPending: false,
         }),
 
     clearProfile: () => set({ ...initialProfile }),
 
-    dropPermissions: () => set({ permissions: [], permissionsPending: true }),
+    dropPermissions: () => set({ permissions: [], isSystemSuperuser: false, permissionsPending: true }),
 
     reset: () => set({ isAuthenticated: null, authenticatedAt: null, ...initialProfile }),
 }));

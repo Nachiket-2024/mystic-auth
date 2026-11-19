@@ -2,7 +2,7 @@
 
 ---
 
-This selected repository tree reflects the structure as of 12 November, 2026. It highlights the
+This selected repository tree reflects the structure as of 19 November, 2026. It highlights the
 `app/` and `mystic_auth/` ownership split, recent extension points, deployment modes, and notable
 files; it is not an exhaustive listing of every tracked file. Generated files, local secrets,
 build output, and caches are omitted too.
@@ -154,7 +154,7 @@ mystic-auth/
         test_settings.py
         test_core_settings.py
       mystic_auth/
-        unit/
+        unit/                       # conftest.py isolates the system-superuser policy lookup
           auth/token_logic/
             test_token_revocation_keys_unit.py
           scripts/
@@ -305,8 +305,9 @@ mystic-auth/
   screenshots/
     app/                         # project-owned screenshots
     mystic_auth/                 # upstream screenshots
-  .github/
-    workflows/
+  .github/workflows/
+    ci.yml
+    codeql.yml
   ci/
     app/                          # project-owned CI entry points and checks
       backend.sh / frontend.sh / frontend-e2e.sh

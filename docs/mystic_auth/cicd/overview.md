@@ -13,7 +13,9 @@ jobs push commits, comment on PRs, or need write access. A compromised action
 dependency in this workflow can only read the checkout.
 
 There are seven jobs on every push and pull request, plus the Docker
-full-suite job that runs only on a push to `main`.
+full-suite job that runs only on a push to `main`. A second workflow,
+`.github/workflows/codeql.yml`, runs [CodeQL](#codeql-code-scanning) on its own
+(see the end of this list of jobs).
 
 For local parity, run the Linux-equivalent jobs from the repository's normal
 development shell, run the `windows-tooling` regression through Windows
@@ -42,6 +44,7 @@ flowchart TD
     Trigger --> Windows["windows-tooling\n PowerShell setup-env\n regression suite"]
     Trigger --> DockerBuild["docker-build\n build and scan runtime images,\n notices, SBOMs, Compose config"]
     Trigger --> BrowserE2E["browser-e2e matrix\n isolated stack per project,\n four Playwright projects"]
+    Trigger --> CodeQL["codeql.yml (separate workflow, also weekly)\n CodeQL security-extended,\n python + javascript-typescript"]
     DockerBuild ~~~ TriggerMain
     TriggerMain --> DockerFullSuite["docker-full-suite\n full backend + frontend suites,\n run inside the actual containers"]
     linkStyle default stroke:#334155,stroke-width:2px
@@ -213,6 +216,26 @@ flowchart TD
 
 ---
 
+### CodeQL code scanning
+
+`.github/workflows/codeql.yml` is separate from `ci.yml` because it needs
+`security-events: write` (granted to its one job only) and a weekly schedule.
+
+- Runs on pushes to `develop` and `main`, on pull requests to `main`, and every
+  Monday, so new CodeQL queries also check code that has not changed.
+- Analyzes `python` and `javascript-typescript` as two matrix jobs with the
+  `security-extended` query suite and `build-mode: none` (no build, no Compose
+  stack).
+- Traces untrusted input to dangerous sinks such as SQL, redirects, and token or
+  log leaks. Linters, `bandit`, and the dependency audits do not do this.
+- Results appear in the repository's Security tab (public repositories only, or
+  with GitHub Code Security). Do not also enable code scanning "default setup"
+  in the repository settings, or every scan runs twice.
+- The actions are pinned by commit SHA like the rest of CI, so
+  `check-ci-action-pinning.sh` covers this file too.
+
+---
+
 ## What's covered
 
 - Backend unit/integration/security suites, against real Postgres/Valkey, gated by a 90% cumulative-coverage threshold; performance tests run too, non-blocking.
@@ -228,6 +251,7 @@ flowchart TD
 - On every push to `main`: the entire backend + frontend test suites, re-run a second time inside the real containers rather than a bare runner. Pushes to `develop` run the native validation jobs without this duplicate container pass.
 - Dependency vulnerability scanning on every push/PR: `pip-audit` (backend, blocking) and `npm audit --audit-level=high` (frontend, blocking). There is no scheduled/automated dependency-update bot in this repo; dependency bumps are a manual, deliberate action (see the header comment in `backend/requirements.txt`), not something that opens PRs on its own.
 - Secret scanning across full git history (`gitleaks`), independent of the backend/frontend jobs.
+- Static code scanning with CodeQL (`security-extended`) for the Python backend and the TypeScript frontend, on pushes, pull requests, and a weekly schedule.
 
 ---
 

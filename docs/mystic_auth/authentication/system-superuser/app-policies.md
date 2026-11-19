@@ -16,7 +16,7 @@ For a downstream app owner: how to give the system account your app's own access
 | Direct permissions | Yes, in both directions. Revoking one deletes only that grant, so it never removes access a baseline policy provides (there is no deny). |
 | Role, profile, password | No. |
 
-The usual rule still applies: the caller must hold every action the policy or permission grants. A `system_superuser` holder may grant app-owned actions (anything outside MysticAuth's built-in list), so the system user can give itself any app policy once it exists.
+The usual rule still applies: the caller must hold every action the policy or permission grants. A `system_superuser` holder may grant any built-in or app-owned action without holding it, so the system user can give itself any app policy once it exists. The policy and access dialogs follow the same rule and offer any action to a `system_superuser` holder.
 
 ---
 

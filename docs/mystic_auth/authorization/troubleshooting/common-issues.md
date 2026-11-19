@@ -66,7 +66,7 @@ The response body lists every problem found, not just the first; see the [Condit
 
 ### A caller with `policies:create`/`update`/`assign` gets 403 "Cannot grant action ... you do not hold it yourself"
 
-This is the privilege-escalation guard working as intended (see [Architecture](../architecture/component-responsibilities.md#authorization-service)): holding the ability to *manage* policies doesn't let you hand out actions you don't already have. The caller needs to already hold every sensitive action (from `Permission`'s vocabulary) that the policy grants, which typically means they need `system_superuser` too, not just a `policies:*` action.
+This is the privilege-escalation guard working as intended (see [Architecture](../architecture/component-responsibilities.md#authorization-service)): holding the ability to *manage* policies doesn't let you hand out actions you don't already have. The caller needs to already hold every action the policy grants, built-in or app-owned, not just a `policies:*` action. A holder of the protected `system_superuser` policy bypasses the guard and may grant any action.
 
 ---
 

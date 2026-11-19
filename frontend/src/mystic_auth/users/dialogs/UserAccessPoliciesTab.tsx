@@ -53,7 +53,7 @@ const UserAccessPoliciesTab: React.FC<UserAccessPoliciesTabProps> = ({
   catalog,
   t,
 }) => {
-  const { can } = useAuthorization();
+  const { can, isSystemSuperuser } = useAuthorization();
   const isSelfProtectedPolicy = (name: string) =>
     state.isSelf && PROTECTED_POLICY_NAMES.has(name);
   return (
@@ -128,7 +128,7 @@ const UserAccessPoliciesTab: React.FC<UserAccessPoliciesTabProps> = ({
               const covered =
                 !assigned &&
                 policyAddsNothingNew(policy, state.effectiveGrantKeys);
-              const ungrantable = !canGrantPolicy(policy, can);
+              const ungrantable = !canGrantPolicy(policy, can, isSystemSuperuser);
               const disabled = rowLocked || selfProtected || covered || ungrantable;
               const disabledReason = rowLocked
                 ? t("users:accessDialog.systemBaselinePolicyLocked")

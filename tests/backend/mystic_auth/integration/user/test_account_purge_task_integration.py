@@ -74,8 +74,8 @@ async def test_purge_job_ignores_accounts_that_were_never_deleted(client, create
     email = unique_email()
     await create_verified_user(client, created_emails, email)
 
-    purged_count = await purge_expired_soft_deleted_accounts(timestamp=0)
-    assert purged_count == 0
+    # Other soft-deleted rows may exist in a shared database, so only this account is asserted.
+    await purge_expired_soft_deleted_accounts(timestamp=0)
 
     async with database.async_session() as session:
         user = await user_crud.get_by_email(email, session)

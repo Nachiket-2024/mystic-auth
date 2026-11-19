@@ -7,6 +7,7 @@ from sqlalchemy.exc import InterfaceError, OperationalError, SQLAlchemyError
 # so GET /auth/me exposes real, current permissions for frontend UI/behavior
 # decisions, sourced from policies, not role, since two users with the same
 # role can hold different policies.
+from ...authorization.policies.default_policies import SYSTEM_SUPERUSER_POLICY_NAME
 from ...authorization.repositories.policy_repository import policy_repository
 
 # Direct (bypasses-Policy) grants count too: the real enforcement path
@@ -115,6 +116,9 @@ class CurrentUserHandler:
                 "email": user.email,
                 "role": user.role.value if user.role else None,
                 "permissions": sorted(permissions),
+                # Lets the UI mirror assert_authorized_to_grant's bypass for
+                # any action. Policy-based, never role-based.
+                "is_system_superuser": any(policy.name == SYSTEM_SUPERUSER_POLICY_NAME for policy in policies),
                 "has_password": user.hashed_password is not None,
                 "created_at": user.created_at.isoformat(),
                 "active_sessions": active_sessions,

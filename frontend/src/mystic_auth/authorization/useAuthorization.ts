@@ -12,6 +12,8 @@ interface AuthorizationState {
     email: string | null;
     role: string | null;
     permissions: string[];
+    /** Holds the system_superuser policy. Only for grantability.ts, never for access checks. */
+    isSystemSuperuser: boolean;
     /**
      * A single action string is a plain membership check. An array means "any of": true as
      * soon as one listed action is held, for a page/route reachable via more than one
@@ -38,11 +40,12 @@ export function useAuthorization(): AuthorizationState {
     const email = useAuthStore((s) => s.email);
     const role = useAuthStore((s) => s.role);
     const permissions = useAuthStore((s) => s.permissions);
+    const isSystemSuperuser = useAuthStore((s) => s.isSystemSuperuser);
 
     const can = (action: string | string[], _resourceType?: string): boolean => {
         if (!isAuthenticated) return false;
         return Array.isArray(action) ? action.some((a) => permissions.includes(a)) : permissions.includes(action);
     };
 
-    return { isAuthenticated, name, email, role, permissions, can };
+    return { isAuthenticated, name, email, role, permissions, isSystemSuperuser, can };
 }

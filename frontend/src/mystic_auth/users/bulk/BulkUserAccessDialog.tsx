@@ -45,7 +45,7 @@ const BulkUserAccessDialog: React.FC<Props> = ({ isOpen, userEmails, initialTab 
   const [error, setError] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const currentEmail = useAuthStore((state) => state.email);
-  const { can } = useAuthorization();
+  const { can, isSystemSuperuser } = useAuthorization();
   // Only request what this caller is allowed to read: a refused request is
   // also a denied row in the authorization audit log on every dialog open.
   const policies = usePoliciesQuery(isOpen && can(PERMISSIONS.POLICIES_READ));
@@ -58,10 +58,10 @@ const BulkUserAccessDialog: React.FC<Props> = ({ isOpen, userEmails, initialTab 
   const minePermissions = useMyPermissionsQuery(isOpen && self);
   const grants = self ? buildEffectiveGrantKeySet(minePolicies.data?.policies ?? [], minePermissions.data?.permissions ?? []) : null;
   const availablePolicies = (policies.data ?? []).filter((policy) =>
-    canGrantPolicy(policy, can) && (!grants || !policyAddsNothingNew(policy, grants)),
+    canGrantPolicy(policy, can, isSystemSuperuser) && (!grants || !policyAddsNothingNew(policy, grants)),
   );
   const availablePermissions = (catalog.data ?? []).filter((permission) =>
-    canGrantAction(permission.action, can) &&
+    canGrantAction(permission.action, can, isSystemSuperuser) &&
     (!grants || !isAlreadyEffectivelyGranted(grants, permission.action, permission.resource_type)),
   );
   const permissionGroups = availablePermissions.reduce<Record<string, typeof availablePermissions>>((groups, entry) => { (groups[entry.resource_type] ??= []).push(entry); return groups; }, {});

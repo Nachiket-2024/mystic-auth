@@ -75,3 +75,38 @@ describe('useAuthorization', () => {
     expect(screen.getByRole('button', { name: 'View' })).toBeEnabled();
   });
 });
+
+describe('useAuthorization isSystemSuperuser', () => {
+  const profile = {
+    name: 'Test User', email: 'test@example.com', role: 'user', permissions: ['users:read_own'], has_password: true,
+    created_at: '2026-01-15T00:00:00Z', active_sessions: 1, brand_color: null,
+  };
+
+  beforeEach(() => {
+    useAuthStore.setState(initialAuthState, true);
+    useAuthStore.getState().setAuthenticated(true);
+  });
+
+  it('defaults to false when /auth/me omits the flag', () => {
+    useAuthStore.getState().setProfile(profile);
+    const { result } = renderHook(() => useAuthorization());
+
+    expect(result.current.isSystemSuperuser).toBe(false);
+  });
+
+  it('mirrors the flag from the profile and does not widen can()', () => {
+    useAuthStore.getState().setProfile({ ...profile, is_system_superuser: true });
+    const { result } = renderHook(() => useAuthorization());
+
+    expect(result.current.isSystemSuperuser).toBe(true);
+    expect(result.current.can('policies:create')).toBe(false);
+  });
+
+  it('clears the flag while permissions are dropped for a refetch', () => {
+    useAuthStore.getState().setProfile({ ...profile, is_system_superuser: true });
+    useAuthStore.getState().dropPermissions();
+    const { result } = renderHook(() => useAuthorization());
+
+    expect(result.current.isSystemSuperuser).toBe(false);
+  });
+});

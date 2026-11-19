@@ -27,7 +27,8 @@ class _FakeUser:
 
 
 class _FakePolicy:
-    def __init__(self, actions, resource_type="users"):
+    def __init__(self, actions, resource_type="users", name="test_policy"):
+        self.name = name
         self.actions = actions
         # Every action below is "users:...", so "users" is a correct
         # default here; a test that wants cross-resource-type filtering

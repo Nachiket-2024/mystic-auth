@@ -35,7 +35,7 @@ Every endpoint that returns a list of rows (`GET /users/`, and the audit log end
 | POST | `/auth/login` | public | per-IP + per-account, plus lockout | See [Login](../authentication/login.md) |
 | GET | `/auth/oauth2/login/google` | public | yes | Redirects to Google consent screen, see [OAuth2 / PKCE](../authentication/oauth2-pkce.md) |
 | GET | `/auth/oauth2/callback/google` | public | yes | Google redirects here with `code`/`state` |
-| GET | `/auth/me` | session | yes | Re-verifies JWT + re-queries user row every call |
+| GET | `/auth/me` | session | yes | Re-verifies JWT + re-queries user row every call; returns current permissions, active session count, and whether the caller holds `system_superuser` |
 | POST | `/auth/logout` | session (needs `refresh_token` cookie) | yes | Bumps that one session's `chain_ver`, ending just this device. Always `200`; response carries `session_revoked: false` if the bump couldn't be confirmed (Postgres unavailable) |
 | POST | `/auth/logout/all` | session | yes | Bumps `account_ver`, ending every session on the account. Returns `503` (`SESSION_REVOCATION_UNAVAILABLE`) instead of a false success if the bump couldn't be confirmed, see [Session Management: bump failure handling](../authentication/session-management/token-lifecycle.md#bump-failure-handling) |
 | GET | `/auth/sessions` | session | yes | Lists the caller's active sessions ("Manage Sessions" dashboard card), see [Database Design: user_sessions](../database/design.md) |

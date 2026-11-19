@@ -65,7 +65,7 @@ RUN npm run build
 
 # Serves the static build via nginx: no Node.js, dev dependencies, or
 # source maps, just the compiled assets. Used via `build.target: production`.
-FROM nginx:stable-alpine@sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311 AS production
+FROM nginx:stable-alpine@sha256:3bc3836dc0be3b811f238210360bf8e7ca8a2d0effdae46160bf1f3578710051 AS production
 
 COPY docker/mystic_auth/nginx/nginx.frontend.conf /etc/nginx/conf.d/default.conf
 COPY docker/mystic_auth/nginx/nginx.error-headers.conf /etc/nginx/snippets/security-error-headers.conf

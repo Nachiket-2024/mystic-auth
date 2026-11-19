@@ -58,7 +58,7 @@ flowchart TD
 
 ---
 
-A candidate that grants even one action outside the effective set stays offered (its switch enabled), even if it partially overlaps an existing grant - only a candidate that would add nothing new gets disabled. This filtering is a UI convenience only; it has no bearing on what the server ultimately allows or rejects. A second, independent filter narrows the same rows by whether the *caller* (not the target user) already holds the action themselves, matching the server's own privilege-escalation guard (`assert_authorized_to_grant`) - see `authorization/grantability.ts`'s `canGrantAction`/`canGrantPolicy`.
+A candidate that grants even one action outside the effective set stays offered (its switch enabled), even if it partially overlaps an existing grant - only a candidate that would add nothing new gets disabled. This filtering is a UI convenience only; it has no bearing on what the server ultimately allows or rejects. A second, independent filter narrows the same rows by whether the *caller* (not the target user) already holds the action themselves, or holds the protected `system_superuser` policy (`isSystemSuperuser`, from `GET /auth/me`), which may grant any action. This matches the server's own privilege-escalation guard (`assert_authorized_to_grant`) - see `authorization/grantability.ts`'s `canGrantAction`/`canGrantPolicy`.
 
 ---
 
