@@ -112,15 +112,12 @@ export { default as ControlCluster } from "../mystic_auth/layout/controls/Contro
 // their own Privacy Policy/Terms of Service footnote links.
 export { default as AuthInlineLink } from "../mystic_auth/ui/links/AuthInlineLink";
 
-// The shared i18next instance itself (not just useTranslation, which you can
-// already import from "react-i18next" - see LoginPage.tsx). Your own
-// feature folder doesn't belong in mystic_auth/translations/'s NAMESPACES
-// list (upstream's own namespace-per-template-feature contract), so
-// register your own namespace at runtime instead:
-// translations.addResourceBundle("en", "yourNamespace", enJson), once per
-// language, then useTranslation("yourNamespace") as normal. See
-// app/translations/ plus mystic_auth/translations/languages/ for the worked
-// app-owned locale layout.
+// The shared i18next instance (useTranslation itself comes from
+// "react-i18next", see LoginPage.tsx). Your own feature folder does not belong
+// in mystic_auth/translations/'s NAMESPACES list, so register your namespace at
+// runtime: translations.addResourceBundle("en", "yourNamespace", enJson) once
+// per language, then useTranslation("yourNamespace"). See app/translations/ and
+// mystic_auth/translations/languages/ for a worked example.
 export { default as translations } from "../mystic_auth/translations/translations";
 
 // Route-splitting: use in place of React.lazy for your own routed pages so

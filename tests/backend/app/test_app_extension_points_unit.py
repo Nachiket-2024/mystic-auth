@@ -24,7 +24,7 @@ def test_alembic_env_loads_app_models_and_tolerates_a_project_without_the_file()
 
 def test_main_imports_sdk_before_app_sdk_so_the_app_sdk_alias_exists():
     # app code pulled in by app_sdk.py may use `from app.sdk import ...`, which only
-    # resolves natively once backend/app/sdk.py has been imported.
+    # resolves in host-run tests once backend/app/sdk.py has been imported.
     main = (ROOT / "backend/app/main.py").read_text()
     assert main.index("from .sdk import (") < main.index("from .app_sdk import register_extensions")
     assert "# isort: split" in main

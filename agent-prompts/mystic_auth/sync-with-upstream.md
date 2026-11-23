@@ -153,8 +153,17 @@ values reuses the maintainer's containers and volumes, and
 `ci/mystic_auth/frontend-e2e-stack.sh down` removes the volumes and env files of
 the stack it started. Run those jobs in a throwaway copy of the repository that
 has only the `.example` env files, after setting a different
-`COMPOSE_PROJECT_NAME` and `DOCKER_SUBNET` in the copy's
-`env/mystic_auth/.env.dev`. Never point them at the project's real env files. If a
+`COMPOSE_PROJECT_NAME` and `DOCKER_SUBNET`. `frontend-e2e-stack.sh prepare`
+rewrites `.env.dev` from the example, so do not edit the env file first: run
+`E2E_COMPOSE_PROJECT_NAME=<unused-name> E2E_DOCKER_SUBNET=<unused-subnet>
+ci/mystic_auth/frontend-e2e-stack.sh prepare` (`up` refuses a name or subnet
+already in use). Never point them at the project's real env files.
+
+Host tools these jobs need: `jq` (SBOM validation; install it or use a
+containerized one), and, when Playwright runs inside the
+`mcr.microsoft.com/playwright` image, the `docker` CLI, the compose plugin and
+the Docker socket (some login specs seed users through `docker compose exec`
+and fail with `spawnSync docker ENOENT` on every project without them). If a
 browser engine cannot run on this OS (for example WebKit on a Linux release
 Playwright does not support), run that project in the matching
 `mcr.microsoft.com/playwright` image and say so in the report.

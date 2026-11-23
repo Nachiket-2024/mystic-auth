@@ -23,11 +23,11 @@ This README stays short on purpose. The full frontend documentation lives under 
 ---
 
 ```bash
-npm run dev         # Vite dev server
+npm run dev         # Vite dev server on the host (signed-in pages need the Docker backend stack)
 npm run build        # tsc -b && vite build (production build)
 npm run typecheck    # tsc --noEmit across app/node/test tsconfigs
 npm run lint         # eslint over frontend/ and tests/frontend/
-npm run test          # vitest run (no coverage)
+npm run test          # vitest run (no coverage), mocks the API so no backend is needed
 npm run test:coverage # vitest run --coverage (thresholds enforced)
 npm run test:browser  # Playwright browser matrix against the running stack
 ```
@@ -35,7 +35,10 @@ npm run test:browser  # Playwright browser matrix against the running stack
 Vitest coverage enforces a 90% floor for statements, branches, functions, and
 lines. Browser-owned route and layout composition is covered by Playwright;
 see the [frontend testing overview](../docs/mystic_auth/testing/overview.md)
-for the boundary and the required stack setup.
+for the boundary and the required stack setup. Lint, typecheck, build and Vitest
+need no backend. Anything that runs a real signed-in session (the app itself and
+the real-login browser specs) needs the Docker stack, because sessions live in
+the backend, Postgres and Valkey.
 
 Browser-only operations such as file downloads are mocked at the jsdom
 boundary in Vitest. Their request, filename, and cleanup behavior remain

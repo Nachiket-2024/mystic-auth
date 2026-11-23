@@ -42,7 +42,7 @@ Every step above is safe to re-run: already-done work is skipped or made a no-op
    This is the fastest path from a fresh clone to a working login: it runs `setup-env` for you if `env/mystic_auth/.env.dev` doesn't exist yet, brings the dev stack up and waits for every service to become healthy, offers to create the system superuser right there, then tails `backend`/`frontend`/`procrastinate_worker` logs the same way `dev-up` normally does. Safe to re-run any time - each step is skipped or made a no-op once it's already done.
 
    The first `dev-up` can take several minutes. Docker may need to download the
-   `chainguard/postgres`, `valkey/valkey:9.1.3-alpine`, and `bugsink/bugsink:2` images, build the local
+   `chainguard/postgres`, `valkey/valkey:9.2.0-alpine`, and `bugsink/bugsink:2` images, build the local
    backend/worker/frontend images, initialize fresh named volumes, and run the
    migrations and Bugsink seed job. The duration depends on Docker Hub and
    Docker Desktop network speed. Subsequent starts normally reuse the pulled
@@ -87,7 +87,7 @@ Three more scripts complement `setup-env`, once a file is no longer freshly gene
 
 ## Environment configuration
 
-The paired [`env/mystic_auth/.env.dev.example`](../../../env/mystic_auth/.env.dev.example) and [`env/app/.env.dev.example`](../../../env/app/.env.dev.example) files are the source of truth for which values dev ships with and where they live; comments there are kept short and point at the full field-by-field reference instead of repeating it: [Environment Configuration](../environment/README.md) (split across [Backend Settings](../environment/backend.md), [Frontend Build Settings](../environment/frontend.md), and [Compose-Only Settings](../environment/compose.md)). `frontend/.env.example` only matters if you run the frontend locally with `npm run dev` instead of Docker.
+The paired [`env/mystic_auth/.env.dev.example`](../../../env/mystic_auth/.env.dev.example) and [`env/app/.env.dev.example`](../../../env/app/.env.dev.example) files are the source of truth for which values dev ships with and where they live; comments there are kept short and point at the full field-by-field reference instead of repeating it: [Environment Configuration](../environment/README.md) (split across [Backend Settings](../environment/backend.md), [Frontend Build Settings](../environment/frontend.md), and [Compose-Only Settings](../environment/compose.md)). `frontend/.env.example` only matters if you run `npm run dev` on the host instead of the frontend container; signed-in pages still need the Docker backend stack.
 
 To rename the app: set `APP_NAME` in `env/mystic_auth/.env.dev`, then rebuild with the normal paired Compose command or `dev-up` helper. `docker-compose.dev.yml` aliases `VITE_APP_NAME` from that same `APP_NAME` (the frontend value is baked in at build time), so there's only one setting to change, not two. Nothing else hardcodes a product name. CI keeps using its own placeholder `APP_NAME` regardless; that's expected, not something to sync.
 

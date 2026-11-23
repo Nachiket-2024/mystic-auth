@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_policy_action_revocation_integration.py
-#
 # End-to-end coverage for POST /authorization/users/{email}/policies/{name}/
 # revoke-action (backend/mystic_auth/api/pbac_routes/policies/policy_assignment_routes.py):
 # carving one action out of a user's policy assignment while preserving the

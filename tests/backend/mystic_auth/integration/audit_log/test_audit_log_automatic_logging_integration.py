@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/audit_log/test_audit_log_automatic_logging_integration.py
-#
 # End-to-end coverage for the persistent authorization audit log
 # (authorization/models/authorization_audit_log_model.py, .../repositories/authorization_audit_log_repository.py)
 # against the real ASGI app, real PostgreSQL, and real Valkey. PBAC audit

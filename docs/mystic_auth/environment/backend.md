@@ -26,7 +26,7 @@ table or `core/settings.py`; see [Building On This Template](../template-usage/c
 | `APP_DATABASE_URL` | async SQLAlchemy Postgres URL | no | Least-privilege app and worker DB connection. Empty means fall back to `DATABASE_URL`. |
 | `DB_POOL_SIZE` | integer | yes | Per-process SQLAlchemy connection pool size. |
 | `DB_MAX_OVERFLOW` | integer | yes | Extra connections opened beyond `DB_POOL_SIZE` under burst load. |
-| `UVICORN_WORKERS` | integer | no, prod-shaped Compose files only | Not read by the app itself - interpolated straight into the `backend` service's `command:` (`--workers`). Ignored by `dev` (`--reload` forces one process). See [Deployment: Environment §7](../deployment/scaling.md#1-sizing-workers-on-one-host). |
+| `UVICORN_WORKERS` | integer | no, prod-shaped Compose files only | Not read by the app itself - interpolated straight into the `backend` service's `command:` (`--workers`). Ignored by `dev` (`--reload` forces one process). See [Scaling: sizing workers on one host](../deployment/scaling.md#1-sizing-workers-on-one-host). |
 | `SECRET_KEY` | string secret | yes | JWT signing for access, refresh, verification, password reset, and account-delete confirmation tokens. Must be at least 32 characters or startup fails. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | integer | yes | Access-token expiry and `access_token` cookie `max_age`. |
 | `REFRESH_TOKEN_EXPIRE_MINUTES` | integer | yes | Refresh-token expiry, refresh cookie `max_age`, token-version key TTL, and rotation-chain validity. |

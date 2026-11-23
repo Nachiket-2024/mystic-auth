@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_permission_catalog_usage_integration.py
-#
 # End-to-end coverage for GET /authorization/permissions/catalog/usage
 # (permission_catalog_routes.py, PermissionUsageRepository): who actually
 # holds each catalog action right now, folding active Policy/UserPolicy

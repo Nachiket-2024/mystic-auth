@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_self_service_account_deletion_integration.py
-#
 # End-to-end coverage for DELETE /users/me and its OAuth-only
 # confirm-delete flow (user_self_service_routes.py,
 # account_deletion_service.py). See test_user_self_service_routes_

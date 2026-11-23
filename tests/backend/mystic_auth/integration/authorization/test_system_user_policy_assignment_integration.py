@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_system_user_policy_assignment_integration.py
-#
 # End-to-end coverage for the system account's policy rules: the baseline
 # policies MysticAuth gives it (self_service, user_management,
 # system_superuser) cannot be removed through the API, while any other policy

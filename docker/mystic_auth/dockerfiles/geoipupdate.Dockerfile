@@ -3,7 +3,7 @@
 # republishes its image. Keep the source archive digest-pinned and retain
 # dependency notices in the resulting runtime image. The entry script is
 # upstream's own, so GEOIPUPDATE_* variables and the update loop behave the same.
-FROM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS builder
+FROM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS builder
 
 ARG GEOIPUPDATE_VERSION=8.0.0
 ARG GEOIPUPDATE_SOURCE_SHA256=5c08b39d2ac49ad492138b3d618dddac130065852b6237ec450bac856ace7e0a

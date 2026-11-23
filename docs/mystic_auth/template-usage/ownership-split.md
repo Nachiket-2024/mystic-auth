@@ -75,7 +75,7 @@ Compose source files and env templates aren't in the Shared tier: each got the s
 CI follows the same split through `ci/mystic_auth/` and `ci/app/`. The shared
 `.github/workflows/ci.yml` is the orchestration file: it owns triggers,
 services, combined Docker/Compose checks, and the final assembled-system
-coverage. It calls the ownership-specific scripts for native backend,
+coverage. It calls the ownership-specific scripts for host-run backend,
 frontend, tooling, and backup checks. GitHub Actions cannot import arbitrary
 YAML from a root `ci/` directory, so the split files are executable scripts;
 workflow job definitions remain in `.github/workflows/ci.yml`.

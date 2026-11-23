@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_export_integration.py
-#
 # End-to-end coverage for GET /users/export (CSV export, backing the Users
 # page's "Export CSV" button). Uses the same permission (users:list_all)
 # and account-setup helpers as test_user_list_and_update_integration.py.

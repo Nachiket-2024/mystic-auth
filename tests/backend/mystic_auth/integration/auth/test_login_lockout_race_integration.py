@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/test_login_lockout_race_integration.py
-#
 # test_login_locks_out_after_max_failed_attempts (test_login_security_
 # controls_integration.py) proves the lockout sequentially. This fires the
 # same attempts concurrently instead, so a check-then-increment race in the

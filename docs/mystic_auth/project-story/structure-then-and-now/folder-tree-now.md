@@ -2,7 +2,7 @@
 
 ---
 
-This selected repository tree reflects the structure as of 19 November, 2026. It highlights the
+This selected repository tree reflects the structure as of 24 November, 2026. It highlights the
 `app/` and `mystic_auth/` ownership split, recent extension points, deployment modes, and notable
 files; it is not an exhaustive listing of every tracked file. Generated files, local secrets,
 build output, and caches are omitted too.
@@ -211,7 +211,7 @@ mystic-auth/
           check-platform-wrappers.sh
           check-third-party-notices.sh
         docker/
-          test-backend-host-run.sh
+          test-backend-host-run.sh / test-frontend-e2e-stack.sh
         env-tools/
           test-setup-env.ps1
   agent-prompts/

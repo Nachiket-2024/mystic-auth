@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_privilege_hierarchy_security_integration.py
-#
 # Regression coverage: the bare user_management policy (users:update_any,
 # users:deactivate_any, users:delete_any via user_lifecycle, users:assign_role)
 # must not be enough to take over, demote, deactivate, purge or reactivate an

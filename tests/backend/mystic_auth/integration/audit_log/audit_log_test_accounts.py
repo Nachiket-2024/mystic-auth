@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/audit_log/audit_log_test_accounts.py
-#
 # Real signed-up, verified, policy-holding test accounts and the eventual-
 # consistency polling helper, shared by the audit log integration tests.
 # Mirrors the shared-account-helpers pattern in

@@ -8,8 +8,7 @@ Applies Procrastinate's own packaged schema SQL (procrastinate_jobs,
 procrastinate_events, procrastinate_periodic_defers and their supporting
 functions/triggers), read directly from the installed `procrastinate`
 package rather than hand-transcribed, so it always matches the pinned
-version's actual schema. Corresponds to procrastinate==3.10.0's
-`procrastinate/sql/schema.sql`.
+version's actual schema (`procrastinate/sql/schema.sql`).
 
 Replaces taskiq (Valkey Streams): background jobs now live as rows in this
 same Postgres database instead of a separate Valkey broker. See
@@ -56,16 +55,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Unlike upgrade(), this runs on Alembic's own connection (one statement per
-    # execute, which asyncpg accepts). A second connection, as upgrade() uses,
-    # would wait forever on locks that Alembic's connection still holds from the
-    # earlier steps of a multi-step downgrade, and the downgrade would hang.
+    # Unlike upgrade(), this runs on Alembic's own connection: a second
+    # connection would wait forever on locks the earlier steps of a multi-step
+    # downgrade still hold.
     #
-    # Function/procedure names carry versioned suffixes (_v1, _v2, ...) that
-    # change across Procrastinate releases, so rather than hand-listing every
-    # one (and having this downgrade silently rot on the next schema bump),
-    # drop every routine and table this schema could plausibly have created
-    # by querying the catalog for anything named procrastinate_*.
+    # Routine names carry versioned suffixes (_v1, _v2, ...) that change between
+    # Procrastinate releases, so drop everything named procrastinate_* found via
+    # the catalog instead of a hand-kept list that would rot on the next bump.
     op.execute(
         sa.text(
             """
@@ -94,8 +90,31 @@ def downgrade() -> None:
         "DROP TABLE IF EXISTS procrastinate_periodic_defers CASCADE",
         "DROP TABLE IF EXISTS procrastinate_jobs CASCADE",
         "DROP TABLE IF EXISTS procrastinate_workers CASCADE",
-        "DROP TYPE IF EXISTS procrastinate_job_status CASCADE",
-        "DROP TYPE IF EXISTS procrastinate_job_event_type CASCADE",
-        "DROP TYPE IF EXISTS procrastinate_job_to_defer_v1 CASCADE",
     ):
         op.execute(sa.text(statement))
+    # Types are dropped by catalog query for the same reason as the routines:
+    # releases add new ones (3.12 added procrastinate_lock_mode), and a missed
+    # type makes the next upgrade fail with "type already exists".
+    op.execute(
+        sa.text(
+            """
+            DO $$
+            DECLARE
+                r record;
+            BEGIN
+                FOR r IN
+                    SELECT t.oid::regtype AS type_name
+                    FROM pg_type t
+                    JOIN pg_namespace n ON n.oid = t.typnamespace
+                    WHERE n.nspname = 'public'
+                      AND t.typname LIKE 'procrastinate\\_%'
+                      AND t.typtype IN ('e', 'c')
+                      AND (t.typrelid = 0
+                           OR (SELECT c.relkind FROM pg_class c WHERE c.oid = t.typrelid) = 'c')
+                LOOP
+                    EXECUTE format('DROP TYPE IF EXISTS %s CASCADE', r.type_name);
+                END LOOP;
+            END $$
+            """
+        )
+    )

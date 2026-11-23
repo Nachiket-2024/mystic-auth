@@ -90,7 +90,7 @@ flowchart TD
 
 | Code path | What it owns | Primary docs | Edge cases documented |
 |---|---|---|---|
-| `ci/mystic_auth/` | Upstream-owned native backend, browser, tooling, and backup CI entrypoints. | [CI/CD Overview](../cicd/overview.md), [Test Tooling and CI](../testing/tooling.md) | Keeps MysticAuth audit-log, authorization, accessibility, and permission-matrix failures in blocking, separately named workflow steps. |
+| `ci/mystic_auth/` | Upstream-owned host-run backend, browser, tooling, and backup CI entrypoints. | [CI/CD Overview](../cicd/overview.md), [Test Tooling and CI](../testing/tooling.md) | Keeps MysticAuth audit-log, authorization, accessibility, and permission-matrix failures in blocking, separately named workflow steps. |
 | `ci/app/` | App-owned backend and frontend CI entrypoints. | [CI/CD Overview](../cicd/overview.md), [The `app/` + `mystic_auth/` Split](../template-usage/ownership-split.md) | App checks remain separate while shared Docker/Compose orchestration stays in `.github/workflows/ci.yml`. |
 | `.github/workflows/ci.yml` | Shared GitHub Actions triggers, services, job orchestration, and combined Docker/Compose validation. | [CI/CD Overview](../cicd/overview.md) | GitHub Actions does not import arbitrary YAML from `ci/`; the workflow invokes executable ownership-specific entrypoints. |
 | `.github/workflows/codeql.yml` | Scan-only CodeQL workflow for the Python backend and the TypeScript frontend (`security-extended` queries). | [CI/CD Overview](../cicd/overview.md#codeql-code-scanning) | Separate from `ci.yml` because it needs `security-events: write` and a weekly schedule. |

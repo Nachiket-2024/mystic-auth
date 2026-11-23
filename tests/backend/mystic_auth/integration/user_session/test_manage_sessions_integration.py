@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/test_manage_sessions_integration.py
-#
 # End-to-end coverage for the "Manage Sessions" feature (GET /auth/sessions,
 # DELETE /auth/sessions/{id}, backed by user_session/session_service.py and
 # user_session/*) against the real ASGI app, real PostgreSQL, and

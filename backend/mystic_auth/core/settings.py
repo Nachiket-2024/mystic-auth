@@ -109,8 +109,8 @@ class Settings(BaseSettings):
 
     USER_EXPORT_MAX_ROWS: int                       # Hard ceiling on GET /users/export's row count (that endpoint has no offset/limit). A request matching more rows is rejected instead of loaded into memory in one query
 
-    # For running the backend locally instead of in Docker (Docker itself
-    # injects these via docker-compose's --env-file, not this fallback).
+    # For a backend or test process on the host (Postgres and Valkey still run
+    # in Docker; containers get these via docker-compose's --env-file instead).
     # Both files are read in order so an env/app/ value wins on overlap,
     # matching every docker-compose invocation in this template's own
     # scripts (see docs/mystic_auth/template-usage/ownership-split.md).

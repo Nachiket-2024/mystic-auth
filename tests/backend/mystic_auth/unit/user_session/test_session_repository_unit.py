@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user_session/test_session_repository_unit.py
-#
 # Mocked-DB coverage that every "revoke" method on SessionRepository deletes
 # the target row(s) outright instead of setting revoked_at (see the class's
 # own docstring in session_repository.py for why), plus the new

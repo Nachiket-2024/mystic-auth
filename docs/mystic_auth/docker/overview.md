@@ -15,13 +15,15 @@ day-to-day workflow.
 | Service | Image / build | Purpose |
 |---|---|---|
 | `postgres` | `chainguard/postgres` (PostgreSQL 18) | Primary database, plus the Procrastinate job queue (`procrastinate_jobs`) |
-| `valkey` | `valkey/valkey:9.1.3-alpine` | Cache, rate limits, lockout counters, cached account/chain version counters |
+| `valkey` | `valkey/valkey:9.2.0-alpine` | Cache, rate limits, lockout counters, cached account/chain version counters |
 | `backend` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` | FastAPI app (uvicorn) |
 | `frontend` | `docker/mystic_auth/dockerfiles/frontend.Dockerfile` (`dev` target locally, `production` target in prod) | React SPA: Vite dev server locally, nginx-served static build in prod |
 | `procrastinate_worker` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image as `backend`, different `command:`) | Consumes email and audit-log jobs and runs the scheduled account-purge, session-cleanup, refresh-claim-cleanup, passkey-challenge-cleanup, and lifecycle-reconciliation jobs (its own internal periodic-task deferrer, no separate scheduler process): see [Background Workers](../background-workers/procrastinate.md) |
 | `alembic` | `docker/mystic_auth/dockerfiles/backend.Dockerfile` (same image, one-shot) | Runs `alembic upgrade head` then exits. In prod, `backend` and `procrastinate_worker` wait on its success |
 | `bugsink` | `bugsink/bugsink:2` (pulled, not built) | Self-hosted error monitoring that starts by default with the stack. See [Error Monitoring](../error-monitoring/overview.md) |
 | `bugsink-seed` | `bugsink/bugsink:2` (same image, one-shot) | Runs once `bugsink` is healthy. It creates the "MysticAuth" team/project idempotently and writes seeded DSNs into the `bugsink_dsn` volume. Locally, both backend and frontend DSN forms are written and read at startup. In prod, only the backend form is written because `frontend`'s `VITE_SENTRY_DSN` is baked in at image build time |
+| `ntfy` | `binwiederhier/ntfy` (pinned by digest, pulled) | Self-hosted push server for private security alerts, in every production-shaped mode. Its public address is `NTFY_BASE_URL`. See [Private security alerts with ntfy](../error-monitoring/ntfy-alerts.md) |
+| `caddy` | `caddy:2-alpine` (pinned by digest, pulled) | `prod` only: the public entrypoint on ports 80/443, with automatic Let's Encrypt certificates |
 | `cloudflared` | `docker/mystic_auth/dockerfiles/cloudflared.Dockerfile` | Optional local-prod ingress: a patched Cloudflare Named Tunnel build with a file-backed token secret and a runtime launcher that drops to UID/GID 65532. See [Cloudflare Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md) |
 | `tailscale` | Pulled, not built | Optional provider-specific local-prod tunnel. See [Local-Prod Deployment](../deployment/local-prod/README.md#which-tunnel-do-i-want) for its limits. |
 | `ngrok` | `docker/mystic_auth/dockerfiles/ngrok.Dockerfile` (the official `ngrok/ngrok` image's statically-linked binary, copied onto bare `scratch` - no OS, no shell) | The `local-prod-ngrok` tunnel. Same proxy role as `cloudflared`/`tailscale` above, built instead of pulled directly because the vendor's own debian/alpine images carry a large, mostly-unused OS package set the agent binary never touches |

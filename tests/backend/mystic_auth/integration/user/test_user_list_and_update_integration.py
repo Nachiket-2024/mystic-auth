@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_list_and_update_integration.py
-#
 # End-to-end PBAC coverage for the GET /users/ authorization gate and the
 # core PBAC claims: role is metadata only and never consulted for access,
 # and roleless accounts still work. Admin-side listing/filtering/sorting

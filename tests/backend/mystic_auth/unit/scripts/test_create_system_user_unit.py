@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/test_create_system_user_unit.py
-#
 # Covers the promotion path in create_system_user.py: running it against an
 # email that already belongs to an account offers to promote that account
 # instead of refusing. It branches on whether the account has a password:

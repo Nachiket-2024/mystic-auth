@@ -112,7 +112,7 @@ test -e env/app/.env.local-prod-tailscale || cp env/app/.env.local-prod-tailscal
 `docker/mystic_auth/compose/docker-compose.local-prod-tailscale.yml`. It preconfigures
 same-origin API routing (`VITE_API_BASE_URL` empty) and the fixed frontend
 nginx proxy IP (`TRUSTED_PROXY_IPS`, derived automatically from
-`FRONTEND_STATIC_IP`/`TAILSCALE_STATIC_IP`). Put downstream-only values in the matching
+`FRONTEND_PROXY_STATIC_IP`/`TAILSCALE_STATIC_IP`). Put downstream-only values in the matching
 `env/app/` file. Do not start
 this stack from `env/mystic_auth/.env.dev.example` or either of the other two local-prod
 example files. See

@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_purge_cache_invalidation_integration.py
-#
 # Proves user_purge_service.py's post-purge
 # invalidate_user_policies/invalidate_user_permissions calls actually clear
 # the real Valkey cache, against the real ASGI app, real PostgreSQL, and real

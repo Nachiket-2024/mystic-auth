@@ -36,14 +36,14 @@ This works when `VITE_API_BASE_URL` is empty. The browser calls the same origin 
 ## 2. Trusted proxy IPs
 ---
 
-Each production-shaped Compose file pins frontend and tunnel proxy containers to fixed addresses (`FRONTEND_STATIC_IP` and a tunnel-specific `*_STATIC_IP` var, both set in the matching `env/mystic_auth/.env*` file) so the backend can safely trust `X-Forwarded-For` from those hops. Each compose file derives `TRUSTED_PROXY_IPS` for the backend service directly from those same two vars, rather than setting it independently in the env file, so it can never drift out of sync with the actual pinned addresses.
+Each production-shaped Compose file pins frontend and tunnel proxy containers to fixed addresses (`FRONTEND_STATIC_IP` and a tunnel-specific `*_STATIC_IP` var on the default network, plus `FRONTEND_PROXY_STATIC_IP` on the `frontend_proxy` network it shares with the backend; all set in the matching `env/mystic_auth/.env*` file) so the backend can safely trust `X-Forwarded-For` from those hops. Each compose file derives `TRUSTED_PROXY_IPS` for the backend service directly from `FRONTEND_PROXY_STATIC_IP` and the tunnel var, rather than setting it independently in the env file, so it can never drift out of sync with the actual pinned addresses.
 
 | Compose file | Frontend IP var | Tunnel/proxy IP var |
 |---|---|---|
-| `docker-compose.local-prod-cloudflare.yml` | `FRONTEND_STATIC_IP` | `CLOUDFLARED_STATIC_IP` |
-| `docker-compose.local-prod-ngrok.yml` | `FRONTEND_STATIC_IP` | `NGROK_STATIC_IP` |
-| `docker-compose.local-prod-tailscale.yml` | `FRONTEND_STATIC_IP` | `TAILSCALE_STATIC_IP` |
-| `docker-compose.prod.yml` | `FRONTEND_STATIC_IP` | `CADDY_STATIC_IP` |
+| `docker-compose.local-prod-cloudflare.yml` | `FRONTEND_PROXY_STATIC_IP` | `CLOUDFLARED_STATIC_IP` |
+| `docker-compose.local-prod-ngrok.yml` | `FRONTEND_PROXY_STATIC_IP` | `NGROK_STATIC_IP` |
+| `docker-compose.local-prod-tailscale.yml` | `FRONTEND_PROXY_STATIC_IP` | `TAILSCALE_STATIC_IP` |
+| `docker-compose.prod.yml` | `FRONTEND_PROXY_STATIC_IP` | `CADDY_STATIC_IP` |
 
 Both vars must stay inside that file's `DOCKER_SUBNET`. See [Docker: Compose Modes](../docker/compose-modes.md#two-forks-of-this-template-collide-with-each-other-too) for why these are env vars rather than hardcoded, and each `env/mystic_auth/.env*.example` for the actual default addresses.
 

@@ -45,6 +45,7 @@ Each mode publishes ports on `127.0.0.1` only, and the defaults are offset per m
 | `POSTGRES_HOST_PORT` | `5433` | not published | not published | not published | not published |
 | `VALKEY_HOST_PORT` | `6380` | not published | not published | not published | not published |
 | `BUGSINK_HOST_PORT` | `8010` | not published | not published | not published | not published |
+| Bugsink (fixed, not a variable) | via `BUGSINK_HOST_PORT` | `8011` | `8111` | `8211` | not published |
 
 ---
 

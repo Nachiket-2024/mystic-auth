@@ -48,8 +48,9 @@ async def test_docs_page_gets_a_csp_that_allows_its_cdn_assets(client):
 
     assert resp.status_code == 200
     csp = resp.headers["Content-Security-Policy"]
-    assert "cdn.jsdelivr.net" in csp
-    assert "'unsafe-inline'" in csp
+    sources = csp.replace(";", " ").split()
+    assert "https://cdn.jsdelivr.net" in sources
+    assert "'unsafe-inline'" in sources
 
 
 @pytest.mark.asyncio
@@ -63,8 +64,9 @@ async def test_redoc_page_gets_a_csp_that_allows_its_cdn_assets(client):
 
     assert resp.status_code == 200
     csp = resp.headers["Content-Security-Policy"]
-    assert "cdn.jsdelivr.net" in csp
-    assert "fonts.googleapis.com" in csp
+    sources = csp.replace(";", " ").split()
+    assert "https://cdn.jsdelivr.net" in sources
+    assert "https://fonts.googleapis.com" in sources
 
 
 @pytest.mark.asyncio

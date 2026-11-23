@@ -17,7 +17,7 @@
   - Ships a `HEALTHCHECK` against `/health/ready` as a fallback for when the image runs outside Compose (Compose's own healthcheck, defined per-service, is what actually gates dependent-service startup).
   - Alpine's `adduser -S` assigns a different UID than the old Debian image did, so an existing `backend_logs` volume from before this migration needs `docker volume rm backend_logs` (or a chown) once; a fresh volume just inherits the right owner.
 - **`docker/mystic_auth/dockerfiles/frontend.Dockerfile`**: three stages:
-  - `dev` (default target: `node:22.23.4-bookworm`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user).
+  - `dev` (default target: `node:22.23.5-bookworm`, Vite dev server with HMR, port 5173, runs as root since the container needs to `npm install` against the bind-mounted `frontend/` and root avoids host/container UID mismatches on the bind mount: the `production` stage below is the one that runs as a non-root user).
   - `builder` (compiles the production bundle; takes `VITE_API_BASE_URL`/`VITE_APP_NAME`/`VITE_SENTRY_DSN`/`VITE_SENTRY_ENVIRONMENT` as build args, since this stage has no bind-mounted `frontend/.env` to read them from the way `dev` does: wired from that mode's `env/` file via each production-style Compose file's `build.args`, see [Environment and Runtime Configuration](../deployment/environment.md#5-required-production-review)).
   - `production` (`nginx:stable-alpine`, `apk upgrade`d for the same reason as the backend's above, serving the static build as a non-root `nginx` user, port 80, `HEALTHCHECK` via `wget`).
   - Copies `THIRD_PARTY_NOTICES/frontend/` into the static root. The production image serves the notices and a directory listing at `/third-party-notices/`.
@@ -46,7 +46,7 @@
   dependencies, with no unrelated OS-package findings, at roughly a tenth
   the image size (~44MB vs 418MB). The pinned upstream binary currently
   reports High findings in its Go modules; CI tracks those in an image-scoped
-  exception expiring 2026-11-24 while waiting for a rebuilt vendor release.
+  exception expiring 2026-12-08 while waiting for a rebuilt vendor release.
   `--authtoken` is passed as a CLI flag on the
   compose service's `command:` instead of the vendor image's env-var-to-
   config-file entrypoint rewrite, since there's no entrypoint script here to
@@ -69,8 +69,8 @@ Both `runtime` and `production` re-run their package-manager upgrade on every bu
 
 ## Why `frontend` sets `pull_policy: build`
 
-- `frontend` is the only service in any of the five compose files with both `image:` (`${COMPOSE_PROJECT_NAME}-frontend`, one per Compose project so building one never overwrites another's image) and `build:` set. The shipped env examples provide the mode specific default project names.
-- Every other service either only has `build:` (nothing to pull) or only has `image:` (postgres, valkey, bugsink, genuinely pulled from a registry).
+- `frontend` and `geoipupdate` are the only services in the compose files with both `image:` (`${COMPOSE_PROJECT_NAME}-frontend` and `${COMPOSE_PROJECT_NAME}-geoipupdate`, one per Compose project so building one never overwrites another's image) and `build:` set. The shipped env examples provide the mode specific default project names.
+- Every other service either only has `build:` (nothing to pull) or only has `image:` (postgres, valkey, bugsink, ntfy, caddy, genuinely pulled from a registry).
 - Without `pull_policy: build`, Compose attempts a pull of `image:` first on every run. That pull fails because these local tags are not published, before Compose falls back to building. This is harmless but noisy on every startup.
 - `pull_policy: build` skips straight to building.
 

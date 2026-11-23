@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_bulk_policy_assignment_integration.py
-#
 # End-to-end coverage for backend/mystic_auth/api/pbac_routes/bulk/bulk_policy_routes.py:
 # fanning one chosen policy out across many users in one request. Proves the
 # best-effort contract (bulk_schema.py): valid items commit and take real

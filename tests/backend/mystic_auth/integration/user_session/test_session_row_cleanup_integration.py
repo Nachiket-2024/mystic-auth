@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user_session/test_session_row_cleanup_integration.py
-#
 # End-to-end coverage that user_sessions rows actually get removed, not just
 # marked revoked, against the real ASGI app, real PostgreSQL, and real
 # Valkey. Mirrors test_manage_sessions_integration.py's fixture/cleanup

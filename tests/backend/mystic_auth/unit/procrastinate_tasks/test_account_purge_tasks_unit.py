@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/procrastinate_tasks/test_account_purge_tasks_unit.py
-#
 # Mocked-collaborator coverage for the scheduled purge task's own wiring
 # (periodic cron shape, which CRUD/service calls it makes and with what
 # args). The real-DB end-to-end behavior (grace period actually filters

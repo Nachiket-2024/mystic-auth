@@ -37,9 +37,9 @@ docker compose -f docker/mystic_auth/compose/docker-compose.prod.yml -f docker/a
 
 ---
 
-### Local Backend Without Docker
+### Backend Process On The Host
 
-Use this only if the backend is running directly on your host and can reach the configured Postgres and Valkey:
+Use this only if the backend process runs directly on your host and can reach the configured Postgres and Valkey (still started through Docker Compose):
 
 ```bash
 PYTHONPATH=backend python -m mystic_auth.scripts.create_system_user

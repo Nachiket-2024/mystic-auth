@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user/test_user_base_crud_filters_unit.py
-#
 # UserBaseCRUD's column-level filter/sort builders (_search_filter,
 # _status_filter, _last_login_filter, _order_by) plus get_all/count's basic
 # path. Policy/permission join filters and CRUD live in

@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/database/test_connection_unit.py
-#
 # Database is a module-level singleton built once at import time. These
 # tests guard its engine/session configuration (URL, pool settings,
 # expire_on_commit): nothing else in the suite checks it, and a regression

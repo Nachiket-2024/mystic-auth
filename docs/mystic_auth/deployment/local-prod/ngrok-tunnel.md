@@ -94,7 +94,7 @@ cp env/app/.env.local-prod-ngrok.example env/app/.env.local-prod-ngrok
 `docker/mystic_auth/compose/docker-compose.local-prod-ngrok.yml`. It preconfigures
 same-origin API routing (`VITE_API_BASE_URL` empty) and the fixed frontend
 nginx proxy IP (`TRUSTED_PROXY_IPS`, derived automatically from
-`FRONTEND_STATIC_IP`/`NGROK_STATIC_IP`). Put downstream-only values in the matching
+`FRONTEND_PROXY_STATIC_IP`/`NGROK_STATIC_IP`). Put downstream-only values in the matching
 `env/app/` file. Do not start
 this stack from `env/mystic_auth/.env.dev.example` or `env/mystic_auth/.env.local-prod-cloudflare.example`;
 those are dev's and Cloudflare's files respectively. See

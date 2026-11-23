@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_permission_assignment_integration.py
-#
 # End-to-end coverage for permission_assignment_routes.py (backend/mystic_auth/
 # api/pbac_routes/): direct, single-action grants to a user that bypass
 # Policy entirely (see authorization/models/user_permission_model.py).

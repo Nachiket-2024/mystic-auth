@@ -22,7 +22,7 @@ services:
 
   postgres:
     <<: *logging_defaults
-    image: chainguard/postgres@sha256:adbf3d8db097696ed6e997b108b51393786be999c04d543502f8959e1bafa8de
+    image: chainguard/postgres@sha256:9cc085289d7ef0174f35f2ff1e514624c3305c4a26215d8e89e3e277e3377d03
     restart: always
     env_file:
       - ../../../env/mystic_auth/.env.dev
@@ -50,7 +50,7 @@ services:
 
   valkey:
     <<: *logging_defaults
-    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    image: valkey/valkey:9.2.0-alpine@sha256:c8e2d17498838af5d91e12eb7c11220b3434a7b7131a333e3af52ad5e0b80882
     restart: always
     # Empty VALKEY_PASSWORD (local-dev default) makes the generated
     # requirepass line a no-op (Valkey treats an empty value as no

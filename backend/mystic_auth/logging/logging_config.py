@@ -39,6 +39,9 @@ class PiiRedactionFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
         redacted = self._EMAIL_RE.sub(self._fingerprint, message)
+        # One event stays one line: a CR/LF inside user-supplied text could
+        # otherwise forge extra log entries (log injection).
+        redacted = redacted.replace("\r", "\\r").replace("\n", "\\n")
         if redacted != message:
             # Materialize the message so handlers cannot format the original
             # args again after this filter has run.

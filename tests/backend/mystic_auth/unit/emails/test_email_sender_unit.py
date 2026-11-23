@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/emails/test_email_sender_unit.py
-#
 # SMTPEmailSender was only ever exercised indirectly through
 # test_email_tasks_unit.py mocking email_sender.send wholesale; nothing
 # asserted on what it actually builds and passes to aiosmtplib.

@@ -58,6 +58,25 @@ define which boundary is authoritative and which checks are informational.
   host-run helper derives localhost service URLs from configured host ports
   without rewriting the configured application database name; its fixture uses
   `example_app_db` so a hardcoded `mystic_auth` suffix cannot pass unnoticed.
+- `tests/scripts/mystic_auth/lint/check-platform-wrappers.sh` verifies every
+  operator-facing script entry point exists for Bash, PowerShell and Windows
+  Command Prompt.
+- `tests/scripts/mystic_auth/env-tools/test-setup-env.ps1` is the PowerShell
+  counterpart of the env-tooling test: it runs `setup-env.ps1` in a scratch
+  copy and checks the generated files, including the database URL shape.
+- `tests/scripts/mystic_auth/db/test-backup-compose-network.sh` verifies the
+  scheduled backup uploader is attached to both the private database network
+  and a non-internal egress network.
+- `tests/scripts/mystic_auth/db/test-backup-roundtrip.sh` runs the real
+  encrypted manual-backup path against the CI database, using a temporary host
+  directory so it never writes into the repository's backup archive.
+- `tests/scripts/mystic_auth/docker/test-frontend-e2e-stack.sh` verifies
+  `ci/mystic_auth/frontend-e2e-stack.sh` isolation: `prepare` applies the E2E
+  project name and subnet after copying the examples, and `up` refuses when
+  either is already in use. It runs in a temporary copy with a fake `docker`.
+- `tests/scripts/mystic_auth/accessibility/` holds the helpers that seed the
+  accessibility-scan account (`seed-accessibility-user.{sh,ps1,cmd}`) and
+  `invoke-bash.ps1`, which runs them from PowerShell.
 
 The workflow-facing wrappers are split by ownership: `ci/mystic_auth/` owns
 template backend, browser, tooling, and backup checks; `ci/app/` owns app

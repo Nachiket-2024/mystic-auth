@@ -10,7 +10,7 @@
 # relying on the vendor image's env-var-to-config-file rewrite.
 FROM ngrok/ngrok@sha256:ff3b5c3674432d14a786349908b7bdf28ee56c25662637afcbe7180d471993ef AS source
 
-FROM golang:1.26.11-alpine@sha256:ae52b5bc6ed045a9ed26ab03dc19327a802a9cc9aa8b27ed57f5c6b60579b0bb AS healthcheck-build
+FROM golang:1.26.11-alpine@sha256:ecb67f987aa1a57794c91d19ade7ae0209f2f0f5496aaef9e6ae85ddf92d02ab AS healthcheck-build
 WORKDIR /src
 COPY docker/mystic_auth/ngrok/ngrok-healthcheck.go ./healthcheck.go
 COPY docker/mystic_auth/ngrok/ngrok-healthcheck_test.go ./healthcheck_test.go

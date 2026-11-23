@@ -21,13 +21,25 @@ Tracked deliberately rather than left as silent gaps. Each entry reflects an act
 
 **Priority**: Low. Correctness is still enforced elsewhere through blocking unit, integration, and security suites. This only affects how fast a real performance regression would be noticed.
 
+### Browser E2E needs Docker on the Playwright host
+
+**Description**: Some specs seed and delete users through `docker compose exec`, so the machine or image running Playwright needs the docker CLI, the compose plugin and the Docker socket. The helpers fail with a message naming the missing CLI.
+
+**Impact**: Running the browser matrix inside a bare Playwright image fails on every project until those are added (`chromium-desktop` only hides it by retrying).
+
+**Why it exists**: Seeding through the backend container keeps password hashing and policy provisioning on the real code path instead of duplicating it in test code.
+
+**Possible fix**: Seed through an authenticated test-only API call instead of the container, if that can be done without adding a production endpoint.
+
+**Priority**: Low. Setup steps are in [Frontend E2E](../testing/frontend-e2e.md).
+
 ## Operations and scale
 
 ---
 
 ### The ngrok tunnel image embeds vulnerable Go modules
 
-**Description**: The `local-prod-ngrok` tunnel image ships ngrok's own statically linked agent binary, which embeds six High-severity Go-module advisories that only ngrok can fix by publishing a rebuilt agent. CI scans every image with Trivy (High and Critical, fixed issues only); the ngrok image alone uses the time-boxed exceptions in `ci/mystic_auth/trivy-ngrok.ignore.yaml`, and each exception expires on its listed date so the gap cannot be forgotten.
+**Description**: The `local-prod-ngrok` tunnel image ships ngrok's own statically linked agent binary, which embeds seven High-severity Go advisories (six modules plus a standard-library issue from its Go 1.27.3 build) that only ngrok can fix by publishing a rebuilt agent. CI scans every image with Trivy (High and Critical, fixed issues only); the ngrok image alone uses the time-boxed exceptions in `ci/mystic_auth/trivy-ngrok.ignore.yaml`, and each exception expires on its listed date (currently 2026-12-08, on ngrok 3.39.13, still the newest published agent) so the gap cannot be forgotten. When the date passes without a rebuilt agent, the image scan fails until the dates are consciously renewed.
 
 **Impact**: Only the optional local-prod ngrok tunnel is affected. The backend, frontend, backup, Cloudflare, GeoIP updater and Tailscale images keep the full gate. The ngrok container has no access to secrets beyond its own auth token.
 

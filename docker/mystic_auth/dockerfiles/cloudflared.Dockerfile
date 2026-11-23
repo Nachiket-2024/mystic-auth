@@ -2,7 +2,7 @@
 # dependencies can receive security fixes before Cloudflare republishes the
 # vendor binary. Keep the source archive digest-pinned and retain dependency
 # notices in the resulting runtime image.
-FROM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS builder
+FROM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS builder
 
 ARG CLOUDFLARED_VERSION=2026.10.2
 ARG CLOUDFLARED_SOURCE_SHA256=8dde1e9e4b0ad5ae09abd7b5790dabc9195ba48a5c7f0af7e54e787eef54a3cb

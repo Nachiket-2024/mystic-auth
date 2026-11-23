@@ -47,17 +47,12 @@ const SidebarNavLink: React.FC<SidebarNavLinkProps> = ({ to, onClick, label, ico
     const [isHovered, setIsHovered] = useState(false);
     const isDark = useThemeStore((s) => s.colorMode === "dark");
 
-    // Hand-tuned nav item hover/active styling rather than re-derived: a
-    // translucent brand-500 wash at a handful of specific alphas (16%/22%
-    // hover, 24%/34% active - light/dark), not a solid color step. A solid
-    // brand.200/800/900 step lands on visibly different colors than the
-    // intended translucent fills, and can't self-adjust the way an
-    // alpha wash does when layered over bg.sidebar's own brand tint.
-    // color-mix keeps this tied to the live brand.solid token (works for
-    // any brand color a fork/Appearance picks), same reasoning as
-    // AppLayout's canvas glow. NavLink's style prop is a plain inline
-    // style with no dark-mode variant syntax, hence reading colorMode
-    // directly instead.
+    // Hand-tuned nav hover/active styling: a translucent brand-500 wash (16%/22%
+    // hover, 24%/34% active, light/dark), not a solid color step, which lands on
+    // visibly different colors and cannot adapt over bg.sidebar's brand tint.
+    // color-mix keeps it tied to the live brand.solid token, like AppLayout's
+    // canvas glow. NavLink's style prop is plain inline style with no dark
+    // variant syntax, hence reading colorMode directly.
     const hoverBg = `color-mix(in srgb, var(--brand-solid) ${isDark ? 22 : 16}%, transparent)`;
     const activeBg = `color-mix(in srgb, var(--brand-solid) ${isDark ? 34 : 24}%, transparent)`;
     // brand.fg already resolves to the intended design's own active-text colors:

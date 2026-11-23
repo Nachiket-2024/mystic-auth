@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/valkey/test_valkey_client_unit.py
-#
 # valkey_client is a module-level singleton built once at import time; this
 # guards that it's actually wired to settings.VALKEY_URL with
 # decode_responses=True (every caller assumes str, not bytes, back from

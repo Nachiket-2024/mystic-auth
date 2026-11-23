@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/database/test_base_unit.py
-#
 # Base is the shared SQLAlchemy declarative base every ORM model inherits
 # from. These tests guard that it stays a 2.0-style DeclarativeBase with
 # AsyncAttrs mixed in (needed for Mapped[...]/mapped_column() to type-check,

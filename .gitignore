@@ -3,27 +3,28 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-env/mystic_auth/.env.dev
-env/mystic_auth/.env.*
-!env/mystic_auth/.env.dev.example
-!env/mystic_auth/.env.local-prod-cloudflare.example
-env/mystic_auth/.cloudflare-tunnel-token
-!env/mystic_auth/.cloudflare-tunnel-token.example
-!env/mystic_auth/.env.local-prod-ngrok.example
-!env/mystic_auth/.env.local-prod-tailscale.example
-!env/mystic_auth/.env.prod.example
-env/app/.env.dev
-env/app/.env.*
-!env/app/.env.dev.example
-!env/app/.env.local-prod-cloudflare.example
-!env/app/.env.local-prod-ngrok.example
-!env/app/.env.local-prod-tailscale.example
-!env/app/.env.prod.example
 *.venv/
 venv/
-.envrc
 .Python
 *.sqlite3
+*.db
+
+# ---------------------------- Secrets and env files ----------------------------
+# Real env files and credentials stay local. Only the .example templates are
+# tracked. .dockerignore repeats these so they never enter a build context.
+.env
+.envrc
+env/mystic_auth/.env.*
+!env/mystic_auth/.env.*.example
+env/mystic_auth/.cloudflare-tunnel-token
+!env/mystic_auth/.cloudflare-tunnel-token.example
+env/app/.env.*
+!env/app/.env.*.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.*.example
+SECRETS-TO-ROTATE.md
 # Private keys and exported key containers must stay local.
 *.pem
 *.key
@@ -53,24 +54,14 @@ docker-compose.override.yml
 *.cache
 
 # ---------------------------- Backend ----------------------------
-backend/__pycache__/
 backend/*.pyc
-backend/*.db
-backend/.cache/
 
 # ---------------------------- Frontend ----------------------------
 node_modules/
-frontend/node_modules/
 frontend/dist/
 frontend/build/
-frontend/.env
-frontend/.env.bak
-frontend/.env.*
-!frontend/.env.example
-!frontend/.env.*.example
 frontend/.DS_Store
-frontend/.cache/
-frontend/.cache/playwright/
+*.tsbuildinfo
 
 # ---------------------------- Testing / Coverage ----------------------------
 .coverage*

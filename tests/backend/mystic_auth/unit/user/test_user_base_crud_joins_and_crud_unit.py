@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user/test_user_base_crud_joins_and_crud_unit.py
-#
 # UserBaseCRUD's policy/permission join-based filters (_apply_filters) plus
 # update/delete. Column-level filters live in test_user_base_crud_filters_unit.py.
 #

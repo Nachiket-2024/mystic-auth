@@ -33,7 +33,7 @@ jobs:
       postgres:
         # GitHub-hosted runners are exempt from Docker Hub's anonymous-pull
         # rate limit; Public ECR's shared anonymous data quota can be exhausted.
-        image: docker.io/library/postgres:18@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        image: docker.io/library/postgres:18@sha256:eb63372c1e05c755f55fa30cbd07aecc443676fc6c0fa90b9002d01537841e1a
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -49,7 +49,7 @@ jobs:
       valkey:
         # Use the same pinned Valkey image as the Compose environments. Docker
         # Hub is reliable for public images on GitHub-hosted runners.
-        image: docker.io/valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+        image: docker.io/valkey/valkey:9.2.0-alpine@sha256:c8e2d17498838af5d91e12eb7c11220b3434a7b7131a333e3af52ad5e0b80882
         ports:
           - 6379:6379
         options: >-
@@ -129,7 +129,7 @@ jobs:
       ACCOUNT_PURGE_GRACE_DAYS: "30"
       USER_EXPORT_MAX_ROWS: "50000"
 
-      # Native tests use both the repository import path (`backend.app`) and
+      # Host-run tests use both the repository import path (`backend.app`) and
       # the Docker runtime path (`app`). Keep both roots available so the two
       # supported package identities are exercised consistently in CI.
       PYTHONPATH: ${{ github.workspace }}/backend:${{ github.workspace }}
@@ -263,7 +263,7 @@ jobs:
         run: >-
           docker run --rm
           -v "${GITHUB_WORKSPACE}:/repo:ro"
-          aquasec/trivy:0.68.1@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b
+          aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
           fs --scanners secret --exit-code 1 --no-progress /repo
 
   tooling-tests:
@@ -314,6 +314,9 @@ jobs:
 
       - name: Run host-backend port derivation regression suite
         run: ci/mystic_auth/tooling.sh host-backend
+
+      - name: Run E2E stack isolation regression suite
+        run: ci/mystic_auth/tooling.sh e2e-stack
 
   windows-tooling:
     name: Windows PowerShell tooling regression tests
@@ -399,10 +402,10 @@ jobs:
         run: |
           docker run --rm --entrypoint sh backend:ci -ec '
             notices=/usr/share/licenses/mystic-auth/backend
-            test -s "$notices/PyYAML-6.0.3.txt"
+            test -s "$notices/PyYAML-6.0.4.txt"
             test -s "$notices/README.md"
             test -s "$notices/GPL-3.0.txt"
-            for package in psycopg-3.3.8 psycopg-binary-3.3.8 psycopg-pool-3.3.3; do
+            for package in psycopg-3.3.9 psycopg-binary-3.3.9 psycopg-pool-3.3.3; do
               test -s "$notices/$package.txt"
               grep -q "GNU LESSER GENERAL PUBLIC LICENSE" "$notices/$package.txt"
               grep -q "Version 3, 29 June 2007" "$notices/$package.txt"
@@ -456,7 +459,7 @@ jobs:
             fi
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
               -v "$PWD:/workspace" -w /workspace \
-              aquasec/trivy:0.68.1@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b \
+              aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
               image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed "${ignore_args[@]}" "$image"
             echo "::endgroup::"
           done
@@ -745,7 +748,7 @@ jobs:
       - name: Wait for procrastinate_worker to report healthy
         run: timeout 60 sh -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" $(docker compose -f docker/mystic_auth/compose/docker-compose.dev.yml -f docker/app/compose/docker-compose.dev.yml --env-file env/mystic_auth/.env.dev --env-file env/app/.env.dev ps -q procrastinate_worker))" = "healthy" ]; do sleep 3; done'
 
-      # Same tiers and flags as the native backend job, but inside the backend
+      # Same tiers and flags as the host-run backend job, but inside the backend
       # container. --user root lets pytest-cov write coverage output to /repo,
       # the whole-repo bind mount.
       - name: Run the full backend suite inside the backend container

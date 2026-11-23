@@ -151,7 +151,7 @@ foreach ($pair in $Pairs) {
     if (-not [string]::IsNullOrWhiteSpace($postgresDb)) {
         $content = [regex]::Replace(
             $content,
-            "(?m)^([# ]*(?:DATABASE_URL|APP_DATABASE_URL)=[^/]*/)[^\s#]+",
+            "(?m)^([# ]*(?:DATABASE_URL|APP_DATABASE_URL)=\S*/)[^/\s#]+(?=[ \t]*\r?$)",
             "`${1}$postgresDb"
         )
     }

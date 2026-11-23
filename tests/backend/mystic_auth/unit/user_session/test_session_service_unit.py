@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user_session/test_session_service_unit.py
-#
 # Valkey fail-open regression coverage for revoke_session_on_logout (plain
 # Logout) and revoke_one_session (Manage Sessions "End session"): a chain-
 # version bump that can't be confirmed (Valkey unreachable) must never look

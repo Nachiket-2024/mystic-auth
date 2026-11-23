@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user_lifecycle/test_user_purge_service_unit.py
-#
 # Mocked-collaborator coverage for purge_user_account's own wiring (revoke
 # -> audit -> delete -> cache-invalidate sequence, and what it's called
 # with), same split as test_account_purge_tasks_unit.py vs. the real-DB

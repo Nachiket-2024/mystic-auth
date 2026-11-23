@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_self_service_routes_integration.py
-#
 # End-to-end coverage for GET/PUT /users/me (user_self_service_routes.py).
 #
 # Self-service account deletion (DELETE /users/me and its OAuth-only

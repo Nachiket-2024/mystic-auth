@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# scripts/mystic_auth/load-test/load_test.py
-#
 # Throughput/capacity load test: how many req/s a running stack sustains before
 # latency or the error rate degrades. Not a pytest file: run by hand against a
 # local-prod or staging stack before a release. Concurrency correctness is
@@ -101,7 +98,7 @@ async def _run_requests_in_one_process(
     # real stress run, which would silently cap throughput on the client
     # side and misreport it as a server limit.
     limits = httpx.Limits(max_connections=max(concurrency * 2, 100), max_keepalive_connections=concurrency)
-    async with httpx.AsyncClient(base_url=base_url, timeout=30.0, verify=False, limits=limits) as client:
+    async with httpx.AsyncClient(base_url=base_url, timeout=30.0, verify=not os.environ.get("LOAD_TEST_INSECURE_TLS"), limits=limits) as client:
         cookies = None
         if login_first:
             login_resp = await client.post("/auth/login", json={"email": email, "password": password})
@@ -204,7 +201,15 @@ async def main() -> None:
     )
     parser.add_argument("--email", default=None, help="existing verified account, for login/me scenarios")
     parser.add_argument("--password", default=None)
+    parser.add_argument(
+        "--insecure",
+        action="store_true",
+        help="skip TLS certificate verification (self-signed local-prod certificates only)",
+    )
     args = parser.parse_args()
+    if args.insecure:
+        # Environment, not an argument: the worker processes inherit it.
+        os.environ["LOAD_TEST_INSECURE_TLS"] = "1"
 
     if args.scenario in ("health", "all"):
         await run_scenario(

@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user_lifecycle/test_user_self_deletion_service_unit.py
-#
 # Unit coverage for finalize_self_deletion's own Valkey-failure handling.
 # Regression guard for the "Valkey outage failure modes are inconsistent"
 # gap: the soft-delete itself (a Postgres write) always succeeds regardless

@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/test_oauth_integration.py
-#
 # OAuth2 account-linking / CSRF flows against the real ASGI app, real
 # PostgreSQL, and real Valkey (see conftest.py). The only mocked pieces are
 # the two outbound calls to Google itself (token exchange, userinfo); the

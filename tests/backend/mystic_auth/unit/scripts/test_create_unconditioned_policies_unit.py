@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/test_create_unconditioned_policies_unit.py
-#
 # Covers create_unconditioned_policies.py: an interactive CLI script that seeds
 # one unconditioned, role-shaped policy (name "role_<role>", conditions=None).
 # See docs/mystic_auth/authorization/unconditioned-policy-quickstart.md.

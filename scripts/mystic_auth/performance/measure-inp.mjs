@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Measures Interaction to Next Paint (INP) for a signed-in session.
 //
 // Lighthouse's navigation mode never reports INP because it makes no real

@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/user_test_accounts.py
-#
 # Shared helpers for creating real test accounts (signup -> verify -> login)
 # used by the user integration tests: plain user, admin, system, and
 # roleless tiers, plus refresh-token-cookie helpers for simulating

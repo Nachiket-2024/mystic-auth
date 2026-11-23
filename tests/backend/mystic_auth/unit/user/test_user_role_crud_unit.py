@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user_crud/test_user_role_crud_unit.py
-#
 # UserRoleCRUD backs the PATCH /users/{email}/role endpoint. Role is
 # display/grouping metadata only under this app's PBAC model (see
 # authorization/) - these tests confirm the CRUD layer itself just persists

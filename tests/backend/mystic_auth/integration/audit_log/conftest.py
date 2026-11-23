@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/audit_log/conftest.py
-#
 # Runs the real `procrastinate ... worker` CLI as a subprocess for the whole
 # test session, pointed at this suite's database. A plain local `pytest` run has
 # no `procrastinate_worker` container, and audit log rows (see
@@ -40,16 +38,11 @@ def _run_procrastinate_worker(tmp_path_factory: pytest.TempPathFactory):
         stdout=log_file,
         stderr=subprocess.STDOUT,
     )
-    # No readiness signal on stdout to wait on, so instead of guessing a
-    # fixed sleep, poll the same `procrastinate ... healthchecks` command
-    # docker/mystic_auth/compose/docker-compose.dev.yml's own healthcheck uses (confirms the DB connection
-    # and procrastinate_jobs table are reachable), up to
-    # READINESS_TIMEOUT_SECONDS. A fixed 1s sleep here previously raced the
-    # first tests in a full run: cold module imports for this subprocess
-    # sometimes took longer than that, so the first test(s) deferred a job
-    # the worker wasn't listening for yet, and it sat unprocessed until
-    # poll_for_entries gave up. That was a real, observed flake, not a bug
-    # in the code under test.
+    # The worker prints no readiness signal, so poll the same
+    # `procrastinate ... healthchecks` command the dev compose healthcheck uses,
+    # up to READINESS_TIMEOUT_SECONDS. A fixed 1s sleep raced the first tests:
+    # cold imports could take longer, so an early job went unprocessed until
+    # poll_for_entries gave up (a real, observed flake).
     READINESS_TIMEOUT_SECONDS = 15.0
     deadline = time.monotonic() + READINESS_TIMEOUT_SECONDS
     ready = False

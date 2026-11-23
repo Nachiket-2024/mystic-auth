@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_bulk_permission_assignment_integration.py
-#
 # End-to-end coverage for backend/mystic_auth/api/pbac_routes/bulk/bulk_permission_routes.py:
 # fanning one chosen direct permission grant out across many users in one
 # request. See test_bulk_policy_assignment_integration.py's module docstring

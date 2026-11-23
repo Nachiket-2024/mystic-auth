@@ -8,7 +8,7 @@
 
 ### "Cannot connect to Postgres" from the host, but the container is healthy
 
-The compose file publishes Postgres on host port `5433` (not the default `5432`) specifically to dodge the most common version of this: a native PostgreSQL install, or another Docker Compose project, already listening on `5432`. If you still hit this: e.g. something else is bound to `5433`, or `DATABASE_URL`/`localhost` port was changed: check what's actually listening:
+The dev compose file publishes Postgres on loopback at `POSTGRES_HOST_PORT` (`5433` in the example env file, not the default `5432`) specifically to dodge the most common version of this: a native PostgreSQL install, or another Docker Compose project, already listening on `5432`. If you still hit this: e.g. something else is bound to `5433`, or `DATABASE_URL`/`localhost` port was changed: check what's actually listening:
 
 ```bash
 # Windows: check what's actually listening
@@ -16,7 +16,7 @@ netstat -ano | findstr :5433
 tasklist /FI "PID eq <pid-from-above>"
 ```
 
-**Do not stop host services automatically**: this needs an explicit decision from whoever owns that machine (stop the conflicting service, or remap the Docker port again in `docker-compose.dev.yml`). The safe workaround used throughout this project's own test suite: run everything **inside** the Docker network instead of from the host:
+**Do not stop host services automatically**: this needs an explicit decision from whoever owns that machine (stop the conflicting service, or change `POSTGRES_HOST_PORT` in the dev env file). The safe workaround used throughout this project's own test suite: run everything **inside** the Docker network instead of from the host:
 
 ```bash
 scripts/mystic_auth/docker/dev/backend-exec.sh python -m pytest tests/

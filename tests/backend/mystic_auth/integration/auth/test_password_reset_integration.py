@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/test_password_reset_integration.py
-#
 # End-to-end password-reset coverage against the real ASGI app, real
 # PostgreSQL, and real Valkey (see conftest.py).
 import asyncio

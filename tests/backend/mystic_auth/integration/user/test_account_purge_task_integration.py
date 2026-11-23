@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user_crud/test_account_purge_task_integration.py
-#
 # End-to-end coverage for the scheduled grace-period hard-purge job
 # (backend/mystic_auth/procrastinate_tasks/account_purge_tasks.py) against
 # the real ASGI app, real PostgreSQL, and real Valkey (see conftest.py).

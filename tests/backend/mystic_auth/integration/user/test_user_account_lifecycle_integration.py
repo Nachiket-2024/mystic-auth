@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/test_user_account_lifecycle_integration.py
-#
 # End-to-end coverage for system-only privileged role assignment and the
 # account-lifecycle routes (soft delete, purge, reactivate) plus
 # admin-driven password change (user_management_update_routes.py), against

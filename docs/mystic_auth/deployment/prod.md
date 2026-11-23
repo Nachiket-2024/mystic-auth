@@ -75,7 +75,7 @@ already done for a freshly created file.
 `env/mystic_auth/.env.prod.example` and `env/app/.env.prod.example` are the prod templates for the upstream Compose file and its app-owned override, `docker/mystic_auth/compose/docker-compose.prod.yml` plus `docker/app/compose/docker-compose.prod.yml`.
 `ENVIRONMENT=production` and empty `VITE_API_BASE_URL` are already set correctly for
 the bundled Caddy to frontend nginx to backend route. `TRUSTED_PROXY_IPS` isn't set
-directly there - `docker-compose.prod.yml` derives it from `FRONTEND_STATIC_IP`/
+directly there - `docker-compose.prod.yml` derives it from `FRONTEND_PROXY_STATIC_IP`/
 `CADDY_STATIC_IP` (also in that file), so it can't drift out of sync with the actual
 pinned addresses.
 
@@ -166,9 +166,9 @@ request, so the very first load may take a few extra seconds.
 
 The frontend container's nginx (`docker/mystic_auth/nginx/nginx.frontend.conf`) proxies API
 route prefixes (`/auth`, `/audit`, `/users`, `/authorization`, `/health`,
-`/rate-limits`) to `backend`. It's pinned to `FRONTEND_STATIC_IP` so the
+`/rate-limits`) to `backend`. It's pinned to `FRONTEND_PROXY_STATIC_IP` (on the `frontend_proxy` network it shares with backend) so the
 backend can trust its `X-Forwarded-For` header via `TRUSTED_PROXY_IPS`
-(derived from `FRONTEND_STATIC_IP`/`CADDY_STATIC_IP`, see
+(derived from `FRONTEND_PROXY_STATIC_IP`/`CADDY_STATIC_IP`, see
 [Routing: Trusted proxy IPs](routing.md#2-trusted-proxy-ips)).
 
 ---

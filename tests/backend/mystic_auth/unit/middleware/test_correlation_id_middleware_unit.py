@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/middleware/test_correlation_id_middleware_unit.py
-#
 # Unit coverage for CorrelationIdMiddleware: every response must carry an
 # X-Request-ID header, either echoing an upstream-supplied one or generating
 # a fresh UUID4. The contextvar it sets must also be visible further down

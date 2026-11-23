@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/conftest.py
-#
 # Forces app_settings.DEFAULT_APP_POLICIES = "" for this suite. Several
 # integration tests assert an exact policy/permission set after
 # create_verified_user(...), which goes through the real signup -> verify

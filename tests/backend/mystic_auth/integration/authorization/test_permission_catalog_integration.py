@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_permission_catalog_integration.py
-#
 # End-to-end coverage for permission_catalog_routes.py: the read-only,
 # code-defined action vocabulary (authorization/permissions_catalog.py) an
 # admin picks from when granting a direct permission or authoring a policy.

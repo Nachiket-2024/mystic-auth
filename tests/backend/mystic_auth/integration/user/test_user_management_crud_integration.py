@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_management_crud_integration.py
-#
 # End-to-end coverage for admin-side PUT /users/{email} and PATCH
 # /users/{email}/role (user_management_update_routes.py), against the real
 # ASGI app, real PostgreSQL, and real Valkey (see conftest.py), including

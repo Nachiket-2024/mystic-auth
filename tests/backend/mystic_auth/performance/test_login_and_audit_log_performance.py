@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/performance/test_login_and_audit_log_performance.py
-#
 # Two more hot paths, same generous-threshold smoke-level intent as
 # test_authorization_performance.py: concurrent login (connection pool /
 # password hashing under parallel load) and the audit log listing endpoint

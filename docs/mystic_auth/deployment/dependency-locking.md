@@ -24,7 +24,7 @@ The lock is compiled with [uv](https://docs.astral.sh/uv/) using `--universal`, 
 1. Install the compiler once: `pip install uv==0.13.7`.
 2. Change the version in `backend/requirements.in` (or `requirements-dev.in`).
 3. Run `scripts/mystic_auth/deps/compile-lock.sh`.
-4. Run the full test suite, then commit the `.in` and the lock files together.
+4. Run the full test suite, then commit the `.in` and the lock files together. If you bump `procrastinate`, also follow [Upgrading Procrastinate](../background-workers/procrastinate.md#upgrading-procrastinate): its schema changes need an Alembic revision for existing databases.
 
 To refresh every transitive package to the newest allowed version, run the script with `--upgrade`, then test the same way.
 

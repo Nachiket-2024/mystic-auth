@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/test_refresh_token_integration.py
-#
 # End-to-end refresh-token rotation/reuse-detection coverage, and the
 # real-time session-events (SSE) route's auth gate, against the real ASGI
 # app, real PostgreSQL, and real Valkey (see conftest.py). These exercise

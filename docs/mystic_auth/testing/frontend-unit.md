@@ -262,6 +262,8 @@ wordmark text or the accessible custom-logo image, so downstream branding and
 - `tests/frontend/mystic_auth/unit/auth/signup_success_page.test.tsx` verifies the signup card shows only the "check your email" result afterward.
 - `tests/frontend/mystic_auth/unit/auth/verify_account/verify_account_page_prefill.test.tsx` verifies the resend field is prefilled from the link fragment and nothing is decided from it client-side.
 - `tests/frontend/mystic_auth/unit/policies/policyDialogTabs.test.tsx` verifies the Edit tab is disabled for protected, baseline and system policies.
+- `tests/frontend/mystic_auth/unit/store/authStore.test.ts` verifies `isSystemSuperuser` defaults to false, is copied from the profile, and is cleared when permissions are dropped, on logout and on `clearProfile`.
+- `tests/frontend/mystic_auth/unit/system_user_seeding/systemUserSeeding.test.ts` verifies the browser E2E database helpers (`seedBrowserSystemUser`, `deleteBrowserSystemUser`, `ageBrowserSessions`, `seedBrowserPasskeyRows`) handle `docker` correctly. A fake `docker` on a temporary `PATH` (or none) exercises the real missing-binary and non-zero-exit behavior through a child process.
 
 ---
 

@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user_session/test_session_geolocation_integration.py
-#
 # End-to-end coverage for the Manage Sessions "Location" column: city/
 # country resolved from the login IP via session_geolocation.py and
 # surfaced on GET /auth/sessions. GEOIP_DB_PATH is unset in this test

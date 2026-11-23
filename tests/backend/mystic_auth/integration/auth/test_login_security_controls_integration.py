@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/test_login_security_controls_integration.py
-#
 # End-to-end coverage for the login timing side-channel, login lockout,
 # lockout key isolation across flows, and IP/account rate limiting, against
 # the real ASGI app, real PostgreSQL, and real Valkey (see conftest.py). See

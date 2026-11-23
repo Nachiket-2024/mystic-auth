@@ -111,6 +111,10 @@ A title such as `MysticAuth: login_account_cooldown`, high priority, and the eve
 - Identical alerts inside one minute are sent once, and at most 10 per event type are sent each minute. The audit log keeps every event.
 - ntfy keeps messages for 12 hours (`NTFY_CACHE_DURATION`) so a phone that was offline catches up. The durable record is the audit log.
 
+## Certificate expiry warning
+
+Caddy renews the public TLS certificate on its own, so a warning means a renewal is failing (DNS change, rate limit, port 80 blocked). `scripts/mystic_auth/monitoring/cert-expiry-check.sh <host> [warn-days] [port]` checks the certificate the host serves (default 14 days, port 443). It exits 0 when fine, 1 when expiring or expired and 2 when the certificate cannot be read, and it posts to `SECURITY_ALERT_WEBHOOK_URL` (with `SECURITY_ALERT_WEBHOOK_TOKEN` as a bearer token when set) on a warning. Run it once a day from the host's cron or a systemd timer, for example `17 6 * * * SECURITY_ALERT_WEBHOOK_URL=... /path/to/cert-expiry-check.sh example.com`.
+
 ## Rotating credentials
 
 - **Phone password:** `docker compose exec ntfy ntfy user change-pass phone`, then enter the new password in the phone app.

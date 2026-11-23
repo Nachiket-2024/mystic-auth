@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/test_logout_integration.py
-#
 # End-to-end logout/logout-all coverage against the real ASGI app, real
 # PostgreSQL, and real Valkey (see conftest.py).
 from datetime import UTC, datetime, timedelta

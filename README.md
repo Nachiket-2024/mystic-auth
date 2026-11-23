@@ -5,12 +5,12 @@
 **📖 Documentation Site: [https://nachiket-2024.github.io/mystic-auth-docs/](https://nachiket-2024.github.io/mystic-auth-docs/)**
 
 ![Python](https://img.shields.io/badge/python-3.14-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.162+-green?logo=fastapi)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.165+-green?logo=fastapi)
 ![React](https://img.shields.io/badge/React-19+-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6+-blue?logo=typescript)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-async-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-blue?logo=postgresql)
-![Valkey](https://img.shields.io/badge/Valkey-9.1.3-blue)
+![Valkey](https://img.shields.io/badge/Valkey-9.2.0-blue)
 ![Procrastinate](https://img.shields.io/badge/Procrastinate-async-orange)
 [![CI](https://github.com/Nachiket-2024/mystic-auth/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Nachiket-2024/mystic-auth/actions/workflows/ci.yml)
 ![Bugsink](https://img.shields.io/badge/Error%20Monitoring-Bugsink-purple)
@@ -190,7 +190,7 @@ pytest --no-cov -q tests/backend/mystic_auth/integration/authorization
 
 ## Getting Started
 
-This quickstart uses Docker Compose. Make sure Docker Desktop is running, with WSL integration enabled if you use WSL2.
+This quickstart uses Docker Compose. Make sure Docker Desktop is running, with WSL integration enabled if you use WSL2. Docker is required for every workflow: it supplies Postgres, Valkey and the other services, even when you run only the backend or frontend process on the host for debugging.
 
 ### 1. Use an AI coding agent
 
@@ -227,7 +227,7 @@ This quickstart uses Docker Compose. Make sure Docker Desktop is running, with W
    `POSTGRES_HOST_PORT`, `VALKEY_HOST_PORT`, `BACKEND_HOST_PORT`,
    `FRONTEND_HOST_PORT`, and `BUGSINK_HOST_PORT` in `env/mystic_auth/.env.dev`.
 
-For non-Docker setup, deployment modes, and environment variables, see the [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview) and [Deployment Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment). See [System Superuser](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser) for account setup.
+For deployment modes and environment variables, see the [Docker Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/docker/overview) and [Deployment Overview](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/deployment). See [System Superuser](https://nachiket-2024.github.io/mystic-auth-docs/docs/mystic_auth/authentication/system-superuser) for account setup.
 
 ---
 

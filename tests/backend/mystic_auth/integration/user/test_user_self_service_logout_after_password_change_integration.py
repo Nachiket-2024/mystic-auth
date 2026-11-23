@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_self_service_logout_after_password_change_integration.py
-#
 # End-to-end coverage for /auth/logout and /auth/logout/all when the
 # session's refresh token was already revoked by a preceding PUT /users/me
 # password change. A password change revokes the session's own refresh

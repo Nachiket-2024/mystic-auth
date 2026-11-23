@@ -1,25 +1,28 @@
-# ngrok 3.39.13 is the newest official agent image available on 2026-11-10.
-# Its statically linked binary still embeds these six HIGH Go-module CVEs.
+# ngrok 3.39.13 is the newest official agent image available on 2026-11-23.
+# Its statically linked binary still embeds these HIGH Go module and standard-library CVEs.
 # The project cannot patch vendor-built modules independently. These narrowly
 # scoped exceptions let the local-prod tunnel image pass CI while keeping the
 # residual exposure visible and time-bounded; remove them as soon as ngrok
-# publishes a rebuilt agent. Recheck by 2026-11-24.
+# publishes a rebuilt agent. Recheck by 2026-12-08.
 vulnerabilities:
   - id: CVE-2026-50274
-    expired_at: 2026-11-24
+    expired_at: 2026-12-08
     statement: ngrok 3.39.13 embeds the affected Datadog module; waiting for a vendor rebuild.
   - id: CVE-2026-63209
-    expired_at: 2026-11-24
+    expired_at: 2026-12-08
     statement: ngrok 3.39.13 embeds the affected compression module; waiting for a vendor rebuild.
   - id: CVE-2026-78661
-    expired_at: 2026-11-24
+    expired_at: 2026-12-08
     statement: ngrok 3.39.13 embeds the affected golang.org/x/net module; waiting for a vendor rebuild.
   - id: CVE-2026-84304
-    expired_at: 2026-11-24
+    expired_at: 2026-12-08
     statement: ngrok 3.39.13 embeds the affected gRPC module; waiting for a vendor rebuild.
   - id: CVE-2026-84445
-    expired_at: 2026-11-24
+    expired_at: 2026-12-08
     statement: ngrok 3.39.13 embeds the affected gRPC module; waiting for a vendor rebuild.
   - id: GHSA-hrxh-6v49-42gf
-    expired_at: 2026-11-24
+    expired_at: 2026-12-08
     statement: ngrok 3.39.13 embeds the affected gRPC module; waiting for a vendor rebuild.
+  - id: CVE-2026-97054
+    expired_at: 2026-12-08
+    statement: ngrok 3.39.13 was built with Go 1.27.3 (fixed in 1.27.4); waiting for a vendor rebuild.

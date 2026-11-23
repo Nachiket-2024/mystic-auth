@@ -107,7 +107,10 @@ class OAuth2LoginHandler:
                 if state and await self.oauth2_service.consume_step_up_context(state):
                     await self.oauth2_service.consume_state(state)
                     return passkey_google_step_up_handler.return_to_passkeys("OAUTH_CANCELLED")
-                logger.info("OAuth2 callback did not complete: error=%s, code_present=%s", error, bool(code))
+                # `error` comes straight from the query string: strip CR/LF so it
+                # cannot forge extra log lines.
+                safe_error = (error or "").replace("\r", "").replace("\n", "")
+                logger.info("OAuth2 callback did not complete: error=%s, code_present=%s", safe_error, bool(code))
                 return self._redirect_to_login_clearing_state("OAUTH_CANCELLED")
 
             if not state or not oauth_state_cookie or state != oauth_state_cookie:

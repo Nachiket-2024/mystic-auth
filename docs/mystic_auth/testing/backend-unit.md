@@ -258,8 +258,7 @@ tests remain valid when another local project uses the defaults.
   log work and retry behavior.
 - `procrastinate_tasks/test_email_tasks_unit.py` verifies queued email task
   payloads and retry handling.
-- `procrastinate_tasks/test_maintenance_tasks_unit.py` verifies stale
-  session cleanup scheduling.
+- `procrastinate_tasks/test_maintenance_tasks_unit.py` verifies stale session cleanup scheduling.
 - `tests/backend/mystic_auth/unit/scripts/test_create_system_user_unit.py`
   verifies protected system-user creation and bootstrap safeguards.
 - `tests/backend/mystic_auth/unit/scripts/test_create_unconditioned_policies_unit.py`
@@ -337,6 +336,7 @@ Edge and failure paths, several pinned after mutation testing.
 - `tests/backend/mystic_auth/unit/error_monitoring/test_security_alert_delivery_unit.py`, `procrastinate_tasks/test_alert_tasks_unit.py` and `procrastinate_tasks/test_job_failure_alert_unit.py` verify alert formats, retry on failure, and that failure alerts carry metadata only and never raise again.
 - `tests/backend/mystic_auth/unit/emails/test_brand_logo_unit.py`, `test_email_branding_unit.py` and `test_email_logo_unit.py` verify the generated PNG badge, brand-color validation and custom email logo handling.
 - `tests/backend/mystic_auth/unit/security/test_backend_env_secret_isolation_unit.py` and `test_worker_email_egress_unit.py` verify Compose gives backend and worker no secret belonging to another service and the email worker can reach the outbound network but not the proxy.
+- `tests/backend/mystic_auth/unit/procrastinate_tasks/test_procrastinate_schema_migrations_unit.py` verifies every schema migration shipped by the installed `procrastinate` package has an Alembic revision that applies it, so a dependency bump cannot leave an existing database on the old queue schema.
 
 ---
 

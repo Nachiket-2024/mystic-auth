@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user_crud/test_user_lifecycle_crud_unit.py
-#
 # UserLifecycleCRUD backs the soft-delete/reactivate flow every other
 # safety check (login, current-user, purge eligibility) ultimately depends
 # on; deliberately kept separate from UserBaseCRUD.update (see its own

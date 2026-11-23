@@ -58,8 +58,8 @@ glue. A 70% gate would allow too much untested product behavior to regress.
 ### Dedicated test database
 
 1. Outside CI, `tests/backend/conftest.py` redirects `DATABASE_URL`/`APP_DATABASE_URL` to a `mystic_auth_test` database on the same Postgres server, instead of the real `mystic_auth` database a running dev session's own `backend`/`procrastinate_worker` containers use.
-2. The first run that needs it creates the database, then applies `alembic upgrade head` (which also creates Procrastinate's own queue tables, via migration `a4c1e8f2b6d3`); every run after that is a fast no-op check.
-3. Nothing to configure: this happens automatically, whether you run pytest from the host or via `scripts/mystic_auth/docker/dev/backend-exec.sh`.
+2. The first run that needs it creates the database, then applies `alembic upgrade head` (which also creates Procrastinate's own queue tables, via migration `a4c1e8f2b6d3`, with `b7d4e1a9c2f6` bringing older Procrastinate schemas up to date); every run after that is a fast no-op check.
+3. Nothing to configure: this happens automatically, whether you run pytest from the host or via `scripts/mystic_auth/docker/dev/backend-exec.sh`. Host runs still need the Docker stack's Postgres and Valkey up.
 
 **Why this exists**: a shared database was a real, reproducible bug.
 
@@ -77,8 +77,9 @@ glue. A 70% gate would allow too much untested product behavior to regress.
 
 ### App wrapper
 
-`tests/backend/app/` contains five unit modules. They verify safe 500 responses,
-settings and SDK boundaries, and application lifecycle signal handling.
+`tests/backend/app/` contains six unit modules. They verify safe 500 responses,
+settings and SDK boundaries, SDK module identity, and application lifecycle
+signal handling.
 
 ### Unit tests
 
@@ -99,9 +100,9 @@ Tests](backend-integration.md).
 
 ### Security and performance tests
 
-`tests/backend/mystic_auth/security/` contains seven attacker-shaped tests for
+`tests/backend/mystic_auth/security/` contains eight attacker-shaped test modules for
 abuse, spoofing, invalid conditions, policy tampering, grant escalation,
-privilege escalation, and restricted database privileges. The least-privilege
+privilege escalation, passkey management and restricted database privileges. The least-privilege
 case is skipped without `APP_DATABASE_URL`.
 
 `tests/backend/mystic_auth/performance/` contains two informational timing
@@ -162,7 +163,7 @@ python scripts/mystic_auth/load-test/load_test.py --base-url http://localhost:80
 ```
 
 CI (`.github/workflows/ci.yml`) runs app-wrapper, unit, integration, and
-security suites against GitHub Actions service containers (Postgres 18, Valkey 9.1.3-alpine)
+security suites against GitHub Actions service containers (Postgres 18, Valkey 9.2.0-alpine)
 on pushes to `develop` or `main`, and on pull requests targeting `main`. The
 workflow calls `ci/app/` and `ci/mystic_auth/` entrypoints so the failing
 ownership boundary is visible in Actions. App-wrapper and unit tests create the
@@ -193,8 +194,8 @@ would incentivize low-value tests and flakiness.
 
 ### App wrapper
 
-`tests/frontend/app/` contains three Vitest modules for routing, legal pages,
-and status pages, plus three browser specs for landing, legal, and status
+`tests/frontend/app/` contains five Vitest modules for routing, the app import boundary, legal pages
+(two), and status pages, plus three browser specs for landing, legal, and status
 pages. These protect the host application boundary.
 
 ### Unit tests
@@ -206,7 +207,7 @@ and mobile overflow. See [Frontend Unit Tests](frontend-unit.md).
 
 ### Integration tests
 
-`tests/frontend/mystic_auth/integration/` contains 35 rendered-page modules
+`tests/frontend/mystic_auth/integration/` contains 37 rendered-page modules
 for audit logs, auth, dashboard, active sessions, PBAC UI, policies,
 permissions, rate limits, users, and account settings. API responses are
 controlled, so these prove frontend composition rather than backend
@@ -226,7 +227,7 @@ E2E Tests](frontend-e2e.md).
 ```bash
 npm run typecheck --prefix frontend   # app, node, and test tsconfigs
 npm run lint --prefix frontend        # eslint over frontend/ and tests/frontend/
-npm run test --prefix frontend         # vitest run (no coverage collection/thresholds)
+npm run test --prefix frontend         # vitest run (no coverage collection/thresholds), no backend needed
 npm run test:coverage --prefix frontend  # vitest run --coverage (thresholds enforced)
 ```
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Check Nginx's pre-routing 414/431 responses retain the security headers."""
 
 from __future__ import annotations

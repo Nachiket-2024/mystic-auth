@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/procrastinate_tasks/test_audit_log_tasks_unit.py
-#
 # Regression guard for the audit-log write moving off the request path
 # (see authorization_audit_logger.py's log_decision): log_authorization_decision_task
 # is now the only thing that actually persists an authorization audit row.

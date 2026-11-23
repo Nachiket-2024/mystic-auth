@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_policy_crud_integration.py
-#
 # End-to-end coverage for policy_crud_routes.py (backend/mystic_auth/api/
 # pbac_routes/) against the real ASGI app, real PostgreSQL, and real Valkey:
 # the authorization gate on the policy management routes, and policy

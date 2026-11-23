@@ -1,4 +1,4 @@
-FROM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS rclone-builder
+FROM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS rclone-builder
 
 ARG RCLONE_VERSION=1.75.1
 ARG RCLONE_SOURCE_SHA256=fcc9351ab3976c73b4824cf7919f98f911f2442a606e2910fc2bd562111da220
@@ -24,7 +24,7 @@ RUN go mod edit -require="google.golang.org/grpc@${GRPC_VERSION}" \
     && GOFLAGS="-tags=noselfupdate" /go/bin/go-licenses save . --save_path=/out/rclone-licenses \
     && CGO_ENABLED=0 go build -tags=noselfupdate -trimpath -ldflags="-s -w" -o /out/rclone .
 
-FROM cgr.dev/chainguard/wolfi-base:latest@sha256:94fa13e26d449f7d78dbcd02d12ea37a0da80d24fcc3e1f17b95d515dec607a7
+FROM cgr.dev/chainguard/wolfi-base:latest@sha256:be019c1c74fe69204a42c4e10bc4d886a49bf5403ffa74374ef7baa408fc9a26
 
 ARG POSTGRES_CLIENT_VERSION=18.6-r5
 

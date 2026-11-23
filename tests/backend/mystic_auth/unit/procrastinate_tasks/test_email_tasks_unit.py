@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py
-#
 # Regression guard for email delivery reliability: send_email_task used to
 # catch every exception and return False, which no retry mechanism ever
 # sees (it only reacts to a raised exception), so a transient SMTP failure

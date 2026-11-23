@@ -21,9 +21,10 @@ drills and the app browser suite run once in the Chromium desktop job. Set
 `PLAYWRIGHT_WORKERS` when deliberately validating on a larger runner; the
 browser fixture also accepts `PLAYWRIGHT_COMPOSE_PROJECT_NAME` for an isolated
 Compose stack.
-For a native run without an already booted frontend container, set
-`PLAYWRIGHT_USE_PREVIEW=1` to build once and serve the production bundle via
-Vite preview, avoiding dev-server HMR noise during the browser matrix.
+To serve the frontend from the host instead of the frontend container, set
+`PLAYWRIGHT_USE_PREVIEW=1`: it builds once and serves the production bundle via
+Vite preview, avoiding dev-server HMR noise during the browser matrix. The
+backend stack still runs in Docker.
 
 If the browser frontend is served from a non-default host/port, set matching
 `FRONTEND_BASE_URL`/`FRONTEND_ADDITIONAL_BASE_URLS` and `VITE_API_BASE_URL` in
@@ -108,7 +109,7 @@ remove it from the local database when it is no longer needed.
   (Chromium DevTools protocol): register, sign in, rename, and remove; step-up after the 15-minute
   window lapses (the session is aged in the database) without logging out; and selected and
   bulk removal. It does not use a physical authenticator. Support helpers
-  `ageBrowserSessions` and `seedBrowserPasskeyRows` live in `e2e/support/disposableSystemUser.ts`.
+  `ageBrowserSessions` and `seedBrowserPasskeyRows` live in `e2e/support/systemUserSeeding.ts`.
   It runs once, on the `chromium-desktop` project only, because the virtual authenticator needs
   Chromium's DevTools protocol; other projects skip it.
 - `auth/login_and_logout_browser_flow.spec.ts` creates or uses a disposable
@@ -225,11 +226,11 @@ docker run --rm --network host --ipc=host \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v $CT/bin/docker:/usr/local/bin/docker:ro \
   -v $CT/local/lib/docker/cli-plugins:/usr/local/lib/docker/cli-plugins:ro \
-  mcr.microsoft.com/playwright:v1.64.1-noble \
+  mcr.microsoft.com/playwright:v1.65.1-noble \
   npx playwright test --project=webkit-desktop
 ```
 
-The Docker socket and CLI mounts are only needed because some specs seed and delete a disposable user through `docker compose exec`. Without them those specs fail with `spawnSync docker ENOENT`, which is a harness limit and not a product failure.
+The Docker socket and CLI mounts are only needed because some specs seed and delete a disposable user through `docker compose exec`. Without them those specs fail with `spawnSync docker ENOENT`, which is a harness limit and not a product failure. The helpers fail with a message naming the missing docker CLI. All four projects need `docker-cli`, `docker-compose-v2` and the mounted Docker socket in the Playwright image, not only `chromium-desktop` (which merely retries through).
 
 ---
 

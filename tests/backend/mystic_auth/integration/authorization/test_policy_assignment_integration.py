@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/test_policy_assignment_integration.py
-#
 # End-to-end coverage for policy_assignment_routes.py (backend/mystic_auth/
 # api/pbac_routes/) against the real ASGI app, real PostgreSQL, and real
 # Valkey. Split out of what used to be one 568-line

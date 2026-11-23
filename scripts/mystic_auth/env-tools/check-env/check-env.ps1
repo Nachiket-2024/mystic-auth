@@ -108,7 +108,11 @@ foreach ($f in $Files) {
             $originValue = Get-EnvValue $content $originName
             try { $originHost = ([Uri]$originValue).Host } catch { $originHost = '' }
             if ($originHost -ne $tsCertDomain) {
-                Write-Host "  ERROR: $originName host does not match TS_CERT_DOMAIN. Keep all public auth origins on the exact Funnel DNSName."
+                if ($originName -eq 'FRONTEND_BASE_URL') {
+                    Write-Host "  ERROR: FRONTEND_BASE_URL host does not match TS_CERT_DOMAIN. Use the exact DNSName reported by 'tailscale status --json'."
+                } else {
+                    Write-Host "  ERROR: $originName host does not match TS_CERT_DOMAIN. Keep all public auth origins on the exact Funnel DNSName."
+                }
                 $HasError = $true
             }
         }

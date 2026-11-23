@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user/test_user_model_unit.py
-#
 # Guards the ORM shape (table name, columns, role enum) directly, rather
 # than only ever exercising User through CRUD/route tests that happen to
 # touch it indirectly.

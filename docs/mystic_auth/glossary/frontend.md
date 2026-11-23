@@ -7,7 +7,7 @@ Frontend libraries and UI patterns. See [Glossary](README.md) for the full index
 
 ## shadcn/ui
 
-The frontend's component patterns and generated UI primitives, built on Tailwind CSS and Radix UI. Theme tokens live in CSS custom properties and generate a full brand color scale from a single chosen color, both as an app-wide default and a per-user override. See [Appearance: Brand Color and Logo](../appearance/overview.md).
+The frontend's component patterns and generated UI primitives, built on Tailwind CSS and Radix UI. Theme tokens live in CSS custom properties and generate a full brand color scale from a single chosen color, both as an app-wide default and a per-user override. See [Appearance: Per-User Brand Color](../appearance/overview.md).
 
 ---
 
@@ -47,7 +47,7 @@ The visible app logo area rendered by `Logo.tsx` in the sidebar and auth
 layout. By default it is an icon plus `APP_NAME`. Setting
 `VITE_APP_LOGO_URL` makes it render that image instead. This is separate from
 the browser favicon, which uses `public/favicon.svg` until a signed-in user
-picks a per-user brand color. See [Appearance: Brand Color and Logo](../appearance/overview.md).
+picks a per-user brand color. See [Appearance: Per-User Brand Color](../appearance/overview.md).
 
 ---
 

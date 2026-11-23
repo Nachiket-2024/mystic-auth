@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Check every SPA entry response carries a matching, per-response CSP nonce
 and a style policy with no 'unsafe-inline'."""
 

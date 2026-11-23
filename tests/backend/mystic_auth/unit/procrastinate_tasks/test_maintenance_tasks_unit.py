@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/procrastinate_tasks/test_maintenance_tasks_unit.py
-#
 # Mocked-collaborator coverage for the scheduled session-cleanup task's own
 # wiring (periodic cron shape, cutoff computed from
 # settings.SESSION_ROW_RETENTION_HOURS, delegates to

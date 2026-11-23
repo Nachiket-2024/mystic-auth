@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/test_policy_action_separation_integration.py
-#
 # Proves the old coarse "policies:manage" is genuinely gone: a caller
 # holding only one of policies:read/create/update/delete/assign/revoke is
 # authorized on the matching route(s) only, and denied (403) on every other

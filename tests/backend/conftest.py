@@ -1,5 +1,3 @@
-# tests/backend/conftest.py
-#
 # Shared fixtures for every real-DB suite under tests/backend/: a real
 # PostgreSQL and Valkey, not mocks, since mocking either would hide the kind
 # of bug (a Valkey type mismatch, a missed session-revocation call) these
@@ -137,16 +135,11 @@ if not os.environ.get("CI"):
             cwd=_BACKEND_DIR, env=_test_env, check=True,
         )
 
-# Safety net independent of the dedicated test database above: this suite's
-# own worker(s) (audit_log/conftest.py's session-scoped subprocess) now run
-# against mystic_auth_test, not the real dev database, so a real dev-stack
-# procrastinate_worker no longer shares a queue with these tests at all. This
-# still guards the one remaining path a real email could go out: this
-# suite's own worker processing a genuinely-deferred send_email_task from a
-# signup/password-reset/account-deletion flow. Overrides .env unconditionally
-# (unlike DATABASE_URL/VALKEY_URL above, which only fill in a missing value)
-# - an explicit `EMAIL_ENABLED=true` already in the environment when pytest
-# is invoked still wins.
+# Safety net: this suite's own worker (audit_log/conftest.py) could still
+# process a deferred send_email_task from a signup, password-reset or
+# account-deletion flow and send real mail. Overrides .env unconditionally
+# (unlike DATABASE_URL/VALKEY_URL above, which only fill in a missing value);
+# an explicit EMAIL_ENABLED=true in the environment still wins.
 if "EMAIL_ENABLED" not in os.environ:
     os.environ["EMAIL_ENABLED"] = "false"
 

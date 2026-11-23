@@ -44,7 +44,7 @@ erDiagram
     policy_history {
         int id PK
         int policy_id FK
-        jsonb before_after
+        jsonb new_definition
     }
     user_sessions {
         int id PK
@@ -128,7 +128,7 @@ Many-to-many join between `users` and `policies`: **the only thing that actually
 
 ### `policy_history`
 
-Append-only change log for `policies`: every create/update/delete/rollback writes a row capturing the before/after state. See [../authorization/writing-testing-policies.md](../authorization/writing-testing-policies.md). Columns: `policy_name` (the durable lookup key, which survives the policy row being deleted), `change_type`, `new_definition` (`jsonb`), `changed_fields` (`text[]`) and `changed_by`. Not a foreign-key target from anywhere; purely a forward-append audit trail.
+Append-only change log for `policies`: every create/update/delete/rollback writes a row capturing the new definition and which fields changed. See [../authorization/writing-testing-policies.md](../authorization/writing-testing-policies.md). Columns: `policy_name` (the durable lookup key, which survives the policy row being deleted), `change_type`, `new_definition` (`jsonb`), `changed_fields` (`text[]`) and `changed_by`. Not a foreign-key target from anywhere; purely a forward-append audit trail.
 
 ---
 

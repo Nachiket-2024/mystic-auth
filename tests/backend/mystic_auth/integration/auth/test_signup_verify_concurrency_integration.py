@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/test_signup_verify_concurrency_integration.py
-#
 # Regression guard for an intermittent verify-account failure (see concerns.md):
 # chaining signup -> create a verification token -> immediately verify it, for
 # many accounts in quick succession, was once seen to reject a fresh token as

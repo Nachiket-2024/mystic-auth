@@ -192,7 +192,7 @@ async def seed() -> None:
                     count += 1
 
     print(f"Seeded {count} matrix users.")
-    print(f"Login password for every matrix user: {PASSWORD}")
+    print("Login password for every matrix user: the PASSWORD constant in this script.")
     print("Existing non-matrix users, including the system user, were not changed.")
 
 

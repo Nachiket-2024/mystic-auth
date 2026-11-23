@@ -197,8 +197,9 @@ Procrastinate's own job-lifecycle logging (distinct from the app's `send_email_t
 | `DATABASE_URL` | Same Postgres database as everything else; `settings.procrastinate_database_url` derives the bare `postgresql://` DSN Procrastinate needs from it |
 | `FROM_EMAIL` | SMTP "From" address, also the account authenticating to the SMTP server |
 | `GMAIL_APP_PASSWORD` | App password for the `FROM_EMAIL` account (Gmail requires a per-app password for SMTP with 2FA enabled) |
-| `SUPPORT_EMAIL` | Optional; used as the email's `Reply-To`, falls back to `FROM_EMAIL` if unset |
-| `SMTP_HOST` / `SMTP_PORT` | Optional; default to `smtp.gmail.com`/`587`. Override to point `SMTPEmailSender` at a different SMTP provider |
+| `SUPPORT_EMAIL` | Used as the email's `Reply-To` and footer contact. The variable must exist, but an empty value falls back to `FROM_EMAIL` |
+| `SMTP_HOST` / `SMTP_PORT` | Required, no code default. The example env files set `smtp.gmail.com`/`587`; change them to point `SMTPEmailSender` at a different SMTP provider |
+| `EMAIL_ENABLED` | Defaults to `true`. `false` sends every email through `NullEmailSender`, which logs it and opens no SMTP connection |
 | `APP_NAME` | Required; product name used in the email template's branding |
 
 ---
@@ -234,7 +235,31 @@ That's the dead-letter queue this template has: no separate infrastructure or UI
 
 `tests/backend/mystic_auth/unit/procrastinate_tasks/test_email_tasks_unit.py` exercises `send_email_task` directly (the success path, the failure-raises-for-retry path) and `EMAIL_RETRY` directly (the exponential-backoff-plus-jitter formula, the 3-attempt cap). `tests/backend/mystic_auth/unit/procrastinate_tasks/test_account_purge_tasks_unit.py` covers the periodic task's cron registration and its CRUD/service wiring with mocked collaborators; `tests/backend/mystic_auth/unit/procrastinate_tasks/test_procrastinate_app_unit.py` covers worker lifecycle observers and safe failure handling; `tests/backend/mystic_auth/unit/user_lifecycle/test_account_lifecycle_events_unit.py` covers event payloads and listener retry behavior; `tests/backend/mystic_auth/integration/user/test_account_purge_task_integration.py` covers the same job end-to-end against real Postgres. The call sites (`account_verification_service.py`, `password_reset_service.py`, `account_deletion_service.py`) are separately tested with `send_email_task.defer_async` mocked/patched. See [Testing Overview](../testing/overview.md).
 
+`tests/backend/mystic_auth/unit/procrastinate_tasks/test_procrastinate_schema_migrations_unit.py` and the migration round-trip integration test cover the schema upgrade path described in [Upgrading Procrastinate](#upgrading-procrastinate).
+
 `tests/backend/conftest.py`'s `_procrastinate_app_lifecycle` fixture opens and closes `procrastinate_app`'s connector fresh around every test, the same per-event-loop reasoning as the Postgres/Valkey pool fixtures beside it: pytest-asyncio hands each test its own event loop, and a psycopg connection pool opened in one test's loop isn't safe to reuse from another's. That same file also points tests at a dedicated `mystic_auth_test` database rather than the real one a running dev stack's own `procrastinate_worker` container reads from - see [Testing Overview: Dedicated test database](../testing/overview.md#dedicated-test-database) for why.
+
+---
+
+## Upgrading Procrastinate
+
+Procrastinate keeps its own schema (`procrastinate_jobs` and its functions and types). Migration `a4c1e8f2b6d3` applies the installed package's full schema once, so a database created on an older release keeps the older schema when the package version moves. Each release that changes the schema ships SQL migration scripts for exactly that case, and a revision under `backend/alembic/versions/` has to apply them. Migration `b7d4e1a9c2f6` does this for 3.12: it adds the `lock_mode` column and the newer defer functions, and builds and drops the two indexes concurrently, outside a transaction, as Procrastinate requires. A fresh database already has the 3.12 schema, so the revision skips itself there.
+
+```mermaid
+flowchart TD
+    Bump["Bump procrastinate in requirements.in"] --> Test["Unit test compares the newest packaged\nmigration with the newest Alembic revision"]
+    Test -->|"package has a newer migration"| Fail["Test fails"]
+    Fail --> Revision["Add a guarded revision that applies the\nscripts and set PROCRASTINATE_SCHEMA_VERSION"]
+    Revision --> Check["Integration test upgrades a database built on the\nprevious schema and compares it with a fresh one"]
+    Test -->|"nothing newer"| Done["Nothing to add"]
+    Check --> Done
+```
+
+When you bump `procrastinate`:
+
+1. Run the unit test `test_procrastinate_schema_migrations_unit.py`. It fails when the installed package ships a migration that no revision handles.
+2. Copy the pattern of `b7d4e1a9c2f6` for the new version: skip when a fresh database already has the new objects, apply the packaged scripts in name order, and run the ones that use `CONCURRENTLY` in `autocommit_block()`.
+3. Extend `test_database_on_the_previous_procrastinate_schema_upgrades_to_head`, which builds a database on the previous schema from the packaged scripts, inserts a queued job, upgrades to head and compares the result with a fresh database.
 
 ---
 

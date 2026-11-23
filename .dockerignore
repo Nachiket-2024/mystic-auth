@@ -81,6 +81,14 @@ pnpm-debug.log
 .git
 .gitignore
 
+# Local runtime and build output that never belongs in an image.
+.envrc
+valkey-data/
+dump.rdb
+*.rdb
+sbom/
+*.tsbuildinfo
+
 # ---------------------------- Local Development Tools ----------------------------
 .claude/
 claude.md

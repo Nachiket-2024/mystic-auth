@@ -185,7 +185,7 @@ just appear.
   and `tests/frontend/mystic_auth/unit/layout/controls/LanguageToggle.test.tsx` cover the store/toggle
   mechanics generically enough that they don't need new cases for a new language, only for a new
   *mixed mode* if you added one in step 6.
-- Run the app (`npm run dev --prefix frontend`), open the language toggle, and check a page with
+- Run the app (start the Docker stack, since signed-in pages need the backend), open the language toggle, and check a page with
   dates (Dashboard) and a page with forms (Account Settings) in the new language and, if added, its
   mixed mode.
 

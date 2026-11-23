@@ -6,7 +6,7 @@ import {
   SEEDED_PASSWORD,
   seedBrowserSystemUser,
   seededSystemEmail,
-} from "../support/disposableSystemUser";
+} from "../support/systemUserSeeding";
 
 test.describe("passkey browser behavior", () => {
   test("registers, signs in with, and manages a real browser credential", async (

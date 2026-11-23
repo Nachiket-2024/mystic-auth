@@ -44,7 +44,7 @@ services:
 
   tailscale:
     <<: *container_hardening
-    image: tailscale/tailscale@sha256:ed6480b33c6eb67c9cbd203ed42b9fb57e361986725b6856def71b7a3d9e276c
+    image: tailscale/tailscale@sha256:72c1e19e0aedca96b8533bbb0b4368564410ff20b17e53b804eb6c1f04a31be4
     restart: unless-stopped
     # Not read_only this pass: unlike ngrok/postgres/valkey/backend/frontend/
     # etc. above (verified live against docker-compose.local-prod-ngrok.yml,
@@ -87,7 +87,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /var/run/postgresql]
-    image: chainguard/postgres@sha256:adbf3d8db097696ed6e997b108b51393786be999c04d543502f8959e1bafa8de
+    image: chainguard/postgres@sha256:9cc085289d7ef0174f35f2ff1e514624c3305c4a26215d8e89e3e277e3377d03
     restart: unless-stopped
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
     # Keep database traffic on the isolated backend network while giving the
@@ -124,7 +124,7 @@ services:
     <<: *container_hardening
     read_only: true
     tmpfs: [/tmp, /data]
-    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    image: valkey/valkey:9.2.0-alpine@sha256:c8e2d17498838af5d91e12eb7c11220b3434a7b7131a333e3af52ad5e0b80882
     restart: unless-stopped
     # The command below is a plain `sh -c`, which skips the image entrypoint that
     # would drop root, so run as the image's valkey user directly. No capabilities needed.
@@ -172,7 +172,7 @@ services:
       - ../../../env/mystic_auth/.env.local-prod-tailscale
       - ../../../env/app/.env.local-prod-tailscale
     # Overrides env/mystic_auth/.env.local-prod-tailscale's own TRUSTED_PROXY_IPS:
-    # derived here from FRONTEND_STATIC_IP/TAILSCALE_STATIC_IP so it can
+    # derived here from FRONTEND_PROXY_STATIC_IP/TAILSCALE_STATIC_IP so it can
     # never drift out of sync with the actual pinned addresses below.
     environment:
       # Blanked (superuser creds unused at runtime, see
@@ -449,7 +449,6 @@ services:
     # reach both databases it has no reason to touch).
     networks: [app_egress_net]
     profiles: ["geoip"]
-    dns: [1.1.1.1, 8.8.8.8]
     environment:
       GEOIPUPDATE_ACCOUNT_ID: ${GEOIPUPDATE_ACCOUNT_ID:-}
       GEOIPUPDATE_LICENSE_KEY: ${GEOIPUPDATE_LICENSE_KEY:-}
@@ -715,7 +714,7 @@ services:
   # read or write. See docs/mystic_auth/error-monitoring/ntfy-alerts.md.
   ntfy:
     <<: *container_hardening
-    image: binwiederhier/ntfy:v2.37.2@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7
+    image: binwiederhier/ntfy:v2.38.1@sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573
     restart: unless-stopped
     read_only: true
     tmpfs: [/tmp]

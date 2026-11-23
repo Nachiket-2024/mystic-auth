@@ -148,6 +148,18 @@ git diff --cached --name-only | grep -q ".mystic-auth-sync-state" || fail "alemb
 pass "alembic-heads: state file still staged so a manual commit after the fix needs no extra step"
 
 echo ""
+echo "=== Alembic heads: a docstring line starting with 'revision' is not mistaken for the revision ==="
+cd "$BASE"
+mkdir -p heads-docstring && cd heads-docstring
+install_script "$BASE/heads-docstring"
+make_migration backend/alembic/versions aaa000000001 None "first"
+make_migration backend/alembic/versions bbb000000002 aaa000000001 "second"
+sed -i 's/^Revises: .*/&\nrevision. This prose line starts with the word revision./' backend/alembic/versions/bbb000000002_second.py
+HEADS_OUT="$(./scripts/mystic_auth/upstream-sync/check-alembic-heads.sh 2>&1)" || fail "alembic-heads: prose line broke the head check: $HEADS_OUT"
+echo "$HEADS_OUT" | grep -q "single alembic head (bbb000000002)" || fail "alembic-heads: expected head bbb000000002, got: $HEADS_OUT"
+pass "alembic-heads: prose line starting with 'revision' does not hide the newest migration"
+
+echo ""
 echo "=== Executable-bit self-heal: a scripts/**/*.sh landing non-executable after a sync should get auto-fixed ==="
 cd "$BASE"
 mkdir mode-upstream && cd mode-upstream

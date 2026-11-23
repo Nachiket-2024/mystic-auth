@@ -102,11 +102,15 @@ It's gated behind the `geoip` Compose profile, so it never starts (and never res
 
    If the updater remains `unhealthy`, check `docker compose logs geoipupdate` and confirm the account ID/license key are valid for the `geoipupdate` edition. Do not mark the deployment ready while the profile is enabled but this service is unhealthy.
 
+   The updater uses Docker's default resolver, which follows the host's DNS settings, so it works wherever the host itself can resolve `updates.maxmind.com`. If it logs `lookup updates.maxmind.com ... i/o timeout`, fix DNS on the host (or its VPN or firewall) first.
+
 See [Docker Overview: services](../docker/overview.md#services) for where `geoipupdate` fits among the rest of the stack, and the deployment walkthroughs ([Prod](../deployment/prod.md), and local-prod's [Cloudflare Quick Tunnel](../deployment/local-prod/cloudflare-quick-tunnel.md), [Named Tunnel](../deployment/local-prod/cloudflare-named-tunnel.md), [ngrok](../deployment/local-prod/ngrok-tunnel.md), and [Tailscale Funnel](../deployment/local-prod/tailscale-funnel.md)) for this as a step in context.
 
 ---
 
-## Enabling it outside Docker
+## Enabling it without the geoipupdate service
+
+Use this when you skip the Docker `geoipupdate` service, for example with a backend process on the host.
 
 1. Create a MaxMind account and license key the same way as steps 1-3 above.
 2. Download `GeoLite2-City.mmdb` yourself (MaxMind's license does not permit redistributing the file itself, so it can't ship in this repo), and set `GEOIP_DB_PATH` to that file's path.

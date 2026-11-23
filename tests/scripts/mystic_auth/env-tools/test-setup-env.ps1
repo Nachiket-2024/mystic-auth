@@ -41,6 +41,16 @@ try {
         if (-not (Test-Path $File)) { throw "setup-env.ps1 did not create $File" }
         $Brand = (Get-Content $File | Where-Object { $_ -match '^BRAND_COLOR=' }) -replace '^BRAND_COLOR=', ''
         Assert-Equal "#b5533c" $Brand "$File has the wrong BRAND_COLOR"
+
+        # The database-name rewrite must only touch the last path segment.
+        foreach ($Line in (Get-Content $File | Where-Object { $_ -match '^(DATABASE_URL|APP_DATABASE_URL)=' })) {
+            if ($Line -notmatch '^(DATABASE_URL|APP_DATABASE_URL)=postgresql\+asyncpg://[^:/@]+:[^@/]+@[^:/]+:\d+/[^/\s]+$') {
+                throw "$File has a malformed database URL line: $($Line.Split('=')[0])"
+            }
+            if ($Line -match 'change_me_in_production') {
+                throw "$File still has a placeholder database password: $($Line.Split('=')[0])"
+            }
+        }
     }
 
     $FrontendEnv = Join-Path $TempRoot "frontend/.env"

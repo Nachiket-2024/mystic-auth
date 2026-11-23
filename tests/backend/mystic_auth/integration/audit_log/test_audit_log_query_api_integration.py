@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/audit_log/test_audit_log_query_api_integration.py
-#
 # End-to-end coverage for the /authorization/audit-log query routes' own
 # PBAC gating and search/sort/filter behavior, against the real ASGI app,
 # real PostgreSQL, and real Valkey.

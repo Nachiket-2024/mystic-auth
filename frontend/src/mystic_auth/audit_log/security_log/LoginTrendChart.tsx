@@ -59,15 +59,11 @@ const LoginTrendChart: React.FC<LoginTrendChartProps> = ({ data, isLoading, isFe
     const [chartMode, setChartMode] = useState<"all" | "failed">("all");
     const [chartView, setChartView] = useState<"chart" | "table">("chart");
 
-    // The hovered-day tooltip's horizontal position is genuinely dynamic
-    // (depends on which bar is hovered and how many days are plotted), so
-    // it can't be a static Tailwind class the way the chart's other inline
-    // styles were converted to (see the comment above CHART_HEIGHT).
-    // Setting it via the CSSOM (element.style.setProperty)
-    // rather than React's `style` prop keeps it out of the `style=""` HTML
-    // attribute entirely, so a strict hash-only CSP's style-src never sees
-    // it and never flags it - CSP only governs markup/attribute-driven
-    // styles and <style> elements, not direct DOM property assignment.
+    // The tooltip's horizontal position depends on the hovered bar and the
+    // number of days, so it cannot be a static Tailwind class. Set it with
+    // element.style.setProperty (CSSOM) instead of React's `style` prop: that
+    // keeps it out of the `style=""` attribute, which a hash-only CSP would
+    // block. CSP does not restrict direct DOM property assignment.
     const tooltipRef = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
         if (!tooltipRef.current || hovered === null || !data || data.length === 0) return;

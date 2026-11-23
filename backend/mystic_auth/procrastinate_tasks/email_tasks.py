@@ -30,15 +30,9 @@ async def send_email_task(to_email: str, subject: str, body: str, is_html: bool 
     permanently-failed job lands as a `procrastinate_jobs` row with
     `status='failed'`, queryable directly, no separate dead-letter needed.
     """
-    # EMAIL_ENABLED=false routes this through NullEmailSender (see
-    # email_sender.py), which logs its own "not sending" line - but on a
-    # different, file-only logger (get_logger, not get_worker_logger), so it
-    # never reaches this terminal-visible stream. Without naming the mode
-    # here too, this task's own "sent successfully" line looks identical
-    # whether a real SMTP connection just opened or nothing happened at all,
-    # which is exactly backwards for anyone watching `docker compose logs`
-    # to confirm a dry run (local dev, CI, or an audit) really didn't send
-    # real mail.
+    # With EMAIL_ENABLED=false, NullEmailSender logs "not sending" on a
+    # file-only logger that never reaches this terminal stream. Naming the mode
+    # here keeps a dry run distinguishable from a real send in `docker compose logs`.
     mode = "dry-run (EMAIL_ENABLED=false)" if not settings.EMAIL_ENABLED else "real SMTP"
     logger.info("Sending email to %s [%s]", to_email, mode)
     try:

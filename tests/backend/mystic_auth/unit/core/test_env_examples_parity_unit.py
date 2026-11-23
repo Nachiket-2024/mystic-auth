@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/core/test_env_examples_parity_unit.py
-#
 # Regression guard for the class of bug found in TRUSTED_PROXY_IPS: a
 # Settings field with no default silently required a value in every env
 # file, including env/mystic_auth/.env*.example files that never actually

@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/user/test_user_schema_unit.py
-#
 # UserRead/UserCreate/UserUpdate had no direct test coverage: everything
 # about them (email normalization, password length caps, has_password
 # derivation) was only exercised indirectly through route/CRUD tests.

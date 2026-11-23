@@ -76,7 +76,7 @@ Run the `tooling-tests` checks through the repository entry point:
 ```bash
 for check in script-paths split-paths platform-wrappers image-digests \
   log-rotation third-party-notices action-pinning readonly-rootfs env-tools upstream-sync \
-  backup-freshness backup-encryption backup-network host-backend; do
+  backup-freshness backup-encryption backup-network host-backend e2e-stack; do
   ci/mystic_auth/tooling.sh "$check"
 done
 ```
@@ -106,7 +106,7 @@ the terminal if it could contain a detected value:
 
 ```bash
 docker run --rm -v "$PWD:/repo:ro" \
-  aquasec/trivy:0.68.1@sha256:a93fd67162843c0f749002af9245fe9a2e5edc41445bd71d3949c803e95ef05b \
+  aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
   fs --scanners secret --exit-code 1 --no-progress /repo
 ```
 
@@ -142,10 +142,18 @@ docker build -f docker/mystic_auth/dockerfiles/geoipupdate.Dockerfile -t geoipup
 Run Trivy against each image with the pinned CI image and these options:
 `image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed`. For `ngrok:ci`,
 also pass `--ignorefile ci/mystic_auth/trivy-ngrok.ignore.yaml`; those
-image-scoped exceptions expire on 2026-11-24 and cover only findings in the
+image-scoped exceptions expire on 2026-12-08 and cover only findings in the
 vendor-built binary. CI verifies dependency notices, frontend nginx behavior,
 the ngrok binary, and generates SPDX JSON SBOMs from the exact image IDs.
 GitHub artifact upload and hosted runner metadata cannot be reproduced locally.
+The SBOM validation and manifest steps use `jq`, which a bare Linux or WSL host
+may not have. Install it (`apt install jq`) or run it from a container, for
+example `docker run --rm -i -v "$PWD:/w" -w /w ghcr.io/jqlang/jq ...`.
+
+To generate the same SBOMs locally, install `syft` at the version CI pins
+(`syft-version` in `.github/workflows/ci.yml`, currently v1.52.0) and run it on
+each built image, for example `syft backend:ci -o spdx-json=sbom/backend-runtime.spdx.json`.
+Then run the `jq` checks from the "Validate and package image SBOMs" step.
 
 To validate all Compose files, CI copies each `.example` file to its runtime
 name only after checking none of those paths already exists, then removes only
@@ -199,10 +207,18 @@ The helper refuses to overwrite existing `env/mystic_auth/.env.dev` or
 `env/app/.env.dev` files and removes only files it created. The example values
 use the same Compose project name and subnet as a normal dev stack, and `down`
 runs `compose down -v`, which deletes that project's volumes. On a machine with
-a real dev stack, run the helper from a throwaway copy of the tree. After
-`prepare`, change `COMPOSE_PROJECT_NAME` and `DOCKER_SUBNET` in the copy's
-`env/mystic_auth/.env.dev` to unused values, and confirm with `docker compose
-config` before `up`. Stop the real dev stack first, because the helper's health
+a real dev stack, run the helper from a throwaway copy of the tree and pass
+`E2E_COMPOSE_PROJECT_NAME` and `E2E_DOCKER_SUBNET` to `prepare`, which applies
+them after it copies the examples (editing the env file before `prepare` does
+not work, because `prepare` rewrites it):
+
+```bash
+E2E_COMPOSE_PROJECT_NAME=mystic-auth-e2e E2E_DOCKER_SUBNET=172.31.9.0/24 \
+  ci/mystic_auth/frontend-e2e-stack.sh prepare
+```
+
+`up` refuses to start when that Compose project already has containers or the
+subnet is already in use. Stop the real dev stack first, because the helper's health
 checks and Playwright use the default host ports.
 
 ---

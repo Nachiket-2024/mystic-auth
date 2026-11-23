@@ -49,7 +49,7 @@ scripts\mystic_auth\docker\dev\dev-up.cmd
 ### First-run startup time
 
 On a fresh clone or Docker installation, the first run can take several
-minutes. Compose must pull `chainguard/postgres`, `valkey/valkey:9.1.3-alpine`, and `bugsink/bugsink:2`,
+minutes. Compose must pull `chainguard/postgres`, `valkey/valkey:9.2.0-alpine`, and `bugsink/bugsink:2`,
 build the local backend/worker/frontend images, create the named volumes, and
 wait for Postgres, Bugsink, migrations, and the worker/backend healthchecks.
 The exact duration depends mostly on Docker Hub connectivity, Docker Desktop's

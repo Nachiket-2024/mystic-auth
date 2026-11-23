@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/authorization/test_context_based_authorization_integration.py
-#
 # End-to-end (DB-free) proof that a real request's context : built by
 # build_authorization_context, never client-supplied : actually drives
 # IP-based and time-based policy decisions through the real evaluator.

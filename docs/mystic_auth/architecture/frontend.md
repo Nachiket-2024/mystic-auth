@@ -68,7 +68,8 @@ Upstream stopped publishing `react-router-dom` past `7.18.1` and folded its expo
 
 | Route | Access | Notes |
 |---|---|---|
-| `/`, `/dashboard` | authenticated | `DashboardPage` |
+| `/` | public | `LandingPage` (app-owned; signed-in visitors are sent to `/dashboard`) |
+| `/dashboard` | authenticated | `DashboardPage` |
 | `/users` | `USERS_LIST_ALL` | PBAC-protected user management |
 | `/policies` | `POLICIES_READ` | PBAC policy management |
 | `/permissions` | `PERMISSIONS_READ` | Permission catalog browser |
@@ -76,6 +77,8 @@ Upstream stopped publishing `react-router-dom` past `7.18.1` and folded its expo
 | `/audit-log` | authenticated (self-service) | "All users" tab gated separately inside the page |
 | `/account-settings` | authenticated | `AccountSettingsPage.tsx`; nav label "Account Settings" |
 | `/login`, `/signup`, `/verify-account`, `/password-reset-request`, `/reset-password` | public | |
+| `/confirm-delete` | public | Landing page for the emailed account-deletion confirmation link |
+| `/privacy`, `/terms` | public | App-owned legal pages |
 | `/not-authorized` | public | 403 landing, where `ProtectedRoute` sends an authenticated-but-unauthorized user |
 | `*` | public | 404 |
 
@@ -148,7 +151,7 @@ Route-level code splitting is separate and already in place. See [Routing](#rout
 
 ## Configuration requirements
 
-`VITE_API_BASE_URL` (the backend's base URL), `VITE_APP_NAME` (the product name shown in the UI: navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution), `VITE_BRAND_COLOR` (the default brand color, see [Appearance: Default brand color](../appearance/overview.md#default-brand-color)), and `VITE_SUPPORT_EMAIL` (contact address, undefined by default). All are Vite build-time env vars, read through `core/settings.ts`, and set in `env/mystic_auth/.env.dev`; running the stack via Docker, that's what the frontend container actually reads. `frontend/.env.example` only matters for running the frontend locally with `npm run dev`, outside Docker. `SUPPORT_EMAIL` is shared with the backend (also used as the `Reply-To` on outgoing email, see [Background Email Delivery](../background-workers/procrastinate.md)) and, on the frontend, appears on the Terms of Service / Privacy Policy pages and, once set, as a "Help & Support" mailto link pinned to the bottom of the sidebar (`layout/app_layout/Sidebar.tsx`) - the one spot every authenticated screen shares regardless of permissions, so it stays out of a fresh fork until `SUPPORT_EMAIL` is actually configured.
+`VITE_API_BASE_URL` (the backend's base URL), `VITE_APP_NAME` (the product name shown in the UI: navbar, auth pages, document title via `index.html`'s `%VITE_APP_NAME%` substitution), `VITE_BRAND_COLOR` (the default brand color, see [Appearance: Default brand color](../appearance/overview.md#default-brand-color)), and `VITE_SUPPORT_EMAIL` (contact address, undefined by default). All are Vite build-time env vars, read through `core/settings.ts`, and set in `env/mystic_auth/.env.dev`; running the stack via Docker, that's what the frontend container actually reads. `frontend/.env.example` only matters when `npm run dev` runs on the host instead of the frontend container; signed-in pages still need the Docker backend stack. `SUPPORT_EMAIL` is shared with the backend (also used as the `Reply-To` on outgoing email, see [Background Email Delivery](../background-workers/procrastinate.md)) and, on the frontend, appears on the Terms of Service / Privacy Policy pages and, once set, as a "Help & Support" mailto link pinned to the bottom of the sidebar (`layout/app_layout/Sidebar.tsx`) - the one spot every authenticated screen shares regardless of permissions, so it stays out of a fresh fork until `SUPPORT_EMAIL` is actually configured.
 
 ---
 

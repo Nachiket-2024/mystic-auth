@@ -148,7 +148,7 @@ def _configured_paths(value: str) -> list[str]:
 
 
 def _qualified_import_path(path: str) -> str:
-    """Resolve Docker's top-level paths against the native test package root."""
+    """Resolve Docker's top-level paths against the host-run test package root."""
     package_root = __package__.rsplit(".", 1)[0] if __package__ and "." in __package__ else ""
     if package_root and path.startswith(("mystic_auth.", "app.")):
         namespace = package_root.rsplit(".", 1)[0] if "." in package_root else ""
@@ -178,16 +178,12 @@ class ExponentialBackoffWithJitter(BaseRetryStrategy):
         return RetryDecision(retry_in={"seconds": delay})
 
 
-# Procrastinate needs a bare postgresql:// DSN; DATABASE_URL is SQLAlchemy's
-# postgresql+asyncpg:// dialect. settings.procrastinate_worker_database_url
-# translates it, preferring the least-privilege APP_DATABASE_URL role when
-# configured (the worker needs no DDL at runtime, only Alembic's own
-# a4c1e8f2b6d3 migration does - that migration deliberately uses the
-# sibling procrastinate_database_url property instead, which always stays
-# on the DDL-capable DATABASE_URL role; see that property's own docstring
-# for why the two must not be merged back into one). This connector opens
-# its own psycopg connection pool, entirely separate from the SQLAlchemy
-# engine database.py builds.
+# Procrastinate needs a bare postgresql:// DSN, not SQLAlchemy's
+# postgresql+asyncpg:// one. settings.procrastinate_worker_database_url converts
+# it and prefers the least-privilege APP_DATABASE_URL role (the worker needs no
+# DDL). Migration a4c1e8f2b6d3 uses procrastinate_database_url instead, which
+# stays on the DDL role; see that property's docstring. This connector opens its
+# own psycopg pool, separate from the SQLAlchemy engine.
 connector = PsycopgConnector(
     conninfo=settings.procrastinate_worker_database_url,
     min_size=1,

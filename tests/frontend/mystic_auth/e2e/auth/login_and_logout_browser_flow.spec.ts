@@ -1,6 +1,6 @@
 import { expect, test } from "../../../../../frontend/e2e/playwright";
 import { API_BASE_URL } from "../support/authenticatedMysticAuthApiRoutes";
-import { deleteBrowserSystemUser, SEEDED_PASSWORD, seedBrowserSystemUser, seededSystemEmail } from "../support/disposableSystemUser";
+import { deleteBrowserSystemUser, SEEDED_PASSWORD, seedBrowserSystemUser, seededSystemEmail } from "../support/systemUserSeeding";
 
 test.describe("auth and routing in a real browser", () => {
   test("login page renders and blocks empty submissions locally", async ({ page }) => {

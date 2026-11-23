@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/emails/test_email_template_service_unit.py
-#
 # render_transactional_email backs both verification and password-reset
 # emails; nothing directly asserted on what it actually renders.
 from backend.mystic_auth.emails.email_template_service import render_transactional_email

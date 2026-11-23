@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user_crud/test_user_management_lifecycle_valkey_outage_integration.py
-#
 # End-to-end coverage for the "Valkey outage failure modes are inconsistent"
 # fix as it applies to admin-driven account-lifecycle actions: delete,
 # purge, and password change (user_lifecycle_routes.py,

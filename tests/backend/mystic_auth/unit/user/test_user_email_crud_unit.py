@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/test_user_email_crud_unit.py
-#
 # Regression guard for email-casing normalization: `User@Example.com` and
 # `user@example.com` must resolve to the same account. UserEmailCRUD is the
 # single choke point every lookup in the app goes through (login,

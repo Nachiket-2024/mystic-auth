@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user/test_user_management_listing_integration.py
-#
 # End-to-end coverage for admin-side GET /users/ listing/filtering/sorting
 # (user_management_query_routes.py), against the real ASGI app, real
 # PostgreSQL, and real Valkey (see conftest.py). Split out of

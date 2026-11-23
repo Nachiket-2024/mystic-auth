@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/unit/test_logging_config_unit.py
-#
 # Regression guard: the access-log TimedRotatingFileHandler was previously
 # constructed with backupCount=0, which is TimedRotatingFileHandler's own
 # signal to never prune rotated files (not "keep zero backups"), so
@@ -39,6 +37,16 @@ def test_pii_filter_leaves_messages_without_email_addresses_unchanged():
 
     assert filter_.filter(record) is True
     assert record.getMessage() == "refresh completed"
+
+
+def test_pii_filter_keeps_one_log_event_on_one_line():
+    filter_ = PiiRedactionFilter()
+    record = logging.LogRecord("test", logging.INFO, __file__, 1, "value: %s", ("a\r\nFAKE entry",), None)
+
+    assert filter_.filter(record) is True
+    assert "\n" not in record.getMessage()
+    assert "\r" not in record.getMessage()
+    assert record.getMessage() == "value: a\\r\\nFAKE entry"
 
 
 def test_regular_logger_handlers_have_pii_redaction_filters():

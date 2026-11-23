@@ -53,8 +53,8 @@ declare -A REVISION_FILE
 declare -A REVISION_MESSAGE
 
 for f in "${VERSION_FILES[@]}"; do
-  REV_LINE="$(grep -m1 '^revision' "$f" || true)"
-  DOWN_LINE="$(grep -m1 '^down_revision' "$f" || true)"
+  REV_LINE="$(grep -m1 -E '^revision[[:space:]]*(:[^=]*)?=' "$f" || true)"
+  DOWN_LINE="$(grep -m1 -E '^down_revision[[:space:]]*(:[^=]*)?=' "$f" || true)"
   [ -z "$REV_LINE" ] && continue
 
   REV="$(extract_ids "$REV_LINE")"

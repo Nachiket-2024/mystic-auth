@@ -69,7 +69,7 @@ class AppSettings(BaseSettings):
 Add the value only to the matching app env files, for example
 `env/app/.env.dev` and `env/app/.env.prod`. The template env files are not the
 place for product-specific settings. In code, import `app_settings` from
-`backend.app.core.settings` in native tests and `app.core.settings` in the
+`backend.app.core.settings` in host-run tests and `app.core.settings` in the
 container, or expose the value through your own app module.
 
 ### 3. Protect the route through PBAC
@@ -105,7 +105,7 @@ but the backend authorization dependency remains authoritative.
 ### 5. Test the complete boundary
 
 Add route tests under `tests/backend/app/` and UI tests under
-`tests/frontend/app/`. In native backend tests import your app modules as
+`tests/frontend/app/`. In host-run backend tests import your app modules as
 `backend.app...` and keep that prefix consistent across the suite; mixing in
 `app...` imports loads `main.py` twice and re-runs `register_extensions()`. Cover an allowed request, a denied request, an
 unassigned user, and the app setting's default/override behavior. Before

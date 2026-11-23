@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/user_session/test_manage_sessions_concurrency_integration.py
-#
 # Concurrent-revoke coverage for DELETE /auth/sessions/{id}, split out from
 # test_manage_sessions_integration.py: two simultaneous requests to revoke
 # the same other-device session must not both report success, and must not

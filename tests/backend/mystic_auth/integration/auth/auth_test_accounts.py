@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/auth/auth_test_accounts.py
-#
 # Shared signup/login/cookie helpers for the auth-flow integration tests:
 # they all need a real verified account and the same cookie-jar
 # manipulation to simulate stale/reused/forged/cross-session tokens.

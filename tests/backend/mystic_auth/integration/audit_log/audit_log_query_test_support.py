@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/audit_log/test_security_audit_log_integration.py
-#
 # End-to-end coverage for the persistent security audit log
 # (audit_log/audit_log_model.py, audit_log/audit_log_repository.py, and the
 # /audit/security-log query routes) against the real ASGI app, real

@@ -98,7 +98,7 @@ Read the docs in this order if you are new to the repository:
 
 ## Geolocation
 
-- [Session Geolocation](geolocation/overview.md): off-by-default IP-to-city/country resolution for Manage Sessions' Location column; MaxMind GeoLite2 account/license-key setup, Docker vs. non-Docker
+- [Session Geolocation](geolocation/overview.md): off-by-default IP-to-city/country resolution for Manage Sessions' Location column; MaxMind GeoLite2 account/license-key setup, the `geoipupdate` service vs. a manual download
 
 ---
 

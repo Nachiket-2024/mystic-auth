@@ -75,15 +75,13 @@ async def purge_user_account(
 
     revoked_count = await refresh_token_service.revoke_all_tokens_for_user(user_email, db)
 
-    # security_audit_log/authorization_audit_log keep this account's email/IP
-    # on every historical row, unanonymized, forever: deleting an account
-    # (by the account holder, or by a permission holder) must never be a way to erase
+    # security_audit_log/authorization_audit_log keep this account's email/IP on
+    # every historical row, unanonymized: deleting an account must never erase
     # the trail of what it did. Both tables are append-only for the app role
-    # (mystic_auth_app has no UPDATE or DELETE on either - see Alembic
-    # migrations 9c3e7f1a4b8d and the one that dropped the anonymize
-    # columns' write access entirely) precisely so this can't be undone by
-    # a compromised account or a malicious permission holder as the last step of
-    # covering something up. See docs/mystic_auth/security/decisions-infra.md.
+    # (mystic_auth_app has no UPDATE or DELETE, see Alembic migration 9c3e7f1a4b8d
+    # and the one that dropped the anonymize write access), so a compromised
+    # account or permission holder cannot undo it. See
+    # docs/mystic_auth/security/decisions-infra.md.
     await log_security_event(
         ACCOUNT_PURGED,
         db,

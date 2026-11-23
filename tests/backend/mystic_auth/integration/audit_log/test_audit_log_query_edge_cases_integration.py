@@ -1,5 +1,3 @@
-# tests/backend/mystic_auth/integration/audit_log/test_audit_log_query_edge_cases_integration.py
-#
 # Boundary/edge-case coverage for GET /authorization/audit-log, split out
 # from test_audit_log_query_api_integration.py: pagination past the end of
 # the result set, an unrecognized sort_by, and the limit query param's
